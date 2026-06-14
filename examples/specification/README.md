@@ -687,6 +687,10 @@ against the built `veln` binary.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.
+- `run/derived-codec-repeat-encode-boundary/`: the same `derive encode`
+  boundary projects a bounded repeated primitive schema helper success to one
+  encoded output chunk and helper representation failures to
+  `Invalid(EncodeError)`.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload
   schema, including generated helper dispatch selection failure projection.
@@ -698,6 +702,9 @@ against the built `veln` binary.
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the
   codec item name while preserving mapped record fields and no-consumption
   outcomes.
+- `run/derived-codec-repeat-decode-boundary/`: the same `derive decode`
+  boundary observes generated decode-step helper output for a bounded repeated
+  primitive field, including readiness and helper failure outcomes.
 - `run/derived-codec-nested-dispatch-decode-boundary/`: the same `derive
   decode` codec item boundary over a same-module nested dispatch payload
   schema, including the generated helper's nested record value and consumed

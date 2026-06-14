@@ -1,0 +1,140 @@
+# Derived codec decode boundaries include Repeat-backed schema helpers.
+use stdio
+
+schema CountedValues
+	format binary
+
+	count: UInt8
+	items: Repeat(count, UInt16be)
+end
+
+codec CountedCodec for CountedValues decode
+	derive decode
+end
+
+fn list_count(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn step_kind(step: DecodeStep<{count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_count(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(sample, _) => sample.count
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_item_count(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(sample, _) => list_count(sample.items)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_item_sum(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(sample, _) => list_sum(sample.items)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: DecodeStep<{count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+	end
+end
+
+fn error_offset(step: DecodeStep<{count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn error_path(step: DecodeStep<{count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let complete_bytes: ByteChunk = byte_chunk_from_hex("030001000200ff")?
+	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(7)?)?
+	let complete: DecodeStep<{count: Int, items: List<Int>}> = CountedCodec(complete_view, byte_offset(31)?)
+	stdio::println(step_kind(complete))
+	stdio::println(int_to_string(decoded_count(complete)))
+	stdio::println(int_to_string(decoded_item_count(complete)))
+	stdio::println(int_to_string(decoded_item_sum(complete)))
+	stdio::println(int_to_string(consumed_count(complete)))
+
+	let count_short_bytes: ByteChunk = byte_chunk_from_hex("")?
+	let count_short_view: ByteView = byte_view(count_short_bytes, byte_offset(0)?, byte_count(0)?)?
+	let waiting: DecodeStep<{count: Int, items: List<Int>}> = CountedCodec(count_short_view, byte_offset(37)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("0300010002")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(5)?)?
+	let invalid: DecodeStep<{count: Int, items: List<Int>}> = CountedCodec(short_view, byte_offset(41)?)
+	stdio::println(step_kind(invalid))
+	stdio::println(readiness_kind(invalid))
+	stdio::println(int_to_string(readiness_count(invalid)))
+	stdio::println(int_to_string(consumed_count(invalid)))
+	stdio::println(error_id(invalid))
+	stdio::println(int_to_string(error_offset(invalid)))
+	stdio::println(error_path(invalid))
+	Ok(())
+end

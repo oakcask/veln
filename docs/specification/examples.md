@@ -112,6 +112,11 @@ decode-step slice: a codec item call observes the generated helper's
 `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
 item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
+`../../examples/specification/run/derived-codec-repeat-decode-boundary/`
+covers the same derived codec call boundary when the generated decode-step
+helper decodes a bounded repeated primitive field and reports repeat-backed
+readiness or helper failure through the codec item.
+The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a same-module nested dispatch payload schema.
@@ -142,6 +147,10 @@ derived codec encode boundary for the eligible generated binary schema encode
 helper slice: a codec item call observes successful helper output as
 `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
 failures as `Invalid(EncodeError)`.
+The executable specification case
+`../../examples/specification/run/derived-codec-repeat-encode-boundary/`
+covers the same derived codec call boundary when the generated encode helper
+writes a bounded repeated primitive field.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper

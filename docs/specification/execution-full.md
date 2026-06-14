@@ -201,7 +201,7 @@ closed truncation still reports `schema.truncated_field` through
 A codec declaration with a valid `derive decode` clause for the same eligible
 generated binary schema decode-step slice exposes the codec item name as an
 executable decode boundary in ordinary source calls, including same-module
-nested dispatch payload schemas already accepted by
+nested dispatch payload schemas and repeat-backed schemas already accepted by
 `byte_decode_step_<schema>`. The call accepts the bounded `ByteView` and
 explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
 `byte_decode_step_<schema>`, including a mapped record value when the schema
@@ -238,8 +238,9 @@ module path to a `pub codec`.
 A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
 executable encode boundary in ordinary source calls, including same-module
-nested dispatch payload schemas and public imported nested dispatch payload
-schemas already accepted by `byte_encode_<schema>`.
+nested dispatch payload schemas, public imported nested dispatch payload
+schemas, and repeat-backed schemas already accepted by
+`byte_encode_<schema>`.
 The call accepts the generated helper's value record, invokes the generated
 schema encode helper, and returns `EncodeStep<()>`. Successful helper output
 is projected from `Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with one

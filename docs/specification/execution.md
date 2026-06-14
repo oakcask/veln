@@ -353,27 +353,30 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
-  same-module and public imported nested dispatch payload schemas already
-  accepted by `byte_encode_<schema>`. The call accepts the generated helper's value
-  record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
-  helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
-  and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
+  repeat-backed schemas and same-module or public imported nested dispatch
+  payload schemas already accepted by `byte_encode_<schema>`. The call accepts
+  the generated helper's value record, invokes the schema encode helper,
+  returns `EncodeStep<()>`, projects helper `Ok(ByteChunk)` output to
+  `Encoded(List<ByteChunk>)` with one chunk, and projects helper
+  `Err(EncodeError)` output to `Invalid(EncodeError)`.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
-  `examples/specification/run/derived-codec-byteview-encode-boundary/`, and
+  `examples/specification/run/derived-codec-byteview-encode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-encode-boundary/`, and
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`.
   A mapped schema is rejected with `codec.encode_value_type` when the generated
   encode helper cannot accept the mapping target value type.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
-  same-module nested dispatch payload schemas already accepted by
-  `byte_decode_step_<schema>`. The call accepts a bounded `ByteView` and
-  explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
-  `byte_decode_step_<schema>`, including mapped record values,
-  `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
-  checked examples are
-  `examples/specification/run/derived-codec-decode-boundary/` and
+  repeat-backed schemas and same-module nested dispatch payload schemas
+  already accepted by `byte_decode_step_<schema>`. The call accepts a bounded
+  `ByteView` and explicit base `ByteOffset` and returns the same
+  `DecodeStep<T>` value as `byte_decode_step_<schema>`, including mapped
+  record values, `NeedMore(NeedBytes(count))`, and `Invalid` without consumed
+  bytes. The checked examples are
+  `examples/specification/run/derived-codec-decode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-decode-boundary/`, and
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`.
   For the implemented structural mapping slice, `T` is the mapping
   target record shape when each assignment source has the same implemented
