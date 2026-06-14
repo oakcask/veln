@@ -167,7 +167,8 @@ SETTINGS range failures use id
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked
-HTTP/2 examples cover both connection-control and idle-stream state failures.
+HTTP/2 examples cover connection-control, idle-stream, and closed-by-peer
+stream state failures.
 Wrong-length protocol payloads use id
 `http2.protocol.invalid_payload_length` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,

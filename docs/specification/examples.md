@@ -274,12 +274,20 @@ frame bytes, continuation state after HEADERS, continuation state after a
 non-final CONTINUATION, completion after a final CONTINUATION, one
 continuation ordering failure, and an incoming frame whose payload length
 exceeds the active receive maximum frame size, plus a DATA frame kind rejected
-for connection-control state and idle-stream state. It also pins PING frames
+for connection-control state and idle-stream state. It also pins an unknown
+frame kind that is decoded as an ordinary unknown-frame event with preserved
+flags, stream id, absolute frame offset, payload byte count, and payload byte
+values, plus an unknown frame kind that still reports the continuation
+ordering failure while a header block is pending. It also pins PING frames
 with and without ACK, wrong-length and stream-targeted PING failures, a GOAWAY
 frame that moves the connection into graceful shutdown with last-stream-id and
 error-code facts, and wrong-length and stream-targeted GOAWAY failures.
 Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block byte count.
+HEADERS with both END_HEADERS and END_STREAM on a nonzero peer-created stream
+completes the opaque header block immediately, records the stream as closed by
+peer, and rejects later DATA and stream-level `WINDOW_UPDATE` frames on that
+stream through the existing invalid frame-kind protocol failure shape.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
@@ -345,7 +353,10 @@ preface byte values, matched preface prefix count, expected preface byte count,
 and rule provenance. The flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers
 connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
-slice.
+slice. The ordinary protocol-core case also covers the closed-by-peer stream
+lifecycle path for DATA and stream-level `WINDOW_UPDATE`, plus the
+extension-tolerant unknown-frame path and the continuation-required unknown
+frame failure path.
 The frame-size command fixtures cover local-configuration provenance while the
 ordinary protocol-core case keeps the protocol-default, local-configuration,
 local-SETTINGS, peer-advertised SETTINGS, and rejected peer-advertised SETTINGS

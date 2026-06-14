@@ -22,12 +22,14 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining SETTINGS values and settings interactions beyond the implemented
   maximum-frame-size receive and peer-advertised state
 - remaining DATA behavior beyond the implemented receive-window accounting
-- HEADERS with opaque header-block payloads
+- remaining HEADERS behavior beyond the implemented opaque header-block
+  receive paths
 - CONTINUATION handling only as needed to keep header-block boundaries valid
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
-- stream lifecycle
+- stream lifecycle beyond the implemented single peer-created stream and
+  closed-by-peer receive path
 - initial-window-size changes, outbound flow control, and broader
   stream-window interactions beyond the implemented inbound DATA and
   `WINDOW_UPDATE` receive-window accounting
@@ -293,6 +295,22 @@ receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
 use `http2.peer_limit.flow_control_window_exceeded` without changing receive
 window state.
+It also covers the narrow HEADERS `END_STREAM` lifecycle path for an ordinary
+source peer-created stream. A HEADERS frame with both END_HEADERS and
+END_STREAM on a nonzero client-initiated stream completes the opaque
+header-block output path immediately and records that stream as closed by
+peer. Later DATA and stream-level `WINDOW_UPDATE` frames for that stream
+reuse the existing `http2.protocol.invalid_frame_kind` diagnostic projection,
+with closed-by-peer stream state and rule provenance in the ordinary fixture
+output.
+The implemented slice also preserves structurally decoded unknown frame kinds
+as ordinary unknown-frame events after frame-header decode, payload-length
+availability, and active receive-maximum checks succeed. The checked output
+keeps the unknown frame kind, flags, stream id, absolute frame offset, payload
+byte count, and payload byte values visible. If a header-block continuation is
+pending, an unknown frame kind still follows the existing typed
+`http2.protocol.continuation_expected` path instead of becoming a schema or
+codec failure.
 
 The remaining scope below is still planned work for the full protocol core.
 

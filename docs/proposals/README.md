@@ -55,7 +55,9 @@ compare it with `../specification/` before changing behavior.
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
   provenance, SETTINGS value range diagnostic slice, invalid frame-kind
   diagnostic slice, PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE`
-  receive flow-control slices, and outbound frame-header encode slice.
+  receive flow-control slices, HEADERS `END_STREAM` closed-by-peer lifecycle
+  slice, unknown frame preservation slice, and outbound frame-header encode
+  slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define the later route from pure protocol code to transport effects,
   deadlines, channels, and stream tasks.

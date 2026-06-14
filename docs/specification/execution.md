@@ -181,11 +181,19 @@ execution reference.
   SETTINGS range, invalid connection-state and stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
   accepted GOAWAY last-stream-id and error-code facts as typed protocol
-  values. The receive flow-control state consumes DATA payload length from
-  connection and stream windows, accepts connection-level and open-stream
-  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero, and
-  overflow `WINDOW_UPDATE` cases as typed protocol failures before projecting
-  stable diagnostic ids and related context into fixture output, human runtime
+  values. Structurally valid unknown frame kinds become ordinary unknown-frame
+  events that preserve frame kind, flags, stream id, absolute frame offset,
+  and bounded payload bytes; when a header-block continuation is pending, the
+  same unknown frame kind still reports the typed continuation-ordering
+  failure. HEADERS with END_HEADERS and END_STREAM on a nonzero peer-created
+  stream completes the opaque header-block path, records the stream as closed
+  by peer, and rejects later DATA and stream-level `WINDOW_UPDATE` frames on
+  that stream through the invalid frame-kind protocol failure shape. The
+  receive flow-control state consumes DATA payload length from connection and
+  stream windows, accepts connection-level and open-stream `WINDOW_UPDATE`
+  increments, and keeps wrong-length, idle-stream, zero, and overflow
+  `WINDOW_UPDATE` cases as typed protocol failures before projecting stable
+  diagnostic ids and related context into fixture output, human runtime
   diagnostics, and `run --json`
   `protocol_diagnostic` details.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
