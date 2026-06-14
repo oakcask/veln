@@ -40,7 +40,8 @@ Define codec support for:
   helper slice in `../specification/execution.md`
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper and derived codec encode
-  slices in `../specification/execution.md`
+  slices in `../specification/execution.md`, and beyond the implemented
+  hand-written partial encode preservation and resume example
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -206,7 +207,10 @@ results unchanged, and projects an oversized consumed count to
 `codec.consumed_count_invalid`. The implemented hand-written encode execution
 boundary exposes the codec item name as an ordinary source call that invokes
 the referenced encoder function with that function's parameters and returns
-its `EncodeStep<TState>` unchanged. The
+its `EncodeStep<TState>` unchanged, including `Partial` values with emitted
+chunks, produced counts, and resumed state preserved as ordinary
+source-visible values. The checked example also uses the returned state to
+complete a later encode call. The
 implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
@@ -256,8 +260,8 @@ The initial source-visible encode vocabulary is implemented in
 use this encode-specific result shape, not reuse `DecodeStep<T>`, and not
 mutate a caller-owned byte builder.
 
-The public result shape should distinguish `Encoded`, `Partial`, and
-`Invalid`. The implemented source-visible shape uses
+The implemented public result shape distinguishes `Encoded`, `Partial`, and
+`Invalid`. The source-visible shape uses
 `Encoded(List<ByteChunk>)`, `Partial(List<ByteChunk>, ByteCount, TState)`, and
 `Invalid(EncodeError)`. `Encoded` carries the complete output chunks.
 `Partial` carries the chunks that are ready to emit, their produced
@@ -265,6 +269,9 @@ The public result shape should distinguish `Encoded`, `Partial`, and
 used only by APIs where the caller supplied an output budget, chunk-size
 limit, or sink backpressure boundary. Unbounded helper APIs may collect all
 chunks and expose a simpler `Result<List<ByteChunk>, EncodeError>` wrapper.
+The implemented hand-written encode boundary preserves all three outcomes
+from the referenced encoder function unchanged, and the checked partial case
+uses the returned state to resume with the remaining chunk.
 
 `Invalid` carries a structured `EncodeError` for values that cannot be
 represented by the codec: out-of-range exact-width fields, failed fixed or

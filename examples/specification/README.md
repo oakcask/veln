@@ -682,8 +682,10 @@ against the built `veln` binary.
   and HTTP/2 frame-state diagnostics.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
-  referenced encoder and observes its returned `Encoded` and
-  `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged.
+  referenced encoder and observes its returned `Encoded`, `Partial`, and
+  `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged. The partial
+  path keeps the emitted chunk list, produced byte count, and resumed encoder
+  state visible to ordinary source before resuming to a complete encode.
 - `run/derived-codec-encode-boundary/`: a `derive encode` codec item call
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
