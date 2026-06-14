@@ -670,10 +670,12 @@ against the built `veln` binary.
   handles chunk arrival, client connection preface validation, incomplete
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
   header block with preserved payload bytes across multiple non-final
-  CONTINUATION frames, single-frame HEADERS completion when END_HEADERS is
-  combined with another flag, continuation ordering failures for a different
-  frame kind and a different stream id, and closed input while a header block
-  remains pending. It projects typed protocol
+  CONTINUATION frames, single-frame HEADERS completion when `END_HEADERS` is
+  combined with `END_STREAM`, closed-by-peer stream lifecycle after accepted
+  HEADERS `END_STREAM` completion through both single-frame HEADERS and final
+  CONTINUATION paths, continuation ordering failures for a different frame kind
+  and a different stream id, and closed input while a header block remains
+  pending. It projects typed protocol
   failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, stream id domain failures, invalid stream-state frame kinds,
@@ -715,8 +717,10 @@ against the built `veln` binary.
   frame-kind path. It also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, moves that stream to closed-by-peer when accepted DATA carries
-  `END_STREAM`, rejects later DATA and stream-level `WINDOW_UPDATE` for the
-  closed-by-peer stream through the stream-state failure path, accepts
+  `END_STREAM`, moves accepted HEADERS sequences with `END_STREAM` to the same
+  closed-by-peer lifecycle after header-block completion, rejects later DATA
+  and stream-level `WINDOW_UPDATE` for the closed-by-peer stream through the
+  stream-state failure path, accepts
   `WINDOW_UPDATE` receive-credit increments for the connection and open
   stream, and reports zero increments, receive-window overflow,
   negative stream credit, and credit exhaustion as

@@ -89,8 +89,8 @@ compare it with `../specification/` before changing behavior.
   enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
   PRIORITY receive slice with dependency facts and self-dependency diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
-  inbound DATA `END_STREAM` closed-by-peer stream lifecycle, peer-sent
-  `PUSH_PROMISE` rejection on the server receive boundary, outbound
+  inbound DATA and HEADERS `END_STREAM` closed-by-peer stream lifecycle,
+  peer-sent `PUSH_PROMISE` rejection on the server receive boundary, outbound
   frame-header encode, outbound SETTINGS ACK send intent, outbound PING ACK
   send intent, narrow outbound DATA flow-control send intent, and outbound
   `WINDOW_UPDATE` receive-credit intent, `RST_STREAM` reset send-intent, and
