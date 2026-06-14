@@ -640,7 +640,10 @@ against the built `veln` binary.
   frame-size receive limit, stores peer-advertised `SETTINGS_HEADER_TABLE_SIZE`
   and `SETTINGS_MAX_HEADER_LIST_SIZE` state with item byte offsets, and
   range-checks constrained settings before updating peer-advertised state or
-  receive-window credit. It also
+  receive-window credit. Unknown SETTINGS identifiers leave peer-advertised
+  state unchanged, do not produce SETTINGS range diagnostics, and do not block
+  known SETTINGS items in the same frame from being applied or diagnosed. It
+  also
   accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
   stream id, and bounded payload bytes, with the preserved payload bytes also

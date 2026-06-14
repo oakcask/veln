@@ -564,8 +564,8 @@ fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, ki
 	match kind == 4
 		true => match settings_ack_set(flags)
 			true => Ok(SettingsValueOk)
-			false => match length == 6
-				true => validate_single_settings_value(pending, next_offset)
+			false => match settings_payload_has_complete_items(length)
+				true => validate_settings_items(pending, next_offset, 9, 9 + length)
 				false => Ok(SettingsValueOk)
 			end
 		end
@@ -573,8 +573,25 @@ fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, ki
 	end
 end
 
-fn validate_single_settings_value(pending: ByteChunk, next_offset: Int) -> Result<SettingsRangeDecision, String>
-	let item_offset: ByteOffset = byte_offset(9)?
+fn settings_payload_has_complete_items(length: Int) -> Bool
+	match length > 0
+		true => (length / 6) * 6 == length
+		false => false
+	end
+end
+
+fn validate_settings_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int) -> Result<SettingsRangeDecision, String>
+	match item_wire_offset == payload_end_offset
+		true => Ok(SettingsValueOk)
+		false => match validate_single_settings_value(pending, next_offset, item_wire_offset)?
+			SettingsValueOk => validate_settings_items(pending, next_offset, item_wire_offset + 6, payload_end_offset)
+			SettingsValueFailed(error) => Ok(SettingsValueFailed(error))
+		end
+	end
+end
+
+fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wire_offset: Int) -> Result<SettingsRangeDecision, String>
+	let item_offset: ByteOffset = byte_offset(item_wire_offset)?
 	let item_count: ByteCount = byte_count(6)?
 	let item: ByteView = byte_view(pending, item_offset, item_count)?
 	let identifier_count: ByteCount = byte_count(2)?
@@ -583,11 +600,11 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int) -> Resul
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match identifier == 5
-		true => validate_max_frame_size_setting(next_offset + 9, value)
+		true => validate_max_frame_size_setting(next_offset + item_wire_offset, value)
 		false => match identifier == 4
-			true => validate_initial_window_size_setting(next_offset + 9, value)
+			true => validate_initial_window_size_setting(next_offset + item_wire_offset, value)
 			false => match identifier == 2
-				true => validate_enable_push_setting(next_offset + 9, value)
+				true => validate_enable_push_setting(next_offset + item_wire_offset, value)
 				false => Ok(SettingsValueOk)
 			end
 		end
@@ -629,14 +646,21 @@ fn update_peer_settings(pending: ByteChunk, next_offset: Int, length: Int, kind:
 end
 
 fn update_settings_frame(pending: ByteChunk, next_offset: Int, length: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
-	match length == 6
-		true => update_single_settings_item(pending, next_offset, peer_settings)
+	match settings_payload_has_complete_items(length)
+		true => update_settings_items(pending, next_offset, 9, 9 + length, peer_settings)
 		false => Ok(peer_settings)
 	end
 end
 
-fn update_single_settings_item(pending: ByteChunk, next_offset: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
-	let item_offset: ByteOffset = byte_offset(9)?
+fn update_settings_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
+	match item_wire_offset == payload_end_offset
+		true => Ok(peer_settings)
+		false => update_settings_items(pending, next_offset, item_wire_offset + 6, payload_end_offset, update_single_settings_item(pending, next_offset, item_wire_offset, peer_settings)?)
+	end
+end
+
+fn update_single_settings_item(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
+	let item_offset: ByteOffset = byte_offset(item_wire_offset)?
 	let item_count: ByteCount = byte_count(6)?
 	let item: ByteView = byte_view(pending, item_offset, item_count)?
 	let identifier_count: ByteCount = byte_count(2)?
@@ -646,17 +670,17 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, peer_settin
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match peer_settings
 		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + 9), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
 			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + 9), enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
 				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + 9), max_concurrent_streams, header_table_size, max_header_list_size))
+					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size))
 					false => match identifier == 3
-						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + 9), header_table_size, max_header_list_size))
+						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size))
 						false => match identifier == 1
-							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + 9), max_header_list_size))
+							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size))
 							false => match identifier == 6
-								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + 9)))
+								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset)))
 								false => Ok(peer_settings)
 							end
 						end
@@ -671,8 +695,8 @@ fn update_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, le
 	match kind == 4
 		true => match settings_ack_set(flags)
 			true => Ok(receive_flow_control)
-			false => match length == 6
-				true => update_single_initial_window_receive_credit(pending, next_offset, peer_settings, receive_flow_control)
+			false => match settings_payload_has_complete_items(length)
+				true => update_initial_window_receive_credit_items(pending, next_offset, 9, 9 + length, peer_settings, receive_flow_control)
 				false => Ok(receive_flow_control)
 			end
 		end
@@ -680,8 +704,15 @@ fn update_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, le
 	end
 end
 
-fn update_single_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
-	let item_offset: ByteOffset = byte_offset(9)?
+fn update_initial_window_receive_credit_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
+	match item_wire_offset == payload_end_offset
+		true => Ok(receive_flow_control)
+		false => update_initial_window_receive_credit_items(pending, next_offset, item_wire_offset + 6, payload_end_offset, update_single_settings_item(pending, next_offset, item_wire_offset, peer_settings)?, update_single_initial_window_receive_credit(pending, next_offset, item_wire_offset, peer_settings, receive_flow_control)?)
+	end
+end
+
+fn update_single_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
+	let item_offset: ByteOffset = byte_offset(item_wire_offset)?
 	let item_count: ByteCount = byte_count(6)?
 	let item: ByteView = byte_view(pending, item_offset, item_count)?
 	let identifier_count: ByteCount = byte_count(2)?
@@ -2147,6 +2178,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_settings))?
 	print_step("settings-ack", settings_ack)
 	print_peer_settings("settings-ack", step_state(settings_ack))
+	let settings_unknown_only: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000aaaa12345678")?), frame_state())?
+	print_step("settings-unknown-only", settings_unknown_only)
+	print_peer_settings("settings-unknown-only", step_state(settings_unknown_only))
+	let settings_unknown_then_known: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?), frame_state())?
+	print_step("settings-unknown-then-known", settings_unknown_then_known)
+	print_peer_settings("settings-unknown-then-known", step_state(settings_unknown_then_known))
+	let settings_unknown_then_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000aaaa12345678000500003fff")?), frame_state())?
+	print_settings_failure("settings-unknown-then-range", settings_unknown_then_range)
+	print_peer_settings("settings-unknown-then-range", step_state(settings_unknown_then_range))
 	let peer_enable_push: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000200000000")?), frame_state())?
 	print_step("peer-enable-push", peer_enable_push)
 	print_peer_settings("peer-enable-push", step_state(peer_enable_push))

@@ -306,14 +306,18 @@ execution reference.
   `SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
   `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_HEADER_TABLE_SIZE`, and
   `SETTINGS_MAX_HEADER_LIST_SIZE` peer-advertised state with item byte
-  offsets, received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS ranges,
-  zero-length SETTINGS ACK frames, wrong-length SETTINGS ACK payloads, stream
-  id domain failures, invalid stream-state frame kinds, wrong-length PING,
-  GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction, accepted
-  GOAWAY last-stream-id and error-code, GOAWAY last-stream-id enforcement for
-  later peer-created HEADERS streams, and accepted `RST_STREAM` error-code
-  facts as typed protocol values. In the server-side fixture core, SETTINGS,
+  offsets, unknown SETTINGS identifiers that leave peer-advertised state
+  unchanged, multi-item SETTINGS frames where unknown identifiers are ignored
+  while known items are applied or diagnosed at their own item byte offset,
+  received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
+  `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
+  ranges, zero-length SETTINGS ACK frames, wrong-length SETTINGS ACK payloads,
+  stream id domain failures, invalid stream-state frame kinds, wrong-length
+  PING, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
+  accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
+  enforcement for later peer-created HEADERS streams, and accepted
+  `RST_STREAM` error-code facts as typed protocol values. In the server-side
+  fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA, `RST_STREAM`,
   CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
   client-initiated stream id. The receive flow-control state opens an idle

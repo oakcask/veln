@@ -184,7 +184,11 @@ belong to peer-advertised state for outbound decisions and are not reported as
 the receive-limit provenance for later inbound frame-size, concurrent-stream,
 or DATA receive-window failures. A received `SETTINGS_INITIAL_WINDOW_SIZE`
 delta can still change the tracked open stream's allowed receive-window credit
-reported by later DATA failures. Received DATA frames that exceed available
+reported by later DATA failures. Unknown SETTINGS identifiers do not update
+peer-advertised state and do not produce
+`http2.peer_limit.settings_value_out_of_range`; known SETTINGS items in the
+same frame are still applied or diagnosed at their own item byte offset.
+Received DATA frames that exceed available
 inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window
 growth, use id
