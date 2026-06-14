@@ -325,6 +325,18 @@ shape outside the supported encode layouts.
 pins byte-aligned reserved-bit encode: the helper omits the reserved field
 from the source value record and writes the declared fixed bytes in
 declaration order.
+
+`../../examples/specification/run/binary-schema-byteview-encode/` and
+`../../examples/specification/run/binary-schema-byteview-encode-length-mismatch/`
+pin length-bounded `ByteView(length_field)` encode. The passing case writes
+the explicit length field and the bounded bytes from the supplied view into
+one immutable `ByteChunk`. The failing case matches the returned
+`EncodeError` and asserts `codec.encode_value_unrepresentable`, the schema
+field path, and the view-count mismatch reason. The derived codec boundary
+case
+`../../examples/specification/run/derived-codec-byteview-encode-boundary/`
+pins the same helper eligibility through `derive encode`.
+
 `../../examples/specification/run/binary-schema-packed-reserved-encode/` pins
 one-byte packed reserved-bit encode for widths one through seven: the helper
 writes high reserved bits from the declaration and low visible bits from the
