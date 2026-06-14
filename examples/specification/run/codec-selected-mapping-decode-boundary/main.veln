@@ -1,0 +1,89 @@
+# Codec decode boundaries use the selected schema mapping target shape.
+use stdio
+
+type Packet
+	Packet {kind: Int, value: Int}
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	control_value: UInt8
+	data_value: UInt8
+
+	map to Packet when kind == 1
+		kind = kind
+		value = control_value
+
+	map to Packet when kind == 2
+		kind = kind
+		value = data_value
+end
+
+codec DerivedPacketCodec for PacketWire decode
+	derive decode
+end
+
+codec WrittenPacketCodec for PacketWire decode
+	decode with decode_packet
+end
+
+fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{kind: Int, value: Int}>
+	byte_decode_step_packet_wire(input, base)
+end
+
+fn step_packet_kind(step: DecodeStep<{kind: Int, value: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.kind
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn step_packet_value(step: DecodeStep<{kind: Int, value: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.value
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn step_consumed(step: DecodeStep<{kind: Int, value: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn emit_step(label: String, step: DecodeStep<{kind: Int, value: Int}>) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(int_to_string(step_packet_kind(step)))
+	stdio::print(" ")
+	stdio::print(int_to_string(step_packet_value(step)))
+	stdio::print(" ")
+	stdio::println(int_to_string(step_consumed(step)))
+end
+
+fn packet_view(hex: String) -> Result<ByteView, String>
+	let bytes: ByteChunk = byte_chunk_from_hex(hex)?
+	byte_view(bytes, byte_offset(0)?, byte_count(3)?)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let control_view: ByteView = packet_view("010705")?
+	let data_view: ByteView = packet_view("020705")?
+
+	let derived_control: DecodeStep<{kind: Int, value: Int}> = DerivedPacketCodec(control_view, byte_offset(10)?)
+	let derived_data: DecodeStep<{kind: Int, value: Int}> = DerivedPacketCodec(data_view, byte_offset(20)?)
+	let written_control: DecodeStep<{kind: Int, value: Int}> = WrittenPacketCodec(control_view, byte_offset(30)?)
+	let written_data: DecodeStep<{kind: Int, value: Int}> = WrittenPacketCodec(data_view, byte_offset(40)?)
+
+	emit_step("derived-control", derived_control)
+	emit_step("derived-data", derived_data)
+	emit_step("written-control", written_control)
+	emit_step("written-data", written_data)
+	Ok(())
+end

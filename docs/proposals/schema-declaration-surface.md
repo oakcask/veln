@@ -63,6 +63,9 @@ The implemented first slice covers:
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
   structural `map to Target` clause whose assignments are direct
   `target_field = schema_field` references covering the visible encode fields
+- codec decode boundaries over schemas with multiple decoded-field selected
+  mappings when all selected mappings resolve to one record shape already
+  accepted by the generated decode-step helper
 - semantic rejection for ambiguous or unsupported mapping selection, including
   missing selectors, duplicate selector values, selector field mismatches, and
   selected target shape mismatches
@@ -340,10 +343,10 @@ Remaining:
 
 - General schema validation execution beyond the implemented generated-helper
   slice evaluates arbitrary schema declarations.
-- Runtime schema value mapping beyond schema-local field reference, record
-  construction, ADT constructor construction, one pure same-module converter
-  call, and decoded-field integer equality selection resolves codec-selected
-  mapping.
+- Runtime schema value mapping beyond the implemented schema-local field
+  reference, record construction, ADT constructor construction, one pure
+  same-module converter call, and decoded-field integer equality selection
+  slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

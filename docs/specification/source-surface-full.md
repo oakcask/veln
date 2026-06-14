@@ -218,7 +218,8 @@ exactly two parameters, first `ByteView` for the bounded input view and then
 `ByteOffset` for the absolute base byte offset. Its return type must be
 `DecodeStep<T>` for one source-visible decoded value type `T`. When the
 referenced schema has an implemented structural `map to Target` slice, `T`
-must match the mapped target record shape. A missing function reports
+must match the mapped target record shape, including selected mappings that
+all resolve to that same record shape. A missing function reports
 `name.unresolved` at the `decode with` clause. A wrong parameter count,
 parameter type, or return type reports `codec.decode_signature` at that clause
 and includes related context pointing to the referenced function declaration.
@@ -238,9 +239,9 @@ called through a written import-qualified module path. The call expects
 `ByteView` and `ByteOffset` arguments and returns that generated helper's
 `DecodeStep<T>` result. For the implemented structural mapping slice, `T` is
 the mapping target record shape when each assignment source has the
-same implemented decoded field type as the target field. Bare imported codec
-names are not call targets, and encode-only codecs do not expose this decode
-boundary.
+same implemented decoded field type as the target field and all selected
+mappings resolve to that same record shape. Bare imported codec names are not
+call targets, and encode-only codecs do not expose this decode boundary.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in

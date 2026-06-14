@@ -1,0 +1,25 @@
+command = ["check", "--json", "bad.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"codec.decode_value_type\"", "\"reason\":\"return_value_type\"", "\"expected_value_type\":\"{kind: Int, value: Int}\"", "\"actual_value_type\":\"{kind: Int, control_value: Int, data_value: Int}\"", "\"actual_value_type\":\"{kind: Int, code: Int}\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "codec.decode_value_type"
+severity = "error"
+kind = "type"
+message = "decode function value type is `{kind: Int, control_value: Int, data_value: Int}`, but schema mapping value type is `{kind: Int, value: Int}`"
+
+[[diagnostics]]
+id = "codec.decode_value_type"
+severity = "error"
+kind = "type"
+message = "decode function value type is `{kind: Int, code: Int}`, but schema mapping value type is `{kind: Int, value: Int}`"
