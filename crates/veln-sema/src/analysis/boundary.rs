@@ -1,10 +1,10 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
-    SchemaDispatchCasePayload, SchemaDispatchSpec, closed_dispatch_schema_primitive,
-    extension_dispatch_schema_primitive, flag8_schema_primitive, schema_decode_record_type,
-    schema_decode_value_type, schema_payload_name_last_segment, schema_payload_name_path,
-    supported_encode_reserved_bits,
+    SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    closed_dispatch_schema_primitive, extension_dispatch_schema_primitive, flag8_schema_primitive,
+    repeat_schema_primitive, schema_decode_record_type, schema_decode_value_type,
+    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
 };
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
@@ -1732,6 +1732,21 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name == Some("binary")
+                && let Some(repeat) = repeat_schema_primitive(&field.ty)
+            {
+                if let Some(field_ty) = check_schema_repeat_field(
+                    module,
+                    schema,
+                    field,
+                    &repeat,
+                    &decoded_fields,
+                    &mut diagnostics,
+                ) {
+                    decoded_fields.insert(field.name.clone(), field_ty);
+                }
+                continue;
+            }
+            if format_name == Some("binary")
                 && let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
                     .or_else(|| extension_dispatch_schema_primitive(&field.ty))
             {
@@ -1774,6 +1789,321 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+fn check_schema_repeat_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    repeat: &crate::types::SchemaRepeatSpec,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    if !check_schema_repeat_reference(
+        schema,
+        field,
+        decoded_fields,
+        &repeat.count_field,
+        diagnostics,
+    ) {
+        return None;
+    }
+    let element_ty = match &repeat.payload {
+        SchemaRepeatPayload::Primitive { .. } => Type::int(),
+        SchemaRepeatPayload::Schema { schema_name } => {
+            let payload_schema = resolve_schema_repeat_payload_schema(
+                module,
+                schema,
+                field,
+                schema_name,
+                diagnostics,
+            )?;
+            schema_decode_value_type(module, payload_schema).or_else(|| {
+                diagnostics.push(schema_repeat_payload_diagnostic(
+                    schema,
+                    field,
+                    schema_name,
+                    "incompatible_payload_schema",
+                    format!(
+                        "repeat payload schema `{}` is not a supported decoded binary schema",
+                        schema_payload_name_last_segment(schema_name)
+                    ),
+                    [],
+                ));
+                None
+            })?
+        }
+    };
+    Some(Type::named("List", vec![element_ty]))
+}
+
+fn check_schema_repeat_reference(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    decoded_fields: &BTreeMap<String, Type>,
+    reference: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(ty) = decoded_fields.get(reference) else {
+        let reason = if schema_field_declared_after(schema, field, reference) {
+            "forward_field_reference"
+        } else {
+            "unknown_field_reference"
+        };
+        diagnostics.push(schema_repeat_reference_diagnostic(
+            schema,
+            field,
+            reference,
+            reason,
+            format!("repeat count field `{reference}` must be an earlier decoded `Int` field"),
+            [],
+        ));
+        return false;
+    };
+    if ty != &Type::int() {
+        diagnostics.push(schema_repeat_reference_diagnostic(
+            schema,
+            field,
+            reference,
+            "incompatible_field_reference",
+            format!(
+                "repeat count field `{reference}` decodes as `{}`, not `Int`",
+                ty.render()
+            ),
+            [("actual", JsonValue::string(ty.render()))],
+        ));
+        return false;
+    }
+    true
+}
+
+fn resolve_schema_repeat_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    payload_name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let Some(segments) = schema_payload_name_path(payload_name) else {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            payload_name,
+            "invalid_payload_name",
+            format!("repeat payload schema `{payload_name}` is not a valid schema path"),
+            [],
+        ));
+        return None;
+    };
+    match segments.as_slice() {
+        [name] => {
+            resolve_local_schema_repeat_payload_schema(module, schema, field, name, diagnostics)
+        }
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                schema.module_name.as_deref(),
+            ) else {
+                diagnostics.push(schema_repeat_payload_diagnostic(
+                    schema,
+                    field,
+                    payload_name,
+                    "unknown_import",
+                    format!("repeat payload schema `{payload_name}` is not declared"),
+                    [],
+                ));
+                return None;
+            };
+            resolve_imported_schema_repeat_payload_schema(
+                module,
+                schema,
+                field,
+                use_decl,
+                payload_name,
+                name,
+                diagnostics,
+            )
+        }
+        _ => None,
+    }
+}
+
+fn resolve_local_schema_repeat_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let current_index = module
+        .schemas
+        .iter()
+        .position(|candidate| candidate.node_id == schema.node_id)?;
+    if let Some((index, candidate)) = module.schemas.iter().enumerate().find(|(_, candidate)| {
+        candidate.name.as_deref() == Some(name)
+            && candidate.module_name.as_deref() == schema.module_name.as_deref()
+    }) {
+        if index == current_index {
+            diagnostics.push(schema_repeat_payload_diagnostic(
+                schema,
+                field,
+                name,
+                "self_payload_schema",
+                format!("repeat payload schema `{name}` cannot reference itself"),
+                [],
+            ));
+            return None;
+        }
+        if index > current_index {
+            diagnostics.push(schema_repeat_payload_diagnostic(
+                schema,
+                field,
+                name,
+                "forward_payload_schema",
+                format!(
+                    "repeat payload schema `{name}` must be declared before schema `{}`",
+                    schema.name.as_deref().unwrap_or("<missing>")
+                ),
+                [],
+            ));
+            return None;
+        }
+        if candidate.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+            diagnostics.push(schema_repeat_payload_diagnostic(
+                schema,
+                field,
+                name,
+                "non_binary_payload_schema",
+                format!("repeat payload schema `{name}` must use `format binary`"),
+                [],
+            ));
+            return None;
+        }
+        return Some(candidate);
+    }
+    if let Some(kind) = codec_schema_wrong_kind(module, schema.module_name.as_deref(), name) {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            name,
+            "non_schema_payload",
+            format!("repeat payload `{name}` resolves to a {kind}, not a schema"),
+            [("resolved_kind", JsonValue::string(kind))],
+        ));
+    } else {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            name,
+            "unknown_payload_schema",
+            format!("repeat payload schema `{name}` is not declared"),
+            [],
+        ));
+    }
+    None
+}
+
+fn resolve_imported_schema_repeat_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    use_decl: &UseDecl,
+    payload_name: &str,
+    name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let target_module = Some(use_decl.name.as_str());
+    if let Some(candidate) = module.schemas.iter().find(|candidate| {
+        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == target_module
+    }) {
+        if candidate.visibility != Visibility::Public {
+            diagnostics.push(schema_repeat_payload_diagnostic(
+                schema,
+                field,
+                payload_name,
+                "private_imported_payload_schema",
+                format!("imported repeat payload schema `{payload_name}` is private"),
+                [],
+            ));
+            return None;
+        }
+        if candidate.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+            diagnostics.push(schema_repeat_payload_diagnostic(
+                schema,
+                field,
+                payload_name,
+                "non_binary_payload_schema",
+                format!("repeat payload schema `{payload_name}` must use `format binary`"),
+                [],
+            ));
+            return None;
+        }
+        return Some(candidate);
+    }
+    if let Some(kind) = codec_schema_wrong_kind(module, target_module, name) {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            payload_name,
+            "non_schema_payload",
+            format!("repeat payload `{payload_name}` resolves to a {kind}, not a schema"),
+            [("resolved_kind", JsonValue::string(kind))],
+        ));
+    } else {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            payload_name,
+            "unknown_payload_schema",
+            format!("repeat payload schema `{payload_name}` is not declared"),
+            [],
+        ));
+    }
+    None
+}
+
+fn schema_repeat_reference_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reference: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("role", JsonValue::string("count")));
+    fields.push(("reference", JsonValue::string(reference.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.repeat_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_repeat_payload_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    payload_name: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("payload", JsonValue::string(payload_name.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.repeat_payload",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
 }
 
 fn check_schema_dispatch_field(

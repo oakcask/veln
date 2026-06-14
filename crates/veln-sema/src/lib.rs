@@ -34,13 +34,13 @@ use crate::analysis::{
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
-    SchemaDecodeMappingExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, flag8_schema_primitive, repeat_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
-    supported_encode_reserved_bits,
+    SchemaDecodeMappingExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    Type, TypeEnvironment, byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    exact_width_schema_primitive, exact_width_schema_primitive_little_endian,
+    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
+    flag8_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
+    schema_decode_function_name, schema_decode_mapping_fields, schema_decode_mappings,
+    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -231,7 +231,8 @@ fn schema_decode_spec_inner_after_push(
             if decoded_field_types.get(&repeat.count_field) != Some(&Type::int()) {
                 return None;
             }
-            decoded_field_types.insert(field.name.clone(), Type::named("List", vec![Type::int()]));
+            let (element_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;
+            decoded_field_types.insert(field.name.clone(), Type::named("List", vec![element_ty]));
             fields.push(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
@@ -240,12 +241,7 @@ fn schema_decode_spec_inner_after_push(
                 flag8: false,
                 predicate: None,
                 length_field: None,
-                repeat: Some(IrSchemaRepeat {
-                    count_field: repeat.count_field,
-                    width: repeat.width,
-                    max_value: repeat.max_value,
-                    little_endian: repeat.little_endian,
-                }),
+                repeat: Some(ir_repeat),
                 dispatch: None,
                 reserved_bits: None,
             });
@@ -378,6 +374,37 @@ fn ir_schema_dispatch_case(
         little_endian,
         payload_schema,
     })
+}
+
+fn ir_schema_repeat(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+    repeat: crate::types::SchemaRepeatSpec,
+    stack: &mut Vec<String>,
+) -> Option<(Type, IrSchemaRepeat)> {
+    let (element_ty, width, max_value, little_endian, payload_schema) = match repeat.payload {
+        SchemaRepeatPayload::Primitive {
+            width,
+            max_value,
+            little_endian,
+        } => (Type::int(), width, max_value, little_endian, None),
+        SchemaRepeatPayload::Schema { schema_name } => {
+            let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
+            let element_ty = schema_decode_value_type(module, nested_schema)?;
+            let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
+            (element_ty, 0, 0, false, Some(Box::new(payload_schema)))
+        }
+    };
+    Some((
+        element_ty,
+        IrSchemaRepeat {
+            count_field: repeat.count_field,
+            width,
+            max_value,
+            little_endian,
+            payload_schema,
+        },
+    ))
 }
 
 fn schema_dispatch_field_type(

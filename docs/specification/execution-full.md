@@ -144,6 +144,15 @@ Generated binary schema decode helpers also support standalone visible
 declared low bits as an ordinary `Int`, advances by one byte, preserves
 structural `map to` runtime mappings, and uses the same truncation diagnostic
 shape as other exact-width primitives.
+Generated binary schema decode helpers also support bounded
+`Repeat(count_field, Payload)` fields when `count_field` is an earlier
+visible exact-width unsigned field decoded as `Int` and `Payload` is either
+an implemented byte-aligned exact-width unsigned primitive or an eligible
+nested binary schema payload. Repeated primitive fields decode as `List<Int>`;
+repeated nested schema fields decode as lists of the nested schema's decoded
+record shape. The helper reads exactly `count_field` elements in declaration
+order. Element failures keep the repeated field path and append an `index`
+segment before nested schema field segments.
 Generated binary schema decode helpers also treat a field-local equality
 predicate of the form `field == literal` or `literal == field` as a visible
 schema-owned fixed field when the literal fits the field's external integer
@@ -255,6 +264,14 @@ visible length field is written. If the supplied view count differs from the
 earlier length field, the helper returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`
 without emitting partial output. A
+bounded `Repeat(count_field, Payload)` field emits exactly the number of
+elements named by the earlier count field. Primitive payloads use `List<Int>`;
+nested schema payloads use a list of the nested schema's decoded record
+shape. A list length mismatch, primitive range failure, or nested element
+representation failure returns
+`Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
+nested element failures prefix the field path with the repeated field and
+element index before the nested schema field path. A
 byte-aligned `ReservedBits(width, value)` field is representation-only: it is
 omitted from the record and the helper emits the declared fixed value in
 declaration order. A `ReservedBits(1, 0)` field immediately before a

@@ -103,10 +103,12 @@ Binary schema fields also accept the
 spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported one-byte
 packed reserved prefix. Binary schema fields
-also accept `Repeat(count_field, Primitive)` when `count_field` names a
-previously decoded visible `Int` field in the same schema and `Primitive` is
-one of the implemented byte-aligned exact-width unsigned primitives. A repeat
-field decodes and encodes as `List<Int>`. Binary schema fields
+also accept `Repeat(count_field, Payload)` when `count_field` names a
+previously decoded visible `Int` field in the same schema and `Payload` is
+one of the implemented byte-aligned exact-width unsigned primitives or an
+eligible nested binary schema payload. A repeated primitive field decodes and
+encodes as `List<Int>`; a repeated nested schema field decodes and encodes as
+a list of the nested schema's decoded record shape. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
@@ -146,7 +148,7 @@ editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
 multiple eligible mapping clauses selected by `when field == literal`, when all
 schema fields are implemented exact-width unsigned primitives, supported
-reserved-bit fields, bounded repeated primitive fields, closed dispatch
+reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
 fields, or extension dispatch fields and the target resolves to matching
 record fields. Multiple selected mappings must
 all use the same decoded `Int` selector field, must use distinct selector

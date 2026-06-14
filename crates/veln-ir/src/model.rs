@@ -37,6 +37,7 @@ pub struct IrSchemaRepeat {
     pub width: u8,
     pub max_value: i64,
     pub little_endian: bool,
+    pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

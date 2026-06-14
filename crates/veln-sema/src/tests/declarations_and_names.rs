@@ -2029,6 +2029,216 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
 }
 
 #[test]
+fn repeat_payload_schema_references_report_resolution_diagnostics() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "type Shape\n",
+            "  Shape(Int)\n",
+            "end\n",
+            "\n",
+            "schema MissingCountPacket\n",
+            "  format binary\n",
+            "  items: Repeat(count, UInt8)\n",
+            "end\n",
+            "\n",
+            "schema ForwardCountPacket\n",
+            "  format binary\n",
+            "  items: Repeat(count, UInt8)\n",
+            "  count: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindCountPacket\n",
+            "  format binary\n",
+            "  flags: Flag8\n",
+            "  items: Repeat(flags, UInt8)\n",
+            "end\n",
+            "\n",
+            "schema MissingPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, MissingPayload)\n",
+            "end\n",
+            "\n",
+            "schema NonSchemaPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, Shape)\n",
+            "end\n",
+            "\n",
+            "schema ImportedPrivatePacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::PrivatePayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedMissingPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::MissingPayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedWrongKindPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::WireShape)\n",
+            "end\n",
+            "\n",
+            "schema ImportedPublicPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::PublicPayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedTextPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::TextPayload)\n",
+            "end\n",
+            "\n",
+            "schema SelfPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, SelfPacket)\n",
+            "end\n",
+            "\n",
+            "schema ForwardPacket\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, LaterPayload)\n",
+            "end\n",
+            "\n",
+            "schema LaterPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "schema PrivatePayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub type WireShape\n",
+            "  WireShape(Int)\n",
+            "end\n",
+            "\n",
+            "pub schema PublicPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub schema TextPayload\n",
+            "  code: Int\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let mut schemas = app.schemas;
+    schemas.extend(wire.schemas);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas,
+        codecs: Vec::new(),
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count field `count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count field `count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count field `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+
+    for (reason, message) in [
+        (
+            "unknown_payload_schema",
+            "repeat payload schema `MissingPayload` is not declared",
+        ),
+        (
+            "non_schema_payload",
+            "repeat payload `Shape` resolves to a type, not a schema",
+        ),
+        (
+            "private_imported_payload_schema",
+            "imported repeat payload schema `wire::PrivatePayload` is private",
+        ),
+        (
+            "unknown_payload_schema",
+            "repeat payload schema `wire::MissingPayload` is not declared",
+        ),
+        (
+            "non_schema_payload",
+            "repeat payload `wire::WireShape` resolves to a type, not a schema",
+        ),
+        (
+            "non_binary_payload_schema",
+            "repeat payload schema `wire::TextPayload` must use `format binary`",
+        ),
+        (
+            "self_payload_schema",
+            "repeat payload schema `SelfPacket` cannot reference itself",
+        ),
+        (
+            "forward_payload_schema",
+            "repeat payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
+        ),
+    ] {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_payload"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "schema.repeat_payload"
+                || !diagnostic.message.contains("wire::PublicPayload")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

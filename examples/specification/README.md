@@ -450,6 +450,12 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-truncated-json/`: repeated primitive truncation
   reports `schema.truncated_field` with the repeated field path plus an
   `index` segment for the element that could not be fully read.
+- `run/binary-schema-repeat-nested-decode/`: generated schema decode helpers
+  read a bounded `Repeat(count_field, SchemaName)` field into a list of nested
+  decoded records.
+- `run/binary-schema-repeat-nested-truncated-json/`: repeated nested schema
+  truncation reports `schema.truncated_field` with the repeated field path,
+  element `index`, and nested schema field path.
 - `run/binary-schema-integer-out-of-range-json/`: schema decode reports
   `schema.integer_out_of_range` through JSON run output when a structurally
   present `UInt31be` field exceeds its external integer range, including byte
@@ -520,6 +526,12 @@ against the built `veln` binary.
   `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-repeat-encode-count-mismatch/`: repeated primitive encode
   rejects a `List<Int>` whose length does not match the earlier count field.
+- `run/binary-schema-repeat-nested-encode/`: generated schema encode helpers
+  write a bounded `Repeat(count_field, SchemaName)` list field by invoking the
+  nested schema helper for each record.
+- `run/binary-schema-repeat-nested-encode-failure/`: repeated nested schema
+  encode failures prefix the nested field path with the repeated field and
+  element index.
 - `run/binary-schema-byteview-encode/`: generated schema encode helpers write
   the bounded bytes from a `ByteView(length_field)` payload after its explicit
   length field.

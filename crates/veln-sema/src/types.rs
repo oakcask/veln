@@ -779,7 +779,8 @@ fn schema_decode_record_fields_inner_after_push(
             if decoded_fields.get(&repeat.count_field) != Some(&Type::int()) {
                 return None;
             }
-            (0, Type::named("List", vec![Type::int()]))
+            let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
+            (0, Type::named("List", vec![element_ty]))
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
@@ -821,6 +822,21 @@ fn schema_dispatch_case_type(
     match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
         SchemaDispatchCasePayload::Schema { schema_name } => {
+            let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
+            schema_decode_value_type_inner(module, nested, stack)
+        }
+    }
+}
+
+fn schema_repeat_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    repeat: &SchemaRepeatSpec,
+    stack: &mut Vec<String>,
+) -> Option<Type> {
+    match &repeat.payload {
+        SchemaRepeatPayload::Primitive { .. } => Some(Type::int()),
+        SchemaRepeatPayload::Schema { schema_name } => {
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
             schema_decode_value_type_inner(module, nested, stack)
         }
@@ -960,7 +976,8 @@ fn schema_encode_function_signature_for_schema(
             if !exact_width_field_names.contains(&repeat.count_field) {
                 return None;
             }
-            fields.push((field.name.clone(), Type::named("List", vec![Type::int()])));
+            let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
+            fields.push((field.name.clone(), Type::named("List", vec![element_ty])));
             continue;
         }
         if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
@@ -1912,9 +1929,19 @@ pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<String> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaRepeatSpec {
     pub(crate) count_field: String,
-    pub(crate) width: u8,
-    pub(crate) max_value: i64,
-    pub(crate) little_endian: bool,
+    pub(crate) payload: SchemaRepeatPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaRepeatPayload {
+    Primitive {
+        width: u8,
+        max_value: i64,
+        little_endian: bool,
+    },
+    Schema {
+        schema_name: String,
+    },
 }
 
 pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
@@ -1930,15 +1957,27 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     if !is_simple_schema_field_reference(count_field) {
         return None;
     }
-    let width = exact_width_schema_primitive(primitive)?;
-    if exact_width_schema_primitive_bit_width(primitive)? < 8 || flag8_schema_primitive(primitive) {
+    let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
+        if exact_width_schema_primitive_bit_width(primitive)? < 8
+            || flag8_schema_primitive(primitive)
+        {
+            return None;
+        }
+        SchemaRepeatPayload::Primitive {
+            width,
+            max_value: exact_width_schema_primitive_max_value(primitive)?,
+            little_endian: exact_width_schema_primitive_little_endian(primitive),
+        }
+    } else if schema_payload_name_path(primitive).is_some() {
+        SchemaRepeatPayload::Schema {
+            schema_name: (*primitive).to_string(),
+        }
+    } else {
         return None;
-    }
+    };
     Some(SchemaRepeatSpec {
         count_field: (*count_field).to_string(),
-        width,
-        max_value: exact_width_schema_primitive_max_value(primitive)?,
-        little_endian: exact_width_schema_primitive_little_endian(primitive),
+        payload,
     })
 }
 

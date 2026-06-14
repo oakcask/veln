@@ -162,6 +162,92 @@ fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_bounded_repeated_nested_schema_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ItemRecord\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "end\n",
+            "\n",
+            "schema CountedItems\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, ItemRecord)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, items: List<{code: Int, value: Int}>}, String>\n",
+            "  byte_decode_counted_items(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, items: List<{code: Int, value: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_items(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let read = core
+        .functions
+        .iter()
+        .find(|function| function.name == "read")
+        .expect("read should be lowered");
+    let CoreStmtKind::Return { expr } = &read.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecode(name),
+            ..
+        } if name == "CountedItems"
+    ));
+    let write = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write")
+        .expect("write should be lowered");
+    let CoreStmtKind::Return { expr } = &write.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "CountedItems"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "CountedItems")
+        .expect("counted schema should be emitted");
+    let repeat = schema.fields[1]
+        .repeat
+        .as_ref()
+        .expect("items should carry repeat metadata");
+    assert_eq!(repeat.count_field, "count");
+    assert_eq!(repeat.width, 0);
+    let nested = repeat
+        .payload_schema
+        .as_ref()
+        .expect("nested repeat should carry schema metadata");
+    assert_eq!(nested.schema_name, "ItemRecord");
+    assert_eq!(nested.fields.len(), 2);
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_length_bounded_byte_view_fields() {
     let source = SourceFile::new(
         "main.veln",
