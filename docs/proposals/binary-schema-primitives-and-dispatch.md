@@ -79,6 +79,13 @@ payload fields, extension-tolerant known payloads, and nested helper
 diagnostics. General schema decode, general schema encode, recursive or
 otherwise ineligible dispatch payload schemas, and schema value mapping remain
 proposal work.
+The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
+generated binary schema decode and encode helpers. `Flag8` consumes and emits
+one byte through the existing `UInt8` representation path, decodes to the
+source-visible `Flag8(bits: Int)` value instead of a raw `Int`, preserves
+existing `UInt8` field behavior, shares exact-width truncation behavior, and
+reports existing encode value-representation failures when `bits` cannot be
+represented in one byte.
 
 ## Problem
 
@@ -101,7 +108,8 @@ for:
 - reserved-bit forms beyond the implemented byte-aligned representation-only
   fields, one-byte packed reserved prefixes, and `ReservedBits(1, 0)` plus
   `UInt31be` shared-bit layout
-- flags that decode as raw bits, bitsets, or frame-specific ADTs
+- flag vocabulary beyond the implemented one-byte `Flag8` bitset, including
+  raw-bit variants and frame-specific ADTs
 - general schema-declared length-prefixed payloads
 - field references inside later field definitions
 - recursive or otherwise ineligible dispatch payload schemas beyond the
@@ -180,6 +188,9 @@ dispatch payload helper path reuses the generated binary schema helper for
 selected nested same-module and imported public payload schemas, including
 the supported primitive, reserved-field, fixed-field decode, endian, and
 diagnostic behavior already available to ordinary generated schema fields.
+The implemented `Flag8` helper slice consumes and emits one-byte visible
+bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
+`UInt8` fields as ordinary `Int` values.
 General schema-owned decode and encode beyond the implemented slices,
 recursive or otherwise ineligible dispatch payload schemas, and mapping
 beyond the implemented slices remain proposal work. A `UInt31be` field

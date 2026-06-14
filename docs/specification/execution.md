@@ -77,6 +77,13 @@ execution reference.
   ordinary `Int` fields, preserve structural `map to` runtime mappings, and
   use the same truncation diagnostic shape as the other exact-width
   primitives.
+- Generated binary schema decode helpers support opt-in `Flag8` fields as
+  one-byte visible flag bitsets. They consume the same byte width and
+  truncation behavior as `UInt8`, but the decoded record field is the
+  source-visible `Flag8(bits)` value rather than a raw `Int`. `UInt8` fields,
+  including existing `flags: UInt8` declarations, continue to decode as
+  ordinary `Int` fields. The checked decode example is
+  `examples/specification/run/binary-schema-flag8-decode/`.
 - Generated binary schema decode helpers support byte-aligned
   `ReservedBits(width, value)` fields up to four bytes wide as
   representation-only fields. The helper consumes the reserved bytes in
@@ -203,10 +210,15 @@ execution reference.
   `Result` helper path.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
-  visible exact-width unsigned primitive fields as ordinary `Int` values. A
-  byte-aligned `ReservedBits(width, value)` field is representation-only: it
-  is omitted from the record and the helper emits the declared fixed value in
-  declaration order. A `ReservedBits(1, 0)` field immediately before a
+  visible exact-width unsigned primitive fields as ordinary `Int` values and
+  whose `Flag8` fields are source-visible `Flag8(bits)` values. `Flag8` emits
+  one byte through the same representation path as `UInt8`; `bits` values
+  outside `0..255` return
+  `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
+  reason))`. A byte-aligned `ReservedBits(width, value)` field is
+  representation-only: it is omitted from the record and the helper emits the
+  declared fixed value in declaration order. A `ReservedBits(1, 0)` field
+  immediately before a
   `UInt31be` field keeps the shared stream-identifier layout: it is omitted
   from the record and the helper emits the required zero high bit in the
   shared four-byte position. A one-byte packed `ReservedBits(width, value)`
@@ -258,6 +270,8 @@ execution reference.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-flag8-encode/`,
+  `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,

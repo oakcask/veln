@@ -414,6 +414,9 @@ against the built `veln` binary.
 - `run/binary-schema-fixed-field-mismatch-human/`: generated schema decode
   helpers report the same visible fixed exact-width field mismatch through
   human `run` output with focused primary text and related notes.
+- `run/binary-schema-flag8-decode/`: generated schema decode helpers read an
+  opt-in `Flag8` field as a source-visible bitset value instead of the raw
+  `Int` used by `UInt8`.
 - `run/binary-schema-u16le-decode/`: generated schema decode helpers read
   `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
   structural `map to` target record shape.
@@ -474,6 +477,11 @@ against the built `veln` binary.
   slice returns a structured `EncodeError` with
   `codec.encode_value_unrepresentable`, schema field path, and primitive range
   reason when a `UInt31be` value exceeds its maximum.
+- `run/binary-schema-flag8-encode/`: generated schema encode helpers write a
+  `Flag8(bits)` field through the one-byte `UInt8` representation path.
+- `run/binary-schema-flag8-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag8(bits)` values outside the one-byte unsigned range with
+  the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the

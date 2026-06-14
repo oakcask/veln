@@ -2,6 +2,10 @@ pub type Byte
 	Byte(value: Int)
 end
 
+pub type Flag8
+	Flag8(bits: Int)
+end
+
 pub type ByteChunk
 	ByteChunk(bytes: Vec<Byte>)
 end

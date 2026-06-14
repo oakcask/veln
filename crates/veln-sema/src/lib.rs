@@ -38,9 +38,9 @@ use crate::types::{
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, exact_width_schema_primitive_little_endian,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
-    supported_encode_reserved_bits,
+    flag8_schema_primitive, reserved_bits_schema_primitive, schema_decode_function_name,
+    schema_decode_mapping_fields, schema_decode_mappings, schema_decode_value_type,
+    schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -180,6 +180,7 @@ fn schema_decode_spec_inner_after_push(
                 width: 0,
                 max_value: 0,
                 little_endian: false,
+                flag8: false,
                 predicate: None,
                 length_field: None,
                 dispatch: None,
@@ -204,6 +205,7 @@ fn schema_decode_spec_inner_after_push(
                 width,
                 max_value: exact_width_schema_primitive_max_value(&field.ty)?,
                 little_endian: exact_width_schema_primitive_little_endian(&field.ty),
+                flag8: flag8_schema_primitive(&field.ty),
                 predicate: field
                     .where_clause
                     .as_ref()
@@ -225,6 +227,7 @@ fn schema_decode_spec_inner_after_push(
                 width: 0,
                 max_value: 0,
                 little_endian: false,
+                flag8: false,
                 predicate: None,
                 length_field: Some(length_field),
                 dispatch: None,
@@ -249,6 +252,7 @@ fn schema_decode_spec_inner_after_push(
             width: 0,
             max_value: 0,
             little_endian: false,
+            flag8: false,
             predicate: None,
             length_field: None,
             dispatch: Some(IrSchemaDecodeDispatch {
