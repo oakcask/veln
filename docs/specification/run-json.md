@@ -74,6 +74,11 @@ When the result value is a binary schema frame-header truncation,
 - `readiness: "need_bytes"`
 - `byte_preview`: a structured bounded byte preview object
 
+For repeated binary schema fields, the same `schema.truncated_field` shape
+adds an `index` segment after the repeated field segment in `field_path`; the
+segment `name` is the zero-based element index whose representation could not
+be fully read.
+
 When the result value is a binary schema payload length boundary failure,
 `details.byte_diagnostic` includes:
 

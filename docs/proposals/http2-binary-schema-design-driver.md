@@ -148,11 +148,11 @@ belong in explicit codec functions, library codec state, or the HTTP/2
 protocol core. The boundary keeps schemas useful for length-prefixed payloads
 and dispatch without turning them into a second parser language.
 
-If a binary format later needs repeated structures, the first spelling should
-be a bounded schema primitive whose count or byte length comes from a prior
-field, with diagnostics still reported against field paths and byte offsets.
-Unbounded repetition, semantic lookahead, and stateful recovery should require
-ordinary Veln code at the codec boundary.
+The implemented first repeated-structure slice uses a bounded schema primitive
+whose count comes from a prior field, with diagnostics still reported against
+field paths and byte offsets. Repetition beyond that bounded primitive,
+semantic lookahead, and stateful recovery should require ordinary Veln code at
+the codec boundary.
 
 ## Discussion Result: Core Byte Vocabulary Names
 

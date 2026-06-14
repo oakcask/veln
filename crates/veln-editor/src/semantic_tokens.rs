@@ -960,6 +960,7 @@ mod tests {
                 "  length: UInt24be\n",
                 "  padding_length: UInt8 where padding_length <= length\n",
                 "  stream_reserved: ReservedBits(1, 0)\n",
+                "  settings: Repeat(padding_length, UInt16be)\n",
                 "\n",
                 "  map to FrameHeader\n",
                 "    length = length\n",
@@ -1000,6 +1001,11 @@ mod tests {
         )));
         assert!(tokens.contains(&(
             "ReservedBits".to_string(),
+            SemanticTokenType::Type,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "Repeat".to_string(),
             SemanticTokenType::Type,
             SemanticTokenModifiers::empty().bits()
         )));

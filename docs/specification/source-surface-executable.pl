@@ -95,8 +95,9 @@ grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL Ty
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ SchemaMapping* \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
-grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
+grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
+grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" Name \",\" TypeText \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
 grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
 grammar_line(107, "SchemaMappingSelector ::= \"when\" Name \"==\" IntLiteral").

@@ -532,15 +532,30 @@
         long availableCount,
         String nearbyContext
     ) {
+        registerSchemaTruncatedFieldPathDiagnostic(
+            message,
+            byteOffset,
+            schemaFieldPath(schemaName, fieldName),
+            expectedCount,
+            availableCount,
+            nearbyContext
+        );
+    }
+
+    private static void registerSchemaTruncatedFieldPathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long expectedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
         byteDiagnostics.get().put(
             message,
             new ByteDiagnostic(
                 "schema.truncated_field",
                 byteOffset,
-                java.util.Arrays.asList(
-                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
-                    new ByteDiagnosticFieldPathSegment("field", fieldName)
-                ),
+                fieldPath,
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("expected_count", expectedCount),
                     DiagnosticDetail.number("available_count", availableCount),
@@ -645,15 +660,34 @@
         long actualValue,
         String nearbyContext
     ) {
+        registerSchemaIntegerOutOfRangePathDiagnostic(
+            message,
+            byteOffset,
+            schemaFieldPath(schemaName, fieldName),
+            byteWidth,
+            minValue,
+            maxValue,
+            actualValue,
+            nearbyContext
+        );
+    }
+
+    private static void registerSchemaIntegerOutOfRangePathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long byteWidth,
+        long minValue,
+        long maxValue,
+        long actualValue,
+        String nearbyContext
+    ) {
         byteDiagnostics.get().put(
             message,
             new ByteDiagnostic(
                 "schema.integer_out_of_range",
                 byteOffset,
-                java.util.Arrays.asList(
-                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
-                    new ByteDiagnosticFieldPathSegment("field", fieldName)
-                ),
+                fieldPath,
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("byte_width", byteWidth),
                     DiagnosticDetail.number("min_value", minValue),
@@ -662,6 +696,28 @@
                     DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
+        );
+    }
+
+    private static java.util.List<ByteDiagnosticFieldPathSegment> schemaFieldPath(
+        String schemaName,
+        String fieldName
+    ) {
+        return java.util.Arrays.asList(
+            new ByteDiagnosticFieldPathSegment("schema", schemaName),
+            new ByteDiagnosticFieldPathSegment("field", fieldName)
+        );
+    }
+
+    private static java.util.List<ByteDiagnosticFieldPathSegment> schemaRepeatedFieldPath(
+        String schemaName,
+        String fieldName,
+        long index
+    ) {
+        return java.util.Arrays.asList(
+            new ByteDiagnosticFieldPathSegment("schema", schemaName),
+            new ByteDiagnosticFieldPathSegment("field", fieldName),
+            new ByteDiagnosticFieldPathSegment("index", Long.toString(index))
         );
     }
 

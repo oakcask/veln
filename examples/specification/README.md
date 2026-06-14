@@ -442,6 +442,11 @@ against the built `veln` binary.
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
   output with byte offset, field path, byte counts, readiness, and structured
   byte preview fields.
+- `run/binary-schema-repeat-decode/`: generated schema decode helpers read a
+  bounded `Repeat(count_field, Primitive)` field into a `List<Int>`.
+- `run/binary-schema-repeat-truncated-json/`: repeated primitive truncation
+  reports `schema.truncated_field` with the repeated field path plus an
+  `index` segment for the element that could not be fully read.
 - `run/binary-schema-integer-out-of-range-json/`: schema decode reports
   `schema.integer_out_of_range` through JSON run output when a structurally
   present `UInt31be` field exceeds its external integer range, including byte
@@ -482,6 +487,14 @@ against the built `veln` binary.
 - `run/binary-schema-flag8-encode-out-of-range/`: generated schema encode
   helpers reject `Flag8(bits)` values outside the one-byte unsigned range with
   the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
+  bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
+  explicit count field.
+- `run/binary-schema-repeat-encode-out-of-range/`: repeated primitive encode
+  rejects an element outside the selected primitive range with the usual
+  `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-repeat-encode-count-mismatch/`: repeated primitive encode
+  rejects a `List<Int>` whose length does not match the earlier count field.
 - `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the

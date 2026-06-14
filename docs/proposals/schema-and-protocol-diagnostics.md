@@ -67,6 +67,11 @@ by
 `../../examples/specification/run/binary-schema-integer-out-of-range-json/`
 and
 `../../examples/specification/run/binary-schema-integer-out-of-range-human/`.
+Generated bounded repeated binary schema fields append an `index` segment to
+the structured schema field path when a repeated element truncates; the
+current behavior is specified under `../specification/run-json.md` and
+checked by
+`../../examples/specification/run/binary-schema-repeat-truncated-json/`.
 The remaining proposal work covers broader schema and codec diagnostics beyond
 these implemented slices.
 
@@ -150,9 +155,9 @@ to parse a localized display string.
 The first segment is the schema declaration name. Ordinary field segments use
 the written schema-local field name, including `_`-prefixed representation
 fields such as reserved bits. Dispatch payloads add a segment for the selected
-tag or case before entering the nested schema fields. Repeated or indexed
-binary structures, if added later, append numeric index segments at the point
-where the repeated element is entered.
+tag or case before entering the nested schema fields. Implemented bounded
+repeated binary schema fields append numeric index segments at the point where
+the repeated element is entered.
 
 Human output may render the same path in a compact dotted form such as
 `Http2FrameHeader.stream_id`, but that spelling is presentation only. JSON

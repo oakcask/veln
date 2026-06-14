@@ -85,6 +85,83 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedValues\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, UInt16be)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, items: List<Int>}, String>\n",
+            "  byte_decode_counted_values(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_values(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let read = core
+        .functions
+        .iter()
+        .find(|function| function.name == "read")
+        .expect("read should be lowered");
+    let CoreStmtKind::Return { expr } = &read.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecode(name),
+            ..
+        } if name == "CountedValues"
+    ));
+    let write = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write")
+        .expect("write should be lowered");
+    let CoreStmtKind::Return { expr } = &write.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "CountedValues");
+    assert_eq!(schema.fields[0].name, "count");
+    assert_eq!(
+        schema.fields[1].repeat.as_ref().map(|repeat| {
+            (
+                repeat.count_field.as_str(),
+                repeat.width,
+                repeat.max_value,
+                repeat.little_endian,
+            )
+        }),
+        Some(("count", 2, 0xffff, false))
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",

@@ -9,7 +9,7 @@ pub use model::{
     IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatch,
     IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeMapping,
     IrSchemaDecodeMappingExpr, IrSchemaDecodeMappingField, IrSchemaDecodeMappingRecordField,
-    IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaReservedBits, IrStmt, IrStmtKind,
-    TypedProgram,
+    IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaRepeat, IrSchemaReservedBits,
+    IrStmt, IrStmtKind, TypedProgram,
 };
 pub use veln_core::ContractObligationStatus;

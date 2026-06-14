@@ -272,6 +272,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  padding_length: UInt8 where padding_length <= length\n",
             "  stream_reserved: ReservedBits( 1,0 )\n",
             "  stream_id: UInt31be\n",
+            "  settings: Repeat( padding_length , UInt16be )\n",
             "  payload: ByteView(length - padding_length)\n",
             "\n",
             "  map to FrameHeader\n",
@@ -294,7 +295,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 6);
+    assert_eq!(schema.fields.len(), 7);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
     assert_eq!(schema.fields[1].name, "kind");
@@ -310,8 +311,10 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
     assert_eq!(schema.fields[3].ty, "ReservedBits(1, 0)");
     assert_eq!(schema.fields[4].name, "stream_id");
     assert_eq!(schema.fields[4].ty, "UInt31be");
-    assert_eq!(schema.fields[5].name, "payload");
-    assert_eq!(schema.fields[5].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[5].name, "settings");
+    assert_eq!(schema.fields[5].ty, "Repeat(padding_length, UInt16be)");
+    assert_eq!(schema.fields[6].name, "payload");
+    assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
     assert_eq!(schema.mappings.len(), 1);
     assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
     assert_eq!(schema.mappings[0].assignments.len(), 3);
@@ -331,6 +334,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tpadding_length: UInt8 where padding_length <= length\n",
             "\tstream_reserved: ReservedBits(1, 0)\n",
             "\tstream_id: UInt31be\n",
+            "\tsettings: Repeat(padding_length, UInt16be)\n",
             "\tpayload: ByteView(length - padding_length)\n",
             "\n",
             "\tmap to FrameHeader\n",
