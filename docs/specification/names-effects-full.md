@@ -189,27 +189,37 @@ the standard symbol table:
 ```veln
 net::receive_chunk() -> ByteChunk effects [net]
 net::send_chunk(bytes: ByteChunk) -> () effects [net]
+net::listen(address: String) -> NetListener effects [net]
+net::accept(listener: NetListener) -> NetStream effects [net]
+net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
+net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `time::timeout_ms`, `time::deadline_after_ms`, and
-`time::wait_until` infer the `time` effect. A public function or test that
-calls one of them directly or through a private helper must declare the
+effect. Direct calls to `net::listen`, `net::accept`, `net::read_chunk`, and
+`net::write_chunk` also infer the same coarse `net` effect. Direct calls to
+`time::timeout_ms`, `time::deadline_after_ms`, and `time::wait_until` infer
+the `time` effect. A public function or test that calls one of them directly
+or through a private helper must declare the
 matching effect in its `effects [...]` list.
 
-This boundary is intentionally descriptor-backed and narrow. `net::receive_chunk`
+This boundary is intentionally fixture-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
-chunk to the host runtime; `time::timeout_ms` waits at the runtime boundary;
-`time::deadline_after_ms` creates a relative `Deadline`; and
-`time::wait_until` waits until that deadline expires. Malformed host-fed
-receive bytes, failed outgoing event recording, host-fixture-forced timeout
-expiry, and host-fixture-forced deadline expiry are transport runtime
-failures, not schema, codec, or peer protocol diagnostics. These calls do not
-define sockets, stream routing, timer handles beyond the returned `Deadline`,
-cancellation, TLS, ALPN, or an HTTP application framework.
+chunk to the host runtime; `net::listen` returns a source-visible
+`NetListener`; `net::accept` returns a distinct source-visible `NetStream`;
+`net::read_chunk` reads one immutable `ByteChunk` from that stream; and
+`net::write_chunk` writes one immutable `ByteChunk` to that stream.
+`time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
+creates a relative `Deadline`; and `time::wait_until` waits until that
+deadline expires. Malformed host-fed receive or read bytes, failed outgoing
+send or write event recording, forced listen, accept, read, write, timeout, or
+deadline expiry failures are transport runtime failures, not schema, codec, or
+peer protocol diagnostics. These calls do not define stream routing, timer
+handles beyond the returned `Deadline`, cancellation, TLS, ALPN, or an HTTP
+application framework.
 
 ## Process Calls
 

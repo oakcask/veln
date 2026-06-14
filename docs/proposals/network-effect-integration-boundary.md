@@ -4,11 +4,12 @@ Status: proposed
 
 This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
-boundary calls are current behavior under
-`../specification/names-effects.md`, including host-runtime failures for
-malformed received bytes, failed outgoing event recording, and forced timeout
-and deadline expiry. This page keeps the larger transport adapter, routing,
-richer deadline, cancellation, and socket work open.
+boundary calls and the first fixture-backed socket listener/stream calls are
+current behavior under `../specification/names-effects.md`, including
+host-runtime failures for malformed received or read bytes, failed outgoing
+event recording, forced read and write failures, and forced timeout and
+deadline expiry. This page keeps the larger transport adapter, routing, richer
+deadline, cancellation, and socket work open.
 
 ## Problem
 
@@ -24,9 +25,10 @@ commit to a full network runtime.
 ## Remaining Scope
 
 Define future integration support beyond the implemented descriptor-backed
-boundary calls for:
+boundary calls and first fixture-backed listener/stream calls for:
 
-- socket listen, accept, read, and write operations
+- production socket ownership and lifecycle beyond the fixture-backed listen,
+  accept, read-one-chunk, and write-one-chunk slice
 - mapping transport byte chunks into sans-I/O input events
 - mapping outgoing chunks back to host transport writes
 - composed use of `net`, `time`, and `concurrency` effects
@@ -38,16 +40,23 @@ boundary calls for:
 
 ## Discussion Result: Network Effect Labels
 
+Implemented first socket slice: source-visible `NetListener` and `NetStream`
+handle types are returned by `net::listen(address)` and
+`net::accept(listener)`. `net::read_chunk(stream)` reads one `ByteChunk`, and
+`net::write_chunk(stream, bytes)` writes one `ByteChunk`. All four calls use
+the existing coarse `net` effect label and are fixture-backed runtime
+boundaries.
+
 The remaining transport surface should keep the existing coarse `net` effect
 label. Listen, accept, read, and write operations should be distinguished by
 standard-library function names, typed values, and diagnostics rather than by
 separate effect labels.
 
 This preserves the current effect-label source surface and avoids requiring the
-HTTP/2 design driver to decide a full network permission taxonomy before the
-socket API exists. If later runtime work needs static separation between
-network access modes, it should introduce that split with concrete APIs,
-compatibility rules, and migration guidance.
+HTTP/2 design driver to decide a full network permission taxonomy from the
+first fixture-backed socket calls. If later runtime work needs static
+separation between network access modes, it should introduce that split with
+concrete APIs, compatibility rules, and migration guidance.
 
 ## Discussion Result: Channel Byte Views
 
@@ -112,11 +121,13 @@ replacement for it.
 
 ## Discussion Result: Transport Error Boundary
 
-Implemented first slice: descriptor-backed `net::receive_chunk` reports
-malformed host-fed `VELN_NET_CHUNK_HEX` as a runtime failure, and
+Implemented first slices: descriptor-backed `net::receive_chunk` reports
+malformed host-fed `VELN_NET_CHUNK_HEX` as a runtime failure,
 descriptor-backed `net::send_chunk` reports failed outgoing event recording as
-a runtime failure. Successful descriptor-backed `net` and `time` calls remain
-current behavior under `../specification/names-effects.md`.
+a runtime failure, and fixture-backed socket listen, accept, read, and write
+failures are runtime failures. Successful descriptor-backed `net` and `time`
+calls plus fixture-backed listener/stream calls remain current behavior under
+`../specification/names-effects.md`.
 
 Transport failures should enter the system as host or runtime errors owned by
 the transport adapter. Socket read failures, write failures, accept failures,
@@ -175,9 +186,10 @@ than introduce deadline behavior into schemas or the pure protocol core.
 
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
-- Examples show adapter-owned socket reads, writes, stream routing, richer
-  deadline APIs beyond the narrow relative `Deadline`, and cancellation once
-  those runtime APIs exist.
+- Examples show production adapter socket ownership beyond the first
+  fixture-backed listener/stream handles, stream routing, richer deadline APIs
+  beyond the narrow relative `Deadline`, and cancellation once those runtime
+  APIs exist.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

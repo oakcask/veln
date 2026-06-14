@@ -1,0 +1,8 @@
+# Socket-boundary calls infer net for public effect checking.
+pub fn socket_boundary() -> ByteChunk
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let chunk: ByteChunk = net::read_chunk(stream)
+	net::write_chunk(stream, chunk)
+	chunk
+end
