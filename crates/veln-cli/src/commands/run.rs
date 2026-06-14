@@ -628,6 +628,33 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.peer_limit.header_list_size_exceeded" => {
+            let observed_size = json_number(protocol_entries, "observed_header_list_size")?;
+            let allowed_size = json_number(protocol_entries, "allowed_header_list_size")?;
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let limit_provenance = json_string(protocol_entries, "receive_limit_provenance")?;
+            let rule_provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("header list size exceeds receive maximum at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} decoded header list size {observed_size}; active receive maximum is {allowed_size}."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Receive limit provenance: {limit_provenance}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.flow_control_window_exceeded" => {
             let observed_length = json_number(protocol_entries, "observed_payload_length")?;
             let allowed_credit = json_number(protocol_entries, "allowed_window_credit")?;
@@ -1839,6 +1866,73 @@ mod tests {
                 .contains("active receive maximum is 16384 byte(s)")
         );
         assert!(diagnostic.related[1].to_json().contains("protocol_default"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_header_list_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.peer_limit.header_list_size_exceeded"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("observed_header_list_size", JsonValue::Number(10)),
+            ("allowed_header_list_size", JsonValue::Number(9)),
+            ("frame_kind", JsonValue::Number(9)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "receive_limit_provenance",
+                JsonValue::string("local_configuration"),
+            ),
+            (
+                "rule_provenance",
+                JsonValue::string("header_list_receive_limit"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 header list size exceeds receive maximum at byte offset 12".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.peer_limit.header_list_size_exceeded");
+        assert_eq!(
+            diagnostic.message,
+            "header list size exceeds receive maximum at byte offset 12"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("decoded header list size 10")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("active receive maximum is 9")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("local_configuration")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("header_list_receive_limit")
+        );
     }
 
     #[test]

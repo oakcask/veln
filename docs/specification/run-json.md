@@ -204,6 +204,14 @@ limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
 `attempted_concurrent_stream_count`, `allowed_concurrent_stream_count`,
 `active_state`, `receive_limit_provenance`, and `rule_provenance`. Received
+HEADERS or a completed CONTINUATION header block whose fixture-decoded header
+list size exceeds the active local receive policy uses id
+`http2.peer_limit.header_list_size_exceeded` and records
+`byte_offset.value`, `observed_header_list_size`,
+`allowed_header_list_size`, `frame_kind`, `stream_id`, `stream_ref`,
+`receive_limit_provenance`, and `rule_provenance`; peer-advertised
+`SETTINGS_MAX_HEADER_LIST_SIZE` remains outbound peer state and is not used as
+the receive-limit provenance for rejecting incoming header blocks. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,

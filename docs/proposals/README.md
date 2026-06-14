@@ -53,8 +53,9 @@ compare it with `../specification/` before changing behavior.
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
   truncation, reserved-bit mismatch, payload length boundary, field-local
   schema validation details, structured schema byte previews, and the HTTP/2
-  client connection preface failures, frame-size and flow-control peer-limits,
-  SETTINGS value range peer-limit, stream id domain failures, invalid
+  client connection preface failures, frame-size, header-list-size, and
+  flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
+  failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
   protocol projections, post-GOAWAY stream rejection projection, and generated
   binary schema encode value-representation failures, generated binary schema
@@ -64,6 +65,7 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
+  provenance, header-list-size peer-limit diagnostic slice with receive-limit
   provenance, peer-received SETTINGS state for enable push, maximum frame size,
   maximum concurrent streams, initial window size, header table size, and
   maximum header list size, unknown SETTINGS identifier handling, SETTINGS

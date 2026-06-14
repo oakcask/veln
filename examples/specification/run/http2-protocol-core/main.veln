@@ -133,6 +133,7 @@ type Http2ProtocolFailure
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
 	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
 	ConcurrentStreamsExceeded(Int, Int, Int, Int, String, String, String)
+	HeaderListSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int, String)
 	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
 end
 
@@ -159,6 +160,11 @@ end
 type ReceiveFlowControlDecision
 	ReceiveFlowControlOk(ReceiveFlowControl)
 	ReceiveFlowControlFailed(Http2ProtocolFailure)
+end
+
+type HeaderListSizeDecision
+	HeaderListSizeOk
+	HeaderListSizeFailed(Http2ProtocolFailure)
 end
 
 type OutboundDataDecision
@@ -422,6 +428,10 @@ fn receive_limit_provenance_label(receive_limit: ReceiveLimitEntry) -> String
 	end
 end
 
+fn header_list_receive_limit() -> ReceiveLimitEntry
+	ReceiveLimit(9, LocalConfiguration)
+end
+
 fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Step, String>
 	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
@@ -548,10 +558,43 @@ fn stream_id_is_client_initiated(stream_id: Int) -> Bool
 end
 
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
-	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, flags, stream_id, shutdown_state, receive_flow_control)?
+	match validate_header_list_size(next_offset, kind, flags, stream_id, completed_header_block)
+		HeaderListSizeOk => complete_after_header_list_size(pending, next_continuation, length, kind, flags, stream_id, completed_header_block, consumed_state)
+		HeaderListSizeFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
+	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, flags, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, update_initial_window_receive_credit(pending, next_offset, length, kind, flags, peer_settings, next_receive_flow_control)?), next_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, update_shutdown_state(pending, length, kind, state_shutdown_state_value(consumed_state))?, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn validate_header_list_size(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk) -> HeaderListSizeDecision
+	match header_list_boundary_reached(kind, flags)
+		true => validate_completed_header_list_size(offset, kind, stream_id, byte_count_to_int(byte_chunk_count(completed_header_block)), header_list_receive_limit())
+		false => HeaderListSizeOk
+	end
+end
+
+fn header_list_boundary_reached(kind: Int, flags: Int) -> Bool
+	match kind == 1
+		true => end_headers_set(flags)
+		false => match kind == 9
+			true => end_headers_set(flags)
+			false => false
+		end
+	end
+end
+
+fn validate_completed_header_list_size(offset: Int, kind: Int, stream_id: Int, observed_size: Int, receive_limit: ReceiveLimitEntry) -> HeaderListSizeDecision
+	let allowed_size: Int = receive_limit_value(receive_limit)
+	match observed_size > allowed_size
+		true => HeaderListSizeFailed(HeaderListSizeExceeded(offset, observed_size, receive_limit, kind, stream_id, "header_list_receive_limit"))
+		false => HeaderListSizeOk
 	end
 end
 
@@ -1355,9 +1398,21 @@ fn state_pending_count(state: Http2DecodeState) -> Int
 	end
 end
 
+fn state_pending_chunk(state: Http2DecodeState) -> ByteChunk
+	match state
+		State(pending, _, _, _, _, _, _, _) => pending
+	end
+end
+
 fn state_next_offset(state: Http2DecodeState) -> Int
 	match state
 		State(_, next_offset, _, _, _, _, _, _) => next_offset
+	end
+end
+
+fn state_receive_limit(state: Http2DecodeState) -> ReceiveLimitEntry
+	match state
+		State(_, _, _, _, receive_limit, _, _, _) => receive_limit
 	end
 end
 
@@ -1490,6 +1545,18 @@ end
 fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
 	match state
 		State(_, _, _, _, _, peer_settings, _, _) => peer_settings
+	end
+end
+
+fn state_shutdown_state_value(state: Http2DecodeState) -> ConnectionShutdownState
+	match state
+		State(_, _, _, _, _, _, shutdown_state, _) => shutdown_state
+	end
+end
+
+fn state_receive_flow_control(state: Http2DecodeState) -> ReceiveFlowControl
+	match state
+		State(_, _, _, _, _, _, _, receive_flow_control) => receive_flow_control
 	end
 end
 
@@ -1775,6 +1842,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.concurrent_streams_exceeded"
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "http2.peer_limit.header_list_size_exceeded"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
 	end
 end
@@ -1793,6 +1861,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(offset, _, _, _, _) => offset
 		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
 		ConcurrentStreamsExceeded(offset, _, _, _, _, _, _) => offset
+		HeaderListSizeExceeded(offset, _, _, _, _, _) => offset
 		SettingsValueOutOfRange(offset, _, _, _, _, _, _) => offset
 	end
 end
@@ -1811,6 +1880,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1829,6 +1899,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
 		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
+		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
@@ -1847,6 +1918,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
 		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
 		ConcurrentStreamsExceeded(_, stream_id, _, _, _, _, _) => stream_id
+		HeaderListSizeExceeded(_, _, _, _, actual_stream, _) => actual_stream
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1865,6 +1937,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1883,6 +1956,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
+		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
@@ -1901,6 +1975,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1919,6 +1994,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1937,6 +2013,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
 		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
 		ConcurrentStreamsExceeded(_, _, attempted_count, _, _, _, _) => attempted_count
+		HeaderListSizeExceeded(_, observed_size, _, _, _, _) => observed_size
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1955,6 +2032,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
 		ConcurrentStreamsExceeded(_, _, _, allowed_count, _, _, _) => allowed_count
+		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_value(receive_limit)
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -1973,6 +2051,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
 		ConcurrentStreamsExceeded(_, _, _, _, active_state, _, _) => active_state
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "header-list"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "connection-control"
 	end
 end
@@ -1991,6 +2070,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
+		HeaderListSizeExceeded(_, _, _, _, _, rule_provenance) => rule_provenance
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2_settings_value_range"
 	end
 end
@@ -2009,6 +2089,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, receive_limit_provenance, _) => receive_limit_provenance
+		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_provenance_label(receive_limit)
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
 	end
 end
@@ -2027,6 +2108,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _) => setting_identifier
 	end
 end
@@ -2045,6 +2127,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _) => setting_name
 	end
 end
@@ -2063,6 +2146,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _) => observed_value
 	end
 end
@@ -2081,6 +2165,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _) => accepted_min_value
 	end
 end
@@ -2099,6 +2184,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _) => accepted_max_value
 	end
 end
@@ -2117,6 +2203,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
 	end
 end
@@ -2186,6 +2273,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
 	end
 end
@@ -2204,6 +2292,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
+		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
 	end
 end
@@ -2222,6 +2311,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
+		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -2790,6 +2880,29 @@ fn print_push_promise_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let header_list_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000010102030405060708")?), state)?
+	print_step("header-list-accepted", header_list_accepted)
+	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "0102030405060708")?
+	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000010102030405")?), state)?
+	print_step("header-list-start", header_list_start)
+	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005090400000001060708090a")?), step_state(header_list_start))?
+	print_failure("header-list-size", header_list_too_large)
+	print_peer_settings("header-list-size", step_state(header_list_too_large))
+	Ok(())
+end
+
+fn print_peer_header_list_size_cases() -> Result<(), String> effects [stdio]
+	let peer_max_header_list_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000600002000")?), frame_state())?
+	print_step("peer-max-header-list-size", peer_max_header_list_size)
+	print_peer_settings("peer-max-header-list-size", step_state(peer_max_header_list_size))
+	let max_header_list_size_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_max_header_list_size))?
+	print_step("max-header-list-size-settings-ack", max_header_list_size_settings_ack)
+	print_peer_settings("max-header-list-size-settings-ack", step_state(max_header_list_size_settings_ack))
+	let ignored_header_list_size_cases: () = print_header_list_size_cases(step_state(peer_max_header_list_size))?
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
@@ -2868,12 +2981,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let header_table_size_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_header_table_size))?
 	print_step("header-table-size-settings-ack", header_table_size_settings_ack)
 	print_peer_settings("header-table-size-settings-ack", step_state(header_table_size_settings_ack))
-	let peer_max_header_list_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000600002000")?), frame_state())?
-	print_step("peer-max-header-list-size", peer_max_header_list_size)
-	print_peer_settings("peer-max-header-list-size", step_state(peer_max_header_list_size))
-	let max_header_list_size_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_max_header_list_size))?
-	print_step("max-header-list-size-settings-ack", max_header_list_size_settings_ack)
-	print_peer_settings("max-header-list-size-settings-ack", step_state(max_header_list_size_settings_ack))
+	let ignored_peer_header_list_size_cases: () = print_peer_header_list_size_cases()?
 	let settings_ack_nonzero_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040100000000000500008000")?), frame_state())?
 	print_failure("settings-ack-length", settings_ack_nonzero_length)
 	let settings_ack_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000001")?), frame_state())?

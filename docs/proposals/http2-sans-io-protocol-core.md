@@ -232,9 +232,10 @@ continuation header-block assembly through a valid final CONTINUATION frame,
 the combined opaque header-block payload bytes from that completed block,
 single-frame HEADERS completion when END_HEADERS is set alongside another
 flag, continuation failures for a different frame kind, a different stream id,
-and closed input while a header block remains pending, and one incoming
-frame-size peer-limit failure, plus one invalid idle-stream frame kind and
-stream id domain failures for zero, even, and connection-only stream ids. It keeps
+and closed input while a header block remains pending, one incoming
+frame-size peer-limit failure, one completed header-list-size peer-limit
+failure at the fixture-codec boundary, plus one invalid idle-stream frame kind
+and stream id domain failures for zero, even, and connection-only stream ids. It keeps
 parser state as undecoded suffix bytes plus the next absolute byte offset
 after each consumed preface or frame, reuses the implemented frame-header
 primitive after the preface gate, checks the active receive maximum frame size
@@ -263,6 +264,13 @@ out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+It keeps peer-advertised `SETTINGS_MAX_HEADER_LIST_SIZE` separate from the
+local receive policy for inbound header blocks: the executable slice accepts a
+header block at the local policy boundary, rejects a completed CONTINUATION
+block whose fixture-decoded header list size exceeds that local policy, and
+projects `http2.peer_limit.header_list_size_exceeded` with observed size,
+allowed size, stream reference, receive-limit provenance, and rule
+provenance in ordinary output, human diagnostics, and JSON details.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
