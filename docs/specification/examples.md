@@ -475,14 +475,16 @@ diagnostics.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-routing/` covers the
-narrow adapter-owned socket-to-handler routing slice. It reads one
-fixture-backed `ByteChunk` from a `NetStream`, sends an ordinary stream event
-through a standard channel under `concurrency`, calls the plain handler, and
+narrow adapter-owned socket-to-handler routing and stream-task handler slice.
+It reads one fixture-backed `ByteChunk` from a `NetStream`, sends an ordinary
+stream event
+through a standard channel under `concurrency`, calls the plain handler, joins
+a spawned stream-handler task over the same event/action boundary, and
 translates ordered `SendBytes` response actions into `net::write_chunk` calls.
 The handler has no socket handle and performs no `net` calls. The matching
 `../../examples/specification/check/socket-stream-adapter-routing-effects/`
 case pins that adapter-owned routing still uses the existing `concurrency`
-effect for channel calls instead of a new routing effect.
+effect for channel and task calls instead of a new routing effect.
 
 ## Pending Input Byte Chunks
 
