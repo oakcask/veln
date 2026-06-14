@@ -72,8 +72,15 @@ the structured schema field path when a repeated element truncates; the
 current behavior is specified under `../specification/run-json.md` and
 checked by
 `../../examples/specification/run/binary-schema-repeat-truncated-json/`.
-The remaining proposal work covers broader schema and codec diagnostics beyond
-these implemented slices.
+The implemented HTTP/2 projection boundary now also includes an ordinary
+source-level `Http2DiagnosticContext` and top-level
+`http2_protocol_diagnostic` function in the protocol-core executable example.
+Representative command-facing HTTP/2 examples route both
+`http2.protocol.invalid_frame_kind` and
+`http2.peer_limit.frame_size_exceeded` through that function while preserving
+the same human diagnostics and `details.protocol_diagnostic` JSON shape. The
+remaining proposal work covers broader schema and codec diagnostics plus
+unconverted HTTP/2 diagnostic fixtures beyond these implemented slices.
 
 ## Problem
 
