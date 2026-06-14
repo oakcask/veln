@@ -37,7 +37,7 @@ CodecDirections ::= CodecDirection+
 CodecDirection ::= "decode" | "encode"
 CodecImplementation ::= "derive" CodecDirection NL
                   | CodecDirection "with" Name NL
-PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
+PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
