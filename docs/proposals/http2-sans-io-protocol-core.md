@@ -22,8 +22,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining settings interactions beyond the implemented enable-push,
   maximum-frame-size, maximum-concurrent-streams, initial-window-size,
   header-table-size, and maximum-header-list-size peer-advertised state,
-  unknown-identifier handling, SETTINGS ACK receive handling, and outbound
-  SETTINGS ACK send intent
+  unknown-identifier handling, SETTINGS ACK receive handling, and the narrow
+  outbound SETTINGS ACK send-intent slice
 - remaining DATA behavior beyond the implemented receive-window accounting
   and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
