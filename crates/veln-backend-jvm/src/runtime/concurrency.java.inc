@@ -46,7 +46,7 @@
 
         private Task(Fn fn) {
             this.future = new java.util.concurrent.FutureTask<Object>(
-                () -> freezeValue(call(fn))
+                () -> freezeBoundaryValue(call(fn))
             );
             this.thread = new Thread(this.future);
             this.thread.start();
@@ -69,7 +69,7 @@
                 return err("closed");
             }
             if (tx.channel.capacity == 0L) {
-                Object frozen = freezeValue(value);
+                Object frozen = freezeBoundaryValue(value);
                 while (!tx.channel.closed
                     && (tx.channel.waitingReceivers == 0L || tx.channel.hasRendezvousValue)) {
                     try {
@@ -109,7 +109,7 @@
             if (tx.channel.closed) {
                 return err("closed");
             }
-            tx.channel.queue.addLast(freezeValue(value));
+            tx.channel.queue.addLast(freezeBoundaryValue(value));
             tx.channel.notifyAll();
             return ok(UNIT);
         }

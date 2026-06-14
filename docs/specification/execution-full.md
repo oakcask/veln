@@ -96,11 +96,15 @@ position in the error text. When such a failure propagates out of a
 `run --json` entry as an `Err(String)`, the
 result failure details also include the fixture text span, decoded
 `ByteOffset`, nibble position, and nearby fixture text context. Byte views
-cross task and channel freeze boundaries as ordinary immutable ADT values;
-`byte_view_to_chunk` exposes the same owned-byte semantics directly by
-returning an immutable `ByteChunk` containing exactly the bounded view bytes.
-The exact host representation of byte chunks, byte views, counts, offsets,
-and bytes is backend-owned.
+cross task and channel freeze boundaries with the same bounded bytes, logical
+`ByteOffset`, and `ByteCount` observed by the sender; the checked
+`examples/specification/run/binary-byteview-freeze-boundary/` case observes
+those facts after the original buffered input has advanced. The runtime may
+copy, share, pin, or otherwise preserve the bounded bytes, but source behavior
+does not expose a memory layout or zero-copy guarantee. `byte_view_to_chunk`
+exposes owned-byte semantics directly by returning an immutable `ByteChunk`
+containing exactly the bounded view bytes. The exact host representation of
+byte chunks, byte views, counts, offsets, and bytes is backend-owned.
 
 The binary schema primitive execution slice exposes a narrow frame-header
 decode helper over `ByteView`. It consumes a `UInt24be` length field, two

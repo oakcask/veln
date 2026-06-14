@@ -28,6 +28,66 @@
         }
         return value;
     }
+
+    private static java.util.List<Object> freezeBoundaryList(java.util.List<Object> values) {
+        java.util.ArrayList<Object> frozen = new java.util.ArrayList<Object>(values.size());
+        for (Object value : values) {
+            frozen.add(freezeBoundaryValue(value));
+        }
+        return java.util.Collections.unmodifiableList(frozen);
+    }
+
+    private static <K, V> java.util.Map<K, V> freezeBoundaryMap(java.util.Map<K, V> values) {
+        java.util.LinkedHashMap<K, V> frozen = new java.util.LinkedHashMap<K, V>();
+        for (java.util.Map.Entry<K, V> entry : values.entrySet()) {
+            @SuppressWarnings("unchecked")
+            K key = (K) freezeBoundaryValue(entry.getKey());
+            @SuppressWarnings("unchecked")
+            V value = (V) freezeBoundaryValue(entry.getValue());
+            frozen.put(key, value);
+        }
+        return java.util.Collections.unmodifiableMap(frozen);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object freezeBoundaryValue(Object value) {
+        if (isByteViewValue(value)) {
+            return freezeByteView(value);
+        }
+        if (value instanceof java.util.List) {
+            return freezeBoundaryList((java.util.List<Object>) value);
+        }
+        if (value instanceof java.util.Map) {
+            return freezeBoundaryMap((java.util.Map<Object, Object>) value);
+        }
+        if (value instanceof Result) {
+            Result result = (Result) value;
+            return new Result(result.ok, freezeBoundaryValue(result.value));
+        }
+        if (value instanceof Option) {
+            Option option = (Option) value;
+            return option.some ? new Option(true, freezeBoundaryValue(option.value)) : value;
+        }
+        if (value instanceof ListValue) {
+            ListValue list = (ListValue) value;
+            return list.cons
+                ? new ListValue(
+                    true,
+                    freezeBoundaryValue(list.head),
+                    freezeBoundaryValue(list.tail)
+                )
+                : value;
+        }
+        if (value instanceof Adt) {
+            Adt adt = (Adt) value;
+            Object[] payloads = new Object[adt.payloads.length];
+            for (int index = 0; index < adt.payloads.length; index += 1) {
+                payloads[index] = freezeBoundaryValue(adt.payloads[index]);
+            }
+            return new Adt(adt.name, payloads);
+        }
+        return freezeValue(value);
+    }
     public static Object call(Object fn, Object... args) {
         if (fn instanceof Fn) {
             return ((Fn) fn).call(args);

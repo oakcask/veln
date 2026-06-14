@@ -27,6 +27,11 @@ execution reference.
   values. Standard `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` values execute as
   ordinary immutable ADT values.
+- `ByteView` values cross task and channel freeze boundaries with the same
+  bounded bytes, logical `ByteOffset`, and `ByteCount` observed by the sender.
+  The checked example is
+  `examples/specification/run/binary-byteview-freeze-boundary/`. The runtime
+  does not expose a source-visible memory layout or zero-copy guarantee.
 - Pending-input examples append immutable `StreamInput.Chunk` bytes, enforce a
   source-owned retained `ByteCount` limit, take and drop bounded `ByteView`
   ranges, preserve absolute `ByteOffset` facts separately, materialize
