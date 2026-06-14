@@ -1,0 +1,41 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.mapping_converter\"", "schema mapping converter `missing_converter` is not resolved", "\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `two_params` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_converter_input\"", "schema mapping converter `needs_text` expects `String`, but source field `kind` decodes as `Int`", "\"id\":\"schema.mapping_type\"", "source field `to_text(kind)` decodes as `String`", "\"id\":\"schema.mapping_converter_purity\"", "schema mapping converter `noisy` must be pure", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `convert({ value: kind })` is not supported", "\"input_source_field\":\"kind\"", "\"effects\":[\"stdio\"]"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "schema.mapping_converter"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "unresolved_converter"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "schema.mapping_converter_arity"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "schema.mapping_converter_input"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "schema.mapping_type"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "schema.mapping_converter_purity"
+
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "schema.mapping_expression_unsupported"

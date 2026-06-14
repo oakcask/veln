@@ -2724,6 +2724,9 @@
             }
             return adt(name, payloads);
         }
+        if (tag.equals("converter")) {
+            return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(2)));
+        }
         throw new IllegalStateException("unsupported schema mapping expression metadata");
     }
 

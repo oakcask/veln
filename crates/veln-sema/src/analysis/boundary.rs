@@ -2182,6 +2182,26 @@ fn schema_mapping_expr_diagnostic(
                 ],
             ),
         ),
+        SchemaMappingExprError::UnresolvedConverter { name, span } => Diagnostic::new(
+            "schema.mapping_converter",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("schema mapping converter `{name}` is not resolved"),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("unresolved_converter")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("converter", JsonValue::string(name)),
+                ],
+            ),
+        ),
         SchemaMappingExprError::ConstructorArity {
             name,
             expected,
@@ -2214,6 +2234,132 @@ fn schema_mapping_expr_diagnostic(
                 ],
             ),
         ),
+        SchemaMappingExprError::ConverterArity {
+            name,
+            expected,
+            actual,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_arity",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "schema mapping converter `{name}` expects {expected} argument(s), but got {actual}"
+                ),
+                Some(span),
+                schema_mapping_assignment_details(
+                    assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    assignment,
+                    [
+                        ("reason", JsonValue::string("converter_arity_mismatch")),
+                        (
+                            "mapping_target",
+                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                        ),
+                        ("converter", JsonValue::string(name)),
+                        (
+                            "expected_argument_count",
+                            JsonValue::Number(expected as i64),
+                        ),
+                        ("actual_argument_count", JsonValue::Number(actual as i64)),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ConverterInputType {
+            name,
+            expected,
+            actual,
+            source,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_input",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "schema mapping converter `{name}` expects `{}`, but source field `{source}` decodes as `{}`",
+                    expected.render(),
+                    actual.render()
+                ),
+                Some(span),
+                schema_mapping_assignment_details(
+                    assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    assignment,
+                    [
+                        ("reason", JsonValue::string("converter_input_type_mismatch")),
+                        (
+                            "mapping_target",
+                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                        ),
+                        ("converter", JsonValue::string(name)),
+                        ("input_source_field", JsonValue::string(source)),
+                        ("expected", JsonValue::string(expected.render())),
+                        ("actual", JsonValue::string(actual.render())),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ImpureConverter {
+            name,
+            effects,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_purity",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!("schema mapping converter `{name}` must be pure"),
+                Some(span),
+                schema_mapping_assignment_details(
+                    assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    assignment,
+                    [
+                        ("reason", JsonValue::string("impure_converter")),
+                        (
+                            "mapping_target",
+                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                        ),
+                        ("converter", JsonValue::string(name)),
+                        (
+                            "effects",
+                            JsonValue::array(effects.iter().cloned().map(JsonValue::string)),
+                        ),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
         SchemaMappingExprError::RecordField { name, span } => Diagnostic::new(
             "schema.mapping_record_field",
             Severity::Error,

@@ -238,6 +238,9 @@ against the built `veln` binary.
   constructor-shaped schema mapping assignment values report unsupported
   expression, unresolved constructor, constructor arity, and payload type
   diagnostics when they exceed the implemented structural expression slice.
+- `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
+  mapping assignment values report unresolved converter, arity, input type,
+  return type, purity, and unsupported converter shape diagnostics.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -434,6 +437,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-constructor-expression-decode/`: a generated
   binary schema decode helper constructs an ADT target field from
   schema-local fields before returning the decoded value.
+- `run/binary-schema-mapped-converter-decode/`: a generated binary schema
+  decode helper calls a pure same-module converter on a schema-local field
+  before returning the decoded value.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

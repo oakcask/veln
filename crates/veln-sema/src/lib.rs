@@ -282,6 +282,12 @@ fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappin
                 args: args.into_iter().map(ir_schema_mapping_expr).collect(),
             }
         }
+        SchemaDecodeMappingExpr::Converter { function, arg } => {
+            IrSchemaDecodeMappingExpr::Converter {
+                function,
+                arg: Box::new(ir_schema_mapping_expr(*arg)),
+            }
+        }
     }
 }
 

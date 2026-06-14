@@ -72,11 +72,13 @@ A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = expression` to map schema-local fields into an ordinary
 source value shape. The implemented mapping expression slice supports
-schema-local field references, record construction, and ADT constructor
-construction resolved through ordinary source module rules. Other ordinary
-calls, effects, runtime settings, stream state, and recovery behavior are not
-mapping expressions. Mapping clauses are parsed, formatted, lowered, exposed
-to editor support, and used by the generated decode slice described in
+schema-local field references, record construction, ADT constructor
+construction resolved through ordinary source module rules, and one pure
+same-module converter function call from a schema-local field into a target
+field. Other ordinary calls, imported converter functions, effects, runtime
+settings, stream state, and recovery behavior are not mapping expressions.
+Mapping clauses are parsed, formatted, lowered, exposed to editor support,
+and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has a single structural mapping
 and all assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, length-bounded
@@ -98,7 +100,10 @@ The checked diagnostics case
 pins the multiple mapping clause boundary. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
-arity, and constructor payload type diagnostics.
+arity, and constructor payload type diagnostics. The checked diagnostics case
+`../../examples/specification/check/schema-mapping-converter-diagnostics/`
+pins unresolved converter, converter arity, converter input type, converter
+purity, converter return type, and unsupported converter shape diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, supported byte-aligned `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout,

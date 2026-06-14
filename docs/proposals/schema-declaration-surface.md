@@ -59,8 +59,9 @@ The implemented first slice covers:
 - semantic rejection for `format binary` schemas that declare more than one
   structural `map to Target` clause
 - schema mapping expressions that reference schema-local fields, construct
-  records, or construct ADT payloads through ordinary source module
-  constructor resolution
+  records, construct ADT payloads through ordinary source module constructor
+  resolution, or call one pure same-module representation converter from a
+  schema-local field into a target field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
 
@@ -70,8 +71,9 @@ This proposal remains open for:
   implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
-  construction, and ADT constructor construction expression slice, including
-  mapping selection and representation conversion hooks
+  construction, ADT constructor construction, and single pure same-module
+  representation conversion hook expression slice, including mapping
+  selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
@@ -104,14 +106,17 @@ implemented under `../specification/execution.md`: an eligible binary schema
 may use one `map to Target` clause to construct an ordinary mapped record
 after field-local validation succeeds when each assignment expression type
 checks against the target field. The implemented expression slice supports
-schema-local field references, record construction, and ADT constructor
-construction resolved through ordinary source module rules.
+schema-local field references, record construction, ADT constructor
+construction resolved through ordinary source module rules, and one pure
+same-module converter function call from a schema-local field into a target
+field.
 
 The implemented runtime mapping slice maps schema field values through
-schema-local field references, record construction, and ADT constructor
-construction. A schema does not implicitly publish a record type just because
-it names fields, and importing a schema does not make its schema-local field
-names available as ordinary source bindings.
+schema-local field references, record construction, ADT constructor
+construction, and a single same-module pure converter call. A schema does not
+implicitly publish a record type just because it names fields, and importing a
+schema does not make its schema-local field names available as ordinary source
+bindings.
 
 The runtime checker should resolve the target value shape and assign
 schema-local fields to the target's record fields or ADT constructor payload
@@ -130,9 +135,9 @@ declared ordinary value type, such as `Int` for exact-width unsigned fields, or
 a field-local representation conversion when the schema vocabulary defines one.
 
 Mapping expressions stay structural in the first surface: field selection,
-record construction, and ADT construction are implemented. Schema-declared
-representation conversions remain planned work. Arbitrary function calls,
-runtime settings, stream state, and recovery behavior belong in explicit codec
+record construction, ADT construction, and one pure same-module converter call
+are implemented. Arbitrary function calls, imported converters, runtime
+settings, stream state, and recovery behavior belong in explicit codec
 functions rather than in schema mapping.
 
 ## Discussion Result: Top-Level Schema Declarations
@@ -289,8 +294,8 @@ Implemented:
   unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
   exposed to editor token metadata, including schema-local field reference,
-  record construction, and ADT constructor construction assignment
-  expressions.
+  record construction, ADT constructor construction, and pure same-module
+  representation converter call assignment expressions.
 - The generated helper slice resolves one structural `map to Target` clause
   when assignment expressions type check against target record fields, rejects
   invalid mapping assignments before execution, and returns the mapped record
@@ -304,8 +309,8 @@ Remaining:
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
 - Runtime schema value mapping beyond schema-local field reference, record
-  construction, and ADT constructor construction resolves mapping selection,
-  representation conversion hooks, and codec-selected mapping.
+  construction, ADT constructor construction, and one pure same-module
+  converter call resolves mapping selection and codec-selected mapping.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

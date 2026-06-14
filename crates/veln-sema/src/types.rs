@@ -278,31 +278,7 @@ impl Type {
 
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        let mut functions = module
-            .functions
-            .iter()
-            .filter(|function| function.kind == FunctionKind::Function)
-            .filter_map(|function| {
-                let name = function.name.clone()?;
-                let params = function
-                    .params
-                    .iter()
-                    .map(|param| parse_type_or_unknown(param.ty.as_deref()))
-                    .collect();
-                let return_type = parse_type_or_unknown(function.return_type.as_deref());
-                Some(FunctionSignature {
-                    target_name: name.clone(),
-                    name,
-                    module_name: function.module_name.clone(),
-                    visibility: function.visibility,
-                    params,
-                    return_type,
-                    effects: function.effects.clone().unwrap_or_default(),
-                    node_id: function.node_id,
-                    span: function.span.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
+        let mut functions = ordinary_function_signatures(module);
         functions.extend(schema_decode_function_signatures(module));
         functions.extend(schema_encode_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
@@ -435,6 +411,34 @@ impl TypeEnvironment {
             _ => Vec::new(),
         }
     }
+}
+
+fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+    module
+        .functions
+        .iter()
+        .filter(|function| function.kind == FunctionKind::Function)
+        .filter_map(|function| {
+            let name = function.name.clone()?;
+            let params = function
+                .params
+                .iter()
+                .map(|param| parse_type_or_unknown(param.ty.as_deref()))
+                .collect();
+            let return_type = parse_type_or_unknown(function.return_type.as_deref());
+            Some(FunctionSignature {
+                target_name: name.clone(),
+                name,
+                module_name: function.module_name.clone(),
+                visibility: function.visibility,
+                params,
+                return_type,
+                effects: function.effects.clone().unwrap_or_default(),
+                node_id: function.node_id,
+                span: function.span.clone(),
+            })
+        })
+        .collect()
 }
 
 fn codec_call_signatures(
@@ -948,6 +952,10 @@ pub(crate) enum SchemaDecodeMappingExpr {
         name: Vec<String>,
         args: Vec<SchemaDecodeMappingExpr>,
     },
+    Converter {
+        function: String,
+        arg: Box<SchemaDecodeMappingExpr>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -976,11 +984,36 @@ pub(crate) enum SchemaMappingExprError {
         name: String,
         span: SourceSpan,
     },
+    UnresolvedConverter {
+        name: String,
+        span: SourceSpan,
+    },
     ConstructorArity {
         name: String,
         expected: usize,
         actual: usize,
         span: SourceSpan,
+    },
+    ConverterArity {
+        name: String,
+        expected: usize,
+        actual: usize,
+        span: SourceSpan,
+        function_span: SourceSpan,
+    },
+    ConverterInputType {
+        name: String,
+        expected: Box<Type>,
+        actual: Box<Type>,
+        source: String,
+        span: SourceSpan,
+        function_span: SourceSpan,
+    },
+    ImpureConverter {
+        name: String,
+        effects: Vec<String>,
+        span: SourceSpan,
+        function_span: SourceSpan,
     },
     RecordField {
         name: String,
@@ -1080,10 +1113,13 @@ pub(crate) fn schema_mapping_expr_typed(
     expected: &Type,
 ) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
     let registry = AdtRegistry::from_module(module);
+    let mut converter_functions = ordinary_function_signatures(module);
+    infer_function_body_effects(module, &mut converter_functions);
     let typed = schema_mapping_expr_typed_unchecked(
         module,
         schema,
         &registry,
+        &converter_functions,
         schema_fields,
         expr,
         expected,
@@ -1103,6 +1139,7 @@ fn schema_mapping_expr_typed_unchecked(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     registry: &AdtRegistry,
+    converter_functions: &[FunctionSignature],
     schema_fields: &BTreeMap<String, Type>,
     expr: &Expr,
     expected: &Type,
@@ -1112,6 +1149,7 @@ fn schema_mapping_expr_typed_unchecked(
             module,
             schema,
             registry,
+            converter_functions,
             schema_fields,
             expr,
             segments,
@@ -1146,9 +1184,11 @@ fn schema_mapping_expr_typed_unchecked(
                         span: field.span.clone(),
                     });
                 };
-                let typed = schema_mapping_expr_typed(
+                let typed = schema_mapping_expr_typed_inner(
                     module,
                     schema,
+                    registry,
+                    converter_functions,
                     schema_fields,
                     &field.expr,
                     field_ty,
@@ -1178,6 +1218,29 @@ fn schema_mapping_expr_typed_unchecked(
                     span: expr.span.clone(),
                 });
             };
+            if let [name] = segments.as_slice() {
+                if let Some(function) =
+                    schema_mapping_converter_function(converter_functions, schema, name)
+                {
+                    return schema_mapping_converter_expr(
+                        module,
+                        schema,
+                        registry,
+                        converter_functions,
+                        schema_fields,
+                        expr,
+                        callee,
+                        args,
+                        function,
+                    );
+                }
+                if !schema_mapping_name_can_be_constructor(segments) {
+                    return Err(SchemaMappingExprError::UnresolvedConverter {
+                        name: name.clone(),
+                        span: callee.span.clone(),
+                    });
+                }
+            }
             if !schema_mapping_name_can_be_constructor(segments) {
                 return Err(SchemaMappingExprError::Unsupported {
                     text: schema_mapping_expr_render(expr),
@@ -1193,6 +1256,8 @@ fn schema_mapping_expr_typed_unchecked(
             schema_mapping_constructor_expr(
                 module,
                 schema,
+                registry,
+                converter_functions,
                 schema_fields,
                 expr,
                 args,
@@ -1207,10 +1272,139 @@ fn schema_mapping_expr_typed_unchecked(
     }
 }
 
+fn schema_mapping_expr_typed_inner(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    registry: &AdtRegistry,
+    converter_functions: &[FunctionSignature],
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    expected: &Type,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    let typed = schema_mapping_expr_typed_unchecked(
+        module,
+        schema,
+        registry,
+        converter_functions,
+        schema_fields,
+        expr,
+        expected,
+    )?;
+    if !is_assignable(expected, &typed.ty) {
+        return Err(SchemaMappingExprError::TypeMismatch {
+            expected: Box::new(expected.clone()),
+            actual: Box::new(typed.ty),
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        });
+    }
+    Ok(typed)
+}
+
+fn schema_mapping_converter_function<'a>(
+    functions: &'a [FunctionSignature],
+    schema: &SchemaDecl,
+    name: &str,
+) -> Option<&'a FunctionSignature> {
+    functions
+        .iter()
+        .find(|function| function.name == name && schema_mapping_same_module(function, schema))
+}
+
+fn schema_mapping_same_module(function: &FunctionSignature, schema: &SchemaDecl) -> bool {
+    match (
+        function.module_name.as_deref(),
+        schema.module_name.as_deref(),
+    ) {
+        (Some(function_module), Some(schema_module)) => function_module == schema_module,
+        (None, None) => function.span.file == schema.span.file,
+        _ => false,
+    }
+}
+
+fn schema_mapping_converter_expr(
+    _module: &SurfaceModule,
+    _schema: &SchemaDecl,
+    _registry: &AdtRegistry,
+    _converter_functions: &[FunctionSignature],
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    callee: &Expr,
+    args: &[Expr],
+    function: &FunctionSignature,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    if args.len() != 1 {
+        return Err(SchemaMappingExprError::ConverterArity {
+            name: function.name.clone(),
+            expected: 1,
+            actual: args.len(),
+            span: expr.span.clone(),
+            function_span: function.span.clone(),
+        });
+    }
+    if function.params.len() != 1 {
+        return Err(SchemaMappingExprError::ConverterArity {
+            name: function.name.clone(),
+            expected: 1,
+            actual: function.params.len(),
+            span: callee.span.clone(),
+            function_span: function.span.clone(),
+        });
+    }
+    if !function.effects.is_empty() {
+        return Err(SchemaMappingExprError::ImpureConverter {
+            name: function.name.clone(),
+            effects: function.effects.clone(),
+            span: callee.span.clone(),
+            function_span: function.span.clone(),
+        });
+    }
+
+    let arg = &args[0];
+    let ExprKind::NamePath(arg_segments) = &arg.kind else {
+        return Err(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        });
+    };
+    let [source] = arg_segments.as_slice() else {
+        return Err(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        });
+    };
+    let Some(source_ty) = schema_fields.get(source) else {
+        return Err(SchemaMappingExprError::UnknownSchemaField {
+            name: source.clone(),
+            span: arg.span.clone(),
+        });
+    };
+    let param_ty = &function.params[0];
+    if !is_assignable(param_ty, source_ty) {
+        return Err(SchemaMappingExprError::ConverterInputType {
+            name: function.name.clone(),
+            expected: Box::new(param_ty.clone()),
+            actual: Box::new(source_ty.clone()),
+            source: source.clone(),
+            span: arg.span.clone(),
+            function_span: function.span.clone(),
+        });
+    }
+
+    Ok(SchemaMappingTypedExpr {
+        ty: function.return_type.clone(),
+        expr: SchemaDecodeMappingExpr::Converter {
+            function: function.target_name.clone(),
+            arg: Box::new(SchemaDecodeMappingExpr::Field(source.clone())),
+        },
+    })
+}
+
 fn schema_mapping_name_expr(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     registry: &AdtRegistry,
+    _converter_functions: &[FunctionSignature],
     schema_fields: &BTreeMap<String, Type>,
     expr: &Expr,
     segments: &[String],
@@ -1265,6 +1459,8 @@ fn schema_mapping_name_expr(
 fn schema_mapping_constructor_expr(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    registry: &AdtRegistry,
+    converter_functions: &[FunctionSignature],
     schema_fields: &BTreeMap<String, Type>,
     expr: &Expr,
     args: &[Expr],
@@ -1284,7 +1480,15 @@ fn schema_mapping_constructor_expr(
     let mut payload_types = Vec::new();
     for (index, arg) in args.iter().enumerate() {
         let payload_ty = adt::payload_type(expected, constructor, index).unwrap_or(Type::Unknown);
-        let typed = schema_mapping_expr_typed(module, schema, schema_fields, arg, &payload_ty)?;
+        let typed = schema_mapping_expr_typed_inner(
+            module,
+            schema,
+            registry,
+            converter_functions,
+            schema_fields,
+            arg,
+            &payload_ty,
+        )?;
         payload_types.push(typed.ty);
         payload_exprs.push(typed.expr);
     }

@@ -19,8 +19,8 @@ compare it with `../specification/` before changing behavior.
   declaration schema import/reference visibility checks, and generated
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
-  constructor construction mapping expressions, and multiple mapping clause
-  rejection.
+  constructor construction mapping expressions, pure same-module
+  representation conversion hooks, and multiple mapping clause rejection.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed

@@ -133,20 +133,24 @@ execution reference.
   source type whose mapped expressions match the target field types, the
   helper returns the mapped ordinary record shape instead of the schema-local
   field shape. Mapping assignment expressions may reference decoded schema
-  fields, construct records, or construct ADT payloads resolved through the
-  ordinary source module rules. Mapping assignment targets must name target
-  fields, and every target field must be assigned once before execution. The
-  implemented mapped decoded field types are exact-width unsigned primitive
+  fields, construct records, construct ADT payloads resolved through the
+  ordinary source module rules, or call one pure same-module converter
+  function with one decoded schema-local field argument before assigning the
+  returned value to the target field. Mapping assignment targets must name
+  target fields, and every target field must be assigned once before
+  execution. The implemented mapped decoded field types are exact-width unsigned primitive
   fields as `Int`, length-bounded `ByteView(length_field)` payload fields as
   `ByteView`, closed nested dispatch payload fields as the nested schema
   record shape, and extension dispatch payload fields as
-  `SchemaDispatchPayload<T>`. Mapping expressions cannot call ordinary
-  functions, read runtime settings, inspect stream state, recover from decode
-  failures, or perform effects. The checked examples are
+  `SchemaDispatchPayload<T>`. Mapping expressions cannot call imported
+  converter functions, arbitrary ordinary functions, read runtime settings,
+  inspect stream state, recover from decode failures, or perform effects. The
+  checked examples are
   `examples/specification/run/binary-schema-mapped-record-decode/`,
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
-  `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`, and
+  `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
+  `examples/specification/run/binary-schema-mapped-converter-decode/`, and
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
