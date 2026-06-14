@@ -79,6 +79,15 @@ type ReceiveFlowControl
 	ReceiveFlowControl(Int, OpenStreamReceiveWindow)
 end
 
+type OutboundOpenStreamWindow
+	NoOutboundOpenStreamWindow
+	OutboundOpenStreamWindow(Int, Int)
+end
+
+type OutboundFlowControl
+	OutboundFlowControl(Int, OutboundOpenStreamWindow)
+end
+
 type PrefaceState
 	ExpectPreface
 	AfterPreface
@@ -138,6 +147,13 @@ end
 type ReceiveFlowControlDecision
 	ReceiveFlowControlOk(ReceiveFlowControl)
 	ReceiveFlowControlFailed(Http2ProtocolFailure)
+end
+
+type OutboundDataDecision
+	OutboundDataAccepted(OutboundFlowControl)
+	OutboundDataFrameSizeRejected(Int, Int)
+	OutboundDataConnectionWindowRejected(Int, Int, Int)
+	OutboundDataStreamWindowRejected(Int, Int, Int)
 end
 
 type Http2Step
@@ -794,6 +810,45 @@ fn active_peer_initial_window_size(peer_settings: PeerSettingsState) -> Int
 	end
 end
 
+fn active_peer_max_frame_size(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _) => 16384
+		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _) => value
+	end
+end
+
+fn default_outbound_flow_control(peer_settings: PeerSettingsState, stream_id: Int) -> OutboundFlowControl
+	OutboundFlowControl(65535, OutboundOpenStreamWindow(stream_id, active_peer_initial_window_size(peer_settings)))
+end
+
+fn outbound_flow_control_with_windows(stream_id: Int, connection_window: Int, stream_window: Int) -> OutboundFlowControl
+	OutboundFlowControl(connection_window, OutboundOpenStreamWindow(stream_id, stream_window))
+end
+
+fn send_data(length: Int, stream_id: Int, peer_settings: PeerSettingsState, outbound_flow_control: OutboundFlowControl) -> OutboundDataDecision
+	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
+	match length > max_frame_size
+		true => OutboundDataFrameSizeRejected(length, max_frame_size)
+		false => consume_outbound_data_window(length, stream_id, outbound_flow_control)
+	end
+end
+
+fn consume_outbound_data_window(length: Int, stream_id: Int, outbound_flow_control: OutboundFlowControl) -> OutboundDataDecision
+	match outbound_flow_control
+		OutboundFlowControl(connection_window, NoOutboundOpenStreamWindow) => OutboundDataStreamWindowRejected(stream_id, length, 0)
+		OutboundFlowControl(connection_window, OutboundOpenStreamWindow(open_stream_id, stream_window)) => match length > connection_window
+			true => OutboundDataConnectionWindowRejected(stream_id, length, connection_window)
+			false => match stream_id == open_stream_id
+				false => OutboundDataStreamWindowRejected(stream_id, length, 0)
+				true => match length > stream_window
+					true => OutboundDataStreamWindowRejected(stream_id, length, stream_window)
+					false => OutboundDataAccepted(OutboundFlowControl(connection_window - length, OutboundOpenStreamWindow(open_stream_id, stream_window - length)))
+				end
+			end
+		end
+	end
+end
+
 fn apply_initial_window_delta(delta: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControl
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)
@@ -1290,6 +1345,12 @@ fn state_peer_max_header_list_size_offset(state: Http2DecodeState) -> Int
 	end
 end
 
+fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
+	match state
+		State(_, _, _, _, _, peer_settings, _, _) => peer_settings
+	end
+end
+
 fn state_shutdown_label(state: Http2DecodeState) -> String
 	match state
 		State(_, _, _, _, _, _, OpenConnection, _) => "open"
@@ -1354,6 +1415,89 @@ fn state_reset_error_code(state: Http2DecodeState) -> Int
 		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
 		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _))) => 0
 		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, error_code))) => error_code
+	end
+end
+
+fn outbound_data_status(decision: OutboundDataDecision) -> String
+	match decision
+		OutboundDataAccepted(_) => "accepted"
+		OutboundDataFrameSizeRejected(_, _) => "rejected"
+		OutboundDataConnectionWindowRejected(_, _, _) => "rejected"
+		OutboundDataStreamWindowRejected(_, _, _) => "rejected"
+	end
+end
+
+fn outbound_data_reason(decision: OutboundDataDecision) -> String
+	match decision
+		OutboundDataAccepted(_) => "none"
+		OutboundDataFrameSizeRejected(_, _) => "peer_max_frame_size"
+		OutboundDataConnectionWindowRejected(_, _, _) => "outbound_connection_window"
+		OutboundDataStreamWindowRejected(_, _, _) => "outbound_stream_window"
+	end
+end
+
+fn outbound_data_stream(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(flow_control) => outbound_open_stream_id(flow_control)
+		OutboundDataFrameSizeRejected(_, _) => 0
+		OutboundDataConnectionWindowRejected(stream_id, _, _) => stream_id
+		OutboundDataStreamWindowRejected(stream_id, _, _) => stream_id
+	end
+end
+
+fn outbound_data_observed_length(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(_) => 0
+		OutboundDataFrameSizeRejected(observed_length, _) => observed_length
+		OutboundDataConnectionWindowRejected(_, observed_length, _) => observed_length
+		OutboundDataStreamWindowRejected(_, observed_length, _) => observed_length
+	end
+end
+
+fn outbound_data_allowed_length(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(_) => 0
+		OutboundDataFrameSizeRejected(_, allowed_length) => allowed_length
+		OutboundDataConnectionWindowRejected(_, _, allowed_length) => allowed_length
+		OutboundDataStreamWindowRejected(_, _, allowed_length) => allowed_length
+	end
+end
+
+fn outbound_data_connection_window(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(flow_control) => outbound_connection_window(flow_control)
+		OutboundDataFrameSizeRejected(_, _) => 0
+		OutboundDataConnectionWindowRejected(_, _, _) => 0
+		OutboundDataStreamWindowRejected(_, _, _) => 0
+	end
+end
+
+fn outbound_data_stream_window(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(flow_control) => outbound_stream_window(flow_control)
+		OutboundDataFrameSizeRejected(_, _) => 0
+		OutboundDataConnectionWindowRejected(_, _, _) => 0
+		OutboundDataStreamWindowRejected(_, _, _) => 0
+	end
+end
+
+fn outbound_connection_window(flow_control: OutboundFlowControl) -> Int
+	match flow_control
+		OutboundFlowControl(connection_window, _) => connection_window
+	end
+end
+
+fn outbound_open_stream_id(flow_control: OutboundFlowControl) -> Int
+	match flow_control
+		OutboundFlowControl(_, NoOutboundOpenStreamWindow) => 0
+		OutboundFlowControl(_, OutboundOpenStreamWindow(stream_id, _)) => stream_id
+	end
+end
+
+fn outbound_stream_window(flow_control: OutboundFlowControl) -> Int
+	match flow_control
+		OutboundFlowControl(_, NoOutboundOpenStreamWindow) => 0
+		OutboundFlowControl(_, OutboundOpenStreamWindow(_, stream_window)) => stream_window
 	end
 end
 
@@ -1982,6 +2126,24 @@ fn print_receive_windows(label: String, state: Http2DecodeState) -> () effects [
 	stdio::println(int_to_string(state_stream_window(state)))
 end
 
+fn print_outbound_data(label: String, decision: OutboundDataDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound ")
+	stdio::print(outbound_data_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_data_reason(decision))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(outbound_data_stream(decision)))
+	stdio::print(" observed_length ")
+	stdio::print(int_to_string(outbound_data_observed_length(decision)))
+	stdio::print(" allowed_length ")
+	stdio::print(int_to_string(outbound_data_allowed_length(decision)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(outbound_data_connection_window(decision)))
+	stdio::print(" stream_window ")
+	stdio::println(int_to_string(outbound_data_stream_window(decision)))
+end
+
 fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" open_stream_count ")
@@ -2253,6 +2415,23 @@ fn print_initial_window_update_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
+	let outbound_peer_limits: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000400000003")?), frame_state())?
+	print_step("outbound-peer-limits", outbound_peer_limits)
+	print_peer_settings("outbound-peer-limits", step_state(outbound_peer_limits))
+	let outbound_peer_settings: PeerSettingsState = state_peer_settings(step_state(outbound_peer_limits))
+	let outbound_initial: OutboundFlowControl = default_outbound_flow_control(outbound_peer_settings, 1)
+	let outbound_data_accepted: OutboundDataDecision = send_data(2, 1, outbound_peer_settings, outbound_initial)
+	print_outbound_data("outbound-data-accepted", outbound_data_accepted)
+	let outbound_data_frame_size: OutboundDataDecision = send_data(32769, 1, outbound_peer_settings, outbound_initial)
+	print_outbound_data("outbound-data-frame-size", outbound_data_frame_size)
+	let outbound_data_connection_window: OutboundDataDecision = send_data(2, 1, outbound_peer_settings, outbound_flow_control_with_windows(1, 1, 3))
+	print_outbound_data("outbound-data-connection-window", outbound_data_connection_window)
+	let outbound_data_stream_window: OutboundDataDecision = send_data(2, 1, outbound_peer_settings, outbound_flow_control_with_windows(1, 65533, 1))
+	print_outbound_data("outbound-data-stream-window", outbound_data_stream_window)
+	Ok(())
+end
+
 fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority: () = print_priority_frame("priority", priority)?
@@ -2376,6 +2555,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("peer-initial-window-data", peer_initial_window_data)
 	print_peer_settings("peer-initial-window-data", step_state(peer_initial_window_data))
 	print_receive_windows("peer-initial-window-data", step_state(peer_initial_window_data))
+	let ignored_outbound_data_cases: () = print_outbound_data_cases()?
 	let ignored_initial_window_update_cases: () = print_initial_window_update_cases()?
 	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
 	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
