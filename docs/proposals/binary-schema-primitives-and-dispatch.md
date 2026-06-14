@@ -100,13 +100,15 @@ decode and encode as lists of the nested schema's decoded record shape.
 Encode rejects list length, primitive range, and nested element
 representation mismatches through `EncodeError`, and element failures append
 an index segment before nested schema field path segments.
-The generated length-bounded byte payload encode slice is implemented as
-`ByteView(length_field)` for generated binary schema encode helpers. The
-length field must be an earlier visible `Int` field in the same schema, the
-encoded value record keeps both the length field and the `ByteView` payload
-field, the helper writes the earlier fields normally and then writes exactly
-the bounded bytes from the supplied view, and mismatched view counts return
-the existing structured `EncodeError` value-representation shape.
+The generated length-bounded byte payload slice is implemented as
+`ByteView(length_field)` and `ByteView(left_length - right_length)` for
+generated binary schema decode and encode helpers. The length operands must be
+earlier visible `Int` fields in the same schema, the encoded value record keeps
+the length operand fields and the `ByteView` payload field, the helper writes
+the earlier fields normally and then writes exactly the bounded bytes from the
+supplied view, negative computed decode lengths report
+`schema.length_out_of_bounds`, and mismatched encode view counts return the
+existing structured `EncodeError` value-representation shape.
 
 ## Problem
 
@@ -132,7 +134,8 @@ for:
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset, including
   raw-bit variants and frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
-  `ByteView(length_field)` decode and encode helper slices
+  `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
+  and encode helper slices
 - field references inside later field definitions beyond implemented
   bounded repeat counts, byte-view lengths, dispatch tags, and extension
   dispatch lengths

@@ -92,7 +92,8 @@ and used by the generated decode slice described in
 multiple structural mappings selected by `when field == literal`, and all
 assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, length-bounded
-`ByteView(length_field)` payload fields as `ByteView`, bounded
+`ByteView(length_field)` or `ByteView(left_length - right_length)` payload
+fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
 closed nested dispatch payload fields as the nested schema record shape, and
 extension dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
@@ -132,7 +133,9 @@ visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,
 `UInt32le`, or an eligible nested binary schema payload,
 length-bounded `ByteView(length_field)` payload fields whose length names an
-earlier visible exact-width unsigned `Int` field,
+earlier visible exact-width unsigned `Int` field, or
+`ByteView(left_length - right_length)` payload fields whose operands both name
+earlier visible exact-width unsigned `Int` fields,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields

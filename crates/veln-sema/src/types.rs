@@ -770,8 +770,12 @@ fn schema_decode_record_fields_inner_after_push(
                 Type::int()
             };
             (width, ty)
-        } else if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
-            if decoded_fields.get(&length_field) != Some(&Type::int()) {
+        } else if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+            if length_expr
+                .references()
+                .into_iter()
+                .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
+            {
                 return None;
             }
             (0, Type::named("ByteView", Vec::new()))
@@ -977,8 +981,12 @@ fn schema_encode_function_signature_for_schema(
             fields.push((field.name.clone(), Type::named("List", vec![element_ty])));
             continue;
         }
-        if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
-            if !exact_width_field_names.contains(&length_field) {
+        if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+            if length_expr.references().into_iter().any(|reference| {
+                !exact_width_field_names
+                    .iter()
+                    .any(|field| field == reference)
+            }) {
                 return None;
             }
             fields.push((field.name.clone(), Type::named("ByteView", Vec::new())));
@@ -1976,11 +1984,42 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
     }
 }
 
-pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<String> {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ByteViewLengthExpr {
+    Field(String),
+    Difference { left: String, right: String },
+}
+
+impl ByteViewLengthExpr {
+    pub(crate) fn references(&self) -> Vec<&str> {
+        match self {
+            Self::Field(field) => vec![field.as_str()],
+            Self::Difference { left, right } => vec![left.as_str(), right.as_str()],
+        }
+    }
+
+    pub(crate) fn render(&self) -> String {
+        match self {
+            Self::Field(field) => field.clone(),
+            Self::Difference { left, right } => format!("{left} - {right}"),
+        }
+    }
+}
+
+pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr> {
     let text = ty.trim();
     let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
     if is_simple_schema_field_reference(inner) {
-        Some(inner.to_string())
+        return Some(ByteViewLengthExpr::Field(inner.to_string()));
+    }
+    let (left, right) = inner.split_once('-')?;
+    let left = left.trim();
+    let right = right.trim();
+    if is_simple_schema_field_reference(left) && is_simple_schema_field_reference(right) {
+        Some(ByteViewLengthExpr::Difference {
+            left: left.to_string(),
+            right: right.to_string(),
+        })
     } else {
         None
     }

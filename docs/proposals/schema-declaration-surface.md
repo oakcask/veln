@@ -53,8 +53,9 @@ The implemented first slice covers:
   fields in declaration order and evaluate supported `where` predicates after
   the owning field is decoded
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
-  schemas whose fields use implemented exact-width unsigned primitives,
-  length-bounded `ByteView(length_field)` payload fields, or the implemented
+schemas whose fields use implemented exact-width unsigned primitives,
+  length-bounded `ByteView(length_field)` or
+  `ByteView(left_length - right_length)` payload fields, or the implemented
   dispatch payload slices
 - generated runtime mapping for one structural `map to Target` clause, or
   multiple clauses selected by `when field == literal`, when each assignment

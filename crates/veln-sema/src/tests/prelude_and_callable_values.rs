@@ -1389,13 +1389,93 @@ fn generated_schema_decode_helpers_require_int_byte_view_length_field() {
 
     let lowered = lower_checked_surface_module(&module);
 
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.byte_view_reference"
+                && diagnostic.message
+                    == "ByteView length operand `first_payload` decodes as `ByteView`, not `Int`"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing ByteView length field should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_resolve_subtracted_byte_view_length_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  payload: ByteView(length - padding_length)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, padding_length: Int, payload: ByteView}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, padding_length: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(
+        schema.fields[2].length_field.as_deref(),
+        Some("length - padding_length")
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_forward_subtracted_byte_view_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length - padding_length)\n",
+            "  padding_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
     assert!(
-        ir.schema_decoders
-            .iter()
-            .all(|schema| schema.schema_name != "PacketWire"),
-        "unsupported ByteView length field should not emit a decoder"
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.byte_view_reference"
+                && diagnostic.message
+                    == "ByteView length operand `padding_length` must be an earlier decoded `Int` field"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing ByteView length expression should not emit typed IR"
     );
 }
 
