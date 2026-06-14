@@ -1399,7 +1399,7 @@ fn codec_derive_decode_accepts_mapped_nested_dispatch_value_boundary() {
 }
 
 #[test]
-fn codec_derive_encode_reports_mapping_value_type_that_generated_encode_cannot_accept() {
+fn codec_derive_encode_reports_converter_mapping_that_generated_encode_cannot_accept() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1413,8 +1413,12 @@ fn codec_derive_encode_reports_mapping_value_type_that_generated_encode_cannot_a
             "  wire_kind: UInt8\n",
             "\n",
             "  map to Header\n",
-            "    length = wire_length\n",
+            "    length = decode_length(wire_length)\n",
             "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "fn decode_length(value: Int) -> Int\n",
+            "  value\n",
             "end\n",
             "\n",
             "codec HeaderCodec for HeaderWire encode\n",
@@ -1438,7 +1442,7 @@ fn codec_derive_encode_reports_mapping_value_type_that_generated_encode_cannot_a
         diagnostic
             .span
             .as_ref()
-            .is_some_and(|span| span.start.line == 16)
+            .is_some_and(|span| span.start.line == 20)
     );
     assert!(
         diagnostic
@@ -1456,13 +1460,13 @@ fn codec_derive_encode_reports_mapping_value_type_that_generated_encode_cannot_a
         diagnostic
             .details
             .to_json()
-            .contains("\"actual_value_type\":\"{wire_length: Int, wire_kind: Int}\"")
+            .contains("\"actual_value_type\":\"unknown\"")
     );
     assert!(diagnostic.related.is_empty());
 }
 
 #[test]
-fn codec_derive_encode_reports_nested_mapping_value_type_that_generated_encode_cannot_accept() {
+fn codec_derive_encode_reports_non_total_nested_mapping_value_boundary() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1511,7 +1515,7 @@ fn codec_derive_encode_reports_nested_mapping_value_type_that_generated_encode_c
         diagnostic
             .details
             .to_json()
-            .contains("\"actual_value_type\":\"{kind: Int, payload: {code: Int}}\"")
+            .contains("\"actual_value_type\":\"unknown\"")
     );
     assert!(diagnostic.related.is_empty());
 }

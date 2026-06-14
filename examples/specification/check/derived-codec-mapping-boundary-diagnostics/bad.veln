@@ -9,8 +9,12 @@ schema HeaderWire
 	wire_kind: UInt8
 
 	map to Header
-		length = wire_length
+		length = decode_length(wire_length)
 		kind = wire_kind
+end
+
+fn decode_length(value: Int) -> Int
+	value
 end
 
 codec HeaderCodec for HeaderWire encode

@@ -4,7 +4,8 @@ use crate::types::{
     SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive, flag8_schema_primitive,
     repeat_schema_primitive, schema_decode_record_type, schema_decode_value_type,
-    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
+    schema_encode_value_type, schema_payload_name_last_segment, schema_payload_name_path,
+    supported_encode_reserved_bits,
 };
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
@@ -830,7 +831,7 @@ fn codec_derive_encode_value_type_diagnostics(
     let Some(schema) = codec_referenced_schema(module, codec) else {
         return Vec::new();
     };
-    let actual_value_type = schema_decode_record_type(module, schema).unwrap_or(Type::Unknown);
+    let actual_value_type = schema_encode_value_type(module, schema).unwrap_or(Type::Unknown);
     if types_match(&expected_value_type, &actual_value_type) {
         return Vec::new();
     }

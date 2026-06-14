@@ -259,10 +259,11 @@ The call expects the same parameters as the referenced function and returns
 that function's `EncodeStep<TState>` value unchanged.
 
 When a codec has `derive encode`, a referenced schema whose implemented
-structural mapping changes the value boundary is rejected at the clause with
-`codec.encode_value_type` unless the generated encode helper can accept that
-mapping target value type. This keeps mapped schemas from silently exposing the
-schema-local generated encode record as the codec value boundary.
+structural mapping changes the value boundary uses the mapping target value
+type when the generated encode helper can project that target record back to
+schema-local fields. Other mapped encode boundaries are rejected at the clause
+with `codec.encode_value_type`. This keeps mapped schemas from silently
+exposing the schema-local generated encode record as the codec value boundary.
 
 Codec declarations do not generate general executable decode or encode
 functions beyond the derived decode and derived encode slices routed from

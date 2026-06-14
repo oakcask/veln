@@ -123,7 +123,7 @@ helper decodes a same-module nested dispatch payload schema.
 The executable specification case
 `../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
 covers mapped derived encode clauses whose generated helper boundary cannot
-accept the schema mapping target value type.
+project the schema mapping target value back to schema-local fields.
 
 ## Codec Encode Step Vocabulary
 
@@ -147,6 +147,10 @@ derived codec encode boundary for the eligible generated binary schema encode
 helper slice: a codec item call observes successful helper output as
 `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
 failures as `Invalid(EncodeError)`.
+The executable specification case
+`../../examples/specification/run/derived-codec-mapped-encode-boundary/`
+covers the same boundary when a direct structural mapping makes the generated
+helper accept the mapping target record shape.
 The executable specification case
 `../../examples/specification/run/derived-codec-repeat-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
@@ -306,6 +310,10 @@ encodes `UInt16be` followed by `UInt32be` into one immutable `ByteChunk` and
 checks complete lowercase hex output. The failing case matches the returned
 `EncodeError` and asserts `codec.encode_value_unrepresentable`, the schema
 field path, and the `UInt31be` maximum.
+`../../examples/specification/run/binary-schema-mapped-record-encode/` pins
+the direct structural mapping encode helper slice: the helper accepts the
+mapping target record shape, projects target fields back to schema-local
+fields, and writes one immutable `ByteChunk`.
 `../../examples/specification/run/binary-schema-sub-byte-decode/`,
 `../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
 `../../examples/specification/run/binary-schema-sub-byte-encode/`,

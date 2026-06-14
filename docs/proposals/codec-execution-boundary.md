@@ -160,12 +160,12 @@ and diagnostics.
 
 The checker accepts mapped `derive decode` clauses when the generated
 decode-step helper can expose the schema mapping target value type, and
-rejects mapped `derive encode` clauses when the generated direction cannot
-accept that target value type. Remaining checker work should reject other
-directions that the named schema cannot support. For example, encoding is
-unavailable when schema mapping is not total or when a field can be decoded
-but cannot be reconstructed from the mapped value without an explicit encoder
-body.
+accepts mapped `derive encode` clauses when the generated direction can
+project that target value back to schema-local encode fields. Remaining
+checker work should reject other directions that the named schema cannot
+support. For example, encoding is unavailable when schema mapping is not total
+or when a field can be decoded but cannot be reconstructed from the mapped
+value without an explicit encoder body.
 Importing or exporting the codec declaration must not silently add directions
 that are missing from its head.
 
@@ -186,9 +186,9 @@ record shape.
 `derive` asks the checker to generate that direction from the named schema,
 using the schema mapping and validation rules. A derived direction is accepted
 only when the schema has enough information for the requested operation. For
-example, a derived encoder is rejected if the mapped value cannot reconstruct a
-required field, fixed field, reserved field, length field, or closed dispatch
-choice without extra code.
+example, a derived encoder is rejected if the mapped value cannot reconstruct
+a required visible field, length field, or closed dispatch choice without
+extra code.
 
 `with` binds a direction to an ordinary source function. The function remains a
 normal top-level item with its own visibility, contracts, effects, tests, and
@@ -214,8 +214,9 @@ decode-step slice, including same-module nested dispatch payload helper
 schemas and repeat-backed schemas. The implemented derived encode execution
 slice exposes the codec item name as an ordinary source call to the generated
 `byte_encode_<schema>` behavior when the schema is in the currently
-implemented binary schema encode helper slice, including same-module nested
-dispatch payload helper schemas and repeat-backed schemas.
+implemented binary schema encode helper slice, including direct structural
+mapped schemas, same-module nested dispatch payload helper schemas, and
+repeat-backed schemas.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 
@@ -276,9 +277,10 @@ valid output for that encode operation.
 The implemented derived encode execution slice in
 `../specification/execution.md` covers eligible binary schemas that already
 expose `byte_encode_<schema>` helpers. The codec item call accepts the
-generated helper's schema-local value record, invokes that helper, returns
-`EncodeStep<()>`, projects `Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with
-one chunk, and projects `Err(EncodeError)` to `Invalid(EncodeError)`.
+generated helper's schema-local value record or direct mapping target record,
+invokes that helper, returns `EncodeStep<()>`, projects `Ok(ByteChunk)` to
+`Encoded(List<ByteChunk>)` with one chunk, and projects `Err(EncodeError)` to
+`Invalid(EncodeError)`.
 
 After `Partial`, resuming uses the returned encoder state rather than an
 implicit mutable cursor. The state must not borrow from a caller-owned builder
