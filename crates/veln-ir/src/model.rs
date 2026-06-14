@@ -64,6 +64,10 @@ pub enum IrSchemaDecodeMappingExpr {
         name: Vec<String>,
         args: Vec<IrSchemaDecodeMappingExpr>,
     },
+    Converter {
+        function: String,
+        arg: Box<IrSchemaDecodeMappingExpr>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

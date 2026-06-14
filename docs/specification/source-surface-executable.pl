@@ -99,7 +99,7 @@ grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
 grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath NL SchemaMappingAssignment+").
-grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Name NL").
+grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Expr NL").
 grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
 grammar_line(107, "CodecDirections ::= CodecDirection+").
@@ -391,7 +391,7 @@ schema_mapping_assignments_tail --> [].
 schema_mapping_assignment -->
     ident,
     tok(equal),
-    ident,
+    expr,
     nl.
 
 codec_decl -->

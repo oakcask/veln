@@ -1236,6 +1236,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
+            IrSchemaDecodeMappingExpr::Converter { function, arg } => {
+                self.emit_object_array(code, 3, |this, code, index| match index {
+                    0 => code.ldc_string("converter"),
+                    1 => this.emit_function_value(code, function),
+                    2 => this.emit_schema_mapping_expr_spec(code, arg),
+                    _ => unreachable!(),
+                });
+            }
         }
         code.invokestatic(
             &self.program.options.runtime_class,

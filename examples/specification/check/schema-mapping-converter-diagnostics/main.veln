@@ -1,0 +1,37 @@
+type Header
+	Header {missing: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, unsupported: Int}
+end
+
+fn two_params(value: Int, extra: Int) -> Int
+	value
+end
+
+fn needs_text(value: String) -> Int
+	0
+end
+
+fn to_text(value: Int) -> String
+	int_to_string(value)
+end
+
+fn noisy(value: Int) -> Int effects [stdio]
+	value
+end
+
+fn convert(value: Int) -> Int
+	value
+end
+
+schema HeaderWire
+	format binary
+
+	kind: UInt8
+
+	map to Header
+		missing = missing_converter(kind)
+		bad_arity = two_params(kind)
+		bad_input = needs_text(kind)
+		bad_return = to_text(kind)
+		impure = noisy(kind)
+		unsupported = convert({value: kind})
+end

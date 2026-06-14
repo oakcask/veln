@@ -1065,7 +1065,7 @@ fn reachable_functions(
                     .as_ref()
                     .is_none_or(|module_name| function.module_name.as_ref() == Some(module_name))
         }) {
-            for callee in direct_function_callees(function, &module.uses, function_targets) {
+            for callee in direct_function_callees(function, module, function_targets) {
                 if !reachable.iter().any(|known| known == &callee) {
                     stack.push(callee);
                 }
@@ -1184,11 +1184,12 @@ struct LocalBinding {
 
 fn direct_function_callees(
     function: &Function,
-    uses: &[UseDecl],
+    module: &SurfaceModule,
     function_targets: &[FunctionTarget],
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
     let current_module = function.module_name.as_deref();
+    let uses = &module.uses;
     let mut local_bindings = function
         .params
         .iter()
@@ -1239,7 +1240,149 @@ fn direct_function_callees(
             }
         }
     }
+    collect_schema_mapping_converter_callees_for_function(
+        function,
+        module,
+        function_targets,
+        &mut callees,
+    );
     callees
+}
+
+fn collect_schema_mapping_converter_callees_for_function(
+    function: &Function,
+    module: &SurfaceModule,
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let current_module = function.module_name.as_deref();
+    for line in &function.body {
+        let expr = match &line.kind {
+            veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+                expr
+            }
+        };
+        let mut calls = Vec::new();
+        collect_called_name_paths(expr, &mut calls);
+        for segments in &calls {
+            collect_schema_mapping_converter_callees_for_call(
+                segments,
+                current_module,
+                module,
+                function_targets,
+                callees,
+            );
+        }
+    }
+}
+
+fn collect_called_name_paths(expr: &Expr, calls: &mut Vec<Vec<String>>) {
+    match &expr.kind {
+        ExprKind::Call { callee, args } => {
+            if let Some(segments) = callee_name_path(callee) {
+                calls.push(segments.clone());
+            }
+            collect_called_name_paths(callee, calls);
+            for arg in args {
+                collect_called_name_paths(arg, calls);
+            }
+        }
+        ExprKind::TypeApply { callee, .. } => collect_called_name_paths(callee, calls),
+        ExprKind::FieldAccess { base, .. }
+        | ExprKind::Try(base)
+        | ExprKind::Prefix { expr: base, .. } => collect_called_name_paths(base, calls),
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_called_name_paths(&field.expr, calls);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_called_name_paths(&entry.key, calls);
+                collect_called_name_paths(&entry.value, calls);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_called_name_paths(item, calls);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_called_name_paths(scrutinee, calls);
+            for arm in arms {
+                collect_called_name_paths(&arm.expr, calls);
+            }
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_called_name_paths(left, calls);
+            collect_called_name_paths(right, calls);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn collect_schema_mapping_converter_callees_for_call(
+    segments: &[String],
+    current_module: Option<&str>,
+    module: &SurfaceModule,
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let [called] = segments else {
+        return;
+    };
+    for schema in module.schemas.iter().filter(|schema| {
+        schema.module_name.as_deref() == current_module
+            && schema.name.as_ref().is_some_and(|schema_name| {
+                called == &schema_decode_function_name(schema_name)
+                    || called == &schema_decode_step_function_name(schema_name)
+            })
+    }) {
+        for mapping in &schema.mappings {
+            for assignment in &mapping.assignments {
+                collect_schema_mapping_expr_converter_callees(
+                    &assignment.expr,
+                    schema.module_name.as_deref(),
+                    function_targets,
+                    callees,
+                );
+            }
+        }
+    }
+}
+
+fn collect_schema_mapping_expr_converter_callees(
+    expr: &Expr,
+    current_module: Option<&str>,
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let mut calls = Vec::new();
+    collect_called_name_paths(expr, &mut calls);
+    for segments in calls {
+        let [name] = segments.as_slice() else {
+            continue;
+        };
+        for target in function_targets.iter().filter(|target| {
+            target.name == *name && target.module_name.as_deref() == current_module
+        }) {
+            push_reachable(
+                callees,
+                ReachableFunction {
+                    kind: FunctionKind::Function,
+                    name: target.target_name.clone(),
+                    module_name: target.target_module_name.clone(),
+                },
+            );
+        }
+    }
 }
 
 fn collect_contract_callees(
@@ -1632,6 +1775,37 @@ fn function_type_arity(annotation: &str) -> Option<usize> {
         return Some(0);
     }
     Some(split_top_level_commas(params).len())
+}
+
+fn schema_decode_function_name(schema_name: &str) -> String {
+    format!("byte_decode_{}", snake_case_identifier(schema_name))
+}
+
+fn schema_decode_step_function_name(schema_name: &str) -> String {
+    format!("byte_decode_step_{}", snake_case_identifier(schema_name))
+}
+
+fn snake_case_identifier(name: &str) -> String {
+    let mut out = String::new();
+    let mut previous_was_lower_or_digit = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if ch.is_ascii_uppercase() {
+                if previous_was_lower_or_digit && !out.ends_with('_') {
+                    out.push('_');
+                }
+                out.push(ch.to_ascii_lowercase());
+                previous_was_lower_or_digit = false;
+            } else {
+                out.push(ch);
+                previous_was_lower_or_digit = ch.is_ascii_lowercase() || ch.is_ascii_digit();
+            }
+        } else if !out.is_empty() && !out.ends_with('_') {
+            out.push('_');
+            previous_was_lower_or_digit = false;
+        }
+    }
+    out.trim_matches('_').to_string()
 }
 
 fn split_top_level_commas(text: &str) -> Vec<&str> {
@@ -2055,6 +2229,61 @@ mod tests {
             functions,
             vec![
                 (Some("main"), FunctionKind::Function, Some("decode_packet")),
+                (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_schema_mapping_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Header\n",
+                    "  Header {kind: Int}\n",
+                    "end\n",
+                    "\n",
+                    "fn next_kind(kind: Int) -> Int\n",
+                    "  kind + 1\n",
+                    "end\n",
+                    "\n",
+                    "schema HeaderWire\n",
+                    "  format binary\n",
+                    "  wire_kind: UInt8\n",
+                    "\n",
+                    "  map to Header\n",
+                    "    kind = next_kind(wire_kind)\n",
+                    "end\n",
+                    "\n",
+                    "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
+                    "  byte_decode_header_wire(view)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("next_kind")),
                 (Some("main"), FunctionKind::Function, Some("main")),
             ]
         );

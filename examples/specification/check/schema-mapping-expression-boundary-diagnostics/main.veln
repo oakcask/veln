@@ -6,6 +6,10 @@ type FrameKind
 	FrameKind(Int)
 end
 
+fn convert(value: Int) -> Int
+	value
+end
+
 schema HeaderWire
 	format binary
 
@@ -16,5 +20,5 @@ schema HeaderWire
 		wrapped = Missing(kind)
 		bad_arity = FrameKind(kind, length)
 		bad_type = FrameKind({value: kind})
-		unsupported = helper(kind)
+		unsupported = convert({value: kind})
 end

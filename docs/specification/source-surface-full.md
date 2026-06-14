@@ -30,8 +30,7 @@ SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
 SchemaMapping ::= "map" "to" MemberPath NL SchemaMappingAssignment+
-SchemaMappingAssignment ::= Name "=" SchemaMappingExpr NL
-SchemaMappingExpr ::= Name | RecordExpr | ConstructorExpr
+SchemaMappingAssignment ::= Name "=" Expr NL
 CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
 CodecDirections ::= CodecDirection+
@@ -129,7 +128,9 @@ The mapping target is a member path naming an ordinary source value shape. Each
 assignment line must explicitly name a target field on the left and a
 schema mapping expression on the right. The implemented expression slice
 supports schema-local field references, record construction, and ADT
-constructor construction resolved through ordinary source module rules.
+constructor construction resolved through ordinary source module rules, plus
+one pure same-module converter call whose only argument is a schema-local
+field.
 Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
@@ -151,6 +152,11 @@ The executable diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 keeps unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics executable.
+The executable diagnostics case
+`../../examples/specification/check/schema-mapping-converter-diagnostics/`
+keeps unresolved converter, converter arity, converter input type, converter
+return type, converter purity, and unsupported converter shape diagnostics
+executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
