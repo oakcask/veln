@@ -3679,6 +3679,28 @@ fn print_ping_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> effects [stdio]
+	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
+	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
+	let headers_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), frame_state())?
+	print_stream_id_failure("headers-even-stream", headers_even_stream)
+	let continuation_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000090400000000")?), frame_state())?
+	print_stream_id_failure("continuation-zero-stream", continuation_zero_stream)
+	let pending_continuation_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000090400000000")?), step_state(header_start))?
+	print_stream_id_failure("pending-continuation-zero-stream", pending_continuation_zero_stream)
+	let ping_nonzero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
+	print_stream_id_failure("ping-nonzero-stream", ping_nonzero_stream)
+	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), frame_state())?
+	print_failure("invalid-stream-kind", bad_stream_kind)
+	let peer_stream_admit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
+	print_step("peer-stream-admit", peer_stream_admit)
+	print_peer_streams("peer-stream-admit", step_state(peer_stream_admit))
+	let peer_stream_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_admit))?
+	print_failure("peer-stream-limit", peer_stream_limit)
+	print_peer_streams("peer-stream-limit", step_state(peer_stream_limit))
+	Ok(())
+end
+
 fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority: () = print_priority_frame("priority", priority)?
@@ -3849,20 +3871,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_receive_windows("peer-initial-window-data", step_state(peer_initial_window_data))
 	let ignored_outbound_send_intent_cases: () = print_outbound_send_intent_cases()?
 	let ignored_initial_window_update_cases: () = print_initial_window_update_cases()?
-	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
-	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
-	let headers_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), frame_state())?
-	print_stream_id_failure("headers-even-stream", headers_even_stream)
-	let ping_nonzero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
-	print_stream_id_failure("ping-nonzero-stream", ping_nonzero_stream)
-	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), frame_state())?
-	print_failure("invalid-stream-kind", bad_stream_kind)
-	let peer_stream_admit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
-	print_step("peer-stream-admit", peer_stream_admit)
-	print_peer_streams("peer-stream-admit", step_state(peer_stream_admit))
-	let peer_stream_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_admit))?
-	print_failure("peer-stream-limit", peer_stream_limit)
-	print_peer_streams("peer-stream-limit", step_state(peer_stream_limit))
+	let ignored_stream_id_domain_cases: () = print_stream_id_domain_cases(header_start)?
 	let data_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
 	print_step("data-headers", data_headers)
 	print_receive_windows("data-headers", step_state(data_headers))

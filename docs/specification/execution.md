@@ -384,7 +384,8 @@ execution reference.
   SETTINGS state,
   zero-length SETTINGS ACK frames with no outstanding local SETTINGS state,
   wrong-length SETTINGS ACK payloads,
-  stream id domain failures, invalid stream-state frame kinds, wrong-length
+  stream id domain failures including HEADERS and CONTINUATION on the
+  connection stream, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
   PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE` rejection,

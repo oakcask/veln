@@ -490,8 +490,9 @@ flags, stream id, and bounded payload bytes in an ordinary `UnknownFrame`
 value, with the preserved payload also pinned as complete lowercase hex output,
 an unknown frame rejected by active continuation state, and an incoming frame
 whose payload length exceeds the active receive maximum frame size, plus stream
-id domain failures for zero, even, and
-connection-only stream ids and a DATA frame kind rejected for idle-stream
+id domain failures for zero, even, and connection-only stream ids, including
+HEADERS and CONTINUATION on the connection stream with and without active
+header-block continuation state, and a DATA frame kind rejected for idle-stream
 state, plus peer-sent `PUSH_PROMISE` rejected as a known frame kind instead
 of preserved as an unknown extension frame and `PUSH_PROMISE` on the
 connection stream rejected by the existing stream id domain route. It also

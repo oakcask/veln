@@ -241,7 +241,10 @@ different stream id, and closed input while a header block remains pending,
 one incoming frame-size peer-limit failure, one completed header-list-size
 peer-limit failure at the fixture-codec boundary, plus one invalid
 idle-stream frame kind and stream id domain failures for zero, even, and
-connection-only stream ids. It keeps
+connection-only stream ids. The stream id domain slice rejects HEADERS and
+CONTINUATION on the connection stream before opening stream state or changing
+header-block continuation state, including a CONTINUATION frame while a
+nonzero-stream header block is pending. It keeps
 parser state as undecoded suffix bytes plus the next absolute byte offset
 after each consumed preface or frame, reuses the implemented frame-header
 primitive after the preface gate, checks the active receive maximum frame size
