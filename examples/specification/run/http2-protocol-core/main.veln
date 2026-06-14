@@ -1064,6 +1064,21 @@ fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState) -> R
 	end
 end
 
+fn send_local_header_table_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match connection
+		ConnectionState(decode_state, _) => encode_local_header_table_size_intent(value, decode_state)
+	end
+end
+
+fn encode_local_header_table_size_intent(value: Int, decode_state: Http2DecodeState) -> Result<OutboundSettingsDecision, String>
+	let payload: ByteChunk = byte_append(byte_write_u16_be(1)?, byte_write_u32_be(value)?)
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundSettingsAccepted(1, value, ConnectionState(decode_state, OutstandingLocalSettings(1, 1)), byte_append(header, payload)))
+		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
+	end
+end
+
 fn send_local_max_header_list_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
 	match connection
 		ConnectionState(decode_state, _) => encode_local_max_header_list_size_intent(value, decode_state)
@@ -3867,6 +3882,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let local_settings_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_sent))?
 	print_step("local-settings-ack", connection_step_decode_step(local_settings_ack))
 	print_outstanding_settings("local-settings-ack", connection_step_state(local_settings_ack))
+	let local_header_table_size_settings_sent: OutboundSettingsDecision = send_local_header_table_size_setting(4096, connection_state(frame_state()))?
+	print_outbound_settings("local-header-table-size-settings-sent", local_header_table_size_settings_sent)
+	let ignored_local_header_table_size_settings_chunk: () = emit_encoded_header("http2-local-header-table-size-settings", outbound_settings_chunk(local_header_table_size_settings_sent), "000006040000000000000100001000")?
+	print_outstanding_settings("local-header-table-size-settings-sent", outbound_settings_connection(local_header_table_size_settings_sent))
+	let local_header_table_size_settings_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_header_table_size_settings_sent))?
+	print_step("local-header-table-size-settings-ack", connection_step_decode_step(local_header_table_size_settings_ack))
+	print_outstanding_settings("local-header-table-size-settings-ack", connection_step_state(local_header_table_size_settings_ack))
 	let local_header_list_size_settings_sent: OutboundSettingsDecision = send_local_max_header_list_size_setting(8192, connection_state(frame_state()))?
 	print_outbound_settings("local-header-list-size-settings-sent", local_header_list_size_settings_sent)
 	let ignored_local_header_list_size_settings_chunk: () = emit_encoded_header("http2-local-header-list-size-settings", outbound_settings_chunk(local_header_list_size_settings_sent), "000006040000000000000600002000")?
