@@ -949,9 +949,6 @@ fn schema_encode_function_signature_for_schema(
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
     }
-    if !schema.mappings.is_empty() {
-        return None;
-    }
     let mut fields = Vec::new();
     let mut exact_width_field_names = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
@@ -1015,6 +1012,7 @@ fn schema_encode_function_signature_for_schema(
             fields.push((field.name.clone(), payload_ty));
         }
     }
+    let value_fields = schema_encode_value_fields(module, schema, &fields)?;
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let encode_error = Type::named("EncodeError", Vec::new());
     Some(FunctionSignature {
@@ -1022,12 +1020,74 @@ fn schema_encode_function_signature_for_schema(
         target_name: format!("{SCHEMA_ENCODE_TARGET_PREFIX}{schema_name}"),
         module_name: schema.module_name.clone(),
         visibility: schema.visibility,
-        params: vec![Type::Record(fields)],
+        params: vec![Type::Record(value_fields)],
         return_type: Type::named("Result", vec![byte_chunk, encode_error]),
         effects: Vec::new(),
         node_id: schema.node_id,
         span: schema.span.clone(),
     })
+}
+
+pub(crate) fn schema_encode_value_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Type> {
+    schema_encode_function_signature_for_schema(module, schema)
+        .and_then(|signature| signature.params.into_iter().next())
+}
+
+fn schema_encode_value_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+) -> Option<Vec<(String, Type)>> {
+    let [] = schema.mappings.as_slice() else {
+        return schema_encode_mapping_value_fields(module, schema, schema_fields);
+    };
+    Some(schema_fields.to_vec())
+}
+
+fn schema_encode_mapping_value_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+) -> Option<Vec<(String, Type)>> {
+    let [mapping] = schema.mappings.as_slice() else {
+        return None;
+    };
+    if mapping.selector.is_some() {
+        return None;
+    }
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let mut source_to_target = BTreeMap::<String, String>::new();
+    for assignment in &mapping.assignments {
+        let target_ty = target_field_types.get(&assignment.target)?;
+        let ExprKind::NamePath(segments) = &assignment.expr.kind else {
+            return None;
+        };
+        let [source] = segments.as_slice() else {
+            return None;
+        };
+        let source_ty = schema_field_types.get(source)?;
+        if !is_assignable(target_ty, source_ty) {
+            return None;
+        }
+        if source_to_target
+            .insert(source.clone(), assignment.target.clone())
+            .is_some()
+        {
+            return None;
+        }
+    }
+    if schema_fields
+        .iter()
+        .any(|(source, _)| !source_to_target.contains_key(source))
+    {
+        return None;
+    }
+    Some(target_fields)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

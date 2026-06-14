@@ -286,7 +286,8 @@ against the built `veln` binary.
   schema mapping target record shape.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped
   `derive encode` clauses report `codec.encode_value_type` when the generated
-  boundary cannot accept the schema mapping target value type.
+  boundary cannot project the schema mapping target value back to
+  schema-local fields.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
@@ -498,6 +499,9 @@ against the built `veln` binary.
   helper writes visible exact-width unsigned primitive `Int` fields in
   declaration order and checks complete lowercase hex output for one
   `ByteChunk`.
+- `run/binary-schema-mapped-record-encode/`: the same generated encode helper
+  path accepts a direct structural mapping target record and writes the
+  schema-local fields projected from that target value.
 - `run/binary-schema-sub-byte-encode/`: generated schema encode helpers write
   standalone `UInt1` through `UInt7` visible fields as one byte each with the
   value in the declared low bits and keep derived encode codec boundaries
@@ -684,6 +688,9 @@ against the built `veln` binary.
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
   helper failures as `Invalid(EncodeError)`.
+- `run/derived-codec-mapped-encode-boundary/`: the same `derive encode`
+  boundary accepts the direct structural mapping target record and projects
+  one encoded output chunk.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.
@@ -695,8 +702,8 @@ against the built `veln` binary.
   encode` codec item boundary over a same-module nested dispatch payload
   schema, including generated helper dispatch selection failure projection.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
-  clauses reject generated boundaries that cannot accept the mapping target
-  value type.
+  clauses reject generated boundaries that cannot project the mapping target
+  value back to schema-local fields.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

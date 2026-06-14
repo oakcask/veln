@@ -1564,7 +1564,9 @@
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
         Object dispatchCaseLittleEndianValues,
-        Object dispatchCaseSchemaSpecs
+        Object dispatchCaseSchemaSpecs,
+        Object mappingTargets,
+        Object mappingSources
     ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
@@ -1586,6 +1588,8 @@
         java.util.List<Object> dispatchCaseLittleEndianValueList =
             asList(dispatchCaseLittleEndianValues);
         java.util.List<Object> dispatchCaseSchemaSpecValues = asList(dispatchCaseSchemaSpecs);
+        java.util.List<Object> mappingTargetValues = asList(mappingTargets);
+        java.util.List<Object> mappingSourceValues = asList(mappingSources);
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != maxValueValues.size()
             || fieldNameValues.size() != littleEndianValueList.size()
@@ -1609,8 +1613,13 @@
                 "invalid schema encoder metadata for schema `" + name + "`"
             ));
         }
-
-        java.util.Map<Object, Object> fields = asMap(value);
+        if (mappingTargetValues.size() != mappingSourceValues.size()) {
+            return err(encodeError(
+                "codec.metadata",
+                name,
+                "invalid schema encoder mapping metadata for schema `" + name + "`"
+            ));
+        }
         SchemaFieldSpec[] schemaFields = new SchemaFieldSpec[fieldNameValues.size()];
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
             String fieldName = asString(fieldNameValues.get(index));
@@ -1697,11 +1706,16 @@
                 null
             );
         }
-        return byteEncodeBinarySchema(value, new BinarySchemaSpec(name, schemaFields));
+        SchemaMappingSpec[] mapping = schemaMappingSpecs(mappingTargetValues, mappingSourceValues);
+        return byteEncodeBinarySchema(value, new BinarySchemaSpec(name, schemaFields, mapping));
     }
 
     private static Object byteEncodeBinarySchema(Object value, BinarySchemaSpec schema) {
-        java.util.Map<Object, Object> fields = asMap(value);
+        Object encodeValue = schemaEncodeRecord(value, schema);
+        if (isErr(encodeValue)) {
+            return encodeValue;
+        }
+        java.util.Map<Object, Object> fields = asMap(unwrapOk(encodeValue));
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
         for (int index = 0; index < schema.fields.length; index += 1) {
             SchemaFieldSpec field = schema.fields[index];
@@ -1822,7 +1836,9 @@
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
         Object dispatchCaseLittleEndianValues,
-        Object dispatchCaseSchemaSpecs
+        Object dispatchCaseSchemaSpecs,
+        Object mappingTargets,
+        Object mappingSources
     ) {
         Object encoded = byteEncodeDeclaredBinarySchema(
             value,
@@ -1844,7 +1860,9 @@
             dispatchCaseTags,
             dispatchCaseWidths,
             dispatchCaseLittleEndianValues,
-            dispatchCaseSchemaSpecs
+            dispatchCaseSchemaSpecs,
+            mappingTargets,
+            mappingSources
         );
         if (isErr(encoded)) {
             return adt("EncodeStep::Invalid", new Object[] { resultValue(encoded) });
@@ -3223,6 +3241,88 @@
             selected = mapping;
         }
         return selected;
+    }
+
+    private static Object schemaEncodeRecord(Object value, BinarySchemaSpec schema) {
+        if (schema.mapping.length == 0) {
+            return ok(value);
+        }
+        if (schema.mapping.length != 1 || schema.mapping[0].selectorValue != null) {
+            return err(encodeError(
+                "codec.metadata",
+                schema.name,
+                "unsupported schema encode mapping selection for schema `" + schema.name + "`"
+            ));
+        }
+        java.util.Map<Object, Object> targetFields = asMap(value);
+        SchemaMappingSpec mapping = schema.mapping[0];
+        java.util.ArrayList<Object> entries =
+            new java.util.ArrayList<Object>(mapping.fields.length * 2);
+        for (SchemaMappingFieldSpec field : mapping.fields) {
+            String source = schemaMappingDirectSource(field.expr);
+            if (source == null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schema.name,
+                    "unsupported schema encode mapping expression for schema `" + schema.name + "`"
+                ));
+            }
+            entries.add(source);
+            entries.add(targetFields.get(field.target));
+        }
+        return ok(record(entries.toArray(new Object[entries.size()])));
+    }
+
+    private static String schemaMappingDirectSource(Object expr) {
+        if (expr instanceof String) {
+            return asString(expr);
+        }
+        java.util.List<Object> spec = asList(expr);
+        if (spec.size() == 2 && asString(spec.get(0)).equals("field")) {
+            return asString(spec.get(1));
+        }
+        return null;
+    }
+
+    private static SchemaMappingSpec[] schemaMappingSpecs(
+        java.util.List<Object> mappingTargetValues,
+        java.util.List<Object> mappingSourceValues
+    ) {
+        boolean selectedMappings =
+            !mappingTargetValues.isEmpty() && mappingTargetValues.get(0) instanceof java.util.List;
+        if (selectedMappings) {
+            SchemaMappingSpec[] mapping = new SchemaMappingSpec[mappingTargetValues.size()];
+            for (int index = 0; index < mappingTargetValues.size(); index += 1) {
+                java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
+                java.util.List<Object> targets = asList(targetSpec.get(3));
+                java.util.List<Object> sources = asList(mappingSourceValues.get(index));
+                SchemaMappingFieldSpec[] mappingFields =
+                    new SchemaMappingFieldSpec[targets.size()];
+                for (int fieldIndex = 0; fieldIndex < targets.size(); fieldIndex += 1) {
+                    mappingFields[fieldIndex] = new SchemaMappingFieldSpec(
+                        asString(targets.get(fieldIndex)),
+                        sources.get(fieldIndex)
+                    );
+                }
+                mapping[index] = new SchemaMappingSpec(
+                    asString(targetSpec.get(1)),
+                    Long.valueOf(asLong(targetSpec.get(2))),
+                    mappingFields
+                );
+            }
+            return mapping;
+        }
+        SchemaMappingFieldSpec[] mappingFields =
+            new SchemaMappingFieldSpec[mappingTargetValues.size()];
+        for (int index = 0; index < mappingTargetValues.size(); index += 1) {
+            mappingFields[index] = new SchemaMappingFieldSpec(
+                asString(mappingTargetValues.get(index)),
+                mappingSourceValues.get(index)
+            );
+        }
+        return mappingFields.length == 0
+            ? new SchemaMappingSpec[0]
+            : new SchemaMappingSpec[] { new SchemaMappingSpec(mappingFields) };
     }
 
     private static Object declaredBinarySchemaSpec(

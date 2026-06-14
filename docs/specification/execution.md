@@ -241,7 +241,12 @@ execution reference.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and
-  whose `Flag8` fields are source-visible `Flag8(bits)` values. A
+  whose `Flag8` fields are source-visible `Flag8(bits)` values. For one
+  structural `map to Target` clause whose assignments are direct
+  `target_field = schema_field` references covering the helper's visible
+  encode fields, the helper accepts the mapping target record shape instead
+  and projects those target fields back to the schema-local encode record
+  before writing bytes. A
   length-bounded `ByteView(length_field)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
   visible length field is written. If the supplied view count differs from the
@@ -309,16 +314,18 @@ execution reference.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
-  This slice excludes schema mappings, encode-time field-local validation
-  beyond primitive representation ranges, recursive or otherwise ineligible
-  dispatch payload schemas, nested mappings, and derived codec encode
-  execution for unsupported schemas.
+  This slice excludes multiple selected mapping clauses, mapping expressions
+  that cannot be projected back to schema-local fields, encode-time
+  field-local validation beyond primitive representation ranges, recursive or
+  otherwise ineligible dispatch payload schemas, nested mappings, and derived
+  codec encode execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-sub-byte-encode/`,
   `examples/specification/run/binary-schema-sub-byte-encode-human/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
+  `examples/specification/run/binary-schema-mapped-record-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
@@ -353,19 +360,21 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
-  repeat-backed schemas and same-module or public imported nested dispatch
-  payload schemas already accepted by `byte_encode_<schema>`. The call accepts
-  the generated helper's value record, invokes the schema encode helper,
+  repeat-backed schemas, the implemented direct structural mapping slice, and
+  same-module or public imported nested dispatch payload schemas already
+  accepted by `byte_encode_<schema>`. The call accepts the generated helper's
+  value record or mapped target record, invokes the schema encode helper,
   returns `EncodeStep<()>`, projects helper `Ok(ByteChunk)` output to
   `Encoded(List<ByteChunk>)` with one chunk, and projects helper
   `Err(EncodeError)` output to `Invalid(EncodeError)`.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
+  `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`, and
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`.
-  A mapped schema is rejected with `codec.encode_value_type` when the generated
-  encode helper cannot accept the mapping target value type.
+  A mapped schema is rejected with `codec.encode_value_type` when its mapping
+  expression shape cannot be projected back to the schema-local encode record.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including

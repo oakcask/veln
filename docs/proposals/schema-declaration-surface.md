@@ -60,6 +60,9 @@ The implemented first slice covers:
   multiple clauses selected by `when field == literal`, when each assignment
   expression uses the implemented structural expression slice and type checks
   against the target record field
+- generated `byte_encode_<schema>` helper and `derive encode` support for one
+  structural `map to Target` clause whose assignments are direct
+  `target_field = schema_field` references covering the visible encode fields
 - semantic rejection for ambiguous or unsupported mapping selection, including
   missing selectors, duplicate selector values, selector field mismatches, and
   selected target shape mismatches

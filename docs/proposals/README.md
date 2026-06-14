@@ -22,7 +22,8 @@ compare it with `../specification/` before changing behavior.
   constructor construction mapping expressions, pure same-module
   representation conversion hooks, decoded-field integer equality mapping
   selection, focused mapping selection diagnostics, and the generated-helper
-  schema validation diagnostic boundary.
+  schema validation diagnostic boundary, plus direct structural mapped schema
+  encode helper and derived encode boundary support.
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup.
@@ -56,7 +57,7 @@ compare it with `../specification/` before changing behavior.
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,
   mapped decode value boundary, encode function return and mapped value
-  parameter boundaries, derived codec mapping value boundary rejections,
+  parameter boundaries, derived codec mapping value boundary checks,
   source-visible decode and encode result vocabulary, generated binary schema
   decode-step helper slice for implemented exact-width, repeat-backed, and
   same-module nested dispatch payload boundaries, hand-written codec decode

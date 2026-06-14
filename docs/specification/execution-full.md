@@ -250,15 +250,20 @@ Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
 primitive, supported reserved-bit, length-bounded `ByteView`, closed dispatch,
-extension dispatch, and same-module or imported public nested dispatch payload slices remains
-unimplemented. When a
-mapped schema would require the codec item to accept the mapping target rather
-than the generated helper's schema-local value record, the `derive encode`
-clause is rejected with `codec.encode_value_type`.
+extension dispatch, implemented direct structural mapping, and same-module or
+imported public nested dispatch payload slices remains unimplemented. When a
+mapped schema uses a mapping expression shape that cannot be projected back to
+the schema-local encode record, the `derive encode` clause is rejected with
+`codec.encode_value_type`.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
-visible exact-width unsigned primitive fields as ordinary `Int` values.
+visible exact-width unsigned primitive fields as ordinary `Int` values. For
+one structural `map to Target` clause whose assignments are direct
+`target_field = schema_field` references covering the helper's visible encode
+fields, the helper accepts the mapping target record shape instead and
+projects those target fields back to the schema-local encode record before
+writing bytes.
 Length-bounded `ByteView(length_field)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier
 visible length field is written. If the supplied view count differs from the
@@ -323,9 +328,10 @@ the high reserved bits from the declared value and the low visible bits from
 the encoder input record. Unsupported non-byte-aligned reserved-bit encode
 shapes report
 `schema.reserved_bits_encode`.
-This slice excludes schema mappings, field-local validation, generalized
-dispatch payload schemas, other fixed fields, nested mappings, and derived
-codec encode execution for unsupported schemas.
+This slice excludes multiple selected mapping clauses, mapping expressions
+that cannot be projected back to schema-local fields, field-local validation,
+generalized dispatch payload schemas, other fixed fields, nested mappings,
+and derived codec encode execution for unsupported schemas.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
