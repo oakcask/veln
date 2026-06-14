@@ -93,8 +93,8 @@ General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module or imported public nested dispatch payload helper slices, general
 ADT constructor mapping beyond schema-local structural expressions,
-generalized dispatch payload schema encode, arbitrary mapping expressions, and
-multiple mapping selection are not implemented.
+recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
+expressions, and multiple mapping selection are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
 pins the multiple mapping clause boundary. The checked diagnostics case
@@ -115,10 +115,11 @@ and whose cases are exact-width unsigned primitive payloads or earlier
 same-module binary schema payloads or public imported binary schema payloads
 named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
-schema mappings, field-local validation, generalized dispatch payload schemas,
-non-byte-aligned reserved fields except the `UInt31be` shared-bit layout,
-other fixed fields, and derived codec encode execution over unsupported
-schemas are outside that encode helper slice.
+schema mappings, encode-time field-local validation beyond primitive
+representation ranges, recursive or otherwise ineligible dispatch payload
+schemas, non-byte-aligned reserved fields except the `UInt31be` shared-bit
+layout, and derived codec encode execution over unsupported schemas are
+outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

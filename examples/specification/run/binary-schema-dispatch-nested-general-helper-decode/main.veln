@@ -1,0 +1,60 @@
+# Nested dispatch payload decode uses the general binary schema helper path.
+use stdio
+
+schema SettingsPayload
+	format binary
+
+	version: UInt8 where version == 1
+	padding: ReservedBits(8, 0)
+	code: UInt8
+	value: UInt16le
+end
+
+schema ClosedNestedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SettingsPayload)
+end
+
+schema ExtensionNestedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => SettingsPayload)
+end
+
+fn emit_payload(prefix: String, payload: {version: Int, code: Int, value: Int}) -> () effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.version))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.code))
+	stdio::print(" ")
+	stdio::println(int_to_string(payload.value))
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{version: Int, code: Int, value: Int}>) -> () effects [stdio]
+	match payload
+		Known(value) => emit_payload("extension", value)
+		Unknown(_, _) => stdio::println("unexpected unknown")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("010100073412")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(6)?)?
+	let closed: {kind: Int, payload: {version: Int, code: Int, value: Int}} = byte_decode_closed_nested_packet(closed_view)?
+	emit_payload("closed", closed.payload)
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("05010100073412")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(7)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{version: Int, code: Int, value: Int}>} = byte_decode_extension_nested_packet(extension_view)?
+	stdio::print(int_to_string(extension.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension.kind))
+	stdio::print(" ")
+	emit_extension_payload(extension.payload)
+	Ok(())
+end

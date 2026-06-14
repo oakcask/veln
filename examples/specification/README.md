@@ -482,6 +482,10 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-nested-encode/`: a generated binary
   schema encode helper selects a closed dispatch same-module nested payload
   schema and writes the nested record fields in schema order.
+- `run/binary-schema-dispatch-nested-general-helper-encode/`: closed and
+  extension-tolerant nested dispatch encode cases write the selected nested
+  payload through the generated schema helper path, including byte-aligned
+  reserved fields and little-endian primitive output.
 - `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
   binary schema encode helper selects a closed dispatch public imported nested
   payload schema and writes the nested record fields in schema order.
@@ -528,6 +532,10 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-nested-decode/`: a closed dispatch known
   case may select a same-module nested binary schema payload and return the
   decoded nested record shape.
+- `run/binary-schema-dispatch-nested-general-helper-decode/`: closed and
+  extension-tolerant nested dispatch known cases decode the selected nested
+  payload through the generated schema helper path, preserving fixed-field
+  validation, byte-aligned reserved fields, and little-endian primitive reads.
 - `run/binary-schema-imported-closed-dispatch-nested-decode/`: a closed
   dispatch known case may select a public imported binary schema payload
   through a written `use` path and return the decoded nested record shape.
@@ -568,6 +576,9 @@ against the built `veln` binary.
 - `run/binary-schema-dispatch-nested-failure-json/`: nested payload schema
   failures keep the nested schema field path and absolute byte offset in
   `run --json`.
+- `run/binary-schema-dispatch-nested-general-helper-failure-json/`: fixed-field
+  mismatches produced by the general nested payload helper keep the nested
+  schema field path, absolute byte offset, and byte preview in `run --json`.
 - `run/binary-schema-extension-dispatch-length-human/`: extension-tolerant
   dispatch still reports a focused `schema.length_out_of_bounds` diagnostic
   when the decoded unknown-payload length exceeds closed input.
