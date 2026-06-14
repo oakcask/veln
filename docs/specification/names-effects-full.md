@@ -610,20 +610,24 @@ eligible schema declarations also expose `byte_decode_step_<schema>` helpers
 that accept `ByteView` plus `ByteOffset` and return `DecodeStep<T>` with
 `Decoded(value, consumed)` for a complete buffered value or
 `NeedMore(NeedBytes(count))` for an open view that is too short to decide. The
-exact-width, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module or imported public nested dispatch payload encode slices expose
+exact-width, supported reserved-bit, length-bounded `ByteView`, closed
+dispatch, extension dispatch, and same-module or imported public nested
+dispatch payload encode slices expose
 `byte_encode_<schema>` helpers for eligible binary schemas whose
 source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
-`ReservedBits(1, 0)` before `UInt31be` layout, closed dispatch fields, or
-extension-tolerant dispatch fields with earlier visible exact-width tag and
-length fields. Dispatch payload cases may be exact-width unsigned primitive
-payloads, earlier same-module binary schema payloads, or public imported
-binary schema payloads named through written `use` paths. Those helpers accept
-a schema-local visible record, using ordinary `Int` fields for visible
-primitives and `SchemaDispatchPayload<T>` for extension dispatch payload
-fields, and return `Result<ByteChunk, EncodeError>` with field-order output
-using each primitive's declared byte order or a structured encode error. The
+`ReservedBits(1, 0)` before `UInt31be` layout, length-bounded
+`ByteView(length_field)` fields whose length names an earlier visible
+exact-width field, closed dispatch fields, or extension-tolerant dispatch
+fields with earlier visible exact-width tag and length fields. Dispatch
+payload cases may be exact-width unsigned primitive payloads, earlier
+same-module binary schema payloads, or public imported binary schema payloads
+named through written `use` paths. Those helpers accept a schema-local visible
+record, using ordinary `Int` fields for visible primitives, `ByteView` fields
+for length-bounded payloads, and `SchemaDispatchPayload<T>` for extension
+dispatch payload fields, and return `Result<ByteChunk, EncodeError>` with
+field-order output using each primitive's declared byte order or a structured
+encode error. The
 supported reserved-bit encode layout omits byte-aligned
 `ReservedBits(width, value)` fields from the value record and writes their
 declared fixed values. It also omits `ReservedBits(1, 0)` from the value

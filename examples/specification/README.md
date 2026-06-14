@@ -520,6 +520,12 @@ against the built `veln` binary.
   `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-repeat-encode-count-mismatch/`: repeated primitive encode
   rejects a `List<Int>` whose length does not match the earlier count field.
+- `run/binary-schema-byteview-encode/`: generated schema encode helpers write
+  the bounded bytes from a `ByteView(length_field)` payload after its explicit
+  length field.
+- `run/binary-schema-byteview-encode-length-mismatch/`: length-bounded
+  `ByteView` encode rejects a view whose count does not match the earlier
+  length field.
 - `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the
@@ -666,6 +672,9 @@ against the built `veln` binary.
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
   helper failures as `Invalid(EncodeError)`.
+- `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
+  boundary projects a length-bounded `ByteView` schema helper success to one
+  encoded output chunk.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload
   schema, including generated helper dispatch selection failure projection.

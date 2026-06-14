@@ -1624,6 +1624,10 @@
                 );
                 continue;
             }
+            if (!lengthField.isEmpty() && tagField.isEmpty()) {
+                schemaFields[index] = new SchemaFieldSpec(fieldName, lengthField);
+                continue;
+            }
             if (!tagField.isEmpty()) {
                 Object dispatch = declaredSchemaDispatch(
                     name,
@@ -1728,6 +1732,14 @@
             }
             if (field.isRepeat()) {
                 Object encoded = schemaWriteRepeatedField(fields, field, schema.name);
+                if (isErr(encoded)) {
+                    return encoded;
+                }
+                bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
+                continue;
+            }
+            if (field.isLengthBoundedView()) {
+                Object encoded = schemaWriteLengthBoundedView(fields, field, schema.name);
                 if (isErr(encoded)) {
                     return encoded;
                 }
@@ -3885,6 +3897,25 @@
             ));
         }
         return ok(chunk);
+    }
+
+    private static Object schemaWriteLengthBoundedView(
+        java.util.Map<Object, Object> fields,
+        SchemaFieldSpec field,
+        String schemaName
+    ) {
+        long suppliedLength = asLong(fields.get(field.lengthField));
+        Object view = fields.get(field.name);
+        long actualLength = byteViewCountLong(view);
+        if (actualLength != suppliedLength) {
+            return err(encodeError(
+                "codec.encode_value_unrepresentable",
+                schemaName + "." + field.name,
+                "byte view count " + actualLength + " does not match length field `"
+                    + field.lengthField + "` value " + suppliedLength
+            ));
+        }
+        return ok(byteViewToChunk(view));
     }
 
     private static Object schemaWriteUnsigned(
