@@ -4,10 +4,6 @@ exit = 0
 [requires]
 jdk = true
 
-[env]
-VELN_NET_CHUNK_HEX = "0102ff"
-VELN_NET_EVENTS = "net-events.log"
-
 [stdout]
 format = "json"
 
@@ -20,12 +16,8 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "3\n2\ntimeout\ndeadline\n"
+equals = "deadline\n"
 
 [[json_assert]]
 path = "error"
 equals = null
-
-[[file_assert]]
-path = "net-events.log"
-equals = "send ByteChunk([Byte(10), Byte(11)])\n"

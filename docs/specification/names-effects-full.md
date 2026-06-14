@@ -190,21 +190,26 @@ the standard symbol table:
 net::receive_chunk() -> ByteChunk effects [net]
 net::send_chunk(bytes: ByteChunk) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
+time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
+time::wait_until(deadline: Deadline) -> () effects [time]
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `time::timeout_ms` infer the `time` effect. A public
-function or test that calls one of them directly or through a private helper
-must declare the matching effect in its `effects [...]` list.
+effect. Direct calls to `time::timeout_ms`, `time::deadline_after_ms`, and
+`time::wait_until` infer the `time` effect. A public function or test that
+calls one of them directly or through a private helper must declare the
+matching effect in its `effects [...]` list.
 
 This boundary is intentionally descriptor-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
-chunk to the host runtime; `time::timeout_ms` waits at the runtime boundary.
-Malformed host-fed receive bytes, failed outgoing event recording, and
-host-fixture-forced timeout expiry are transport runtime failures, not schema,
-codec, or peer protocol diagnostics. These calls do not define sockets,
-stream routing, timer handles, cancellation, TLS, ALPN, or an HTTP application
-framework.
+chunk to the host runtime; `time::timeout_ms` waits at the runtime boundary;
+`time::deadline_after_ms` creates a relative `Deadline`; and
+`time::wait_until` waits until that deadline expires. Malformed host-fed
+receive bytes, failed outgoing event recording, host-fixture-forced timeout
+expiry, and host-fixture-forced deadline expiry are transport runtime
+failures, not schema, codec, or peer protocol diagnostics. These calls do not
+define sockets, stream routing, timer handles beyond the returned `Deadline`,
+cancellation, TLS, ALPN, or an HTTP application framework.
 
 ## Process Calls
 

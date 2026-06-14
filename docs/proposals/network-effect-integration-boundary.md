@@ -7,8 +7,8 @@ transport integration. The first descriptor-backed `net` and `time`
 boundary calls are current behavior under
 `../specification/names-effects.md`, including host-runtime failures for
 malformed received bytes, failed outgoing event recording, and forced timeout
-expiry. This page keeps the larger transport adapter, routing, deadline API,
-cancellation, and socket work open.
+and deadline expiry. This page keeps the larger transport adapter, routing,
+richer deadline, cancellation, and socket work open.
 
 ## Problem
 
@@ -33,7 +33,7 @@ boundary calls for:
 - channel-first stream event routing
 - per-stream task handling
 - richer deadline, timeout, and cancellation adapter APIs beyond
-  `time::timeout_ms`
+  `time::timeout_ms`, `time::deadline_after_ms`, and `time::wait_until`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -145,10 +145,11 @@ adapter surface with related connection and stream context when available.
 
 ## Discussion Result: Deadline And Timeout API
 
-Implemented first slice: `time::timeout_ms(milliseconds)` uses the existing
-`time` effect label, waits at the runtime boundary, and can be forced by a
-host fixture to report timeout expiry as a runtime failure. It does not add a
-separate richer timer effect or timer-specific source construct.
+Implemented first slices: `time::timeout_ms(milliseconds)`,
+`time::deadline_after_ms(milliseconds)`, and `time::wait_until(deadline)` use
+the existing `time` effect label and wait at the runtime boundary. Host
+fixtures can force timeout or deadline expiry as runtime failures. These calls
+do not add a separate richer timer effect or timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work, and translate
@@ -157,7 +158,7 @@ The pure sans-I/O core continues to receive explicit input events and protocol
 state values; it does not read time, sleep, or observe host timers.
 
 This keeps the first integration boundary aligned with the current coarse
-effect model. A later runtime proposal may add concrete timer handles,
+effect model. A later runtime proposal may add richer timer handles,
 monotonic-clock values, cancellation tokens, or scheduler APIs if examples need
 them, but that work should extend the `time` standard-library surface rather
 than introduce deadline behavior into schemas or the pure protocol core.
@@ -175,7 +176,8 @@ than introduce deadline behavior into schemas or the pure protocol core.
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
 - Examples show adapter-owned socket reads, writes, stream routing, richer
-  deadline APIs, and cancellation once those runtime APIs exist.
+  deadline APIs beyond the narrow relative `Deadline`, and cancellation once
+  those runtime APIs exist.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

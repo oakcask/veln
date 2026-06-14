@@ -504,7 +504,12 @@ fn net_calls_require_net_effect_with_descriptor_provenance() {
 fn time_calls_require_time_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
-        concat!("pub fn main() -> ()\n", "  time::timeout_ms(10)\n", "end\n",),
+        concat!(
+            "pub fn main() -> ()\n",
+            "  let deadline: Deadline = time::deadline_after_ms(10)\n",
+            "  time::wait_until(deadline)\n",
+            "end\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -520,7 +525,7 @@ fn time_calls_require_time_effect_with_descriptor_provenance() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"effect\":\"time\""));
     assert!(details.contains("\"inferred_effects\":[\"time\"]"));
-    assert!(details.contains("\"symbol\":\"time::timeout_ms\""));
+    assert!(details.contains("\"symbol\":\"time::deadline_after_ms\""));
 }
 
 #[test]
@@ -534,6 +539,8 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  let chunk: ByteChunk = net::receive_chunk()\n",
             "  net::send_chunk(chunk)\n",
             "  time::timeout_ms(1)\n",
+            "  let deadline: Deadline = time::deadline_after_ms(1)\n",
+            "  time::wait_until(deadline)\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -590,7 +597,27 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::timeout_ms"
     ));
-    let IrStmtKind::Return { value } = &main.body[5].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[5].kind else {
+        panic!("deadline call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::deadline_after_ms"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[6].kind else {
+        panic!("wait call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::wait_until"
+    ));
+    let IrStmtKind::Return { value } = &main.body[7].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

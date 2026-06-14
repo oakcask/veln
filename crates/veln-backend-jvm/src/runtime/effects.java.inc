@@ -119,6 +119,45 @@
         return UNIT;
     }
 
+    public static Object timeDeadlineAfterMs(Object milliseconds) {
+        long value = asLong(milliseconds);
+        if (value <= 0L) {
+            return Long.valueOf(System.nanoTime());
+        }
+        long delta;
+        try {
+            delta = Math.multiplyExact(value, 1000000L);
+        } catch (ArithmeticException error) {
+            delta = Long.MAX_VALUE;
+        }
+        long now = System.nanoTime();
+        long deadline = now + delta;
+        if (deadline < now) {
+            deadline = Long.MAX_VALUE;
+        }
+        return Long.valueOf(deadline);
+    }
+
+    public static Object timeWaitUntil(Object deadline) {
+        String forcedExpiry = System.getenv("VELN_TIME_DEADLINE_EXPIRED");
+        if ("1".equals(forcedExpiry)) {
+            throw new RuntimeFailure("transport deadline expired: VELN_TIME_DEADLINE_EXPIRED");
+        }
+        long target = asLong(deadline);
+        long remaining = target - System.nanoTime();
+        if (remaining <= 0L) {
+            return UNIT;
+        }
+        try {
+            long millis = remaining / 1000000L;
+            int nanos = (int) (remaining % 1000000L);
+            Thread.sleep(millis, nanos);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+        }
+        return UNIT;
+    }
+
     private static void writeNetEvent(String line) throws java.io.IOException {
         String path = System.getenv("VELN_NET_EVENTS");
         if (path == null || path.isEmpty()) {
