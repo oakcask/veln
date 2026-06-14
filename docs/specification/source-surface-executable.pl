@@ -98,7 +98,8 @@ grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
-grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath NL SchemaMappingAssignment+").
+grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
+grammar_line(107, "SchemaMappingSelector ::= \"when\" Name \"==\" IntLiteral").
 grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Expr NL").
 grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
@@ -381,8 +382,17 @@ schema_mapping -->
     ident_text("map"),
     ident_text("to"),
     member_path,
+    schema_mapping_selector_opt,
     nl,
     schema_mapping_assignments.
+
+schema_mapping_selector_opt -->
+    ident_text("when"),
+    ident,
+    tok(equal_equal),
+    tok(int),
+    !.
+schema_mapping_selector_opt --> [].
 
 schema_mapping_assignments --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
 schema_mapping_assignments_tail --> schema_mapping_assignment, !, schema_mapping_assignments_tail.

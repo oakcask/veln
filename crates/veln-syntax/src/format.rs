@@ -156,14 +156,20 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
 }
 
 fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &SchemaMappingClause) {
+    let selector = mapping
+        .selector
+        .as_ref()
+        .map(|selector| format!(" when {} == {}", selector.field, selector.value))
+        .unwrap_or_default();
     push_source_line(
         out,
         comments,
         mapping.span.start.line,
         1,
         format!(
-            "map to {}",
-            mapping.target.as_deref().unwrap_or("<missing>")
+            "map to {}{}",
+            mapping.target.as_deref().unwrap_or("<missing>"),
+            selector
         ),
     );
     for assignment in &mapping.assignments {

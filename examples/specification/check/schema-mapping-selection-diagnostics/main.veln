@@ -1,0 +1,72 @@
+type Header
+	Header {kind: Int, value: Int}
+end
+
+type OtherHeader
+	OtherHeader {kind: Int, value: Int}
+end
+
+type DifferentHeader
+	DifferentHeader {kind: Int, text: String}
+end
+
+schema MissingSelectorWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Header when kind == 1
+		kind = kind
+		value = value
+
+	map to OtherHeader
+		kind = kind
+		value = value
+end
+
+schema DuplicateSelectorWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Header when kind == 1
+		kind = kind
+		value = value
+
+	map to OtherHeader when kind == 1
+		kind = kind
+		value = value
+end
+
+schema FieldMismatchWire
+	format binary
+
+	kind: UInt8
+	other_kind: UInt8
+	value: UInt8
+
+	map to Header when kind == 1
+		kind = kind
+		value = value
+
+	map to OtherHeader when other_kind == 2
+		kind = other_kind
+		value = value
+end
+
+schema TargetMismatchWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Header when kind == 1
+		kind = kind
+		value = value
+
+	map to DifferentHeader when kind == 2
+		kind = kind
+		text = value
+end

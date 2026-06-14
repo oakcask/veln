@@ -1017,6 +1017,18 @@ pub(crate) struct SchemaDecodeMappingField {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDecodeMapping {
+    pub(crate) selector: Option<SchemaDecodeMappingSelector>,
+    pub(crate) fields: Vec<SchemaDecodeMappingField>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDecodeMappingSelector {
+    pub(crate) field: String,
+    pub(crate) value: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SchemaDecodeMappingExpr {
     Field(String),
     Record(Vec<SchemaDecodeMappingRecordField>),
@@ -1129,32 +1141,46 @@ pub(crate) fn schema_decode_mapping_fields(
     schema_decode_mapping_fields_from_decoded_fields(module, schema, &decoded_fields)
 }
 
+pub(crate) fn schema_decode_mappings(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Vec<SchemaDecodeMapping>> {
+    let decoded_fields = schema_decode_record_fields(module, schema)?;
+    schema_decode_mappings_from_decoded_fields(module, schema, &decoded_fields)
+}
+
 fn schema_decode_mapping_record_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     decoded_fields: &[(String, Type, u8)],
 ) -> Option<Vec<(String, Type)>> {
-    let [mapping] = schema.mappings.as_slice() else {
+    let [first_mapping, rest @ ..] = schema.mappings.as_slice() else {
         return None;
     };
-    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let target_fields = schema_mapping_target_record_fields(module, schema, first_mapping)?;
     let source_field_types = decoded_fields
         .iter()
         .map(|(name, ty, _)| (name.clone(), ty.clone()))
         .collect::<BTreeMap<_, _>>();
-    for (target, target_ty) in &target_fields {
-        let assignment = mapping
-            .assignments
-            .iter()
-            .find(|assignment| assignment.target == *target)?;
-        schema_mapping_expr_typed(
+    validate_schema_decode_mapping_fields(
+        module,
+        schema,
+        &source_field_types,
+        first_mapping,
+        &target_fields,
+    )?;
+    for mapping in rest {
+        mapping.selector.as_ref()?;
+        if schema_mapping_target_record_fields(module, schema, mapping)? != target_fields {
+            return None;
+        }
+        validate_schema_decode_mapping_fields(
             module,
             schema,
             &source_field_types,
-            &assignment.expr,
-            target_ty,
-        )
-        .ok()?;
+            mapping,
+            &target_fields,
+        )?;
     }
     Some(target_fields)
 }
@@ -1167,6 +1193,41 @@ fn schema_decode_mapping_fields_from_decoded_fields(
     let [mapping] = schema.mappings.as_slice() else {
         return None;
     };
+    schema_decode_mapping_fields_for_mapping(module, schema, decoded_fields, mapping)
+}
+
+fn schema_decode_mappings_from_decoded_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &[(String, Type, u8)],
+) -> Option<Vec<SchemaDecodeMapping>> {
+    if schema.mappings.is_empty() {
+        return None;
+    }
+    schema
+        .mappings
+        .iter()
+        .map(|mapping| {
+            let fields =
+                schema_decode_mapping_fields_for_mapping(module, schema, decoded_fields, mapping)?;
+            let selector = mapping
+                .selector
+                .as_ref()
+                .map(|selector| SchemaDecodeMappingSelector {
+                    field: selector.field.clone(),
+                    value: selector.value,
+                });
+            Some(SchemaDecodeMapping { selector, fields })
+        })
+        .collect()
+}
+
+fn schema_decode_mapping_fields_for_mapping(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &[(String, Type, u8)],
+    mapping: &SchemaMappingClause,
+) -> Option<Vec<SchemaDecodeMappingField>> {
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     let source_field_types = decoded_fields
         .iter()
@@ -1193,6 +1254,30 @@ fn schema_decode_mapping_fields_from_decoded_fields(
         });
     }
     Some(fields)
+}
+
+fn validate_schema_decode_mapping_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    source_field_types: &BTreeMap<String, Type>,
+    mapping: &SchemaMappingClause,
+    target_fields: &[(String, Type)],
+) -> Option<()> {
+    for (target, target_ty) in target_fields {
+        let assignment = mapping
+            .assignments
+            .iter()
+            .find(|assignment| assignment.target == *target)?;
+        schema_mapping_expr_typed(
+            module,
+            schema,
+            source_field_types,
+            &assignment.expr,
+            target_ty,
+        )
+        .ok()?;
+    }
+    Some(())
 }
 
 pub(crate) fn schema_mapping_expr_typed(

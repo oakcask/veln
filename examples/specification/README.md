@@ -232,11 +232,10 @@ against the built `veln` binary.
 - `check/schema-packed-reserved-mapping-diagnostics/`: one-byte packed
   `ReservedBits(width, value)` fields are representation-only and are not
   available as structural mapping source fields.
-- `check/schema-mapping-multiple-clause-diagnostics/`: binary schema
-  diagnostics for later structural `map to Target` clauses when a schema has
-  more than one mapping clause.
-- `check/schema-mapping-multiple-clause-human/`: human rendering for the same
-  multiple mapping clause boundary.
+- `check/schema-mapping-selection-diagnostics/`: binary schema diagnostics for
+  missing, ambiguous, and unsupported structural mapping selection.
+- `run/binary-schema-mapping-selection-decode/`: generated binary schema
+  decode selects one structural mapping from an already decoded field value.
 - `check/schema-mapping-expression-boundary-diagnostics/`: record and
   constructor-shaped schema mapping assignment values report unsupported
   expression, unresolved constructor, constructor arity, and payload type

@@ -1627,7 +1627,7 @@ fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
 }
 
 #[test]
-fn generated_schema_mappings_report_multiple_mapping_clauses() {
+fn generated_schema_mappings_report_selection_diagnostics() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1645,11 +1645,11 @@ fn generated_schema_mappings_report_multiple_mapping_clauses() {
             "  length: UInt16be\n",
             "  kind: UInt8\n",
             "\n",
-            "  map to Header\n",
+            "  map to Header when kind == 1\n",
             "    length = length\n",
             "    kind = kind\n",
             "\n",
-            "  map to AlternateHeader\n",
+            "  map to AlternateHeader when kind == 1\n",
             "    length = length\n",
             "    kind = kind\n",
             "end\n",
@@ -1662,22 +1662,16 @@ fn generated_schema_mappings_report_multiple_mapping_clauses() {
 
     let diagnostic = diagnostics
         .iter()
-        .find(|diagnostic| diagnostic.id == "schema.mapping_multiple_clauses")
+        .find(|diagnostic| diagnostic.id == "schema.mapping_selection_ambiguous")
         .unwrap_or_else(|| panic!("{diagnostics:#?}"));
     assert_eq!(
         diagnostic.message,
-        "schema declaration has multiple mapping clauses"
+        "schema mapping selector `kind` == 1 is duplicated"
     );
     let details = diagnostic.details.to_json();
     assert!(details.contains("\"schema\":\"HeaderWire\""), "{details}");
-    assert!(
-        details.contains("\"selected_mapping_target\":\"AlternateHeader\""),
-        "{details}"
-    );
-    assert!(
-        details.contains("\"previous_mapping_target\":\"Header\""),
-        "{details}"
-    );
+    assert!(details.contains("\"selector_field\":\"kind\""), "{details}");
+    assert!(details.contains("\"selector_value\":1"), "{details}");
     assert!(
         diagnostics
             .iter()

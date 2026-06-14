@@ -20,7 +20,8 @@ compare it with `../specification/` before changing behavior.
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions, pure same-module
-  representation conversion hooks, and multiple mapping clause rejection.
+  representation conversion hooks, decoded-field integer equality mapping
+  selection, and focused mapping selection diagnostics.
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup.

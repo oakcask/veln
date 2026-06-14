@@ -889,11 +889,40 @@ fn codec_single_mapping_value_type_parts<'a>(
     eligibility: MappingValueTypeEligibility,
 ) -> Option<CodecMappingValueTypeParts<'a>> {
     let schema = codec_referenced_schema(module, codec)?;
-    let [mapping] = schema.mappings.as_slice() else {
+    let [mapping, rest @ ..] = schema.mappings.as_slice() else {
         return None;
     };
     let schema_fields = generated_schema_field_types(module, schema)?;
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    for candidate in rest {
+        candidate.selector.as_ref()?;
+        let candidate_target_fields =
+            schema_mapping_target_record_fields(module, schema, candidate)?;
+        if candidate_target_fields != target_fields {
+            return None;
+        }
+        let candidate_matches = match eligibility {
+            MappingValueTypeEligibility::Declared => mapping_matches_declared_value_type(
+                module,
+                schema,
+                &schema_fields,
+                candidate,
+                &candidate_target_fields,
+            ),
+            MappingValueTypeEligibility::ImplementedRuntimeSlice => {
+                mapping_is_implemented_value_slice(
+                    module,
+                    schema,
+                    &schema_fields,
+                    candidate,
+                    &candidate_target_fields,
+                )
+            }
+        };
+        if !candidate_matches {
+            return None;
+        }
+    }
     if eligibility == MappingValueTypeEligibility::Declared
         && !mapping_matches_declared_value_type(
             module,
@@ -2178,16 +2207,16 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for schema in &module.schemas {
-        let multiple_mapping_diagnostics = schema_multiple_mapping_clause_diagnostics(schema);
-        let has_multiple_mappings = !multiple_mapping_diagnostics.is_empty();
-        diagnostics.extend(multiple_mapping_diagnostics);
-        if has_multiple_mappings {
-            continue;
-        }
-
         let Some(schema_fields) = generated_schema_field_types(module, schema) else {
             continue;
         };
+        let selection_diagnostics =
+            schema_mapping_selection_diagnostics(module, schema, &schema_fields);
+        let has_selection_errors = !selection_diagnostics.is_empty();
+        diagnostics.extend(selection_diagnostics);
+        if has_selection_errors {
+            continue;
+        }
         for mapping in &schema.mappings {
             let Some(target) = &mapping.target else {
                 continue;
@@ -2243,67 +2272,193 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn schema_multiple_mapping_clause_diagnostics(schema: &SchemaDecl) -> Vec<Diagnostic> {
+fn schema_mapping_selection_diagnostics(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &BTreeMap<String, Type>,
+) -> Vec<Diagnostic> {
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return Vec::new();
     }
-
-    let Some(first_mapping) = schema.mappings.first() else {
-        return Vec::new();
-    };
     if schema.mappings.len() <= 1 {
         return Vec::new();
     }
 
-    let mut previous_mapping = first_mapping;
     let mut diagnostics = Vec::new();
-    for mapping in schema.mappings.iter().skip(1) {
-        diagnostics.push(schema_mapping_multiple_clauses_diagnostic(
-            schema,
-            mapping,
-            previous_mapping,
-        ));
-        previous_mapping = mapping;
+    let mut selector_field = None::<String>;
+    let mut seen_selectors = BTreeMap::<(String, i64), SourceSpan>::new();
+    let mut target_fields = None::<Vec<(String, Type)>>;
+    for mapping in &schema.mappings {
+        let Some(selector) = &mapping.selector else {
+            diagnostics.push(schema_mapping_selection_required_diagnostic(
+                schema, mapping,
+            ));
+            continue;
+        };
+        if schema_fields.get(&selector.field) != Some(&Type::int()) {
+            diagnostics.push(schema_mapping_selection_field_diagnostic(
+                schema, mapping, selector,
+            ));
+        }
+        if let Some(first_field) = &selector_field {
+            if first_field != &selector.field {
+                diagnostics.push(schema_mapping_selection_field_mismatch_diagnostic(
+                    schema,
+                    mapping,
+                    selector,
+                    first_field,
+                ));
+            }
+        } else {
+            selector_field = Some(selector.field.clone());
+        }
+        if let Some(first_span) = seen_selectors.insert(
+            (selector.field.clone(), selector.value),
+            selector.span.clone(),
+        ) {
+            diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
+                schema,
+                mapping,
+                selector,
+                &first_span,
+            ));
+        }
+        if let Some(fields) = schema_mapping_target_record_fields(module, schema, mapping) {
+            if let Some(first_fields) = &target_fields {
+                if first_fields != &fields {
+                    diagnostics.push(schema_mapping_selection_target_diagnostic(schema, mapping));
+                }
+            } else {
+                target_fields = Some(fields);
+            }
+        }
     }
     diagnostics
 }
 
-fn schema_mapping_multiple_clauses_diagnostic(
+fn schema_mapping_selection_required_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
-    previous_mapping: &SchemaMappingClause,
 ) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
-        "schema.mapping_multiple_clauses",
+    Diagnostic::new(
+        "schema.mapping_selection_required",
         Severity::Error,
         DiagnosticKind::Type,
-        "schema declaration has multiple mapping clauses",
+        "schema mapping clause needs a selector",
         Some(mapping.span.clone()),
         schema_mapping_details(
             mapping.node_id.display("schema-mapping"),
             schema,
             mapping,
+            [("reason", JsonValue::string("missing_mapping_selector"))],
+        ),
+    )
+}
+
+fn schema_mapping_selection_field_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &veln_ast::SchemaMappingSelector,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_selection",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping selector field `{}` is not a decoded Int field",
+            selector.field
+        ),
+        Some(selector.span.clone()),
+        schema_mapping_details(
+            selector.node_id.display("schema-mapping-selector"),
+            schema,
+            mapping,
             [
-                ("reason", JsonValue::string("multiple_mapping_clauses")),
-                (
-                    "selected_mapping_target",
-                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
-                ),
-                (
-                    "previous_mapping_target",
-                    JsonValue::string(previous_mapping.target.clone().unwrap_or_default()),
-                ),
+                ("reason", JsonValue::string("selector_field")),
+                ("selector_field", JsonValue::string(selector.field.clone())),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_selection_field_mismatch_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &veln_ast::SchemaMappingSelector,
+    first_field: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_selection_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "schema mapping selection must use one decoded field",
+        Some(selector.span.clone()),
+        schema_mapping_details(
+            selector.node_id.display("schema-mapping-selector"),
+            schema,
+            mapping,
+            [
+                ("reason", JsonValue::string("selector_field_mismatch")),
+                ("selector_field", JsonValue::string(selector.field.clone())),
+                ("expected_selector_field", JsonValue::string(first_field)),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_selection_ambiguous_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &veln_ast::SchemaMappingSelector,
+    first_span: &SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "schema.mapping_selection_ambiguous",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping selector `{}` == {} is duplicated",
+            selector.field, selector.value
+        ),
+        Some(selector.span.clone()),
+        schema_mapping_details(
+            selector.node_id.display("schema-mapping-selector"),
+            schema,
+            mapping,
+            [
+                ("reason", JsonValue::string("duplicate_selector")),
+                ("selector_field", JsonValue::string(selector.field.clone())),
+                ("selector_value", JsonValue::Number(selector.value)),
             ],
         ),
     );
     diagnostic.related.push(JsonValue::object([
-        ("span", span_json(&previous_mapping.span)),
+        ("span", span_json(first_span)),
         (
             "message",
-            JsonValue::string("Previous mapping clause is here."),
+            JsonValue::string("Previous selector with the same field value is here."),
         ),
     ]));
     diagnostic
+}
+
+fn schema_mapping_selection_target_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_selection_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "schema mapping selection targets must decode to the same record shape",
+        Some(mapping.span.clone()),
+        schema_mapping_details(
+            mapping.node_id.display("schema-mapping"),
+            schema,
+            mapping,
+            [("reason", JsonValue::string("target_shape_mismatch"))],
+        ),
+    )
 }
 
 fn generated_schema_field_types(

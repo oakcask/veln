@@ -56,11 +56,13 @@ The implemented first slice covers:
   schemas whose fields use implemented exact-width unsigned primitives,
   length-bounded `ByteView(length_field)` payload fields, or the implemented
   dispatch payload slices
-- generated runtime mapping for one structural `map to Target` clause when
-  each assignment expression uses the implemented structural expression slice
-  and type checks against the target record field
-- semantic rejection for `format binary` schemas that declare more than one
-  structural `map to Target` clause
+- generated runtime mapping for one structural `map to Target` clause, or
+  multiple clauses selected by `when field == literal`, when each assignment
+  expression uses the implemented structural expression slice and type checks
+  against the target record field
+- semantic rejection for ambiguous or unsupported mapping selection, including
+  missing selectors, duplicate selector values, selector field mismatches, and
+  selected target shape mismatches
 - schema mapping expressions that reference schema-local fields, construct
   records, construct ADT payloads through ordinary source module constructor
   resolution, or call one pure same-module representation converter from a
@@ -74,9 +76,9 @@ This proposal remains open for:
   implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
-  construction, ADT constructor construction, and single pure same-module
-  representation conversion hook expression slice, including mapping
-  selection
+  construction, ADT constructor construction, single pure same-module
+  representation conversion hook expression slice, and decoded-field integer
+  equality mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
@@ -107,13 +109,15 @@ schema body.
 The structural mapping clause syntax is implemented as current behavior under
 `../specification/source-surface.md`. The generated runtime mapping slices are
 implemented under `../specification/execution.md`: an eligible binary schema
-may use one `map to Target` clause to construct an ordinary mapped record
-after field-local validation succeeds when each assignment expression type
-checks against the target field. The implemented expression slice supports
-schema-local field references, record construction, ADT constructor
-construction resolved through ordinary source module rules, and one pure
-same-module converter function call from a schema-local field into a target
-field.
+may use one `map to Target` clause, or multiple clauses selected by
+`when field == literal`, to construct an ordinary mapped record after
+field-local validation succeeds when each assignment expression type checks
+against the target field. Selected mappings must use one decoded `Int` selector
+field, distinct selector literal values, and one decoded record shape. The
+implemented expression slice supports schema-local field references, record
+construction, ADT constructor construction resolved through ordinary source
+module rules, and one pure same-module converter function call from a
+schema-local field into a target field.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
@@ -312,21 +316,22 @@ Implemented:
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, and pure same-module
   representation converter call assignment expressions.
-- The generated helper slice resolves one structural `map to Target` clause
-  when assignment expressions type check against target record fields, rejects
-  invalid mapping assignments before execution, and returns the mapped record
-  shape after field-local validation passes.
-- Binary schemas that declare more than one structural `map to Target` clause
-  report `schema.mapping_multiple_clauses` at the later clause instead of
-  selecting among mappings.
+- The generated helper slice resolves one structural `map to Target` clause,
+  or multiple clauses selected by `when field == literal`, when assignment
+  expressions type check against target record fields, rejects invalid mapping
+  assignments before execution, and returns the selected mapped record shape
+  after field-local validation passes.
+- Binary schemas that declare ambiguous or unsupported mapping selection report
+  focused `schema.mapping_selection_*` diagnostics.
 
 Remaining:
 
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
 - Runtime schema value mapping beyond schema-local field reference, record
-  construction, ADT constructor construction, and one pure same-module
-  converter call resolves mapping selection and codec-selected mapping.
+  construction, ADT constructor construction, one pure same-module converter
+  call, and decoded-field integer equality selection resolves codec-selected
+  mapping.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

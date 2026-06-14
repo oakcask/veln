@@ -1159,9 +1159,56 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_mapping_targets(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, schema.mapping.len(), |_, code, index| {
-            code.ldc_string(&schema.mapping[index].target);
-        });
+        if schema.mapping_alternatives.len() <= 1 {
+            let fields = schema
+                .mapping_alternatives
+                .first()
+                .map(|mapping| mapping.fields.as_slice())
+                .unwrap_or(schema.mapping.as_slice());
+            self.emit_object_array(code, fields.len(), |_, code, index| {
+                code.ldc_string(&fields[index].target);
+            });
+        } else {
+            self.emit_object_array(
+                code,
+                schema.mapping_alternatives.len(),
+                |this, code, index| {
+                    let mapping = &schema.mapping_alternatives[index];
+                    let selector = mapping
+                        .selector
+                        .as_ref()
+                        .expect("selected schema mapping should have a selector");
+                    this.emit_object_array(code, 4, |this, code, spec_index| match spec_index {
+                        0 => code.ldc_string("select"),
+                        1 => code.ldc_string(&selector.field),
+                        2 => {
+                            code.ldc_long(selector.value);
+                            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+                        }
+                        3 => {
+                            this.emit_object_array(
+                                code,
+                                mapping.fields.len(),
+                                |_, code, field_index| {
+                                    code.ldc_string(&mapping.fields[field_index].target);
+                                },
+                            );
+                            code.invokestatic(
+                                &this.program.options.runtime_class,
+                                "list",
+                                "([Ljava/lang/Object;)Ljava/util/List;",
+                            );
+                        }
+                        _ => unreachable!(),
+                    });
+                    code.invokestatic(
+                        &this.program.options.runtime_class,
+                        "list",
+                        "([Ljava/lang/Object;)Ljava/util/List;",
+                    );
+                },
+            );
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             "list",
@@ -1170,9 +1217,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_mapping_sources(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, schema.mapping.len(), |this, code, index| {
-            this.emit_schema_mapping_expr_spec(code, &schema.mapping[index].expr);
-        });
+        if schema.mapping_alternatives.len() <= 1 {
+            let fields = schema
+                .mapping_alternatives
+                .first()
+                .map(|mapping| mapping.fields.as_slice())
+                .unwrap_or(schema.mapping.as_slice());
+            self.emit_object_array(code, fields.len(), |this, code, index| {
+                this.emit_schema_mapping_expr_spec(code, &fields[index].expr);
+            });
+        } else {
+            self.emit_object_array(
+                code,
+                schema.mapping_alternatives.len(),
+                |this, code, index| {
+                    let mapping = &schema.mapping_alternatives[index];
+                    this.emit_object_array(
+                        code,
+                        mapping.fields.len(),
+                        |this, code, field_index| {
+                            this.emit_schema_mapping_expr_spec(
+                                code,
+                                &mapping.fields[field_index].expr,
+                            );
+                        },
+                    );
+                    code.invokestatic(
+                        &this.program.options.runtime_class,
+                        "list",
+                        "([Ljava/lang/Object;)Ljava/util/List;",
+                    );
+                },
+            );
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             "list",

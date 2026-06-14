@@ -130,7 +130,16 @@ pub struct SchemaFieldWhereClause {
 pub struct SchemaMappingClause {
     pub node_id: NodeId,
     pub target: Option<String>,
+    pub selector: Option<SchemaMappingSelector>,
     pub assignments: Vec<SchemaMappingAssignment>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaMappingSelector {
+    pub node_id: NodeId,
+    pub field: String,
+    pub value: i64,
     pub span: SourceSpan,
 }
 
