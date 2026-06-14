@@ -404,6 +404,14 @@ missing-effect diagnostics for the socket calls. The
 show read and write failures as runtime transport failures, not schema, codec,
 or peer protocol diagnostics.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-routing/` covers the
+narrow adapter-owned socket-to-handler routing slice. It reads one
+fixture-backed `ByteChunk` from a `NetStream`, sends an ordinary stream event
+through a standard channel under `concurrency`, calls the plain handler, and
+translates ordered `SendBytes` response actions into `net::write_chunk` calls.
+The handler has no socket handle and performs no `net` calls.
+
 ## Pending Input Byte Chunks
 
 The executable specification case

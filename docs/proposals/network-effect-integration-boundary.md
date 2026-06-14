@@ -4,12 +4,13 @@ Status: proposed
 
 This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
-boundary calls and the first fixture-backed socket listener/stream calls are
-current behavior under `../specification/names-effects.md`, including
-host-runtime failures for malformed received or read bytes, failed outgoing
-event recording, forced read and write failures, and forced timeout and
-deadline expiry. This page keeps the larger transport adapter, routing, richer
-deadline, cancellation, and socket work open.
+boundary calls, the first fixture-backed socket listener/stream calls, and
+the narrow socket-to-handler routing slice are current behavior under
+`../specification/names-effects.md` and `../specification/execution.md`,
+including host-runtime failures for malformed received or read bytes, failed
+outgoing event recording, forced read and write failures, and forced timeout
+and deadline expiry. This page keeps the larger transport adapter, richer
+stream routing, richer deadline, cancellation, and socket work open.
 
 ## Problem
 
@@ -25,12 +26,15 @@ commit to a full network runtime.
 ## Remaining Scope
 
 Define future integration support beyond the implemented descriptor-backed
-boundary calls and first fixture-backed listener/stream calls for:
+boundary calls, first fixture-backed listener/stream calls, and narrow
+socket-to-handler routing slice for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   accept, read-one-chunk, and write-one-chunk slice
-- mapping transport byte chunks into sans-I/O input events
-- mapping outgoing chunks back to host transport writes
+- general mapping of transport byte chunks into sans-I/O input events beyond
+  one adapter-owned event routing case
+- general mapping of outgoing chunks back to host transport writes beyond one
+  ordered `SendBytes` projection
 - composed use of `net`, `time`, and `concurrency` effects
 - channel-first stream event routing
 - per-stream task handling
@@ -119,6 +123,23 @@ actions into ordered core transitions. If later service interfaces are added,
 they should be adapters over this event/action boundary rather than a
 replacement for it.
 
+## Discussion Result: Socket-To-Handler Routing Slice
+
+Implemented narrow slice: an executable specification case composes the
+fixture-backed socket boundary with the source-level event/action handler
+boundary. Adapter-owned code reads one `ByteChunk` from a `NetStream` with
+`net::read_chunk`, wraps the chunk as an ordinary stream event value, routes
+that event through an existing channel under the `concurrency` effect, calls a
+plain handler, and translates ordered `SendBytes` response actions into
+`net::write_chunk` calls. The handler receives only ordinary event and state
+values; it does not receive socket handles and does not call `net` functions.
+
+This slice keeps the effect model unchanged. The adapter function composes the
+existing `net` and `concurrency` effects because it owns both socket I/O and
+channel routing. The handler boundary remains ordinary source code and can be
+called without socket ownership. Non-write response intents remain values for
+adapter code to interpret rather than implicit socket operations.
+
 ## Discussion Result: Transport Error Boundary
 
 Implemented first slices: descriptor-backed `net::receive_chunk` reports
@@ -187,9 +208,9 @@ than introduce deadline behavior into schemas or the pure protocol core.
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
 - Examples show production adapter socket ownership beyond the first
-  fixture-backed listener/stream handles, stream routing, richer deadline APIs
-  beyond the narrow relative `Deadline`, and cancellation once those runtime
-  APIs exist.
+  fixture-backed listener/stream handles and narrow socket-to-handler routing
+  slice, richer stream routing, richer deadline APIs beyond the narrow
+  relative `Deadline`, and cancellation once those runtime APIs exist.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

@@ -1,0 +1,94 @@
+# Socket adapter routing owns net calls while handlers exchange ordinary values.
+use stdio
+
+type StreamEvent
+	Request {stream_id: Int, payload: ByteChunk}
+	PeerClosed {stream_id: Int}
+end
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	match event
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, payload), list_cons(SendBytes(stream_id, state.marker), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + 1, marker: state.marker } }
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_, _) => 1 + write_count(tail)
+			EndStream(_) => write_count(tail)
+			Decline(_) => write_count(tail)
+		end
+	end
+end
+
+fn first_action_bytes(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, _) => match action
+			SendBytes(_, bytes) => byte_count_to_int(byte_chunk_count(bytes))
+			EndStream(_) => 0
+			Decline(_) => 0
+		end
+	end
+end
+
+fn route_socket_event(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
+	let incoming: ByteChunk = net::read_chunk(stream)
+	let route = channel::bounded<StreamEvent>(1)
+	let _ = channel::send(route.tx, Request(stream_id, incoming))
+	let event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(stream_id)
+	end
+	handle_stream_event(event, state)
+end
+
+fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(_, bytes) => write_then_apply(stream, bytes, tail)
+			EndStream(_) => apply_response_actions(stream, tail)
+			Decline(_) => apply_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	apply_response_actions(stream, tail)
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let marker: ByteChunk = byte_chunk_from_hex("aabb")?
+	let initial = { request_count: 0, marker: marker }
+	let routed = route_socket_event(stream, 7, initial)
+	apply_response_actions(stream, routed.actions)
+	stdio::print("actions ")
+	stdio::print(int_to_string(action_count(routed.actions)))
+	stdio::print(" state ")
+	stdio::print(int_to_string(routed.next_state.request_count))
+	stdio::print(" writes ")
+	stdio::print(int_to_string(write_count(routed.actions)))
+	stdio::print(" first-bytes ")
+	stdio::println(int_to_string(first_action_bytes(routed.actions)))
+	Ok(())
+end

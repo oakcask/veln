@@ -221,6 +221,14 @@ peer protocol diagnostics. These calls do not define stream routing, timer
 handles beyond the returned `Deadline`, cancellation, TLS, ALPN, or an HTTP
 application framework.
 
+The implemented socket stream adapter routing example composes
+`net::read_chunk` and `net::write_chunk` with standard channel calls. The
+adapter function therefore declares both `net` and `concurrency`; the plain
+handler it calls remains free of socket handles and `net` calls. This
+composition does not add any effect label beyond the existing coarse labels
+or any compiler-known routing symbol beyond the socket and channel calls
+listed here.
+
 ## Process Calls
 
 The checker recognizes these current-process call targets through the standard

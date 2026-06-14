@@ -50,6 +50,14 @@ execution reference.
   receives an event plus explicit state and returns action intent values plus
   the next state. Channel routing uses existing `concurrency` calls; response
   actions do not perform socket writes or introduce new effect labels.
+- The socket stream adapter routing example composes the existing
+  fixture-backed socket calls with the source-level event/action handler
+  boundary. Adapter code reads one `ByteChunk` from a `NetStream`, routes an
+  ordinary event through a standard channel under `concurrency`, calls the
+  plain handler, and translates ordered `SendBytes` actions into
+  `net::write_chunk` calls. Handler code remains free of socket handles and
+  `net` calls. The checked example is
+  `examples/specification/run/socket-stream-adapter-routing/`.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
