@@ -22,7 +22,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining settings interactions beyond the implemented enable-push,
   maximum-frame-size, maximum-concurrent-streams, initial-window-size,
   header-table-size, and maximum-header-list-size peer-advertised state,
-  unknown-identifier handling, and SETTINGS ACK receive handling
+  unknown-identifier handling, SETTINGS ACK receive handling, and outbound
+  SETTINGS ACK send intent
 - remaining DATA behavior beyond the implemented receive-window accounting
   and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
@@ -289,6 +290,11 @@ nonzero stream, and the maximum valid `UInt31be` stream id. It also keeps the
 generated helper's `codec.encode_value_unrepresentable` error visible for an
 out-of-range stream id instead of projecting that representation failure into
 a protocol diagnostic.
+It also includes the outbound SETTINGS ACK send-intent slice. After a valid
+non-ACK SETTINGS receive, ordinary source constructs exactly one immutable
+nine-byte output chunk through the same frame-header encode path, with length
+`0`, kind `4`, flags `1`, and stream id `0`. The send intent does not update
+peer-advertised SETTINGS state or local receive-limit state.
 The implemented slice also includes narrow outbound DATA send-intent flow
 control. Ordinary source tracks outbound connection and stream credit
 separately from inbound receive windows, uses received

@@ -677,7 +677,10 @@ against the built `veln` binary.
   `WINDOW_UPDATE` receive-credit increments for the connection and open
   stream, and reports zero increments, receive-window overflow,
   negative stream credit, and credit exhaustion as
-  `http2.peer_limit.flow_control_window_exceeded`.
+  `http2.peer_limit.flow_control_window_exceeded`. After a valid non-ACK
+  SETTINGS receive, it also constructs one immutable outbound SETTINGS ACK
+  chunk through the frame-header encode path and shows that the send intent
+  leaves peer-advertised SETTINGS state unchanged.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
