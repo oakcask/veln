@@ -726,13 +726,15 @@ execution reference.
 - The same example also covers the narrow local SETTINGS send-intent and ACK
   tracking slice. Ordinary source constructs exactly one SETTINGS item for
   `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
-  `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, or
-  `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
+  `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
+  `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
   frame-header-plus-item output
   chunk with the selected item identifier and four-byte unsigned value, and
   records one outstanding local SETTINGS batch in connection state with that
-  identifier and item count. A valid received SETTINGS ACK clears that
-  outstanding state. A valid received SETTINGS ACK when no local SETTINGS
+  identifier and item count. Local `SETTINGS_ENABLE_PUSH` accepts values `0`
+  and `1`; other values are rejected before bytes are emitted with the
+  SETTINGS value range failure shape. A valid received SETTINGS ACK clears
+  that outstanding state. A valid received SETTINGS ACK when no local SETTINGS
   batch is outstanding fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
   provenance in related context.
