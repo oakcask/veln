@@ -563,11 +563,12 @@ execution reference.
   human runtime diagnostics, and
   `run --json`
   `protocol_diagnostic` details.
-- The first HPACK fixture-codec examples model HPACK as an imported ordinary
-  source module, not as schema syntax. The fixture module accepts a small
-  deterministic set of header-block byte fixtures, including the HPACK static
-  indexed `:method: GET` byte, returns ordinary header-list data plus the next
-  immutable fixture state, and projects unsupported fixture input through
+- The HTTP/2 protocol-core HPACK fixture boundary models HPACK as an imported
+  ordinary source module, not as schema syntax. The fixture module accepts a
+  small deterministic set of header-block byte fixtures, including the HPACK
+  static indexed `0x82` `:method: GET` and `0x84` `:path: /` bytes, returns
+  ordinary header-list data plus the next immutable fixture state, and projects
+  unsupported fixture input through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
   HTTP/2 core still owns the local
