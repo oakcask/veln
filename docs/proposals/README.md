@@ -107,8 +107,8 @@ compare it with `../specification/` before changing behavior.
   inbound DATA and HEADERS `END_STREAM` closed-by-peer stream lifecycle,
   peer-sent `PUSH_PROMISE` rejection on the server receive boundary, outbound
   frame-header encode, outbound SETTINGS ACK send intent, local SETTINGS
-  send intents for `SETTINGS_MAX_FRAME_SIZE` and
-  `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound PING ACK send intent, narrow
+  send intents for `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_FRAME_SIZE`,
+  and `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound PING ACK send intent, narrow
   outbound DATA flow-control send intent, and outbound `WINDOW_UPDATE`
   receive-credit intent, `RST_STREAM` reset send-intent, and GOAWAY
   send-intent slices.
