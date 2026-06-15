@@ -92,13 +92,14 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ SchemaMapping* \"end\" NL?").
+grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ SchemaValidation? SchemaMapping* \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" Name \",\" TypeText \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
 grammar_line(107, "SchemaMappingSelector ::= \"when\" Name \"==\" IntLiteral").
 grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Expr NL").
@@ -349,6 +350,8 @@ schema_decl -->
     nls,
     schema_fields,
     nls,
+    schema_validation_opt,
+    nls,
     schema_mappings,
     tok(end),
     newline_opt.
@@ -375,6 +378,14 @@ schema_field_where_opt -->
     { Tokens \= [], valid_contract_tokens(Tokens) },
     !.
 schema_field_where_opt --> [].
+
+schema_validation_opt -->
+    ident_text("validate"),
+    line_tokens(Tokens),
+    { Tokens \= [], valid_contract_tokens(Tokens) },
+    nl,
+    !.
+schema_validation_opt --> [].
 
 schema_mappings --> schema_mapping, !, nls, schema_mappings.
 schema_mappings --> [].

@@ -800,6 +800,35 @@
         );
     }
 
+    private static void registerSchemaStructuralValidationFailedDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String predicate,
+        java.util.Map<String, Long> decodedValues,
+        String nearbyContext
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("predicate", predicate));
+        details.add(DiagnosticDetail.string("decoded_values", formatDecodedSchemaValues(decodedValues)));
+        for (java.util.Map.Entry<String, Long> entry : decodedValues.entrySet()) {
+            details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
+        }
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.validation_failed",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName)
+                ),
+                details
+            )
+        );
+    }
+
     private static void registerSchemaDispatchUnknownTagDiagnostic(
         String message,
         long byteOffset,

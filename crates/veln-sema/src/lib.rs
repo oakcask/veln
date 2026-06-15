@@ -295,6 +295,10 @@ fn schema_decode_spec_inner_after_push(
         schema_name: schema_name.clone(),
         function_name: schema_decode_function_name(schema_name),
         fields,
+        validation: schema
+            .validations
+            .first()
+            .map(|validation| validation.predicate.clone()),
         mapping: schema_decode_mapping_fields(module, schema)
             .unwrap_or_default()
             .into_iter()

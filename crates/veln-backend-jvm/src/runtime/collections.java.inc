@@ -504,10 +504,11 @@
     private static final class BinarySchemaSpec {
         final String name;
         final SchemaFieldSpec[] fields;
+        final SchemaPredicate validation;
         final SchemaMappingSpec[] mapping;
 
         BinarySchemaSpec(String name, SchemaFieldSpec[] fields) {
-            this(name, fields, new SchemaMappingSpec[0]);
+            this(name, fields, null, new SchemaMappingSpec[0]);
         }
 
         BinarySchemaSpec(
@@ -515,8 +516,18 @@
             SchemaFieldSpec[] fields,
             SchemaMappingSpec[] mapping
         ) {
+            this(name, fields, null, mapping);
+        }
+
+        BinarySchemaSpec(
+            String name,
+            SchemaFieldSpec[] fields,
+            SchemaPredicate validation,
+            SchemaMappingSpec[] mapping
+        ) {
             this.name = name;
             this.fields = fields;
+            this.validation = validation;
             this.mapping = mapping;
         }
     }
@@ -1474,6 +1485,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -1498,6 +1510,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -1530,6 +1543,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -1554,6 +1568,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -3177,6 +3192,28 @@
             }
         }
 
+        if (schema.validation != null) {
+            boolean passed;
+            try {
+                passed = schema.validation.eval(decoded);
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            if (!passed) {
+                long byteOffset = diagnosticBaseOffset + relativeOffset;
+                String message = "schema validation failed at byte offset " + byteOffset;
+                registerSchemaStructuralValidationFailedDiagnostic(
+                    message,
+                    byteOffset,
+                    schema.name,
+                    schema.validation.text,
+                    decoded,
+                    byteViewPreviewTrace(view, 8)
+                );
+                return err(message);
+            }
+        }
+
         Object decodedRecord = schemaDecodedRecord(schema, values);
         if (isErr(decodedRecord)) {
             return decodedRecord;
@@ -3600,6 +3637,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -3624,6 +3662,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -3650,6 +3689,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -3681,6 +3721,7 @@
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
+        String schemaValidationText = asString(schemaValidation);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
         java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
@@ -3718,6 +3759,14 @@
         }
         if (mappingTargetValues.size() != mappingSourceValues.size()) {
             return err("invalid schema decoder mapping metadata for schema `" + name + "`");
+        }
+        SchemaPredicate validation = null;
+        if (!schemaValidationText.isEmpty()) {
+            try {
+                validation = new SchemaPredicateParser(schemaValidationText).parse();
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
         }
         SchemaFieldSpec[] fields = new SchemaFieldSpec[fieldNameValues.size()];
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
@@ -3919,7 +3968,7 @@
                 ? new SchemaMappingSpec[0]
                 : new SchemaMappingSpec[] { new SchemaMappingSpec(mappingFields) };
         }
-        return ok(new BinarySchemaSpec(name, fields, mapping));
+        return ok(new BinarySchemaSpec(name, fields, validation, mapping));
     }
 
     private static Object schemaMappingExprValue(
@@ -4025,7 +4074,7 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 22) {
+        if (values.size() != 23) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -4050,7 +4099,8 @@
             values.get(18),
             values.get(19),
             values.get(20),
-            values.get(21)
+            values.get(21),
+            values.get(22)
         );
     }
 
@@ -4083,6 +4133,19 @@
                             + "` in schema `"
                             + schema.name
                             + "`: field is decoded later"
+                    );
+                }
+            }
+        }
+        if (schema.validation != null) {
+            for (String ref : schema.validation.refs()) {
+                if (!fieldIndexes.containsKey(ref)) {
+                    return err(
+                        "unsupported schema validation reference `"
+                            + ref
+                            + "` in schema `"
+                            + schema.name
+                            + "`: not a schema field"
                     );
                 }
             }

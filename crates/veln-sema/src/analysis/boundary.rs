@@ -7,9 +7,11 @@ use crate::types::{
     schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
     schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
 };
+use std::collections::BTreeSet;
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
-    SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, UseDecl,
+    SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, SchemaValidationClause,
+    UseDecl,
 };
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
@@ -1814,9 +1816,74 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 }
             }
         }
+        for (index, validation) in schema.validations.iter().enumerate() {
+            if index > 0 {
+                diagnostics.push(schema_validation_duplicate_diagnostic(schema, validation));
+                continue;
+            }
+            check_schema_validation_clause(schema, validation, &decoded_fields, &mut diagnostics);
+        }
     }
 
     diagnostics
+}
+
+fn check_schema_validation_clause(
+    schema: &SchemaDecl,
+    validation: &SchemaValidationClause,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for reference in schema_validation_references(&validation.predicate) {
+        let Some(ty) = decoded_fields.get(&reference) else {
+            diagnostics.push(schema_validation_reference_diagnostic(
+                schema,
+                validation,
+                &reference,
+                "unknown_field_reference",
+                format!("schema validation reference `{reference}` is not a decoded schema field"),
+                [],
+            ));
+            continue;
+        };
+        if ty != &Type::int() {
+            diagnostics.push(schema_validation_reference_diagnostic(
+                schema,
+                validation,
+                &reference,
+                "incompatible_field_reference",
+                format!(
+                    "schema validation reference `{reference}` decodes as `{}`, not `Int`",
+                    ty.render()
+                ),
+                [("actual", JsonValue::string(ty.render()))],
+            ));
+        }
+    }
+}
+
+fn schema_validation_references(predicate: &str) -> Vec<String> {
+    let mut references = BTreeSet::new();
+    let mut chars = predicate.char_indices().peekable();
+    while let Some((start, ch)) = chars.next() {
+        if !(ch.is_ascii_alphabetic() || ch == '_') {
+            continue;
+        }
+        let mut end = start + ch.len_utf8();
+        while let Some((index, next)) = chars.peek().copied() {
+            if next.is_ascii_alphanumeric() || next == '_' {
+                chars.next();
+                end = index + next.len_utf8();
+            } else {
+                break;
+            }
+        }
+        let ident = &predicate[start..end];
+        if !matches!(ident, "true" | "false" | "and" | "or" | "not") {
+            references.insert(ident.to_string());
+        }
+    }
+    references.into_iter().collect()
 }
 
 fn check_schema_repeat_field(
@@ -2178,6 +2245,56 @@ fn schema_byte_view_reference_diagnostic<const N: usize>(
         message,
         Some(field.span.clone()),
         JsonValue::object(fields),
+    )
+}
+
+fn schema_validation_reference_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    validation: &SchemaValidationClause,
+    reference: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = vec![
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>").to_string()),
+        ),
+        ("reason", JsonValue::string(reason)),
+        ("reference", JsonValue::string(reference.to_string())),
+    ];
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.validation_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(validation.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_validation_duplicate_diagnostic(
+    schema: &SchemaDecl,
+    validation: &SchemaValidationClause,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.validation_duplicate",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema `{}` can declare only one schema-level validation",
+            schema.name.as_deref().unwrap_or("<missing>")
+        ),
+        Some(validation.span.clone()),
+        JsonValue::object([
+            (
+                "schema",
+                JsonValue::string(schema.name.as_deref().unwrap_or("<missing>").to_string()),
+            ),
+            ("reason", JsonValue::string("duplicate_validation")),
+        ]),
     )
 }
 

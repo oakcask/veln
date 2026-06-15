@@ -13,6 +13,7 @@ pub struct IrSchemaDecodeSpec {
     pub schema_name: String,
     pub function_name: String,
     pub fields: Vec<IrSchemaDecodeField>,
+    pub validation: Option<String>,
     pub mapping: Vec<IrSchemaDecodeMappingField>,
     pub mapping_alternatives: Vec<IrSchemaDecodeMapping>,
 }

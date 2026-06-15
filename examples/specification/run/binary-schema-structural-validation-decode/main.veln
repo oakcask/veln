@@ -1,0 +1,24 @@
+# Binary schema schema-level validation accepts decoded field relationships.
+use stdio
+
+schema SchemaLevelValidationSample
+	format binary
+
+	length: UInt8
+	padding_length: UInt8
+	checksum: UInt8
+
+	validate length == padding_length + checksum
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("050203")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let decoded: {length: Int, padding_length: Int, checksum: Int} = byte_decode_schema_level_validation_sample(view)?
+	stdio::print(int_to_string(decoded.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(decoded.padding_length))
+	stdio::print(" ")
+	stdio::println(int_to_string(decoded.checksum))
+	Ok(())
+end

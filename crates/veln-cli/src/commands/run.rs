@@ -306,7 +306,6 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
         }
         "schema.validation_failed" => {
             let predicate = json_string(byte_entries, "predicate")?;
-            let field_value = json_number(byte_entries, "field_value")?;
             let decoded_values = json_string(byte_entries, "decoded_values").or_else(|| {
                 let length = json_number(byte_entries, "length")?;
                 let padding_length = json_number(byte_entries, "padding_length")?;
@@ -320,9 +319,15 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
                 None,
                 byte_diagnostic.clone(),
             );
-            diagnostic.related.push(note_json(format!(
-                "Predicate `{predicate}` failed for field value {field_value}."
-            )));
+            if let Some(field_value) = json_number(byte_entries, "field_value") {
+                diagnostic.related.push(note_json(format!(
+                    "Predicate `{predicate}` failed for field value {field_value}."
+                )));
+            } else {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Schema predicate `{predicate}` failed.")));
+            }
             diagnostic
                 .related
                 .push(note_json(format!("Decoded values: {decoded_values}.")));
@@ -1566,6 +1571,66 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("schema `SchemaValidationSample` / field `padding_length`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_schema_level_validation_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.validation_failed")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(3)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([JsonValue::object([
+                    ("kind", JsonValue::string("schema")),
+                    ("name", JsonValue::string("SchemaLevelValidationSample")),
+                ])]),
+            ),
+            (
+                "predicate",
+                JsonValue::string("length == padding_length + checksum"),
+            ),
+            (
+                "decoded_values",
+                JsonValue::string("length=5, padding_length=2, checksum=4"),
+            ),
+            ("length", JsonValue::Number(5)),
+            ("padding_length", JsonValue::Number(2)),
+            ("checksum", JsonValue::Number(4)),
+            ("byte_preview", byte_preview("050204")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "schema validation failed at byte offset 3".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.validation_failed");
+        assert_eq!(
+            diagnostic.message,
+            "schema validation failed at byte offset 3"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Schema predicate `length == padding_length + checksum` failed")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("schema `SchemaLevelValidationSample`")
         );
     }
 

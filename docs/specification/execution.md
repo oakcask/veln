@@ -178,6 +178,16 @@ execution reference.
   reports `schema.validation_failed` at the owning field byte offset with
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
+- The binary schema schema-level validation slice checks one `validate`
+  predicate after all fields have decoded and after field-local validation has
+  succeeded, but before structural mapping returns the decoded value.
+  Predicates use the same supported expression subset as field-local `where`
+  predicates and may reference only decoded `Int` fields from the same schema.
+  Primitive, length, dispatch, repeat, reserved-bit, fixed-field, and
+  field-local validation failures win before the schema-level predicate is
+  evaluated. A failed predicate reports `schema.validation_failed` at the
+  byte offset after the decoded schema body with schema path, predicate text,
+  decoded values, and structured byte preview fields.
 - The narrow binary schema closed dispatch slice decodes
   `Dispatch(tag_field, tag => Payload, ...)` fields after the referenced tag
   field has been decoded by an earlier exact-width field in the same schema.

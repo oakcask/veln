@@ -132,6 +132,13 @@ the earlier fields normally and then writes exactly the bounded bytes from the
 supplied view, negative computed decode lengths report
 `schema.length_out_of_bounds`, and mismatched encode view counts return the
 existing structured `EncodeError` value-representation shape.
+The narrow schema-level structural validation slice is implemented as one
+`validate` predicate after binary schema fields. Generated decode helpers run
+that predicate after all fields and field-local validation have succeeded and
+before structural mapping returns the decoded value. The predicate can
+reference only decoded `Int` fields in the same schema and reports
+`schema.validation_failed` with schema path, predicate text, decoded values,
+byte offset, and byte preview details.
 
 ## Problem
 
@@ -167,7 +174,6 @@ for:
   dispatch lengths
 - recursive or otherwise ineligible dispatch payload schemas beyond the
   implemented same-module and imported public nested helper slices
-- schema-level structural validation
 
 ## Discussion Result: Dependent Structure Boundary
 

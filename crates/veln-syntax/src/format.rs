@@ -1,8 +1,8 @@
 use crate::{
     BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
     FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaMappingClause,
-    SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter,
-    Visibility,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantFieldDelimiter, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -139,7 +139,15 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         push_source_line(out, comments, field.span.start.line, 1, line);
     }
 
-    if !schema.mappings.is_empty() && !schema.fields.is_empty() {
+    if !schema.validations.is_empty() && !schema.fields.is_empty() {
+        out.push('\n');
+    }
+    for validation in &schema.validations {
+        format_schema_validation(out, comments, validation);
+    }
+
+    if !schema.mappings.is_empty() && (!schema.fields.is_empty() || !schema.validations.is_empty())
+    {
         out.push('\n');
     }
     for mapping in &schema.mappings {
@@ -152,6 +160,23 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         schema_end_line(schema),
         0,
         String::from("end"),
+    );
+}
+
+fn format_schema_validation(
+    out: &mut String,
+    comments: &LineComments,
+    validation: &SchemaValidationClause,
+) {
+    push_source_line(
+        out,
+        comments,
+        validation.span.start.line,
+        1,
+        format!(
+            "validate {}",
+            canonical_predicate_text(&validation.predicate)
+        ),
     );
 }
 
@@ -300,12 +325,20 @@ fn schema_body_end_line(schema: &SchemaDecl) -> usize {
         .last()
         .map(|mapping| mapping.span.end.line)
         .unwrap_or(schema.span.start.line);
+    let validation_end = schema
+        .validations
+        .last()
+        .map(|validation| validation.span.end.line)
+        .unwrap_or(schema.span.start.line);
     let format_end = schema
         .format
         .as_ref()
         .map(|format| format.span.end.line)
         .unwrap_or(schema.span.start.line);
-    field_end.max(mapping_end).max(format_end)
+    field_end
+        .max(mapping_end)
+        .max(validation_end)
+        .max(format_end)
 }
 
 fn codec_end_line(codec: &CodecDecl) -> usize {

@@ -23,13 +23,14 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ SchemaMapping* "end" NL?
+SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ SchemaValidation? SchemaMapping* "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" Name "," TypeText ")"
 SchemaFieldWhere ::= "where" ContractPredicate
+SchemaValidation ::= "validate" ContractPredicate NL
 SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
 SchemaMappingSelector ::= "when" Name "==" IntLiteral
 SchemaMappingAssignment ::= Name "=" Expr NL
