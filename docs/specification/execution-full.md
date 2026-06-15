@@ -507,6 +507,11 @@ successful source values. They do not produce schema, codec, or HTTP/2 peer
 protocol diagnostics. The deadline boundary does not add a source timer handle
 beyond the returned `Deadline`, cancellation handle beyond `CancelToken`,
 routing API, or new effect label.
+The stream adapter cancellable routing cases compose those outcome values with
+channel-routed `StreamInput` values and ordinary response action values.
+Completed waits keep the handler-produced actions, deadline expiry prepends a
+retry action, and cancellation prepends a cleanup action without exposing
+timer handles or transport effects to the handler.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model

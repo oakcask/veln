@@ -609,6 +609,18 @@ and
 cases cover the value-returning wait that lets adapter code translate
 completion, deadline expiry, and cancellation into ordinary source decisions.
 The
+`../../examples/specification/run/stream-adapter-cancellable-routing/`,
+`../../examples/specification/run/stream-adapter-cancellable-routing-deadline/`,
+and
+`../../examples/specification/check/stream-adapter-cancellable-routing-effects/`
+cases compose those wait outcomes with channel-routed `StreamInput` values and
+ordinary response action values. The main routing case pins completed wait,
+deadline-expired, and cancelled paths in one fixture output; the deadline case
+also pins the global host-forced deadline expiry fixture. Together they show
+that these outcomes become adapter decisions rather than runtime failures, and
+that the adapter declares both `time` and `concurrency` while the handler
+boundary stays free of transport effects.
+The
 `../../examples/specification/run/transport-timeout-expired-json/`,
 `../../examples/specification/run/transport-deadline-expired-json/`,
 `../../examples/specification/run/transport-cancellable-wait-deadline-expired-json/`,
