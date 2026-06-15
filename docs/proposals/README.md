@@ -49,7 +49,8 @@ compare it with `../specification/` before changing behavior.
   one-byte, two-byte, three-byte, and four-byte packed reserved-suffix decode
   and encode,
   opt-in `Flag8` one-byte visible flag bitset decode and encode plus its
-  structural mapping decode and direct mapped-record encode boundary,
+  structural mapping decode, direct mapped-record encode, and single ADT
+  constructor mapped encode boundaries,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` primitive and nested schema field
   decode and encode slices, length-bounded `ByteView(length_field)` and

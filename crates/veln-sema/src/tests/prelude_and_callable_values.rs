@@ -526,6 +526,117 @@ fn generated_schema_encode_helpers_accept_mapped_value_records() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_flag8_mapped_constructor_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Http2Flags\n",
+            "  Http2Flags(Flag8)\n",
+            "end\n",
+            "\n",
+            "type FlagPacket\n",
+            "  FlagPacket {flags: Http2Flags}\n",
+            "end\n",
+            "\n",
+            "schema FlagPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_flags: Flag8\n",
+            "\n",
+            "  map to FlagPacket\n",
+            "    flags = Http2Flags(wire_flags)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {flags: Http2Flags}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_flag_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "FlagPacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "FlagPacketWire"
+    ));
+}
+
+#[test]
+fn generated_schema_encode_helpers_reject_multi_variant_mapped_constructor_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Http2Flags\n",
+            "  Http2Flags(Flag8)\n",
+            "  OtherFlags(Flag8)\n",
+            "end\n",
+            "\n",
+            "type FlagPacket\n",
+            "  FlagPacket {flags: Http2Flags}\n",
+            "end\n",
+            "\n",
+            "schema FlagPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_flags: Flag8\n",
+            "\n",
+            "  map to FlagPacket\n",
+            "    flags = Http2Flags(wire_flags)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {flags: Http2Flags}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_flag_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved"),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_omit_reserved_bits_from_value_record() {
     let source = SourceFile::new(
         "main.veln",

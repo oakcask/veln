@@ -59,7 +59,10 @@ compiler-known calls.
   closed dispatch, extension dispatch, and same-module or imported public
   nested dispatch payload slices accept schema-local visible fields, using
   `ByteView` fields for length-bounded payloads and
-  `SchemaDispatchPayload<T>` for extension dispatch payload fields, and return
+  `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
+  unselected structural mapping can instead accept a mapped record shape for
+  direct field projections or a direct single-constructor ADT wrapping a
+  schema-local `Flag8` field. Generated encode helpers return
   `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, and `UInt32le` fields use little-endian byte order
   in generated decode and encode helpers.

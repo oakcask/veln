@@ -112,7 +112,10 @@ converter call, and one imported public pure converter call through a written
 `use` path or alias. Generated encode helpers keep schema-local `Flag8`
 encode behavior and accept a direct mapped-record encode boundary when every
 visible encode field, such as `target_flags = flags`, can be projected by the
-existing direct assignment rule.
+existing direct assignment rule. They also project the first narrow ADT
+constructor inverse when a single target field wraps one schema-local `Flag8`
+field, such as `flags = Http2Flags(wire_flags)`, and preserve the ordinary
+`Flag8` encode range-failure shape on the schema-local field path.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` for generated binary schema decode and encode
 helpers. The count field must be an earlier visible `Int` field in the same
@@ -163,9 +166,9 @@ for:
   prefixes,
   one-byte, two-byte, three-byte, and four-byte packed reserved suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
-- flag vocabulary beyond the implemented one-byte `Flag8` bitset and its
-  structural mapping boundary, including raw-bit variants and frame-specific
-  ADTs
+- flag vocabulary beyond the implemented one-byte `Flag8` bitset, direct
+  structural mapping boundary, and single-constructor mapped encode boundary,
+  including raw-bit variants and broader frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode helper slices
@@ -258,8 +261,12 @@ bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
 that decoded `Flag8` value through the implemented field reference,
 same-module ADT constructor, pure same-module converter, and imported public
 pure converter expression forms. Direct mapped-record encode is implemented
-only when every visible encode field can be projected back to a schema-local
-field by the existing direct assignment rule.
+when every visible encode field can be projected back to a schema-local field
+by the existing direct assignment rule. A single target field assigned from a
+direct ADT constructor call is also implemented when its only payload is the
+schema-local `Flag8` field being encoded. General inverse mapping for broader
+mapped constructors, converter calls, nested records, selected mappings, and
+other non-direct expressions remains outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field in the same schema and `Payload` is `UInt8`, `UInt16be`,

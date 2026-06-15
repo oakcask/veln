@@ -585,6 +585,12 @@ against the built `veln` binary.
 - `run/binary-schema-flag8-encode-out-of-range/`: generated schema encode
   helpers reject `Flag8(bits)` values outside the one-byte unsigned range with
   the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag8-mapped-constructor-encode/`: generated schema
+  encode helpers project a single `Flag8` payload out of a mapped ADT
+  constructor field and write the same one-byte representation.
+- `run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`: the
+  mapped ADT constructor encode path preserves the ordinary `Flag8` one-byte
+  range failure shape on the schema-local field path.
 - `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
   bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
   explicit count field.
