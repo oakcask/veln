@@ -2442,7 +2442,7 @@ fn supported_middle_reserved_bits(
     previous_bit_width % 8 != 0
         && (i64::from(previous_bit_width) + bit_width) % 8 != 0
         && matches!(total_bit_width, 8 | 16 | 24 | 32)
-        && expected_value <= (1_i64 << bit_width) - 1
+        && expected_value < (1_i64 << bit_width)
 }
 
 fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
