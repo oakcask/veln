@@ -578,7 +578,8 @@ execution reference.
 - The same example also covers the narrow local SETTINGS send-intent and ACK
   tracking slice. Ordinary source constructs exactly one SETTINGS item for
   `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
-  `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
+  `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, or
+  `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
   frame-header-plus-item output
   chunk with the selected item identifier and four-byte unsigned value, and
   records one outstanding local SETTINGS batch in connection state with that
