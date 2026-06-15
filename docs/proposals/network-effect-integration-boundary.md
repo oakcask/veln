@@ -9,8 +9,9 @@ narrow socket-to-handler routing and stream-task handler slices, the
 fixture-backed multi-event socket routing slice, the clean stream-end adapter
 slice, the optional clean-end listener accept slice, the adapter-owned
 listener-to-clean-stream-end lifecycle slice, the channel-first stream event
-routing slice, the first cancellable adapter-owned wait boundary, and the
-value-returning cancellable wait outcome slice are current behavior under
+routing slice, the first cancellable adapter-owned wait boundary, the
+value-returning cancellable wait outcome slice, and adapter-level cancellable
+stream routing over ordinary response action values are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced accept, read, and write failures, and forced
@@ -43,7 +44,8 @@ adapter-owned lifecycle and channel-first stream routing slices for:
   the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
   checked ordered `SendBytes` projection path
-- composed use of `net`, `time`, and `concurrency` effects
+- composed use of `net`, `time`, and `concurrency` effects beyond the checked
+  adapter-level cancellable stream routing and socket/channel routing slices
 - richer channel-first stream event routing beyond the two-route checked
   fixture
 - per-stream task handling beyond the zero-argument spawned handler task
@@ -233,10 +235,14 @@ label and wait at the runtime boundary. `CancelToken` is the first
 source-visible cancellation handle for adapter-owned waits.
 `time::wait_until_cancellable_outcome(deadline, token)` returns
 `CancellableWaitOutcome` so adapter code can translate completed waits,
-deadline expiry, and cancellation into ordinary source decisions. Host fixtures
-can force timeout expiry, deadline expiry, or cancellable-wait cancellation as
-runtime failures through the runtime-failure wait. These calls do not add a
-separate richer timer effect or timer-specific source construct.
+deadline expiry, and cancellation into ordinary source decisions. Executable
+stream adapter cases compose that outcome with channel-routed `StreamInput`
+values and ordinary response action values: completed waits keep
+handler-produced actions, deadline expiry becomes a retry action, and
+cancellation becomes a cleanup action. Host fixtures can force timeout expiry,
+deadline expiry, or cancellable-wait cancellation as runtime failures through
+the runtime-failure wait. These calls do not add a separate richer timer effect
+or timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
@@ -267,9 +273,10 @@ or the pure protocol core.
 - Examples show production adapter socket ownership beyond the first
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
-  accept, adapter-owned lifecycle, and channel-first stream routing slices,
-  richer stream routing, and richer deadline and cancellation APIs beyond the
-  narrow relative `Deadline` and `CancelToken` boundaries.
+  accept, adapter-owned lifecycle, channel-first stream routing, and
+  adapter-level cancellable stream routing slices, richer stream routing, and
+  richer deadline and cancellation APIs beyond the narrow relative `Deadline`
+  and `CancelToken` boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

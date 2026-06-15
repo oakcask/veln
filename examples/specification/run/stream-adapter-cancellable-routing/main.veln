@@ -1,0 +1,73 @@
+# Adapter-owned cancellable waits route ordinary stream response values.
+use stdio
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	RetryAfterDeadline {stream_id: Int}
+	CleanupAfterCancel {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	let _ = channel::send(route.tx, input)
+	let selected: StreamInput = match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+	let handled = handle_stream_input(stream_id, selected, state)
+	match time::wait_until_cancellable_outcome(deadline, token)
+		WaitCompleted => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
+		WaitDeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		WaitCancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
+	end
+end
+
+fn action_score(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(stream_id, bytes) => stream_id * 100 + byte_count_to_int(byte_chunk_count(bytes)) + action_score(tail)
+			EndStream(stream_id) => stream_id * 10 + action_score(tail)
+			RetryAfterDeadline(stream_id) => 1000 + stream_id + action_score(tail)
+			CleanupAfterCancel(stream_id) => 2000 + stream_id + action_score(tail)
+		end
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+	let payload: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let ready_deadline: Deadline = time::deadline_after_ms(0)
+	let ready_token: CancelToken = time::cancel_token()
+	let ready = route_with_cancellable_wait(5, Chunk(payload), { chunks: 0, ended: false }, ready_deadline, ready_token)
+	stdio::print(ready.outcome)
+	stdio::print(" score ")
+	stdio::print(int_to_string(action_score(ready.actions)))
+	stdio::print(" chunks ")
+	stdio::println(int_to_string(ready.next_state.chunks))
+
+	let cancel_deadline: Deadline = time::deadline_after_ms(0)
+	let cancel_token: CancelToken = time::cancel_token()
+	time::cancel(cancel_token)
+	let cancelled = route_with_cancellable_wait(7, End, ready.next_state, cancel_deadline, cancel_token)
+	stdio::print(cancelled.outcome)
+	stdio::print(" score ")
+	stdio::print(int_to_string(action_score(cancelled.actions)))
+	stdio::print(" ended ")
+	stdio::println(bool_text(cancelled.next_state.ended))
+	Ok(())
+end

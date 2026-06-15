@@ -241,6 +241,11 @@ cancellable-wait cancellation failures through the runtime-failure wait are
 transport runtime failures, not schema, codec, or peer protocol diagnostics.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
+The checked stream adapter cancellable routing cases use
+`time::wait_until_cancellable_outcome` before returning ordinary response
+action values from channel-routed `StreamInput` handling. The adapter declares
+both `time` and `concurrency`; the pure handler it calls remains free of
+transport effects.
 
 The implemented socket stream adapter routing examples compose multiple
 socket reads and ordered `net::write_chunk` calls with standard channel and

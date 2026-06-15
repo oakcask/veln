@@ -136,8 +136,8 @@ compare it with `../specification/` before changing behavior.
   event/action handler boundary examples plus the narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end adapter,
   optional clean-end listener accept, and adapter-owned
-  listener-to-clean-stream-end lifecycle and channel-first stream routing
-  slices.
+  listener-to-clean-stream-end lifecycle, channel-first stream routing, and
+  adapter-level cancellable stream routing slices.
 
 ## Update When
 

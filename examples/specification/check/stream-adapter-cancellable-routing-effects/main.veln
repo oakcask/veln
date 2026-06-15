@@ -1,0 +1,41 @@
+# Cancellable stream routing must declare time and channel effects.
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	RetryAfterDeadline {stream_id: Int}
+	CleanupAfterCancel {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	let _ = channel::send(route.tx, input)
+	let selected: StreamInput = match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+	let handled = handle_stream_input(stream_id, selected, state)
+	match time::wait_until_cancellable_outcome(deadline, token)
+		WaitCompleted => handled
+		WaitDeadlineExpired => { actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		WaitCancelled => { actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
+	end
+end
+
+pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id, input, state)
+end
+
+pub fn adapter_missing_time(input: StreamInput, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	route_with_cancellable_wait(1, input, state, deadline, token)
+end
+
+pub fn adapter_missing_concurrency(input: StreamInput, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time]
+	route_with_cancellable_wait(1, input, state, deadline, token)
+end

@@ -24,6 +24,9 @@ compiler-known calls.
   source-visible `CancelToken` handles. The value-returning cancellable wait
   returns `CancellableWaitOutcome` under the same `time` effect so adapter code
   can treat completion, deadline expiry, and cancellation as ordinary values.
+  Stream adapter routing that combines those outcomes with channel-routed
+  `StreamInput` values declares both `time` and `concurrency`; the handler it
+  calls stays free of transport effects.
   Malformed receive fixtures, failed send or write recording, forced accept,
   read, or write failures, forced timeout or deadline expiry, and forced
   cancellable-wait cancellation through the runtime-failure wait are runtime

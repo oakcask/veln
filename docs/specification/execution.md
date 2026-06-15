@@ -46,7 +46,10 @@ execution reference.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `CancellableWaitOutcome` values let adapter-owned waits
   observe completion, deadline expiry, or cancellation without stopping the
-  entry. Malformed received or read bytes, failed outgoing send or write event
+  entry. Stream adapter examples compose those outcomes with channel-routed
+  `StreamInput` values and ordinary response actions so completed waits,
+  deadline expiry, and cancellation become adapter routing decisions.
+  Malformed received or read bytes, failed outgoing send or write event
   recording, and forced listen, accept, read, write, timeout, deadline, or
   cancellable-wait cancellation failures through the runtime-failure wait stop
   the entry as runtime failures rather than schema, codec, or peer protocol

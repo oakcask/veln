@@ -1180,6 +1180,17 @@ against the built `veln` binary.
   expiry into an ordinary retry decision.
 - `check/transport-cancellable-wait-outcome-effects/`: value-returning
   cancellable waits infer the `time` effect for public effect checking.
+- `run/stream-adapter-cancellable-routing/`: adapter-owned stream routing
+  calls a value-returning cancellable wait, routes ordinary `StreamInput`
+  values through a channel, and translates completed and cancelled wait
+  outcomes into ordinary response action values.
+- `run/stream-adapter-cancellable-routing-deadline/`: the same adapter-owned
+  routing translates host-forced deadline expiry into an ordinary retry
+  response action value.
+- `check/stream-adapter-cancellable-routing-effects/`: stream routing that
+  combines cancellable waits with channels must declare both `time` and
+  `concurrency`, while the pure handler boundary stays free of transport
+  effects.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
