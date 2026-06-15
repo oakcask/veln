@@ -1,0 +1,4 @@
+# Optional socket accepts infer net for public effect checking.
+pub fn socket_optional_accept(listener: NetListener) -> Option<NetStream>
+	net::accept_or_end(listener)
+end

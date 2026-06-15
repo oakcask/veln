@@ -142,6 +142,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("net", "send_chunk", NET_EFFECTS, "runtime.net.send_chunk"),
     runtime_symbol("net", "listen", NET_EFFECTS, "runtime.net.listen"),
     runtime_symbol("net", "accept", NET_EFFECTS, "runtime.net.accept"),
+    runtime_symbol(
+        "net",
+        "accept_or_end",
+        NET_EFFECTS,
+        "runtime.net.accept_or_end",
+    ),
     runtime_symbol("net", "read_chunk", NET_EFFECTS, "runtime.net.read_chunk"),
     runtime_symbol(
         "net",

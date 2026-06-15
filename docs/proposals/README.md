@@ -129,8 +129,8 @@ compare it with `../specification/` before changing behavior.
   timeout-expiry, deadline-expiry, and cancellable-wait cancellation runtime
   failure slices, the first source-visible cancellation handle, and the
   source-level stream event/action handler boundary examples plus the narrow
-  multi-event socket-to-handler routing, stream-task handler, and clean
-  stream-end adapter slices.
+  multi-event socket-to-handler routing, stream-task handler, clean
+  stream-end adapter, and optional clean-end listener accept slices.
 
 ## Update When
 

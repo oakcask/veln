@@ -148,6 +148,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::send_chunk" => "netSendChunk",
         "net::listen" => "netListen",
         "net::accept" => "netAccept",
+        "net::accept_or_end" => "netAcceptOrEnd",
         "net::read_chunk" => "netReadChunk",
         "net::read_chunk_or_end" => "netReadChunkOrEnd",
         "net::write_chunk" => "netWriteChunk",

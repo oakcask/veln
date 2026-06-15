@@ -7,12 +7,12 @@ transport integration. The first descriptor-backed `net` and `time`
 boundary calls, the first fixture-backed socket listener/stream calls, the
 narrow socket-to-handler routing and stream-task handler slices, the
 fixture-backed multi-event socket routing slice, the clean stream-end adapter
-slice, and the first cancellable adapter-owned wait boundary are current
-behavior under
+slice, the optional clean-end listener accept slice, and the first cancellable
+adapter-owned wait boundary are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
-outgoing event recording, forced read and write failures, and forced timeout
-and deadline expiry, plus forced cancellable-wait cancellation. This page
+outgoing event recording, forced accept, read, and write failures, and forced
+timeout and deadline expiry, plus forced cancellable-wait cancellation. This page
 keeps the larger transport adapter, richer stream routing, richer deadline,
 cancellation, and socket work open.
 
@@ -32,10 +32,10 @@ commit to a full network runtime.
 Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, and narrow
 multi-event socket-to-handler routing, stream-task handler, and clean
-stream-end adapter slices for:
+stream-end adapter plus optional clean-end listener accept slices for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
-  accept, read-one-chunk, and write-one-chunk slice
+  accept, optional accept, read-one-chunk, and write-one-chunk slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
@@ -53,9 +53,11 @@ stream-end adapter slices for:
 
 Implemented first socket slices: source-visible `NetListener` and `NetStream`
 handle types are returned by `net::listen(address)` and
-`net::accept(listener)`. `net::read_chunk(stream)` reads one `ByteChunk`,
+`net::accept(listener)`. `net::accept_or_end(listener)` returns
+`Option<NetStream>` so adapter-owned source can observe clean listener end
+without a runtime failure, `net::read_chunk(stream)` reads one `ByteChunk`,
 `net::read_chunk_or_end(stream)` returns `Option<ByteChunk>` so adapter-owned
-source can observe clean end without a runtime failure, and
+source can observe clean stream end without a runtime failure, and
 `net::write_chunk(stream, bytes)` writes one `ByteChunk`. These calls use the
 existing coarse `net` effect label and are fixture-backed runtime boundaries.
 
@@ -159,6 +161,12 @@ and project response actions back into ordered `net::write_chunk` calls.
 Forced read failure on the same optional read path remains a runtime
 transport failure.
 
+Implemented clean listener-end slice: executable specification cases use
+`net::accept_or_end` to return `Some(stream)` when the fixture accepts a stream
+and `None` when the listener reaches a clean end before accepting. The accepted
+stream follows the same stream-handle behavior as `net::accept`. Forced accept
+failure on the same optional accept path remains a runtime transport failure.
+
 ## Discussion Result: Transport Error Boundary
 
 Implemented first slices: descriptor-backed `net::receive_chunk` reports
@@ -166,8 +174,9 @@ malformed host-fed `VELN_NET_CHUNK_HEX` as a runtime failure,
 descriptor-backed `net::send_chunk` reports failed outgoing event recording as
 a runtime failure, and fixture-backed socket listen, accept, read, and write
 failures are runtime failures. Clean end observed through
-`net::read_chunk_or_end` is a successful adapter-observable condition, not a
-runtime failure. Successful descriptor-backed `net` and `time` calls plus
+`net::accept_or_end` or `net::read_chunk_or_end` is a successful
+adapter-observable condition, not a runtime failure. Successful
+descriptor-backed `net` and `time` calls plus
 fixture-backed listener/stream calls remain current behavior under
 `../specification/names-effects.md`.
 
