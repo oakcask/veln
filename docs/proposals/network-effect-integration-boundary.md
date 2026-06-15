@@ -11,8 +11,10 @@ slice, the optional clean-end listener accept slice, the adapter-owned
 listener-to-clean-stream-end lifecycle slice, the channel-first stream event
 routing slice, the first cancellable adapter-owned wait boundary, the
 value-returning cancellable wait outcome slice, and adapter-level cancellable
-stream routing over ordinary response action values are current behavior under
-`../specification/names-effects.md` and `../specification/execution.md`,
+stream routing over ordinary response action values, including one fixture
+output that routes completed, deadline-expired, and cancelled outcomes, are
+current behavior under `../specification/names-effects.md` and
+`../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced accept, read, and write failures, and forced
 timeout and deadline expiry, plus forced cancellable-wait cancellation through
@@ -237,12 +239,12 @@ source-visible cancellation handle for adapter-owned waits.
 `CancellableWaitOutcome` so adapter code can translate completed waits,
 deadline expiry, and cancellation into ordinary source decisions. Executable
 stream adapter cases compose that outcome with channel-routed `StreamInput`
-values and ordinary response action values: completed waits keep
-handler-produced actions, deadline expiry becomes a retry action, and
-cancellation becomes a cleanup action. Host fixtures can force timeout expiry,
-deadline expiry, or cancellable-wait cancellation as runtime failures through
-the runtime-failure wait. These calls do not add a separate richer timer effect
-or timer-specific source construct.
+values and ordinary response action values: one fixture output shows completed
+waits keeping handler-produced actions, deadline expiry becoming a retry
+action, and cancellation becoming a cleanup action. Host fixtures can force
+timeout expiry, deadline expiry, or cancellable-wait cancellation as runtime
+failures through the runtime-failure wait. These calls do not add a separate
+richer timer effect or timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a

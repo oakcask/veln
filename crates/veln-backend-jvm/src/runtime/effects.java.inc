@@ -37,6 +37,8 @@
 
     private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
         netReadIndexes = new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>();
+    private static final java.util.concurrent.atomic.AtomicInteger waitOutcomeIndex =
+        new java.util.concurrent.atomic.AtomicInteger(0);
 
     private static final class CancelToken {
         private volatile boolean cancelled;
@@ -411,6 +413,10 @@
     }
 
     public static Object timeWaitUntilCancellableOutcome(Object deadline, Object token) {
+        Object forcedOutcome = forcedWaitOutcomeOrNull();
+        if (forcedOutcome != null) {
+            return forcedOutcome;
+        }
         CancelToken cancelToken = asCancelToken(token);
         if (waitCancelled(cancelToken)) {
             return waitOutcome("WaitCancelled");
@@ -476,6 +482,35 @@
             token.cancelled = true;
         }
         return token.cancelled;
+    }
+
+    private static Object forcedWaitOutcomeOrNull() {
+        String plan = System.getenv("VELN_TIME_CANCELLABLE_OUTCOMES");
+        if (plan == null || plan.isEmpty()) {
+            return null;
+        }
+        String[] outcomes = plan.split(",");
+        int index = waitOutcomeIndex.getAndIncrement();
+        if (index >= outcomes.length) {
+            return null;
+        }
+        String outcome = outcomes[index].trim();
+        if ("completed".equals(outcome) || "WaitCompleted".equals(outcome)) {
+            return waitOutcome("WaitCompleted");
+        }
+        if (
+            "deadline-expired".equals(outcome)
+                || "deadline".equals(outcome)
+                || "WaitDeadlineExpired".equals(outcome)
+        ) {
+            return waitOutcome("WaitDeadlineExpired");
+        }
+        if ("cancelled".equals(outcome) || "WaitCancelled".equals(outcome)) {
+            return waitOutcome("WaitCancelled");
+        }
+        throw new RuntimeFailure(
+            "transport wait outcome fixture invalid: VELN_TIME_CANCELLABLE_OUTCOMES"
+        );
     }
 
     private static Object waitOutcome(String name) {

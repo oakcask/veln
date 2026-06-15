@@ -467,6 +467,56 @@ fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_
 }
 
 #[test]
+fn bytecode_backend_returns_forced_cancellable_wait_outcome_sequence_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
+        "  match outcome\n",
+        "    WaitCompleted => \"completed\"\n",
+        "    WaitDeadlineExpired => \"deadline\"\n",
+        "    WaitCancelled => \"cancelled\"\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let first_deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let first_token: CancelToken = time::cancel_token()\n",
+        "  let first: CancellableWaitOutcome = time::wait_until_cancellable_outcome(first_deadline, first_token)\n",
+        "  stdio::println(outcome_text(first))\n",
+        "  let second_deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let second_token: CancelToken = time::cancel_token()\n",
+        "  let second: CancellableWaitOutcome = time::wait_until_cancellable_outcome(second_deadline, second_token)\n",
+        "  stdio::println(outcome_text(second))\n",
+        "  let third_deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let third_token: CancelToken = time::cancel_token()\n",
+        "  let third: CancellableWaitOutcome = time::wait_until_cancellable_outcome(third_deadline, third_token)\n",
+        "  stdio::println(outcome_text(third))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-cancellable-wait-outcome-sequence",
+        &program,
+        &[(
+            "VELN_TIME_CANCELLABLE_OUTCOMES",
+            "completed,deadline-expired,cancelled",
+        )],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "completed\ndeadline\ncancelled\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_reports_forced_cancellable_wait_expiry_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> () effects [time]\n",

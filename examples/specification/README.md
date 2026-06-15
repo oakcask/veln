@@ -1182,11 +1182,12 @@ against the built `veln` binary.
   cancellable waits infer the `time` effect for public effect checking.
 - `run/stream-adapter-cancellable-routing/`: adapter-owned stream routing
   calls a value-returning cancellable wait, routes ordinary `StreamInput`
-  values through a channel, and translates completed and cancelled wait
-  outcomes into ordinary response action values.
+  values through a channel, and translates completed, deadline-expired, and
+  cancelled wait outcomes into ordinary response action values in one fixture
+  output.
 - `run/stream-adapter-cancellable-routing-deadline/`: the same adapter-owned
-  routing translates host-forced deadline expiry into an ordinary retry
-  response action value.
+  routing also translates the global host-forced deadline expiry fixture into
+  an ordinary retry response action value.
 - `check/stream-adapter-cancellable-routing-effects/`: stream routing that
   combines cancellable waits with channels must declare both `time` and
   `concurrency`, while the pure handler boundary stays free of transport

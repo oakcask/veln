@@ -137,7 +137,8 @@ compare it with `../specification/` before changing behavior.
   socket-to-handler routing, stream-task handler, clean stream-end adapter,
   optional clean-end listener accept, and adapter-owned
   listener-to-clean-stream-end lifecycle, channel-first stream routing, and
-  adapter-level cancellable stream routing slices.
+  adapter-level cancellable stream routing slices, including fixture output
+  for completed, deadline-expired, and cancelled wait outcomes.
 
 ## Update When
 

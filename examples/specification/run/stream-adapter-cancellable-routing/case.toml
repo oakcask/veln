@@ -4,6 +4,9 @@ exit = 0
 [requires]
 jdk = true
 
+[env]
+VELN_TIME_CANCELLABLE_OUTCOMES = "completed,deadline-expired,cancelled"
+
 [stdout]
 format = "json"
 
@@ -16,7 +19,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "completed score 502 chunks 1\ncancelled score 2077 ended true\n"
+equals = "completed score 502 chunks 1\ndeadline-expired score 1608 chunks 2\ncancelled score 2077 ended true\n"
 
 [[json_assert]]
 path = "error"
