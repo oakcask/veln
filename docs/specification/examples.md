@@ -397,6 +397,14 @@ field path, and the `UInt31be` maximum.
 the direct structural mapping encode helper slice: the helper accepts the
 mapping target record shape, projects target fields back to schema-local
 fields, and writes one immutable `ByteChunk`.
+`../../examples/specification/run/binary-schema-int-mapped-constructor-encode/`
+and
+`../../examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`
+pin the direct single-constructor ADT inverse mapping slice for schema-local
+exact-width integer fields. The passing case projects an integer payload back
+to a `UInt16le` field and checks lowercase hex output. The
+failing case preserves the ordinary `codec.encode_value_unrepresentable`
+shape on the schema-local field path.
 `../../examples/specification/run/binary-schema-sub-byte-decode/`,
 `../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
 `../../examples/specification/run/binary-schema-sub-byte-encode/`,

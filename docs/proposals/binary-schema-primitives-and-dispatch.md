@@ -116,8 +116,10 @@ encode behavior and accept a direct mapped-record encode boundary when every
 visible encode field, such as `target_flags = flags`, can be projected by the
 existing direct assignment rule. They also project the first narrow ADT
 constructor inverse when a single target field wraps one schema-local `Flag8`
-field, such as `flags = Http2Flags(wire_flags)`, and preserve the ordinary
-`Flag8` encode range-failure shape on the schema-local field path.
+field or exact-width integer field, such as
+`flags = Http2Flags(wire_flags)` or `kind = FrameKind(wire_kind)`, and
+preserve the ordinary encode range-failure shape on the schema-local field
+path.
 Pure prelude helpers expose checked one-byte `Flag8` bit access through bit
 indexes `0` through `7`, returning `Result` failures for out-of-range indexes
 instead of masking or wrapping.
@@ -179,9 +181,9 @@ for:
   one-byte, two-byte, three-byte, and four-byte packed reserved suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset, checked bit
-  helper access, direct structural mapping boundary, and single-constructor
-  mapped encode boundary,
-  including raw-bit variants and broader frame-specific ADTs
+  helper access, direct structural mapping boundary, and implemented
+  single-constructor mapped encode boundary, including raw-bit variants and
+  broader frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode helper slices
@@ -277,9 +279,11 @@ pure converter expression forms. Direct mapped-record encode is implemented
 when every visible encode field can be projected back to a schema-local field
 by the existing direct assignment rule. A single target field assigned from a
 direct ADT constructor call is also implemented when its only payload is the
-schema-local `Flag8` field being encoded. General inverse mapping for broader
-mapped constructors, converter calls, nested records, selected mappings, and
-other non-direct expressions remains outside the implemented encode slice.
+schema-local `Flag8` field or visible exact-width integer field being
+encoded. General inverse mapping for multi-payload constructors, constructor
+arguments that are expressions, converter calls, nested records, selected
+mappings, and other non-direct expressions remains outside the implemented
+encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, and `Repeat(left_count - right_count, Payload)` fields

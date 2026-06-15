@@ -664,6 +664,74 @@ fn generated_schema_encode_helpers_accept_flag8_mapped_constructor_records() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_integer_mapped_constructor_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type FrameKind\n",
+            "  FrameKind(Int)\n",
+            "end\n",
+            "\n",
+            "type FrameHeader\n",
+            "  FrameHeader {kind: FrameKind}\n",
+            "end\n",
+            "\n",
+            "schema FrameHeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to FrameHeader\n",
+            "    kind = FrameKind(wire_kind)\n",
+            "end\n",
+            "\n",
+            "pub fn main(header: {kind: FrameKind}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_frame_header_wire(header)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "FrameHeaderWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "FrameHeaderWire"
+    ));
+}
+
+#[test]
 fn generated_schema_encode_helpers_reject_multi_variant_mapped_constructor_records() {
     let source = SourceFile::new(
         "main.veln",

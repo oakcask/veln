@@ -337,9 +337,10 @@ execution reference.
   encode fields, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
   The same narrow inverse projection also supports one target field assigned
-  from a direct single-constructor ADT call whose only payload is a
-  schema-local `Flag8` field. Both mapped encode paths write bytes through
-  the schema-local fields. A
+  from a direct single-constructor ADT call whose only payload is one
+  schema-local visible exact-width integer field or a schema-local `Flag8`
+  field. These mapped encode paths write bytes through the schema-local
+  fields. A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
@@ -445,6 +446,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-int-mapped-constructor-encode/`,
+  `examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-byteview-encode/`,
   `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,

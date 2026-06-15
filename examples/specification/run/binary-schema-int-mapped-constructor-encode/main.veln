@@ -1,0 +1,42 @@
+use stdio
+
+type PriorityWeight
+	PriorityWeight(Int)
+end
+
+type PriorityPacket
+	PriorityPacket {weight: PriorityWeight}
+end
+
+schema PriorityPacketWire
+	format binary
+
+	wire_weight: UInt16le
+
+	map to PriorityPacket
+		weight = PriorityWeight(wire_weight)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	stdio::println("output_chunk_list constructor-int-packet count 1")
+	emit_output_chunk("constructor-int-packet", 0, bytes, "3412")
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_priority_packet_wire({weight: PriorityWeight(4660)})
+	match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
