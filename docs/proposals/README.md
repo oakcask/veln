@@ -129,8 +129,8 @@ compare it with `../specification/` before changing behavior.
   `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound
   PING ACK send intent, narrow
   outbound DATA flow-control send intent, and outbound `WINDOW_UPDATE`
-  receive-credit intent, `RST_STREAM` reset send-intent, and GOAWAY
-  send-intent slices.
+  receive-credit intent, `RST_STREAM` reset send-intent, outbound HEADERS
+  send-intent, and GOAWAY send-intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle,
   stream-routing, richer deadline, cancellation, channel, and task behavior

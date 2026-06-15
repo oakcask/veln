@@ -35,8 +35,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
-  reset send-intent slice, and GOAWAY last-stream-id enforcement for later
-  peer-created HEADERS
+  reset send-intent slice, outbound HEADERS local closed-stream send-intent
+  slice, and GOAWAY last-stream-id enforcement for later peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented narrow outbound DATA send-intent credit checks,
   outbound `RST_STREAM` reset send intent, inbound DATA, stream-level
@@ -401,6 +401,18 @@ same reset stream-state rejection boundary. It rejects stream id `0`, missing
 or non-open streams, already reset streams, and generated encode-helper
 representation failures for the stream id or error-code payload before
 accepted bytes are produced.
+The implemented slice also includes the narrow outbound HEADERS send-intent.
+Ordinary source accepts a nonzero currently open stream and an already-encoded
+opaque header-block `ByteChunk`, encodes a nine-byte header with the
+header-block length, kind `1`, `END_HEADERS` set, optional `END_STREAM`, and
+the selected stream id, then appends the header-block bytes. Accepted
+`END_STREAM` records local closed-stream state so a later stream-level
+`WINDOW_UPDATE` for that stream uses the same closed stream-state rejection
+boundary. It rejects stream id `0`, missing or non-open streams, already
+closed or reset streams, payload lengths that exceed the peer-advertised
+maximum frame size, and generated frame-header representation failures before
+accepted bytes are produced. HPACK remains outside the send intent because
+the header-block bytes are already encoded.
 The implemented slice also includes the narrow outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id through the same
 generated `UInt31be` payload representation boundary used by inbound GOAWAY

@@ -232,6 +232,12 @@ type OutboundRstStreamDecision
 	OutboundRstStreamEncodeFailed(Int, Int, EncodeError)
 end
 
+type OutboundHeadersDecision
+	OutboundHeadersAccepted(Int, Int, Bool, OutboundReceiveCredit, ByteChunk)
+	OutboundHeadersRejected(Int, Int, Bool, Http2ProtocolFailure)
+	OutboundHeadersEncodeFailed(Int, Int, Bool, EncodeError)
+end
+
 type OutboundGoawayDecision
 	OutboundGoawayAccepted(Int, Int, Http2DecodeState, ByteChunk)
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
@@ -1271,6 +1277,62 @@ fn encode_rst_stream_payload_intent(stream_id: Int, error_code: Int, connection_
 	end
 end
 
+fn send_headers(stream_id: Int, header_block: ByteChunk, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundHeadersDecision, String>
+	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
+	match stream_id == 0
+		true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_headers_requires_open_stream")))
+		false => send_nonzero_headers(stream_id, payload_length, header_block, end_stream, active_peer_max_frame_size(peer_settings), receive_credit)
+	end
+end
+
+fn send_nonzero_headers(stream_id: Int, payload_length: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundHeadersDecision, String>
+	match receive_credit
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
+			true => validate_headers_frame_size(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_window, stream_window)
+			false => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
+			true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
+			false => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
+			true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
+			false => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+	end
+end
+
+fn validate_headers_frame_size(stream_id: Int, payload_length: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundHeadersDecision, String>
+	match payload_length > max_frame_size
+		true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, FrameSizeExceeded(0, payload_length, ReceiveLimit(max_frame_size, LocalConfiguration), 1, stream_id)))
+		false => encode_headers_intent(stream_id, payload_length, header_block, end_stream, connection_window, stream_window)
+	end
+end
+
+fn encode_headers_intent(stream_id: Int, payload_length: Int, header_block: ByteChunk, end_stream: Bool, connection_window: Int, stream_window: Int) -> Result<OutboundHeadersDecision, String>
+	let flags: Int = headers_flags(end_stream)
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: payload_length, kind: 1, flags: flags, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => Ok(OutboundHeadersAccepted(stream_id, payload_length, end_stream, headers_sent_receive_credit(stream_id, end_stream, connection_window, stream_window), byte_append(header, header_block)))
+		Err(error) => Ok(OutboundHeadersEncodeFailed(stream_id, payload_length, end_stream, error))
+	end
+end
+
+fn headers_flags(end_stream: Bool) -> Int
+	match end_stream
+		true => 5
+		false => 4
+	end
+end
+
+fn headers_sent_receive_credit(stream_id: Int, end_stream: Bool, connection_window: Int, stream_window: Int) -> OutboundReceiveCredit
+	match end_stream
+		true => OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id))
+		false => OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window))
+	end
+end
+
 fn consume_outbound_data_window(length: Int, stream_id: Int, outbound_flow_control: OutboundFlowControl) -> OutboundDataDecision
 	match outbound_flow_control
 		OutboundFlowControl(connection_window, NoOutboundOpenStreamWindow) => OutboundDataStreamWindowRejected(stream_id, length, 0)
@@ -2205,6 +2267,22 @@ fn outbound_receive_stream_window(receive_credit: OutboundReceiveCredit) -> Int
 	end
 end
 
+fn outbound_receive_closed_stream_id(receive_credit: OutboundReceiveCredit) -> Int
+	match receive_credit
+		OutboundReceiveCredit(_, NoOutboundReceiveCreditStream) => 0
+		OutboundReceiveCredit(_, OutboundReceiveCreditOpenStream(_, _)) => 0
+		OutboundReceiveCredit(_, OutboundReceiveCreditClosedStream(stream_id)) => stream_id
+		OutboundReceiveCredit(_, OutboundReceiveCreditResetStream(_, _)) => 0
+	end
+end
+
+fn bool_to_int(value: Bool) -> Int
+	match value
+		true => 1
+		false => 0
+	end
+end
+
 fn outbound_window_update_status(decision: OutboundWindowUpdateDecision) -> String
 	match decision
 		OutboundWindowUpdateAccepted(_, _, _, _) => "accepted"
@@ -2370,6 +2448,148 @@ fn outbound_rst_stream_encode_detail(decision: OutboundRstStreamDecision) -> Str
 		OutboundRstStreamAccepted(_, _, _, _) => "none"
 		OutboundRstStreamRejected(_, _, _) => "none"
 		OutboundRstStreamEncodeFailed(_, _, error) => encode_error_reason(error)
+	end
+end
+
+fn outbound_headers_status(decision: OutboundHeadersDecision) -> String
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => "accepted"
+		OutboundHeadersRejected(_, _, _, _) => "rejected"
+		OutboundHeadersEncodeFailed(_, _, _, _) => "encode_error"
+	end
+end
+
+fn outbound_headers_reason(decision: OutboundHeadersDecision) -> String
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => "none"
+		OutboundHeadersRejected(_, _, _, error) => outbound_headers_failure_reason(error)
+		OutboundHeadersEncodeFailed(_, _, _, error) => encode_error_id(error)
+	end
+end
+
+fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
+	match error
+		FrameSizeExceeded(_, _, _, _, _) => "peer_max_frame_size"
+		ClosedWithPending(_, _) => failure_rule_provenance(error)
+		ClosedWithPartialPreface(_, _) => failure_rule_provenance(error)
+		InvalidPreface(_, _, _, _) => failure_rule_provenance(error)
+		ContinuationExpected(_, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidFrameKind(_, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		UnexpectedSettingsAck(_, _, _) => failure_rule_provenance(error)
+		InvalidPriorityDependency(_, _, _, _, _) => failure_rule_provenance(error)
+		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		HeaderListSizeExceeded(_, _, _, _, _, _) => failure_rule_provenance(error)
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		HpackFixtureDecodeFailed(_, _, _, _, _) => failure_rule_provenance(error)
+	end
+end
+
+fn outbound_headers_stream(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(stream_id, _, _, _, _) => stream_id
+		OutboundHeadersRejected(stream_id, _, _, _) => stream_id
+		OutboundHeadersEncodeFailed(stream_id, _, _, _) => stream_id
+	end
+end
+
+fn outbound_headers_payload_length(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, payload_length, _, _, _) => payload_length
+		OutboundHeadersRejected(_, payload_length, _, _) => payload_length
+		OutboundHeadersEncodeFailed(_, payload_length, _, _) => payload_length
+	end
+end
+
+fn outbound_headers_allowed_length(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => 0
+		OutboundHeadersRejected(_, _, _, error) => failure_allowed_length(error)
+		OutboundHeadersEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_headers_end_stream(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, end_stream, _, _) => bool_to_int(end_stream)
+		OutboundHeadersRejected(_, _, end_stream, _) => bool_to_int(end_stream)
+		OutboundHeadersEncodeFailed(_, _, end_stream, _) => bool_to_int(end_stream)
+	end
+end
+
+fn outbound_headers_connection_window(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, _, receive_credit, _) => outbound_receive_connection_window(receive_credit)
+		OutboundHeadersRejected(_, _, _, _) => 0
+		OutboundHeadersEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_headers_open_stream(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, _, receive_credit, _) => outbound_receive_open_stream_id(receive_credit)
+		OutboundHeadersRejected(_, _, _, _) => 0
+		OutboundHeadersEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_headers_closed_stream(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, _, receive_credit, _) => outbound_receive_closed_stream_id(receive_credit)
+		OutboundHeadersRejected(_, _, _, _) => 0
+		OutboundHeadersEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_headers_stream_window(decision: OutboundHeadersDecision) -> Int
+	match decision
+		OutboundHeadersAccepted(_, _, _, receive_credit, _) => outbound_receive_stream_window(receive_credit)
+		OutboundHeadersRejected(_, _, _, _) => 0
+		OutboundHeadersEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_headers_active_state(decision: OutboundHeadersDecision) -> String
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => "none"
+		OutboundHeadersRejected(_, _, _, error) => failure_active_state(error)
+		OutboundHeadersEncodeFailed(_, _, _, _) => "codec"
+	end
+end
+
+fn outbound_headers_chunk(decision: OutboundHeadersDecision) -> ByteChunk
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, chunk) => chunk
+		OutboundHeadersRejected(_, _, _, _) => byte_chunk([])
+		OutboundHeadersEncodeFailed(_, _, _, _) => byte_chunk([])
+	end
+end
+
+fn outbound_headers_receive_credit(decision: OutboundHeadersDecision) -> OutboundReceiveCredit
+	match decision
+		OutboundHeadersAccepted(_, _, _, receive_credit, _) => receive_credit
+		OutboundHeadersRejected(_, _, _, _) => outbound_receive_credit_without_stream(0)
+		OutboundHeadersEncodeFailed(_, _, _, _) => outbound_receive_credit_without_stream(0)
+	end
+end
+
+fn outbound_headers_encode_path(decision: OutboundHeadersDecision) -> String
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => "none"
+		OutboundHeadersRejected(_, _, _, _) => "none"
+		OutboundHeadersEncodeFailed(_, _, _, error) => encode_error_path(error)
+	end
+end
+
+fn outbound_headers_encode_detail(decision: OutboundHeadersDecision) -> String
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => "none"
+		OutboundHeadersRejected(_, _, _, _) => "none"
+		OutboundHeadersEncodeFailed(_, _, _, error) => encode_error_reason(error)
 	end
 end
 
@@ -3396,6 +3616,40 @@ fn print_outbound_rst_stream_chunk(label: String, decision: OutboundRstStreamDec
 	emit_encoded_header(label, outbound_rst_stream_chunk(decision), expected_hex)
 end
 
+fn print_outbound_headers(label: String, decision: OutboundHeadersDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-headers ")
+	stdio::print(outbound_headers_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_headers_reason(decision))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(outbound_headers_stream(decision)))
+	stdio::print(" payload_length ")
+	stdio::print(int_to_string(outbound_headers_payload_length(decision)))
+	stdio::print(" allowed_length ")
+	stdio::print(int_to_string(outbound_headers_allowed_length(decision)))
+	stdio::print(" end_stream ")
+	stdio::print(int_to_string(outbound_headers_end_stream(decision)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(outbound_headers_connection_window(decision)))
+	stdio::print(" open_stream ")
+	stdio::print(int_to_string(outbound_headers_open_stream(decision)))
+	stdio::print(" closed_stream ")
+	stdio::print(int_to_string(outbound_headers_closed_stream(decision)))
+	stdio::print(" stream_window ")
+	stdio::print(int_to_string(outbound_headers_stream_window(decision)))
+	stdio::print(" active_state ")
+	stdio::print(outbound_headers_active_state(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_headers_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_headers_encode_detail(decision))
+end
+
+fn print_outbound_headers_chunk(label: String, decision: OutboundHeadersDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_encoded_header(label, outbound_headers_chunk(decision), expected_hex)
+end
+
 fn print_outbound_goaway(label: String, decision: OutboundGoawayDecision) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" outbound-goaway ")
@@ -3895,6 +4149,37 @@ fn print_outbound_rst_stream_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn small_peer_max_frame_size_settings(value: Int) -> PeerSettingsState
+	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
+end
+
+fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
+	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
+	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-accepted", outbound_headers_accepted)
+	let ignored_headers_chunk: () = print_outbound_headers_chunk("http2-headers", outbound_headers_accepted, "000003010400000001828486")?
+	let outbound_headers_end_stream: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("87")?, true, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-end-stream", outbound_headers_end_stream)
+	let ignored_headers_end_stream_chunk: () = print_outbound_headers_chunk("http2-headers-end-stream", outbound_headers_end_stream, "00000101050000000187")?
+	let outbound_headers_then_window_update: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_headers_receive_credit(outbound_headers_end_stream))?
+	print_outbound_window_update("outbound-headers-end-stream-then-window-update", outbound_headers_then_window_update)
+	let outbound_headers_zero: OutboundHeadersDecision = send_headers(0, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-zero", outbound_headers_zero)
+	let outbound_headers_missing: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit_without_stream(10))?
+	print_outbound_headers("outbound-headers-missing", outbound_headers_missing)
+	let outbound_headers_closed: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit_with_closed_stream(10, 1))?
+	print_outbound_headers("outbound-headers-closed", outbound_headers_closed)
+	let outbound_headers_reset: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit_with_reset_stream(10, 1, 8))?
+	print_outbound_headers("outbound-headers-reset", outbound_headers_reset)
+	let outbound_headers_mismatch: OutboundHeadersDecision = send_headers(3, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-mismatch", outbound_headers_mismatch)
+	let outbound_headers_frame_size: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("82848687")?, false, small_peer_max_frame_size_settings(3), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-frame-size", outbound_headers_frame_size)
+	let outbound_headers_id_encode_error: OutboundHeadersDecision = send_headers(2147483648, byte_chunk_from_hex("82")?, false, empty_peer_settings(), outbound_receive_credit_with_open_stream(10, 2147483648, 20))?
+	print_outbound_headers("outbound-headers-id-encode-error", outbound_headers_id_encode_error)
+	Ok(())
+end
+
 fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	let outbound_goaway_accepted: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
 	print_outbound_goaway("outbound-goaway-accepted", outbound_goaway_accepted)
@@ -3913,6 +4198,7 @@ fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 	let ignored_outbound_data_cases: () = print_outbound_data_cases()?
 	let ignored_outbound_window_update_cases: () = print_outbound_window_update_cases()?
 	let ignored_outbound_rst_stream_cases: () = print_outbound_rst_stream_cases()?
+	let ignored_outbound_headers_cases: () = print_outbound_headers_cases()?
 	let ignored_outbound_goaway_cases: () = print_outbound_goaway_cases()?
 	Ok(())
 end
