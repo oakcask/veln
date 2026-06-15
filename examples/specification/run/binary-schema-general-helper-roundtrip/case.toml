@@ -18,10 +18,22 @@ equals = "passed"
 path = "error"
 equals = null
 
+[[json_assert]]
+path = "stdout"
+equals = "codec-decode 5 3 1 40 2 2 1030 2 17 4660 consumed 15\noutput_chunk_list general-helper-roundtrip count 1\noutput_chunk general-helper-roundtrip index 0 hex \"05030128020102030400aabbb13412\" count 15\noutput_chunk_list general-helper-codec-roundtrip count 1\noutput_chunk general-helper-codec-roundtrip index 0 hex \"05030128020102030400aabbb13412\" count 15\noutput_chunk_list general-helper-direct count 1\noutput_chunk general-helper-direct index 0 hex \"05030128020102030400aabbb13412\" count 15\noutput_chunk_list general-helper-codec-direct count 1\noutput_chunk general-helper-codec-direct index 0 hex \"05030128020102030400aabbb13412\" count 15\n"
+
 [[output_chunk_list]]
 name = "general-helper-roundtrip"
 chunks = ["05030128020102030400aabbb13412"]
 
 [[output_chunk_list]]
+name = "general-helper-codec-roundtrip"
+chunks = ["05030128020102030400aabbb13412"]
+
+[[output_chunk_list]]
 name = "general-helper-direct"
+chunks = ["05030128020102030400aabbb13412"]
+
+[[output_chunk_list]]
+name = "general-helper-codec-direct"
 chunks = ["05030128020102030400aabbb13412"]

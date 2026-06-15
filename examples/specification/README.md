@@ -704,6 +704,12 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-length-human/`: extension-tolerant
   dispatch still reports a focused `schema.length_out_of_bounds` diagnostic
   when the decoded unknown-payload length exceeds closed input.
+- `run/binary-schema-general-helper-roundtrip/`: a non-HTTP schema combines
+  `Flag8`, bounded repeat fields, representation-only reserved fields,
+  `ByteView(left_length - right_length)`, same-module nested
+  `ExtensionDispatch`, and little-endian nested primitive fields. The case
+  checks direct helper roundtrip plus derived codec decode and encode calls
+  over the same schema shape.
 - `run/binary-schema-decode-step/`: a generated binary schema decode-step
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open

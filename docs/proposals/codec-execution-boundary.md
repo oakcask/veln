@@ -31,7 +31,8 @@ items preserve explicit `decode` and `encode` directions plus `derive` and
 decode calls, hand-written encode calls, derived decode calls for schemas that
 are already eligible for the generated exact-width binary schema decode-step
 helper, and derived encode calls for schemas that are already eligible for the
-generated binary schema encode helper in `../specification/execution.md`.
+generated binary schema encode helper, including the checked non-HTTP
+composite helper shape in `../specification/execution.md`.
 
 Define codec support for:
 
