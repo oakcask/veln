@@ -795,6 +795,11 @@ fn schema_decode_record_fields_inner_after_push(
             {
                 return None;
             }
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
+                && decoded_fields.get(length_field) != Some(&Type::int())
+            {
+                return None;
+            }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
             (0, Type::named("List", vec![element_ty]))
         } else {
@@ -852,6 +857,7 @@ fn schema_repeat_payload_type(
 ) -> Option<Type> {
     match &repeat.payload {
         SchemaRepeatPayload::Primitive { .. } => Some(Type::int()),
+        SchemaRepeatPayload::ByteView { .. } => Some(Type::named("ByteView", Vec::new())),
         SchemaRepeatPayload::Schema { schema_name } => {
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
             schema_decode_value_type_inner(module, nested, stack)
@@ -1002,6 +1008,13 @@ fn schema_encode_function_signature_for_schema(
                         .iter()
                         .any(|field| field == reference)
                 })
+            {
+                return None;
+            }
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
+                && !exact_width_field_names
+                    .iter()
+                    .any(|field| field == length_field)
             {
                 return None;
             }
@@ -2202,6 +2215,9 @@ pub(crate) enum SchemaRepeatPayload {
         max_value: i64,
         little_endian: bool,
     },
+    ByteView {
+        length_field: String,
+    },
     Schema {
         schema_name: String,
     },
@@ -2228,6 +2244,13 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
             width,
             max_value: exact_width_schema_primitive_max_value(primitive)?,
             little_endian: exact_width_schema_primitive_little_endian(primitive),
+        }
+    } else if let Some(length_expr) = byte_view_schema_primitive(primitive) {
+        match length_expr {
+            ByteViewLengthExpr::Field(length_field) => {
+                SchemaRepeatPayload::ByteView { length_field }
+            }
+            ByteViewLengthExpr::Difference { .. } => return None,
         }
     } else if schema_payload_name_path(primitive).is_some() {
         SchemaRepeatPayload::Schema {

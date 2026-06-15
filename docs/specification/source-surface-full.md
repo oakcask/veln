@@ -112,9 +112,12 @@ previously decoded visible `Int` field in the same schema, and
 `Repeat(left_count - right_count, Payload)` when both operands name earlier
 visible `Int` fields in the same schema. `Payload` is one of the implemented
 byte-aligned exact-width unsigned primitives or an eligible nested binary
-schema payload. A repeated primitive field decodes and encodes as `List<Int>`;
-a repeated nested schema field decodes and encodes as a list of the nested
-schema's decoded record shape. Binary schema fields
+schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
+both references name earlier visible `Int` fields in the same schema. A
+repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
+schema field decodes and encodes as a list of the nested schema's decoded
+record shape; and a repeated `ByteView(length_field)` field decodes as
+`List<ByteView>`. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when

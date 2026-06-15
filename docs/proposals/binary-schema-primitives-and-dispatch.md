@@ -139,6 +139,14 @@ the earlier fields normally and then writes exactly the bounded bytes from the
 supplied view, negative computed decode lengths report
 `schema.length_out_of_bounds`, and mismatched encode view counts return the
 existing structured `EncodeError` value-representation shape.
+The narrow repeated bounded byte-view payload slice is implemented for
+`Repeat(count_field, ByteView(length_field))` in generated binary schema decode
+helpers and derived decode boundaries. Both references must name earlier
+visible `Int` fields in the same schema, each repeated element decodes as a
+bounded `ByteView` of `length_field` bytes, element order is preserved in the
+source-visible `List<ByteView>`, and truncation reports the existing
+`schema.truncated_field` diagnostic with the repeated field path plus the
+failing element index.
 The narrow schema-level structural validation slice is implemented as one
 `validate` predicate after binary schema fields. Generated decode helpers run
 that predicate after all fields and field-local validation have succeeded and

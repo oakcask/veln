@@ -1906,6 +1906,18 @@ fn check_schema_repeat_field(
     }
     let element_ty = match &repeat.payload {
         SchemaRepeatPayload::Primitive { .. } => Type::int(),
+        SchemaRepeatPayload::ByteView { length_field } => {
+            if !check_schema_repeat_byte_view_reference(
+                schema,
+                field,
+                length_field,
+                decoded_fields,
+                diagnostics,
+            ) {
+                return None;
+            }
+            Type::named("ByteView", Vec::new())
+        }
         SchemaRepeatPayload::Schema { schema_name } => {
             let payload_schema = resolve_schema_repeat_payload_schema(
                 module,
@@ -1931,6 +1943,48 @@ fn check_schema_repeat_field(
         }
     };
     Some(Type::named("List", vec![element_ty]))
+}
+
+fn check_schema_repeat_byte_view_reference(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    length_field: &str,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(ty) = decoded_fields.get(length_field) else {
+        let reason = if schema_field_declared_after(schema, field, length_field) {
+            "forward_field_reference"
+        } else {
+            "unknown_field_reference"
+        };
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            length_field,
+            reason,
+            format!(
+                "repeat ByteView length field `{length_field}` must be an earlier decoded `Int` field"
+            ),
+            [],
+        ));
+        return false;
+    };
+    if ty != &Type::int() {
+        diagnostics.push(schema_repeat_payload_diagnostic(
+            schema,
+            field,
+            length_field,
+            "incompatible_field_reference",
+            format!(
+                "repeat ByteView length field `{length_field}` decodes as `{}`, not `Int`",
+                ty.render()
+            ),
+            [("actual", JsonValue::string(ty.render()))],
+        ));
+        return false;
+    }
+    true
 }
 
 fn check_schema_byte_view_reference(

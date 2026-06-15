@@ -131,12 +131,16 @@ execution reference.
   `Repeat(count_field, Payload)` fields when `count_field` is an earlier
   visible exact-width unsigned field decoded as `Int` and `Payload` is
   `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-  `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible nested binary
-  schema payload. `Repeat(left_count - right_count, Payload)` uses the
+  `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, an eligible nested binary
+  schema payload, or `ByteView(length_field)` when `length_field` is another
+  earlier visible exact-width unsigned field decoded as `Int`.
+  `Repeat(left_count - right_count, Payload)` uses the
   difference of two earlier visible exact-width unsigned `Int` fields as the
   repeat count. A repeated primitive field decodes to `List<Int>`; a repeated
   nested schema field decodes to a list of the nested schema's decoded record
-  shape. The helper reads exactly the computed count in declaration order. A
+  shape; and a repeated `ByteView(length_field)` field decodes to
+  `List<ByteView>` with each element preserving its bounded bytes in element
+  order. The helper reads exactly the computed count in declaration order. A
   negative computed count reports `schema.length_out_of_bounds` at the repeat
   field path. Truncation is reported at the first element that cannot be fully
   read with the usual `schema.truncated_field` details and a schema field path
@@ -146,7 +150,9 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-json/`,
   `examples/specification/run/binary-schema-repeat-nested-decode/`, and
-  `examples/specification/run/binary-schema-repeat-nested-truncated-json/`.
+  `examples/specification/run/binary-schema-repeat-nested-truncated-json/`,
+  `examples/specification/run/binary-schema-repeat-byteview-decode/`, and
+  `examples/specification/run/binary-schema-repeat-byteview-truncated-json/`.
 - Generated binary schema decode helpers support byte-aligned
   `ReservedBits(width, value)` fields up to four bytes wide as
   representation-only fields. The helper consumes the reserved bytes in

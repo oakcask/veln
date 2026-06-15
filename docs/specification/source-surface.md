@@ -58,10 +58,12 @@ bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
 Payload)` is accepted when both operands name earlier visible `Int` fields in
 the same binary schema. `Payload` is either an implemented byte-aligned
-exact-width unsigned primitive or an eligible nested binary schema payload. A
-repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
-schema field decodes and encodes as a list of the nested schema's decoded
-record shape. The narrow closed tag-dispatch field type
+exact-width unsigned primitive, an eligible nested binary schema payload, or
+`ByteView(length_field)` when `length_field` is another earlier visible `Int`
+field in the same schema. A repeated primitive field decodes and encodes as
+`List<Int>`; a repeated nested schema field decodes and encodes as a list of
+the nested schema's decoded record shape; and a repeated `ByteView` field
+decodes as `List<ByteView>`. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
 previously decoded schema field and each case payload is either one of the
 implemented exact-width unsigned binary primitives, a same-module binary
@@ -106,6 +108,7 @@ length-bounded
 `ByteView(length_field)` or `ByteView(left_length - right_length)` payload
 fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
+including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
 closed nested dispatch payload fields as the nested schema record shape, and
 extension dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
 all use the same decoded `Int` selector field, distinct selector literal
