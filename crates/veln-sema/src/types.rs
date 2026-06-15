@@ -1480,13 +1480,13 @@ fn schema_mapping_expr_typed_unchecked(
                 }
                 SchemaMappingConverterLookup::Missing => {}
             }
-            if let [name] = segments.as_slice() {
-                if !schema_mapping_name_can_be_constructor(segments) {
-                    return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
-                        name: name.clone(),
-                        span: callee.span.clone(),
-                    }));
-                }
+            if let [name] = segments.as_slice()
+                && !schema_mapping_name_can_be_constructor(segments)
+            {
+                return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
+                    name: name.clone(),
+                    span: callee.span.clone(),
+                }));
             }
             if segments.len() > 1 && schema_mapping_name_can_be_converter(segments) {
                 return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
