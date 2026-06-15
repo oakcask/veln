@@ -875,8 +875,9 @@ against the built `veln` binary.
   consumed count to `codec.consumed_count_invalid`.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
   deterministic header-block byte fixtures and the static indexed `0x83`
-  `:method: POST` byte into ordinary header-list data and returns the next
-  immutable fixture state.
+  `:method: POST`, `0x8f` `accept-charset:`, `0x90`
+  `accept-encoding: gzip, deflate`, and `0x91` `accept-language:` bytes into
+  ordinary header-list data and returns the next immutable fixture state.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
@@ -989,8 +990,9 @@ against the built `veln` binary.
   `:path: /`, `0x85` `:path: /index.html`, `0x86` `:scheme: http`, and
   `0x87` `:scheme: https`, plus `0x88` `:status: 200`, `0x89`
   `:status: 204`, `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c`
-  `:status: 400`, `0x8d` `:status: 404`, and `0x8e` `:status: 500` bytes
-  through the imported fixture codec,
+  `:status: 400`, `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`
+  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, and `0x91`
+  `accept-language:` bytes through the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind
