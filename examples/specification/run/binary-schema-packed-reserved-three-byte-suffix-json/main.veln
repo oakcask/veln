@@ -1,0 +1,20 @@
+use stdio
+
+schema PackedThreeByteSuffixHeader
+	format binary
+
+	prefix: UInt8
+	control: UInt1
+	control_padding: ReservedBits(23, 2796202)
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12aaaaab34")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(5)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_three_byte_suffix_header(view)?
+	stdio::println(int_to_string(ignored.control))
+	Ok(())
+end

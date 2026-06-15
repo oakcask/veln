@@ -23,20 +23,21 @@ mapping source values, encode them from the declared fixed value, and report
 the same reserved-bit mismatch and truncation diagnostic shapes. Generated
 schema helpers also consume and encode packed `ReservedBits(width, value)`
 prefixes where widths one through seven are followed by the visible `UIntN`
-primitive that completes the byte and widths nine through fifteen are
-followed by the visible `UIntN` primitive that completes the same two-byte
-big-endian storage unit. The helpers validate the high reserved bits, decode
-or encode the low visible bits from the ordinary record field, omit the
-reserved field from decoded records and mapping source values, and report the
-same reserved-bit mismatch, truncation, and
-`codec.encode_value_unrepresentable` diagnostic shapes. Generated schema
-helpers also consume and encode the suffix form where a visible `UIntN` field
-is followed immediately by `ReservedBits(width, value)` and the two widths
-complete one byte or the same two-byte big-endian storage unit. The helpers
-decode or encode the visible field from the high bits, validate or emit the
-declared low reserved bits, omit the reserved field from decoded records and
+primitive that completes the byte, widths nine through fifteen complete the
+same two-byte big-endian storage unit, and widths seventeen through
+twenty-three complete the same three-byte big-endian storage unit. The helpers
+validate the high reserved bits, decode or encode the low visible bits from
+the ordinary record field, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,
 and `codec.encode_value_unrepresentable` diagnostic shapes. Generated schema
+helpers also consume and encode the suffix form where a visible `UIntN` field
+is followed immediately by `ReservedBits(width, value)` and the two widths
+complete one byte or the same two-byte or three-byte big-endian storage unit.
+The helpers decode or encode the visible field from the high bits, validate or
+emit the declared low reserved bits, omit the reserved field from decoded
+records and mapping source values, and report the same reserved-bit mismatch,
+truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
+Generated schema
 helpers also decode and encode standalone visible
 `UInt1` through `UInt7` fields as one byte each, expose the declared low bits
 as ordinary `Int` values, preserve structural mapping and generated
@@ -148,9 +149,9 @@ for:
   implemented primitive helper slices
 - endian-aware field reads and writes
 - reserved-bit forms beyond the implemented byte-aligned representation-only
-  fields, one-byte and two-byte packed reserved prefixes, one-byte and
-  two-byte packed reserved suffixes, and `ReservedBits(1, 0)` plus `UInt31be`
-  shared-bit layout
+  fields, one-byte, two-byte, and three-byte packed reserved prefixes,
+  one-byte, two-byte, and three-byte packed reserved suffixes, and
+  `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset and its
   structural mapping boundary, including raw-bit variants and frame-specific
   ADTs
@@ -265,10 +266,10 @@ should not become a general-purpose source type.
 
 Reserved bits are spelled as schema-local fixed fields that are consumed from
 the external representation but omitted from the mapped Veln value by default.
-The byte-aligned `ReservedBits(width, value)` slice, one-byte and two-byte
-packed reserved prefix slices, one-byte and two-byte packed reserved suffix
-slice, and the `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout are
-implemented under `../specification/execution.md`.
+The byte-aligned `ReservedBits(width, value)` slice, one-byte, two-byte, and
+three-byte packed reserved prefix slices, one-byte, two-byte, and three-byte
+packed reserved suffix slice, and the `ReservedBits(1, 0)` plus `UInt31be`
+shared-bit layout are implemented under `../specification/execution.md`.
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

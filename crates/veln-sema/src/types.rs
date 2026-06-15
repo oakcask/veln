@@ -2212,6 +2212,8 @@ pub(crate) fn supported_encode_reserved_bits(
         Some(8)
     } else if (9..=15).contains(&bit_width) {
         Some(16)
+    } else if (17..=23).contains(&bit_width) {
+        Some(24)
     } else {
         None
     };
@@ -2276,6 +2278,8 @@ fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
         Some(8)
     } else if (9..=15).contains(&bit_width) {
         Some(16)
+    } else if (17..=23).contains(&bit_width) {
+        Some(24)
     } else {
         None
     }
