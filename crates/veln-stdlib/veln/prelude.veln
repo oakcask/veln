@@ -6,6 +6,10 @@ pub type Flag8
 	Flag8(bits: Int)
 end
 
+pub type Flag16be
+	Flag16be(bits: Int)
+end
+
 pub fn flag8_is_set(flags: Flag8, index: Int) -> Result<Bool, String>
 	prelude_builtin::flag8_is_set(flags, index)
 end

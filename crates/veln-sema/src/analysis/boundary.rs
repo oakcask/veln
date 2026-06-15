@@ -3,7 +3,7 @@ use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    extension_dispatch_schema_primitive, flag8_schema_primitive, repeat_schema_primitive,
+    extension_dispatch_schema_primitive, flag_schema_primitive, repeat_schema_primitive,
     schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, supported_encode_reserved_bits,
@@ -1705,12 +1705,12 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         let mut decoded_fields = BTreeMap::<String, Type>::new();
         for field in &schema.fields {
-            if flag8_schema_primitive(&field.ty) {
+            if let Some(flag_type) = flag_schema_primitive(&field.ty) {
                 if format_name == Some("binary") {
-                    decoded_fields.insert(field.name.clone(), Type::named("Flag8", Vec::new()));
+                    decoded_fields.insert(field.name.clone(), Type::named(flag_type, Vec::new()));
                 } else {
                     diagnostics.push(exact_width_schema_primitive_diagnostic(
-                        "Flag8",
+                        flag_type,
                         Some(schema),
                         Some(field),
                         field.node_id.display("schema-field"),

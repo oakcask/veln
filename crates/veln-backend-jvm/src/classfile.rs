@@ -961,11 +961,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         schema: &IrSchemaDecodeSpec,
     ) {
         self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            if schema.fields[index].flag8 {
-                code.getstatic("java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
-            } else {
-                code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
-            }
+            code.ldc_string(&schema.fields[index].flag_type);
         });
         code.invokestatic(
             &self.program.options.runtime_class,

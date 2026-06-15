@@ -421,6 +421,17 @@ structural mapping. The encode cases prove one-byte output and
 range. The truncation cases prove the existing `schema.truncated_field`
 diagnostic shape for a missing one-byte standalone field.
 
+`../../examples/specification/run/binary-schema-flag16be-decode/`,
+`../../examples/specification/run/binary-schema-flag16be-encode/`,
+`../../examples/specification/run/binary-schema-flag16be-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag16be-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag16be-encode-out-of-range/`
+pin the two-byte big-endian visible flag bitset slice. The cases prove
+source-visible `Flag16be(bits)` decode, big-endian encode, direct structural
+mapping in both directions, and the ordinary encode value-representation
+failure shape for values outside the two-byte range.
+
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
 The case checks complete lowercase hex output for an HTTP/2-style stream

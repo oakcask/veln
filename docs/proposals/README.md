@@ -49,9 +49,10 @@ compare it with `../specification/` before changing behavior.
   and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-suffix decode
   and encode,
-  opt-in `Flag8` one-byte visible flag bitset decode and encode plus its
-  checked bit helpers, structural mapping decode, direct mapped-record encode,
-  and single ADT constructor mapped encode boundaries for `Flag8` and
+  opt-in `Flag8` one-byte and `Flag16be` two-byte big-endian visible flag
+  bitset decode and encode, `Flag8` checked bit helpers, structural mapping
+  decode, direct mapped-record encode, and single ADT constructor mapped
+  encode boundaries for `Flag8` and
   exact-width integer fields,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and

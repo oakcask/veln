@@ -123,6 +123,14 @@ path.
 Pure prelude helpers expose checked one-byte `Flag8` bit access through bit
 indexes `0` through `7`, returning `Result` failures for out-of-range indexes
 instead of masking or wrapping.
+The narrow two-byte big-endian visible flag bitset slice is implemented as
+`Flag16be` for generated binary schema decode and encode helpers. `Flag16be`
+consumes and emits two bytes through the existing `UInt16be` representation
+path, decodes to the source-visible `Flag16be(bits: Int)` value instead of a
+raw `Int`, preserves existing `UInt16be` field behavior, shares exact-width
+truncation behavior, supports direct mapped-record decode and encode, and
+reports existing encode value-representation failures when `bits` cannot be
+represented in two bytes.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
@@ -180,10 +188,11 @@ for:
   prefixes,
   one-byte, two-byte, three-byte, and four-byte packed reserved suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
-- flag vocabulary beyond the implemented one-byte `Flag8` bitset, checked bit
-  helper access, direct structural mapping boundary, and implemented
-  single-constructor mapped encode boundary, including raw-bit variants and
-  broader frame-specific ADTs
+- flag vocabulary beyond the implemented one-byte `Flag8` bitset and
+  two-byte big-endian `Flag16be` bitset, checked `Flag8` bit helper access,
+  direct structural mapping boundary, and implemented single-constructor
+  mapped encode boundary, including raw-bit variants and broader
+  frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode helper slices
@@ -272,15 +281,19 @@ the supported primitive, reserved-field, fixed-field decode, endian, and
 diagnostic behavior already available to ordinary generated schema fields.
 The implemented `Flag8` helper slice consumes and emits one-byte visible
 bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
-`UInt8` fields as ordinary `Int` values. Structural decode mappings can use
-that decoded `Flag8` value through the implemented field reference,
-same-module ADT constructor, pure same-module converter, and imported public
-pure converter expression forms. Direct mapped-record encode is implemented
-when every visible encode field can be projected back to a schema-local field
-by the existing direct assignment rule. A single target field assigned from a
-direct ADT constructor call is also implemented when its only payload is the
-schema-local `Flag8` field or visible exact-width integer field being
-encoded. General inverse mapping for multi-payload constructors, constructor
+`UInt8` fields as ordinary `Int` values. The implemented `Flag16be` helper
+slice consumes and emits two-byte big-endian visible bitsets as
+source-visible `Flag16be(bits: Int)` values while leaving existing `UInt16be`
+fields as ordinary `Int` values. Structural decode mappings can use decoded
+flag values through the implemented field reference, same-module ADT
+constructor, pure same-module converter, and imported public pure converter
+expression forms where those forms are implemented for the flag type. Direct
+mapped-record encode is implemented when every visible encode field can be
+projected back to a schema-local field by the existing direct assignment
+rule. A single target field assigned from a direct ADT constructor call is
+also implemented when its only payload is a schema-local supported flag field
+or visible exact-width integer field being encoded. General inverse mapping
+for multi-payload constructors, constructor
 arguments that are expressions, converter calls, nested records, selected
 mappings, and other non-direct expressions remains outside the implemented
 encode slice.
@@ -381,8 +394,9 @@ clause.
 
 Exact-width integer primitives produce ordinary `Int` values unless a
 schema-declared representation conversion maps the field into a visible domain
-type. `Flag8` fields produce source-visible `Flag8(bits: Int)` values in the
-implemented helper and mapping slices. Byte ranges produce `ByteView` or
+type. `Flag8` and `Flag16be` fields produce source-visible `Flag8(bits: Int)`
+and `Flag16be(bits: Int)` values in the implemented helper and mapping
+slices. Byte ranges produce `ByteView` or
 `ByteChunk` values according to the field vocabulary. Reserved fields, fixed
 fields, and other representation-only fields stay available for validation
 and diagnostics but are omitted from the mapped value unless the mapping

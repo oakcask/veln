@@ -127,15 +127,16 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-decode-human/`,
   `examples/specification/run/binary-schema-sub-byte-truncated-json/`, and
   `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
-- Generated binary schema decode helpers support opt-in `Flag8` fields as
-  one-byte visible flag bitsets. They consume the same byte width and
-  truncation behavior as `UInt8`, but the decoded record field is the
-  source-visible `Flag8(bits)` value rather than a raw `Int`. `UInt8` fields,
-  including existing `flags: UInt8` declarations, continue to decode as
-  ordinary `Int` fields. Pure prelude helpers inspect or set one-byte `Flag8`
-  bit indexes `0` through `7` and return `Result` failures for indexes outside
-  that range. The checked examples are
+- Generated binary schema decode helpers support opt-in `Flag8` and
+  `Flag16be` fields as visible flag bitsets. They consume the same byte width
+  and truncation behavior as `UInt8` and `UInt16be`, but the decoded record
+  fields are source-visible `Flag8(bits)` and `Flag16be(bits)` values rather
+  than raw `Int` values. Existing `UInt8` and `UInt16be` declarations continue
+  to decode as ordinary `Int` fields. Pure prelude helpers inspect or set
+  one-byte `Flag8` bit indexes `0` through `7` and return `Result` failures
+  for indexes outside that range. The checked examples are
   `examples/specification/run/binary-schema-flag8-decode/`,
+  `examples/specification/run/binary-schema-flag16be-decode/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
   `examples/specification/run/binary-schema-flag8-bit-index-json/`, and
   `examples/specification/run/binary-schema-flag8-bit-index-human/`.
@@ -298,6 +299,7 @@ execution reference.
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone
   `UInt1` through `UInt7`, as `Int`; `Flag8` fields as `Flag8`;
+  `Flag16be` fields as `Flag16be`;
   length-bounded
   `ByteView(length_field)` and `ByteView(left_length - right_length)` payload
   fields as `ByteView`; closed nested dispatch payload fields as the
@@ -308,6 +310,7 @@ execution reference.
   failures, or perform effects. The checked examples are
   `examples/specification/run/binary-schema-sub-byte-decode/`,
   `examples/specification/run/binary-schema-flag8-mapped-record-decode/`,
+  `examples/specification/run/binary-schema-flag16be-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-decode/`,
   `examples/specification/run/binary-schema-flag8-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-flag8-imported-mapped-converter-decode/`,
@@ -331,15 +334,16 @@ execution reference.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and
-  whose `Flag8` fields are source-visible `Flag8(bits)` values. For one
-  structural `map to Target` clause whose assignments are direct
+  whose `Flag8` and `Flag16be` fields are source-visible `Flag8(bits)` and
+  `Flag16be(bits)` values. For one structural `map to Target` clause whose
+  assignments are direct
   `target_field = schema_field` references covering the helper's visible
   encode fields, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
   The same narrow inverse projection also supports one target field assigned
   from a direct single-constructor ADT call whose only payload is one
-  schema-local visible exact-width integer field or a schema-local `Flag8`
-  field. These mapped encode paths write bytes through the schema-local
+  schema-local visible exact-width integer field or a schema-local supported
+  flag field. These mapped encode paths write bytes through the schema-local
   fields. A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
@@ -364,9 +368,10 @@ execution reference.
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; repeated byte-view element failures append the element index to
   the repeated field path, and nested element failures prefix the nested schema
-  field path with the repeated field and element index. `Flag8` emits
-  one byte through the same representation path as `UInt8`; `bits` values
-  outside `0..255` return
+  field path with the repeated field and element index. `Flag8` emits one
+  byte through the same representation path as `UInt8`, and `Flag16be` emits
+  two bytes through the same big-endian representation path as `UInt16be`;
+  `bits` values outside the selected flag width return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`. A byte-aligned `ReservedBits(width, value)` field is
   representation-only: it is omitted from the record and the helper emits the
@@ -439,11 +444,14 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-flag8-mapped-record-encode/`,
+  `examples/specification/run/binary-schema-flag16be-mapped-record-encode/`,
   `examples/specification/run/binary-schema-mapped-record-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
+  `examples/specification/run/binary-schema-flag16be-encode/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-flag16be-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-int-mapped-constructor-encode/`,

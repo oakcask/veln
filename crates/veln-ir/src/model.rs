@@ -24,7 +24,7 @@ pub struct IrSchemaDecodeField {
     pub width: u8,
     pub max_value: i64,
     pub little_endian: bool,
-    pub flag8: bool,
+    pub flag_type: String,
     pub predicate: Option<String>,
     pub length_field: Option<String>,
     pub repeat: Option<IrSchemaRepeat>,
