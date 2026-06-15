@@ -1,0 +1,20 @@
+use stdio
+
+schema PackedTwoByteControlHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(11, 1365)
+	control: UInt5
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12d5b234")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_two_byte_control_header(view)?
+	stdio::println(int_to_string(ignored.control))
+	Ok(())
+end

@@ -232,7 +232,7 @@ against the built `veln` binary.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.
-- `check/schema-packed-reserved-mapping-diagnostics/`: one-byte packed
+- `check/schema-packed-reserved-mapping-diagnostics/`: packed
   `ReservedBits(width, value)` fields are representation-only and are not
   available as structural mapping source fields.
 - `check/schema-mapping-selection-diagnostics/`: binary schema diagnostics for
@@ -410,13 +410,22 @@ against the built `veln` binary.
   decode helpers report `schema.truncated_field` at the byte-aligned reserved
   field path when input ends before the reserved field is complete.
 - `run/binary-schema-packed-reserved-decode/`: generated schema decode
-  helpers consume one-byte packed `ReservedBits(width, value)` prefixes for
-  widths one through seven plus visible `UIntN` fields, omit the reserved
-  fields, and continue at the next byte.
+  helpers consume packed `ReservedBits(width, value)` prefixes for widths one
+  through seven plus visible `UIntN` fields that complete one byte and widths
+  nine through fifteen plus visible `UIntN` fields that complete two
+  big-endian bytes, omit the reserved fields, and continue after the shared
+  storage unit.
 - `run/binary-schema-packed-reserved-json/`: generated schema decode helpers
   report `schema.reserved_bits_mismatch` for a one-byte packed reserved
   prefix with field path, byte offset, bit width, expected value, actual
   value, and byte preview details.
+- `run/binary-schema-packed-reserved-two-byte-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for a two-byte packed
+  reserved prefix with field path, byte offset, bit width, expected value,
+  actual value, and byte preview details.
+- `run/binary-schema-packed-reserved-two-byte-truncated-json/`: generated
+  schema decode helpers report `schema.truncated_field` at the reserved field
+  path when input ends before the two-byte packed storage unit is complete.
 - `run/binary-schema-fixed-field-mismatch-json/`: generated schema decode
   helpers report `schema.fixed_field_mismatch` for a visible fixed exact-width
   field with field path, byte offset, expected value, actual value, and byte
@@ -570,9 +579,13 @@ against the built `veln` binary.
   helpers write byte-aligned `ReservedBits(width, value)` fields from the
   declared fixed value without requiring source value record fields.
 - `run/binary-schema-packed-reserved-encode/`: generated schema encode
-  helpers write one-byte packed reserved prefixes for widths one through
-  seven from the declared fixed value and visible low-bit fields from the
-  source value record.
+  helpers write packed reserved prefixes for widths one through seven and
+  nine through fifteen from the declared fixed value and visible low-bit
+  fields from the source value record.
+- `run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`: generated
+  schema encode helpers report `codec.encode_value_unrepresentable` against
+  the visible low-bit field when a two-byte packed source value is outside
+  its field range.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected

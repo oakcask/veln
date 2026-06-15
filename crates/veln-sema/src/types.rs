@@ -2129,11 +2129,20 @@ pub(crate) fn supported_encode_reserved_bits(
     {
         return Some((1, 0));
     }
-    if (1..=7).contains(&bit_width)
-        && next_field
+    let packed_storage_bit_width = if (1..=7).contains(&bit_width) {
+        Some(8)
+    } else if (9..=15).contains(&bit_width) {
+        Some(16)
+    } else {
+        None
+    };
+    if packed_storage_bit_width.is_some_and(|storage_bit_width| {
+        next_field
             .and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
-            .is_some_and(|next_bit_width| i64::from(next_bit_width) + bit_width == 8)
-    {
+            .is_some_and(|next_bit_width| {
+                i64::from(next_bit_width) + bit_width == storage_bit_width
+            })
+    }) {
         let max_value = (1_i64 << bit_width) - 1;
         if expected_value <= max_value {
             return Some((bit_width as u8, expected_value));

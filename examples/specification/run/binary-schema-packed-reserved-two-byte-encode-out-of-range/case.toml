@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "width-1 18 42 52\nwidth-2 18 17 52\nwidth-3 18 18 52\nwidth-4 18 7 52\nwidth-5 18 3 52\nwidth-6 18 2 52\nwidth-7 18 1 52\nwidth-9 18 42 52\nwidth-10 18 17 52\nwidth-11 18 18 52\nwidth-12 18 7 52\nwidth-13 18 3 52\nwidth-14 18 2 52\nwidth-15 18 1 52\n"
+equals = "codec.encode_value_unrepresentable\nPackedTwoByteWrite.control\nvalue must be between 0 and 127\n"
 
 [[json_assert]]
 path = "error"

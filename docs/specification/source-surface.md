@@ -126,8 +126,8 @@ primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8` bitset fields, supported byte-aligned
 `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
-one-byte packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths
-sum to eight bits,
+packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
+eight or sixteen bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,
@@ -149,9 +149,9 @@ schema-local field reference. Multiple selected mapping clauses, mapping
 expressions that cannot be projected back to schema-local fields, encode-time
 field-local validation beyond primitive representation ranges, recursive or
 otherwise ineligible dispatch payload schemas, non-byte-aligned reserved
-fields outside the supported one-byte packed and `UInt31be` shared-bit
-layouts, and derived codec encode execution over unsupported schemas are
-outside that encode helper slice.
+fields outside the supported packed and `UInt31be` shared-bit layouts, and
+derived codec encode execution over unsupported schemas are outside that
+encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 
