@@ -636,6 +636,10 @@ The executable specification cases
 `../../examples/specification/check/transport-cancellable-wait-effects/`
 cover descriptor-backed time waits, relative deadlines, and source-visible
 `CancelToken` values under the existing `time` effect. The
+`../../examples/specification/run/transport-cancel-token-status/` and
+`../../examples/specification/check/transport-cancel-token-status-effects/`
+cases pin cancellation-token status observation before and after
+`time::cancel` and require the same `time` effect. The
 `../../examples/specification/run/transport-cancellable-wait-outcome/`,
 `../../examples/specification/run/transport-cancellable-wait-outcome-deadline/`,
 and

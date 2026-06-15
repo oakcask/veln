@@ -200,6 +200,7 @@ time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
 time::cancel_token() -> CancelToken effects [time]
 time::cancel(token: CancelToken) -> () effects [time]
+time::is_cancelled(token: CancelToken) -> Bool effects [time]
 time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
 time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
@@ -210,7 +211,7 @@ effect. Direct calls to `net::listen`, `net::accept`,
 `net::write_chunk` also infer the same coarse `net` effect. Direct calls to
 `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`, `time::cancel_token`,
-`time::cancel`, and
+`time::cancel`, `time::is_cancelled`, and
 `time::wait_until_cancellable`,
 `time::wait_until_cancellable_outcome` infer the `time` effect. A public
 function or test that calls one of them directly or through a private helper
@@ -229,7 +230,9 @@ writes one immutable `ByteChunk` to that stream.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;
-`time::cancel` requests cancellation through that handle; and
+`time::cancel` requests cancellation through that handle; `time::is_cancelled`
+observes the handle state as `Bool` without waiting, cancelling, allocating a
+new handle, or reporting a runtime transport failure; and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first.
 `time::wait_until_cancellable_outcome` uses the same deadline and token values

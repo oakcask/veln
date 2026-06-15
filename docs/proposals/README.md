@@ -140,8 +140,9 @@ compare it with `../specification/` before changing behavior.
   first fixture-backed listener/stream calls, first transport-error,
   timeout-expiry, deadline-expiry, and cancellable-wait cancellation runtime
   failure slices, the first source-visible cancellation handle, the
-  value-returning cancellable wait outcome slice, and the source-level stream
-  event/action handler boundary examples plus the narrow multi-event
+  cancellation-token status query, the value-returning cancellable wait
+  outcome slice, and the source-level stream event/action handler boundary
+  examples plus the narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end adapter,
   optional clean-end listener accept, and adapter-owned
   listener-to-clean-stream-end lifecycle, two-route, three-route, and four-route

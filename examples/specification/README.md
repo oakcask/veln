@@ -1248,6 +1248,10 @@ against the built `veln` binary.
   `CancelToken`.
 - `check/transport-cancellable-wait-effects/`: cancellable wait token
   creation and waiting infer the `time` effect for public effect checking.
+- `run/transport-cancel-token-status/`: cancellation token status observation
+  returns active before `time::cancel` and cancelled after it without waiting.
+- `check/transport-cancel-token-status-effects/`: cancellation token status
+  observation infers the `time` effect for public effect checking.
 - `run/transport-cancellable-wait-outcome/`: value-returning cancellable wait
   outcomes let adapter code translate completion and cancellation into
   ordinary source decisions.

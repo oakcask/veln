@@ -1,0 +1,4 @@
+# Public cancellation status queries must declare inferred time effects.
+pub fn token_status(token: CancelToken) -> Bool
+	time::is_cancelled(token)
+end

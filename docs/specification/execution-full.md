@@ -507,7 +507,9 @@ non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
 `time::cancel_token` returns a source-visible `CancelToken`,
-`time::cancel` requests cancellation through that handle, and
+`time::cancel` requests cancellation through that handle, `time::is_cancelled`
+observes the handle state as `Bool` without waiting or requesting
+cancellation, and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
 same deadline and token values and returns `WaitCompleted`,

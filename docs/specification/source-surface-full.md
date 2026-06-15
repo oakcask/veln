@@ -605,7 +605,8 @@ Implemented expressions:
   `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,
   `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
   `time::cancel_token()`, `time::cancel(token)`, and
-  `time::wait_until_cancellable(deadline, token)`, and
+  `time::is_cancelled(token)`, `time::wait_until_cancellable(deadline, token)`,
+  and
   `time::wait_until_cancellable_outcome(deadline, token)`
 - prelude helpers as bare or qualified calls such as `vec_len(items)` and
   `prelude::vec_len(items)`

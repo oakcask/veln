@@ -11,7 +11,7 @@ slice, the optional clean-end listener accept slice, the adapter-owned
 listener-to-clean-stream-end lifecycle slice, the two-route, three-route, and
 four-route channel-first stream event routing slices, the first cancellable
 adapter-owned wait boundary, the value-returning cancellable wait outcome
-slice, and
+slice, the cancellation-token status query slice, and
 adapter-level cancellable stream routing over ordinary response action values,
 including one fixture output that routes completed, deadline-expired, and
 cancelled outcomes, plus the one-argument spawned handler task slice that
@@ -59,7 +59,7 @@ channel-first stream routing slices for:
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
-  `time::wait_until_cancellable`, plus
+  `time::is_cancelled`, `time::wait_until_cancellable`, plus
   `time::wait_until_cancellable_outcome`
 - ownership of frame ordering, flow control, and transport writes
 
@@ -248,6 +248,8 @@ Implemented first slices: `time::timeout_ms(milliseconds)`,
 `time::wait_until_cancellable(deadline, token)` use the existing `time` effect
 label and wait at the runtime boundary. `CancelToken` is the first
 source-visible cancellation handle for adapter-owned waits.
+`time::is_cancelled(token)` observes that handle as `Bool` without waiting or
+requesting cancellation.
 `time::wait_until_cancellable_outcome(deadline, token)` returns
 `CancellableWaitOutcome` so adapter code can translate completed waits,
 deadline expiry, and cancellation into ordinary source decisions. Executable
@@ -292,7 +294,7 @@ or the pure protocol core.
   channel-first stream routing, one-argument spawned handler task, and
   adapter-level cancellable stream routing slices, richer stream routing, and
   richer deadline and cancellation APIs beyond the narrow relative `Deadline`
-  and `CancelToken` boundaries.
+  boundary, `CancelToken` boundary, and cancellation status-query boundary.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
