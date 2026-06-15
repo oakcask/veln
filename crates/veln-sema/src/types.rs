@@ -789,7 +789,10 @@ fn schema_decode_record_fields_inner_after_push(
             }
             (0, Type::named("ByteView", Vec::new()))
         } else if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            if decoded_fields.get(&repeat.count_field) != Some(&Type::int()) {
+            if schema_length_expression_references(&repeat.count_field)?
+                .into_iter()
+                .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
+            {
                 return None;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
@@ -992,7 +995,14 @@ fn schema_encode_function_signature_for_schema(
             continue;
         }
         if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            if !exact_width_field_names.contains(&repeat.count_field) {
+            if schema_length_expression_references(&repeat.count_field)?
+                .into_iter()
+                .any(|reference| {
+                    !exact_width_field_names
+                        .iter()
+                        .any(|field| field == reference)
+                })
+            {
                 return None;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
@@ -2137,13 +2147,12 @@ impl ByteViewLengthExpr {
     }
 }
 
-pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr> {
-    let text = ty.trim();
-    let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
-    if is_simple_schema_field_reference(inner) {
-        return Some(ByteViewLengthExpr::Field(inner.to_string()));
+pub(crate) fn schema_length_expression(text: &str) -> Option<ByteViewLengthExpr> {
+    let text = text.trim();
+    if is_simple_schema_field_reference(text) {
+        return Some(ByteViewLengthExpr::Field(text.to_string()));
     }
-    let (left, right) = inner.split_once('-')?;
+    let (left, right) = text.split_once('-')?;
     let left = left.trim();
     let right = right.trim();
     if is_simple_schema_field_reference(left) && is_simple_schema_field_reference(right) {
@@ -2154,6 +2163,30 @@ pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr>
     } else {
         None
     }
+}
+
+pub(crate) fn schema_length_expression_references(text: &str) -> Option<Vec<&str>> {
+    let text = text.trim();
+    if is_simple_schema_field_reference(text) {
+        return Some(vec![text]);
+    }
+    let (left, right) = text.split_once('-')?;
+    if right.contains('-') {
+        return None;
+    }
+    let left = left.trim();
+    let right = right.trim();
+    if is_simple_schema_field_reference(left) && is_simple_schema_field_reference(right) {
+        Some(vec![left, right])
+    } else {
+        None
+    }
+}
+
+pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr> {
+    let text = ty.trim();
+    let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
+    schema_length_expression(inner)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2184,9 +2217,7 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     let [count_field, primitive] = args.as_slice() else {
         return None;
     };
-    if !is_simple_schema_field_reference(count_field) {
-        return None;
-    }
+    let count_expr = schema_length_expression(count_field)?;
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
         if exact_width_schema_primitive_bit_width(primitive)? < 8
             || flag8_schema_primitive(primitive)
@@ -2206,7 +2237,7 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
         return None;
     };
     Some(SchemaRepeatSpec {
-        count_field: (*count_field).to_string(),
+        count_field: count_expr.render(),
         payload,
     })
 }

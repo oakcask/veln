@@ -226,6 +226,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "  padding_length: UInt8 where padding_length <= length\n",
         "  stream_reserved: ReservedBits(1, 0)\n",
         "  stream_id: UInt31be\n",
+        "  settings: Repeat(length - padding_length, UInt16be)\n",
         "  payload: ByteView(length - padding_length)\n",
         "  validate padding_length <= length\n",
         "\n",
@@ -233,6 +234,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "    length = length\n",
         "    kind = kind\n",
         "    stream_id = stream_id\n",
+        "    settings = settings\n",
         "end\n",
     ));
 
@@ -247,7 +249,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 6);
+    assert_eq!(schema.fields.len(), 7);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
     assert_eq!(schema.fields[1].name, "kind");
@@ -267,28 +269,33 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     assert_eq!(schema.fields[3].ty, "ReservedBits(1, 0)");
     assert_eq!(schema.fields[4].name, "stream_id");
     assert_eq!(schema.fields[4].ty, "UInt31be");
-    assert_eq!(schema.fields[5].name, "payload");
-    assert_eq!(schema.fields[5].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[5].name, "settings");
+    assert_eq!(
+        schema.fields[5].ty,
+        "Repeat(length - padding_length, UInt16be)"
+    );
+    assert_eq!(schema.fields[6].name, "payload");
+    assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
     assert_eq!(schema.validations.len(), 1);
     assert_eq!(
         schema.validations[0].node_id.display("schema_validation"),
-        "schema_validation-10"
+        "schema_validation-11"
     );
     assert_eq!(schema.validations[0].predicate, "padding_length <= length");
     assert_eq!(schema.mappings.len(), 1);
     assert_eq!(
         schema.mappings[0].node_id.display("schema_mapping"),
-        "schema_mapping-11"
+        "schema_mapping-12"
     );
     assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
-    assert_eq!(schema.mappings[0].assignments.len(), 3);
+    assert_eq!(schema.mappings[0].assignments.len(), 4);
     assert_eq!(schema.mappings[0].assignments[0].target, "length");
     assert_eq!(schema.mappings[0].assignments[0].source, "length");
     assert_eq!(
         schema.mappings[0].assignments[0]
             .node_id
             .display("schema_mapping_assignment"),
-        "schema_mapping_assignment-12"
+        "schema_mapping_assignment-13"
     );
 }
 

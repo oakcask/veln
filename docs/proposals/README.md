@@ -53,7 +53,8 @@ compare it with `../specification/` before changing behavior.
   structural mapping decode, direct mapped-record encode, and single ADT
   constructor mapped encode boundaries,
   standalone visible `UInt1` through `UInt7` decode and encode,
-  bounded `Repeat(count_field, Payload)` primitive and nested schema field
+  bounded `Repeat(count_field, Payload)` and
+  `Repeat(left_count - right_count, Payload)` primitive and nested schema field
   decode and encode slices, length-bounded `ByteView(length_field)` and
   `ByteView(left_length - right_length)` decode and encode,
   schema-level structural validation for decoded `Int` fields,

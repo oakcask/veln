@@ -28,7 +28,8 @@ SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
-RepeatPrimitive ::= "Repeat" "(" Name "," TypeText ")"
+RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
+CountExpr ::= Name | Name "-" Name
 SchemaFieldWhere ::= "where" ContractPredicate
 SchemaValidation ::= "validate" ContractPredicate NL
 SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
@@ -107,11 +108,13 @@ spelling when `width` and `value` are literal non-negative integers, such as
 reserved prefix or suffix paired with a visible unsigned field. Binary schema
 fields
 also accept `Repeat(count_field, Payload)` when `count_field` names a
-previously decoded visible `Int` field in the same schema and `Payload` is
-one of the implemented byte-aligned exact-width unsigned primitives or an
-eligible nested binary schema payload. A repeated primitive field decodes and
-encodes as `List<Int>`; a repeated nested schema field decodes and encodes as
-a list of the nested schema's decoded record shape. Binary schema fields
+previously decoded visible `Int` field in the same schema, and
+`Repeat(left_count - right_count, Payload)` when both operands name earlier
+visible `Int` fields in the same schema. `Payload` is one of the implemented
+byte-aligned exact-width unsigned primitives or an eligible nested binary
+schema payload. A repeated primitive field decodes and encodes as `List<Int>`;
+a repeated nested schema field decodes and encodes as a list of the nested
+schema's decoded record shape. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
@@ -190,6 +193,8 @@ prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
 eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
 reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or
 thirty-two bits,
+bounded repeat fields whose count is an earlier visible exact-width field or
+the difference of two earlier visible exact-width fields,
 length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier

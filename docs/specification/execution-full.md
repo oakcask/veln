@@ -163,11 +163,14 @@ Generated binary schema decode helpers also support bounded
 `Repeat(count_field, Payload)` fields when `count_field` is an earlier
 visible exact-width unsigned field decoded as `Int` and `Payload` is either
 an implemented byte-aligned exact-width unsigned primitive or an eligible
-nested binary schema payload. Repeated primitive fields decode as `List<Int>`;
-repeated nested schema fields decode as lists of the nested schema's decoded
-record shape. The helper reads exactly `count_field` elements in declaration
-order. Element failures keep the repeated field path and append an `index`
-segment before nested schema field segments.
+nested binary schema payload. `Repeat(left_count - right_count, Payload)`
+uses the difference of two earlier visible exact-width unsigned `Int` fields
+as the repeat count. Repeated primitive fields decode as `List<Int>`; repeated
+nested schema fields decode as lists of the nested schema's decoded record
+shape. The helper reads exactly the computed count in declaration order.
+Negative computed counts report `schema.length_out_of_bounds` at the repeat
+field path. Element failures keep the repeated field path and append an
+`index` segment before nested schema field segments.
 Generated binary schema decode helpers also treat a field-local equality
 predicate of the form `field == literal` or `literal == field` as a visible
 schema-owned fixed field when the literal fits the field's external integer
@@ -297,10 +300,11 @@ from the earlier length field or computed length expression, the helper returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`
 without emitting partial output. A
 bounded `Repeat(count_field, Payload)` field emits exactly the number of
-elements named by the earlier count field. Primitive payloads use `List<Int>`;
-nested schema payloads use a list of the nested schema's decoded record
-shape. A list length mismatch, primitive range failure, or nested element
-representation failure returns
+elements named by the earlier count field, and
+`Repeat(left_count - right_count, Payload)` emits exactly the computed
+difference. Primitive payloads use `List<Int>`; nested schema payloads use a
+list of the nested schema's decoded record shape. A list length mismatch,
+primitive range failure, or nested element representation failure returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
 nested element failures prefix the field path with the repeated field and
 element index before the nested schema field path. A

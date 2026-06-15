@@ -7,6 +7,7 @@ pub  schema   Http2FrameHeader
   stream_reserved : ReservedBits( 1,0 )
   stream_id:UInt31be
   checksum  : UInt32be
+  settings:Repeat(length-padding_length,UInt16be)
   payload:ByteView(length-padding_length)
 
   map   to   FrameHeader
@@ -15,5 +16,6 @@ pub  schema   Http2FrameHeader
     kind= kind
     stream_id=stream_id
     checksum = checksum
+    settings=settings
     payload=payload
 end

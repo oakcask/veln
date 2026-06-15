@@ -2900,19 +2900,33 @@
             }
             if (field.isRepeat()) {
                 pendingPackedReserved = null;
-                Long repeatCount = decoded.get(field.repeat.countField);
-                if (repeatCount == null) {
-                    return err(
-                        "missing repeat count field `"
-                            + field.repeat.countField
-                            + "` in schema `"
-                            + schema.name
-                            + "`"
+                Object repeatCountValue = schemaRepeatCountExpressionValue(
+                    decoded,
+                    field.repeat.countField,
+                    schema.name
+                );
+                if (isErr(repeatCountValue)) {
+                    return repeatCountValue;
+                }
+                long repeatCount = asLong(unwrapOk(repeatCountValue));
+                if (repeatCount < 0L) {
+                    long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
+                    long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
+                    String message = "repeat count out of bounds at byte offset " + byteOffset;
+                    registerSchemaLengthOutOfBoundsDiagnostic(
+                        message,
+                        byteOffset,
+                        schema.name,
+                        field.name,
+                        repeatCount,
+                        availablePayload,
+                        byteViewPreviewTrace(view, 8)
                     );
+                    return err(message);
                 }
                 java.util.ArrayList<Object> elements = new java.util.ArrayList<Object>();
                 long repeatRelativeOffset = relativeOffset;
-                for (long elementIndex = 0L; elementIndex < repeatCount.longValue(); elementIndex += 1L) {
+                for (long elementIndex = 0L; elementIndex < repeatCount; elementIndex += 1L) {
                     if (field.repeat.payloadSchema != null) {
                         Object elementView = byteViewDerivedObject(
                             view,
@@ -3311,12 +3325,20 @@
             }
             if (field.isRepeat()) {
                 pendingPackedReserved = null;
-                Long repeatCount = decoded.get(field.repeat.countField);
-                if (repeatCount == null) {
+                Object repeatCountValue = schemaRepeatCountExpressionValue(
+                    decoded,
+                    field.repeat.countField,
+                    schema.name
+                );
+                if (isErr(repeatCountValue)) {
+                    return relativeOffset;
+                }
+                long repeatCount = asLong(unwrapOk(repeatCountValue));
+                if (repeatCount < 0L) {
                     return relativeOffset;
                 }
                 if (field.repeat.payloadSchema != null) {
-                    for (long elementIndex = 0L; elementIndex < repeatCount.longValue(); elementIndex += 1L) {
+                    for (long elementIndex = 0L; elementIndex < repeatCount; elementIndex += 1L) {
                         Object elementView = byteViewDerivedObject(
                             view,
                             relativeOffset,
@@ -3333,7 +3355,7 @@
                         relativeOffset += consumed;
                     }
                 } else {
-                    relativeOffset += repeatCount.longValue() * field.repeat.width;
+                    relativeOffset += repeatCount * field.repeat.width;
                 }
                 decoded.put(field.name, Long.valueOf(0L));
                 continue;
@@ -4449,7 +4471,19 @@
         SchemaFieldSpec field,
         String schemaName
     ) {
-        long expectedCount = asLong(fields.get(field.repeat.countField));
+        Object expectedCountValue = schemaRepeatCountExpressionValue(
+            fields,
+            field.repeat.countField,
+            schemaName
+        );
+        if (isErr(expectedCountValue)) {
+            return err(encodeError(
+                "codec.encode_value_unrepresentable",
+                schemaName + "." + field.name,
+                asString(resultValue(expectedCountValue))
+            ));
+        }
+        long expectedCount = asLong(unwrapOk(expectedCountValue));
         Object items = fields.get(field.name);
         ListValue current = asListValue(items);
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
@@ -4459,7 +4493,10 @@
                 return err(encodeError(
                     "codec.encode_value_unrepresentable",
                     schemaName + "." + field.name,
-                    "list length exceeds count field `" + field.repeat.countField + "` value " + expectedCount
+                    "list length exceeds "
+                        + schemaCountDescription(field.repeat.countField)
+                        + " value "
+                        + expectedCount
                 ));
             }
             Object encoded = field.repeat.payloadSchema == null
@@ -4489,11 +4526,23 @@
             return err(encodeError(
                 "codec.encode_value_unrepresentable",
                 schemaName + "." + field.name,
-                "list length " + actualCount + " does not match count field `"
-                    + field.repeat.countField + "` value " + expectedCount
+                "list length "
+                    + actualCount
+                    + " does not match "
+                    + schemaCountDescription(field.repeat.countField)
+                    + " value "
+                    + expectedCount
             ));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static String schemaCountDescription(String expression) {
+        String[] operands = schemaLengthExpressionOperands(expression);
+        if (operands != null && operands.length == 1) {
+            return "count field `" + expression + "`";
+        }
+        return "count expression `" + expression + "`";
     }
 
     private static Object rebaseEncodeErrorPath(Object encoded, String prefix) {
@@ -4533,12 +4582,45 @@
         String role,
         String schemaName
     ) {
+        return schemaFieldExpressionValue(
+            fields,
+            expression,
+            role + " length expression",
+            role + " length field",
+            role + " length operand",
+            schemaName
+        );
+    }
+
+    private static Object schemaRepeatCountExpressionValue(
+        java.util.Map<?, ?> fields,
+        String expression,
+        String schemaName
+    ) {
+        return schemaFieldExpressionValue(
+            fields,
+            expression,
+            "repeat count expression",
+            "repeat count field",
+            "repeat count operand",
+            schemaName
+        );
+    }
+
+    private static Object schemaFieldExpressionValue(
+        java.util.Map<?, ?> fields,
+        String expression,
+        String expressionRole,
+        String fieldRole,
+        String operandRole,
+        String schemaName
+    ) {
         String[] operands = schemaLengthExpressionOperands(expression);
         if (operands == null) {
             return err(
                 "unsupported "
-                    + role
-                    + " length expression `"
+                    + expressionRole
+                    + " `"
                     + expression
                     + "` in schema `"
                     + schemaName
@@ -4549,8 +4631,8 @@
         if (left == null) {
             return err(
                 "missing "
-                    + role
-                    + " length field `"
+                    + fieldRole
+                    + " `"
                     + operands[0]
                     + "` in schema `"
                     + schemaName
@@ -4564,8 +4646,8 @@
         if (right == null) {
             return err(
                 "missing "
-                    + role
-                    + " length operand `"
+                    + operandRole
+                    + " `"
                     + operands[1]
                     + "` in expression `"
                     + expression

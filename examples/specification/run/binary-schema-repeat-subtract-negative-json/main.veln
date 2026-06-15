@@ -1,0 +1,15 @@
+# Binary schema Repeat subtraction rejects negative computed counts.
+schema CountedValues
+	format binary
+
+	left_count: UInt8
+	right_count: UInt8
+	items: Repeat(left_count - right_count, UInt16be)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0102")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let ignored: {left_count: Int, right_count: Int, items: List<Int>} = byte_decode_counted_values(view)?
+	Ok(())
+end

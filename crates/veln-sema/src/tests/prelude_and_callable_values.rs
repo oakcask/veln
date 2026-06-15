@@ -2644,6 +2644,50 @@ fn generated_schema_decode_helpers_resolve_subtracted_byte_view_length_fields() 
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_subtracted_repeat_count_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  items: Repeat(length - padding_length, UInt16be)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, padding_length: Int, items: List<Int>}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, padding_length: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "items");
+    assert_eq!(
+        schema.fields[2]
+            .repeat
+            .as_ref()
+            .map(|repeat| repeat.count_field.as_str()),
+        Some("length - padding_length")
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_reject_forward_subtracted_byte_view_operands() {
     let source = SourceFile::new(
         "main.veln",
@@ -2674,6 +2718,73 @@ fn generated_schema_decode_helpers_reject_forward_subtracted_byte_view_operands(
     assert!(
         lowered.ir.is_none(),
         "diagnostic-bearing ByteView length expression should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_subtracted_repeat_count_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length - padding_length, UInt16be)\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length - padding_length, UInt16be)\n",
+            "  padding_length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  flags: Flag8\n",
+            "  items: Repeat(length - flags, UInt16be)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count operand `padding_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count operand `padding_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing Repeat count expression should not emit typed IR"
     );
 }
 

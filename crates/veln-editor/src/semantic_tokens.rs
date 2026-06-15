@@ -960,7 +960,7 @@ mod tests {
                 "  length: UInt24be\n",
                 "  padding_length: UInt8 where padding_length <= length\n",
                 "  stream_reserved: ReservedBits(1, 0)\n",
-                "  settings: Repeat(padding_length, UInt16be)\n",
+                "  settings: Repeat(length - padding_length, UInt16be)\n",
                 "\n",
                 "  map to FrameHeader\n",
                 "    length = length\n",
