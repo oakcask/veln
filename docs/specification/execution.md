@@ -349,9 +349,13 @@ execution reference.
   encode fields, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
   The same narrow inverse projection also supports one target field assigned
-  from a direct single-constructor ADT call whose only payload is one
-  schema-local visible exact-width integer field or a schema-local supported
-  flag field. These mapped encode paths write bytes through the schema-local
+  from a direct ADT constructor call whose payload arguments are direct
+  schema-local visible fields already supported by the generated encode
+  helper. Single-payload constructor wrappers remain limited to the existing
+  single-constructor flag and exact-width integer cases. A target value whose
+  ADT constructor does not match the constructor expected by the mapping
+  returns `Err(EncodeError("codec.encode_mapping_mismatch", field_path,
+  reason))`. These mapped encode paths write bytes through the schema-local
   fields. A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
@@ -468,6 +472,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-int-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode/`,
+  `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`,
   `examples/specification/run/binary-schema-byteview-encode/`,
   `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,

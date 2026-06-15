@@ -652,6 +652,13 @@ against the built `veln` binary.
 - `run/binary-schema-int-mapped-constructor-encode-out-of-range/`: the mapped
   ADT constructor encode path preserves the ordinary exact-width integer range
   failure shape on the schema-local field path.
+- `run/binary-schema-multi-payload-mapped-constructor-encode/`: generated
+  schema encode helpers project direct multi-payload ADT constructor values
+  back to schema-local exact-width fields.
+- `run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`: the
+  same mapped ADT constructor encode path reports
+  `codec.encode_mapping_mismatch` when the target field carries another
+  constructor.
 - `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
   bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
   explicit count field.

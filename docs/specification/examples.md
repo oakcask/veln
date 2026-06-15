@@ -412,6 +412,13 @@ exact-width integer fields. The passing case projects an integer payload back
 to a `UInt16le` field and checks lowercase hex output. The
 failing case preserves the ordinary `codec.encode_value_unrepresentable`
 shape on the schema-local field path.
+`../../examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode/`
+and
+`../../examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`
+pin direct multi-payload ADT inverse mapping. The passing case projects two
+constructor payloads back to schema-local fields. The failing case reports
+`codec.encode_mapping_mismatch` when the target field carries a different
+constructor than the mapping expects.
 `../../examples/specification/run/binary-schema-sub-byte-decode/`,
 `../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
 `../../examples/specification/run/binary-schema-sub-byte-encode/`,

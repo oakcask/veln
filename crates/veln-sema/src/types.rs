@@ -1121,7 +1121,7 @@ fn schema_encode_mapping_value_fields(
     let mut source_to_target = BTreeMap::<String, String>::new();
     for assignment in &mapping.assignments {
         let target_ty = target_field_types.get(&assignment.target)?;
-        let source = schema_encode_mapping_assignment_source(
+        let sources = schema_encode_mapping_assignment_sources(
             module,
             schema,
             &schema_field_types,
@@ -1129,11 +1129,13 @@ fn schema_encode_mapping_value_fields(
             assignment,
             target_ty,
         )?;
-        if source_to_target
-            .insert(source.clone(), assignment.target.clone())
-            .is_some()
-        {
-            return None;
+        for source in sources {
+            if source_to_target
+                .insert(source.clone(), assignment.target.clone())
+                .is_some()
+            {
+                return None;
+            }
         }
     }
     if schema_fields
@@ -1145,26 +1147,23 @@ fn schema_encode_mapping_value_fields(
     Some(target_fields)
 }
 
-fn schema_encode_mapping_assignment_source(
+fn schema_encode_mapping_assignment_sources(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     schema_field_types: &BTreeMap<String, Type>,
     exact_width_field_names: &[String],
     assignment: &veln_ast::SchemaMappingAssignment,
     target_ty: &Type,
-) -> Option<String> {
+) -> Option<Vec<String>> {
     if let ExprKind::NamePath(segments) = &assignment.expr.kind {
         let [source] = segments.as_slice() else {
             return None;
         };
         let source_ty = schema_field_types.get(source)?;
-        return is_assignable(target_ty, source_ty).then(|| source.clone());
+        return is_assignable(target_ty, source_ty).then(|| vec![source.clone()]);
     }
 
-    if schema.mappings.len() != 1
-        || schema.mappings[0].assignments.len() != 1
-        || schema_field_types.len() != 1
-    {
+    if schema.mappings.len() != 1 {
         return None;
     }
     let typed = schema_mapping_expr_typed(
@@ -1180,23 +1179,41 @@ fn schema_encode_mapping_assignment_source(
     };
     let registry = AdtRegistry::from_module(module);
     let descriptor = registry.descriptor_for_type(target_ty)?;
-    let [variant] = descriptor.variants.as_slice() else {
-        return None;
-    };
-    if name != [descriptor.type_name.clone(), variant.name.clone()] {
+    if name.len() != 2 || name[0] != descriptor.type_name {
         return None;
     }
-    let [_] = variant.payload_fields.as_slice() else {
+    if !descriptor
+        .variants
+        .iter()
+        .any(|variant| variant.name == name[1] && variant.payload_fields.len() == args.len())
+    {
         return None;
-    };
-    let [SchemaDecodeMappingExpr::Field(source)] = args.as_slice() else {
+    }
+    if args.len() == 1 && descriptor.variants.len() != 1 {
         return None;
-    };
-    let source_ty = schema_field_types.get(source)?;
-    (is_type_flag_bitset(source_ty)
-        || (source_ty == &Type::int()
-            && exact_width_field_names.iter().any(|field| field == source)))
-    .then(|| source.clone())
+    }
+    let mut sources = Vec::with_capacity(args.len());
+    for arg in args {
+        let SchemaDecodeMappingExpr::Field(source) = arg else {
+            return None;
+        };
+        let source_ty = schema_field_types.get(&source)?;
+        if !schema_encode_mapping_source_supported(&source, source_ty, exact_width_field_names) {
+            return None;
+        }
+        sources.push(source.clone());
+    }
+    Some(sources)
+}
+
+fn schema_encode_mapping_source_supported(
+    source: &str,
+    ty: &Type,
+    exact_width_field_names: &[String],
+) -> bool {
+    is_type_flag_bitset(ty)
+        || ty != &Type::int()
+        || exact_width_field_names.iter().any(|field| field == source)
 }
 
 fn is_type_flag_bitset(ty: &Type) -> bool {

@@ -55,9 +55,8 @@ compare it with `../specification/` before changing behavior.
   `UIntN` decode and encode,
   opt-in `Flag8` one-byte and `Flag16be` two-byte big-endian visible flag
   bitset decode and encode, `Flag8` checked bit helpers, structural mapping
-  decode, direct mapped-record encode, and single ADT constructor mapped
-  encode boundaries for `Flag8` and
-  exact-width integer fields,
+  decode, direct mapped-record encode, and direct ADT constructor mapped
+  encode boundaries for supported schema-local fields,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
