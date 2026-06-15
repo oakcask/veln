@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list range-packet count 1\noutput_chunk range-packet index 0 hex \"1234abcd\" count 4\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "range-packet"
+chunks = ["1234abcd"]

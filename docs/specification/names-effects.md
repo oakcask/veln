@@ -73,9 +73,9 @@ compiler-known calls.
   fields, using `ByteView` fields for length-bounded payloads and
   `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
   unselected structural mapping can instead accept a mapped record shape for
-  direct field projections or a direct single-constructor ADT wrapping a
-  schema-local `Flag8` or `Flag16be` field. Generated encode helpers return
-  `Result<ByteChunk, EncodeError>`.
+  direct field projections or a direct ADT constructor whose payloads are
+  schema-local visible fields already supported by the generated encode
+  helper. Generated encode helpers return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, and `UInt64le` fields use
   little-endian byte order in generated decode and encode helpers.
   Source-visible byte helpers also expose checked `u64` big-endian and little-endian reads and
