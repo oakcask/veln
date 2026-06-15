@@ -1379,6 +1379,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidPayloadLength",
         ),
         (
+            "http2_protocol_invalid_data_padding",
+            "http2ProtocolInvalidDataPadding",
+        ),
+        (
             "http2_protocol_unexpected_settings_ack",
             "http2ProtocolUnexpectedSettingsAck",
         ),

@@ -232,6 +232,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
     "http2_protocol_invalid_stream_id" => veln_stdlib::prelude_source("http2_protocol_invalid_stream_id"),
     "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
+    "http2_protocol_invalid_data_padding" => veln_stdlib::prelude_source("http2_protocol_invalid_data_padding"),
     "http2_protocol_unexpected_settings_ack" => veln_stdlib::prelude_source("http2_protocol_unexpected_settings_ack"),
     "http2_protocol_invalid_priority_dependency" => veln_stdlib::prelude_source("http2_protocol_invalid_priority_dependency"),
     "http2_protocol_stream_after_goaway" => veln_stdlib::prelude_source("http2_protocol_stream_after_goaway"),

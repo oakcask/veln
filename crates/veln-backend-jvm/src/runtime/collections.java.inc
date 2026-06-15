@@ -2108,6 +2108,35 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidDataPadding(
+        Object offset,
+        Object streamId,
+        Object padLength,
+        Object remainingPayloadLength,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long stream = asLong(streamId);
+        long pad = asLong(padLength);
+        long remaining = asLong(remainingPayloadLength);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid DATA padding at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidDataPaddingDiagnostic(
+            message,
+            byteOffset,
+            stream,
+            pad,
+            remaining,
+            state,
+            provenance,
+            byteViewPreviewTrace(preview, 8)
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolUnexpectedSettingsAck(
         Object offset,
         Object activeState,

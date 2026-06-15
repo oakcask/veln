@@ -270,6 +270,35 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidDataPaddingDiagnostic(
+        String message,
+        long byteOffset,
+        long streamId,
+        long padLength,
+        long remainingPayloadLength,
+        String activeState,
+        String ruleProvenance,
+        String nearbyContext
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_data_padding",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", 0),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", "stream"),
+                    DiagnosticDetail.number("pad_length", padLength),
+                    DiagnosticDetail.number("remaining_payload_length", remainingPayloadLength),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
         String message,
         long byteOffset,

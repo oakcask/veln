@@ -27,8 +27,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   initial-window-size, maximum-concurrent-streams, maximum-frame-size, and
   maximum-header-list-size, and the narrow outbound SETTINGS ACK send-intent
   slice
-- remaining DATA behavior beyond the implemented receive-window accounting
-  and inbound `END_STREAM` closed-by-peer lifecycle
+- remaining DATA behavior beyond the implemented receive-window accounting,
+  PADDED DATA handling, and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -357,9 +357,13 @@ chunk. Received PING ACK frames remain observable as received ACKs and emit no
 response chunk.
 The implemented slice also accepts DATA frames on an already-open stream and
 decrements both connection and stream receive-window credit by the payload
-length. DATA on the connection stream is a stream id domain failure, DATA on
-an idle stream remains `http2.protocol.invalid_frame_kind`, and DATA payloads
-that exceed the
+length. PADDED DATA consumes receive-window credit for the full DATA payload,
+including the pad-length byte and padding bytes, while exposing only
+application data bytes as DATA content. A PADDED DATA pad length greater than
+the remaining payload uses `http2.protocol.invalid_data_padding` in ordinary
+output, human diagnostics, and JSON `protocol_diagnostic` details. DATA on the
+connection stream is a stream id domain failure, DATA on an idle stream
+remains `http2.protocol.invalid_frame_kind`, and DATA payloads that exceed the
 available stream or connection receive-window credit use
 `http2.peer_limit.flow_control_window_exceeded` with byte offset, stream
 reference, observed payload length, allowed window credit, active state, and

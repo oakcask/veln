@@ -545,6 +545,35 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.invalid_data_padding" => {
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let pad_length = json_number(protocol_entries, "pad_length")?;
+            let remaining_payload_length =
+                json_number(protocol_entries, "remaining_payload_length")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("invalid DATA padding at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared pad length {pad_length} byte(s); remaining payload length is {remaining_payload_length} byte(s)."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.protocol.unexpected_settings_ack" => {
             let frame_kind = json_number(protocol_entries, "frame_kind")?;
             let stream_id = json_number(protocol_entries, "stream_id")?;
@@ -2351,6 +2380,62 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_ping_payload_length")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_invalid_data_padding_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_data_padding"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("pad_length", JsonValue::Number(2)),
+            ("remaining_payload_length", JsonValue::Number(0)),
+            ("byte_preview", byte_preview("02")),
+            ("active_state", JsonValue::string("open-stream")),
+            ("rule_provenance", JsonValue::string("rfc9113_data_padding")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid DATA padding at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_data_padding");
+        assert_eq!(diagnostic.message, "invalid DATA padding at byte offset 9");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("pad length 2 byte(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("remaining payload length is 0 byte(s)")
+        );
+        assert!(diagnostic.related[1].to_json().contains("02"));
+        assert!(diagnostic.related[2].to_json().contains("open-stream"));
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9113_data_padding")
         );
     }
 

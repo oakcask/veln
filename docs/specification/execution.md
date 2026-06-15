@@ -523,7 +523,9 @@ execution reference.
   client-initiated stream id. The receive flow-control state opens an idle
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
-  DATA payload length from connection and stream windows, moves the stream to
+  DATA payload length from connection and stream windows, accepts PADDED DATA
+  by consuming the pad-length byte and padding as receive-window credit while
+  exposing only application data bytes as DATA content, moves the stream to
   a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, moves
   completed inbound HEADERS or CONTINUATION header blocks to the same
   closed-by-peer state when the accepted HEADERS sequence carries
@@ -532,8 +534,8 @@ execution reference.
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
   receive-window credit, and keeps wrong-length, idle-stream, zero,
   closed-by-peer stream, reset-stream, concurrent-stream-limit,
-  header-list-size, negative-credit DATA, and overflow cases as typed
-  protocol failures.
+  header-list-size, invalid DATA padding, negative-credit DATA, and overflow
+  cases as typed protocol failures.
   Closed-by-peer streams reject later DATA and stream-level `WINDOW_UPDATE`
   through the same stream-state protocol failure shape used by other
   non-open stream states. A received `RST_STREAM` on the open stream

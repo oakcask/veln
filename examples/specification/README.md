@@ -873,9 +873,12 @@ against the built `veln` binary.
   `WINDOW_UPDATE` for that reset stream through the existing invalid
   frame-kind path. It also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
-  length, moves that stream to closed-by-peer when accepted DATA carries
-  `END_STREAM`, moves accepted HEADERS sequences with `END_STREAM` to the same
-  closed-by-peer lifecycle after header-block completion, rejects later DATA
+  length, accepts PADDED DATA while exposing only application data bytes as
+  DATA content, reports invalid DATA padding through
+  `http2.protocol.invalid_data_padding`, moves that stream to closed-by-peer
+  when accepted DATA carries `END_STREAM`, moves accepted HEADERS sequences
+  with `END_STREAM` to the same closed-by-peer lifecycle after header-block
+  completion, rejects later DATA
   and stream-level `WINDOW_UPDATE` for the closed-by-peer stream through the
   stream-state failure path, accepts
   `WINDOW_UPDATE` receive-credit increments for the connection and open
@@ -937,6 +940,14 @@ against the built `veln` binary.
   `http2.peer_limit.flow_control_window_exceeded` through `run --json` with
   byte offset, observed payload length, allowed window credit, frame kind,
   stream reference, active state, and rule provenance.
+- `run/http2-protocol-core-data-padding-human/`: invalid PADDED DATA reports
+  `http2.protocol.invalid_data_padding` through human `run` stderr with pad
+  length, remaining payload length, byte preview, active state, and provenance
+  notes.
+- `run/http2-protocol-core-data-padding-json/`: the same invalid padding
+  failure reports `http2.protocol.invalid_data_padding` through `run --json`
+  with byte offset, stream reference, pad length, remaining payload length,
+  bounded byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
