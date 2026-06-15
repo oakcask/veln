@@ -183,9 +183,9 @@ Multiple selected mapping clauses, mapping expressions that cannot be
 projected back to schema-local fields, encode-time
 field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload
-schemas, non-byte-aligned reserved fields outside the supported packed and
-`UInt31be` shared-bit layouts, and derived codec encode execution over
-unsupported schemas are outside that encode helper slice.
+schemas, non-byte-aligned reserved fields outside the supported packed,
+middle, and `UInt31be` shared-bit layouts, and derived codec encode execution
+over unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.reserved_bits_encode\"", "\"reason\":\"unsupported_encode_shape\"", "\"bit_width\":2", "\"expected_value\":0"]
+contains = ["\"id\":\"schema.reserved_bits_encode\"", "\"message\":\"`ReservedBits` encode support does not cover this field layout\"", "\"reason\":\"unsupported_encode_shape\"", "\"bit_width\":2", "\"expected_value\":0"]
 
 [stderr]
 format = "empty"
