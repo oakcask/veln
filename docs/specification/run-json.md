@@ -216,7 +216,11 @@ growth, use id
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
 `rule_provenance`; the checked HTTP/2 examples cover both stream-window and
 connection-window receive credit failures. The ordinary protocol-core example
-also covers zero `WINDOW_UPDATE` increments as peer-limit failures. A
+also covers zero `WINDOW_UPDATE` increments as peer-limit failures. Invalid
+PADDED DATA uses id `http2.protocol.invalid_data_padding` and records
+`byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `pad_length`,
+`remaining_payload_length`, `active_state`, `rule_provenance`, and a bounded
+payload byte preview. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,

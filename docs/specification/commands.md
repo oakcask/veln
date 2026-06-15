@@ -45,7 +45,8 @@ requiring the full command reference on the first read.
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid connection-state and stream-state frame-kind failures, and
   fixed payload-length failures including SETTINGS ACK, PING, GOAWAY,
-  `RST_STREAM`, and `WINDOW_UPDATE` with bounded payload byte-preview notes,
+  `RST_STREAM`, and `WINDOW_UPDATE`, plus invalid DATA padding, with bounded
+  payload byte-preview notes,
   and run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

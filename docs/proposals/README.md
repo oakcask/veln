@@ -81,6 +81,7 @@ compare it with `../specification/` before changing behavior.
   failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
   protocol projections with protocol-owned payload byte previews, the explicit
+  HTTP/2 invalid DATA padding projection, the explicit
   HTTP/2 protocol diagnostic projection boundary for representative protocol
   and peer-limit failures, post-GOAWAY stream rejection projection, and
   generated
@@ -102,6 +103,7 @@ compare it with `../specification/` before changing behavior.
   indexed `:method: GET` byte,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
+  PADDED DATA receive handling with invalid-padding diagnostics,
   peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice including HEADERS and
   CONTINUATION on the connection stream, GOAWAY last-stream-id enforcement

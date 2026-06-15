@@ -660,9 +660,13 @@ Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length. Accepted DATA with `END_STREAM`, and accepted
-HEADERS sequences with `END_STREAM` after header-block completion, move the
-tracked stream to closed-by-peer state. Later DATA or stream-level
+both windows by payload length. PADDED DATA consumes receive-window credit for
+the full DATA payload, including the pad-length byte and padding bytes, while
+the exposed DATA content contains only application data bytes. A pad length
+that exceeds the remaining DATA payload is reported as
+`http2.protocol.invalid_data_padding`. Accepted DATA with `END_STREAM`, and
+accepted HEADERS sequences with `END_STREAM` after header-block completion,
+move the tracked stream to closed-by-peer state. Later DATA or stream-level
 `WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
 other non-open stream states. `WINDOW_UPDATE` on the connection stream
 increases connection receive-window credit, and `WINDOW_UPDATE` on the open
