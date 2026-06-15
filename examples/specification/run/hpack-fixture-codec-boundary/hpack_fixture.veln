@@ -44,8 +44,16 @@ fn fixture_headers(label: String, wire_size: Int) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":fixture", label), HpackHeader(":status", "ok"), wire_size)
 end
 
+fn static_indexed_method_post_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
+end
+
+fn decoded_static_indexed_method_post(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_method_post_headers(), next_state(state)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -63,7 +71,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded("header-list-too-large", 10, state)
 				false => match first_byte == 170 and observed_size == 9
 					true => decoded("continuation", 9, state)
-					false => unsupported(block, offset)
+					false => match first_byte == 131 and observed_size == 1
+						true => decoded_static_indexed_method_post(state)
+						false => unsupported(block, offset)
+					end
 				end
 			end
 		end

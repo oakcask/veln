@@ -48,6 +48,10 @@ fn static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
 
+fn static_indexed_method_post_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 fn static_indexed_path_root_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
 end
@@ -74,6 +78,10 @@ end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_method_get_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_method_post(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_method_post_headers(), next_state(state)))
 end
 
 fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -115,29 +123,32 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 						true => decoded("continuation", 9, state)
 						false => match first_byte == 130 and observed_size == 1
 							true => decoded_static_indexed_method_get(state)
-							false => match first_byte == 132 and observed_size == 1
-								true => decoded_static_indexed_path_root(state)
-								false => match first_byte == 133 and observed_size == 1
-									true => decoded_static_indexed_path_index(state)
-									false => match first_byte == 134 and observed_size == 1
-										true => decoded_static_indexed_scheme_http(state)
-										false => match first_byte == 135 and observed_size == 1
-											true => decoded_static_indexed_scheme_https(state)
-											false => match first_byte == 136 and observed_size == 1
-												true => decoded_static_indexed_status("200", state)
-												false => match first_byte == 137 and observed_size == 1
-													true => decoded_static_indexed_status("204", state)
-													false => match first_byte == 138 and observed_size == 1
-														true => decoded_static_indexed_status("206", state)
-														false => match first_byte == 139 and observed_size == 1
-															true => decoded_static_indexed_status("304", state)
-															false => match first_byte == 140 and observed_size == 1
-																true => decoded_static_indexed_status("400", state)
-																false => match first_byte == 141 and observed_size == 1
-																	true => decoded_static_indexed_status("404", state)
-																	false => match first_byte == 142 and observed_size == 1
-																		true => decoded_static_indexed_status("500", state)
-																		false => unsupported(block, offset)
+							false => match first_byte == 131 and observed_size == 1
+								true => decoded_static_indexed_method_post(state)
+								false => match first_byte == 132 and observed_size == 1
+									true => decoded_static_indexed_path_root(state)
+									false => match first_byte == 133 and observed_size == 1
+										true => decoded_static_indexed_path_index(state)
+										false => match first_byte == 134 and observed_size == 1
+											true => decoded_static_indexed_scheme_http(state)
+											false => match first_byte == 135 and observed_size == 1
+												true => decoded_static_indexed_scheme_https(state)
+												false => match first_byte == 136 and observed_size == 1
+													true => decoded_static_indexed_status("200", state)
+													false => match first_byte == 137 and observed_size == 1
+														true => decoded_static_indexed_status("204", state)
+														false => match first_byte == 138 and observed_size == 1
+															true => decoded_static_indexed_status("206", state)
+															false => match first_byte == 139 and observed_size == 1
+																true => decoded_static_indexed_status("304", state)
+																false => match first_byte == 140 and observed_size == 1
+																	true => decoded_static_indexed_status("400", state)
+																	false => match first_byte == 141 and observed_size == 1
+																		true => decoded_static_indexed_status("404", state)
+																		false => match first_byte == 142 and observed_size == 1
+																			true => decoded_static_indexed_status("500", state)
+																			false => unsupported(block, offset)
+																		end
 																	end
 																end
 															end

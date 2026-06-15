@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "first decoded :fixture single-headers wire_size 8 next_decode_count 1\nsecond decoded :fixture header-list-accepted wire_size 8 next_decode_count 2\nbad failed offset 27 observed_size 1 observed_first_byte 255 expected fixture header block\n"
+equals = "first decoded :fixture single-headers wire_size 8 next_decode_count 1\nsecond decoded :fixture header-list-accepted wire_size 8 next_decode_count 2\nmethod-post decoded :method POST wire_size 9 next_decode_count 3\nbad failed offset 27 observed_size 1 observed_first_byte 255 expected fixture header block\n"
 
 [[json_assert]]
 path = "error"
