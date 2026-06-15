@@ -1791,8 +1791,21 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                             .fields
                             .iter()
                             .position(|schema_field| schema_field.node_id == field.node_id);
+                        let previous_previous_field = field_index
+                            .and_then(|index| index.checked_sub(2))
+                            .and_then(|index| schema.fields.get(index));
+                        let previous_field = field_index
+                            .and_then(|index| index.checked_sub(1))
+                            .and_then(|index| schema.fields.get(index));
                         let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
-                        if supported_encode_reserved_bits(next_field, reserved).is_none() {
+                        if supported_encode_reserved_bits(
+                            previous_previous_field,
+                            previous_field,
+                            next_field,
+                            reserved,
+                        )
+                        .is_none()
+                        {
                             diagnostics.push(reserved_bits_encode_shape_diagnostic(
                                 schema, field, reserved,
                             ));

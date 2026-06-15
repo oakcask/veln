@@ -760,7 +760,16 @@ fn schema_decode_record_fields_inner_after_push(
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            supported_encode_reserved_bits(
+                index
+                    .checked_sub(2)
+                    .and_then(|previous| schema.fields.get(previous)),
+                index
+                    .checked_sub(1)
+                    .and_then(|previous| schema.fields.get(previous)),
+                schema.fields.get(index + 1),
+                reserved,
+            )?;
             continue;
         }
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
@@ -960,7 +969,16 @@ fn schema_encode_function_signature_for_schema(
             return None;
         }
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            supported_encode_reserved_bits(
+                index
+                    .checked_sub(2)
+                    .and_then(|previous| schema.fields.get(previous)),
+                index
+                    .checked_sub(1)
+                    .and_then(|previous| schema.fields.get(previous)),
+                schema.fields.get(index + 1),
+                reserved,
+            )?;
             continue;
         }
         if exact_width_schema_primitive(&field.ty).is_some() {
@@ -2178,6 +2196,8 @@ pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {
 }
 
 pub(crate) fn supported_encode_reserved_bits(
+    previous_previous_field: Option<&veln_ast::SchemaField>,
+    previous_field: Option<&veln_ast::SchemaField>,
     next_field: Option<&veln_ast::SchemaField>,
     reserved: (i64, i64),
 ) -> Option<(u8, i64)> {
@@ -2207,6 +2227,19 @@ pub(crate) fn supported_encode_reserved_bits(
             return Some((bit_width as u8, expected_value));
         }
     }
+    if (1..=7).contains(&bit_width)
+        && !previous_previous_field.is_some_and(|field| {
+            previous_field.is_some_and(|visible| supported_packed_reserved_prefix(field, visible))
+        })
+        && previous_field
+            .and_then(|field| exact_width_schema_primitive_bit_width(&field.ty))
+            .is_some_and(|previous_bit_width| i64::from(previous_bit_width) + bit_width == 8)
+    {
+        let max_value = (1_i64 << bit_width) - 1;
+        if expected_value <= max_value {
+            return Some((bit_width as u8, expected_value));
+        }
+    }
     if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
         return None;
     }
@@ -2219,6 +2252,28 @@ pub(crate) fn supported_encode_reserved_bits(
         return Some((bit_width as u8, expected_value));
     }
     None
+}
+
+fn supported_packed_reserved_prefix(
+    reserved_field: &veln_ast::SchemaField,
+    visible_field: &veln_ast::SchemaField,
+) -> bool {
+    let Some((bit_width, expected_value)) = reserved_bits_schema_primitive(&reserved_field.ty)
+    else {
+        return false;
+    };
+    let packed_storage_bit_width = if (1..=7).contains(&bit_width) {
+        Some(8)
+    } else if (9..=15).contains(&bit_width) {
+        Some(16)
+    } else {
+        None
+    };
+    packed_storage_bit_width.is_some_and(|storage_bit_width| {
+        exact_width_schema_primitive_bit_width(&visible_field.ty).is_some_and(|visible_bit_width| {
+            i64::from(visible_bit_width) + bit_width == storage_bit_width
+        }) && expected_value < (1_i64 << bit_width)
+    })
 }
 
 fn parse_reserved_bits_integer(text: &str) -> Option<i64> {

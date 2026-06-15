@@ -614,6 +614,63 @@ fn generated_schema_helpers_accept_one_byte_packed_reserved_bits() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_one_byte_packed_reserved_suffix_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PackedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: UInt8\n",
+            "  control: UInt3\n",
+            "  control_padding: ReservedBits(5, 0)\n",
+            "  suffix: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{prefix: Int, control: Int, suffix: Int}, String>\n",
+            "  byte_decode_packed_suffix_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {prefix: Int, control: Int, suffix: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packed_suffix_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("prefix", 1, 0xff, None),
+            ("control", 1, 0x7, None),
+            ("control_padding", 0, 0, Some((5, 0))),
+            ("suffix", 1, 0xff, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_all_one_byte_packed_reserved_widths() {
     for reserved_width in 1..=7 {
         let visible_width = 8 - reserved_width;
