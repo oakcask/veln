@@ -463,8 +463,10 @@ Network and time boundary intrinsics are backend-owned runtime operations.
 `net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
 runtime and returns `()`. `net::listen` returns a source-visible `NetListener`,
 `net::accept` returns a source-visible `NetStream`, `net::read_chunk` reads
-one immutable `ByteChunk` from that stream, and `net::write_chunk` writes one
-immutable `ByteChunk` to that stream. `time::timeout_ms` waits for a
+one immutable `ByteChunk` from that stream, `net::read_chunk_or_end` returns
+`Some(bytes)` for a successful stream read and `None` for clean end of the
+fixture stream, and `net::write_chunk` writes one immutable `ByteChunk` to
+that stream. `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
@@ -491,19 +493,22 @@ streams, and declining work are represented as values for the adapter to
 interpret; the handler does not call `net::send_chunk`, own sockets, or add
 new listen, read, write, routing, or deadline effect labels.
 
-The socket stream adapter routing case composes that handler boundary with the
+The socket stream adapter routing cases compose that handler boundary with the
 fixture-backed socket calls without adding a service interface or new effect
 labels. Adapter code owns the `NetListener` and `NetStream`, reads multiple
-immutable `ByteChunk` values with `net::read_chunk`, wraps each chunk as an
-ordinary `StreamEvent`, sends and receives those events through a standard
+immutable `ByteChunk` values with `net::read_chunk` or
+`net::read_chunk_or_end`, routes ordinary source values through a standard
 channel under `concurrency`, calls the plain handler with explicit state, and
-then walks the returned action list. The same checked boundary also joins a
+then walks the returned action list. The clean-end case translates
+`net::read_chunk_or_end` returning `None` into the standard `StreamInput.End`
+value before calling the pure handler. The same checked boundary also joins a
 spawned stream-handler task that uses the same ordinary event/action values.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by
 the adapter. Non-write response intents remain ordinary values for the adapter
 to interpret. The handler has no socket handle parameter and does not call
-`net` functions. The checked example is
-`examples/specification/run/socket-stream-adapter-routing/`.
+`net` functions. The checked examples are
+`examples/specification/run/socket-stream-adapter-routing/` and
+`examples/specification/run/socket-stream-adapter-clean-end/`.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of
