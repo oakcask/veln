@@ -555,8 +555,9 @@ execution reference.
   not update peer-advertised SETTINGS state or local receive-limit state.
 - The same example also covers the narrow local SETTINGS send-intent and ACK
   tracking slice. Ordinary source constructs exactly one SETTINGS item for
-  `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_FRAME_SIZE`, or
-  `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the frame-header-plus-item output
+  `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
+  `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
+  frame-header-plus-item output
   chunk with the selected item identifier and four-byte unsigned value, and
   records one outstanding local SETTINGS batch in connection state with that
   identifier and item count. A valid received SETTINGS ACK clears that
