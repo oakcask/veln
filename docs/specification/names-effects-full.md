@@ -506,19 +506,23 @@ byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
 byte_read_u32_be(view: ByteView) -> Result<Int, String>
+byte_read_u64_be(view: ByteView) -> Result<Int, String>
 byte_read_u16_le(view: ByteView) -> Result<Int, String>
 byte_read_u24_le(view: ByteView) -> Result<Int, String>
 byte_read_u31_le(view: ByteView) -> Result<Int, String>
 byte_read_u32_le(view: ByteView) -> Result<Int, String>
+byte_read_u64_le(view: ByteView) -> Result<Int, String>
 byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u31_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u64_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u31_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u64_le(value: Int) -> Result<ByteChunk, String>
 byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
 byte_offset(value: Int) -> Result<ByteOffset, String>
@@ -616,9 +620,10 @@ as bounded `ByteView` values while keeping the absolute `ByteOffset` carried by
 the view. `byte_chunks_empty()`, `byte_chunks_one(chunk)`, and
 `byte_chunks_append(left, right)` construct and combine `List<ByteChunk>`
 values for outgoing chunks without introducing an output-only byte type.
-The fixed-width unsigned big-endian read helpers read from the start of the
-view and return `Err(String)` when the view is too short. The `u31` read also
-returns `Err(String)` when the high bit would exceed the 31-bit maximum. The
+The fixed-width unsigned big-endian and little-endian read helpers read from
+the start of the view and return `Err(String)` when the view is too short.
+The `u31` and `u64` reads also return `Err(String)` when the decoded value
+would exceed the source-visible `Int` maximum for the helper width. The
 `byte_expect_fixed_u8_be` helper reads one byte and returns
 `schema.fixed_field_mismatch` diagnostic details when the actual byte differs
 from the expected fixed byte for the supplied schema and field names. The
@@ -724,11 +729,13 @@ The implemented standard symbol table has this current pure-helper split:
   `http2_peer_limit_concurrent_streams_exceeded`,
   `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
+  `byte_read_u64_be`,
   `byte_read_u16_le`, `byte_read_u24_le`, `byte_read_u31_le`,
-  `byte_read_u32_le`, `byte_write_u8_be`, `byte_write_u16_be`,
-  `byte_write_u24_be`, `byte_write_u31_be`, `byte_write_u32_be`,
-  `byte_write_u16_le`, `byte_write_u24_le`, `byte_write_u31_le`,
-  `byte_write_u32_le`, `byte_count`, `byte_count_to_int`, `byte_offset`,
+  `byte_read_u32_le`, `byte_read_u64_le`, `byte_write_u8_be`,
+  `byte_write_u16_be`, `byte_write_u24_be`, `byte_write_u31_be`,
+  `byte_write_u32_be`, `byte_write_u64_be`, `byte_write_u16_le`,
+  `byte_write_u24_le`, `byte_write_u31_le`, `byte_write_u32_le`,
+  `byte_write_u64_le`, `byte_count`, `byte_count_to_int`, `byte_offset`,
   `byte_offset_to_int`,
   `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`,
   `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,

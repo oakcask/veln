@@ -1,0 +1,7 @@
+# ByteView u64 read truncation keeps the shared byte diagnostic shape.
+pub fn main() -> Result<(), String>
+	let chunk: ByteChunk = byte_chunk_from_hex("01020304050607")?
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(7)?)?
+	let ignored: Int = byte_read_u64_be(view)?
+	Ok(())
+end

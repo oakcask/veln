@@ -255,6 +255,13 @@ against the built `veln` binary.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
   when exact-width unsigned primitive names, including `UInt64be` and
   `UInt64le`, are used as ordinary source types or values.
+- `run/binary-byteview-u64-helpers/`: ordinary prelude `u64` byte helpers read
+  and write source-visible `Int` values in big-endian and little-endian byte
+  order.
+- `run/binary-byteview-u64-truncated-json/`: ordinary prelude `u64` byte reads
+  use the shared byte truncation diagnostic shape.
+- `run/binary-byteview-u64-write-failure-human/`: ordinary prelude `u64` byte
+  writes reject values outside the source-visible unsigned `Int` boundary.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings or ordinary target types for schema mappings.
 - `check/codec-declarations/`: accepted private and public top-level `codec`

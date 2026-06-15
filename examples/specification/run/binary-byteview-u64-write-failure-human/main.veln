@@ -1,0 +1,5 @@
+# ByteView u64 write conversion rejects values below the unsigned boundary.
+pub fn main() -> Result<(), String>
+	let ignored: ByteChunk = byte_write_u64_le(-1)?
+	Ok(())
+end
