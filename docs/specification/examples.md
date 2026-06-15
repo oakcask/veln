@@ -699,8 +699,8 @@ available outbound connection credit, or the peer-advertised stream credit
 derived from received `SETTINGS_INITIAL_WINDOW_SIZE`.
 The local SETTINGS send-intent slice emits exactly one SETTINGS item per
 intent for `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
-`SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`. Each accepted
-intent emits a
+`SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, or
+`SETTINGS_MAX_HEADER_LIST_SIZE`. Each accepted intent emits a
 frame-header-plus-item chunk with length `6`, kind `4`, flags `0`, stream id
 `0`, the selected setting identifier, and the selected four-byte unsigned
 value, then records one outstanding local SETTINGS batch. A valid SETTINGS ACK
@@ -738,8 +738,9 @@ record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
 on the connection stream, a DATA header on a nonzero stream, local SETTINGS
 frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
-`SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_FRAME_SIZE`, and
-`SETTINGS_MAX_HEADER_LIST_SIZE`, an accepted `RST_STREAM` frame plus error-code
+`SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
+`SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`, an accepted
+`RST_STREAM` frame plus error-code
 payload, an accepted GOAWAY frame plus last-stream-id and error-code payload,
 and the maximum valid `UInt31be` stream id. The source output also matches
 generated helper `codec.encode_value_unrepresentable` failure for an
