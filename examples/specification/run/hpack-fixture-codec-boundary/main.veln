@@ -43,7 +43,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 		Err(_) => initial
 	end
 	let second_block: ByteChunk = byte_chunk_from_hex("0102030405060708")?
-	print_transition("second", decode_header_block(second_block, second_state, 18))
+	let second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(second_block, second_state, 18)
+	print_transition("second", second)
+	let third_state: HpackFixtureState = match second
+		Ok(transition) => transition_state(transition)
+		Err(_) => second_state
+	end
+	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
+	print_transition("method-post", decode_header_block(method_post_block, third_state, 26))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

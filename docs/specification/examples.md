@@ -841,13 +841,13 @@ outstanding local SETTINGS is a typed protocol failure. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 The same HPACK fixture boundary accepts the static indexed `0x82`
-`:method: GET`, `0x84` `:path: /`, `0x85` `:path: /index.html`, `0x86`
-`:scheme: http`, `0x87` `:scheme: https`, `0x88` `:status: 200`,
-`0x89` `:status: 204`, `0x8a` `:status: 206`, `0x8b` `:status: 304`,
-`0x8c` `:status: 400`, `0x8d` `:status: 404`, and `0x8e`
-`:status: 500` header-block bytes in completed HEADERS frames, exposes the
-decoded header name and value through ordinary header-list accessors, advances
-the immutable fixture state, and keeps unsupported HPACK input on
+`:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
+`:path: /index.html`, `0x86` `:scheme: http`, `0x87` `:scheme: https`,
+`0x88` `:status: 200`, `0x89` `:status: 204`, `0x8a` `:status: 206`,
+`0x8b` `:status: 304`, `0x8c` `:status: 400`, `0x8d` `:status: 404`, and
+`0x8e` `:status: 500` header-block bytes in completed HEADERS frames, exposes
+the decoded header name and value through ordinary header-list accessors,
+advances the immutable fixture state, and keeps unsupported HPACK input on
 `hpack.fixture.unsupported_header_block`.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent within
