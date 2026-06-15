@@ -71,9 +71,9 @@ compiler-known calls.
   direct field projections or a direct single-constructor ADT wrapping a
   schema-local `Flag8` field. Generated encode helpers return
   `Result<ByteChunk, EncodeError>`.
-  `UInt16le`, `UInt24le`, `UInt32le`, and `UInt64le` fields use little-endian
-  byte order in generated decode and encode helpers. Source-visible byte
-  helpers also expose checked `u64` big-endian and little-endian reads and
+  `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, and `UInt64le` fields use
+  little-endian byte order in generated decode and encode helpers.
+  Source-visible byte helpers also expose checked `u64` big-endian and little-endian reads and
   writes through ordinary `Int` values; eight-byte values above the
   source-visible `Int` maximum fail instead of wrapping. `UInt64be` uses the
   matching eight-byte big-endian representation.

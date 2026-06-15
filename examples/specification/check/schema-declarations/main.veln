@@ -11,6 +11,7 @@ schema Http2FrameHeader
   padding_length: UInt8 where padding_length <= length
   stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
+  little_stream_id: UInt31le
   checksum: UInt32be
   payload: ByteView(length - padding_length)
 
@@ -32,6 +33,7 @@ pub schema PublicFrameHeader
   padding_length: UInt8 where padding_length <= length
   stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
+  little_stream_id: UInt31le
   checksum: UInt32be
   payload: ByteView(length - padding_length)
 
