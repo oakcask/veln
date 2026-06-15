@@ -262,13 +262,13 @@ composition does not add any effect label beyond the existing coarse labels or
 any compiler-known routing symbol beyond the socket, channel, and task calls
 listed here.
 
-The channel-first stream routing example routes ordinary `StreamInput` values
-through two typed channel routes, selects a ready route with existing channel
-selection, and then invokes a plain handler with explicit per-stream state.
-The routing adapter declares `concurrency`; a socket wrapper that reads
-`NetStream` input, calls the channel-first route, and projects response actions
-back to `net::write_chunk` declares both `net` and `concurrency`. The handler
-itself remains free of transport effects.
+The channel-first stream routing examples route ordinary `StreamInput` values
+through two and three typed channel routes, select a ready route with existing
+channel selection, and then invoke a plain handler with explicit per-stream
+state. The routing adapter declares `concurrency`; a socket wrapper that reads
+`NetStream` input, calls the channel-first route, and projects response
+actions back to `net::write_chunk` declares both `net` and `concurrency`. The
+handler itself remains free of transport effects.
 
 ## Process Calls
 
