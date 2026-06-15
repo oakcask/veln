@@ -795,10 +795,10 @@ fn schema_decode_record_fields_inner_after_push(
             {
                 return None;
             }
-            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload {
-                if decoded_fields.get(length_field) != Some(&Type::int()) {
-                    return None;
-                }
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
+                && decoded_fields.get(length_field) != Some(&Type::int())
+            {
+                return None;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
             (0, Type::named("List", vec![element_ty]))
@@ -1011,13 +1011,12 @@ fn schema_encode_function_signature_for_schema(
             {
                 return None;
             }
-            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload {
-                if !exact_width_field_names
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
+                && !exact_width_field_names
                     .iter()
                     .any(|field| field == length_field)
-                {
-                    return None;
-                }
+            {
+                return None;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
             fields.push((field.name.clone(), Type::named("List", vec![element_ty])));

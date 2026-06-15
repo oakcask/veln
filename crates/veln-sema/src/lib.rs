@@ -247,10 +247,10 @@ fn schema_decode_spec_inner_after_push(
             {
                 return None;
             }
-            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload {
-                if decoded_field_types.get(length_field) != Some(&Type::int()) {
-                    return None;
-                }
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
+                && decoded_field_types.get(length_field) != Some(&Type::int())
+            {
+                return None;
             }
             let (element_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;
             decoded_field_types.insert(field.name.clone(), Type::named("List", vec![element_ty]));
