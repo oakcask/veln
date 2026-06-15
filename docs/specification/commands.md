@@ -30,7 +30,8 @@ requiring the full command reference on the first read.
   enough.
 - `doc`: generated Markdown documentation from selected source files,
   package/tool manifest metadata, documentation comments, public API
-  declarations, contracts, doctest fences, and ADR-lite records. Use
+  declarations including public schemas and schema aliases, schema references,
+  contracts, doctest fences, and ADR-lite records. Use
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
 - `run`: entry resolution, argument conversion, static gates, direct JVM

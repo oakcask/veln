@@ -163,17 +163,26 @@ semantic diagnostics are reported.
 
 For each parse-clean selected source, `doc` emits the path-derived source
 module identity, the source path, imports, public source `type` declarations,
-public constructors, and public `fn` declarations. Public `fn` documentation
-includes attached documentation line comments and contract clauses. Public
-`type` documentation includes attached documentation line comments.
+public constructors, public `schema` declarations, public member aliases, and
+public `fn` declarations. Public `fn` documentation includes attached
+documentation line comments and contract clauses. Public `type` and `schema`
+documentation includes attached documentation line comments.
 
 Documentation line comments are attached to the nearest following module,
-public type, or public function declaration only when they are immediately
-above that declaration. The generated Markdown strips the `##` marker.
+public type, public schema, public member alias, or public function
+declaration only when they are immediately above that declaration. The
+generated Markdown strips the `##` marker.
 Executable doctest and expected-output fences remain visible examples, except
 hidden setup lines whose visible doc-comment content starts with `> ` are
 omitted from the generated example. ADR-lite records are emitted in a separate
 ADR-lite section and keep their parsed anchor when one exists.
+Documentation comments may write schema references as `{@schema Name}` or
+`{@schema module::Name}`. The `doc` command resolves those references through
+schema-aware lookup: same-module bare references may name private or public
+schemas, and module-qualified references require a matching written `use` path
+and a public schema or public schema alias. The generated Markdown renders a
+resolved schema reference as code text. Missing, private, and wrong-kind schema
+references are name diagnostics reported at the referenced name span.
 
 <a id="veln-run"></a>
 

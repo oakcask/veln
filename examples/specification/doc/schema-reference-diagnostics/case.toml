@@ -1,0 +1,9 @@
+command = ["doc", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["unresolved documentation schema reference `wire::MissingPacket`", "documentation schema reference `wire::PrivatePacket` is private", "documentation schema reference `wire::make_packet` is a function, not a schema", "documentation schema reference `wire::PacketShape` is a type, not a schema", "documentation schema reference `wire::PacketCodec` is a codec, not a schema", "unresolved documentation schema reference `wire::length`", "unresolved documentation schema reference `wire::byte_decode_public_packet`"]

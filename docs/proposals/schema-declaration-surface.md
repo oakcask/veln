@@ -75,7 +75,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   resolution, or call one pure same-module representation converter from a
   schema-local field into a target field
 - parser, AST, formatter, editor token, and documentation behavior for the
-  implemented source surface
+  implemented source surface, including documentation comments that reference
+  schemas through schema-aware lookup
 
 This proposal remains open for:
 
@@ -88,9 +89,9 @@ This proposal remains open for:
   equality mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
-- schema-aware references from later schema composition, fixture, and
-  documentation surfaces beyond codec declaration heads and public schema
-  member aliases
+- schema-aware references from later schema composition and fixture surfaces
+  beyond codec declaration heads, public schema member aliases, and
+  documentation comments
 
 ## Discussion Result: Codec Binding Direction
 
@@ -209,6 +210,23 @@ source ADT type, and codec targets are rejected at the alias declaration.
 Schema aliases do not import schema-local field names, generated helper names,
 codec names, or ordinary source type bindings, and they do not create wrapper
 schemas, new schema identities, or generated codec aliases.
+
+## Implemented Slice: Documentation Schema References
+
+The documentation-comment schema reference slice is implemented as current
+behavior under `../specification/source-surface.md` and
+`../specification/commands.md`, with executable examples under
+`../../examples/specification/doc/schema-references/` and
+`../../examples/specification/doc/schema-reference-diagnostics/`.
+
+Documentation comments may write `{@schema Name}` for same-module schema
+references or `{@schema module::Name}` for imported public schemas and public
+schema aliases reached through a written `use` path. These references use
+schema-aware lookup rather than ordinary value or type lookup. Missing,
+private, function, source ADT type, and codec targets are rejected at the
+reference span. Documentation schema references do not make schema-local field
+names, generated helper names, codec names, or ordinary source type bindings
+visible.
 
 ## Discussion Result: Field Validation Semantics
 

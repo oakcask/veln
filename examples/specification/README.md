@@ -291,6 +291,12 @@ against the built `veln` binary.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
+- `doc/schema-references/`: generated documentation accepts same-module public
+  and private schema references plus imported public schema and schema-alias
+  references.
+- `doc/schema-reference-diagnostics/`: generated documentation rejects
+  missing, private, wrong-kind, schema-local field, and generated helper schema
+  references at the documentation reference.
 - `doc/manifest-modules-rejected/`: generated documentation is blocked when a
   manifest uses the rejected `[modules]` table.
 - `doc/no-selected-sources/`: generated documentation can contain only
