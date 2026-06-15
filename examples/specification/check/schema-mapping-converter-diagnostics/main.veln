@@ -1,5 +1,5 @@
 type Header
-	Header {missing: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, unsupported: Int}
+	Header {missing: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}
 end
 
 fn two_params(value: Int, extra: Int) -> Int
@@ -18,6 +18,10 @@ fn noisy(value: Int) -> Int effects [stdio]
 	value
 end
 
+fn from_text(value: String) -> Int
+	0
+end
+
 fn convert(value: Int) -> Int
 	value
 end
@@ -33,5 +37,6 @@ schema HeaderWire
 		bad_input = needs_text(kind)
 		bad_return = to_text(kind)
 		impure = noisy(kind)
-		unsupported = convert({value: kind})
+		bad_structural_input = from_text({value: kind})
+		unsupported = convert(kind + 1)
 end

@@ -1718,7 +1718,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
             "    bad_arity = FrameKind(kind, length)\n",
             "    bad_type = FrameKind({value: kind})\n",
             "    unresolved = helper(kind)\n",
-            "    unsupported = convert({value: kind})\n",
+            "    unsupported = kind + length\n",
             "end\n",
         ),
     );
@@ -1746,7 +1746,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_type"
                 && diagnostic.message
-                    == "schema mapping target field `bad_type` expects `Int`, but expression `{ value: kind }` has type `{}`"
+                    == "schema mapping target field `bad_type` expects `Int`, but expression `{ value: kind }` has type `{value: Int}`"
         }),
         "{diagnostics:#?}"
     );
@@ -1754,7 +1754,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_expression_unsupported"
                 && diagnostic.message
-                    == "schema mapping expression `convert({ value: kind })` is not supported"
+                    == "schema mapping expression `kind + length` is not supported"
         }),
         "{diagnostics:#?}"
     );
@@ -1773,7 +1773,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         "main.veln",
         concat!(
             "type Header\n",
-            "  Header {bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, unsupported: Int}\n",
+            "  Header {bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}\n",
             "end\n",
             "\n",
             "fn two_params(value: Int, extra: Int) -> Int\n",
@@ -1792,6 +1792,10 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "  value\n",
             "end\n",
             "\n",
+            "fn from_text(value: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\n",
             "fn convert(value: Int) -> Int\n",
             "  value\n",
             "end\n",
@@ -1806,7 +1810,8 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "    bad_input = needs_text(kind)\n",
             "    bad_return = to_text(kind)\n",
             "    impure = noisy(kind)\n",
-            "    unsupported = convert({value: kind})\n",
+            "    bad_structural_input = from_text({value: kind})\n",
+            "    unsupported = convert(kind + 1)\n",
             "end\n",
         ),
     );
@@ -1848,9 +1853,16 @@ fn generated_schema_mappings_report_converter_diagnostics() {
     );
     assert!(
         diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "schema.mapping_expression_unsupported"
+            diagnostic.id == "schema.mapping_converter_input"
                 && diagnostic.message
-                    == "schema mapping expression `convert({ value: kind })` is not supported"
+                    == "schema mapping converter `from_text` expects `String`, but argument expression `{ value: kind }` has type `{value: Int}`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_expression_unsupported"
+                && diagnostic.message == "schema mapping expression `kind + 1` is not supported"
         }),
         "{diagnostics:#?}"
     );

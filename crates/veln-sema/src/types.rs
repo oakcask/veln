@@ -1253,6 +1253,12 @@ pub(crate) struct SchemaMappingTypedExpr {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaMappingConverterInput {
+    SourceField(String),
+    Expression(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SchemaMappingExprError {
     Unsupported {
         text: String,
@@ -1292,7 +1298,7 @@ pub(crate) enum SchemaMappingExprError {
         name: String,
         expected: Box<Type>,
         actual: Box<Type>,
-        source: String,
+        input: SchemaMappingConverterInput,
         span: SourceSpan,
         function_span: SourceSpan,
     },
@@ -1300,7 +1306,7 @@ pub(crate) enum SchemaMappingExprError {
         name: String,
         expected: Box<Type>,
         actual: Box<Type>,
-        source: String,
+        input: SchemaMappingConverterInput,
         span: SourceSpan,
         function_span: SourceSpan,
     },
@@ -1500,7 +1506,7 @@ pub(crate) fn schema_mapping_expr_typed(
         converter_functions: &converter_functions,
         schema_fields,
     };
-    let typed = schema_mapping_expr_typed_unchecked(&context, expr, expected)?;
+    let typed = schema_mapping_expr_typed_unchecked(&context, expr, expected, true)?;
     if !is_assignable(expected, &typed.ty) {
         return Err(Box::new(SchemaMappingExprError::TypeMismatch {
             expected: Box::new(expected.clone()),
@@ -1516,6 +1522,7 @@ fn schema_mapping_expr_typed_unchecked(
     context: &SchemaMappingExprContext<'_>,
     expr: &Expr,
     expected: &Type,
+    allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
     match &expr.kind {
         ExprKind::NamePath(segments) => schema_mapping_name_expr(context, expr, segments, expected),
@@ -1523,7 +1530,7 @@ fn schema_mapping_expr_typed_unchecked(
             let Type::Record(expected_fields) = expected else {
                 return Err(Box::new(SchemaMappingExprError::TypeMismatch {
                     expected: Box::new(expected.clone()),
-                    actual: Box::new(Type::Record(Vec::new())),
+                    actual: Box::new(schema_mapping_record_actual_type(context, fields)),
                     text: schema_mapping_expr_render(expr),
                     span: expr.span.clone(),
                 }));
@@ -1548,7 +1555,12 @@ fn schema_mapping_expr_typed_unchecked(
                         span: field.span.clone(),
                     }));
                 };
-                let typed = schema_mapping_expr_typed_inner(context, &field.expr, field_ty)?;
+                let typed = schema_mapping_expr_typed_inner(
+                    context,
+                    &field.expr,
+                    field_ty,
+                    allow_converter_calls,
+                )?;
                 record_fields.push(SchemaDecodeMappingRecordField {
                     name: field.name.clone(),
                     expr: typed.expr,
@@ -1574,20 +1586,28 @@ fn schema_mapping_expr_typed_unchecked(
                     span: expr.span.clone(),
                 }));
             };
-            match schema_mapping_converter_function(context, segments) {
-                SchemaMappingConverterLookup::Found(function) => {
-                    return schema_mapping_converter_expr(
-                        context, expr, callee, args, function, expected,
-                    );
+            if !allow_converter_calls && schema_mapping_name_can_be_converter(segments) {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(expr),
+                    span: expr.span.clone(),
+                }));
+            }
+            if allow_converter_calls {
+                match schema_mapping_converter_function(context, segments) {
+                    SchemaMappingConverterLookup::Found(function) => {
+                        return schema_mapping_converter_expr(
+                            context, expr, callee, args, function, expected,
+                        );
+                    }
+                    SchemaMappingConverterLookup::Private(function) => {
+                        return Err(Box::new(SchemaMappingExprError::PrivateConverter {
+                            name: segments.join("::"),
+                            span: callee.span.clone(),
+                            function_span: function.span.clone(),
+                        }));
+                    }
+                    SchemaMappingConverterLookup::Missing => {}
                 }
-                SchemaMappingConverterLookup::Private(function) => {
-                    return Err(Box::new(SchemaMappingExprError::PrivateConverter {
-                        name: segments.join("::"),
-                        span: callee.span.clone(),
-                        function_span: function.span.clone(),
-                    }));
-                }
-                SchemaMappingConverterLookup::Missing => {}
             }
             if let [name] = segments.as_slice()
                 && !schema_mapping_name_can_be_constructor(segments)
@@ -1622,7 +1642,14 @@ fn schema_mapping_expr_typed_unchecked(
                     span: callee.span.clone(),
                 })
             })?;
-            schema_mapping_constructor_expr(context, expr, args, expected, constructor)
+            schema_mapping_constructor_expr(
+                context,
+                expr,
+                args,
+                expected,
+                constructor,
+                allow_converter_calls,
+            )
         }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
@@ -1635,8 +1662,10 @@ fn schema_mapping_expr_typed_inner(
     context: &SchemaMappingExprContext<'_>,
     expr: &Expr,
     expected: &Type,
+    allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
-    let typed = schema_mapping_expr_typed_unchecked(context, expr, expected)?;
+    let typed =
+        schema_mapping_expr_typed_unchecked(context, expr, expected, allow_converter_calls)?;
     if !is_assignable(expected, &typed.ty) {
         return Err(Box::new(SchemaMappingExprError::TypeMismatch {
             expected: Box::new(expected.clone()),
@@ -1740,31 +1769,32 @@ fn schema_mapping_converter_expr(
     }
 
     let arg = &args[0];
-    let ExprKind::NamePath(arg_segments) = &arg.kind else {
-        return Err(Box::new(SchemaMappingExprError::Unsupported {
-            text: schema_mapping_expr_render(expr),
-            span: expr.span.clone(),
-        }));
-    };
-    let [source] = arg_segments.as_slice() else {
-        return Err(Box::new(SchemaMappingExprError::Unsupported {
-            text: schema_mapping_expr_render(expr),
-            span: expr.span.clone(),
-        }));
-    };
-    let Some(source_ty) = context.schema_fields.get(source) else {
-        return Err(Box::new(SchemaMappingExprError::UnknownSchemaField {
-            name: source.clone(),
-            span: arg.span.clone(),
-        }));
-    };
+    let input = schema_mapping_converter_input(arg);
     let param_ty = &function.params[0];
-    if !is_assignable(param_ty, source_ty) {
+    let typed_arg = match schema_mapping_expr_typed_unchecked(context, arg, param_ty, false) {
+        Ok(typed) => typed,
+        Err(error) => match *error {
+            SchemaMappingExprError::TypeMismatch {
+                actual, span, text, ..
+            } if text == schema_mapping_expr_render(arg) => {
+                return Err(Box::new(SchemaMappingExprError::ConverterInputType {
+                    name: function.name.clone(),
+                    expected: Box::new(param_ty.clone()),
+                    actual,
+                    input,
+                    span,
+                    function_span: function.span.clone(),
+                }));
+            }
+            other => return Err(Box::new(other)),
+        },
+    };
+    if !is_assignable(param_ty, &typed_arg.ty) {
         return Err(Box::new(SchemaMappingExprError::ConverterInputType {
             name: function.name.clone(),
             expected: Box::new(param_ty.clone()),
-            actual: Box::new(source_ty.clone()),
-            source: source.clone(),
+            actual: Box::new(typed_arg.ty),
+            input,
             span: arg.span.clone(),
             function_span: function.span.clone(),
         }));
@@ -1774,7 +1804,7 @@ fn schema_mapping_converter_expr(
             name: function.name.clone(),
             expected: Box::new(expected.clone()),
             actual: Box::new(function.return_type.clone()),
-            source: source.clone(),
+            input,
             span: expr.span.clone(),
             function_span: function.span.clone(),
         }));
@@ -1784,9 +1814,50 @@ fn schema_mapping_converter_expr(
         ty: function.return_type.clone(),
         expr: SchemaDecodeMappingExpr::Converter {
             function: function.target_name.clone(),
-            arg: Box::new(SchemaDecodeMappingExpr::Field(source.clone())),
+            arg: Box::new(typed_arg.expr),
         },
     })
+}
+
+fn schema_mapping_converter_input(arg: &Expr) -> SchemaMappingConverterInput {
+    if let ExprKind::NamePath(segments) = &arg.kind
+        && let [source] = segments.as_slice()
+    {
+        return SchemaMappingConverterInput::SourceField(source.clone());
+    }
+    SchemaMappingConverterInput::Expression(schema_mapping_expr_render(arg))
+}
+
+fn schema_mapping_record_actual_type(
+    context: &SchemaMappingExprContext<'_>,
+    fields: &[veln_ast::RecordField],
+) -> Type {
+    Type::Record(
+        fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.clone(),
+                    schema_mapping_expr_actual_type(context, &field.expr),
+                )
+            })
+            .collect(),
+    )
+}
+
+fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr: &Expr) -> Type {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => {
+            if let [name] = segments.as_slice()
+                && let Some(ty) = context.schema_fields.get(name)
+            {
+                return ty.clone();
+            }
+            Type::Unknown
+        }
+        ExprKind::Record(fields) => schema_mapping_record_actual_type(context, fields),
+        _ => Type::Unknown,
+    }
 }
 
 fn schema_mapping_name_expr(
@@ -1859,6 +1930,7 @@ fn schema_mapping_constructor_expr(
     args: &[Expr],
     expected: &Type,
     constructor: AdtConstructor<'_>,
+    allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
     let expected_count = constructor.variant.payload_fields.len();
     if args.len() != expected_count {
@@ -1873,7 +1945,8 @@ fn schema_mapping_constructor_expr(
     let mut payload_types = Vec::new();
     for (index, arg) in args.iter().enumerate() {
         let payload_ty = adt::payload_type(expected, constructor, index).unwrap_or(Type::Unknown);
-        let typed = schema_mapping_expr_typed_inner(context, arg, &payload_ty)?;
+        let typed =
+            schema_mapping_expr_typed_inner(context, arg, &payload_ty, allow_converter_calls)?;
         payload_types.push(typed.ty);
         payload_exprs.push(typed.expr);
     }

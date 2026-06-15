@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_converter\"", "schema mapping converter `missing_converter` is not resolved", "\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `two_params` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_converter_input\"", "schema mapping converter `needs_text` expects `String`, but source field `kind` decodes as `Int`", "\"id\":\"schema.mapping_converter_return\"", "schema mapping converter `to_text` returns `String`, but target field `bad_return` expects `Int`", "\"id\":\"schema.mapping_converter_purity\"", "schema mapping converter `noisy` must be pure", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `convert({ value: kind })` is not supported", "\"input_source_field\":\"kind\"", "\"effects\":[\"stdio\"]"]
+contains = ["\"id\":\"schema.mapping_converter\"", "schema mapping converter `missing_converter` is not resolved", "\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `two_params` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_converter_input\"", "schema mapping converter `needs_text` expects `String`, but source field `kind` decodes as `Int`", "schema mapping converter `from_text` expects `String`, but argument expression `{ value: kind }` has type `{value: Int}`", "\"id\":\"schema.mapping_converter_return\"", "schema mapping converter `to_text` returns `String`, but target field `bad_return` expects `Int`", "\"id\":\"schema.mapping_converter_purity\"", "schema mapping converter `noisy` must be pure", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `kind + 1` is not supported", "\"input_source_field\":\"kind\"", "\"input_expression\":\"{ value: kind }\"", "\"effects\":[\"stdio\"]"]
 
 [stderr]
 format = "empty"
@@ -42,4 +42,12 @@ equals = "schema.mapping_converter_purity"
 
 [[json_assert]]
 path = "diagnostics.5.id"
+equals = "schema.mapping_converter_input"
+
+[[json_assert]]
+path = "diagnostics.5.details.input_expression"
+equals = "{ value: kind }"
+
+[[json_assert]]
+path = "diagnostics.6.id"
 equals = "schema.mapping_expression_unsupported"
