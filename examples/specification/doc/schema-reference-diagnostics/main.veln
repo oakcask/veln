@@ -1,0 +1,12 @@
+use wire
+
+## Missing schema {@schema wire::MissingPacket}.
+## Private schema {@schema wire::PrivatePacket}.
+## Function target {@schema wire::make_packet}.
+## Type target {@schema wire::PacketShape}.
+## Codec target {@schema wire::PacketCodec}.
+## Schema field target {@schema wire::length}.
+## Generated helper target {@schema wire::byte_decode_public_packet}.
+pub fn documented() -> Int
+	1
+end

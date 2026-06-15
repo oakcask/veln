@@ -515,6 +515,21 @@ attach at most one expected-output fence for each stream. A second
 `doctest.duplicate_output` at the duplicate fence and leaves the first fence as
 the selected expectation.
 
+Documentation line comments may also contain schema references written as
+`{@schema Name}` or `{@schema module::Name}`. Schema documentation references
+resolve through the same schema-aware lookup used by codec declaration heads:
+bare references resolve schemas and public schema aliases in the same module,
+and qualified references require a matching written `use` path and a public
+schema or public schema alias. Missing, private, function, source ADT type, and
+codec targets are rejected with name diagnostics at the referenced name span.
+Schema documentation references do not import schema-local field names, expose
+generated helper names, expose codec names, or create ordinary source type
+bindings. The generated Markdown documentation renders a resolved schema
+reference as code text. The executable documentation cases
+`../../examples/specification/doc/schema-references/` and
+`../../examples/specification/doc/schema-reference-diagnostics/` pin the
+accepted and rejected behavior.
+
 Documentation line comments may also contain ADR-lite records. A complete
 record starts with `## @adr` or `## @adr-lite` and then provides these fields
 as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,

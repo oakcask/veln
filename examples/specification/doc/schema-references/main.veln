@@ -1,0 +1,15 @@
+use wire
+use facade
+
+## Documents same-module {@schema LocalPacket}, private same-module {@schema PrivatePacket}, imported {@schema wire::PublicPacket}, and alias {@schema facade::AliasPacket}.
+pub schema LocalPacket
+	format binary
+
+	length: UInt8
+end
+
+schema PrivatePacket
+	format binary
+
+	length: UInt8
+end
