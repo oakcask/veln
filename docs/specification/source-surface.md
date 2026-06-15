@@ -172,8 +172,9 @@ named through written `use` paths, also expose generated
 one direct structural `map to Target` clause can make that helper accept the
 mapping target record shape when every visible encode field, including
 `Flag8` fields, is assigned from a schema-local field reference, or when the
-only visible encode field is a `Flag8` field wrapped by a direct
-single-constructor ADT call. Multiple selected mapping clauses, mapping
+visible encode field is wrapped by a direct single-constructor ADT call whose
+only payload is one schema-local visible exact-width integer field or a
+schema-local `Flag8` field. Multiple selected mapping clauses, mapping
 expressions that cannot be projected back to schema-local fields, encode-time
 field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload

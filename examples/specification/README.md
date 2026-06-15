@@ -635,6 +635,12 @@ against the built `veln` binary.
 - `run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`: the
   mapped ADT constructor encode path preserves the ordinary `Flag8` one-byte
   range failure shape on the schema-local field path.
+- `run/binary-schema-int-mapped-constructor-encode/`: generated schema encode
+  helpers project direct single-constructor ADT integer payloads back to
+  schema-local exact-width fields and write their declared byte order.
+- `run/binary-schema-int-mapped-constructor-encode-out-of-range/`: the mapped
+  ADT constructor encode path preserves the ordinary exact-width integer range
+  failure shape on the schema-local field path.
 - `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
   bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
   explicit count field.

@@ -1061,7 +1061,8 @@ fn schema_encode_function_signature_for_schema(
             fields.push((field.name.clone(), payload_ty));
         }
     }
-    let value_fields = schema_encode_value_fields(module, schema, &fields)?;
+    let value_fields =
+        schema_encode_value_fields(module, schema, &fields, &exact_width_field_names)?;
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let encode_error = Type::named("EncodeError", Vec::new());
     Some(FunctionSignature {
@@ -1089,9 +1090,15 @@ fn schema_encode_value_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
 ) -> Option<Vec<(String, Type)>> {
     let [] = schema.mappings.as_slice() else {
-        return schema_encode_mapping_value_fields(module, schema, schema_fields);
+        return schema_encode_mapping_value_fields(
+            module,
+            schema,
+            schema_fields,
+            exact_width_field_names,
+        );
     };
     Some(schema_fields.to_vec())
 }
@@ -1100,6 +1107,7 @@ fn schema_encode_mapping_value_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
 ) -> Option<Vec<(String, Type)>> {
     let [mapping] = schema.mappings.as_slice() else {
         return None;
@@ -1117,6 +1125,7 @@ fn schema_encode_mapping_value_fields(
             module,
             schema,
             &schema_field_types,
+            exact_width_field_names,
             assignment,
             target_ty,
         )?;
@@ -1140,6 +1149,7 @@ fn schema_encode_mapping_assignment_source(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
     assignment: &veln_ast::SchemaMappingAssignment,
     target_ty: &Type,
 ) -> Option<String> {
@@ -1183,7 +1193,10 @@ fn schema_encode_mapping_assignment_source(
         return None;
     };
     let source_ty = schema_field_types.get(source)?;
-    is_type_flag8(source_ty).then(|| source.clone())
+    (is_type_flag8(source_ty)
+        || (source_ty == &Type::int()
+            && exact_width_field_names.iter().any(|field| field == source)))
+    .then(|| source.clone())
 }
 
 fn is_type_flag8(ty: &Type) -> bool {

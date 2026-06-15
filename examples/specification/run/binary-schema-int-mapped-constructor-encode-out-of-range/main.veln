@@ -1,0 +1,50 @@
+use stdio
+
+type SampleValue
+	SampleValue(Int)
+end
+
+type ConstructorIntSample
+	ConstructorIntSample {value: SampleValue}
+end
+
+schema ConstructorIntSampleWire
+	format binary
+
+	wire_value: UInt16be
+
+	map to ConstructorIntSample
+		value = SampleValue(wire_value)
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_constructor_int_sample_wire({value: SampleValue(65536)})
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
