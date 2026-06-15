@@ -17,15 +17,8 @@ fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker 
 	end
 end
 
-fn spawned_stream_handler() -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
-	let route = channel::bounded<StreamEvent>(1)
-	let marker: ByteChunk = byte_chunk([])
-	let _ = channel::send(route.tx, Request(11, marker))
-	let event: StreamEvent = match channel::recv(route.rx)
-		Some(value) => value
-		None => PeerClosed(11)
-	end
-	handle_stream_event(event, { request_count: 40, marker: marker })
+fn spawned_stream_handler(input: { event : StreamEvent, state : { request_count : Int, marker : ByteChunk } }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	handle_stream_event(input.event, input.state)
 end
 
 fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
@@ -50,8 +43,17 @@ pub fn handler_boundary(event: StreamEvent, state: { request_count : Int, marker
 	handle_stream_event(event, state)
 end
 
+pub fn task_handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	let worker = task::spawn_with<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, { event: event, state: state })
+	match task::join(worker)
+		Ok(value) => value
+		Err(_) => { actions: list_nil(), next_state: state }
+	end
+end
+
 pub fn adapter_missing_concurrency(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
-	let worker = task::spawn<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler)
+	let marker: ByteChunk = byte_chunk([])
+	let worker = task::spawn_with<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, { event: Request(11, marker), state: state })
 	let _ = task::join(worker)
 	route_socket_events(stream, 7, state)
 end

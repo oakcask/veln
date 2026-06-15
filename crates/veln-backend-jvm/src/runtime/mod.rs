@@ -138,6 +138,7 @@ runtime_method_table!(concurrency_method, "channelRecv", {
     "channel::select_timeout_result" => "channelSelectTimeoutResult",
     "channel::close" => "channelClose",
     "task::spawn" => "taskSpawn",
+    "task::spawn_with" => "taskSpawnWith",
     "task::join" => "taskJoin",
     "task::cancel" => "taskCancel",
 });

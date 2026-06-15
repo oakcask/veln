@@ -597,6 +597,7 @@ Implemented expressions:
   `channel::select_timeout_result(left, right, timeout_ms)`, and
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn<Item>(job)`,
+  `task::spawn_with(job, arg)`, `task::spawn_with<Item>(job, arg)`,
   `task::join(task)`, and `task::cancel(task)`
 - network and time boundary calls: `net::receive_chunk()`,
   `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,

@@ -34,8 +34,9 @@ compiler-known calls.
   The socket stream adapter routing examples compose existing `net` stream
   calls with existing channel and task calls under `concurrency`, including
   optional listener accept, multiple optional reads from an accepted stream,
-  clean end translated to `StreamInput.End`, and ordered write projection;
-  they add no new effect label or compiler-known routing call.
+  clean end translated to `StreamInput.End`, argument-carrying spawned
+  handler tasks over ordinary event and state values, and ordered write
+  projection; they add no new effect label or compiler-known routing call.
   The channel-first stream routing examples use two and three typed
   `StreamInput` channels plus existing channel selection before invoking a
   plain handler. The routing adapter requires `concurrency`, socket wrappers

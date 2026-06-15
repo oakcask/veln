@@ -143,6 +143,7 @@ The current workspace implements a minimal executable bounded-channel slice:
 effect calls. Public functions and tests that reach these calls must declare
 `effects [concurrency]`. It also implements an executable task slice:
 `task::spawn(job)`, `task::spawn<T>(job)`,
+`task::spawn_with(job, arg)`, `task::spawn_with<T>(job, arg)`,
 `task::join(task)`, and `task::cancel(task)` are `concurrency` effect calls.
 
 The implemented constructor infers the item type from an expected

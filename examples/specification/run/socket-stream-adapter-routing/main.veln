@@ -74,20 +74,14 @@ fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count
 	{ actions: append_actions(first_result.actions, second_result.actions), next_state: second_result.next_state }
 end
 
-fn spawned_stream_handler() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
-	let payload: ByteChunk = byte_chunk_from_hex("050607")?
-	let marker: ByteChunk = byte_chunk_from_hex("cc")?
-	let route = channel::bounded<StreamEvent>(1)
-	let _ = channel::send(route.tx, Request(11, payload))
-	let event: StreamEvent = match channel::recv(route.rx)
-		Some(value) => value
-		None => PeerClosed(11)
-	end
-	Ok(handle_stream_event(event, { request_count: 40, marker: marker }))
+fn spawned_stream_handler(input: { event : StreamEvent, state : { request_count : Int, marker : ByteChunk } }) -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
+	Ok(handle_stream_event(input.event, input.state))
 end
 
 fn run_stream_task() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
-	let worker = task::spawn<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler)
+	let payload: ByteChunk = byte_chunk_from_hex("050607")?
+	let marker: ByteChunk = byte_chunk_from_hex("cc")?
+	let worker = task::spawn_with<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler, { event: Request(11, payload), state: { request_count: 40, marker: marker } })
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => Err("stream task failed")

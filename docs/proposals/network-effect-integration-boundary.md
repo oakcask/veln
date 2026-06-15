@@ -13,7 +13,9 @@ channel-first stream event routing slices, the first cancellable adapter-owned
 wait boundary, the value-returning cancellable wait outcome slice, and
 adapter-level cancellable stream routing over ordinary response action values,
 including one fixture output that routes completed, deadline-expired, and
-cancelled outcomes, are current behavior under
+cancelled outcomes, plus the one-argument spawned handler task slice that
+passes ordinary event and state values across the task boundary, are current
+behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced accept, read, and write failures, and forced
@@ -51,7 +53,8 @@ routing slices for:
   adapter-level cancellable stream routing and socket/channel routing slices
 - richer channel-first stream event routing beyond the checked two-route and
   three-route fixture shapes
-- per-stream task handling beyond the zero-argument spawned handler task
+- richer per-stream task handling beyond the one-argument spawned handler task
+  over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -190,6 +193,14 @@ free of socket handles and transport effects. The routing adapter requires
 `concurrency` and keep `NetStream` ownership and writes in adapter code. These
 slices add no new effect label or compiler-known routing call.
 
+Implemented argument-carrying stream-task slice: `task::spawn_with` starts a
+one-argument callable under the existing `concurrency` effect and returns
+`Task<T>`. Executable stream adapter coverage passes ordinary stream event and
+state values into a spawned handler task, joins the task, and receives ordinary
+response-action values. The spawned handler receives no `NetStream` or other
+transport handle, so task spawning requires `concurrency` but does not add a
+`net` requirement when the handler only receives ordinary values.
+
 ## Discussion Result: Transport Error Boundary
 
 Implemented first slices: descriptor-backed `net::receive_chunk` reports
@@ -277,9 +288,10 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, adapter-owned lifecycle, two-route and three-route channel-first
-  stream routing, and adapter-level cancellable stream routing slices, richer
-  stream routing, and richer deadline and cancellation APIs beyond the narrow
-  relative `Deadline` and `CancelToken` boundaries.
+  stream routing, one-argument spawned handler task, and adapter-level
+  cancellable stream routing slices, richer stream routing, and richer
+  deadline and cancellation APIs beyond the narrow relative `Deadline` and
+  `CancelToken` boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
