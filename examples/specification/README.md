@@ -419,6 +419,11 @@ against the built `veln` binary.
   nine through fifteen plus visible `UIntN` fields that complete two
   big-endian bytes, omit the reserved fields, and continue after the shared
   storage unit.
+- `run/binary-schema-packed-reserved-three-byte-decode/`: generated schema
+  decode helpers consume packed `ReservedBits(width, value)` prefixes and
+  suffixes that share one three-byte big-endian storage unit with visible
+  `UIntN` fields, omit the reserved fields, and continue after the shared
+  storage unit.
 - `run/binary-schema-packed-reserved-json/`: generated schema decode helpers
   report `schema.reserved_bits_mismatch` for a one-byte packed reserved
   prefix with field path, byte offset, bit width, expected value, actual
@@ -449,6 +454,10 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for a two-byte packed
   reserved suffix with field path, byte offset, bit width, expected value, and
   actual value details.
+- `run/binary-schema-packed-reserved-three-byte-suffix-json/`: generated schema
+  decode helpers report `schema.reserved_bits_mismatch` for a three-byte
+  packed reserved suffix with field path, byte offset, bit width, expected
+  value, and actual value details.
 - `run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`:
   generated schema decode helpers report `schema.truncated_field` at the
   visible field path when input ends before the shared suffix storage unit is
@@ -612,6 +621,10 @@ against the built `veln` binary.
   helpers write packed reserved prefixes for widths one through seven and
   nine through fifteen from the declared fixed value and visible low-bit
   fields from the source value record.
+- `run/binary-schema-packed-reserved-three-byte-encode/`: generated schema
+  encode helpers write three-byte packed reserved prefixes and suffixes from
+  the declared fixed value and visible `UIntN` fields from the source value
+  record.
 - `run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`: generated
   schema encode helpers report `codec.encode_value_unrepresentable` against
   the visible low-bit field when a two-byte packed source value is outside
