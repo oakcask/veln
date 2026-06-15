@@ -1,0 +1,120 @@
+# Binary schema helpers decode and encode a non-HTTP packet shape.
+use stdio
+
+schema TelemetryPayload
+	format binary
+
+	channel_reserved: ReservedBits(3, 5)
+	channel: UInt5
+	reading: UInt16le
+end
+
+schema TelemetryEnvelope
+	format binary
+
+	section_length: UInt8
+	payload_length: UInt8
+	kind: UInt8
+	flags: Flag8
+	sample_count: UInt8
+	samples: Repeat(sample_count, UInt16be)
+	padding: ReservedBits(8, 0)
+	metadata: ByteView(section_length - payload_length)
+	payload: ExtensionDispatch(kind, payload_length, 1 => TelemetryPayload)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn chunk_byte(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn expected_packet_byte(index: Int) -> Int
+	match index
+		0 => 5
+		1 => 3
+		2 => 1
+		3 => 40
+		4 => 2
+		5 => 1
+		6 => 2
+		7 => 3
+		8 => 4
+		9 => 0
+		10 => 170
+		11 => 187
+		12 => 177
+		13 => 52
+		14 => 18
+		_ => -1
+	end
+end
+
+fn packet_bytes_match(chunk: ByteChunk, index: Int) -> Result<Bool, String>
+	match index == 15
+		true => Ok(true)
+		false => match chunk_byte(chunk, index)? == expected_packet_byte(index)
+			true => packet_bytes_match(chunk, index + 1)
+			false => Ok(false)
+		end
+	end
+end
+
+fn matches_expected_packet(chunk: ByteChunk) -> Result<Bool, String>
+	match byte_count_to_int(byte_chunk_count(chunk)) == 15
+		true => packet_bytes_match(chunk, 0)
+		false => Ok(false)
+	end
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	let matches: Bool = matches_expected_packet(bytes)?
+	match matches
+		true => emit_encoded_chunk_unchecked(name, bytes, expected_hex)
+		false => Err("encoded chunk mismatch")
+	end
+end
+
+fn emit_encoded_chunk_unchecked(name: String, bytes: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+	Ok(())
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => Err("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let expected_hex: String = "05030128020102030400aabbb13412"
+	let bytes: ByteChunk = byte_chunk_from_hex(expected_hex)?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(15)?)?
+	let decoded: { section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> } = byte_decode_telemetry_envelope(view)?
+	let roundtrip: Result<ByteChunk, EncodeError> = byte_encode_telemetry_envelope(decoded)
+	let roundtrip_output: () = emit_encoded("general-helper-roundtrip", roundtrip, expected_hex)?
+	let samples: List<Int> = list_cons(258, list_cons(772, list_nil()))
+	let metadata: ByteView = byte_view(byte_chunk_from_hex("aabb")?, byte_offset(0)?, byte_count(2)?)?
+	let payload: SchemaDispatchPayload<{ channel : Int, reading : Int }> = Known({ channel: 17, reading: 4660 })
+	let direct: Result<ByteChunk, EncodeError> = byte_encode_telemetry_envelope({ section_length: 5, payload_length: 3, kind: 1, flags: Flag8(40), sample_count: 2, samples: samples, metadata: metadata, payload: payload })
+	let direct_output: () = emit_encoded("general-helper-direct", direct, expected_hex)?
+	Ok(())
+end

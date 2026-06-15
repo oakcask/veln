@@ -199,6 +199,10 @@ execution reference.
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-unknown/`,
   and
   `examples/specification/run/binary-schema-extension-dispatch-length-human/`.
+  `examples/specification/run/binary-schema-general-helper-roundtrip/`
+  combines `Flag8`, bounded repeat, supported reserved bits,
+  `ByteView(left_length - right_length)`, and nested extension dispatch in a
+  non-HTTP schema and checks successful decode followed by encode.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause, or multiple structural mapping clauses selected by
   `when field == literal`, and each target resolves to the same decoded record
@@ -366,6 +370,7 @@ execution reference.
   `examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-dispatch-nested-encode-failure/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`,
+  `examples/specification/run/binary-schema-general-helper-roundtrip/`,
   and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.
 - A codec declaration with a valid `derive encode` clause for the same

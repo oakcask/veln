@@ -80,9 +80,11 @@ selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, extension-tolerant known payloads, and nested helper
-diagnostics. General schema decode, general schema encode, recursive or
-otherwise ineligible dispatch payload schemas, and schema value mapping remain
-proposal work.
+diagnostics. A checked non-HTTP telemetry envelope combines the implemented
+helper vocabulary in one generated decode-and-encode schema. Recursive or
+otherwise ineligible dispatch payload schemas, broader unsupported field
+layouts, and schema value mapping beyond the implemented structural slices
+remain proposal work.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
 one byte through the existing `UInt8` representation path, decodes to the
@@ -369,13 +371,5 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- Executable examples show binary schema writes and general schema-owned
-  fixed-width reads beyond the implemented frame-header, width-sample,
-  visible fixed-field mismatch, little-endian primitive widths, primitive
-  encode helper, reserved-bit decode and encode helper, closed-dispatch
-  primitive, extension-dispatch primitive, same-module and imported public
-  nested dispatch decode and encode helper slices through the generalized
-  nested payload helper path, and HTTP/2 payload boundary helper.
-- The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
   through general schema declarations instead of the current narrow helper.

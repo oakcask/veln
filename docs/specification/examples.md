@@ -476,6 +476,9 @@ decoded tag and a bounded raw `ByteView` without reporting
 `schema.dispatch_unknown_tag`. The malformed structural case still reports
 `schema.length_out_of_bounds` when the decoded length cannot be sliced from
 closed input.
+`../../examples/specification/run/binary-schema-general-helper-roundtrip/`
+combines supported generated helper fields in one non-HTTP schema and checks
+that successful decode followed by encode preserves the same bytes.
 
 ## Stream Adapter Event Boundary
 

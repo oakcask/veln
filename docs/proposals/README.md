@@ -55,7 +55,8 @@ compare it with `../specification/` before changing behavior.
   primitive, same-module nested, and imported public nested payload helpers.
   The nested payload helper slices route selected nested payload schemas
   through the same generated binary schema helper path used for ordinary
-  generated schema fields.
+  generated schema fields, and checked non-HTTP coverage combines the
+  implemented helper vocabulary in one decode-and-encode schema.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,
