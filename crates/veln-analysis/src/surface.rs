@@ -1350,6 +1350,7 @@ fn collect_schema_mapping_converter_callees_for_call(
                 collect_schema_mapping_expr_converter_callees(
                     &assignment.expr,
                     schema.module_name.as_deref(),
+                    &module.uses,
                     function_targets,
                     callees,
                 );
@@ -1361,26 +1362,29 @@ fn collect_schema_mapping_converter_callees_for_call(
 fn collect_schema_mapping_expr_converter_callees(
     expr: &Expr,
     current_module: Option<&str>,
+    uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
 ) {
     let mut calls = Vec::new();
     collect_called_name_paths(expr, &mut calls);
     for segments in calls {
-        let [name] = segments.as_slice() else {
-            continue;
-        };
-        for target in function_targets.iter().filter(|target| {
-            target.name == *name && target.module_name.as_deref() == current_module
-        }) {
-            push_reachable(
-                callees,
-                ReachableFunction {
+        let targets = match segments.as_slice() {
+            [name] => function_targets
+                .iter()
+                .filter(|target| {
+                    target.name == *name && target.module_name.as_deref() == current_module
+                })
+                .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
                     name: target.target_name.clone(),
                     module_name: target.target_module_name.clone(),
-                },
-            );
+                })
+                .collect(),
+            _ => resolve_function_reference(&segments, current_module, uses, function_targets),
+        };
+        for target in targets {
+            push_reachable(callees, target);
         }
     }
 }
@@ -2285,6 +2289,69 @@ mod tests {
             vec![
                 (Some("main"), FunctionKind::Function, Some("next_kind")),
                 (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_imported_schema_mapping_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use helpers\n",
+                        "\n",
+                        "type Header\n",
+                        "  Header {kind: Int}\n",
+                        "end\n",
+                        "\n",
+                        "schema HeaderWire\n",
+                        "  format binary\n",
+                        "  wire_kind: UInt8\n",
+                        "\n",
+                        "  map to Header\n",
+                        "    kind = helpers::next_kind(wire_kind)\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
+                        "  byte_decode_header_wire(view)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "helpers.veln",
+                    concat!(
+                        "pub fn next_kind(kind: Int) -> Int\n",
+                        "  kind + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("main")),
+                (Some("helpers"), FunctionKind::Function, Some("next_kind")),
             ]
         );
     }

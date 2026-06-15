@@ -82,10 +82,13 @@ structural `map to Target` clauses whose assignment lines use
 `target_field = expression` to map schema-local fields into an ordinary
 source value shape. The implemented mapping expression slice supports
 schema-local field references, record construction, ADT constructor
-construction resolved through ordinary source module rules, and one pure
-same-module converter function call from a schema-local field into a target
-field. Other ordinary calls, imported converter functions, effects, runtime
-settings, stream state, and recovery behavior are not mapping expressions.
+construction resolved through ordinary source module rules, one pure
+same-module converter function call, or one imported public pure converter
+function call through a written `use` path or alias. Converter calls take one
+schema-local field argument and assign the returned value to the target field.
+Other ordinary calls, bare imported converter names, private imported
+converters, effects, runtime settings, stream state, and recovery behavior are
+not mapping expressions.
 Mapping clauses are parsed, formatted, lowered, exposed to editor support,
 and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has one structural mapping, or
@@ -121,6 +124,9 @@ arity, and constructor payload type diagnostics. The checked diagnostics case
 pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
 unsupported converter shape diagnostics.
+The checked diagnostics case
+`../../examples/specification/check/schema-imported-mapping-converter-diagnostics/`
+pins imported converter visibility and missing written import-path diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8` bitset fields, supported byte-aligned

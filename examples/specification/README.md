@@ -246,6 +246,10 @@ against the built `veln` binary.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter shape diagnostics.
+- `check/schema-imported-mapping-converter-diagnostics/`: imported
+  converter-shaped schema mapping assignment values report unresolved paths,
+  private converters, missing written import paths, arity, input type, return
+  type, and purity diagnostics.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -493,6 +497,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-converter-decode/`: a generated binary schema
   decode helper calls a pure same-module converter on a schema-local field
   before returning the decoded value.
+- `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
+  schema decode helper calls imported public pure converters through written
+  `use` paths before returning the decoded value.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

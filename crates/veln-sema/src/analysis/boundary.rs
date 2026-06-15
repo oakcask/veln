@@ -2993,6 +2993,40 @@ fn schema_mapping_expr_diagnostic(
                 ],
             ),
         ),
+        SchemaMappingExprError::PrivateConverter {
+            name,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_visibility",
+                Severity::Error,
+                DiagnosticKind::Name,
+                format!("schema mapping converter `{name}` is private"),
+                Some(span),
+                schema_mapping_assignment_details(
+                    assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    assignment,
+                    [
+                        ("reason", JsonValue::string("private_converter")),
+                        (
+                            "mapping_target",
+                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                        ),
+                        ("converter", JsonValue::string(name)),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
         SchemaMappingExprError::ConstructorArity {
             name,
             expected,

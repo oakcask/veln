@@ -1161,6 +1161,11 @@ pub(crate) enum SchemaMappingExprError {
         name: String,
         span: SourceSpan,
     },
+    PrivateConverter {
+        name: String,
+        span: SourceSpan,
+        function_span: SourceSpan,
+    },
     ConstructorArity {
         name: String,
         expected: usize,
@@ -1460,22 +1465,34 @@ fn schema_mapping_expr_typed_unchecked(
                     span: expr.span.clone(),
                 }));
             };
-            if let [name] = segments.as_slice() {
-                if let Some(function) = schema_mapping_converter_function(
-                    context.converter_functions,
-                    context.schema,
-                    name,
-                ) {
+            match schema_mapping_converter_function(context, segments) {
+                SchemaMappingConverterLookup::Found(function) => {
                     return schema_mapping_converter_expr(
                         context, expr, callee, args, function, expected,
                     );
                 }
-                if !schema_mapping_name_can_be_constructor(segments) {
-                    return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
-                        name: name.clone(),
+                SchemaMappingConverterLookup::Private(function) => {
+                    return Err(Box::new(SchemaMappingExprError::PrivateConverter {
+                        name: segments.join("::"),
                         span: callee.span.clone(),
+                        function_span: function.span.clone(),
                     }));
                 }
+                SchemaMappingConverterLookup::Missing => {}
+            }
+            if let [name] = segments.as_slice()
+                && !schema_mapping_name_can_be_constructor(segments)
+            {
+                return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
+                    name: name.clone(),
+                    span: callee.span.clone(),
+                }));
+            }
+            if segments.len() > 1 && schema_mapping_name_can_be_converter(segments) {
+                return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
+                    name: segments.join("::"),
+                    span: callee.span.clone(),
+                }));
             }
             if !schema_mapping_name_can_be_constructor(segments) {
                 return Err(Box::new(SchemaMappingExprError::Unsupported {
@@ -1522,14 +1539,49 @@ fn schema_mapping_expr_typed_inner(
     Ok(typed)
 }
 
+enum SchemaMappingConverterLookup<'a> {
+    Found(&'a FunctionSignature),
+    Private(&'a FunctionSignature),
+    Missing,
+}
+
 fn schema_mapping_converter_function<'a>(
-    functions: &'a [FunctionSignature],
-    schema: &SchemaDecl,
-    name: &str,
-) -> Option<&'a FunctionSignature> {
-    functions
-        .iter()
-        .find(|function| function.name == name && schema_mapping_same_module(function, schema))
+    context: &SchemaMappingExprContext<'a>,
+    segments: &[String],
+) -> SchemaMappingConverterLookup<'a> {
+    match segments {
+        [name] => context
+            .converter_functions
+            .iter()
+            .find(|function| {
+                function.name == *name && schema_mapping_same_module(function, context.schema)
+            })
+            .map_or(
+                SchemaMappingConverterLookup::Missing,
+                SchemaMappingConverterLookup::Found,
+            ),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &context.module.uses,
+                &segments[..segments.len() - 1],
+                context.schema.module_name.as_deref(),
+            ) else {
+                return SchemaMappingConverterLookup::Missing;
+            };
+            let module_name = use_decl.name.as_str();
+            let Some(function) = context.converter_functions.iter().find(|function| {
+                function.name == *name && function.module_name.as_deref() == Some(module_name)
+            }) else {
+                return SchemaMappingConverterLookup::Missing;
+            };
+            if function.visibility == Visibility::Public {
+                SchemaMappingConverterLookup::Found(function)
+            } else {
+                SchemaMappingConverterLookup::Private(function)
+            }
+        }
+        _ => SchemaMappingConverterLookup::Missing,
+    }
 }
 
 fn schema_mapping_same_module(function: &FunctionSignature, schema: &SchemaDecl) -> bool {
@@ -1768,6 +1820,13 @@ fn schema_mapping_name_can_be_constructor(segments: &[String]) -> bool {
             .last()
             .and_then(|name| name.chars().next())
             .is_some_and(char::is_uppercase)
+}
+
+fn schema_mapping_name_can_be_converter(segments: &[String]) -> bool {
+    segments
+        .last()
+        .and_then(|name| name.chars().next())
+        .is_some_and(char::is_lowercase)
 }
 
 fn schema_mapping_expr_render(expr: &Expr) -> String {

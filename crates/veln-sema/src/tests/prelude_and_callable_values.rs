@@ -1494,6 +1494,78 @@ fn generated_schema_decode_helpers_keep_structural_mapping_expressions() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use helpers\n",
+            "\n",
+            "type Header\n",
+            "  Header {kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    kind = helpers::next_kind(wire_kind)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod helpers\n",
+            "pub fn next_kind(kind: Int) -> Int\n",
+            "  kind + 1\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        types: app.types,
+        functions: app.functions.into_iter().chain(helpers.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let kind = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "kind")
+        .expect("kind mapping should be emitted");
+    assert!(matches!(
+        &kind.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg }
+            if function == "next_kind"
+                && matches!(
+                    arg.as_ref(),
+                    veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "wire_kind"
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_require_int_byte_view_length_field() {
     let source = SourceFile::new(
         "main.veln",
