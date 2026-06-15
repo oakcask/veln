@@ -56,7 +56,7 @@ compare it with `../specification/` before changing behavior.
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
   decode and encode slices, bounded `Repeat(count_field, ByteView(length_field))`
-  decode and derived decode boundary slices, length-bounded `ByteView(length_field)` and
+  decode and encode plus derived codec boundary slices, length-bounded `ByteView(length_field)` and
   `ByteView(left_length - right_length)` decode and encode,
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema

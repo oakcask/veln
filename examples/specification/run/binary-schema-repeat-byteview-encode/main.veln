@@ -1,0 +1,49 @@
+# Binary schema Repeat fields encode counted ByteView lists.
+use stdio
+
+schema CountedViews
+	format binary
+
+	count: UInt8
+	item_length: UInt8
+	items: Repeat(count, ByteView(item_length))
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	emit_output_chunk_list_header("counted-views", 1)
+	emit_output_chunk("counted-views", 0, bytes, "0302aabbccddeeff")
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let second_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
+	let third_bytes: ByteChunk = byte_chunk_from_hex("eeff")?
+	let first: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(2)?)?
+	let third: ByteView = byte_view(third_bytes, byte_offset(0)?, byte_count(2)?)?
+	let items: List<ByteView> = list_cons(first, list_cons(second, list_cons(third, list_nil())))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_views({count: 3, item_length: 2, items: items})
+	let emitted: () = match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+	Ok(())
+end

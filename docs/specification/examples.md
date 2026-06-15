@@ -436,6 +436,12 @@ field path, and the view-count mismatch reason. The derived codec boundary
 case
 `../../examples/specification/run/derived-codec-byteview-encode-boundary/`
 pins the same helper eligibility through `derive encode`.
+The repeated byte-view encode cases listed in
+`../../examples/specification/README.md` pin generated encode for
+`Repeat(count_field, ByteView(length_field))`. The passing case writes the
+count field, length field, and each element's bounded bytes in order; the
+failing cases assert the encode error id, repeated field path plus element
+index, view-count mismatch reason, and `derive encode` error projection.
 `../../examples/specification/run/binary-schema-byteview-subtract-decode/`,
 `../../examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
 `../../examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,

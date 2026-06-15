@@ -338,6 +338,70 @@ fn generated_schema_helpers_resolve_bounded_repeated_nested_schema_fields() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_bounded_repeated_byte_view_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedViews\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  item_length: UInt8\n",
+            "  items: Repeat(count, ByteView(item_length))\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, item_length: Int, items: List<ByteView>}, String>\n",
+            "  byte_decode_counted_views(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, item_length: Int, items: List<ByteView>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_views(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let write = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write")
+        .expect("write should be lowered");
+    let CoreStmtKind::Return { expr } = &write.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "CountedViews"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "CountedViews")
+        .expect("counted schema should be emitted");
+    let repeat = schema.fields[2]
+        .repeat
+        .as_ref()
+        .expect("items should carry repeat metadata");
+    assert_eq!(repeat.count_field, "count");
+    assert_eq!(
+        repeat.byte_view_length_field.as_deref(),
+        Some("item_length")
+    );
+    assert_eq!(repeat.width, 0);
+    assert!(repeat.payload_schema.is_none());
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_length_bounded_byte_view_fields() {
     let source = SourceFile::new(
         "main.veln",

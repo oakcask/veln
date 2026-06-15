@@ -664,6 +664,11 @@ prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, or four
 big-endian bytes,
+bounded `Repeat(count_field, Payload)` fields whose count names an earlier
+visible exact-width field and whose payload is an exact-width unsigned
+primitive, an eligible nested binary schema, or
+`ByteView(length_field)` whose length names an earlier visible exact-width
+field,
 length-bounded
 `ByteView(length_field)` fields whose
 length names an earlier visible exact-width field,
@@ -674,10 +679,11 @@ payload cases may be exact-width unsigned primitive payloads, earlier
 same-module binary schema payloads, or public imported binary schema payloads
 named through written `use` paths. Those helpers accept a schema-local visible
 record, using ordinary `Int` fields for visible primitives, `ByteView` fields
-for length-bounded payloads, and `SchemaDispatchPayload<T>` for extension
-dispatch payload fields, and return `Result<ByteChunk, EncodeError>` with
-field-order output using each primitive's declared byte order or a structured
-encode error. The
+for length-bounded payloads, `List<ByteView>` fields for repeated bounded
+byte-view payloads, and `SchemaDispatchPayload<T>` for extension dispatch
+payload fields, and return `Result<ByteChunk, EncodeError>` with field-order
+output using each primitive's declared byte order, each supplied byte view's
+bounded bytes, or a structured encode error. The
 supported reserved-bit encode layout omits byte-aligned
 `ReservedBits(width, value)` fields from the value record and writes their
 declared fixed values. It also omits `ReservedBits(1, 0)` from the value

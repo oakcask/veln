@@ -275,9 +275,11 @@ immutable output chunk. Helper `Err(EncodeError)` output is projected to
 Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
-primitive, supported reserved-bit, length-bounded `ByteView`, closed dispatch,
-extension dispatch, implemented direct structural mapping, and same-module or
-imported public nested dispatch payload slices remains unimplemented. When a
+primitive, supported reserved-bit, length-bounded `ByteView`, bounded repeated
+primitive, nested schema, and `ByteView(length_field)` payloads, closed
+dispatch, extension dispatch, implemented direct structural mapping, and
+same-module or imported public nested dispatch payload slices remains
+unimplemented. When a
 mapped schema uses a mapping expression shape that cannot be projected back to
 the schema-local encode record, the `derive encode` clause is rejected with
 `codec.encode_value_type`.
@@ -303,11 +305,15 @@ bounded `Repeat(count_field, Payload)` field emits exactly the number of
 elements named by the earlier count field, and
 `Repeat(left_count - right_count, Payload)` emits exactly the computed
 difference. Primitive payloads use `List<Int>`; nested schema payloads use a
-list of the nested schema's decoded record shape. A list length mismatch,
-primitive range failure, or nested element representation failure returns
+list of the nested schema's decoded record shape; repeated
+`ByteView(length_field)` payloads use `List<ByteView>` and write each
+element's bounded bytes in declaration order. A list length mismatch,
+primitive range failure, repeated byte-view element count mismatch, or nested
+element representation failure returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
-nested element failures prefix the field path with the repeated field and
-element index before the nested schema field path. A
+repeated byte-view element failures append the element index to the repeated
+field path, and nested element failures prefix the nested schema field path
+with the repeated field and element index. A
 byte-aligned `ReservedBits(width, value)` field is representation-only: it is
 omitted from the record and the helper emits the declared fixed value in
 declaration order. A `ReservedBits(1, 0)` field immediately before a

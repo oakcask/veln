@@ -341,15 +341,19 @@ execution reference.
   the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))` without emitting partial output. Bounded
-  repeated primitive fields are `List<Int>` record fields and repeated nested
+  repeated primitive fields are `List<Int>` record fields, repeated nested
   schema fields are list fields whose element type is the nested schema's
-  decoded record shape. They emit exactly the number of elements named by the
-  earlier count field or by the computed difference of two earlier count
-  operands. A list length mismatch, a primitive element outside the selected
-  primitive range, or a nested element representation failure returns
+  decoded record shape, and repeated `ByteView(length_field)` fields are
+  `List<ByteView>` record fields. They emit exactly the number of elements
+  named by the earlier count field or by the computed difference of two
+  earlier count operands. A list length mismatch, a primitive element outside
+  the selected primitive range, a repeated byte-view element whose bounded
+  byte count differs from the earlier length field, or a nested element
+  representation failure returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
-  reason))`; nested element failures prefix the field path with the repeated
-  field and element index before the nested schema field path. `Flag8` emits
+  reason))`; repeated byte-view element failures append the element index to
+  the repeated field path, and nested element failures prefix the nested schema
+  field path with the repeated field and element index. `Flag8` emits
   one byte through the same representation path as `UInt8`; `bits` values
   outside `0..255` return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
@@ -444,6 +448,8 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-subtract-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,
+  `examples/specification/run/binary-schema-repeat-byteview-encode/`,
+  `examples/specification/run/binary-schema-repeat-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
@@ -489,6 +495,7 @@ execution reference.
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   and
