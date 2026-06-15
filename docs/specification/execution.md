@@ -652,8 +652,12 @@ execution reference.
   connection stream, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads with bounded
   inspected-payload previews, accepted PING ACK distinction,
-  accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
-  PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE` rejection,
+  accepted PRIORITY dependency stream id, exclusive flag, and weight facts
+  recorded on the tracked open stream, replacement of those tracked priority
+  facts by a later accepted PRIORITY frame for the same stream, PRIORITY
+  stream-state failures for idle, closed-by-peer, reset, and mismatched
+  streams, PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE`
+  rejection,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS streams, and accepted
   `RST_STREAM` error-code facts as typed protocol values. In the server-side

@@ -827,8 +827,11 @@ outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack`,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures with inspected-payload byte previews, a PRIORITY
-frame that exposes dependency stream id, exclusive flag, and weight facts,
-PRIORITY stream id zero, wrong-length, and self-dependency failures, a GOAWAY
+frame that exposes dependency stream id, exclusive flag, and weight facts in
+the frame value and tracked open-stream state, replacement of those tracked
+facts by a later PRIORITY frame for the same stream, PRIORITY stream-state
+failures for idle, closed-by-peer, reset, and mismatched streams, PRIORITY
+stream id zero, wrong-length, and self-dependency failures, a GOAWAY
 frame that moves the connection into
 graceful shutdown with last-stream-id and error-code facts, wrong-length
 GOAWAY failures, and `RST_STREAM` receive behavior for open, zero-id,

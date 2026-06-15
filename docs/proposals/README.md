@@ -128,7 +128,9 @@ compare it with `../specification/` before changing behavior.
   diagnostics, stream id domain diagnostic slice including HEADERS and
   CONTINUATION on the connection stream, GOAWAY last-stream-id enforcement
   for later peer-created HEADERS, `RST_STREAM` receive slice,
-  PRIORITY receive slice with dependency facts and self-dependency diagnostic,
+  PRIORITY receive slice with dependency facts, tracked open-stream priority
+  state replacement, stream-state failure preservation, and self-dependency
+  diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   inbound DATA and HEADERS `END_STREAM` closed-by-peer stream lifecycle,
   peer-sent `PUSH_PROMISE` rejection on the server receive boundary, outbound

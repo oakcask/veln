@@ -473,10 +473,14 @@ the existing stream id domain failure, wrong-length `RST_STREAM` payloads use
 `RST_STREAM` frames remain stream-state invalid frame-kind failures.
 The implemented slice also receives PRIORITY frames on nonzero
 client-initiated stream ids. It decodes the five-byte payload into
-source-visible dependency stream id, exclusive flag, and weight facts.
-PRIORITY on stream id zero uses the existing stream id domain failure,
-wrong-length PRIORITY payloads use `http2.protocol.invalid_payload_length`,
-and PRIORITY self-dependency uses
+source-visible dependency stream id, exclusive flag, and weight facts, records
+those facts on the currently tracked open stream, and lets a later accepted
+PRIORITY frame for that stream replace the tracked dependency, exclusive flag,
+and weight. PRIORITY on idle, closed-by-peer, reset, or mismatched streams
+uses the existing stream-state failure boundary rather than opening or
+retargeting stream state. PRIORITY on stream id zero uses the existing stream
+id domain failure, wrong-length PRIORITY payloads use
+`http2.protocol.invalid_payload_length`, and PRIORITY self-dependency uses
 `http2.protocol.invalid_priority_dependency` in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details.
 The implemented slice also recognizes `PUSH_PROMISE` as a known HTTP/2 frame
