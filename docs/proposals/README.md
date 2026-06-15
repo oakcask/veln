@@ -109,7 +109,9 @@ compare it with `../specification/` before changing behavior.
   SETTINGS tracking slice, invalid
   frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
   preservation slice, HPACK fixture codec boundary slice including the static
-  indexed `0x82` `:method: GET` and `0x84` `:path: /` bytes,
+  indexed `0x82` `:method: GET`, `0x84` `:path: /`, `0x85`
+  `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
+  `:scheme: https` bytes,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   PADDED DATA receive handling with invalid-padding diagnostics,

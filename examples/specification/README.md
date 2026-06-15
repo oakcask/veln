@@ -937,8 +937,9 @@ against the built `veln` binary.
   header block with preserved payload bytes across multiple non-final
   CONTINUATION frames, single-frame HEADERS completion when `END_HEADERS` is
   combined with `END_STREAM`, completed HEADERS blocks that carry the HPACK
-  static indexed `0x82` `:method: GET` and `0x84` `:path: /` bytes through the
-  imported fixture codec,
+  static indexed `0x82` `:method: GET`, `0x84` `:path: /`, `0x85`
+  `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
+  `:scheme: https` bytes through the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind

@@ -283,9 +283,11 @@ projects `http2.peer_limit.header_list_size_exceeded` with observed size,
 allowed size, stream reference, receive-limit provenance, and rule
 provenance in ordinary output, human diagnostics, and JSON details.
 The imported HPACK fixture module also accepts the static indexed
-`:method: GET` header-block byte in a completed HEADERS frame, returns ordinary
-header-list data through the same accessors as the deterministic fixture-label
-blocks, advances immutable fixture state, and keeps unsupported HPACK bytes on
+`:method: GET`, `:path: /`, `:path: /index.html`, `:scheme: http`, and
+`:scheme: https` header-block bytes in completed HEADERS frames, returns
+ordinary header-list data through the same accessors as the deterministic
+fixture-label blocks, advances immutable fixture state, and keeps unsupported
+HPACK bytes on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -460,8 +462,9 @@ The remaining scope below is still planned work for the full protocol core.
 The implemented slice now also passes completed HEADERS and final CONTINUATION
 header-block bytes into an imported HPACK fixture module. That module returns
 ordinary header-list data plus a next immutable fixture state for deterministic
-fixture blocks and the static indexed `0x82` `:method: GET` and `0x84`
-`:path: /` bytes. Unsupported fixture blocks project through
+fixture blocks and the static indexed `0x82` `:method: GET`, `0x84`
+`:path: /`, `0x85` `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
+`:scheme: https` bytes. Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
 fixture decoding.
