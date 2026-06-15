@@ -1,0 +1,17 @@
+schema PackedTwoByteSuffixHeader
+	format binary
+
+	prefix: UInt8
+	control: UInt3
+	control_padding: ReservedBits(13, 1365)
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("12a5")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_two_byte_suffix_header(view)?
+	Ok(())
+end

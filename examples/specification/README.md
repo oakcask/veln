@@ -441,6 +441,18 @@ against the built `veln` binary.
 - `run/binary-schema-packed-reserved-suffix-truncated-json/`: generated schema
   decode helpers report `schema.truncated_field` at the visible field path
   when input ends before the shared suffix storage byte is complete.
+- `run/binary-schema-packed-reserved-two-byte-suffix-decode/`: generated
+  schema decode helpers consume a visible `UIntN` field followed by a
+  `ReservedBits(width, value)` suffix in the same two-byte big-endian storage
+  unit, decode the visible high bits, and omit the reserved suffix field.
+- `run/binary-schema-packed-reserved-two-byte-suffix-json/`: generated schema
+  decode helpers report `schema.reserved_bits_mismatch` for a two-byte packed
+  reserved suffix with field path, byte offset, bit width, expected value, and
+  actual value details.
+- `run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`:
+  generated schema decode helpers report `schema.truncated_field` at the
+  visible field path when input ends before the shared suffix storage unit is
+  complete.
 - `run/binary-schema-fixed-field-mismatch-json/`: generated schema decode
   helpers report `schema.fixed_field_mismatch` for a visible fixed exact-width
   field with field path, byte offset, expected value, actual value, and byte
@@ -611,6 +623,14 @@ against the built `veln` binary.
   schema encode helpers report `codec.encode_value_unrepresentable` against
   the visible high-bit field when a one-byte suffix source value is outside
   its field range.
+- `run/binary-schema-packed-reserved-two-byte-suffix-encode/`: generated
+  schema encode helpers write a visible `UIntN` field into the high bits and
+  the declared reserved suffix value into the low bits of the same two-byte
+  big-endian storage unit.
+- `run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`:
+  generated schema encode helpers report `codec.encode_value_unrepresentable`
+  against the visible high-bit field when a two-byte suffix source value is
+  outside its field range.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected
