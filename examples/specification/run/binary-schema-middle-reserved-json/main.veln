@@ -1,0 +1,13 @@
+schema MiddleReservedHeader
+	format binary
+
+	high: UInt3
+	gap: ReservedBits(2, 1)
+	low: UInt3
+end
+
+pub fn main() -> Result<{high: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("be")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	byte_decode_middle_reserved_header(view)
+end

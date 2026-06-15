@@ -1,0 +1,77 @@
+use stdio
+
+schema MiddleReservedHeader
+	format binary
+
+	high: UInt3
+	gap: ReservedBits(2, 1)
+	low: UInt3
+end
+
+fn encoded_byte_value(chunk: ByteChunk) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn emit_encoded_chunk(chunk: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::println(int_to_string(encoded_byte_value(chunk)?))
+	Ok(())
+end
+
+fn emit_unexpected_encode_failure() -> Result<(), String> effects [stdio]
+	stdio::println("unexpected encode failure")
+	Ok(())
+end
+
+fn emit_encode_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => emit_encoded_chunk(chunk)
+		Err(_) => emit_unexpected_encode_failure()
+	end
+end
+
+fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("ae")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let decoded: {high: Int, low: Int} = byte_decode_middle_reserved_header(view)?
+	stdio::println(int_to_string(decoded.high))
+	stdio::println(int_to_string(decoded.low))
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_middle_reserved_header({high: 5, low: 6})
+	let ignored: () = emit_encode_result(encoded)?
+
+	let rejected: Result<ByteChunk, EncodeError> = byte_encode_middle_reserved_header({high: 5, low: 8})
+	emit_encode_error(rejected)
+	Ok(())
+end

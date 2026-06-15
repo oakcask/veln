@@ -461,6 +461,54 @@
             : 0;
     }
 
+    private static int bitPackedVisibleBitWidth(SchemaFieldSpec field) {
+        if (field == null
+            || field.isReserved()
+            || field.dispatch != null
+            || field.repeat != null
+            || field.isLengthBoundedView()
+            || field.isFlagBitset()
+            || field.littleEndian
+            || field.width < 1
+            || field.width > 4) {
+            return 0;
+        }
+        for (int bitWidth = 1; bitWidth <= 32; bitWidth += 1) {
+            if (field.maxValue == reservedMaxValue(bitWidth)) {
+                return bitWidth;
+            }
+        }
+        return 0;
+    }
+
+    private static int middleReservedGroupStorageByteWidth(SchemaFieldSpec[] fields, int index) {
+        if (index + 2 >= fields.length) {
+            return 0;
+        }
+        SchemaFieldSpec left = fields[index];
+        SchemaFieldSpec reserved = fields[index + 1];
+        SchemaFieldSpec right = fields[index + 2];
+        if (reserved == null
+            || !reserved.isReserved()
+            || reservedByteWidth(reserved.reservedBitWidth) > 0
+            || !supportedReservedBits(reserved.reservedBitWidth, reserved.reservedValue)) {
+            return 0;
+        }
+        int leftBitWidth = bitPackedVisibleBitWidth(left);
+        int rightBitWidth = bitPackedVisibleBitWidth(right);
+        int totalBitWidth = leftBitWidth + reserved.reservedBitWidth + rightBitWidth;
+        return leftBitWidth > 0
+            && rightBitWidth > 0
+            && leftBitWidth % 8 != 0
+            && (leftBitWidth + reserved.reservedBitWidth) % 8 != 0
+            && (totalBitWidth == 8
+                || totalBitWidth == 16
+                || totalBitWidth == 24
+                || totalBitWidth == 32)
+            ? totalBitWidth / 8
+            : 0;
+    }
+
     private static final class SchemaDispatchSpec {
         final String tagField;
         final String lengthField;
@@ -1892,6 +1940,37 @@
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
         for (int index = 0; index < schema.fields.length; index += 1) {
             SchemaFieldSpec field = schema.fields[index];
+            int middleStorageByteWidth = middleReservedGroupStorageByteWidth(schema.fields, index);
+            if (middleStorageByteWidth > 0) {
+                SchemaFieldSpec reserved = schema.fields[index + 1];
+                SchemaFieldSpec right = schema.fields[index + 2];
+                long leftValue = asLong(schemaFieldEncodeValue(fields.get(field.name), field));
+                long rightValue = asLong(schemaFieldEncodeValue(fields.get(right.name), right));
+                if (leftValue < 0L || leftValue > field.maxValue) {
+                    return err(encodeError(
+                        "codec.encode_value_unrepresentable",
+                        schema.name + "." + field.name,
+                        "value must be between 0 and " + field.maxValue
+                    ));
+                }
+                if (rightValue < 0L || rightValue > right.maxValue) {
+                    return err(encodeError(
+                        "codec.encode_value_unrepresentable",
+                        schema.name + "." + right.name,
+                        "value must be between 0 and " + right.maxValue
+                    ));
+                }
+                int rightBitWidth = bitPackedVisibleBitWidth(right);
+                long combined =
+                    (leftValue << (reserved.reservedBitWidth + rightBitWidth))
+                        | (reserved.reservedValue << rightBitWidth)
+                        | rightValue;
+                for (int byteIndex = middleStorageByteWidth - 1; byteIndex >= 0; byteIndex -= 1) {
+                    bytes.add(byteObject((combined >> (byteIndex * 8)) & 0xffL));
+                }
+                index += 2;
+                continue;
+            }
             if (field.isReserved()) {
                 if (!supportedReservedBits(field.reservedBitWidth, field.reservedValue)) {
                     return err(encodeError(
@@ -2883,6 +2962,128 @@
         return ok(Long.valueOf(value));
     }
 
+    private static Object schemaReadMiddleReservedGroupWithBase(
+        Object view,
+        long diagnosticBaseOffset,
+        int relativeOffset,
+        SchemaFieldSpec left,
+        SchemaFieldSpec reserved,
+        SchemaFieldSpec right,
+        int storageByteWidth,
+        String schemaName
+    ) {
+        java.util.List<Object> bytes = byteViewBytes(view);
+        long storageBaseOffset = byteViewStorageOffset(view);
+        long count = byteViewCountLong(view);
+        Object boundsError = byteViewBoundsError(bytes, storageBaseOffset, count);
+        if (boundsError != null) {
+            return boundsError;
+        }
+        long available = Math.max(0L, count - relativeOffset);
+        if (available < storageByteWidth) {
+            long byteOffset = diagnosticBaseOffset + count;
+            String message = "truncated schema field `" + left.name + "` at byte offset " + byteOffset;
+            registerSchemaTruncatedFieldDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                left.name,
+                storageByteWidth,
+                available,
+                byteViewPreviewTrace(view, 8)
+            );
+            return err(message);
+        }
+        long combined = 0L;
+        for (int index = 0; index < storageByteWidth; index += 1) {
+            combined =
+                (combined << 8)
+                    | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
+        }
+        int leftBitWidth = bitPackedVisibleBitWidth(left);
+        int rightBitWidth = bitPackedVisibleBitWidth(right);
+        long actualReserved =
+            (combined >> rightBitWidth) & reservedMaxValue(reserved.reservedBitWidth);
+        if (actualReserved != reserved.reservedValue) {
+            long byteOffset = diagnosticBaseOffset + relativeOffset;
+            String message = "reserved bits mismatch at byte offset " + byteOffset;
+            registerSchemaReservedBitsMismatchDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                reserved.name,
+                reserved.reservedBitWidth,
+                reserved.reservedValue,
+                actualReserved,
+                byteViewPreviewTrace(view, 8)
+            );
+            return err(message);
+        }
+        long leftValue =
+            (combined >> (reserved.reservedBitWidth + rightBitWidth))
+                & reservedMaxValue(leftBitWidth);
+        long rightValue = combined & reservedMaxValue(rightBitWidth);
+        return ok(new long[] { leftValue, rightValue });
+    }
+
+    private static Object schemaPutDecodedVisibleField(
+        java.util.LinkedHashMap<String, Long> decoded,
+        java.util.LinkedHashMap<String, Object> values,
+        SchemaFieldSpec field,
+        long fieldValue,
+        BinarySchemaSpec schema,
+        long relativeOffset,
+        Object view,
+        long diagnosticBaseOffset
+    ) {
+        if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
+            long byteOffset = diagnosticBaseOffset + relativeOffset;
+            String message = "fixed field mismatch at byte offset " + byteOffset;
+            registerSchemaFixedFieldMismatchDiagnostic(
+                message,
+                byteOffset,
+                schema.name,
+                field.name,
+                field.fixedValue.longValue(),
+                fieldValue,
+                byteViewPreviewTrace(view, 8)
+            );
+            return err(message);
+        }
+        decoded.put(field.name, Long.valueOf(fieldValue));
+        values.put(
+            field.name,
+            field.isFlagBitset()
+                ? schemaFlagObject(field, fieldValue)
+                : Long.valueOf(fieldValue)
+        );
+
+        if (field.predicate != null) {
+            boolean passed;
+            try {
+                passed = field.predicate.eval(decoded);
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            if (!passed) {
+                long byteOffset = diagnosticBaseOffset + relativeOffset;
+                String message = "schema validation failed at byte offset " + byteOffset;
+                registerSchemaValidationFailedDiagnostic(
+                    message,
+                    byteOffset,
+                    schema.name,
+                    field.name,
+                    field.predicate.text,
+                    fieldValue,
+                    decoded,
+                    byteViewPreviewTrace(view, 8)
+                );
+                return err(message);
+            }
+        }
+        return ok(null);
+    }
+
     private static Object byteDecodeBinarySchema(Object view, BinarySchemaSpec schema) {
         return byteDecodeBinarySchemaWithBase(view, schema, byteViewOffset(view));
     }
@@ -2941,6 +3142,55 @@
         SchemaFieldSpec pendingPackedReserved = null;
         for (int index = 0; index < schema.fields.length; index += 1) {
             SchemaFieldSpec field = schema.fields[index];
+            int middleStorageByteWidth = middleReservedGroupStorageByteWidth(schema.fields, index);
+            if (middleStorageByteWidth > 0) {
+                SchemaFieldSpec reserved = schema.fields[index + 1];
+                SchemaFieldSpec right = schema.fields[index + 2];
+                Object read = schemaReadMiddleReservedGroupWithBase(
+                    view,
+                    diagnosticBaseOffset,
+                    (int) relativeOffset,
+                    field,
+                    reserved,
+                    right,
+                    middleStorageByteWidth,
+                    schema.name
+                );
+                if (isErr(read)) {
+                    return read;
+                }
+                long[] groupValues = (long[]) unwrapOk(read);
+                Object leftStore = schemaPutDecodedVisibleField(
+                    decoded,
+                    values,
+                    field,
+                    groupValues[0],
+                    schema,
+                    relativeOffset,
+                    view,
+                    diagnosticBaseOffset
+                );
+                if (isErr(leftStore)) {
+                    return leftStore;
+                }
+                Object rightStore = schemaPutDecodedVisibleField(
+                    decoded,
+                    values,
+                    right,
+                    groupValues[1],
+                    schema,
+                    relativeOffset,
+                    view,
+                    diagnosticBaseOffset
+                );
+                if (isErr(rightStore)) {
+                    return rightStore;
+                }
+                relativeOffset += middleStorageByteWidth;
+                pendingPackedReserved = null;
+                index += 2;
+                continue;
+            }
             if (field.isReserved()) {
                 Object read = schemaReadReservedBits(
                     view,
@@ -3424,6 +3674,31 @@
         SchemaFieldSpec pendingPackedReserved = null;
         for (int index = 0; index < schema.fields.length; index += 1) {
             SchemaFieldSpec field = schema.fields[index];
+            int middleStorageByteWidth = middleReservedGroupStorageByteWidth(schema.fields, index);
+            if (middleStorageByteWidth > 0) {
+                SchemaFieldSpec reserved = schema.fields[index + 1];
+                SchemaFieldSpec right = schema.fields[index + 2];
+                Object read = schemaReadMiddleReservedGroupWithBase(
+                    view,
+                    diagnosticBaseOffset,
+                    (int) relativeOffset,
+                    field,
+                    reserved,
+                    right,
+                    middleStorageByteWidth,
+                    schema.name
+                );
+                if (isErr(read)) {
+                    return relativeOffset;
+                }
+                long[] groupValues = (long[]) unwrapOk(read);
+                decoded.put(field.name, Long.valueOf(groupValues[0]));
+                decoded.put(right.name, Long.valueOf(groupValues[1]));
+                relativeOffset += middleStorageByteWidth;
+                pendingPackedReserved = null;
+                index += 2;
+                continue;
+            }
             if (field.isReserved()) {
                 int reservedByteWidth = reservedByteWidth(field.reservedBitWidth);
                 if (reservedByteWidth > 0) {
@@ -3591,6 +3866,13 @@
         SchemaFieldSpec pendingPackedReserved = null;
         for (int index = 0; index < schema.fields.length; index += 1) {
             SchemaFieldSpec field = schema.fields[index];
+            int middleStorageByteWidth = middleReservedGroupStorageByteWidth(schema.fields, index);
+            if (middleStorageByteWidth > 0) {
+                total += middleStorageByteWidth;
+                pendingPackedReserved = null;
+                index += 2;
+                continue;
+            }
             if (field.isReserved()) {
                 int reservedByteWidth = reservedByteWidth(field.reservedBitWidth);
                 if (reservedByteWidth > 0) {

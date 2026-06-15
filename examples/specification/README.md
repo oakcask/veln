@@ -448,6 +448,16 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for a four-byte
   packed reserved prefix with field path, byte offset, bit width, expected
   value, actual value, and byte preview details.
+- `run/binary-schema-middle-reserved-json/`: generated schema decode helpers
+  report `schema.reserved_bits_mismatch` for a non-byte-aligned middle
+  reserved field between adjacent visible `UIntN` fields, with stable field
+  path, byte offset, bit width, expected value, actual value, and byte
+  preview details.
+- `run/binary-schema-middle-reserved-decode-encode/`: generated schema helpers
+  decode and encode a non-byte-aligned middle `ReservedBits(width, value)`
+  field between adjacent visible `UIntN` fields, omit the reserved field from
+  the value record, preserve the adjacent visible fields, and reject an
+  out-of-range adjacent visible encode value.
 - `run/binary-schema-packed-reserved-two-byte-truncated-json/`: generated
   schema decode helpers report `schema.truncated_field` at the reserved field
   path when input ends before the two-byte packed storage unit is complete.
@@ -730,6 +740,11 @@ against the built `veln` binary.
   generated schema encode helpers report `codec.encode_value_unrepresentable`
   against the visible high-bit field when a two-byte suffix source value is
   outside its field range.
+- `run/binary-schema-middle-reserved-decode-encode/`: generated schema encode
+  helpers write a middle `ReservedBits(width, value)` field between adjacent
+  visible `UIntN` fields in one shared storage unit and report
+  `codec.encode_value_unrepresentable` against an adjacent visible field when
+  the source value is outside its bit range.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected

@@ -310,6 +310,13 @@ failing cases
 assert `schema.reserved_bits_mismatch` at the reserved suffix field path and
 `schema.truncated_field` at the visible field path when the shared storage
 unit is missing or incomplete.
+`../../examples/specification/run/binary-schema-middle-reserved-decode-encode/`
+and
+`../../examples/specification/run/binary-schema-middle-reserved-json/` pin the
+middle reserved-bit slice. The valid case decodes adjacent visible fields
+around a middle reserved field and omits the reserved field from the decoded
+record. The failing case asserts `schema.reserved_bits_mismatch` at the
+middle reserved field path with stable byte offset and bit-value details.
 
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-payload-decode/`,
@@ -444,6 +451,16 @@ shape outside the supported encode layouts.
 pins byte-aligned reserved-bit encode: the helper omits the reserved field
 from the source value record and writes the declared fixed bytes in
 declaration order.
+`../../examples/specification/run/binary-schema-middle-reserved-decode-encode/`
+pins a non-byte-aligned middle reserved-bit storage unit: decode omits the
+middle `ReservedBits(width, value)` field while preserving the adjacent
+visible fields, encode writes the declared reserved bits between those
+visible fields, and visible out-of-range encode values keep the ordinary
+`codec.encode_value_unrepresentable` shape. The adjacent
+`../../examples/specification/run/binary-schema-middle-reserved-json/` case
+pins `schema.reserved_bits_mismatch` field path, byte offset, bit width,
+expected value, actual value, and byte preview details for the same middle
+layout.
 
 `../../examples/specification/run/binary-schema-byteview-encode/` and
 `../../examples/specification/run/binary-schema-byteview-encode-length-mismatch/`
@@ -494,6 +511,11 @@ value in the high bits, writes the declared reserved value in the low bits for
 one-byte, two-byte, three-byte, and four-byte shared storage units, and reports
 `codec.encode_value_unrepresentable` against the visible field when the input
 record value exceeds the field range.
+`../../examples/specification/run/binary-schema-middle-reserved-decode-encode/`
+also pins middle reserved-bit encode: the helper writes the declared reserved
+value between adjacent visible fields in the shared storage unit and reports
+`codec.encode_value_unrepresentable` against the adjacent visible field when
+the input record value exceeds that field's range.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-encode/`
 pins the closed dispatch encode helper slice. The passing cases select

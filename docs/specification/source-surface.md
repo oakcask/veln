@@ -151,7 +151,9 @@ the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
-twenty-four, or thirty-two bits,
+twenty-four, or thirty-two bits, supported `UIntN` plus middle
+`ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
+sixteen, twenty-four, or thirty-two bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` fields whose operands both name
@@ -181,9 +183,9 @@ Multiple selected mapping clauses, mapping expressions that cannot be
 projected back to schema-local fields, encode-time
 field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload
-schemas, non-byte-aligned reserved fields outside the supported packed and
-`UInt31be` shared-bit layouts, and derived codec encode execution over
-unsupported schemas are outside that encode helper slice.
+schemas, non-byte-aligned reserved fields outside the supported packed,
+middle, and `UInt31be` shared-bit layouts, and derived codec encode execution
+over unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

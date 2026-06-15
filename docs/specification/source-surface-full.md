@@ -195,7 +195,9 @@ byte-aligned `ReservedBits(width, value)` fields, the supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
 eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
 reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or
-thirty-two bits,
+thirty-two bits, supported `UIntN` plus middle
+`ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
+sixteen, twenty-four, or thirty-two bits,
 bounded repeat fields whose count is an earlier visible exact-width field or
 the difference of two earlier visible exact-width fields, including
 `Repeat(count_field, ByteView(length_field))` when the length field is also
