@@ -237,14 +237,20 @@ failing cases assert `schema.reserved_bits_mismatch` and
 `schema.truncated_field` with the reserved field path, byte offset, expected
 value or byte count, actual value or available count, and structured byte
 preview fields.
-`../../examples/specification/run/binary-schema-packed-reserved-decode/` and
-`../../examples/specification/run/binary-schema-packed-reserved-json/` pin the
-one-byte packed reserved-bit decode slice. The valid case decodes high
+`../../examples/specification/run/binary-schema-packed-reserved-decode/`,
+`../../examples/specification/run/binary-schema-packed-reserved-json/`,
+`../../examples/specification/run/binary-schema-packed-reserved-two-byte-json/`,
+and
+`../../examples/specification/run/binary-schema-packed-reserved-two-byte-truncated-json/`
+pin the packed reserved-bit decode slice. The valid case decodes high
 `ReservedBits(width, value)` prefixes for widths one through seven plus the
-visible `UIntN` field that completes each byte, omits the reserved field from
-the decoded record, and then reads the following field at the next byte. The
-failing case asserts `schema.reserved_bits_mismatch` for the packed reserved
-field. The checked diagnostics case
+visible `UIntN` field that completes each byte and widths nine through
+fifteen plus the visible `UIntN` field that completes each two-byte
+big-endian storage unit. The reserved field is omitted from the decoded
+record, and the helper then reads the following field after the shared
+storage unit. The failing cases assert `schema.reserved_bits_mismatch` and
+`schema.truncated_field` for the packed reserved field. The checked
+diagnostics case
 `../../examples/specification/check/schema-packed-reserved-mapping-diagnostics/`
 asserts that the packed reserved field is not available as a structural
 mapping source field.
@@ -373,10 +379,13 @@ pin the same boundary for `ByteView(length - padding_length)`, including
 negative computed lengths, payload truncation, direct helper encode mismatch,
 and derived codec encode success.
 
-`../../examples/specification/run/binary-schema-packed-reserved-encode/` pins
-one-byte packed reserved-bit encode for widths one through seven: the helper
-writes high reserved bits from the declaration and low visible bits from the
-source value record in one byte.
+`../../examples/specification/run/binary-schema-packed-reserved-encode/` and
+`../../examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`
+pin packed reserved-bit encode: the helper writes high reserved bits from the
+declaration and low visible bits from the source value record in the shared
+one-byte or two-byte big-endian storage unit, and reports
+`codec.encode_value_unrepresentable` against the visible low-bit field when
+the value does not fit.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-encode/`
 pins the closed dispatch encode helper slice. The passing cases select

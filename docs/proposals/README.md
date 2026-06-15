@@ -44,7 +44,7 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` declarations, frame-header and width-sample
   primitive decode, `UInt16le`, `UInt24le`, and `UInt32le` little-endian
   primitive decode and encode, byte-aligned reserved-bit decode and encode,
-  one-byte packed reserved-bit decode and encode,
+  one-byte and two-byte packed reserved-bit decode and encode,
   opt-in `Flag8` one-byte visible flag bitset decode and encode,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` primitive and nested schema field

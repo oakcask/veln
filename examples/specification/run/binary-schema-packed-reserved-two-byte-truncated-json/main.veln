@@ -1,0 +1,17 @@
+schema PackedTwoByteTruncatedHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(9, 341)
+	control: UInt7
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("12aa")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_two_byte_truncated_header(view)?
+	Ok(())
+end

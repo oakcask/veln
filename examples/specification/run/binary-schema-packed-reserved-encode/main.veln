@@ -63,6 +63,69 @@ schema PackedWidthSevenHeader
 	suffix: UInt8
 end
 
+schema PackedWidthNineHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(9, 341)
+	control: UInt7
+	suffix: UInt8
+end
+
+schema PackedWidthTenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(10, 677)
+	control: UInt6
+	suffix: UInt8
+end
+
+schema PackedWidthElevenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(11, 1365)
+	control: UInt5
+	suffix: UInt8
+end
+
+schema PackedWidthTwelveHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(12, 2650)
+	control: UInt4
+	suffix: UInt8
+end
+
+schema PackedWidthThirteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(13, 5457)
+	control: UInt3
+	suffix: UInt8
+end
+
+schema PackedWidthFourteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(14, 10901)
+	control: UInt2
+	suffix: UInt8
+end
+
+schema PackedWidthFifteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(15, 21845)
+	control: UInt1
+	suffix: UInt8
+end
+
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
 	stdio::print("output_chunk ")
 	stdio::print(name)
@@ -114,4 +177,25 @@ pub fn main() -> () effects [stdio]
 
 	let seven: Result<ByteChunk, EncodeError> = byte_encode_packed_width_seven_header({prefix: 18, control: 1, suffix: 52})
 	emit_encoded("packed-width-7", seven, "12ab34")
+
+	let nine: Result<ByteChunk, EncodeError> = byte_encode_packed_width_nine_header({prefix: 18, control: 42, suffix: 52})
+	emit_encoded("packed-width-9", nine, "12aaaa34")
+
+	let ten: Result<ByteChunk, EncodeError> = byte_encode_packed_width_ten_header({prefix: 18, control: 17, suffix: 52})
+	emit_encoded("packed-width-10", ten, "12a95134")
+
+	let eleven: Result<ByteChunk, EncodeError> = byte_encode_packed_width_eleven_header({prefix: 18, control: 18, suffix: 52})
+	emit_encoded("packed-width-11", eleven, "12aab234")
+
+	let twelve: Result<ByteChunk, EncodeError> = byte_encode_packed_width_twelve_header({prefix: 18, control: 7, suffix: 52})
+	emit_encoded("packed-width-12", twelve, "12a5a734")
+
+	let thirteen: Result<ByteChunk, EncodeError> = byte_encode_packed_width_thirteen_header({prefix: 18, control: 3, suffix: 52})
+	emit_encoded("packed-width-13", thirteen, "12aa8b34")
+
+	let fourteen: Result<ByteChunk, EncodeError> = byte_encode_packed_width_fourteen_header({prefix: 18, control: 2, suffix: 52})
+	emit_encoded("packed-width-14", fourteen, "12aa5634")
+
+	let fifteen: Result<ByteChunk, EncodeError> = byte_encode_packed_width_fifteen_header({prefix: 18, control: 1, suffix: 52})
+	emit_encoded("packed-width-15", fifteen, "12aaab34")
 end

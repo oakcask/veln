@@ -329,7 +329,7 @@
         if (bitWidth <= 0 || bitWidth > 32) {
             return false;
         }
-        if (bitWidth < 8) {
+        if (bitWidth < 8 || (bitWidth > 8 && bitWidth < 16)) {
             return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
         }
         if (bitWidth % 8 != 0) {
@@ -338,10 +338,19 @@
         return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
     }
 
+    private static int packedReservedStorageByteWidth(int bitWidth) {
+        if (bitWidth >= 1 && bitWidth <= 7) {
+            return 1;
+        }
+        if (bitWidth >= 9 && bitWidth <= 15) {
+            return 2;
+        }
+        return 0;
+    }
+
     private static int packedVisibleBitWidth(SchemaFieldSpec reserved, SchemaFieldSpec visible) {
         if (!reserved.isReserved()
-            || reserved.reservedBitWidth < 1
-            || reserved.reservedBitWidth > 7
+            || packedReservedStorageByteWidth(reserved.reservedBitWidth) == 0
             || visible.isReserved()
             || visible.dispatch != null
             || visible.repeat != null
@@ -350,8 +359,16 @@
             || visible.littleEndian) {
             return 0;
         }
-        int visibleBitWidth = 8 - reserved.reservedBitWidth;
+        int visibleBitWidth =
+            packedReservedStorageByteWidth(reserved.reservedBitWidth) * 8
+                - reserved.reservedBitWidth;
         return visible.maxValue == reservedMaxValue(visibleBitWidth) ? visibleBitWidth : 0;
+    }
+
+    private static int packedStorageByteWidth(SchemaFieldSpec reserved, SchemaFieldSpec visible) {
+        return packedVisibleBitWidth(reserved, visible) > 0
+            ? packedReservedStorageByteWidth(reserved.reservedBitWidth)
+            : 0;
     }
 
     private static final class SchemaDispatchSpec {
@@ -1747,6 +1764,7 @@
                     SchemaFieldSpec nextField = schema.fields[index + 1];
                     int visibleBitWidth = packedVisibleBitWidth(field, nextField);
                     if (visibleBitWidth > 0) {
+                        int storageByteWidth = packedStorageByteWidth(field, nextField);
                         long visibleValue = asLong(fields.get(nextField.name));
                         if (visibleValue < 0L || visibleValue > nextField.maxValue) {
                             return err(encodeError(
@@ -1757,7 +1775,9 @@
                         }
                         long combined =
                             (field.reservedValue << visibleBitWidth) | visibleValue;
-                        bytes.add(byteObject(combined & 0xffL));
+                        for (int byteIndex = storageByteWidth - 1; byteIndex >= 0; byteIndex -= 1) {
+                            bytes.add(byteObject((combined >> (byteIndex * 8)) & 0xffL));
+                        }
                         index += 1;
                         continue;
                     }
@@ -2495,7 +2515,7 @@
             );
         }
         int byteWidth = reservedByteWidth(bitWidth);
-        int requiredBytes = byteWidth > 0 ? byteWidth : 1;
+        int requiredBytes = byteWidth > 0 ? byteWidth : packedReservedStorageByteWidth(bitWidth);
         long available = Math.max(0L, count - relativeOffset);
         if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;
@@ -2519,11 +2539,15 @@
                         | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
             }
         } else {
+            long combined = 0L;
+            for (int index = 0; index < requiredBytes; index += 1) {
+                combined =
+                    (combined << 8)
+                        | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
+            }
             long mask = reservedMaxValue(bitWidth);
             actualValue =
-                (byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset))
-                    >> (8 - bitWidth))
-                    & mask;
+                (combined >> (requiredBytes * 8 - bitWidth)) & mask;
         }
         if (actualValue != expectedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
@@ -2548,6 +2572,7 @@
         long diagnosticBaseOffset,
         int relativeOffset,
         int bitWidth,
+        int storageByteWidth,
         String schemaName,
         String fieldName
     ) {
@@ -2559,7 +2584,7 @@
             return boundsError;
         }
         long available = Math.max(0L, count - relativeOffset);
-        if (available < 1L) {
+        if (available < storageByteWidth) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
             registerSchemaTruncatedFieldDiagnostic(
@@ -2567,15 +2592,19 @@
                 byteOffset,
                 schemaName,
                 fieldName,
-                1L,
+                storageByteWidth,
                 available,
                 byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
-        long value =
-            byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset))
-                & reservedMaxValue(bitWidth);
+        long combined = 0L;
+        for (int index = 0; index < storageByteWidth; index += 1) {
+            combined =
+                (combined << 8)
+                    | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
+        }
+        long value = combined & reservedMaxValue(bitWidth);
         return ok(Long.valueOf(value));
     }
 
@@ -2902,6 +2931,10 @@
                 pendingPackedReserved == null
                     ? 0
                     : packedVisibleBitWidth(pendingPackedReserved, field);
+            int packedStorageByteWidth =
+                pendingPackedReserved == null
+                    ? 0
+                    : packedStorageByteWidth(pendingPackedReserved, field);
             Object read =
                 packedVisibleBitWidth > 0
                     ? schemaReadPackedUnsignedWithBase(
@@ -2909,6 +2942,7 @@
                         diagnosticBaseOffset,
                         (int) relativeOffset,
                         packedVisibleBitWidth,
+                        packedStorageByteWidth,
                         schema.name,
                         field.name
                     )
@@ -2973,7 +3007,7 @@
                 }
             }
 
-            relativeOffset += packedVisibleBitWidth > 0 ? 1 : field.width;
+            relativeOffset += packedVisibleBitWidth > 0 ? packedStorageByteWidth : field.width;
             pendingPackedReserved = null;
         }
 
@@ -3109,6 +3143,10 @@
                 pendingPackedReserved == null
                     ? 0
                     : packedVisibleBitWidth(pendingPackedReserved, field);
+            int packedStorageByteWidth =
+                pendingPackedReserved == null
+                    ? 0
+                    : packedStorageByteWidth(pendingPackedReserved, field);
             Object read =
                 packedVisibleBitWidth > 0
                     ? schemaReadPackedUnsignedWithBase(
@@ -3116,6 +3154,7 @@
                         diagnosticBaseOffset,
                         (int) relativeOffset,
                         packedVisibleBitWidth,
+                        packedStorageByteWidth,
                         schema.name,
                         field.name
                     )
@@ -3133,7 +3172,7 @@
                 return relativeOffset;
             }
             decoded.put(field.name, Long.valueOf(asLong(unwrapOk(read))));
-            relativeOffset += packedVisibleBitWidth > 0 ? 1 : field.width;
+            relativeOffset += packedVisibleBitWidth > 0 ? packedStorageByteWidth : field.width;
             pendingPackedReserved = null;
         }
         return relativeOffset;
@@ -3141,17 +3180,32 @@
 
     private static long schemaTotalWidth(BinarySchemaSpec schema) {
         long total = 0L;
+        SchemaFieldSpec pendingPackedReserved = null;
         for (SchemaFieldSpec field : schema.fields) {
             if (field.isReserved()) {
-                total += reservedByteWidth(field.reservedBitWidth);
+                int reservedByteWidth = reservedByteWidth(field.reservedBitWidth);
+                if (reservedByteWidth > 0) {
+                    total += reservedByteWidth;
+                    pendingPackedReserved = null;
+                } else {
+                    pendingPackedReserved = field;
+                }
                 continue;
             } else if (field.isLengthBoundedView()) {
+                pendingPackedReserved = null;
                 continue;
             } else if (field.isRepeat()) {
+                pendingPackedReserved = null;
                 continue;
             } else if (field.dispatch == null) {
-                total += field.width;
+                int packedByteWidth =
+                    pendingPackedReserved == null
+                        ? 0
+                        : packedStorageByteWidth(pendingPackedReserved, field);
+                total += packedByteWidth > 0 ? packedByteWidth : field.width;
+                pendingPackedReserved = null;
             } else {
+                pendingPackedReserved = null;
                 total += schemaDispatchMaxWidth(field.dispatch);
             }
         }

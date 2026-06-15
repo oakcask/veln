@@ -21,13 +21,16 @@ reserved-bit mismatches. Generated schema helpers also consume byte-aligned
 representation-only fields, omit those fields from decoded records and
 mapping source values, encode them from the declared fixed value, and report
 the same reserved-bit mismatch and truncation diagnostic shapes. Generated
-schema helpers also consume and encode one-byte packed
-`ReservedBits(width, value)` prefixes where widths one through seven are
-followed by the visible `UIntN` primitive that completes the byte. The helpers
-validate the high reserved bits, decode or encode the low visible bits from
-the ordinary record field, omit the reserved field from decoded records and
-mapping source values, and report the same reserved-bit mismatch diagnostic
-shape. Generated schema helpers also decode and encode standalone visible
+schema helpers also consume and encode packed `ReservedBits(width, value)`
+prefixes where widths one through seven are followed by the visible `UIntN`
+primitive that completes the byte and widths nine through fifteen are
+followed by the visible `UIntN` primitive that completes the same two-byte
+big-endian storage unit. The helpers validate the high reserved bits, decode
+or encode the low visible bits from the ordinary record field, omit the
+reserved field from decoded records and mapping source values, and report the
+same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes. Generated schema
+helpers also decode and encode standalone visible
 `UInt1` through `UInt7` fields as one byte each, expose the declared low bits
 as ordinary `Int` values, preserve structural mapping and generated
 decode-step and derived codec eligibility, and report existing truncation and
@@ -131,8 +134,8 @@ for:
   implemented primitive helper slices
 - endian-aware field reads and writes
 - reserved-bit forms beyond the implemented byte-aligned representation-only
-  fields, one-byte packed reserved prefixes, and `ReservedBits(1, 0)` plus
-  `UInt31be` shared-bit layout
+  fields, one-byte and two-byte packed reserved prefixes, and
+  `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset, including
   raw-bit variants and frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
@@ -241,11 +244,11 @@ should not become a general-purpose source type.
 
 Reserved bits are spelled as schema-local fixed fields that are consumed from
 the external representation but omitted from the mapped Veln value by default.
-The byte-aligned `ReservedBits(width, value)` slice, one-byte packed reserved
-prefix slice, and the `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
-are implemented under `../specification/execution.md`. Remaining proposal
-work is limited to non-byte-aligned shapes outside those layouts and any later
-opt-in mapping exposure.
+The byte-aligned `ReservedBits(width, value)` slice, one-byte and two-byte
+packed reserved prefix slices, and the `ReservedBits(1, 0)` plus `UInt31be`
+shared-bit layout are implemented under `../specification/execution.md`.
+Remaining proposal work is limited to non-byte-aligned shapes outside those
+layouts and any later opt-in mapping exposure.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable

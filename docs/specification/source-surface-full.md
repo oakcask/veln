@@ -101,8 +101,8 @@ values.
 Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
-`ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported one-byte
-packed reserved prefix. Binary schema fields
+`ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported packed
+reserved prefix. Binary schema fields
 also accept `Repeat(count_field, Payload)` when `count_field` names a
 previously decoded visible `Int` field in the same schema and `Payload` is
 one of the implemented byte-aligned exact-width unsigned primitives or an
@@ -177,11 +177,12 @@ schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, including standalone
 `UInt1` through `UInt7` fields that consume one byte each, plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
-`ReservedBits(1, 0)` before `UInt31be` layout, supported one-byte packed
+`ReservedBits(1, 0)` before `UInt31be` layout, supported packed
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight
-bits, length-bounded `ByteView(length_field)` fields whose length names an
-earlier visible exact-width field, `ByteView(left_length - right_length)`
-fields whose operands both name earlier visible exact-width fields, closed
+or sixteen bits, length-bounded `ByteView(length_field)` fields whose length
+names an earlier visible exact-width field,
+`ByteView(left_length - right_length)` fields whose operands both name earlier
+visible exact-width fields, closed
 dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive

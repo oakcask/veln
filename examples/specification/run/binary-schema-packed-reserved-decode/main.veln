@@ -64,6 +64,69 @@ schema PackedWidthSevenHeader
 	suffix: UInt8
 end
 
+schema PackedWidthNineHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(9, 341)
+	control: UInt7
+	suffix: UInt8
+end
+
+schema PackedWidthTenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(10, 677)
+	control: UInt6
+	suffix: UInt8
+end
+
+schema PackedWidthElevenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(11, 1365)
+	control: UInt5
+	suffix: UInt8
+end
+
+schema PackedWidthTwelveHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(12, 2650)
+	control: UInt4
+	suffix: UInt8
+end
+
+schema PackedWidthThirteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(13, 5457)
+	control: UInt3
+	suffix: UInt8
+end
+
+schema PackedWidthFourteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(14, 10901)
+	control: UInt2
+	suffix: UInt8
+end
+
+schema PackedWidthFifteenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(15, 21845)
+	control: UInt1
+	suffix: UInt8
+end
+
 fn emit_header(name: String, header: {prefix: Int, control: Int, suffix: Int}) -> () effects [stdio]
 	stdio::print(name)
 	stdio::print(" ")
@@ -123,6 +186,55 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let seven_view: ByteView = byte_view(seven_bytes, seven_offset, seven_count)?
 	let seven: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_seven_header(seven_view)?
 	emit_header("width-7", seven)
+
+	let nine_bytes: ByteChunk = byte_chunk_from_hex("12aaaa34")?
+	let nine_offset: ByteOffset = byte_offset(0)?
+	let nine_count: ByteCount = byte_count(4)?
+	let nine_view: ByteView = byte_view(nine_bytes, nine_offset, nine_count)?
+	let nine: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_nine_header(nine_view)?
+	emit_header("width-9", nine)
+
+	let ten_bytes: ByteChunk = byte_chunk_from_hex("12a95134")?
+	let ten_offset: ByteOffset = byte_offset(0)?
+	let ten_count: ByteCount = byte_count(4)?
+	let ten_view: ByteView = byte_view(ten_bytes, ten_offset, ten_count)?
+	let ten: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_ten_header(ten_view)?
+	emit_header("width-10", ten)
+
+	let eleven_bytes: ByteChunk = byte_chunk_from_hex("12aab234")?
+	let eleven_offset: ByteOffset = byte_offset(0)?
+	let eleven_count: ByteCount = byte_count(4)?
+	let eleven_view: ByteView = byte_view(eleven_bytes, eleven_offset, eleven_count)?
+	let eleven: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_eleven_header(eleven_view)?
+	emit_header("width-11", eleven)
+
+	let twelve_bytes: ByteChunk = byte_chunk_from_hex("12a5a734")?
+	let twelve_offset: ByteOffset = byte_offset(0)?
+	let twelve_count: ByteCount = byte_count(4)?
+	let twelve_view: ByteView = byte_view(twelve_bytes, twelve_offset, twelve_count)?
+	let twelve: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_twelve_header(twelve_view)?
+	emit_header("width-12", twelve)
+
+	let thirteen_bytes: ByteChunk = byte_chunk_from_hex("12aa8b34")?
+	let thirteen_offset: ByteOffset = byte_offset(0)?
+	let thirteen_count: ByteCount = byte_count(4)?
+	let thirteen_view: ByteView = byte_view(thirteen_bytes, thirteen_offset, thirteen_count)?
+	let thirteen: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_thirteen_header(thirteen_view)?
+	emit_header("width-13", thirteen)
+
+	let fourteen_bytes: ByteChunk = byte_chunk_from_hex("12aa5634")?
+	let fourteen_offset: ByteOffset = byte_offset(0)?
+	let fourteen_count: ByteCount = byte_count(4)?
+	let fourteen_view: ByteView = byte_view(fourteen_bytes, fourteen_offset, fourteen_count)?
+	let fourteen: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_fourteen_header(fourteen_view)?
+	emit_header("width-14", fourteen)
+
+	let fifteen_bytes: ByteChunk = byte_chunk_from_hex("12aaab34")?
+	let fifteen_offset: ByteOffset = byte_offset(0)?
+	let fifteen_count: ByteCount = byte_count(4)?
+	let fifteen_view: ByteView = byte_view(fifteen_bytes, fifteen_offset, fifteen_count)?
+	let fifteen: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_width_fifteen_header(fifteen_view)?
+	emit_header("width-15", fifteen)
 
 	Ok(())
 end
