@@ -1,0 +1,29 @@
+# Binary schema packed reserved suffix bits decode without exposing reserved fields.
+use stdio
+
+schema PackedSuffixHeader
+	format binary
+
+	prefix: UInt8
+	control: UInt3
+	control_padding: ReservedBits(5, 0)
+	suffix: UInt8
+end
+
+fn emit_header(header: {prefix: Int, control: Int, suffix: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.prefix))
+	stdio::print(" ")
+	stdio::print(int_to_string(header.control))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.suffix))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12a034")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let header: {prefix: Int, control: Int, suffix: Int} = byte_decode_packed_suffix_header(view)?
+	emit_header(header)
+	Ok(())
+end

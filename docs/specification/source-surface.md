@@ -132,8 +132,9 @@ primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8` bitset fields, supported byte-aligned
 `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
-packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
-eight or sixteen bits,
+packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
+sum to eight or sixteen bits, supported one-byte `UIntN` plus reserved suffix
+layouts whose widths sum to eight bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,

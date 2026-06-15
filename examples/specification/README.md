@@ -430,6 +430,17 @@ against the built `veln` binary.
 - `run/binary-schema-packed-reserved-two-byte-truncated-json/`: generated
   schema decode helpers report `schema.truncated_field` at the reserved field
   path when input ends before the two-byte packed storage unit is complete.
+- `run/binary-schema-packed-reserved-suffix-decode/`: generated schema decode
+  helpers consume a visible one-byte `UIntN` field followed by a
+  `ReservedBits(width, value)` suffix in the same byte, decode the visible
+  high bits, and omit the reserved suffix field.
+- `run/binary-schema-packed-reserved-suffix-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for a one-byte packed
+  reserved suffix with field path, byte offset, bit width, expected value, and
+  actual value details.
+- `run/binary-schema-packed-reserved-suffix-truncated-json/`: generated schema
+  decode helpers report `schema.truncated_field` at the visible field path
+  when input ends before the shared suffix storage byte is complete.
 - `run/binary-schema-fixed-field-mismatch-json/`: generated schema decode
   helpers report `schema.fixed_field_mismatch` for a visible fixed exact-width
   field with field path, byte offset, expected value, actual value, and byte
@@ -592,6 +603,13 @@ against the built `veln` binary.
 - `run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`: generated
   schema encode helpers report `codec.encode_value_unrepresentable` against
   the visible low-bit field when a two-byte packed source value is outside
+  its field range.
+- `run/binary-schema-packed-reserved-suffix-encode/`: generated schema encode
+  helpers write a visible one-byte `UIntN` field into the high bits and the
+  declared reserved suffix value into the low bits.
+- `run/binary-schema-packed-reserved-suffix-encode-out-of-range/`: generated
+  schema encode helpers report `codec.encode_value_unrepresentable` against
+  the visible high-bit field when a one-byte suffix source value is outside
   its field range.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports

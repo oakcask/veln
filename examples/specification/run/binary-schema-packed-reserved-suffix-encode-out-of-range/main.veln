@@ -1,0 +1,45 @@
+use stdio
+
+schema PackedSuffixHeader
+	format binary
+
+	prefix: UInt8
+	control: UInt3
+	control_padding: ReservedBits(5, 0)
+	suffix: UInt8
+end
+
+fn emit_encode_error(result: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match result
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	emit_encode_error(byte_encode_packed_suffix_header({prefix: 18, control: 8, suffix: 52}))
+end

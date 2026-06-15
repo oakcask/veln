@@ -624,8 +624,10 @@ dispatch payload encode slices expose
 source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported packed
-`ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one
-or two big-endian bytes, length-bounded `ByteView(length_field)` fields whose
+prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
+complete one or two big-endian bytes, supported one-byte `UIntN` plus
+reserved suffix layouts whose widths complete one byte, length-bounded
+`ByteView(length_field)` fields whose
 length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
 visible exact-width fields, closed dispatch fields, or extension-tolerant
@@ -642,9 +644,10 @@ supported reserved-bit encode layout omits byte-aligned
 `ReservedBits(width, value)` fields from the value record and writes their
 declared fixed values. It also omits `ReservedBits(1, 0)` from the value
 record when it immediately precedes `UInt31be`; supported packed
-`ReservedBits(width, value)` plus `UIntN` layouts omit the reserved field and
-write the declared high bits with the visible low-bit record field in the
-shared storage unit. The closed dispatch encode layout selects the payload
+prefix layouts omit the reserved field and write the declared high bits with
+the visible low-bit record field in the shared storage unit. Supported
+one-byte suffix layouts omit the reserved field and write the visible high-bit
+record field with the declared low reserved bits. The closed dispatch encode layout selects the payload
 width from
 the earlier visible tag field and reports `codec.dispatch_unknown_tag` when no
 case matches. The extension dispatch encode layout writes `Known` selected
