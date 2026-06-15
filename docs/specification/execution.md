@@ -132,15 +132,18 @@ execution reference.
   primitive whose width completes the same two-byte big-endian storage unit,
   and widths seventeen through twenty-three may be followed by the visible
   `UIntN` primitive whose width completes the same three-byte big-endian
-  storage unit. The helper validates the high reserved bits, decodes the low
+  storage unit, and widths twenty-five through thirty-one may be followed by
+  the visible `UIntN` primitive whose width completes the same four-byte
+  big-endian storage unit. The helper validates the high reserved bits,
+  decodes the low
   visible bits as an ordinary `Int`, omits the reserved field from decoded
   records and mapping source values, and advances by the shared storage width
   for the pair. The inverse suffix layout is also supported: a visible
   `UIntN` field followed immediately by `ReservedBits(width, value)` where
-  the two widths complete one byte or the same two-byte or three-byte
-  big-endian storage unit. That form decodes the visible value from the high
-  bits, validates the low reserved bits at the reserved field path, omits the
-  reserved field, and
+  the two widths complete one byte or the same two-byte, three-byte, or
+  four-byte big-endian storage unit. That form decodes the visible value from
+  the high bits, validates the low reserved bits at the reserved field path,
+  omits the reserved field, and
   advances by the shared storage width.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
@@ -306,14 +309,14 @@ execution reference.
   from the record and the helper emits the required zero high bit in the
   shared four-byte position. A packed `ReservedBits(width, value)` field
   followed by the visible `UIntN` primitive whose width completes the same
-  one-byte, two-byte, or three-byte big-endian storage unit is also
+  one-byte, two-byte, three-byte, or four-byte big-endian storage unit is also
   representation-only: the helper emits the high reserved bits from the
   declared value and the low visible bits from the encoder input record. A
   visible `UIntN` field followed by a `ReservedBits(width, value)` suffix
-  that completes the same one-byte, two-byte, or three-byte big-endian storage
-  unit is representation-only in the
-  same way, but emits the visible value in the high bits and the declared
-  reserved value in the low bits.
+  that completes the same one-byte, two-byte, three-byte, or four-byte
+  big-endian storage unit is representation-only in the same way, but emits
+  the visible value in the high bits and the declared reserved value in the
+  low bits.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -383,6 +386,8 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
+  `examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
+  `examples/specification/run/binary-schema-packed-reserved-four-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-packed-reserved-three-byte-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-suffix-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-suffix-encode-out-of-range/`,

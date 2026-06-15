@@ -134,8 +134,9 @@ one byte each, `Flag8` bitset fields, supported byte-aligned
 `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
-sum to eight, sixteen, or twenty-four bits, supported `UIntN` plus reserved
-suffix layouts whose widths sum to eight, sixteen, or twenty-four bits,
+sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
+plus reserved suffix layouts whose widths sum to eight, sixteen,
+twenty-four, or thirty-two bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,
