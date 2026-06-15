@@ -20,5 +20,5 @@ schema HeaderWire
 		wrapped = Missing(kind)
 		bad_arity = FrameKind(kind, length)
 		bad_type = FrameKind({value: kind})
-		unsupported = convert({value: kind})
+		unsupported = kind + length
 end

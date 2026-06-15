@@ -298,9 +298,11 @@ execution reference.
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules, or
   call one pure same-module converter function or one imported public pure
-  converter function through a written `use` path or alias with one decoded
-  schema-local field argument before assigning the returned value to the
-  target field.
+  converter function through a written `use` path or alias. A converter
+  argument is either one decoded schema-local field or an already implemented
+  structural mapping expression made from decoded schema fields, records, ADT
+  constructors, and nested combinations of those forms. The returned value is
+  then assigned to the target field.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone

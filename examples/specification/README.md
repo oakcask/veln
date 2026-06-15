@@ -245,7 +245,8 @@ against the built `veln` binary.
   diagnostics when they exceed the implemented structural expression slice.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
-  return type, purity, and unsupported converter shape diagnostics.
+  return type, purity, and unsupported converter argument expression
+  diagnostics.
 - `check/schema-imported-mapping-converter-diagnostics/`: imported
   converter-shaped schema mapping assignment values report unresolved paths,
   private converters, missing written import paths, arity, input type, return

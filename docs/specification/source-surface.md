@@ -97,7 +97,10 @@ schema-local field references, record construction, ADT constructor
 construction resolved through ordinary source module rules, one pure
 same-module converter function call, or one imported public pure converter
 function call through a written `use` path or alias. Converter calls take one
-schema-local field argument and assign the returned value to the target field.
+argument: either a schema-local field reference or an already implemented
+structural mapping expression made from schema-local fields, records, ADT
+constructors, and nested combinations of those forms. The converter return
+value is assigned to the target field.
 Other ordinary calls, bare imported converter names, private imported
 converters, effects, runtime settings, stream state, and recovery behavior are
 not mapping expressions.
@@ -139,7 +142,7 @@ arity, and constructor payload type diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
-unsupported converter shape diagnostics.
+unsupported converter argument expression diagnostics.
 The checked diagnostics case
 `../../examples/specification/check/schema-imported-mapping-converter-diagnostics/`
 pins imported converter visibility and missing written import-path diagnostics.

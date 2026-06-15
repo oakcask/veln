@@ -2762,6 +2762,68 @@ fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions()
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_structural_converter_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {kind: Int}\n",
+            "end\n",
+            "\n",
+            "fn next_kind(input: {value: Int}) -> Int\n",
+            "  input.value + 1\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    kind = next_kind({value: wire_kind})\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let kind = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "kind")
+        .expect("kind mapping should be emitted");
+    assert!(matches!(
+        &kind.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg }
+            if function == "next_kind"
+                && matches!(
+                    arg.as_ref(),
+                    veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+                        if fields.len() == 1
+                            && fields[0].name == "value"
+                            && matches!(
+                                fields[0].expr,
+                                veln_ir::IrSchemaDecodeMappingExpr::Field(ref field)
+                                    if field == "wire_kind"
+                            )
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_require_int_byte_view_length_field() {
     let source = SourceFile::new(
         "main.veln",

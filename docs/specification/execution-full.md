@@ -199,14 +199,16 @@ fields, record construction expressions, and ADT constructor construction
 expressions after all field-local `where` predicates pass. A mapping
 assignment may also call one pure same-module converter function or one
 imported public pure converter function through a written `use` path or alias
-with one decoded schema-local field argument before assigning the returned
-value to the target field. Mapping diagnostics reject unknown source fields,
+with either one decoded schema-local field argument or one already implemented
+structural mapping expression made from decoded schema fields, records, ADT
+constructors, and nested combinations of those forms before assigning the
+returned value to the target field. Mapping diagnostics reject unknown source fields,
 unknown target fields, duplicate or missing target fields, unsupported
 expression forms, unresolved constructors or converters, private imported
 converters, constructor or converter arity mismatches, impure converters,
-converter input or return types that do not match the source or target field,
-and expression types that do not match their target fields or constructor
-payload fields before execution. Failed
+converter input or return types that do not match the argument or target
+field, and expression types that do not match their target fields or
+constructor payload fields before execution. Failed
 validation returns `schema.validation_failed` at the owning field byte offset
 with structured field path, predicate text, owning field value, decoded values,
 and structured byte preview fields.

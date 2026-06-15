@@ -1,8 +1,8 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
-    ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaMappingConverterInput,
+    SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive, repeat_schema_primitive,
     schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
     schema_length_expression_references, schema_payload_name_last_segment,
@@ -3303,36 +3303,39 @@ fn schema_mapping_expr_diagnostic(
             name,
             expected,
             actual,
-            source,
+            input,
             span,
             function_span,
         } => {
-            let mut diagnostic = Diagnostic::new(
-                "schema.mapping_converter_input",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!(
+            let message = match &input {
+                SchemaMappingConverterInput::SourceField(source) => format!(
                     "schema mapping converter `{name}` expects `{}`, but source field `{source}` decodes as `{}`",
                     expected.render(),
                     actual.render()
                 ),
-                Some(span),
-                schema_mapping_assignment_details(
-                    assignment.node_id.display("schema-mapping-assignment"),
-                    schema,
-                    assignment,
-                    [
-                        ("reason", JsonValue::string("converter_input_type_mismatch")),
-                        (
-                            "mapping_target",
-                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
-                        ),
-                        ("converter", JsonValue::string(name)),
-                        ("input_source_field", JsonValue::string(source)),
-                        ("expected", JsonValue::string(expected.render())),
-                        ("actual", JsonValue::string(actual.render())),
-                    ],
+                SchemaMappingConverterInput::Expression(text) => format!(
+                    "schema mapping converter `{name}` expects `{}`, but argument expression `{text}` has type `{}`",
+                    expected.render(),
+                    actual.render()
                 ),
+            };
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_input",
+                Severity::Error,
+                DiagnosticKind::Type,
+                message,
+                Some(span),
+                schema_mapping_converter_details(SchemaMappingConverterDetails {
+                    node_id: assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    mapping,
+                    assignment,
+                    reason: "converter_input_type_mismatch",
+                    converter: &name,
+                    input: &input,
+                    expected: &expected,
+                    actual: &actual,
+                }),
             );
             diagnostic.related.push(JsonValue::object([
                 ("span", span_json(&function_span)),
@@ -3347,7 +3350,7 @@ fn schema_mapping_expr_diagnostic(
             name,
             expected,
             actual,
-            source,
+            input,
             span,
             function_span,
         } => {
@@ -3362,25 +3365,17 @@ fn schema_mapping_expr_diagnostic(
                     expected.render()
                 ),
                 Some(span),
-                schema_mapping_assignment_details(
-                    assignment.node_id.display("schema-mapping-assignment"),
+                schema_mapping_converter_details(SchemaMappingConverterDetails {
+                    node_id: assignment.node_id.display("schema-mapping-assignment"),
                     schema,
+                    mapping,
                     assignment,
-                    [
-                        (
-                            "reason",
-                            JsonValue::string("converter_return_type_mismatch"),
-                        ),
-                        (
-                            "mapping_target",
-                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
-                        ),
-                        ("converter", JsonValue::string(name)),
-                        ("input_source_field", JsonValue::string(source)),
-                        ("expected", JsonValue::string(expected.render())),
-                        ("actual", JsonValue::string(actual.render())),
-                    ],
-                ),
+                    reason: "converter_return_type_mismatch",
+                    converter: &name,
+                    input: &input,
+                    expected: &expected,
+                    actual: &actual,
+                }),
             );
             diagnostic.related.push(JsonValue::object([
                 ("span", span_json(&function_span)),
@@ -3689,6 +3684,57 @@ fn schema_mapping_assignment_details<const N: usize>(
         ("source_field", JsonValue::string(assignment.source.clone())),
     ];
     fields.extend(extra);
+    JsonValue::object(fields)
+}
+
+struct SchemaMappingConverterDetails<'a> {
+    node_id: String,
+    schema: &'a SchemaDecl,
+    mapping: &'a SchemaMappingClause,
+    assignment: &'a SchemaMappingAssignment,
+    reason: &'static str,
+    converter: &'a str,
+    input: &'a SchemaMappingConverterInput,
+    expected: &'a Type,
+    actual: &'a Type,
+}
+
+fn schema_mapping_converter_details(details: SchemaMappingConverterDetails<'_>) -> JsonValue {
+    let mut fields = vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(details.node_id)),
+        (
+            "schema",
+            JsonValue::string(details.schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+        (
+            "target_field",
+            JsonValue::string(details.assignment.target.clone()),
+        ),
+        (
+            "source_field",
+            JsonValue::string(details.assignment.source.clone()),
+        ),
+        ("reason", JsonValue::string(details.reason)),
+        (
+            "mapping_target",
+            JsonValue::string(details.mapping.target.clone().unwrap_or_default()),
+        ),
+        (
+            "converter",
+            JsonValue::string(details.converter.to_string()),
+        ),
+        ("expected", JsonValue::string(details.expected.render())),
+        ("actual", JsonValue::string(details.actual.render())),
+    ];
+    match details.input {
+        SchemaMappingConverterInput::SourceField(source) => {
+            fields.push(("input_source_field", JsonValue::string(source.clone())));
+        }
+        SchemaMappingConverterInput::Expression(text) => {
+            fields.push(("input_expression", JsonValue::string(text.clone())));
+        }
+    }
     JsonValue::object(fields)
 }
 

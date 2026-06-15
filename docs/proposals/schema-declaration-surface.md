@@ -75,7 +75,7 @@ schemas whose fields use implemented exact-width unsigned primitives,
   records, construct ADT payloads through ordinary source module constructor
   resolution, call one pure same-module representation converter, or call one
   imported public pure converter through a written `use` path or alias from a
-  schema-local field into a target field
+  schema-local field or structural mapping expression into a target field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -128,15 +128,17 @@ implemented expression slice supports schema-local field references, record
 construction, ADT constructor construction resolved through ordinary source
 module rules, one pure same-module converter function call, and one imported
 public pure converter function call through a written `use` path or alias from
-a schema-local field into a target field.
+a schema-local field or structural mapping expression into a target field.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
 construction, a single same-module pure converter call, and a single imported
-public pure converter call through a written `use` path or alias. A schema
-does not implicitly publish a record type just because it names fields, and
-importing a schema does not make its schema-local field names available as
-ordinary source bindings.
+public pure converter call through a written `use` path or alias. Converter
+arguments may be schema-local field references or structural mapping
+expressions made from schema-local fields, records, ADT constructors, and
+nested combinations of those forms. A schema does not implicitly publish a
+record type just because it names fields, and importing a schema does not make
+its schema-local field names available as ordinary source bindings.
 
 The runtime checker should resolve the target value shape and assign
 schema-local fields to the target's record fields or ADT constructor payload
@@ -353,7 +355,9 @@ Implemented:
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module
   representation converter call, and imported public pure converter call
-  assignment expressions through a written `use` path or alias.
+  assignment expressions through a written `use` path or alias. Converter
+  arguments may be schema-local field references or structural mapping
+  expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, when assignment
   expressions type check against target record fields, rejects invalid mapping

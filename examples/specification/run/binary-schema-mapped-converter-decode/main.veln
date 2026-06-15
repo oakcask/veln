@@ -1,12 +1,12 @@
-# Binary schema mapping can convert a schema-local field with a pure same-module function.
+# Binary schema mapping can convert a structural record expression with a pure same-module function.
 use stdio
 
 type Header
 	Header {kind: Int, length: Int}
 end
 
-fn next_kind(kind: Int) -> Int
-	kind + 1
+fn next_kind(input: {value: Int}) -> Int
+	input.value + 1
 end
 
 schema HeaderWire
@@ -17,7 +17,7 @@ schema HeaderWire
 
 	map to Header
 		length = wire_length
-		kind = next_kind(wire_kind)
+		kind = next_kind({value: wire_kind})
 end
 
 fn emit_header(header: {kind: Int, length: Int}) -> () effects [stdio]
