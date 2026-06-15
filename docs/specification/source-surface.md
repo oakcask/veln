@@ -106,6 +106,7 @@ length-bounded
 `ByteView(length_field)` or `ByteView(left_length - right_length)` payload
 fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
+including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
 closed nested dispatch payload fields as the nested schema record shape, and
 extension dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
 all use the same decoded `Int` selector field, distinct selector literal

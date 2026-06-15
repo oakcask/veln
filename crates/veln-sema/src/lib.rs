@@ -247,6 +247,11 @@ fn schema_decode_spec_inner_after_push(
             {
                 return None;
             }
+            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload {
+                if decoded_field_types.get(length_field) != Some(&Type::int()) {
+                    return None;
+                }
+            }
             let (element_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;
             decoded_field_types.insert(field.name.clone(), Type::named("List", vec![element_ty]));
             fields.push(IrSchemaDecodeField {
@@ -402,19 +407,35 @@ fn ir_schema_repeat(
     repeat: crate::types::SchemaRepeatSpec,
     stack: &mut Vec<String>,
 ) -> Option<(Type, IrSchemaRepeat)> {
-    let (element_ty, width, max_value, little_endian, payload_schema) = match repeat.payload {
-        SchemaRepeatPayload::Primitive {
-            width,
-            max_value,
-            little_endian,
-        } => (Type::int(), width, max_value, little_endian, None),
-        SchemaRepeatPayload::Schema { schema_name } => {
-            let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
-            let element_ty = schema_decode_value_type(module, nested_schema)?;
-            let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
-            (element_ty, 0, 0, false, Some(Box::new(payload_schema)))
-        }
-    };
+    let (element_ty, width, max_value, little_endian, byte_view_length_field, payload_schema) =
+        match repeat.payload {
+            SchemaRepeatPayload::Primitive {
+                width,
+                max_value,
+                little_endian,
+            } => (Type::int(), width, max_value, little_endian, None, None),
+            SchemaRepeatPayload::ByteView { length_field } => (
+                Type::named("ByteView", Vec::new()),
+                0,
+                0,
+                false,
+                Some(length_field),
+                None,
+            ),
+            SchemaRepeatPayload::Schema { schema_name } => {
+                let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
+                let element_ty = schema_decode_value_type(module, nested_schema)?;
+                let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
+                (
+                    element_ty,
+                    0,
+                    0,
+                    false,
+                    None,
+                    Some(Box::new(payload_schema)),
+                )
+            }
+        };
     Some((
         element_ty,
         IrSchemaRepeat {
@@ -422,6 +443,7 @@ fn ir_schema_repeat(
             width,
             max_value,
             little_endian,
+            byte_view_length_field,
             payload_schema,
         },
     ))

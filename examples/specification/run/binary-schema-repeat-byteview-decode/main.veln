@@ -1,0 +1,52 @@
+# Binary schema Repeat fields decode counted ByteView lists.
+use stdio
+
+schema CountedViews
+	format binary
+
+	count: UInt8
+	item_length: UInt8
+	items: Repeat(count, ByteView(item_length))
+end
+
+fn list_count(items: List<ByteView>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn total_view_count(items: List<ByteView>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => byte_count_to_int(byte_view_count(head)) + total_view_count(tail)
+	end
+end
+
+fn head_byte_sum(items: List<ByteView>) -> Result<Int, String>
+	match items
+		Nil => Ok(0)
+		Cons(head, tail) => Ok(byte_read_u8_be(head)? + head_byte_sum(tail)?)
+	end
+end
+
+fn emit_sample(sample: {count: Int, item_length: Int, items: List<ByteView>}) -> Result<(), String> effects [stdio]
+	stdio::print(int_to_string(sample.count))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample.item_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(sample.items)))
+	stdio::print(" ")
+	stdio::print(int_to_string(total_view_count(sample.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(head_byte_sum(sample.items)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0302aabbccddeeff")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let sample: {count: Int, item_length: Int, items: List<ByteView>} = byte_decode_counted_views(view)?
+	emit_sample(sample)
+	Ok(())
+end

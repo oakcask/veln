@@ -1,0 +1,15 @@
+# Binary schema Repeat ByteView failures include the element index.
+
+schema CountedViews
+	format binary
+
+	count: UInt8
+	item_length: UInt8
+	items: Repeat(count, ByteView(item_length))
+end
+
+pub fn main() -> Result<{count: Int, item_length: Int, items: List<ByteView>}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0302aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	byte_decode_counted_views(view)
+end

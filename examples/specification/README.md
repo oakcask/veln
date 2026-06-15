@@ -541,6 +541,12 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-nested-truncated-json/`: repeated nested schema
   truncation reports `schema.truncated_field` with the repeated field path,
   element `index`, and nested schema field path.
+- `run/binary-schema-repeat-byteview-decode/`: generated schema decode helpers
+  read a bounded `Repeat(count_field, ByteView(length_field))` field into a
+  `List<ByteView>`.
+- `run/binary-schema-repeat-byteview-truncated-json/`: repeated `ByteView`
+  truncation reports `schema.truncated_field` with the repeated field path and
+  failing element `index`.
 - `run/binary-schema-integer-out-of-range-json/`: schema decode reports
   `schema.integer_out_of_range` through JSON run output when a structurally
   present `UInt31be` field exceeds its external integer range, including byte
@@ -865,6 +871,9 @@ against the built `veln` binary.
 - `run/derived-codec-repeat-decode-boundary/`: the same `derive decode`
   boundary observes generated decode-step helper output for a bounded repeated
   primitive field, including readiness and helper failure outcomes.
+- `run/derived-codec-repeat-byteview-decode-boundary/`: the same `derive
+  decode` boundary observes generated decode-step helper output for a bounded
+  repeated `ByteView` field.
 - `run/derived-codec-nested-dispatch-decode-boundary/`: the same `derive
   decode` codec item boundary over a same-module nested dispatch payload
   schema, including the generated helper's nested record value and consumed
