@@ -1318,6 +1318,10 @@ against the built `veln` binary.
   ordinary `StreamInput` values through three typed channel routes, selects
   ready routes with existing channel selection, and then invokes the same pure
   stream handler shape with explicit per-stream state.
+- `run/channel-first-stream-routing-four-route/`: adapter-owned source routes
+  ordinary `StreamInput` values through four typed channel routes, selects
+  ready routes by priority with existing channel selection, and then invokes
+  the same pure stream handler shape with explicit per-stream state.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, zero-argument task, and argument-carrying task calls; a
@@ -1331,6 +1335,10 @@ against the built `veln` binary.
   channel-first stream routing keeps the same effect boundary as the two-route
   case: routing declares `concurrency`, socket wrappers declare `net` and
   `concurrency`, and the handler remains effect-free.
+- `check/channel-first-stream-routing-four-route-effects/`: four-route
+  channel-first stream routing keeps the same effect boundary as the two-route
+  and three-route cases: routing declares `concurrency`, socket wrappers
+  declare `net` and `concurrency`, and the handler remains effect-free.
 - `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
   `ByteChunk` values into bounded pending input, `End` remains distinct,
   bounded `ByteView` consumption preserves absolute `ByteOffset` facts,

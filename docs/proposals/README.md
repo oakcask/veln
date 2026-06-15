@@ -144,7 +144,7 @@ compare it with `../specification/` before changing behavior.
   event/action handler boundary examples plus the narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end adapter,
   optional clean-end listener accept, and adapter-owned
-  listener-to-clean-stream-end lifecycle, two-route and three-route
+  listener-to-clean-stream-end lifecycle, two-route, three-route, and four-route
   channel-first stream routing, one-argument spawned handler task, and
   adapter-level cancellable stream routing slices, including fixture output
   for completed, deadline-expired, and cancelled wait outcomes.

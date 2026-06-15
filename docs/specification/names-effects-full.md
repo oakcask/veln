@@ -263,12 +263,12 @@ any compiler-known routing symbol beyond the socket, channel, and task calls
 listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
-through two and three typed channel routes, select a ready route with existing
-channel selection, and then invoke a plain handler with explicit per-stream
-state. The routing adapter declares `concurrency`; a socket wrapper that reads
-`NetStream` input, calls the channel-first route, and projects response
-actions back to `net::write_chunk` declares both `net` and `concurrency`. The
-handler itself remains free of transport effects.
+through two, three, and four typed channel routes, select a ready route with
+existing channel selection, and then invoke a plain handler with explicit
+per-stream state. The routing adapter declares `concurrency`; a socket wrapper
+that reads `NetStream` input, calls the channel-first route, and projects
+response actions back to `net::write_chunk` declares both `net` and
+`concurrency`. The handler itself remains free of transport effects.
 
 ## Process Calls
 

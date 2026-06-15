@@ -564,16 +564,19 @@ functions. The checked examples are
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
-ordinary `StreamInput` values through two and three typed channel routes
-before handler invocation. Adapter code selects the ready route with existing
-channel selection and requires `concurrency`; socket wrappers that read
-`NetStream` input and write response bytes require both `net` and
+ordinary `StreamInput` values through two, three, and four typed channel
+routes before handler invocation. Adapter code selects the ready route with
+existing channel selection and requires `concurrency`; socket wrappers that
+read `NetStream` input and write response bytes require both `net` and
 `concurrency`. The plain handler receives stream input plus explicit
 per-stream state and remains free of transport effects. The checked examples
 are `examples/specification/run/channel-first-stream-routing/`,
 `examples/specification/run/channel-first-stream-routing-three-route/`,
-`examples/specification/check/channel-first-stream-routing-effects/`, and
-`examples/specification/check/channel-first-stream-routing-three-route-effects/`.
+`examples/specification/run/channel-first-stream-routing-four-route/`,
+`examples/specification/check/channel-first-stream-routing-effects/`,
+`examples/specification/check/channel-first-stream-routing-three-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-four-route-effects/`.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

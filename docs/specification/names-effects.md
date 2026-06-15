@@ -37,7 +37,7 @@ compiler-known calls.
   clean end translated to `StreamInput.End`, argument-carrying spawned
   handler tasks over ordinary event and state values, and ordered write
   projection; they add no new effect label or compiler-known routing call.
-  The channel-first stream routing examples use two and three typed
+  The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection before invoking a
   plain handler. The routing adapter requires `concurrency`, socket wrappers
   around it require both `net` and `concurrency`, and the handler boundary
