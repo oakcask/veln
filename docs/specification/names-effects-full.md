@@ -626,9 +626,10 @@ from the expected fixed byte for the supplied schema and field names. The
 for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
 ordinary `Int` values, and reports schema truncation with field-path byte
 diagnostic details. Generated binary schema helpers also accept `UInt16le`,
-`UInt24le`, and `UInt32le` as little-endian unsigned fields that decode to
-ordinary `Int` and encode with the same representability boundaries as their
-matching unsigned widths.
+`UInt24le`, `UInt32le`, and `UInt64le` as little-endian unsigned fields.
+`UInt64be` uses the matching eight-byte big-endian representation. Those
+fields decode to ordinary `Int` when representable and encode with the same
+representability boundaries as their matching unsigned widths.
 Source `format binary` schema declarations whose fields
 all use implemented exact-width unsigned primitives expose generated
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode

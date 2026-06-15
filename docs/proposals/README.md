@@ -42,8 +42,9 @@ compare it with `../specification/` before changing behavior.
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
   `ReservedBits(width, value)` declarations, frame-header and width-sample
-  primitive decode, `UInt16le`, `UInt24le`, and `UInt32le` little-endian
-  primitive decode and encode, byte-aligned reserved-bit decode and encode,
+  primitive decode, `UInt16le`, `UInt24le`, `UInt32le`, and `UInt64le`
+  little-endian primitive decode and encode, `UInt64be` big-endian primitive
+  decode and encode, byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-suffix decode

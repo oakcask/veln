@@ -67,9 +67,9 @@ leaking every wire width into the general type system.
 
 Binary schema primitives own names such as `UInt1` through `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, and
-`UInt32le`. These names describe the external representation that is decoded
-or encoded, not ordinary Veln numeric types that can appear anywhere a value
-type is expected.
+`UInt32le`, `UInt64be`, and `UInt64le`. These names describe the external
+representation that is decoded or encoded, not ordinary Veln numeric types
+that can appear anywhere a value type is expected.
 Little-endian variants use the same schema-primitive family when a binary
 format needs them.
 

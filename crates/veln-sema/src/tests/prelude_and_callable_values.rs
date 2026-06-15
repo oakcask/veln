@@ -402,9 +402,11 @@ fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
             "  stream_id: UInt31be\n",
             "  little_wide: UInt32le\n",
             "  wide_value: UInt32be\n",
+            "  massive_value: UInt64be\n",
+            "  little_massive: UInt64le\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {short_value: Int, little_length: Int, stream_id: Int, little_wide: Int, wide_value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "pub fn main(packet: {short_value: Int, little_length: Int, stream_id: Int, little_wide: Int, wide_value: Int, massive_value: Int, little_massive: Int}) -> Result<ByteChunk, EncodeError>\n",
             "  byte_encode_write_packet(packet)\n",
             "end\n",
         ),
@@ -455,6 +457,8 @@ fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
             ("stream_id", 4, 0x7fffffff, false),
             ("little_wide", 4, 0xffffffff, true),
             ("wide_value", 4, 0xffffffff, false),
+            ("massive_value", 8, i64::MAX, false),
+            ("little_massive", 8, i64::MAX, true),
         ]
     );
 }

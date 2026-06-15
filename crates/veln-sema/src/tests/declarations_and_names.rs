@@ -265,6 +265,8 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
             "  stream_id: UInt31be\n",
             "  checksum: UInt32be\n",
             "  little_checksum: UInt32le\n",
+            "  massive_checksum: UInt64be\n",
+            "  little_massive_checksum: UInt64le\n",
             "end\n",
         ),
     );
@@ -273,10 +275,10 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 9);
+    assert_eq!(diagnostics.len(), 11);
     for primitive in [
         "UInt16be", "UInt16le", "UInt24be", "UInt24le", "UInt5", "UInt8", "UInt31be", "UInt32be",
-        "UInt32le",
+        "UInt32le", "UInt64be", "UInt64le",
     ] {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.exact_width_primitive"
@@ -297,7 +299,7 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn ordinary_types(value: UInt16be, little: UInt16le, little_length: UInt24le, tiny: UInt5, another: UInt8) -> {short: UInt24be, wide: UInt32be, little_wide: UInt32le}\n",
+            "fn ordinary_types(value: UInt16be, little: UInt16le, little_length: UInt24le, massive: UInt64be, tiny: UInt5, another: UInt8) -> {short: UInt24be, wide: UInt32be, little_wide: UInt32le, little_massive: UInt64le}\n",
             "  UInt31be\n",
             "end\n",
         ),
@@ -307,16 +309,18 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 9);
+    assert_eq!(diagnostics.len(), 11);
     for (primitive, reason) in [
         ("UInt16be", "parameter_type"),
         ("UInt16le", "parameter_type"),
         ("UInt24le", "parameter_type"),
+        ("UInt64be", "parameter_type"),
         ("UInt5", "parameter_type"),
         ("UInt8", "parameter_type"),
         ("UInt24be", "return_type"),
         ("UInt32be", "return_type"),
         ("UInt32le", "return_type"),
+        ("UInt64le", "return_type"),
         ("UInt31be", "value_position"),
     ] {
         assert!(diagnostics.iter().any(|diagnostic| {

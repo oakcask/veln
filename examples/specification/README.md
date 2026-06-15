@@ -253,8 +253,8 @@ against the built `veln` binary.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
-  when exact-width unsigned primitive names are used as ordinary source types
-  or values.
+  when exact-width unsigned primitive names, including `UInt64be` and
+  `UInt64le`, are used as ordinary source types or values.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings or ordinary target types for schema mappings.
 - `check/codec-declarations/`: accepted private and public top-level `codec`
@@ -499,6 +499,17 @@ against the built `veln` binary.
 - `run/binary-schema-little-endian-widths-encode-out-of-range/`: generated
   schema encode helpers reject `UInt24le` and `UInt32le` values outside their
   unsigned ranges with width-specific maximum values.
+- `run/binary-schema-u64-widths-decode/`: generated schema decode helpers read
+  `UInt64be` and `UInt64le` as eight-byte unsigned primitive fields, preserving
+  their declared byte order for source-visible `Int` values.
+- `run/binary-schema-u64-widths-encode/`: generated schema encode helpers
+  write `UInt64be` and `UInt64le` fields in big-endian and little-endian byte
+  order.
+- `run/binary-schema-u64-widths-truncated-json/`: schema decode truncation for
+  a `UInt64le` field reports the shared `schema.truncated_field` JSON shape.
+- `run/binary-schema-u64-widths-encode-out-of-range/`: generated schema encode
+  helpers reject `UInt64be` values outside the unsigned 64-bit range with the
+  usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
   `UInt32be` primitive decode slice returns visible exact-width fields as
   ordinary `Int` values.
