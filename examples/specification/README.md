@@ -947,7 +947,7 @@ against the built `veln` binary.
 - `run/http2-protocol-core-data-padding-json/`: the same invalid padding
   failure reports `http2.protocol.invalid_data_padding` through `run --json`
   with byte offset, stream reference, pad length, remaining payload length,
-  active state, and rule provenance.
+  bounded byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
