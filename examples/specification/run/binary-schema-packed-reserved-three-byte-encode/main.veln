@@ -1,0 +1,57 @@
+use stdio
+
+schema PackedThreeBytePrefixHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(17, 87381)
+	control: UInt7
+	suffix: UInt8
+end
+
+schema PackedThreeByteSuffixHeader
+	format binary
+
+	prefix: UInt8
+	control: UInt1
+	control_padding: ReservedBits(23, 2796202)
+	suffix: UInt8
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let prefix: Result<ByteChunk, EncodeError> = byte_encode_packed_three_byte_prefix_header({prefix: 18, control: 42, suffix: 52})
+	emit_encoded("packed-three-byte-prefix", prefix, "12aaaaaa34")
+
+	let suffix: Result<ByteChunk, EncodeError> = byte_encode_packed_three_byte_suffix_header({prefix: 18, control: 1, suffix: 52})
+	emit_encoded("packed-three-byte-suffix", suffix, "12aaaaaa34")
+end

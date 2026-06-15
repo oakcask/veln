@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "packed-three-byte-prefix"
+chunks = ["12aaaaaa34"]
+
+[[output_chunk_list]]
+name = "packed-three-byte-suffix"
+chunks = ["12aaaaaa34"]

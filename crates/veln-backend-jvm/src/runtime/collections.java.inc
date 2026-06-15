@@ -329,7 +329,9 @@
         if (bitWidth <= 0 || bitWidth > 32) {
             return false;
         }
-        if (bitWidth < 8 || (bitWidth > 8 && bitWidth < 16)) {
+        if (bitWidth < 8
+            || (bitWidth > 8 && bitWidth < 16)
+            || (bitWidth > 16 && bitWidth < 24)) {
             return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
         }
         if (bitWidth % 8 != 0) {
@@ -344,6 +346,9 @@
         }
         if (bitWidth >= 9 && bitWidth <= 15) {
             return 2;
+        }
+        if (bitWidth >= 17 && bitWidth <= 23) {
+            return 3;
         }
         return 0;
     }

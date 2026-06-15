@@ -184,8 +184,9 @@ fields are visible exact-width unsigned primitives, including standalone
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported packed
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
-eight or sixteen bits, supported `UIntN` plus reserved suffix layouts whose
-widths sum to eight or sixteen bits, length-bounded `ByteView(length_field)`
+eight, sixteen, or twenty-four bits, supported `UIntN` plus reserved suffix
+layouts whose widths sum to eight, sixteen, or twenty-four bits,
+length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
 visible exact-width fields, closed
