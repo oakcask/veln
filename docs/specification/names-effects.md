@@ -36,11 +36,11 @@ compiler-known calls.
   optional listener accept, multiple optional reads from an accepted stream,
   clean end translated to `StreamInput.End`, and ordered write projection;
   they add no new effect label or compiler-known routing call.
-  The channel-first stream routing example uses two typed `StreamInput`
-  channels plus existing channel selection before invoking a plain handler.
-  The routing adapter requires `concurrency`, socket wrappers around it
-  require both `net` and `concurrency`, and the handler boundary remains free
-  of transport effects.
+  The channel-first stream routing examples use two and three typed
+  `StreamInput` channels plus existing channel selection before invoking a
+  plain handler. The routing adapter requires `concurrency`, socket wrappers
+  around it require both `net` and `concurrency`, and the handler boundary
+  remains free of transport effects.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
