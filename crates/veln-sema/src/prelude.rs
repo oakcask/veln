@@ -109,6 +109,7 @@ fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
 
 fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let byte = Type::named("Byte", Vec::new());
+    let flag8 = Type::named("Flag8", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let byte_view = Type::named("ByteView", Vec::new());
     let byte_count = Type::named("ByteCount", Vec::new());
@@ -119,6 +120,14 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             adt::result_type(byte.clone(), Type::string()),
         )),
         "byte_to_int" => Some((vec![byte.clone()], Type::int())),
+        "flag8_is_set" => Some((
+            vec![flag8.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag8_set" => Some((
+            vec![flag8.clone(), Type::int()],
+            adt::result_type(flag8.clone(), Type::string()),
+        )),
         "byte_chunk" => Some((vec![Type::vec(byte.clone())], byte_chunk.clone())),
         "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
         "byte_append" => Some((
@@ -918,6 +927,7 @@ fn core_prelude_float_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)>
 
 fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
     let byte = CoreType::named("Byte", Vec::new());
+    let flag8 = CoreType::named("Flag8", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
     let byte_view = CoreType::named("ByteView", Vec::new());
     let byte_count = CoreType::named("ByteCount", Vec::new());
@@ -928,6 +938,14 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(byte.clone(), CoreType::string()),
         )),
         "byte_to_int" => Some((vec![byte.clone()], CoreType::int())),
+        "flag8_is_set" => Some((
+            vec![flag8.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag8_set" => Some((
+            vec![flag8.clone(), CoreType::int()],
+            adt::core_result_type(flag8.clone(), CoreType::string()),
+        )),
         "byte_chunk" => Some((vec![CoreType::vec(byte.clone())], byte_chunk.clone())),
         "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
         "byte_append" => Some((

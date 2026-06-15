@@ -130,8 +130,13 @@ execution reference.
   truncation behavior as `UInt8`, but the decoded record field is the
   source-visible `Flag8(bits)` value rather than a raw `Int`. `UInt8` fields,
   including existing `flags: UInt8` declarations, continue to decode as
-  ordinary `Int` fields. The checked decode example is
-  `examples/specification/run/binary-schema-flag8-decode/`.
+  ordinary `Int` fields. Pure prelude helpers inspect or set one-byte `Flag8`
+  bit indexes `0` through `7` and return `Result` failures for indexes outside
+  that range. The checked examples are
+  `examples/specification/run/binary-schema-flag8-decode/`,
+  `examples/specification/run/binary-schema-flag8-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag8-bit-index-json/`, and
+  `examples/specification/run/binary-schema-flag8-bit-index-human/`.
 - Generated binary schema decode helpers support bounded
   `Repeat(count_field, Payload)` fields when `count_field` is an earlier
   visible exact-width unsigned field decoded as `Int` and `Payload` is
@@ -434,6 +439,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-record-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
+  `examples/specification/run/binary-schema-flag8-bit-helpers/`,
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode-out-of-range/`,
