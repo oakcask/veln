@@ -773,8 +773,8 @@ fn schema_decode_record_fields_inner_after_push(
             continue;
         }
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            let ty = if flag8_schema_primitive(&field.ty) {
-                Type::named("Flag8", Vec::new())
+            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
+                Type::named(flag_type, Vec::new())
             } else {
                 Type::int()
             };
@@ -992,8 +992,8 @@ fn schema_encode_function_signature_for_schema(
         }
         if exact_width_schema_primitive(&field.ty).is_some() {
             exact_width_field_names.push(field.name.clone());
-            let ty = if flag8_schema_primitive(&field.ty) {
-                Type::named("Flag8", Vec::new())
+            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
+                Type::named(flag_type, Vec::new())
             } else {
                 Type::int()
             };
@@ -1193,14 +1193,18 @@ fn schema_encode_mapping_assignment_source(
         return None;
     };
     let source_ty = schema_field_types.get(source)?;
-    (is_type_flag8(source_ty)
+    (is_type_flag_bitset(source_ty)
         || (source_ty == &Type::int()
             && exact_width_field_names.iter().any(|field| field == source)))
     .then(|| source.clone())
 }
 
-fn is_type_flag8(ty: &Type) -> bool {
-    matches!(ty, Type::Named { name, args } if name == "Flag8" && args.is_empty())
+fn is_type_flag_bitset(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if matches!(name.as_str(), "Flag8" | "Flag16be") && args.is_empty()
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2097,6 +2101,7 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
     match ty.trim() {
         "UInt1" | "UInt2" | "UInt3" | "UInt4" | "UInt5" | "UInt6" | "UInt7" => Some(1),
         "UInt8" | "Flag8" => Some(1),
+        "Flag16be" => Some(2),
         "UInt16be" | "UInt16le" => Some(2),
         "UInt24be" | "UInt24le" => Some(3),
         "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
@@ -2112,8 +2117,12 @@ pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
     )
 }
 
-pub(crate) fn flag8_schema_primitive(ty: &str) -> bool {
-    ty.trim() == "Flag8"
+pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
+    match ty.trim() {
+        "Flag8" => Some("Flag8"),
+        "Flag16be" => Some("Flag16be"),
+        _ => None,
+    }
 }
 
 pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
@@ -2126,6 +2135,7 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "UInt6" => Some(6),
         "UInt7" => Some(7),
         "UInt8" | "Flag8" => Some(8),
+        "Flag16be" => Some(16),
         "UInt16be" | "UInt16le" => Some(16),
         "UInt24be" | "UInt24le" => Some(24),
         "UInt31be" | "UInt31le" => Some(31),
@@ -2145,6 +2155,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt6" => Some(0x3f),
         "UInt7" => Some(0x7f),
         "UInt8" | "Flag8" => Some(0xff),
+        "Flag16be" => Some(0xffff),
         "UInt16be" | "UInt16le" => Some(0xffff),
         "UInt24be" | "UInt24le" => Some(0xffffff),
         "UInt31be" | "UInt31le" => Some(0x7fffffff),
@@ -2252,7 +2263,7 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     let count_expr = schema_length_expression(count_field)?;
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
         if exact_width_schema_primitive_bit_width(primitive)? < 8
-            || flag8_schema_primitive(primitive)
+            || flag_schema_primitive(primitive).is_some()
         {
             return None;
         }

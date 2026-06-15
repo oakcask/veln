@@ -161,7 +161,7 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
-        final boolean flag8;
+        final String flagType;
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
         final SchemaRepeatSpec repeat;
@@ -171,7 +171,7 @@
         final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, false, predicate, null, null, "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, null, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -181,7 +181,7 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, false, predicate, null, null, "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -192,7 +192,7 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, false, predicate, null, null, "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -203,7 +203,31 @@
             boolean flag8,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, flag8, predicate, null, null, "", 0, 0L, null);
+            this(
+                name,
+                width,
+                maxValue,
+                littleEndian,
+                flag8 ? "Flag8" : "",
+                predicate,
+                null,
+                null,
+                "",
+                0,
+                0L,
+                null
+            );
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            String flagType,
+            SchemaPredicate predicate
+        ) {
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -215,7 +239,32 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, flag8, predicate, null, null, "", 0, 0L, fixedValue);
+            this(
+                name,
+                width,
+                maxValue,
+                littleEndian,
+                flag8 ? "Flag8" : "",
+                predicate,
+                null,
+                null,
+                "",
+                0,
+                0L,
+                fixedValue
+            );
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            String flagType,
+            SchemaPredicate predicate,
+            Long fixedValue
+        ) {
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -225,19 +274,19 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, false, predicate, dispatch, null, "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, dispatch, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
-            this(name, 0, 0L, false, false, null, null, null, lengthField, 0, 0L, null);
+            this(name, 0, 0L, false, "", null, null, null, lengthField, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, SchemaRepeatSpec repeat) {
-            this(name, 0, 0L, false, false, null, null, repeat, "", 0, 0L, null);
+            this(name, 0, 0L, false, "", null, null, repeat, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, false, null, null, null, "", reservedBitWidth, reservedValue, null);
+            this(name, 0, 0L, false, "", null, null, null, "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -245,7 +294,7 @@
             int width,
             long maxValue,
             boolean littleEndian,
-            boolean flag8,
+            String flagType,
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch,
             SchemaRepeatSpec repeat,
@@ -258,7 +307,7 @@
             this.width = width;
             this.maxValue = maxValue;
             this.littleEndian = littleEndian;
-            this.flag8 = flag8;
+            this.flagType = flagType;
             this.predicate = predicate;
             this.dispatch = dispatch;
             this.repeat = repeat;
@@ -280,14 +329,12 @@
             return repeat != null;
         }
 
-        boolean isFlag8Bitset() {
+        boolean isFlagBitset() {
             return dispatch == null
                 && repeat == null
                 && lengthField.isEmpty()
                 && reservedBitWidth == 0
-                && width == 1
-                && maxValue == 0xffL
-                && flag8;
+                && !flagType.isEmpty();
         }
     }
 
@@ -1753,7 +1800,7 @@
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
             boolean littleEndian = asBool(littleEndianValueList.get(index));
-            boolean flag8 = asBool(flag8ValueList.get(index));
+            String flagType = schemaFlagTypeFromMetadata(flag8ValueList.get(index));
             String repeatCountField = asString(repeatCountFieldValues.get(index));
             String repeatByteViewLengthField =
                 asString(repeatByteViewLengthFieldValues.get(index));
@@ -1828,7 +1875,7 @@
                 width,
                 maxValue,
                 littleEndian,
-                flag8,
+                flagType,
                 null
             );
         }
@@ -3268,8 +3315,8 @@
             decoded.put(field.name, Long.valueOf(fieldValue));
             values.put(
                 field.name,
-                field.isFlag8Bitset()
-                    ? flag8Object(fieldValue)
+                field.isFlagBitset()
+                    ? schemaFlagObject(field, fieldValue)
                     : Long.valueOf(fieldValue)
             );
 
@@ -3957,7 +4004,9 @@
                     : asString(repeatByteViewLengthFieldValues.get(index));
             boolean littleEndian =
                 littleEndianValueList != null && asBool(littleEndianValueList.get(index));
-            boolean flag8 = flag8ValueList != null && asBool(flag8ValueList.get(index));
+            String flagType = flag8ValueList == null
+                ? ""
+                : schemaFlagTypeFromMetadata(flag8ValueList.get(index));
             if (reservedBitWidth > 0L) {
                 if (reservedBitWidth > Integer.MAX_VALUE
                     || !supportedReservedBits((int) reservedBitWidth, reservedValue)) {
@@ -4098,7 +4147,7 @@
                     (int) width,
                     asLong(maxValueValues.get(index)),
                     littleEndian,
-                    flag8,
+                    flagType,
                     predicate,
                     fixedValue
                 );
@@ -4944,18 +4993,37 @@
     }
 
     private static Object schemaFieldEncodeValue(Object value, SchemaFieldSpec field) {
-        return field.isFlag8Bitset() ? Long.valueOf(flag8Bits(value)) : value;
+        return field.isFlagBitset() ? Long.valueOf(schemaFlagBits(value, field.flagType)) : value;
+    }
+
+    private static String schemaFlagTypeFromMetadata(Object value) {
+        if (value instanceof java.lang.Boolean) {
+            return asBool(value) ? "Flag8" : "";
+        }
+        return asString(value);
+    }
+
+    private static Object schemaFlagObject(SchemaFieldSpec field, long bits) {
+        return flagObject(field.flagType, bits);
     }
 
     private static Object flag8Object(long bits) {
-        return adt("Flag8::Flag8", new Object[] { Long.valueOf(bits) });
+        return flagObject("Flag8", bits);
     }
 
     private static long flag8Bits(Object value) {
-        if (isAdtNamed(value, "Flag8")) {
-            return asLong(asAdt(value, "Flag8").payloads[0]);
+        return schemaFlagBits(value, "Flag8");
+    }
+
+    private static Object flagObject(String flagType, long bits) {
+        return adt(flagType + "::" + flagType, new Object[] { Long.valueOf(bits) });
+    }
+
+    private static long schemaFlagBits(Object value, String flagType) {
+        if (isAdtNamed(value, flagType)) {
+            return asLong(asAdt(value, flagType).payloads[0]);
         }
-        return asLong(asAdt(value, "Flag8::Flag8").payloads[0]);
+        return asLong(asAdt(value, flagType + "::" + flagType).payloads[0]);
     }
 
     private static Object encodeError(String id, String fieldPath, String reason) {

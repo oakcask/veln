@@ -59,21 +59,22 @@ compiler-known calls.
   prefixes for parsing, tracks absolute `ByteOffset` separately, and collects
   outgoing immutable chunks in `List<ByteChunk>` action values. Generated
   binary schema decode helpers return schema-local value fields, including
-  `Int` exact-width fields and `Flag8` bitset fields, unless the eligible
+  `Int` exact-width fields and `Flag8` or `Flag16be` bitset fields, unless
+  the eligible
   structural `map to Target` slice, including decoded-field selected mappings
   that resolve to one record shape, resolves a mapped record shape; generated
   decode-step helpers expose the same value shape through `DecodeStep<T>` for
   open input. Pure source-backed prelude helpers `flag8_is_set` and
   `flag8_set` require no effects and return `Result` values for invalid bit
   indexes. Generated binary schema encode helpers for the exact-width
-  primitive, `Flag8`, supported reserved-bit, length-bounded `ByteView`,
-  closed dispatch, extension dispatch, and same-module or imported public
-  nested dispatch payload slices accept schema-local visible fields, using
-  `ByteView` fields for length-bounded payloads and
+  primitive, `Flag8`, `Flag16be`, supported reserved-bit, length-bounded
+  `ByteView`, closed dispatch, extension dispatch, and same-module or
+  imported public nested dispatch payload slices accept schema-local visible
+  fields, using `ByteView` fields for length-bounded payloads and
   `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
   unselected structural mapping can instead accept a mapped record shape for
   direct field projections or a direct single-constructor ADT wrapping a
-  schema-local `Flag8` field. Generated encode helpers return
+  schema-local `Flag8` or `Flag16be` field. Generated encode helpers return
   `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, and `UInt64le` fields use
   little-endian byte order in generated decode and encode helpers.

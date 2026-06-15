@@ -49,10 +49,10 @@ name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`,
 `UInt64le`, and `ReservedBits(width, value)` are accepted as schema
-primitives. `Flag8` is
-accepted as an opt-in one-byte visible flag bitset field; it decodes and
-encodes through the source-visible `Flag8(bits: Int)` value type instead of
-the raw `Int` used by `UInt8`. The source-visible `Flag8` helper slice
+primitives. `Flag8` and `Flag16be` are accepted as opt-in visible flag bitset
+fields; they decode and encode through source-visible `Flag8(bits: Int)` and
+`Flag16be(bits: Int)` value types instead of the raw `Int` used by `UInt8`
+and `UInt16be`. The source-visible `Flag8` helper slice
 provides pure checked helpers for reading and setting bit indexes `0` through
 `7`; indexes outside that range return `Result` failures.
 `ReservedBits` arguments must be literal
@@ -107,6 +107,7 @@ and used by the generated decode slice described in
 multiple structural mappings selected by `when field == literal`, and all
 assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
+`Flag16be` fields as `Flag16be`,
 length-bounded
 `ByteView(length_field)` or `ByteView(left_length - right_length)` payload
 fields as `ByteView`, bounded
@@ -121,10 +122,11 @@ selectors report `schema.mapping_selection_required`,
 `schema.mapping_selection_unsupported`. The predicate, primitive, dispatch,
 and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
-primitive, `Flag8`, supported reserved-bit, closed dispatch, extension
-dispatch, bounded repeated primitive or nested schema field, length-bounded
-`ByteView`, and same-module or imported public nested dispatch payload helper slices, general
-ADT constructor mapping beyond schema-local structural expressions,
+primitive, `Flag8`, `Flag16be`, supported reserved-bit, closed dispatch,
+extension dispatch, bounded repeated primitive or nested schema field,
+length-bounded `ByteView`, and same-module or imported public nested dispatch
+payload helper slices, general ADT constructor mapping beyond schema-local
+structural expressions,
 recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
 expressions, and mapping selection beyond decoded-field integer equality are
 not implemented.
@@ -143,7 +145,7 @@ The checked diagnostics case
 pins imported converter visibility and missing written import-path diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
-one byte each, `Flag8` bitset fields, supported byte-aligned
+one byte each, `Flag8` and `Flag16be` bitset fields, supported byte-aligned
 `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
@@ -171,11 +173,12 @@ named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 one direct structural `map to Target` clause can make that helper accept the
 mapping target record shape when every visible encode field, including
-`Flag8` fields, is assigned from a schema-local field reference, or when the
-visible encode field is wrapped by a direct single-constructor ADT call whose
-only payload is one schema-local visible exact-width integer field or a
-schema-local `Flag8` field. Multiple selected mapping clauses, mapping
-expressions that cannot be projected back to schema-local fields, encode-time
+`Flag8` and `Flag16be` fields, is assigned from a schema-local field
+reference, or when the visible encode field is wrapped by a direct
+single-constructor ADT call whose only payload is one schema-local visible
+exact-width integer field or a schema-local `Flag8` or `Flag16be` field.
+Multiple selected mapping clauses, mapping expressions that cannot be
+projected back to schema-local fields, encode-time
 field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload
 schemas, non-byte-aligned reserved fields outside the supported packed and
