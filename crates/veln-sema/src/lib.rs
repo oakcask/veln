@@ -40,7 +40,8 @@ use crate::types::{
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
     flag8_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_function_name, schema_decode_mapping_fields, schema_decode_mappings,
-    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
+    schema_decode_value_type, schema_dispatch_payload_schema, schema_length_expression_references,
+    supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -240,7 +241,10 @@ fn schema_decode_spec_inner_after_push(
             continue;
         }
         if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            if decoded_field_types.get(&repeat.count_field) != Some(&Type::int()) {
+            if schema_length_expression_references(&repeat.count_field)?
+                .into_iter()
+                .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
+            {
                 return None;
             }
             let (element_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;

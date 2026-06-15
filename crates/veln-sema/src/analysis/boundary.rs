@@ -5,7 +5,8 @@ use crate::types::{
     byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag8_schema_primitive, repeat_schema_primitive,
     schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
-    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
+    schema_length_expression_references, schema_payload_name_last_segment,
+    schema_payload_name_path, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -1894,7 +1895,7 @@ fn check_schema_repeat_field(
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Type> {
-    if !check_schema_repeat_reference(
+    if !check_schema_repeat_references(
         schema,
         field,
         decoded_fields,
@@ -1978,44 +1979,56 @@ fn check_schema_byte_view_reference(
     valid
 }
 
-fn check_schema_repeat_reference(
+fn check_schema_repeat_references(
     schema: &SchemaDecl,
     field: &SchemaField,
     decoded_fields: &BTreeMap<String, Type>,
-    reference: &str,
+    count_expr: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
-    let Some(ty) = decoded_fields.get(reference) else {
-        let reason = if schema_field_declared_after(schema, field, reference) {
-            "forward_field_reference"
-        } else {
-            "unknown_field_reference"
-        };
-        diagnostics.push(schema_repeat_reference_diagnostic(
-            schema,
-            field,
-            reference,
-            reason,
-            format!("repeat count field `{reference}` must be an earlier decoded `Int` field"),
-            [],
-        ));
+    let Some(references) = schema_length_expression_references(count_expr) else {
         return false;
     };
-    if ty != &Type::int() {
-        diagnostics.push(schema_repeat_reference_diagnostic(
-            schema,
-            field,
-            reference,
-            "incompatible_field_reference",
-            format!(
-                "repeat count field `{reference}` decodes as `{}`, not `Int`",
-                ty.render()
-            ),
-            [("actual", JsonValue::string(ty.render()))],
-        ));
-        return false;
+    let label = if references.len() == 1 {
+        "repeat count field"
+    } else {
+        "repeat count operand"
+    };
+    let mut valid = true;
+    for reference in references {
+        let Some(ty) = decoded_fields.get(reference) else {
+            let reason = if schema_field_declared_after(schema, field, reference) {
+                "forward_field_reference"
+            } else {
+                "unknown_field_reference"
+            };
+            diagnostics.push(schema_repeat_reference_diagnostic(
+                schema,
+                field,
+                reference,
+                reason,
+                format!("{label} `{reference}` must be an earlier decoded `Int` field"),
+                [],
+            ));
+            valid = false;
+            continue;
+        };
+        if ty != &Type::int() {
+            diagnostics.push(schema_repeat_reference_diagnostic(
+                schema,
+                field,
+                reference,
+                "incompatible_field_reference",
+                format!(
+                    "{label} `{reference}` decodes as `{}`, not `Int`",
+                    ty.render()
+                ),
+                [("actual", JsonValue::string(ty.render()))],
+            ));
+            valid = false;
+        }
     }
-    true
+    valid
 }
 
 fn resolve_schema_repeat_payload_schema<'a>(

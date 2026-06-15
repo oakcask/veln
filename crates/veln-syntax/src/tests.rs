@@ -272,7 +272,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  padding_length: UInt8 where padding_length <= length\n",
             "  stream_reserved: ReservedBits( 1,0 )\n",
             "  stream_id: UInt31be\n",
-            "  settings: Repeat( padding_length , UInt16be )\n",
+            "  settings: Repeat( length - padding_length , UInt16be )\n",
             "  payload: ByteView(length - padding_length)\n",
             "  validate padding_length <= length\n",
             "\n",
@@ -313,7 +313,10 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
     assert_eq!(schema.fields[4].name, "stream_id");
     assert_eq!(schema.fields[4].ty, "UInt31be");
     assert_eq!(schema.fields[5].name, "settings");
-    assert_eq!(schema.fields[5].ty, "Repeat(padding_length, UInt16be)");
+    assert_eq!(
+        schema.fields[5].ty,
+        "Repeat(length - padding_length, UInt16be)"
+    );
     assert_eq!(schema.fields[6].name, "payload");
     assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
     assert_eq!(schema.validations.len(), 1);
@@ -337,7 +340,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tpadding_length: UInt8 where padding_length <= length\n",
             "\tstream_reserved: ReservedBits(1, 0)\n",
             "\tstream_id: UInt31be\n",
-            "\tsettings: Repeat(padding_length, UInt16be)\n",
+            "\tsettings: Repeat(length - padding_length, UInt16be)\n",
             "\tpayload: ByteView(length - padding_length)\n",
             "\n",
             "\tvalidate padding_length <= length\n",

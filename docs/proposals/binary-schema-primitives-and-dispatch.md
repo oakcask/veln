@@ -119,15 +119,17 @@ constructor inverse when a single target field wraps one schema-local `Flag8`
 field, such as `flags = Http2Flags(wire_flags)`, and preserve the ordinary
 `Flag8` encode range-failure shape on the schema-local field path.
 The narrow bounded repeated payload slice is implemented as
-`Repeat(count_field, Payload)` for generated binary schema decode and encode
-helpers. The count field must be an earlier visible `Int` field in the same
-schema, and the payload must be one of the implemented byte-aligned
-exact-width unsigned primitives or an eligible nested binary schema payload.
-Primitive repeats decode and encode as `List<Int>`; nested schema repeats
-decode and encode as lists of the nested schema's decoded record shape.
-Encode rejects list length, primitive range, and nested element
-representation mismatches through `EncodeError`, and element failures append
-an index segment before nested schema field path segments.
+`Repeat(count_field, Payload)` and
+`Repeat(left_count - right_count, Payload)` for generated binary schema decode
+and encode helpers. The count field or count operands must be earlier visible
+`Int` fields in the same schema, and the payload must be one of the
+implemented byte-aligned exact-width unsigned primitives or an eligible nested
+binary schema payload. Primitive repeats decode and encode as `List<Int>`;
+nested schema repeats decode and encode as lists of the nested schema's
+decoded record shape. Negative computed counts report the existing schema
+length/count boundary shape. Encode rejects list length, primitive range, and
+nested element representation mismatches through `EncodeError`, and element
+failures append an index segment before nested schema field path segments.
 The generated length-bounded byte payload slice is implemented as
 `ByteView(length_field)` and `ByteView(left_length - right_length)` for
 generated binary schema decode and encode helpers. The length operands must be
@@ -271,9 +273,11 @@ mapped constructors, converter calls, nested records, selected mappings, and
 other non-direct expressions remains outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
-visible `Int` field in the same schema and `Payload` is `UInt8`, `UInt16be`,
-`UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`,
-`UInt64be`, `UInt64le`, or an eligible nested binary schema payload.
+visible `Int` field, and `Repeat(left_count - right_count, Payload)` fields
+when both operands name earlier visible `Int` fields in the same schema.
+`Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
+`UInt31be`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible
+nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
 recursive or otherwise ineligible dispatch payload schemas, and mapping
 beyond the implemented slices remain proposal work. A `UInt31be` field

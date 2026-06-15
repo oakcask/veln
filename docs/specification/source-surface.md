@@ -55,11 +55,13 @@ the raw `Int` used by `UInt8`.
 `ReservedBits` arguments must be literal
 non-negative integers. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
-`Int` field in the same binary schema and `Payload` is either an implemented
-byte-aligned exact-width unsigned primitive or an eligible nested binary
-schema payload. A repeated primitive field decodes and encodes as `List<Int>`;
-a repeated nested schema field decodes and encodes as a list of the nested
-schema's decoded record shape. The narrow closed tag-dispatch field type
+`Int` field in the same binary schema. `Repeat(left_count - right_count,
+Payload)` is accepted when both operands name earlier visible `Int` fields in
+the same binary schema. `Payload` is either an implemented byte-aligned
+exact-width unsigned primitive or an eligible nested binary schema payload. A
+repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
+schema field decodes and encodes as a list of the nested schema's decoded
+record shape. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
 previously decoded schema field and each case payload is either one of the
 implemented exact-width unsigned binary primitives, a same-module binary
@@ -143,9 +145,12 @@ sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
-visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
-`UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,
-`UInt32le`, `UInt64be`, `UInt64le`, or an eligible nested binary schema payload,
+visible exact-width unsigned `Int` field, bounded
+`Repeat(left_count - right_count, Payload)` fields whose operands both name
+earlier visible exact-width unsigned `Int` fields, and whose payload is either
+`UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
+`UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible nested binary
+schema payload,
 length-bounded `ByteView(length_field)` payload fields whose length names an
 earlier visible exact-width unsigned `Int` field, or
 `ByteView(left_length - right_length)` payload fields whose operands both name
