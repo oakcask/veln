@@ -1172,6 +1172,14 @@ against the built `veln` binary.
   `CancelToken`.
 - `check/transport-cancellable-wait-effects/`: cancellable wait token
   creation and waiting infer the `time` effect for public effect checking.
+- `run/transport-cancellable-wait-outcome/`: value-returning cancellable wait
+  outcomes let adapter code translate completion and cancellation into
+  ordinary source decisions.
+- `run/transport-cancellable-wait-outcome-deadline/`: value-returning
+  cancellable wait outcomes let adapter code translate host-forced deadline
+  expiry into an ordinary retry decision.
+- `check/transport-cancellable-wait-outcome-effects/`: value-returning
+  cancellable waits infer the `time` effect for public effect checking.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event

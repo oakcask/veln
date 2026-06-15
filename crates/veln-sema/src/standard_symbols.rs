@@ -191,6 +191,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         TIME_EFFECTS,
         "runtime.time.wait_until_cancellable",
     ),
+    runtime_symbol(
+        "time",
+        "wait_until_cancellable_outcome",
+        TIME_EFFECTS,
+        "runtime.time.wait_until_cancellable_outcome",
+    ),
 ];
 
 const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[

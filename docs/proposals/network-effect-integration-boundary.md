@@ -9,14 +9,14 @@ narrow socket-to-handler routing and stream-task handler slices, the
 fixture-backed multi-event socket routing slice, the clean stream-end adapter
 slice, the optional clean-end listener accept slice, the adapter-owned
 listener-to-clean-stream-end lifecycle slice, the channel-first stream event
-routing slice, and the first cancellable adapter-owned wait boundary are
-current behavior under
+routing slice, the first cancellable adapter-owned wait boundary, and the
+value-returning cancellable wait outcome slice are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced accept, read, and write failures, and forced
-timeout and deadline expiry, plus forced cancellable-wait cancellation. This page
-keeps the larger transport adapter, richer stream routing, richer deadline,
-cancellation, and socket work open.
+timeout and deadline expiry, plus forced cancellable-wait cancellation through
+the runtime-failure wait. This page keeps the larger transport adapter, richer
+stream routing, richer deadline, cancellation, and socket work open.
 
 ## Problem
 
@@ -50,7 +50,8 @@ adapter-owned lifecycle and channel-first stream routing slices for:
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
-  `time::wait_until_cancellable`
+  `time::wait_until_cancellable`, plus
+  `time::wait_until_cancellable_outcome`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -229,10 +230,13 @@ Implemented first slices: `time::timeout_ms(milliseconds)`,
 `time::cancel_token()`, `time::cancel(token)`, and
 `time::wait_until_cancellable(deadline, token)` use the existing `time` effect
 label and wait at the runtime boundary. `CancelToken` is the first
-source-visible cancellation handle for adapter-owned waits. Host fixtures can
-force timeout expiry, deadline expiry, or cancellable-wait cancellation as
-runtime failures. These calls do not add a separate richer timer effect or
-timer-specific source construct.
+source-visible cancellation handle for adapter-owned waits.
+`time::wait_until_cancellable_outcome(deadline, token)` returns
+`CancellableWaitOutcome` so adapter code can translate completed waits,
+deadline expiry, and cancellation into ordinary source decisions. Host fixtures
+can force timeout expiry, deadline expiry, or cancellable-wait cancellation as
+runtime failures through the runtime-failure wait. These calls do not add a
+separate richer timer effect or timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a

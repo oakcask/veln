@@ -493,16 +493,20 @@ millisecond duration, and `time::wait_until` waits until that deadline expires.
 `time::cancel_token` returns a source-visible `CancelToken`,
 `time::cancel` requests cancellation through that handle, and
 `time::wait_until_cancellable` waits until a deadline expires unless the
-handle is cancelled first.
+handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
+same deadline and token values and returns `WaitCompleted`,
+`WaitDeadlineExpired`, or `WaitCancelled` as a source-visible
+`CancellableWaitOutcome`.
 Malformed host-fed receive or read bytes, failed outgoing send or write event
 recording, and host-fixture-forced listen, accept, read, write, timeout, or
-deadline expiry, or cancellable-wait cancellation stop the entry as runtime
-failures. Clean listener end observed through `net::accept_or_end` and clean
-stream end observed through `net::read_chunk_or_end` are successful optional
-results. They do not produce
-schema, codec, or HTTP/2 peer protocol diagnostics. The deadline boundary does
-not add a source timer handle beyond the returned `Deadline`, cancellation
-handle beyond `CancelToken`, routing API, or new effect label.
+deadline expiry, or cancellable-wait cancellation through the runtime-failure
+wait stop the entry as runtime failures. Clean listener end observed through
+`net::accept_or_end`, clean stream end observed through
+`net::read_chunk_or_end`, and value-returning cancellable wait outcomes are
+successful source values. They do not produce schema, codec, or HTTP/2 peer
+protocol diagnostics. The deadline boundary does not add a source timer handle
+beyond the returned `Deadline`, cancellation handle beyond `CancelToken`,
+routing API, or new effect label.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model

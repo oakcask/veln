@@ -390,6 +390,83 @@ fn bytecode_backend_waits_until_cancellable_deadline_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_returns_cancellable_wait_outcomes_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
+        "  match outcome\n",
+        "    WaitCompleted => \"completed\"\n",
+        "    WaitDeadlineExpired => \"deadline\"\n",
+        "    WaitCancelled => \"cancelled\"\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let completed_deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let completed_token: CancelToken = time::cancel_token()\n",
+        "  let completed: CancellableWaitOutcome = time::wait_until_cancellable_outcome(completed_deadline, completed_token)\n",
+        "  stdio::println(outcome_text(completed))\n",
+        "  let cancelled_deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let cancelled_token: CancelToken = time::cancel_token()\n",
+        "  time::cancel(cancelled_token)\n",
+        "  let cancelled: CancellableWaitOutcome = time::wait_until_cancellable_outcome(cancelled_deadline, cancelled_token)\n",
+        "  stdio::println(outcome_text(cancelled))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-cancellable-wait-outcomes", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "completed\ncancelled\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
+        "  match outcome\n",
+        "    WaitCompleted => \"completed\"\n",
+        "    WaitDeadlineExpired => \"deadline\"\n",
+        "    WaitCancelled => \"cancelled\"\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(5)\n",
+        "  let token: CancelToken = time::cancel_token()\n",
+        "  let outcome: CancellableWaitOutcome = time::wait_until_cancellable_outcome(deadline, token)\n",
+        "  stdio::println(outcome_text(outcome))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-cancellable-wait-expiry-outcome",
+        &program,
+        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "deadline\n");
+}
+
+#[test]
 fn bytecode_backend_reports_forced_cancellable_wait_expiry_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> () effects [time]\n",
@@ -1497,6 +1574,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("time::cancel_token", "timeCancelToken"),
         ("time::cancel", "timeCancel"),
         ("time::wait_until_cancellable", "timeWaitUntilCancellable"),
+        (
+            "time::wait_until_cancellable_outcome",
+            "timeWaitUntilCancellableOutcome",
+        ),
     ] {
         assert_eq!(standard_library_method(surface), method);
     }

@@ -410,6 +410,39 @@
         return UNIT;
     }
 
+    public static Object timeWaitUntilCancellableOutcome(Object deadline, Object token) {
+        CancelToken cancelToken = asCancelToken(token);
+        if (waitCancelled(cancelToken)) {
+            return waitOutcome("WaitCancelled");
+        }
+        String forcedExpiry = System.getenv("VELN_TIME_DEADLINE_EXPIRED");
+        if ("1".equals(forcedExpiry)) {
+            return waitOutcome("WaitDeadlineExpired");
+        }
+        long target = asLong(deadline);
+        long remaining = target - System.nanoTime();
+        while (remaining > 0L) {
+            if (waitCancelled(cancelToken)) {
+                return waitOutcome("WaitCancelled");
+            }
+            try {
+                long slice = Math.min(remaining, 10000000L);
+                long millis = slice / 1000000L;
+                int nanos = (int) (slice % 1000000L);
+                Thread.sleep(millis, nanos);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                cancelToken.cancelled = true;
+                return waitOutcome("WaitCancelled");
+            }
+            remaining = target - System.nanoTime();
+        }
+        if (waitCancelled(cancelToken)) {
+            return waitOutcome("WaitCancelled");
+        }
+        return waitOutcome("WaitCompleted");
+    }
+
     private static void writeNetEvent(String line) throws java.io.IOException {
         String path = System.getenv("VELN_NET_EVENTS");
         if (path == null || path.isEmpty()) {
@@ -436,6 +469,17 @@
         if (token.cancelled) {
             throw new RuntimeFailure("transport wait cancelled: cancellation token");
         }
+    }
+
+    private static boolean waitCancelled(CancelToken token) {
+        if (forced("VELN_TIME_WAIT_CANCELLED")) {
+            token.cancelled = true;
+        }
+        return token.cancelled;
+    }
+
+    private static Object waitOutcome(String name) {
+        return adt(name, new Object[] {});
     }
 
     private static NetListener asNetListener(Object value) {

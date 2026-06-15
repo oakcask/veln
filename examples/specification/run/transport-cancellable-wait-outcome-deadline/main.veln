@@ -1,0 +1,31 @@
+# Adapter-owned waits translate deadline expiry into an ordinary retry decision.
+use stdio
+
+type TransportDecision
+	Ready
+	RetryAfterDeadline
+	CleanupAfterCancel
+end
+
+fn wait_for_transport_slot(deadline: Deadline, token: CancelToken) -> TransportDecision effects [time]
+	match time::wait_until_cancellable_outcome(deadline, token)
+		WaitCompleted => Ready
+		WaitDeadlineExpired => RetryAfterDeadline
+		WaitCancelled => CleanupAfterCancel
+	end
+end
+
+fn decision_text(decision: TransportDecision) -> String
+	match decision
+		Ready => "ready"
+		RetryAfterDeadline => "retry"
+		CleanupAfterCancel => "cleanup"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let deadline: Deadline = time::deadline_after_ms(5)
+	let token: CancelToken = time::cancel_token()
+	stdio::println(decision_text(wait_for_transport_slot(deadline, token)))
+	Ok(())
+end

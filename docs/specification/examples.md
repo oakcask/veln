@@ -602,6 +602,13 @@ The executable specification cases
 `../../examples/specification/check/transport-cancellable-wait-effects/`
 cover descriptor-backed time waits, relative deadlines, and source-visible
 `CancelToken` values under the existing `time` effect. The
+`../../examples/specification/run/transport-cancellable-wait-outcome/`,
+`../../examples/specification/run/transport-cancellable-wait-outcome-deadline/`,
+and
+`../../examples/specification/check/transport-cancellable-wait-outcome-effects/`
+cases cover the value-returning wait that lets adapter code translate
+completion, deadline expiry, and cancellation into ordinary source decisions.
+The
 `../../examples/specification/run/transport-timeout-expired-json/`,
 `../../examples/specification/run/transport-deadline-expired-json/`,
 `../../examples/specification/run/transport-cancellable-wait-deadline-expired-json/`,
