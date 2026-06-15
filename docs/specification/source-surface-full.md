@@ -102,7 +102,8 @@ Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported packed
-reserved prefix. Binary schema fields
+reserved prefix or suffix paired with a visible unsigned field. Binary schema
+fields
 also accept `Repeat(count_field, Payload)` when `count_field` names a
 previously decoded visible `Int` field in the same schema and `Payload` is
 one of the implemented byte-aligned exact-width unsigned primitives or an
@@ -184,8 +185,9 @@ fields are visible exact-width unsigned primitives, including standalone
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported packed
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
-eight, sixteen, or twenty-four bits, supported `UIntN` plus reserved suffix
-layouts whose widths sum to eight, sixteen, or twenty-four bits,
+eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
+reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or
+thirty-two bits,
 length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
