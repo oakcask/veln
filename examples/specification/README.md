@@ -488,6 +488,14 @@ against the built `veln` binary.
 - `run/binary-schema-flag8-decode/`: generated schema decode helpers read an
   opt-in `Flag8` field as a source-visible bitset value instead of the raw
   `Int` used by `UInt8`.
+- `run/binary-schema-flag8-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag8` bit positions, construct a new `Flag8` by setting named bit
+  indexes, and encode the result through the generated schema helper.
+- `run/binary-schema-flag8-bit-index-json/`: `flag8_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag8-bit-index-human/`: `flag8_set` reports the same
+  out-of-range bit-index failure through human command output.
 - `run/binary-schema-u16le-decode/`: generated schema decode helpers read
   `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
   structural `map to` target record shape.
