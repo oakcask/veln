@@ -50,7 +50,28 @@ pub fn main() -> Result<(), String> effects [stdio]
 		Err(_) => second_state
 	end
 	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
-	print_transition("method-post", decode_header_block(method_post_block, third_state, 26))
+	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, third_state, 26)
+	print_transition("method-post", method_post)
+	let accept_charset_state: HpackFixtureState = match method_post
+		Ok(transition) => transition_state(transition)
+		Err(_) => third_state
+	end
+	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
+	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
+	print_transition("accept-charset", accept_charset)
+	let accept_encoding_state: HpackFixtureState = match accept_charset
+		Ok(transition) => transition_state(transition)
+		Err(_) => accept_charset_state
+	end
+	let accept_encoding_block: ByteChunk = byte_chunk_from_hex("90")?
+	let accept_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_encoding_block, accept_encoding_state, 28)
+	print_transition("accept-encoding", accept_encoding)
+	let accept_language_state: HpackFixtureState = match accept_encoding
+		Ok(transition) => transition_state(transition)
+		Err(_) => accept_encoding_state
+	end
+	let accept_language_block: ByteChunk = byte_chunk_from_hex("91")?
+	print_transition("accept-language", decode_header_block(accept_language_block, accept_language_state, 29))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())
