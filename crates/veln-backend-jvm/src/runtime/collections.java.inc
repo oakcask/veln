@@ -1176,6 +1176,37 @@
         return ok(Long.valueOf(1L << bitIndex));
     }
 
+    public static Object flag16beIsSet(Object flags, Object index) {
+        Object maskResult = flag16beBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag16beBits(flags);
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag16beSet(Object flags, Object index) {
+        Object maskResult = flag16beBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag16beBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag16beObject(bits + mask));
+    }
+
+    private static Object flag16beBitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 15) {
+            return err("flag bit index must be between 0 and 15");
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
     public static Object byteChunk(Object bytes) {
         return byteChunkObject(asList(bytes));
     }
@@ -5347,6 +5378,14 @@
 
     private static long flag8Bits(Object value) {
         return schemaFlagBits(value, "Flag8");
+    }
+
+    private static Object flag16beObject(long bits) {
+        return flagObject("Flag16be", bits);
+    }
+
+    private static long flag16beBits(Object value) {
+        return schemaFlagBits(value, "Flag16be");
     }
 
     private static Object flagObject(String flagType, long bits) {

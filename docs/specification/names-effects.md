@@ -64,9 +64,10 @@ compiler-known calls.
   structural `map to Target` slice, including decoded-field selected mappings
   that resolve to one record shape, resolves a mapped record shape; generated
   decode-step helpers expose the same value shape through `DecodeStep<T>` for
-  open input. Pure source-backed prelude helpers `flag8_is_set` and
-  `flag8_set` require no effects and return `Result` values for invalid bit
-  indexes. Generated binary schema encode helpers for the exact-width
+  open input. Pure source-backed prelude helpers `flag8_is_set`, `flag8_set`,
+  `flag16be_is_set`, and `flag16be_set` require no effects and return
+  `Result` values for invalid bit indexes. Generated binary schema encode
+  helpers for the exact-width
   primitive, `Flag8`, `Flag16be`, supported reserved-bit, length-bounded
   `ByteView`, closed dispatch, extension dispatch, and same-module or
   imported public nested dispatch payload slices accept schema-local visible

@@ -473,6 +473,10 @@ source-visible borrow lifetime or zero-copy layout guarantee.
 ```veln
 byte(value: Int) -> Result<Byte, String>
 byte_to_int(value: Byte) -> Int
+flag8_is_set(flags: Flag8, index: Int) -> Result<Bool, String>
+flag8_set(flags: Flag8, index: Int) -> Result<Flag8, String>
+flag16be_is_set(flags: Flag16be, index: Int) -> Result<Bool, String>
+flag16be_set(flags: Flag16be, index: Int) -> Result<Flag16be, String>
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
@@ -595,7 +599,11 @@ integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
 
 `byte(value)` accepts integers from `0` through `255` and returns `Err(String)`
-for values outside that range. `byte_chunk(bytes)` returns an immutable owned
+for values outside that range. `flag8_is_set` and `flag8_set` read and set
+`Flag8` bit indexes `0` through `7`; `flag16be_is_set` and `flag16be_set`
+read and set `Flag16be` bit indexes `0` through `15`. Each checked flag helper
+returns `Err(String)` for indexes outside its supported range instead of
+masking or wrapping. `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
 chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk
 with the left bytes followed by the right bytes. `byte_chunk_from_hex(text)`

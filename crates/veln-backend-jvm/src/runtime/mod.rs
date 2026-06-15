@@ -32,6 +32,8 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_to_int" => "byteToInt",
     "flag8_is_set" => "flag8IsSet",
     "flag8_set" => "flag8Set",
+    "flag16be_is_set" => "flag16beIsSet",
+    "flag16be_set" => "flag16beSet",
     "byte_chunk" => "byteChunk",
     "byte_chunk_count" => "byteChunkCount",
     "byte_append" => "byteAppend",
