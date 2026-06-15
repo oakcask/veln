@@ -116,8 +116,8 @@ schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
 both references name earlier visible `Int` fields in the same schema. A
 repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
 schema field decodes and encodes as a list of the nested schema's decoded
-record shape; and a repeated `ByteView(length_field)` field decodes as
-`List<ByteView>`. Binary schema fields
+record shape; and a repeated `ByteView(length_field)` field decodes and
+encodes as `List<ByteView>`. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
@@ -197,7 +197,9 @@ eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
 reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or
 thirty-two bits,
 bounded repeat fields whose count is an earlier visible exact-width field or
-the difference of two earlier visible exact-width fields,
+the difference of two earlier visible exact-width fields, including
+`Repeat(count_field, ByteView(length_field))` when the length field is also
+earlier visible,
 length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier

@@ -1,0 +1,48 @@
+# Binary schema Repeat ByteView encode rejects element length mismatches.
+use stdio
+
+schema CountedViews
+	format binary
+
+	count: UInt8
+	item_length: UInt8
+	items: Repeat(count, ByteView(item_length))
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let second_bytes: ByteChunk = byte_chunk_from_hex("cc")?
+	let first: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(1)?)?
+	let items: List<ByteView> = list_cons(first, list_cons(second, list_nil()))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_views({count: 2, item_length: 2, items: items})
+	let emitted: () = match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+	Ok(())
+end

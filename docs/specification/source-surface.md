@@ -64,7 +64,7 @@ exact-width unsigned primitive, an eligible nested binary schema payload, or
 field in the same schema. A repeated primitive field decodes and encodes as
 `List<Int>`; a repeated nested schema field decodes and encodes as a list of
 the nested schema's decoded record shape; and a repeated `ByteView` field
-decodes as `List<ByteView>`. The narrow closed tag-dispatch field type
+decodes and encodes as `List<ByteView>`. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
 previously decoded schema field and each case payload is either one of the
 implemented exact-width unsigned binary primitives, a same-module binary
@@ -154,7 +154,8 @@ visible exact-width unsigned `Int` field, bounded
 earlier visible exact-width unsigned `Int` fields, and whose payload is either
 `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
 `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible
-nested binary schema payload,
+nested binary schema payload, or `ByteView(length_field)` whose length names
+an earlier visible exact-width unsigned `Int` field,
 length-bounded `ByteView(length_field)` payload fields whose length names an
 earlier visible exact-width unsigned `Int` field, or
 `ByteView(left_length - right_length)` payload fields whose operands both name
@@ -251,8 +252,9 @@ decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width including standalone
 `UInt1` through `UInt7`, supported reserved-bit, closed dispatch, extension
-dispatch, length-bounded `ByteView`, and same-module or imported public
-nested dispatch payload encode slices,
+dispatch, length-bounded `ByteView`, repeated primitive, nested schema, and
+`ByteView(length_field)` payloads, and same-module or imported public nested
+dispatch payload encode slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by

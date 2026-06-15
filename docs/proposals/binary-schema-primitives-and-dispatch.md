@@ -123,13 +123,17 @@ The narrow bounded repeated payload slice is implemented as
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
 and encode helpers. The count field or count operands must be earlier visible
 `Int` fields in the same schema, and the payload must be one of the
-implemented byte-aligned exact-width unsigned primitives or an eligible nested
-binary schema payload. Primitive repeats decode and encode as `List<Int>`;
-nested schema repeats decode and encode as lists of the nested schema's
-decoded record shape. Negative computed counts report the existing schema
-length/count boundary shape. Encode rejects list length, primitive range, and
-nested element representation mismatches through `EncodeError`, and element
-failures append an index segment before nested schema field path segments.
+implemented byte-aligned exact-width unsigned primitives, an eligible nested
+binary schema payload, or `ByteView(length_field)` when the length field is an
+earlier visible `Int` field. Primitive repeats decode and encode as
+`List<Int>`; nested schema repeats decode and encode as lists of the nested
+schema's decoded record shape; repeated byte views decode and encode as
+`List<ByteView>`. Negative computed counts report the existing schema
+length/count boundary shape. Encode rejects list length, primitive range,
+nested element representation, and repeated byte-view element length
+mismatches through `EncodeError`; element failures append an index segment
+before nested schema field path segments or at the repeated byte-view element
+path.
 The generated length-bounded byte payload slice is implemented as
 `ByteView(length_field)` and `ByteView(left_length - right_length)` for
 generated binary schema decode and encode helpers. The length operands must be
@@ -139,14 +143,6 @@ the earlier fields normally and then writes exactly the bounded bytes from the
 supplied view, negative computed decode lengths report
 `schema.length_out_of_bounds`, and mismatched encode view counts return the
 existing structured `EncodeError` value-representation shape.
-The narrow repeated bounded byte-view payload slice is implemented for
-`Repeat(count_field, ByteView(length_field))` in generated binary schema decode
-helpers and derived decode boundaries. Both references must name earlier
-visible `Int` fields in the same schema, each repeated element decodes as a
-bounded `ByteView` of `length_field` bytes, element order is preserved in the
-source-visible `List<ByteView>`, and truncation reports the existing
-`schema.truncated_field` diagnostic with the repeated field path plus the
-failing element index.
 The narrow schema-level structural validation slice is implemented as one
 `validate` predicate after binary schema fields. Generated decode helpers run
 that predicate after all fields and field-local validation have succeeded and

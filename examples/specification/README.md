@@ -647,6 +647,13 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-nested-encode-failure/`: repeated nested schema
   encode failures prefix the nested field path with the repeated field and
   element index.
+- `run/binary-schema-repeat-byteview-encode/`: generated schema encode helpers
+  write a bounded `Repeat(count_field, ByteView(length_field))` field by
+  emitting each element's bounded bytes in order.
+- `run/binary-schema-repeat-byteview-encode-length-mismatch/`: repeated
+  `ByteView` encode rejects an element whose bounded byte count does not match
+  the earlier length field and reports the repeated field path plus the
+  element index.
 - `run/binary-schema-byteview-encode/`: generated schema encode helpers write
   the bounded bytes from a `ByteView(length_field)` payload after its explicit
   length field.
@@ -862,6 +869,10 @@ against the built `veln` binary.
 - `run/derived-codec-repeat-encode-boundary/`: the same `derive encode`
   boundary projects a bounded repeated primitive schema helper success to one
   encoded output chunk and helper representation failures to
+  `Invalid(EncodeError)`.
+- `run/derived-codec-repeat-byteview-encode-boundary/`: the same `derive
+  encode` boundary projects a bounded repeated `ByteView` schema helper
+  success to one encoded output chunk and helper element failures to
   `Invalid(EncodeError)`.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload

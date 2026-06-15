@@ -1,0 +1,106 @@
+# Derived codec encode boundaries include Repeat-backed ByteView schema helpers.
+use stdio
+
+schema CountedViews
+	format binary
+
+	count: UInt8
+	item_length: UInt8
+	items: Repeat(count, ByteView(item_length))
+end
+
+codec CountedViewsCodec for CountedViews encode
+	derive encode
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_unexpected_chunk_count(chunks: List<ByteChunk>) -> () effects [stdio]
+	stdio::print("unexpected chunk count ")
+	stdio::println(int_to_string(chunk_count(chunks)))
+end
+
+fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => emit_unexpected_chunk_count(chunks)
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let second_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
+	let first: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(2)?)?
+	let items: List<ByteView> = list_cons(first, list_cons(second, list_nil()))
+	let encoded: EncodeStep<()> = CountedViewsCodec({count: 2, item_length: 2, items: items})
+	stdio::println(step_kind(encoded))
+	emit_encoded("derived-counted-views", encoded, "0202aabbccdd")
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("ee")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let invalid_items: List<ByteView> = list_cons(short_view, list_nil())
+	let invalid: EncodeStep<()> = CountedViewsCodec({count: 1, item_length: 2, items: invalid_items})
+	stdio::println(step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

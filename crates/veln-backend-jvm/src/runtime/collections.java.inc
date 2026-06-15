@@ -4565,11 +4565,7 @@
         }
         long expectedCount = asLong(unwrapOk(expectedCountValue));
         if (field.repeat.isByteViewPayload()) {
-            return err(encodeError(
-                "codec.metadata",
-                schemaName + "." + field.name,
-                "encoding repeated ByteView payload fields is not supported"
-            ));
+            return schemaWriteRepeatedByteViews(fields, field, schemaName, expectedCount);
         }
         Object items = fields.get(field.name);
         ListValue current = asListValue(items);
@@ -4606,6 +4602,70 @@
                 return encoded;
             }
             bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
+            actualCount += 1L;
+            current = asListValue(current.tail);
+        }
+        if (actualCount != expectedCount) {
+            return err(encodeError(
+                "codec.encode_value_unrepresentable",
+                schemaName + "." + field.name,
+                "list length "
+                    + actualCount
+                    + " does not match "
+                    + schemaCountDescription(field.repeat.countField)
+                    + " value "
+                    + expectedCount
+            ));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
+    private static Object schemaWriteRepeatedByteViews(
+        java.util.Map<Object, Object> fields,
+        SchemaFieldSpec field,
+        String schemaName,
+        long expectedCount
+    ) {
+        Object lengthValue = schemaLengthExpressionValue(
+            fields,
+            field.repeat.byteViewLengthField,
+            "repeat payload",
+            schemaName
+        );
+        if (isErr(lengthValue)) {
+            return err(encodeError(
+                "codec.encode_value_unrepresentable",
+                schemaName + "." + field.name,
+                asString(resultValue(lengthValue))
+            ));
+        }
+        long suppliedLength = asLong(unwrapOk(lengthValue));
+        Object items = fields.get(field.name);
+        ListValue current = asListValue(items);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        long actualCount = 0L;
+        while (current.cons) {
+            if (actualCount >= expectedCount) {
+                return err(encodeError(
+                    "codec.encode_value_unrepresentable",
+                    schemaName + "." + field.name,
+                    "list length exceeds "
+                        + schemaCountDescription(field.repeat.countField)
+                        + " value "
+                        + expectedCount
+                ));
+            }
+            long actualLength = byteViewCountLong(current.head);
+            if (actualLength != suppliedLength) {
+                return err(encodeError(
+                    "codec.encode_value_unrepresentable",
+                    schemaName + "." + field.name + "." + actualCount,
+                    "byte view count " + actualLength + " does not match "
+                        + schemaLengthDescription(field.repeat.byteViewLengthField)
+                        + " value " + suppliedLength
+                ));
+            }
+            bytes.addAll(byteChunkBytes(byteViewToChunk(current.head)));
             actualCount += 1L;
             current = asListValue(current.tail);
         }
