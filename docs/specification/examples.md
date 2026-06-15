@@ -445,6 +445,11 @@ pin the two-byte big-endian visible flag bitset slice. The cases prove
 source-visible `Flag16be(bits)` decode, big-endian encode, direct structural
 mapping in both directions, and the ordinary encode value-representation
 failure shape for values outside the two-byte range.
+`../../examples/specification/run/binary-schema-flag16be-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag16be-bit-index-json/`, and
+`../../examples/specification/run/binary-schema-flag16be-bit-index-human/`
+pin checked `Flag16be` helper behavior for successful bit reads and sets plus
+JSON and human invalid-index runtime result failures.
 
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.

@@ -18,6 +18,14 @@ pub fn flag8_set(flags: Flag8, index: Int) -> Result<Flag8, String>
 	prelude_builtin::flag8_set(flags, index)
 end
 
+pub fn flag16be_is_set(flags: Flag16be, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag16be_is_set(flags, index)
+end
+
+pub fn flag16be_set(flags: Flag16be, index: Int) -> Result<Flag16be, String>
+	prelude_builtin::flag16be_set(flags, index)
+end
+
 pub type ByteChunk
 	ByteChunk(bytes: Vec<Byte>)
 end

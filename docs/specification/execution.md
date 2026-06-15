@@ -133,13 +133,17 @@ execution reference.
   fields are source-visible `Flag8(bits)` and `Flag16be(bits)` values rather
   than raw `Int` values. Existing `UInt8` and `UInt16be` declarations continue
   to decode as ordinary `Int` fields. Pure prelude helpers inspect or set
-  one-byte `Flag8` bit indexes `0` through `7` and return `Result` failures
-  for indexes outside that range. The checked examples are
+  `Flag8` bit indexes `0` through `7` and `Flag16be` bit indexes `0` through
+  `15`, returning `Result` failures for indexes outside each helper's range.
+  The checked examples are
   `examples/specification/run/binary-schema-flag8-decode/`,
   `examples/specification/run/binary-schema-flag16be-decode/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
-  `examples/specification/run/binary-schema-flag8-bit-index-json/`, and
-  `examples/specification/run/binary-schema-flag8-bit-index-human/`.
+  `examples/specification/run/binary-schema-flag8-bit-index-json/`,
+  `examples/specification/run/binary-schema-flag8-bit-index-human/`,
+  `examples/specification/run/binary-schema-flag16be-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag16be-bit-index-json/`, and
+  `examples/specification/run/binary-schema-flag16be-bit-index-human/`.
 - Generated binary schema decode helpers support bounded
   `Repeat(count_field, Payload)` fields when `count_field` is an earlier
   visible exact-width unsigned field decoded as `Int` and `Payload` is

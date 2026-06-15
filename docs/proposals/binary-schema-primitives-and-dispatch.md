@@ -131,6 +131,9 @@ raw `Int`, preserves existing `UInt16be` field behavior, shares exact-width
 truncation behavior, supports direct mapped-record decode and encode, and
 reports existing encode value-representation failures when `bits` cannot be
 represented in two bytes.
+Pure prelude helpers expose checked two-byte `Flag16be` bit access through bit
+indexes `0` through `15`, returning `Result` failures for out-of-range indexes
+instead of masking or wrapping.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
@@ -192,7 +195,8 @@ for:
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
   or four-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset and
-  two-byte big-endian `Flag16be` bitset, checked `Flag8` bit helper access,
+  two-byte big-endian `Flag16be` bitset, checked `Flag8` and `Flag16be` bit
+  helper access,
   direct structural mapping boundary, and implemented direct constructor
   mapped encode boundaries, including raw-bit variants and broader
   frame-specific ADTs

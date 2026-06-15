@@ -1,0 +1,6 @@
+# Flag16be helper functions report range failures through human command output.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag16be = flag16be_set(Flag16be(0), -1)?
+	Ok(())
+end

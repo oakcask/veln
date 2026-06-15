@@ -230,6 +230,8 @@ source_prelude_symbol_set! {
     "byte_to_int" => veln_stdlib::prelude_source("byte_to_int"),
     "flag8_is_set" => veln_stdlib::prelude_source("flag8_is_set"),
     "flag8_set" => veln_stdlib::prelude_source("flag8_set"),
+    "flag16be_is_set" => veln_stdlib::prelude_source("flag16be_is_set"),
+    "flag16be_set" => veln_stdlib::prelude_source("flag16be_set"),
     "byte_chunk" => veln_stdlib::prelude_source("byte_chunk"),
     "byte_chunk_count" => veln_stdlib::prelude_source("byte_chunk_count"),
     "byte_append" => veln_stdlib::prelude_source("byte_append"),

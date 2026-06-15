@@ -52,9 +52,9 @@ schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 primitives. `Flag8` and `Flag16be` are accepted as opt-in visible flag bitset
 fields; they decode and encode through source-visible `Flag8(bits: Int)` and
 `Flag16be(bits: Int)` value types instead of the raw `Int` used by `UInt8`
-and `UInt16be`. The source-visible `Flag8` helper slice
-provides pure checked helpers for reading and setting bit indexes `0` through
-`7`; indexes outside that range return `Result` failures.
+and `UInt16be`. Source-visible checked helpers read and set `Flag8` bit
+indexes `0` through `7` and `Flag16be` bit indexes `0` through `15`; indexes
+outside each helper's range return `Result` failures.
 `ReservedBits` arguments must be literal
 non-negative integers. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
