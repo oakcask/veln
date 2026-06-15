@@ -130,7 +130,8 @@ compare it with `../specification/` before changing behavior.
   failure slices, the first source-visible cancellation handle, and the
   source-level stream event/action handler boundary examples plus the narrow
   multi-event socket-to-handler routing, stream-task handler, clean
-  stream-end adapter, and optional clean-end listener accept slices.
+  stream-end adapter, optional clean-end listener accept, and adapter-owned
+  listener-to-clean-stream-end lifecycle slices.
 
 ## Update When
 
