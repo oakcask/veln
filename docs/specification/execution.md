@@ -44,10 +44,13 @@ execution reference.
   stream write, timeout, deadline waits, and cancellable deadline waits
   execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
-  adapter-owned waits. Malformed received or read bytes, failed outgoing send
-  or write event recording, and forced listen, accept, read, write, timeout,
-  deadline, or cancellable-wait cancellation failures stop the entry as
-  runtime failures rather than schema, codec, or peer protocol diagnostics.
+  adapter-owned waits. `CancellableWaitOutcome` values let adapter-owned waits
+  observe completion, deadline expiry, or cancellation without stopping the
+  entry. Malformed received or read bytes, failed outgoing send or write event
+  recording, and forced listen, accept, read, write, timeout, deadline, or
+  cancellable-wait cancellation failures through the runtime-failure wait stop
+  the entry as runtime failures rather than schema, codec, or peer protocol
+  diagnostics.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

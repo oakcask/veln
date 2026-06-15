@@ -27,6 +27,12 @@ pub type StreamInput
 	End
 end
 
+pub type CancellableWaitOutcome
+	WaitCompleted
+	WaitDeadlineExpired
+	WaitCancelled
+end
+
 pub type DecodeError
 	DecodeError(id: String, offset: ByteOffset, field_path: String)
 end

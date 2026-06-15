@@ -201,6 +201,7 @@ time::wait_until(deadline: Deadline) -> () effects [time]
 time::cancel_token() -> CancelToken effects [time]
 time::cancel(token: CancelToken) -> () effects [time]
 time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
+time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
@@ -210,9 +211,10 @@ effect. Direct calls to `net::listen`, `net::accept`,
 `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`, `time::cancel_token`,
 `time::cancel`, and
-`time::wait_until_cancellable` infer the `time` effect. A public function or
-test that calls one of them directly or through a private helper must declare the
-matching effect in its `effects [...]` list.
+`time::wait_until_cancellable`,
+`time::wait_until_cancellable_outcome` infer the `time` effect. A public
+function or test that calls one of them directly or through a private helper
+must declare the matching effect in its `effects [...]` list.
 
 This boundary is intentionally fixture-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
@@ -229,9 +231,13 @@ creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel` requests cancellation through that handle; and
 `time::wait_until_cancellable` waits until a deadline expires unless the
-handle is cancelled first. Malformed host-fed receive or read bytes, failed
-outgoing send or write event recording, forced listen, accept, read, write,
-timeout, deadline expiry, or cancellable-wait cancellation failures are
+handle is cancelled first.
+`time::wait_until_cancellable_outcome` uses the same deadline and token values
+and returns `WaitCompleted`, `WaitDeadlineExpired`, or `WaitCancelled` as an
+ordinary `CancellableWaitOutcome` value for adapter-owned branching. Malformed
+host-fed receive or read bytes, failed outgoing send or write event recording,
+forced listen, accept, read, write, timeout, deadline expiry, or
+cancellable-wait cancellation failures through the runtime-failure wait are
 transport runtime failures, not schema, codec, or peer protocol diagnostics.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.

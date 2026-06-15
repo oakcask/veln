@@ -113,6 +113,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
             Type::unit(),
         )),
+        ("time", "wait_until_cancellable_outcome") => Some((
+            vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
+            Type::named("CancellableWaitOutcome", Vec::new()),
+        )),
         _ => None,
     }
 }
@@ -705,5 +709,17 @@ mod tests {
             vec![Type::named("Deadline", Vec::new()), cancel_token_type()]
         );
         assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "wait_until_cancellable_outcome"))
+                .expect("time signature");
+        assert_eq!(
+            params,
+            vec![Type::named("Deadline", Vec::new()), cancel_token_type()]
+        );
+        assert_eq!(
+            return_type,
+            Type::named("CancellableWaitOutcome", Vec::new())
+        );
     }
 }

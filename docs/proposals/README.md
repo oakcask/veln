@@ -131,10 +131,11 @@ compare it with `../specification/` before changing behavior.
   beyond the implemented descriptor-backed `net` and `time` boundary calls,
   first fixture-backed listener/stream calls, first transport-error,
   timeout-expiry, deadline-expiry, and cancellable-wait cancellation runtime
-  failure slices, the first source-visible cancellation handle, and the
-  source-level stream event/action handler boundary examples plus the narrow
-  multi-event socket-to-handler routing, stream-task handler, clean
-  stream-end adapter, optional clean-end listener accept, and adapter-owned
+  failure slices, the first source-visible cancellation handle, the
+  value-returning cancellable wait outcome slice, and the source-level stream
+  event/action handler boundary examples plus the narrow multi-event
+  socket-to-handler routing, stream-task handler, clean stream-end adapter,
+  optional clean-end listener accept, and adapter-owned
   listener-to-clean-stream-end lifecycle and channel-first stream routing
   slices.
 
