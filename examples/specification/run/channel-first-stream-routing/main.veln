@@ -1,0 +1,87 @@
+# Channel-first stream routing selects between ordinary stream input routes.
+use stdio
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, append_actions(tail, right))
+	end
+end
+
+fn action_stream_score(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(stream_id, _) => stream_id * 10 + action_stream_score(tail)
+			EndStream(stream_id) => stream_id * 10 + action_stream_score(tail)
+			Decline(stream_id) => stream_id * 10 + action_stream_score(tail)
+		end
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_, _) => 1 + write_count(tail)
+			EndStream(_) => write_count(tail)
+			Decline(_) => write_count(tail)
+		end
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0102")?
+	let left = channel::bounded<StreamInput>(2)
+	let right = channel::bounded<StreamInput>(2)
+	let _ = channel::send(left.tx, Chunk(first))
+	let _ = channel::send(right.tx, End)
+	let first_selected: { index : Int, value : StreamInput } = match channel::select_priority(left.rx, right.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let left_handled = handle_stream_input(1, first_selected.value, { chunks: 0, ended: false })
+	let second_selected: { index : Int, value : StreamInput } = match channel::select_priority(left.rx, right.rx)
+		Some(selected) => selected
+		None => { index: 1, value: End }
+	end
+	let right_handled = handle_stream_input(3, second_selected.value, { chunks: 0, ended: false })
+	let actions = append_actions(left_handled.actions, right_handled.actions)
+	stdio::print("selected ")
+	stdio::print(int_to_string(first_selected.index))
+	stdio::print(":")
+	stdio::print(int_to_string(second_selected.index))
+	stdio::print(" action-score ")
+	stdio::print(int_to_string(action_stream_score(actions)))
+	stdio::print(" left-chunks ")
+	stdio::print(int_to_string(left_handled.next_state.chunks))
+	stdio::print(" left-ended ")
+	stdio::print(bool_text(left_handled.next_state.ended))
+	stdio::print(" right-chunks ")
+	stdio::print(int_to_string(right_handled.next_state.chunks))
+	stdio::print(" right-ended ")
+	stdio::print(bool_text(right_handled.next_state.ended))
+	stdio::print(" writes ")
+	stdio::println(int_to_string(write_count(actions)))
+	Ok(())
+end

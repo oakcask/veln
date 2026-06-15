@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "selected 0:1 action-score 40 left-chunks 1 left-ended false right-chunks 0 right-ended true writes 1\n"
+
+[[json_assert]]
+path = "error"
+equals = null

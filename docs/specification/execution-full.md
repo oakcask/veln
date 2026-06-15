@@ -538,6 +538,16 @@ functions. The checked examples are
 `examples/specification/run/socket-stream-adapter-clean-end/`, and
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`.
 
+The channel-first stream routing cases keep that boundary while routing
+ordinary `StreamInput` values through two typed channel routes before handler
+invocation. Adapter code selects the ready route with existing channel
+selection and requires `concurrency`; socket wrappers that read `NetStream`
+input and write response bytes require both `net` and `concurrency`. The plain
+handler receives stream input plus explicit per-stream state and remains free
+of transport effects. The checked examples are
+`examples/specification/run/channel-first-stream-routing/` and
+`examples/specification/check/channel-first-stream-routing-effects/`.
+
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of
 strings. `process::env` returns `Some(value)` for a present environment key and

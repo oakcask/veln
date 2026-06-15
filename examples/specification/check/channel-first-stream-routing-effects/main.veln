@@ -1,0 +1,68 @@
+# Channel-first routing keeps handlers pure and adapter effects explicit.
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn route_selected_stream_input(first: StreamInput, second: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	let left = channel::bounded<StreamInput>(1)
+	let right = channel::bounded<StreamInput>(1)
+	let _ = channel::send(left.tx, first)
+	let _ = channel::send(right.tx, second)
+	let selected: { index : Int, value : StreamInput } = match channel::select_priority(left.rx, right.rx)
+		Some(value) => value
+		None => { index: 0, value: End }
+	end
+	handle_stream_input(1, selected.value, state)
+end
+
+fn read_socket_then_route(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+	let first: ByteChunk = net::read_chunk(stream)
+	let second: Option<ByteChunk> = net::read_chunk_or_end(stream)
+	let input = match second
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+	route_selected_stream_input(Chunk(first), input, state)
+end
+
+fn write_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(_, bytes) => write_then_continue(stream, bytes, tail)
+			EndStream(_) => write_response_actions(stream, tail)
+			Decline(_) => write_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_continue(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	write_response_actions(stream, tail)
+end
+
+pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id, input, state)
+end
+
+pub fn adapter_missing_concurrency(first: StreamInput, second: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	route_selected_stream_input(first, second, state)
+end
+
+pub fn socket_wrapper_missing_concurrency(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+	read_socket_then_route(stream, state)
+end
+
+pub fn socket_wrapper_missing_net(stream: NetStream, state: { chunks : Int, ended : Bool }) -> () effects [concurrency]
+	let routed = read_socket_then_route(stream, state)
+	write_response_actions(stream, routed.actions)
+end

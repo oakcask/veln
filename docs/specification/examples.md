@@ -635,6 +635,17 @@ projects `SendBytes` response actions back to ordered `net::write_chunk`
 calls. The adapter declares the existing coarse `net` and `concurrency`
 effects; the handler remains free of `net` calls.
 
+The executable specification case
+`../../examples/specification/run/channel-first-stream-routing/` covers
+channel-first selection between two ordinary `StreamInput` routes before
+handler invocation. It uses existing typed channels and
+`channel::select_priority`, then calls a plain stream handler with explicit
+per-stream state. The matching
+`../../examples/specification/check/channel-first-stream-routing-effects/`
+case pins the effect boundary: the routing adapter requires `concurrency`,
+socket wrappers around it require both `net` and `concurrency`, and the
+handler boundary remains free of transport effects.
+
 ## Pending Input Byte Chunks
 
 The executable specification case
