@@ -1207,10 +1207,18 @@ against the built `veln` binary.
   through a channel, invokes a pure handler, and projects `SendBytes` response
   actions to ordered `net::write_chunk` calls while keeping the same coarse
   `net` and `concurrency` effects.
+- `run/channel-first-stream-routing/`: adapter-owned source routes ordinary
+  `StreamInput` values through two typed channel routes, selects between them
+  with existing channel selection, and then invokes a pure stream handler with
+  explicit per-stream state.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, and task calls; the plain handler boundary stays free of
   `net`.
+- `check/channel-first-stream-routing-effects/`: channel-first stream routing
+  must declare `concurrency`, socket wrappers around that routing must declare
+  both `net` and `concurrency`, and the plain handler boundary stays free of
+  transport effects.
 - `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
   `ByteChunk` values into bounded pending input, `End` remains distinct,
   bounded `ByteView` consumption preserves absolute `ByteOffset` facts,

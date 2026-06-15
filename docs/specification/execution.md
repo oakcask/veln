@@ -68,6 +68,15 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`
   covering the listener-to-clean-stream-end ownership boundary in one adapter
   function.
+- The channel-first stream routing example routes ordinary `StreamInput`
+  values through two typed channel routes, selects the next ready route with
+  the existing channel selection vocabulary, and only then invokes a plain
+  handler with explicit per-stream state. The handler remains an ordinary
+  source function over stream input and state; adapter code owns channel
+  routing, and socket wrappers around the same boundary own `NetStream`
+  handles and writes. The checked examples are
+  `examples/specification/run/channel-first-stream-routing/` and
+  `examples/specification/check/channel-first-stream-routing-effects/`.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
