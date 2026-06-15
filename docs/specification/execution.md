@@ -394,8 +394,13 @@ execution reference.
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
-  `examples/specification/run/derived-codec-repeat-encode-boundary/`, and
-  `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`.
+  `examples/specification/run/derived-codec-repeat-encode-boundary/`,
+  `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
+  and
+  `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The general-helper roundtrip case covers the combined non-HTTP schema shape
+  and checks both successful `Ok(ByteChunk)` projection and helper
+  `Err(EncodeError)` projection.
   A mapped schema is rejected with `codec.encode_value_type` when its mapping
   expression shape cannot be projected back to the schema-local encode record.
 - A codec declaration with a valid `derive decode` clause for the same
@@ -409,8 +414,13 @@ execution reference.
   `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
-  `examples/specification/run/derived-codec-repeat-decode-boundary/`, and
-  `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`.
+  `examples/specification/run/derived-codec-repeat-decode-boundary/`,
+  `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
+  and
+  `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The general-helper roundtrip case covers the combined non-HTTP schema shape
+  and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
+  `Invalid` outcomes through the codec item.
   `examples/specification/run/codec-selected-mapping-decode-boundary/`
   covers the selected mapping boundary shared with hand-written decode
   codecs. For the implemented structural mapping slice, `T` is the mapping

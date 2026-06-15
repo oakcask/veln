@@ -1319,6 +1319,120 @@ fn derived_codec_encode_resolves_nested_dispatch_schema_encode_step_boundary() {
 }
 
 #[test]
+fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema TelemetryPayload\n",
+            "  format binary\n",
+            "\n",
+            "  channel_reserved: ReservedBits(3, 5)\n",
+            "  channel: UInt5\n",
+            "  reading: UInt16le\n",
+            "end\n",
+            "\n",
+            "schema TelemetryEnvelope\n",
+            "  format binary\n",
+            "\n",
+            "  section_length: UInt8\n",
+            "  payload_length: UInt8\n",
+            "  kind: UInt8\n",
+            "  flags: Flag8\n",
+            "  sample_count: UInt8\n",
+            "  samples: Repeat(sample_count, UInt16be)\n",
+            "  padding: ReservedBits(8, 0)\n",
+            "  metadata: ByteView(section_length - payload_length)\n",
+            "  payload: ExtensionDispatch(kind, payload_length, 1 => TelemetryPayload)\n",
+            "end\n",
+            "\n",
+            "codec TelemetryCodec for TelemetryEnvelope decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}>\n",
+            "  TelemetryCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn encode_main(packet: {section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}) -> EncodeStep<()>\n",
+            "  TelemetryCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let decode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "TelemetryEnvelope"
+    ));
+
+    let encode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "TelemetryEnvelope"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let decode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be in IR");
+    let IrStmtKind::Return { value } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "TelemetryEnvelope"
+    ));
+
+    let encode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be in IR");
+    let IrStmtKind::Return { value } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "TelemetryEnvelope"
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_return_mapped_record_shape() {
     let source = SourceFile::new(
         "main.veln",
