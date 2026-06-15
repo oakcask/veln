@@ -36,12 +36,13 @@ ordinary-source decode-state slices. Planned coverage still includes:
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
-  slice, and GOAWAY last-stream-id enforcement for later peer-created HEADERS
+  slice, outbound DATA local closed-stream send-intent slice, and GOAWAY
+  last-stream-id enforcement for later peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
-  beyond the implemented narrow outbound DATA send-intent credit checks,
-  outbound `RST_STREAM` reset send intent, inbound DATA, stream-level
-  `WINDOW_UPDATE`, and `SETTINGS_INITIAL_WINDOW_SIZE` open-stream
-  receive-window accounting
+  beyond the implemented narrow outbound DATA frame-header-plus-payload
+  send-intent slice, outbound `RST_STREAM` reset send intent, inbound DATA,
+  stream-level `WINDOW_UPDATE`, and `SETTINGS_INITIAL_WINDOW_SIZE`
+  open-stream receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, and later peer-created HEADERS rejection
 
@@ -340,15 +341,20 @@ nine-byte output chunk through the same frame-header encode path, with length
 `0`, kind `4`, flags `1`, and stream id `0`. The send intent does not update
 peer-advertised SETTINGS state or local receive-limit state.
 The implemented slice also includes narrow outbound DATA send-intent flow
-control. Ordinary source tracks outbound connection and stream credit
-separately from inbound receive windows, uses received
+control and output. Ordinary source tracks outbound connection and stream
+credit separately from inbound receive windows, uses received
 `SETTINGS_MAX_FRAME_SIZE` as the peer-owned maximum DATA frame size for frames
 this endpoint sends, and uses received `SETTINGS_INITIAL_WINDOW_SIZE` as the
-peer-owned stream-window credit. Accepted DATA intents consume outbound
-connection and stream credit by payload length. DATA intents larger than the
-peer-advertised maximum frame size, available outbound connection credit, or
-available outbound stream credit are rejected in source-level fixture output
-before credit changes.
+peer-owned stream-window credit. Accepted DATA intents emit one immutable
+frame-header-plus-payload chunk and consume outbound connection and stream
+credit by payload length. DATA intents larger than the peer-advertised maximum
+frame size, available outbound connection credit, or available outbound stream
+credit are rejected in source-level fixture output before output bytes or
+credit changes. Accepted DATA with `END_STREAM` records local closed-stream
+state so later outbound DATA, outbound HEADERS, and stream-level outbound
+`WINDOW_UPDATE` for that stream use the existing closed stream-state rejection
+boundary. Generated frame-header representation failures stay on the
+`codec.encode_value_unrepresentable` encode-error path.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only
