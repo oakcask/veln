@@ -18,6 +18,13 @@ schema Http2RstStreamPayloadWire
 	error_code: UInt32be
 end
 
+schema Http2WindowUpdatePayloadWire
+	format binary
+
+	increment_reserved: ReservedBits(1, 0)
+	increment: UInt31be
+end
+
 schema Http2GoawayPayloadWire
 	format binary
 
@@ -283,6 +290,10 @@ end
 
 fn encode_rst_stream_payload(payload: {error_code: Int}) -> Result<ByteChunk, EncodeError>
 	byte_encode_http2_rst_stream_payload_wire(payload)
+end
+
+fn encode_window_update_payload(payload: {increment: Int}) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_window_update_payload_wire(payload)
 end
 
 fn encode_goaway_payload(payload: {last_stream_id: Int, error_code: Int}) -> Result<ByteChunk, EncodeError>
@@ -1386,17 +1397,27 @@ end
 
 fn send_connection_window_update(increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	match validate_outbound_window_update_increment(0, increment, "connection-flow-control")
-		OutboundWindowUpdateIncrementOk => match receive_credit
-			OutboundReceiveCredit(connection_window, stream_credit) => encode_window_update_intent(0, increment, OutboundReceiveCredit(connection_window + increment, stream_credit))
-		end
+		OutboundWindowUpdateIncrementOk => validate_connection_window_update_bound(increment, receive_credit)
 		OutboundWindowUpdateIncrementFailed(error) => Ok(OutboundWindowUpdateRejected(error))
 	end
 end
 
 fn send_stream_window_update(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
-	match validate_outbound_window_update_increment(stream_id, increment, "open-stream")
-		OutboundWindowUpdateIncrementOk => send_valid_stream_window_update(stream_id, increment, receive_credit)
-		OutboundWindowUpdateIncrementFailed(error) => Ok(OutboundWindowUpdateRejected(error))
+	match stream_id == 0
+		true => Ok(OutboundWindowUpdateRejected(InvalidStreamId(0, 8, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_window_update_requires_open_stream")))
+		false => match validate_outbound_window_update_increment(stream_id, increment, "open-stream")
+			OutboundWindowUpdateIncrementOk => send_valid_stream_window_update(stream_id, increment, receive_credit)
+			OutboundWindowUpdateIncrementFailed(error) => Ok(OutboundWindowUpdateRejected(error))
+		end
+	end
+end
+
+fn validate_connection_window_update_bound(increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
+	match receive_credit
+		OutboundReceiveCredit(connection_window, stream_credit) => match connection_window + increment > max_receive_flow_control_window()
+			true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_receive_window")))
+			false => encode_window_update_intent(0, increment, OutboundReceiveCredit(connection_window + increment, stream_credit))
+		end
 	end
 end
 
@@ -1404,7 +1425,7 @@ fn send_valid_stream_window_update(stream_id: Int, increment: Int, receive_credi
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
-			true => encode_window_update_intent(stream_id, increment, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window + increment)))
+			true => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
 			false => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
@@ -1415,6 +1436,13 @@ fn send_valid_stream_window_update(stream_id: Int, increment: Int, receive_credi
 			true => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
 			false => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
+	end
+end
+
+fn validate_stream_window_update_bound(stream_id: Int, increment: Int, connection_window: Int, open_stream_id: Int, stream_window: Int) -> Result<OutboundWindowUpdateDecision, String>
+	match stream_window + increment > max_receive_flow_control_window()
+		true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_receive_window")))
+		false => encode_window_update_intent(stream_id, increment, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window + increment)))
 	end
 end
 
@@ -1434,7 +1462,15 @@ end
 fn encode_window_update_intent(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 4, kind: 8, flags: 0, stream_id: stream_id})
 	match encoded_header
-		Ok(header) => Ok(OutboundWindowUpdateAccepted(stream_id, increment, receive_credit, byte_append(header, byte_write_u31_be(increment)?)))
+		Ok(header) => encode_window_update_payload_intent(stream_id, increment, receive_credit, header)
+		Err(error) => Ok(OutboundWindowUpdateEncodeFailed(error))
+	end
+end
+
+fn encode_window_update_payload_intent(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit, header: ByteChunk) -> Result<OutboundWindowUpdateDecision, String>
+	let encoded_payload: Result<ByteChunk, EncodeError> = encode_window_update_payload({increment: increment})
+	match encoded_payload
+		Ok(payload) => Ok(OutboundWindowUpdateAccepted(stream_id, increment, receive_credit, byte_append(header, payload)))
 		Err(error) => Ok(OutboundWindowUpdateEncodeFailed(error))
 	end
 end
@@ -2446,6 +2482,22 @@ fn outbound_window_update_active_state(decision: OutboundWindowUpdateDecision) -
 		OutboundWindowUpdateAccepted(_, _, _, _) => "none"
 		OutboundWindowUpdateRejected(error) => failure_active_state(error)
 		OutboundWindowUpdateEncodeFailed(_) => "codec"
+	end
+end
+
+fn outbound_window_update_encode_path(decision: OutboundWindowUpdateDecision) -> String
+	match decision
+		OutboundWindowUpdateAccepted(_, _, _, _) => "none"
+		OutboundWindowUpdateRejected(_) => "none"
+		OutboundWindowUpdateEncodeFailed(error) => encode_error_path(error)
+	end
+end
+
+fn outbound_window_update_encode_detail(decision: OutboundWindowUpdateDecision) -> String
+	match decision
+		OutboundWindowUpdateAccepted(_, _, _, _) => "none"
+		OutboundWindowUpdateRejected(_) => "none"
+		OutboundWindowUpdateEncodeFailed(error) => encode_error_reason(error)
 	end
 end
 
@@ -3721,7 +3773,11 @@ fn print_outbound_window_update(label: String, decision: OutboundWindowUpdateDec
 	stdio::print(" stream_window ")
 	stdio::print(int_to_string(outbound_window_update_stream_window(decision)))
 	stdio::print(" active_state ")
-	stdio::println(outbound_window_update_active_state(decision))
+	stdio::print(outbound_window_update_active_state(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_window_update_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_window_update_encode_detail(decision))
 end
 
 fn print_outbound_window_update_chunk(label: String, decision: OutboundWindowUpdateDecision, expected_hex: String) -> Result<(), String> effects [stdio]
@@ -4262,6 +4318,12 @@ fn print_outbound_window_update_cases() -> Result<(), String> effects [stdio]
 	print_outbound_window_update("outbound-window-update-range", outbound_window_update_range)
 	let outbound_window_update_negative: OutboundWindowUpdateDecision = send_stream_window_update(1, -1, outbound_receive_credit)?
 	print_outbound_window_update("outbound-window-update-negative", outbound_window_update_negative)
+	let outbound_window_update_zero_stream: OutboundWindowUpdateDecision = send_stream_window_update(0, 1, outbound_receive_credit)?
+	print_outbound_window_update("outbound-window-update-zero-stream", outbound_window_update_zero_stream)
+	let outbound_window_update_connection_overflow: OutboundWindowUpdateDecision = send_connection_window_update(8, outbound_receive_credit_with_open_stream(2147483640, 1, 20))?
+	print_outbound_window_update("outbound-window-update-connection-overflow", outbound_window_update_connection_overflow)
+	let outbound_window_update_stream_overflow: OutboundWindowUpdateDecision = send_stream_window_update(1, 8, outbound_receive_credit_with_open_stream(10, 1, 2147483640))?
+	print_outbound_window_update("outbound-window-update-stream-overflow", outbound_window_update_stream_overflow)
 	let outbound_window_update_missing: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_receive_credit_without_stream(10))?
 	print_outbound_window_update("outbound-window-update-missing", outbound_window_update_missing)
 	let outbound_window_update_closed: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_receive_credit_with_closed_stream(10, 1))?
@@ -4272,6 +4334,8 @@ fn print_outbound_window_update_cases() -> Result<(), String> effects [stdio]
 	print_outbound_window_update("outbound-window-update-mismatch", outbound_window_update_mismatch)
 	let outbound_window_update_encode_error: OutboundWindowUpdateDecision = send_stream_window_update(2147483648, 1, outbound_receive_credit_with_open_stream(10, 2147483648, 20))?
 	print_outbound_window_update("outbound-window-update-encode-error", outbound_window_update_encode_error)
+	let outbound_window_update_payload_encode_error: OutboundWindowUpdateDecision = encode_window_update_intent(1, 2147483648, outbound_receive_credit)?
+	print_outbound_window_update("outbound-window-update-payload-encode-error", outbound_window_update_payload_encode_error)
 	Ok(())
 end
 
