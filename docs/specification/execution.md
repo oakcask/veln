@@ -398,6 +398,9 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The general-helper roundtrip case covers the combined non-HTTP schema shape
+  and checks both successful `Ok(ByteChunk)` projection and helper
+  `Err(EncodeError)` projection.
   A mapped schema is rejected with `codec.encode_value_type` when its mapping
   expression shape cannot be projected back to the schema-local encode record.
 - A codec declaration with a valid `derive decode` clause for the same
@@ -415,6 +418,9 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The general-helper roundtrip case covers the combined non-HTTP schema shape
+  and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
+  `Invalid` outcomes through the codec item.
   `examples/specification/run/codec-selected-mapping-decode-boundary/`
   covers the selected mapping boundary shared with hand-written decode
   codecs. For the implemented structural mapping slice, `T` is the mapping

@@ -709,7 +709,8 @@ against the built `veln` binary.
   `ByteView(left_length - right_length)`, same-module nested
   `ExtensionDispatch`, and little-endian nested primitive fields. The case
   checks direct helper roundtrip plus derived codec decode and encode calls
-  over the same schema shape.
+  over the same schema shape, including codec-projected `NeedMore`, decode
+  `Invalid`, and encode `Invalid` outcomes.
 - `run/binary-schema-decode-step/`: a generated binary schema decode-step
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open

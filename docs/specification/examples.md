@@ -125,7 +125,9 @@ The executable specification case
 covers the same derived codec decode boundary over one non-HTTP schema that
 combines `Flag8`, bounded repeat fields, representation-only reserved fields,
 `ByteView(left_length - right_length)`, same-module nested
-`ExtensionDispatch` payloads, and little-endian nested primitive fields.
+`ExtensionDispatch` payloads, and little-endian nested primitive fields. It
+checks successful decode, short-input `NeedMore(NeedBytes(...))`, and helper
+failure projection to `Invalid(DecodeError)`.
 The executable specification case
 `../../examples/specification/run/codec-selected-mapping-decode-boundary/`
 covers codec item calls over a schema with multiple decoded-field selected
@@ -181,7 +183,8 @@ The executable specification case
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 covers the same derived codec encode boundary over the combined non-HTTP
 schema shape listed above and checks that helper `Ok(ByteChunk)` output
-projects to one `Encoded(List<ByteChunk>)` chunk.
+projects to one `Encoded(List<ByteChunk>)` chunk, while helper
+`Err(EncodeError)` output projects to `Invalid(EncodeError)`.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.encode_value_type` rejection for generated encode boundaries.
 
@@ -499,7 +502,9 @@ closed input.
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 combines supported generated helper fields in one non-HTTP schema and checks
 that successful decode followed by encode preserves the same bytes, including
-calls routed through the derived codec item name.
+calls routed through the derived codec item name. The same case also checks
+short-input decode readiness plus decode and encode helper failures observed
+through that derived codec item name.
 
 ## Stream Adapter Event Boundary
 
