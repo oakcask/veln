@@ -41,8 +41,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented narrow outbound DATA frame-header-plus-payload
   send-intent slice, outbound `RST_STREAM` reset send intent, inbound DATA,
-  stream-level `WINDOW_UPDATE`, and `SETTINGS_INITIAL_WINDOW_SIZE`
-  open-stream receive-window accounting
+  stream-level `WINDOW_UPDATE`, outbound `WINDOW_UPDATE` receive-credit
+  intent, and `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window
+  accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, and later peer-created HEADERS rejection
 
@@ -355,6 +356,16 @@ state so later outbound DATA, outbound HEADERS, and stream-level outbound
 `WINDOW_UPDATE` for that stream use the existing closed stream-state rejection
 boundary. Generated frame-header representation failures stay on the
 `codec.encode_value_unrepresentable` encode-error path.
+The implemented slice also includes the outbound `WINDOW_UPDATE`
+receive-credit intent. Ordinary source accepts connection-level and
+currently open stream-level increments, emits exactly one immutable frame
+with length `4`, kind `8`, flags `0`, the selected stream id, and a
+four-byte unsigned increment payload, and rejects zero, negative,
+out-of-range, current-window overflow, stream id zero, idle-stream,
+closed-stream, reset-stream, and mismatched-stream intents before output
+bytes. Generated frame-header and increment-payload representation failures
+remain `codec.encode_value_unrepresentable` encode errors instead of
+protocol diagnostics.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only

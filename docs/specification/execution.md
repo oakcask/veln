@@ -712,9 +712,15 @@ execution reference.
   outbound DATA with `END_STREAM` records local closed-stream state; later
   outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE`
   for that stream follow the existing closed stream-state rejection boundary.
-  Generated frame-header representation failures remain
-  `codec.encode_value_unrepresentable` encode errors rather than HTTP/2
-  diagnostics.
+  Outbound `WINDOW_UPDATE` send-intents accept connection-level and
+  currently open stream-level receive-credit increments, emit one immutable
+  frame with a four-byte increment payload, reject zero, negative,
+  out-of-range, current-window overflow, stream id zero, idle-stream,
+  closed-stream, reset-stream, and mismatched-stream intents before output
+  bytes, and leave generated helper representation failures for the frame
+  header or increment payload as a
+  `codec.encode_value_unrepresentable` encode error rather than an HTTP/2
+  diagnostic.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
   header encode slice. Ordinary source builds a record-shaped frame
   description with `length`, `kind`, `flags`, and `stream_id`, passes it to an

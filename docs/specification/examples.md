@@ -957,6 +957,12 @@ error-code payload, and the maximum valid `UInt31be` stream id. The source
 output also matches generated helper `codec.encode_value_unrepresentable`
 failure for an out-of-range stream id, keeping field path and reason text
 visible without converting it into a protocol diagnostic.
+The checked HTTP/2 source output also pins outbound `WINDOW_UPDATE`
+send-intents for accepted connection-level and open-stream receive-credit
+increments, zero and out-of-range increments, current-window overflow,
+stream id zero, idle, closed, reset, mismatched, and generated frame-header
+and increment-payload representation failure cases. Rejected intents keep
+output chunks empty.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
