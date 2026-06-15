@@ -1851,6 +1851,82 @@ fn generated_schema_mappings_report_converter_diagnostics() {
 }
 
 #[test]
+fn generated_schema_mappings_report_imported_converter_diagnostics() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use helpers\n",
+            "\n",
+            "type Header\n",
+            "  Header {missing: Int, private: Int, bare: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    missing = missing_helpers::convert(kind)\n",
+            "    private = helpers::private_convert(kind)\n",
+            "    bare = public_convert(kind)\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod helpers\n",
+            "pub fn public_convert(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn private_convert(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        types: app.types,
+        functions: app.functions.into_iter().chain(helpers.functions).collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter"
+                && diagnostic.message
+                    == "schema mapping converter `missing_helpers::convert` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_visibility"
+                && diagnostic.message
+                    == "schema mapping converter `helpers::private_convert` is private"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter"
+                && diagnostic.message == "schema mapping converter `public_convert` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn dispatch_payload_schema_references_report_resolution_diagnostics() {
     let app_source = SourceFile::new(
         "app.veln",

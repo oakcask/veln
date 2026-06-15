@@ -1,0 +1,19 @@
+pub fn two_params(value: Int, extra: Int) -> Int
+	value
+end
+
+pub fn needs_text(value: String) -> Int
+	0
+end
+
+pub fn to_text(value: Int) -> String
+	int_to_string(value)
+end
+
+pub fn noisy(value: Int) -> Int effects [stdio]
+	value
+end
+
+fn private_convert(value: Int) -> Int
+	value
+end

@@ -137,10 +137,11 @@ map to FrameHeader
 The mapping target is a member path naming an ordinary source value shape. Each
 assignment line must explicitly name a target field on the left and a
 schema mapping expression on the right. The implemented expression slice
-supports schema-local field references, record construction, and ADT
-constructor construction resolved through ordinary source module rules, plus
-one pure same-module converter call whose only argument is a schema-local
-field.
+supports schema-local field references, record construction, ADT constructor
+construction resolved through ordinary source module rules, one pure
+same-module converter call, and one imported public pure converter call
+through a written `use` path or alias. Converter calls take exactly one
+schema-local field argument.
 Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
@@ -171,6 +172,10 @@ The executable diagnostics case
 keeps unresolved converter, converter arity, converter input type, converter
 return type, converter purity, and unsupported converter shape diagnostics
 executable.
+The executable diagnostics case
+`../../examples/specification/check/schema-imported-mapping-converter-diagnostics/`
+keeps imported converter visibility and missing written import-path
+diagnostics executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose

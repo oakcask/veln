@@ -493,6 +493,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-converter-decode/`: a generated binary schema
   decode helper calls a pure same-module converter on a schema-local field
   before returning the decoded value.
+- `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
+  schema decode helper calls imported public pure converters through written
+  `use` paths before returning the decoded value.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.
