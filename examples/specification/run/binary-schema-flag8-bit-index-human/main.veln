@@ -1,0 +1,6 @@
+# Flag8 helper functions report range failures through human command output.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag8 = flag8_set(Flag8(0), -1)?
+	Ok(())
+end

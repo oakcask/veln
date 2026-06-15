@@ -118,6 +118,9 @@ existing direct assignment rule. They also project the first narrow ADT
 constructor inverse when a single target field wraps one schema-local `Flag8`
 field, such as `flags = Http2Flags(wire_flags)`, and preserve the ordinary
 `Flag8` encode range-failure shape on the schema-local field path.
+Pure prelude helpers expose checked one-byte `Flag8` bit access through bit
+indexes `0` through `7`, returning `Result` failures for out-of-range indexes
+instead of masking or wrapping.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
@@ -175,8 +178,9 @@ for:
   prefixes,
   one-byte, two-byte, three-byte, and four-byte packed reserved suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
-- flag vocabulary beyond the implemented one-byte `Flag8` bitset, direct
-  structural mapping boundary, and single-constructor mapped encode boundary,
+- flag vocabulary beyond the implemented one-byte `Flag8` bitset, checked bit
+  helper access, direct structural mapping boundary, and single-constructor
+  mapped encode boundary,
   including raw-bit variants and broader frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode

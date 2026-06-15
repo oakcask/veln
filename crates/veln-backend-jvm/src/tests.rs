@@ -1484,6 +1484,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("float_greater_equal", "floatGreaterEqual"),
         ("byte", "byteValue"),
         ("byte_to_int", "byteToInt"),
+        ("flag8_is_set", "flag8IsSet"),
+        ("flag8_set", "flag8Set"),
         ("byte_chunk", "byteChunk"),
         ("byte_chunk_count", "byteChunkCount"),
         ("byte_append", "byteAppend"),
