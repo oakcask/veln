@@ -7,7 +7,8 @@ transport integration. The first descriptor-backed `net` and `time`
 boundary calls, the first fixture-backed socket listener/stream calls, the
 narrow socket-to-handler routing and stream-task handler slices, the
 fixture-backed multi-event socket routing slice, the clean stream-end adapter
-slice, the optional clean-end listener accept slice, and the first cancellable
+slice, the optional clean-end listener accept slice, the adapter-owned
+listener-to-clean-stream-end lifecycle slice, and the first cancellable
 adapter-owned wait boundary are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
@@ -32,10 +33,11 @@ commit to a full network runtime.
 Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, and narrow
 multi-event socket-to-handler routing, stream-task handler, and clean
-stream-end adapter plus optional clean-end listener accept slices for:
+stream-end adapter plus optional clean-end listener accept and
+adapter-owned lifecycle slices for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
-  accept, optional accept, read-one-chunk, and write-one-chunk slice
+  optional accept, optional stream-read, and ordered write lifecycle slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
@@ -167,6 +169,10 @@ and `None` when the listener reaches a clean end before accepting. The accepted
 stream follows the same stream-handle behavior as `net::accept`. Forced accept
 failure on the same optional accept path remains a runtime transport failure.
 
+The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
+
 ## Discussion Result: Transport Error Boundary
 
 Implemented first slices: descriptor-backed `net::receive_chunk` reports
@@ -245,8 +251,9 @@ or the pure protocol core.
   effectful adapter functions.
 - Examples show production adapter socket ownership beyond the first
   fixture-backed listener/stream handles, narrow multi-event
-  socket-to-handler routing, and stream-task handler slices, richer stream
-  routing, and richer deadline and cancellation APIs beyond the narrow
+  socket-to-handler routing, stream-task handler, clean stream-end, optional
+  accept, and adapter-owned lifecycle slices, richer stream routing, and
+  richer deadline and cancellation APIs beyond the narrow
   relative `Deadline` and `CancelToken` boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.

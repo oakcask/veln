@@ -56,15 +56,18 @@ execution reference.
 - The socket stream adapter routing example composes the existing
   fixture-backed socket calls with the source-level event/action handler
   boundary. Adapter code can accept a listener as `Some(stream)` or clean end
-  as `None`, reads multiple fixture-backed `ByteChunk` values from one
-  `NetStream`, can translate clean stream end into `StreamInput.End`, routes
+  as `None`, owns the accepted `NetStream` across optional reads until clean
+  stream end, translates clean stream end into `StreamInput.End`, routes
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler
   task over the same event/action boundary, and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
   `examples/specification/run/socket-stream-adapter-routing/` and
-  `examples/specification/run/socket-stream-adapter-clean-end/`.
+  `examples/specification/run/socket-stream-adapter-clean-end/`, with
+  `examples/specification/run/socket-stream-adapter-owned-lifecycle/`
+  covering the listener-to-clean-stream-end ownership boundary in one adapter
+  function.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes

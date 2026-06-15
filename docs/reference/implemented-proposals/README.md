@@ -66,6 +66,8 @@ behavior.
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 - Binary fixture helpers:
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
+- Network adapter ownership boundary:
+  [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 

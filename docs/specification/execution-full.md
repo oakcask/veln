@@ -521,14 +521,18 @@ then walks the returned action list. Optional accept cases use
 `net::accept_or_end` to accept a usable stream as `Some(stream)` or observe a
 clean listener end as `None`. The clean stream-end case translates
 `net::read_chunk_or_end` returning `None` into the standard `StreamInput.End`
-value before calling the pure handler. The same checked boundary also joins a
-spawned stream-handler task that uses the same ordinary event/action values.
-`SendBytes` actions are translated into ordered `net::write_chunk` calls by
-the adapter. Non-write response intents remain ordinary values for the adapter
-to interpret. The handler has no socket handle parameter and does not call
-`net` functions. The checked examples are
-`examples/specification/run/socket-stream-adapter-routing/` and
-`examples/specification/run/socket-stream-adapter-clean-end/`.
+value before calling the pure handler. The owned-lifecycle case combines
+`net::listen`, `net::accept_or_end`, repeated `net::read_chunk_or_end`, channel
+routing, pure handler invocation, and ordered `net::write_chunk` projection in
+one adapter function. The same checked boundary also joins a spawned
+stream-handler task that uses the same ordinary event/action values.
+`SendBytes` actions are translated into ordered `net::write_chunk` calls by the
+adapter. Non-write response intents remain ordinary values for the adapter to
+interpret. The handler has no socket handle parameter and does not call `net`
+functions. The checked examples are
+`examples/specification/run/socket-stream-adapter-routing/`,
+`examples/specification/run/socket-stream-adapter-clean-end/`, and
+`examples/specification/run/socket-stream-adapter-owned-lifecycle/`.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

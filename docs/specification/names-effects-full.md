@@ -241,11 +241,15 @@ socket reads and ordered `net::write_chunk` calls with standard channel and
 task calls. One case uses `net::read_chunk` for byte-only reads; the clean-end
 case uses `net::read_chunk_or_end` so adapter-owned source can translate
 `None` into the standard `StreamInput.End` value for a pure handler boundary.
-The adapter functions therefore declare both `net` and `concurrency`; the
-plain handlers they call remain free of socket handles and `net` calls. This
-composition does not add any effect label beyond the existing coarse labels
-or any compiler-known routing symbol beyond the socket, channel, and task
-calls listed here.
+The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
+accepted stream through repeated optional reads, routes ordinary stream values
+through a channel, calls the plain handler without exposing socket handles, and
+projects `SendBytes` actions back into ordered `net::write_chunk` calls. The
+adapter functions therefore declare both `net` and `concurrency`; the plain
+handlers they call remain free of socket handles and `net` calls. This
+composition does not add any effect label beyond the existing coarse labels or
+any compiler-known routing symbol beyond the socket, channel, and task calls
+listed here.
 
 ## Process Calls
 

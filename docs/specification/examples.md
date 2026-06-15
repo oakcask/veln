@@ -616,6 +616,17 @@ through an existing channel, calls a pure handler, and projects response
 actions back to ordered `net::write_chunk` calls. Forced read failure on the
 same optional read path remains a runtime transport failure.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-owned-lifecycle/`
+covers the listener-to-clean-stream-end ownership boundary in one adapter
+function. The adapter creates and owns the `NetListener`, accepts an optional
+`NetStream` with `net::accept_or_end`, reads accepted stream chunks until
+clean end with `net::read_chunk_or_end`, routes ordinary stream input values
+through a channel, calls a pure handler without exposing socket handles, and
+projects `SendBytes` response actions back to ordered `net::write_chunk`
+calls. The adapter declares the existing coarse `net` and `concurrency`
+effects; the handler remains free of `net` calls.
+
 ## Pending Input Byte Chunks
 
 The executable specification case

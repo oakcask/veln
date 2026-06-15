@@ -1184,6 +1184,12 @@ against the built `veln` binary.
   translates it into `StreamInput.End`, routes stream inputs through a
   standard channel, and keeps the pure handler free of socket handles and
   `net` calls while preserving forced read failures as runtime failures.
+- `run/socket-stream-adapter-owned-lifecycle/`: one adapter function owns the
+  listener and accepted stream, uses `net::accept_or_end`, reads until clean
+  stream end with `net::read_chunk_or_end`, routes ordinary stream values
+  through a channel, invokes a pure handler, and projects `SendBytes` response
+  actions to ordered `net::write_chunk` calls while keeping the same coarse
+  `net` and `concurrency` effects.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, and task calls; the plain handler boundary stays free of

@@ -27,9 +27,9 @@ compiler-known calls.
   runtime failures.
   The socket stream adapter routing examples compose existing `net` stream
   calls with existing channel and task calls under `concurrency`, including
-  multiple fixture-backed reads from one stream and clean end translated to
-  `StreamInput.End`; they add no new effect label or compiler-known routing
-  call.
+  optional listener accept, multiple optional reads from an accepted stream,
+  clean end translated to `StreamInput.End`, and ordered write projection;
+  they add no new effect label or compiler-known routing call.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
