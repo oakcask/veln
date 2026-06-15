@@ -705,6 +705,17 @@ execution reference.
   generated binary schema encode helpers' representable ranges stay as
   `codec.encode_value_unrepresentable` failures with the generated field path.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
+  HEADERS send-intent. Ordinary source accepts an already-encoded opaque
+  header-block chunk for a nonzero currently open stream, emits one immutable
+  output chunk with a HEADERS frame header kind `1`, `END_HEADERS` set, and an
+  optional `END_STREAM` flag, followed by the header-block bytes. Accepted
+  `END_STREAM` records local closed-stream state so a later stream-level
+  `WINDOW_UPDATE` for that stream follows the existing closed stream-state
+  boundary. Stream id `0`, missing streams, closed streams, already reset
+  streams, mismatched open streams, payloads larger than the peer-advertised
+  maximum frame size, and generated frame-header representation failures are
+  rejected before accepted output bytes are produced.
+- The same HTTP/2 protocol-core example also covers the narrow outbound
   GOAWAY send-intent. Ordinary source validates the selected last stream id
   through the generated `UInt31be` payload helper and the error code through
   the generated `UInt32be` payload helper, then emits one immutable output

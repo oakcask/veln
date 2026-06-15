@@ -849,6 +849,14 @@ same reset stream-state rejection boundary. It rejects stream id `0`, missing
 streams, closed streams, already reset streams, mismatched open streams, and
 generated encode-helper representation failures for the stream id or
 error-code payload before accepted bytes are produced.
+The outbound HEADERS send-intent slice accepts an already-encoded opaque
+header-block chunk for a nonzero currently open stream, emits a frame-header
+plus header-block output chunk with kind `1` and `END_HEADERS`, optionally
+sets `END_STREAM`, and records local closed-stream state after an accepted
+`END_STREAM` intent. It rejects stream id `0`, missing streams, closed
+streams, already reset streams, mismatched open streams, payloads larger than
+the peer-advertised maximum frame size, and generated frame-header
+representation failures before accepted bytes are produced.
 The outbound GOAWAY send-intent slice accepts a last stream id and error code,
 emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
@@ -871,11 +879,12 @@ frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
 `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
 `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`, an accepted
 `RST_STREAM` frame plus error-code
-payload, an accepted GOAWAY frame plus last-stream-id and error-code payload,
-and the maximum valid `UInt31be` stream id. The source output also matches
-generated helper `codec.encode_value_unrepresentable` failure for an
-out-of-range stream id, keeping field path and reason text visible without
-converting it into a protocol diagnostic.
+payload, accepted HEADERS frame-header-plus-header-block chunks with and
+without `END_STREAM`, an accepted GOAWAY frame plus last-stream-id and
+error-code payload, and the maximum valid `UInt31be` stream id. The source
+output also matches generated helper `codec.encode_value_unrepresentable`
+failure for an out-of-range stream id, keeping field path and reason text
+visible without converting it into a protocol diagnostic.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
