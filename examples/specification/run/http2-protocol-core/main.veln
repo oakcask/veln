@@ -251,6 +251,7 @@ end
 
 type OutboundSettingsDecision
 	OutboundSettingsAccepted(Int, Int, Http2ConnectionState, ByteChunk)
+	OutboundSettingsRejected(Http2ProtocolFailure)
 	OutboundSettingsEncodeFailed(EncodeError)
 end
 
@@ -1150,6 +1151,27 @@ fn encode_local_max_concurrent_streams_intent(value: Int, decode_state: Http2Dec
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
 	match encoded_header
 		Ok(header) => Ok(OutboundSettingsAccepted(3, value, ConnectionState(decode_state, OutstandingLocalSettings(3, 1)), byte_append(header, payload)))
+		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
+	end
+end
+
+fn send_local_enable_push_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match value < 0
+		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings")))
+		false => match value > 1
+			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings")))
+			false => match connection
+				ConnectionState(decode_state, _) => encode_local_enable_push_intent(value, decode_state)
+			end
+		end
+	end
+end
+
+fn encode_local_enable_push_intent(value: Int, decode_state: Http2DecodeState) -> Result<OutboundSettingsDecision, String>
+	let payload: ByteChunk = byte_append(byte_write_u16_be(2)?, byte_write_u32_be(value)?)
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundSettingsAccepted(2, value, ConnectionState(decode_state, OutstandingLocalSettings(2, 1)), byte_append(header, payload)))
 		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
 	end
 end
@@ -2699,6 +2721,7 @@ end
 fn outbound_settings_status(decision: OutboundSettingsDecision) -> String
 	match decision
 		OutboundSettingsAccepted(_, _, _, _) => "accepted"
+		OutboundSettingsRejected(_) => "rejected"
 		OutboundSettingsEncodeFailed(_) => "encode_error"
 	end
 end
@@ -2706,6 +2729,7 @@ end
 fn outbound_settings_identifier(decision: OutboundSettingsDecision) -> Int
 	match decision
 		OutboundSettingsAccepted(identifier, _, _, _) => identifier
+		OutboundSettingsRejected(failure) => failure_setting_identifier(failure)
 		OutboundSettingsEncodeFailed(_) => 0
 	end
 end
@@ -2713,6 +2737,7 @@ end
 fn outbound_settings_value(decision: OutboundSettingsDecision) -> Int
 	match decision
 		OutboundSettingsAccepted(_, value, _, _) => value
+		OutboundSettingsRejected(failure) => failure_observed_value(failure)
 		OutboundSettingsEncodeFailed(_) => 0
 	end
 end
@@ -2720,6 +2745,7 @@ end
 fn outbound_settings_connection(decision: OutboundSettingsDecision) -> Http2ConnectionState
 	match decision
 		OutboundSettingsAccepted(_, _, connection, _) => connection
+		OutboundSettingsRejected(_) => connection_state(frame_state())
 		OutboundSettingsEncodeFailed(_) => connection_state(frame_state())
 	end
 end
@@ -2727,7 +2753,16 @@ end
 fn outbound_settings_chunk(decision: OutboundSettingsDecision) -> ByteChunk
 	match decision
 		OutboundSettingsAccepted(_, _, _, chunk) => chunk
+		OutboundSettingsRejected(_) => byte_chunk([])
 		OutboundSettingsEncodeFailed(_) => byte_chunk([])
+	end
+end
+
+fn outbound_settings_failure(decision: OutboundSettingsDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundSettingsAccepted(_, _, _, _) => SettingsValueOutOfRange(0, 0, "none", 0, 0, 0, "none")
+		OutboundSettingsRejected(failure) => failure
+		OutboundSettingsEncodeFailed(_) => SettingsValueOutOfRange(0, 0, "none", 0, 0, 0, "none")
 	end
 end
 
@@ -3502,6 +3537,21 @@ fn print_local_max_concurrent_streams_settings_case() -> Result<(), String> effe
 	let ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(sent))?
 	print_step("local-max-concurrent-streams-settings-ack", connection_step_decode_step(ack))
 	print_outstanding_settings("local-max-concurrent-streams-settings-ack", connection_step_state(ack))
+	Ok(())
+end
+
+fn print_local_enable_push_settings_case() -> Result<(), String> effects [stdio]
+	let sent: OutboundSettingsDecision = send_local_enable_push_setting(1, connection_state(frame_state()))?
+	print_outbound_settings("local-enable-push-settings-sent", sent)
+	let ignored_chunk: () = emit_encoded_header("http2-local-enable-push-settings", outbound_settings_chunk(sent), "000006040000000000000200000001")?
+	print_outstanding_settings("local-enable-push-settings-sent", outbound_settings_connection(sent))
+	let ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(sent))?
+	print_step("local-enable-push-settings-ack", connection_step_decode_step(ack))
+	print_outstanding_settings("local-enable-push-settings-ack", connection_step_state(ack))
+	let rejected: OutboundSettingsDecision = send_local_enable_push_setting(2, connection_state(frame_state()))?
+	print_outbound_settings("local-enable-push-settings-range", rejected)
+	let ignored_rejected_chunk: () = print_empty_output_chunks("http2-local-enable-push-settings-range")?
+	print_settings_failure("local-enable-push-settings-range", Failed(frame_state(), outbound_settings_failure(rejected)))
 	Ok(())
 end
 
@@ -4413,6 +4463,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("local-header-table-size-settings-ack", connection_step_decode_step(local_header_table_size_settings_ack))
 	print_outstanding_settings("local-header-table-size-settings-ack", connection_step_state(local_header_table_size_settings_ack))
 	let ignored_local_initial_window_size_settings_case: () = print_local_initial_window_size_settings_case()?
+	let ignored_local_enable_push_settings_case: () = print_local_enable_push_settings_case()?
 	let local_header_list_size_settings_sent: OutboundSettingsDecision = send_local_max_header_list_size_setting(8192, connection_state(frame_state()))?
 	print_outbound_settings("local-header-list-size-settings-sent", local_header_list_size_settings_sent)
 	let ignored_local_header_list_size_settings_chunk: () = emit_encoded_header("http2-local-header-list-size-settings", outbound_settings_chunk(local_header_list_size_settings_sent), "000006040000000000000600002000")?

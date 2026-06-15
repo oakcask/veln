@@ -133,9 +133,9 @@ compare it with `../specification/` before changing behavior.
   peer-sent `PUSH_PROMISE` rejection on the server receive boundary, outbound
   frame-header encode, outbound SETTINGS ACK send intent, local SETTINGS
   send intents for `SETTINGS_HEADER_TABLE_SIZE`,
-  `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
-  `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound
-  PING ACK send intent, narrow
+  `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_ENABLE_PUSH`,
+  `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, and
+  `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound PING ACK send intent, narrow
   outbound DATA flow-control send intent, and outbound `WINDOW_UPDATE`
   receive-credit intent, `RST_STREAM` reset send-intent, outbound HEADERS
   send-intent, and GOAWAY send-intent slices.
