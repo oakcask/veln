@@ -246,6 +246,10 @@ against the built `veln` binary.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter shape diagnostics.
+- `check/schema-imported-mapping-converter-diagnostics/`: imported
+  converter-shaped schema mapping assignment values report unresolved paths,
+  private converters, missing written import paths, arity, input type, return
+  type, and purity diagnostics.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics

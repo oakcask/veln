@@ -1,7 +1,7 @@
 use helpers
 
 type Header
-	Header {missing: Int, private: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int}
+	Header {missing: Int, private: Int, bare: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int}
 end
 
 schema HeaderWire
@@ -12,6 +12,7 @@ schema HeaderWire
 	map to Header
 		missing = missing_helpers::convert(kind)
 		private = helpers::private_convert(kind)
+		bare = public_convert(kind)
 		bad_arity = helpers::two_params(kind)
 		bad_input = helpers::needs_text(kind)
 		bad_return = helpers::to_text(kind)

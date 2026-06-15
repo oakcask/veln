@@ -10,6 +10,10 @@ pub fn to_text(value: Int) -> String
 	int_to_string(value)
 end
 
+pub fn public_convert(value: Int) -> Int
+	value
+end
+
 pub fn noisy(value: Int) -> Int effects [stdio]
 	value
 end
