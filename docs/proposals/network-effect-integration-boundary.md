@@ -169,15 +169,9 @@ and `None` when the listener reaches a clean end before accepting. The accepted
 stream follows the same stream-handle behavior as `net::accept`. Forced accept
 failure on the same optional accept path remains a runtime transport failure.
 
-Implemented adapter-owned lifecycle slice: an executable specification case
-places `net::listen`, `net::accept_or_end`, repeated
-`net::read_chunk_or_end`, channel routing, pure handler invocation, and ordered
-`net::write_chunk` projection in one adapter function. That adapter owns both
-the `NetListener` and accepted `NetStream`, translates clean stream end into
-`StreamInput.End`, routes ordinary values through the existing channel API
-under `concurrency`, and keeps the handler free of socket handles and `net`
-calls. The adapter still declares only the existing coarse `net` and
-`concurrency` effects.
+The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
 ## Discussion Result: Transport Error Boundary
 
