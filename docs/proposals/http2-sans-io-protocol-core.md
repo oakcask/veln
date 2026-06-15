@@ -24,8 +24,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   header-table-size, and maximum-header-list-size peer-advertised state,
   unknown-identifier handling, SETTINGS ACK receive and outstanding-local
   SETTINGS tracking, local SETTINGS send-intents for header-table-size,
-  maximum-frame-size, and maximum-header-list-size, and the narrow outbound
-  SETTINGS ACK send-intent slice
+  initial-window-size, maximum-frame-size, and maximum-header-list-size, and
+  the narrow outbound SETTINGS ACK send-intent slice
 - remaining DATA behavior beyond the implemented receive-window accounting
   and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
@@ -291,13 +291,13 @@ updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
 nonzero streams on the existing `http2.protocol.invalid_stream_id` path.
 It also records one outstanding local SETTINGS batch when the fixture emits
-one local `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_FRAME_SIZE`, or
-`SETTINGS_MAX_HEADER_LIST_SIZE` item, preserving the sent identifier and item
-count. Those local SETTINGS send-intents emit a single frame-header-plus-item
-chunk with length `6`, kind `4`, flags `0`, stream id `0`, the selected
-identifier, and the selected four-byte unsigned value. A valid SETTINGS ACK
-clears that state, and a valid SETTINGS ACK with no outstanding local
-SETTINGS is rejected as
+one local `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
+`SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE` item, preserving
+the sent identifier and item count. Those local SETTINGS send-intents emit a
+single frame-header-plus-item chunk with length `6`, kind `4`, flags `0`,
+stream id `0`, the selected identifier, and the selected four-byte unsigned
+value. A valid SETTINGS ACK clears that state, and a valid SETTINGS ACK with
+no outstanding local SETTINGS is rejected as
 `http2.protocol.unexpected_settings_ack` in ordinary output, human diagnostics,
 and JSON details.
 It also accepts structurally complete unknown extension frames after the
