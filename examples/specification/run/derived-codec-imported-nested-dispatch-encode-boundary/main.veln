@@ -1,0 +1,88 @@
+# Derived codec encode calls can use imported nested dispatch helpers.
+use stdio
+use wire
+
+schema ImportedClosedNestedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::SettingsPayload)
+end
+
+codec ImportedClosedNestedCodec for ImportedClosedNestedPacket encode
+	derive encode
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_unexpected_chunk_count(chunks: List<ByteChunk>) -> () effects [stdio]
+	stdio::print("unexpected chunk count ")
+	stdio::println(int_to_string(chunk_count(chunks)))
+end
+
+fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => emit_unexpected_chunk_count(chunks)
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: EncodeStep<()> = ImportedClosedNestedCodec({kind: 1, payload: {code: 7, value: 4660}})
+	stdio::println(step_kind(encoded))
+	emit_encoded("derived-imported-closed-nested", encoded, "01071234")
+
+	let invalid: EncodeStep<()> = ImportedClosedNestedCodec({kind: 2, payload: {code: 7, value: 4660}})
+	stdio::println(step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+end

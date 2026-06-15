@@ -487,6 +487,7 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
+  `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
@@ -497,16 +498,18 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
-  repeat-backed schemas, same-module nested dispatch payload schemas, and
-  multiple decoded-field selected schema mappings already accepted by
-  `byte_decode_step_<schema>`. The call accepts a bounded `ByteView` and
-  explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
+  repeat-backed schemas, same-module or public imported nested dispatch
+  payload schemas, and multiple decoded-field selected schema mappings already
+  accepted by `byte_decode_step_<schema>`. The call accepts a bounded
+  `ByteView` and explicit base `ByteOffset` and returns the same
+  `DecodeStep<T>` value as
   `byte_decode_step_<schema>`, including mapped record values,
   `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
+  `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The general-helper roundtrip case covers the combined non-HTTP schema shape

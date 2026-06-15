@@ -860,6 +860,10 @@ against the built `veln` binary.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload
   schema, including generated helper dispatch selection failure projection.
+- `run/derived-codec-imported-nested-dispatch-encode-boundary/`: the same
+  `derive encode` codec item boundary over a public imported nested dispatch
+  payload schema, including generated helper dispatch selection failure
+  projection.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot project the mapping target
   value back to schema-local fields.
@@ -878,6 +882,10 @@ against the built `veln` binary.
   decode` codec item boundary over a same-module nested dispatch payload
   schema, including the generated helper's nested record value and consumed
   count.
+- `run/derived-codec-imported-nested-dispatch-decode-boundary/`: the same
+  `derive decode` codec item boundary over a public imported nested dispatch
+  payload schema, including the generated helper's nested record value and
+  consumed count.
 - `run/codec-selected-mapping-decode-boundary/`: derived and hand-written
   codec decode item calls over a schema with multiple decoded-field selected
   mappings return the shared mapping target record shape.
