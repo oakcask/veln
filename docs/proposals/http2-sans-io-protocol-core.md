@@ -460,8 +460,8 @@ The remaining scope below is still planned work for the full protocol core.
 The implemented slice now also passes completed HEADERS and final CONTINUATION
 header-block bytes into an imported HPACK fixture module. That module returns
 ordinary header-list data plus a next immutable fixture state for deterministic
-fixture blocks and the static indexed `:method: GET` byte. Unsupported fixture
-blocks project through
+fixture blocks and the static indexed `0x82` `:method: GET` and `0x84`
+`:path: /` bytes. Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
 fixture decoding.

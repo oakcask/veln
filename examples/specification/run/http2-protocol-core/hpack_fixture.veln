@@ -48,12 +48,20 @@ fn static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
 
+fn static_indexed_path_root_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_method_get_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_root_headers(), next_state(state)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -75,7 +83,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 						true => decoded("continuation", 9, state)
 						false => match first_byte == 130 and observed_size == 1
 							true => decoded_static_indexed_method_get(state)
-							false => unsupported(block, offset)
+							false => match first_byte == 132 and observed_size == 1
+								true => decoded_static_indexed_path_root(state)
+								false => unsupported(block, offset)
+							end
 						end
 					end
 				end
