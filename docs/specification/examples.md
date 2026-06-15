@@ -338,6 +338,16 @@ The passing case decodes an exact-width arithmetic predicate. The failing case
 asserts the same `schema.validation_failed` shape with decoded values keyed by
 schema field name.
 
+`../../examples/specification/run/binary-schema-structural-validation-decode/`,
+`../../examples/specification/run/binary-schema-structural-validation-json/`,
+and
+`../../examples/specification/run/binary-schema-structural-validation-human/`
+pin schema-level `validate` predicates after field decode and field-local
+validation. The passing case preserves the decoded record shape. The failing
+cases assert `schema.validation_failed`, the offset after the decoded schema
+body, schema path, predicate text, decoded values, structured byte preview
+fields, and the focused human primary message.
+
 `../../examples/specification/run/binary-schema-mapped-record-decode/` pins
 the generated schema mapping slice. The helper decodes exact-width schema
 fields, checks the field-local predicate, and returns the mapped ordinary

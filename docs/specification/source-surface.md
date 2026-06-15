@@ -70,6 +70,11 @@ when both referenced fields were decoded earlier in the same schema. Its known
 cases use the same payload vocabulary, and its unknown cases preserve a
 bounded raw payload selected by `length_field`. These primitive names are
 representation-local field vocabulary, not ordinary source types or values.
+One schema-level `validate` predicate may appear after binary schema fields.
+It uses the same predicate syntax as field-local `where` clauses, but may
+reference only `Int` fields decoded by the same schema helper. Unknown field
+names, non-`Int` decoded fields, ordinary source bindings, and additional
+schema-level validations are rejected through schema validation diagnostics.
 Dispatch reference diagnostics report `schema.dispatch_reference` when the tag
 or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a

@@ -9,6 +9,8 @@ schema Http2FrameHeader
 	checksum: UInt32be
 	payload: ByteView(length - padding_length)
 
+	validate padding_length <= length
+
 	map to FrameHeader
 		priority = priority
 		length = length
@@ -28,6 +30,8 @@ pub schema PublicFrameHeader
 	stream_id: UInt31be
 	checksum: UInt32be
 	payload: ByteView(length - padding_length)
+
+	validate padding_length <= length
 
 	map to FrameHeader
 		priority = priority

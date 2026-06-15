@@ -274,6 +274,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  stream_id: UInt31be\n",
             "  settings: Repeat( padding_length , UInt16be )\n",
             "  payload: ByteView(length - padding_length)\n",
+            "  validate padding_length <= length\n",
             "\n",
             "  map to FrameHeader\n",
             "    length = length\n",
@@ -315,6 +316,8 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
     assert_eq!(schema.fields[5].ty, "Repeat(padding_length, UInt16be)");
     assert_eq!(schema.fields[6].name, "payload");
     assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.validations.len(), 1);
+    assert_eq!(schema.validations[0].predicate, "padding_length <= length");
     assert_eq!(schema.mappings.len(), 1);
     assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
     assert_eq!(schema.mappings[0].assignments.len(), 3);
@@ -336,6 +339,8 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tstream_id: UInt31be\n",
             "\tsettings: Repeat(padding_length, UInt16be)\n",
             "\tpayload: ByteView(length - padding_length)\n",
+            "\n",
+            "\tvalidate padding_length <= length\n",
             "\n",
             "\tmap to FrameHeader\n",
             "\t\tlength = length\n",

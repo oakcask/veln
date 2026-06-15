@@ -758,6 +758,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
+        self.emit_schema_validation(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
@@ -769,7 +770,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            &object_method_descriptor(23),
+            &object_method_descriptor(24),
         );
     }
 
@@ -800,6 +801,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
+        self.emit_schema_validation(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
@@ -811,7 +813,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            &object_method_descriptor(24),
+            &object_method_descriptor(25),
         );
     }
 
@@ -1122,6 +1124,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
+    fn emit_schema_validation(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        code.ldc_string(schema.validation.as_deref().unwrap_or(""));
+    }
+
     fn emit_schema_dispatch_tag_fields(
         &mut self,
         code: &mut MethodCode,
@@ -1284,7 +1290,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, 22, |this, code, index| match index {
+        self.emit_object_array(code, 23, |this, code, index| match index {
             0 => code.ldc_string(&schema.schema_name),
             1 => this.emit_schema_field_names(code, schema),
             2 => this.emit_schema_field_widths(code, schema),
@@ -1299,14 +1305,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             11 => this.emit_schema_reserved_bit_widths(code, schema),
             12 => this.emit_schema_reserved_values(code, schema),
             13 => this.emit_schema_field_predicates(code, schema),
-            14 => this.emit_schema_dispatch_tag_fields(code, schema),
-            15 => this.emit_schema_dispatch_length_fields(code, schema),
-            16 => this.emit_schema_dispatch_case_tags(code, schema),
-            17 => this.emit_schema_dispatch_case_widths(code, schema),
-            18 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
-            19 => this.emit_schema_dispatch_case_schema_specs(code, schema),
-            20 => this.emit_schema_mapping_targets(code, schema),
-            21 => this.emit_schema_mapping_sources(code, schema),
+            14 => this.emit_schema_validation(code, schema),
+            15 => this.emit_schema_dispatch_tag_fields(code, schema),
+            16 => this.emit_schema_dispatch_length_fields(code, schema),
+            17 => this.emit_schema_dispatch_case_tags(code, schema),
+            18 => this.emit_schema_dispatch_case_widths(code, schema),
+            19 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
+            20 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            21 => this.emit_schema_mapping_targets(code, schema),
+            22 => this.emit_schema_mapping_sources(code, schema),
             _ => unreachable!(),
         });
         code.invokestatic(

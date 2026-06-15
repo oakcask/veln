@@ -85,6 +85,96 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_schema_level_validation() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ValidatedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  checksum: UInt8\n",
+            "\n",
+            "  validate length == padding_length + checksum\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    assert_eq!(
+        ir.schema_decoders[0].validation.as_deref(),
+        Some("length == padding_length + checksum")
+    );
+}
+
+#[test]
+fn schema_level_validation_rejects_unsupported_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema InvalidValidationPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "\n",
+            "  validate length == missing\n",
+            "  validate payload == length\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.validation_reference"
+            && diagnostic.message
+                == "schema validation reference `missing` is not a decoded schema field"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.validation_duplicate"
+            && diagnostic.message
+                == "schema `InvalidValidationPacket` can declare only one schema-level validation"
+    }));
+}
+
+#[test]
+fn schema_level_validation_rejects_non_int_decoded_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema InvalidValidationPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "\n",
+            "  validate payload == length\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.validation_reference"
+            && diagnostic.message
+                == "schema validation reference `payload` decodes as `ByteView`, not `Int`"
+    }));
+}
+
+#[test]
 fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
     let source = SourceFile::new(
         "main.veln",

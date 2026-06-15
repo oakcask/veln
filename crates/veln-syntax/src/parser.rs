@@ -9,9 +9,9 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingSelector, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
-    lex,
+    SchemaMappingClause, SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
+    UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -355,6 +355,7 @@ impl<'a> Parser<'a> {
 
         let mut format = None;
         let mut fields = Vec::new();
+        let mut validations = Vec::new();
         let mut mappings = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
@@ -375,6 +376,8 @@ impl<'a> Parser<'a> {
                 if format.is_none() {
                     format = Some(clause);
                 }
+            } else if self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon) {
+                validations.push(self.parse_schema_validation_clause(format.is_some()));
             } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
                 mappings.push(self.parse_schema_mapping_clause(format.is_some()));
             } else {
@@ -399,6 +402,7 @@ impl<'a> Parser<'a> {
             name,
             format,
             fields,
+            validations,
             mappings,
             span: self.source.span(start.cover(end)),
             end_present,
@@ -526,6 +530,56 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_schema_validation_clause(&mut self, has_format: bool) -> SchemaValidationClause {
+        let start = self
+            .expect_ident_text("validate", "schema_validation", "validate")
+            .range;
+        if !has_format {
+            self.error_current(
+                "parse.schema_validation_before_format",
+                "schema validation appears before a format clause",
+                "schema_validation",
+                vec!["format"],
+                RecoveryStrategy::InsertToken,
+                Some("format"),
+            );
+        }
+        let mut end = start;
+        let mut parts = Vec::new();
+        let mut predicate_tokens = Vec::new();
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            let token = self.bump();
+            end = token.range;
+            parts.push(token.text.clone());
+            predicate_tokens.push(token);
+        }
+        if predicate_tokens.is_empty() {
+            self.error_current(
+                "parse.schema_validation",
+                "expected schema validation predicate",
+                "schema_validation",
+                vec!["predicate"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+        } else {
+            self.diagnostics.extend(
+                ContractPredicateParser::new(
+                    self.source,
+                    "schema_validation",
+                    "parse.schema_validation",
+                    &predicate_tokens,
+                )
+                .parse(),
+            );
+        }
+        let end = self.expect_newline("schema_validation").range.cover(end);
+        SchemaValidationClause {
+            predicate: normalize_collected_text(parts),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
     fn parse_schema_mapping_clause(&mut self, has_format: bool) -> SchemaMappingClause {
         let start = self.expect_ident_text("map", "schema_mapping", "map").range;
         if !has_format {
@@ -558,6 +612,7 @@ impl<'a> Parser<'a> {
             self.eat_newlines();
             if matches!(self.current().kind, TokenKind::End | TokenKind::Format)
                 || (self.at_ident_text("map") && !self.peek_at(TokenKind::Colon))
+                || (self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon))
             {
                 break;
             }

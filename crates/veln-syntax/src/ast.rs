@@ -99,6 +99,7 @@ pub struct SchemaDecl {
     pub name: Option<String>,
     pub format: Option<SchemaFormatClause>,
     pub fields: Vec<SchemaField>,
+    pub validations: Vec<SchemaValidationClause>,
     pub mappings: Vec<SchemaMappingClause>,
     pub span: SourceSpan,
     pub end_present: bool,
@@ -120,6 +121,12 @@ pub struct SchemaField {
 
 #[derive(Clone, Debug)]
 pub struct SchemaFieldWhereClause {
+    pub predicate: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaValidationClause {
     pub predicate: String,
     pub span: SourceSpan,
 }

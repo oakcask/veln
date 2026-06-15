@@ -117,16 +117,20 @@ When the result value is a binary schema reserved-bit mismatch,
 - `actual_value`: the decoded bit pattern that was present
 - `byte_preview`: a structured bounded byte preview object
 
-When the result value is a binary schema field-local validation failure,
+When the result value is a binary schema field-local or schema-level
+validation failure,
 `details.byte_diagnostic` includes:
 
 - `kind: "byte_diagnostic"`
 - `id: "schema.validation_failed"`
 - `byte_offset`: the decoded-stream `ByteOffset` of the field that owns the
-  failed predicate
+  failed field-local predicate, or the offset after the decoded schema body
+  for a failed schema-level predicate
 - `field_path`: schema-local path segment objects with `kind` and `name`
-- `predicate`: the failed field-local `where` predicate text
-- `field_value`: the decoded value of the owning field
+- `predicate`: the failed field-local `where` or schema-level `validate`
+  predicate text
+- `field_value`: the decoded value of the owning field for field-local
+  validation failures
 - `decoded_values`: display text for decoded schema fields available to the
   predicate
 - decoded field values available to the predicate, keyed by schema field name,

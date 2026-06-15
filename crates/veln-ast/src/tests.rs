@@ -227,6 +227,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "  stream_reserved: ReservedBits(1, 0)\n",
         "  stream_id: UInt31be\n",
         "  payload: ByteView(length - padding_length)\n",
+        "  validate padding_length <= length\n",
         "\n",
         "  map to FrameHeader\n",
         "    length = length\n",
@@ -268,10 +269,16 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     assert_eq!(schema.fields[4].ty, "UInt31be");
     assert_eq!(schema.fields[5].name, "payload");
     assert_eq!(schema.fields[5].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.validations.len(), 1);
+    assert_eq!(
+        schema.validations[0].node_id.display("schema_validation"),
+        "schema_validation-10"
+    );
+    assert_eq!(schema.validations[0].predicate, "padding_length <= length");
     assert_eq!(schema.mappings.len(), 1);
     assert_eq!(
         schema.mappings[0].node_id.display("schema_mapping"),
-        "schema_mapping-10"
+        "schema_mapping-11"
     );
     assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
     assert_eq!(schema.mappings[0].assignments.len(), 3);
@@ -281,7 +288,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.mappings[0].assignments[0]
             .node_id
             .display("schema_mapping_assignment"),
-        "schema_mapping_assignment-11"
+        "schema_mapping_assignment-12"
     );
 }
 
