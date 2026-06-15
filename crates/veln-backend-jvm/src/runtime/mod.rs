@@ -168,6 +168,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "time::wait_until" => "timeWaitUntil",
         "time::cancel_token" => "timeCancelToken",
         "time::cancel" => "timeCancel",
+        "time::is_cancelled" => "timeIsCancelled",
         "time::wait_until_cancellable" => "timeWaitUntilCancellable",
         "time::wait_until_cancellable_outcome" => "timeWaitUntilCancellableOutcome",
         _ => panic!("unknown standard library builtin `{name}`"),

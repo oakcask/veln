@@ -1,0 +1,17 @@
+# Cancellation token status is observable without waiting or cancelling.
+use stdio
+
+fn status_text(cancelled: Bool) -> String
+	match cancelled
+		true => "cancelled"
+		false => "active"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let token: CancelToken = time::cancel_token()
+	stdio::println(status_text(time::is_cancelled(token)))
+	time::cancel(token)
+	stdio::println(status_text(time::is_cancelled(token)))
+	Ok(())
+end

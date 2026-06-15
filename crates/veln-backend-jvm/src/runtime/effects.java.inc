@@ -385,6 +385,10 @@
         return UNIT;
     }
 
+    public static Object timeIsCancelled(Object token) {
+        return Boolean.valueOf(asCancelToken(token).cancelled);
+    }
+
     public static Object timeWaitUntilCancellable(Object deadline, Object token) {
         CancelToken cancelToken = asCancelToken(token);
         failIfWaitCancelled(cancelToken);

@@ -21,9 +21,11 @@ compiler-known calls.
   labels and includes descriptor-backed chunk calls, fixture-backed listener
   and stream calls, optional clean-end listener accepts and stream reads,
   relative deadline calls, and cancellable deadline waits through
-  source-visible `CancelToken` handles. The value-returning cancellable wait
-  returns `CancellableWaitOutcome` under the same `time` effect so adapter code
-  can treat completion, deadline expiry, and cancellation as ordinary values.
+  source-visible `CancelToken` handles. `time::is_cancelled` observes a token
+  as `Bool` under the same `time` effect without waiting or requesting
+  cancellation. The value-returning cancellable wait returns
+  `CancellableWaitOutcome` under the same `time` effect so adapter code can
+  treat completion, deadline expiry, and cancellation as ordinary values.
   Stream adapter routing that combines those outcomes with channel-routed
   `StreamInput` values declares both `time` and `concurrency`; the handler it
   calls stays free of transport effects.

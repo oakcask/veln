@@ -109,6 +109,7 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
         ("time", "wait_until") => Some((vec![Type::named("Deadline", Vec::new())], Type::unit())),
         ("time", "cancel_token") => Some((Vec::new(), cancel_token_type())),
         ("time", "cancel") => Some((vec![cancel_token_type()], Type::unit())),
+        ("time", "is_cancelled") => Some((vec![cancel_token_type()], Type::bool())),
         ("time", "wait_until_cancellable") => Some((
             vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
             Type::unit(),
@@ -778,6 +779,11 @@ mod tests {
             standard_library_signature(&path("time", "cancel")).expect("time signature");
         assert_eq!(params, vec![cancel_token_type()]);
         assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "is_cancelled")).expect("time signature");
+        assert_eq!(params, vec![cancel_token_type()]);
+        assert_eq!(return_type, Type::bool());
 
         let (params, return_type) =
             standard_library_signature(&path("time", "wait_until_cancellable"))

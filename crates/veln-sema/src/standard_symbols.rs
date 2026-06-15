@@ -193,6 +193,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("time", "cancel", TIME_EFFECTS, "runtime.time.cancel"),
     runtime_symbol(
         "time",
+        "is_cancelled",
+        TIME_EFFECTS,
+        "runtime.time.is_cancelled",
+    ),
+    runtime_symbol(
+        "time",
         "wait_until_cancellable",
         TIME_EFFECTS,
         "runtime.time.wait_until_cancellable",
