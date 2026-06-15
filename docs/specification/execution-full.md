@@ -468,11 +468,13 @@ selection closes or times out without a value, and `Err(SelectError)` when
 cooperative cancellation interrupts the waiting selection.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
-zero-argument callable on a JVM thread and freezes the returned value before it
-crosses the task boundary. `task::join` waits for that task and returns
-`Ok(value)` on ordinary completion or `Err(JoinError)` on interruption,
-cancellation, or runtime failure. `task::cancel` requests cooperative
-cancellation by interrupting the task.
+zero-argument callable on a JVM thread. `task::spawn_with` starts a
+one-argument callable on a JVM thread after freezing the ordinary source value
+argument at the task boundary. Both helpers freeze the returned value before it
+crosses back through the task handle. `task::join` waits for that task and
+returns `Ok(value)` on ordinary completion or `Err(JoinError)` on
+interruption, cancellation, or runtime failure. `task::cancel` requests
+cooperative cancellation by interrupting the task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.

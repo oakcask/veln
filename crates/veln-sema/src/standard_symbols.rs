@@ -122,6 +122,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.channel.close",
     ),
     runtime_symbol("task", "spawn", CONCURRENCY_EFFECTS, "runtime.task.spawn"),
+    runtime_symbol(
+        "task",
+        "spawn_with",
+        CONCURRENCY_EFFECTS,
+        "runtime.task.spawn_with",
+    ),
     runtime_symbol("task", "join", CONCURRENCY_EFFECTS, "runtime.task.join"),
     runtime_symbol("task", "cancel", CONCURRENCY_EFFECTS, "runtime.task.cancel"),
     runtime_symbol(

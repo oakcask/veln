@@ -1267,8 +1267,9 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-routing/`: multiple fixture-backed socket reads
   from one stream are wrapped as ordinary stream events, routed through a
   standard channel, handled by a plain event handler with explicit state,
-  joined through a spawned stream-task handler path, and projected back to
-  ordered socket writes by adapter code.
+  passed with explicit state into an argument-carrying spawned stream-task
+  handler path, joined, and projected back to ordered socket writes by adapter
+  code.
 - `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
   socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
   translates it into `StreamInput.End`, routes stream inputs through a
@@ -1290,8 +1291,9 @@ against the built `veln` binary.
   stream handler shape with explicit per-stream state.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
-  socket, channel, and task calls; the plain handler boundary stays free of
-  `net`.
+  socket, channel, zero-argument task, and argument-carrying task calls; a
+  spawned handler that receives only ordinary event and state values requires
+  `concurrency` but stays free of `net`.
 - `check/channel-first-stream-routing-effects/`: channel-first stream routing
   must declare `concurrency`, socket wrappers around that routing must declare
   both `net` and `concurrency`, and the plain handler boundary stays free of

@@ -267,6 +267,7 @@ fn task_signature(
     let unknown = Type::Unknown;
     match name {
         "spawn" => task_spawn_signature(expected, handle_type, explicit_item),
+        "spawn_with" => task_spawn_with_signature(expected, handle_type, explicit_item),
         "join" => task_join_signature(handle_type),
         "cancel" => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
         _ => None,
@@ -293,6 +294,38 @@ fn task_spawn_signature(
             return_type: Box::new(item.clone()),
             effects: vec!["concurrency".to_string()],
         }],
+        Type::named("Task", vec![item]),
+    ))
+}
+
+fn task_spawn_with_signature(
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let arg = handle_type
+        .and_then(function_params)
+        .and_then(|params| params.first())
+        .cloned()
+        .unwrap_or(Type::Unknown);
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(function_return_type).cloned())
+        .unwrap_or(Type::Unknown);
+    Some((
+        vec![
+            Type::Function {
+                params: vec![arg.clone()],
+                return_type: Box::new(item.clone()),
+                effects: vec!["concurrency".to_string()],
+            },
+            arg,
+        ],
         Type::named("Task", vec![item]),
     ))
 }
@@ -324,6 +357,11 @@ fn receiver_item_type(handle_type: Option<&Type>) -> Option<Type> {
 fn function_return_type(ty: &Type) -> Option<&Type> {
     let (_, return_type) = ty.function_parts()?;
     Some(return_type)
+}
+
+fn function_params(ty: &Type) -> Option<&[Type]> {
+    let (params, _) = ty.function_parts()?;
+    Some(params)
 }
 
 fn named_type_argument<'a>(ty: &'a Type, expected_name: &str) -> Option<&'a Type> {
@@ -458,6 +496,7 @@ fn core_task_signature(
     let unknown = CoreType::Unknown;
     match name {
         "spawn" => core_task_spawn_signature(expected, handle_type, explicit_item),
+        "spawn_with" => core_task_spawn_with_signature(expected, handle_type, explicit_item),
         "join" => core_task_join_signature(handle_type),
         "cancel" => Some((
             vec![CoreType::named("Task", vec![unknown])],
@@ -487,6 +526,38 @@ fn core_task_spawn_signature(
             return_type: Box::new(item.clone()),
             effects: vec!["concurrency".to_string()],
         }],
+        CoreType::named("Task", vec![item]),
+    ))
+}
+
+fn core_task_spawn_with_signature(
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let arg = handle_type
+        .and_then(core_function_params)
+        .and_then(|params| params.first())
+        .cloned()
+        .unwrap_or(CoreType::Unknown);
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| core_named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(core_function_return_type).cloned())
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![
+            CoreType::Function {
+                params: vec![arg.clone()],
+                return_type: Box::new(item.clone()),
+                effects: vec!["concurrency".to_string()],
+            },
+            arg,
+        ],
         CoreType::named("Task", vec![item]),
     ))
 }
@@ -530,6 +601,13 @@ pub(crate) fn standard_library_effects(segments: &[String]) -> Option<&'static [
 fn core_function_return_type(ty: &CoreType) -> Option<&CoreType> {
     match ty {
         CoreType::Function { return_type, .. } => Some(return_type),
+        _ => None,
+    }
+}
+
+fn core_function_params(ty: &CoreType) -> Option<&[CoreType]> {
+    match ty {
+        CoreType::Function { params, .. } => Some(params),
         _ => None,
     }
 }

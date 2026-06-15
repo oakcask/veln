@@ -843,8 +843,13 @@ impl<'a> CoreLowerer<'a> {
                 .and_then(|type_args| type_args.first())
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
                 .map(|ty| core_type(&ty));
-            let signature =
-                core_concurrency_signature(segments, expected, None, explicit_item.as_ref());
+            let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+            let signature = core_concurrency_signature(
+                segments,
+                expected,
+                handle_type.as_ref(),
+                explicit_item.as_ref(),
+            );
             return Some(
                 self.lower_concurrency_call_with_signature(expr, segments, args, signature),
             );
