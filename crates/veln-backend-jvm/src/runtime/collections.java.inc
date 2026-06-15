@@ -501,6 +501,16 @@
         }
     }
 
+    private static final class SchemaEncodeMappingValue {
+        final String source;
+        final Object value;
+
+        SchemaEncodeMappingValue(String source, Object value) {
+            this.source = source;
+            this.value = value;
+        }
+    }
+
     private static final class BinarySchemaSpec {
         final String name;
         final SchemaFieldSpec[] fields;
@@ -3556,18 +3566,46 @@
         java.util.ArrayList<Object> entries =
             new java.util.ArrayList<Object>(mapping.fields.length * 2);
         for (SchemaMappingFieldSpec field : mapping.fields) {
-            String source = schemaMappingDirectSource(field.expr);
-            if (source == null) {
+            Object mapped = schemaEncodeMappingValue(targetFields.get(field.target), field.expr);
+            if (isErr(mapped)) {
                 return err(encodeError(
                     "codec.metadata",
                     schema.name,
                     "unsupported schema encode mapping expression for schema `" + schema.name + "`"
                 ));
             }
-            entries.add(source);
-            entries.add(targetFields.get(field.target));
+            SchemaEncodeMappingValue mappingValue =
+                (SchemaEncodeMappingValue) unwrapOk(mapped);
+            entries.add(mappingValue.source);
+            entries.add(mappingValue.value);
         }
         return ok(record(entries.toArray(new Object[entries.size()])));
+    }
+
+    private static Object schemaEncodeMappingValue(Object targetValue, Object expr) {
+        if (expr instanceof String) {
+            return ok(new SchemaEncodeMappingValue(asString(expr), targetValue));
+        }
+        java.util.List<Object> spec = asList(expr);
+        if (spec.size() == 2 && asString(spec.get(0)).equals("field")) {
+            return ok(new SchemaEncodeMappingValue(asString(spec.get(1)), targetValue));
+        }
+        if (spec.size() == 3 && asString(spec.get(0)).equals("constructor")) {
+            java.util.List<Object> args = asList(spec.get(2));
+            if (args.size() != 1) {
+                return err("unsupported constructor mapping");
+            }
+            String source = schemaMappingDirectSource(args.get(0));
+            if (source == null) {
+                return err("unsupported constructor mapping");
+            }
+            Adt value = asAdt(targetValue, asString(spec.get(1)));
+            if (value.payloads.length != 1) {
+                return err("unsupported constructor mapping");
+            }
+            return ok(new SchemaEncodeMappingValue(source, value.payloads[0]));
+        }
+        return err("unsupported schema encode mapping");
     }
 
     private static String schemaMappingDirectSource(Object expr) {

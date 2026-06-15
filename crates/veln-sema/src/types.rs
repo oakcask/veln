@@ -1090,16 +1090,13 @@ fn schema_encode_mapping_value_fields(
     let mut source_to_target = BTreeMap::<String, String>::new();
     for assignment in &mapping.assignments {
         let target_ty = target_field_types.get(&assignment.target)?;
-        let ExprKind::NamePath(segments) = &assignment.expr.kind else {
-            return None;
-        };
-        let [source] = segments.as_slice() else {
-            return None;
-        };
-        let source_ty = schema_field_types.get(source)?;
-        if !is_assignable(target_ty, source_ty) {
-            return None;
-        }
+        let source = schema_encode_mapping_assignment_source(
+            module,
+            schema,
+            &schema_field_types,
+            assignment,
+            target_ty,
+        )?;
         if source_to_target
             .insert(source.clone(), assignment.target.clone())
             .is_some()
@@ -1114,6 +1111,60 @@ fn schema_encode_mapping_value_fields(
         return None;
     }
     Some(target_fields)
+}
+
+fn schema_encode_mapping_assignment_source(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_field_types: &BTreeMap<String, Type>,
+    assignment: &veln_ast::SchemaMappingAssignment,
+    target_ty: &Type,
+) -> Option<String> {
+    if let ExprKind::NamePath(segments) = &assignment.expr.kind {
+        let [source] = segments.as_slice() else {
+            return None;
+        };
+        let source_ty = schema_field_types.get(source)?;
+        return is_assignable(target_ty, source_ty).then(|| source.clone());
+    }
+
+    if schema.mappings.len() != 1
+        || schema.mappings[0].assignments.len() != 1
+        || schema_field_types.len() != 1
+    {
+        return None;
+    }
+    let typed = schema_mapping_expr_typed(
+        module,
+        schema,
+        schema_field_types,
+        &assignment.expr,
+        target_ty,
+    )
+    .ok()?;
+    let SchemaDecodeMappingExpr::Constructor { name, args } = typed.expr else {
+        return None;
+    };
+    let registry = AdtRegistry::from_module(module);
+    let descriptor = registry.descriptor_for_type(target_ty)?;
+    let [variant] = descriptor.variants.as_slice() else {
+        return None;
+    };
+    if name != [descriptor.type_name.clone(), variant.name.clone()] {
+        return None;
+    }
+    let [_] = variant.payload_fields.as_slice() else {
+        return None;
+    };
+    let [SchemaDecodeMappingExpr::Field(source)] = args.as_slice() else {
+        return None;
+    };
+    let source_ty = schema_field_types.get(source)?;
+    is_type_flag8(source_ty).then(|| source.clone())
+}
+
+fn is_type_flag8(ty: &Type) -> bool {
+    matches!(ty, Type::Named { name, args } if name == "Flag8" && args.is_empty())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -159,9 +159,11 @@ named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 one direct structural `map to Target` clause can make that helper accept the
 mapping target record shape when every visible encode field, including
-`Flag8` fields, is assigned from a schema-local field reference. Multiple
-selected mapping clauses, mapping expressions that cannot be projected back to
-schema-local fields, encode-time field-local validation beyond primitive
+`Flag8` fields, is assigned from a schema-local field reference, or when the
+only visible encode field is a `Flag8` field wrapped by a direct
+single-constructor ADT call. Multiple selected mapping clauses, mapping
+expressions that cannot be projected back to schema-local fields, encode-time
+field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload
 schemas, non-byte-aligned reserved fields outside the supported packed and
 `UInt31be` shared-bit layouts, and derived codec encode execution over
