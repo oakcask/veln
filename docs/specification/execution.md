@@ -104,7 +104,8 @@ execution reference.
   path, expected count, available count, readiness, and structured byte
   preview fields.
 - Generated binary schema decode helpers also support `UInt16le`, `UInt24le`,
-  `UInt32le`, and `UInt64le` as little-endian unsigned primitives.
+  `UInt31le`, `UInt32le`, and `UInt64le` as little-endian unsigned
+  primitives.
   `UInt64be` is accepted as the matching big-endian eight-byte primitive.
   Both eight-byte forms decode to ordinary `Int` fields for values representable
   as source-visible `Int`, preserve structural `map to` runtime mappings, and
@@ -132,9 +133,10 @@ execution reference.
   `Repeat(count_field, Payload)` fields when `count_field` is an earlier
   visible exact-width unsigned field decoded as `Int` and `Payload` is
   `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-  `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, an eligible nested binary
-  schema payload, or `ByteView(length_field)` when `length_field` is another
-  earlier visible exact-width unsigned field decoded as `Int`.
+  `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, an eligible
+  nested binary schema payload, or `ByteView(length_field)` when
+  `length_field` is another earlier visible exact-width unsigned field decoded
+  as `Int`.
   `Repeat(left_count - right_count, Payload)` uses the
   difference of two earlier visible exact-width unsigned `Int` fields as the
   repeat count. A repeated primitive field decodes to `List<Int>`; a repeated
@@ -396,15 +398,16 @@ execution reference.
   `Err(EncodeError("codec.dispatch_mismatch", field_path, reason))`.
   The helper writes fields in declaration order into one immutable
   `ByteChunk`, using each primitive's declared byte order, and returns
-  `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, `UInt32le`, and
-  `UInt64le` emit little-endian bytes and use the same representability
-  boundaries as their matching unsigned widths. `UInt64be` emits big-endian
-  eight-byte values. Standalone visible `UInt1` through `UInt7` fields emit one
-  byte with the value in the declared low bits. Values outside the primitive
-  range return
+  `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, `UInt31le`,
+  `UInt32le`, and `UInt64le` emit little-endian bytes and use the same
+  representability boundaries as their matching unsigned widths. `UInt64be`
+  emits big-endian eight-byte values. Standalone visible `UInt1` through
+  `UInt7` fields emit one byte with the value in the declared low bits. Values
+  outside the primitive range return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
-  `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
+  `UInt31be` and `UInt31le` use the 31-bit maximum even though they occupy four
+  bytes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
   This slice excludes multiple selected mapping clauses, mapping expressions

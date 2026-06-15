@@ -219,9 +219,9 @@ against the built `veln` binary.
   `ReservedBits(width, value)` primitive fields, and field-local `where`
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
-- `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, and `UInt32le` are
-  accepted as `format binary` schema field primitives on private and public
-  schema declarations.
+- `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`, and
+  `UInt32le` are accepted as `format binary` schema field primitives on
+  private and public schema declarations.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
@@ -497,15 +497,21 @@ against the built `veln` binary.
   helpers reject `UInt16le` values outside the unsigned 16-bit range with the
   usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-little-endian-widths-decode/`: generated schema decode
-  helpers read `UInt16le`, `UInt24le`, and `UInt32le` in little-endian byte
-  order, return ordinary `Int` fields, and keep a structural `map to` target
-  record shape.
+  helpers read `UInt16le`, `UInt24le`, `UInt31le`, and `UInt32le` in
+  little-endian byte order, return ordinary `Int` fields, and keep a
+  structural `map to` target record shape.
 - `run/binary-schema-little-endian-widths-encode/`: generated schema encode
-  helpers write `UInt16le`, `UInt24le`, and `UInt32le` in little-endian byte
-  order in the emitted `ByteChunk`.
+  helpers write `UInt16le`, `UInt24le`, `UInt31le`, and `UInt32le` in
+  little-endian byte order in the emitted `ByteChunk`.
 - `run/binary-schema-little-endian-widths-encode-out-of-range/`: generated
-  schema encode helpers reject `UInt24le` and `UInt32le` values outside their
-  unsigned ranges with width-specific maximum values.
+  schema encode helpers reject `UInt24le`, `UInt31le`, and `UInt32le` values
+  outside their unsigned ranges with width-specific maximum values.
+- `run/binary-schema-u31le-integer-out-of-range-json/`: generated schema
+  decode helpers report `schema.integer_out_of_range` through JSON run output
+  when a little-endian four-byte value exceeds the `UInt31le` range.
+- `run/binary-schema-u31le-integer-out-of-range-human/`: generated schema
+  decode helpers report the same `UInt31le` integer range failure through
+  human `run` output with byte preview and field-path notes.
 - `run/binary-schema-u64-widths-decode/`: generated schema decode helpers read
   `UInt64be` and `UInt64le` as eight-byte unsigned primitive fields, preserving
   their declared byte order for source-visible `Int` values.

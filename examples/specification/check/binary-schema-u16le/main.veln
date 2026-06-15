@@ -3,6 +3,7 @@ schema LittleEndianField
 
 	short_value: UInt16le
 	length_value: UInt24le
+	stream_id: UInt31le
 	wide_value: UInt32le
 end
 
@@ -11,5 +12,6 @@ pub schema PublicLittleEndianField
 
 	short_value: UInt16le
 	length_value: UInt24le
+	stream_id: UInt31le
 	wide_value: UInt32le
 end

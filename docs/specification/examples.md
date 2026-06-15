@@ -205,15 +205,20 @@ fields.
 `../../examples/specification/run/binary-schema-u16le-encode/`, and
 `../../examples/specification/run/binary-schema-u16le-encode-out-of-range/`
 cover the implemented `UInt16le` primitive slice. The source case also pins
-accepted `UInt24le` and `UInt32le` `format binary` field use.
+accepted `UInt24le`, `UInt31le`, and `UInt32le` `format binary` field use.
 `../../examples/specification/run/binary-schema-little-endian-widths-decode/`,
 `../../examples/specification/run/binary-schema-little-endian-widths-encode/`,
 and
 `../../examples/specification/run/binary-schema-little-endian-widths-encode-out-of-range/`
-cover the `UInt24le` and `UInt32le` slice. The runtime cases prove
+cover the `UInt24le`, `UInt31le`, and `UInt32le` slice. The runtime cases prove
 little-endian decode and encode byte order, preserve structural mapping during
 decode, and pin generated encode helper range failures with maximum values
 derived from each primitive width.
+`../../examples/specification/run/binary-schema-u31le-integer-out-of-range-json/`
+and
+`../../examples/specification/run/binary-schema-u31le-integer-out-of-range-human/`
+pin `schema.integer_out_of_range` for a structurally decoded `UInt31le` field
+whose high bit exceeds the 31-bit external range.
 `../../examples/specification/run/binary-schema-u64-widths-decode/`,
 `../../examples/specification/run/binary-schema-u64-widths-encode/`,
 `../../examples/specification/run/binary-schema-u64-widths-truncated-json/`,

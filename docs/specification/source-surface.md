@@ -47,8 +47,9 @@ source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
-`UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, and
-`ReservedBits(width, value)` are accepted as schema primitives. `Flag8` is
+`UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`,
+`UInt64le`, and `ReservedBits(width, value)` are accepted as schema
+primitives. `Flag8` is
 accepted as an opt-in one-byte visible flag bitset field; it decodes and
 encodes through the source-visible `Flag8(bits: Int)` value type instead of
 the raw `Int` used by `UInt8`.
@@ -152,8 +153,8 @@ visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` fields whose operands both name
 earlier visible exact-width unsigned `Int` fields, and whose payload is either
 `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-`UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible nested binary
-schema payload,
+`UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible
+nested binary schema payload,
 length-bounded `ByteView(length_field)` payload fields whose length names an
 earlier visible exact-width unsigned `Int` field, or
 `ByteView(left_length - right_length)` payload fields whose operands both name

@@ -12,6 +12,12 @@ schema LittleEndianWideWire
 	value: UInt32le
 end
 
+schema LittleEndianStreamWire
+	format binary
+
+	value: UInt31le
+end
+
 fn error_id(error: EncodeError) -> String
 	match error
 		EncodeError(id, _, _) => id
@@ -46,6 +52,18 @@ pub fn main() -> () effects [stdio]
 	let wide_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_wide_wire({value: 4294967296})
 	match wide_encoded
 		Ok(_) => stdio::println("unexpected UInt32le encode success")
+		Err(error) => emit_error(error)
+	end
+
+	let stream_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_stream_wire({value: 2147483648})
+	match stream_encoded
+		Ok(_) => stdio::println("unexpected UInt31le encode success")
+		Err(error) => emit_error(error)
+	end
+
+	let negative_stream_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_stream_wire({value: -1})
+	match negative_stream_encoded
+		Ok(_) => stdio::println("unexpected negative UInt31le encode success")
 		Err(error) => emit_error(error)
 	end
 end
