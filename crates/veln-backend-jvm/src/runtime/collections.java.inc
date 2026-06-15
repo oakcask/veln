@@ -2446,6 +2446,10 @@
         return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_be", false);
     }
 
+    public static Object byteReadU64Be(Object view) {
+        return byteReadUnsigned(view, 8, Long.MAX_VALUE, "byte_read_u64_be", false);
+    }
+
     public static Object byteReadU16Le(Object view) {
         return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_le", true);
     }
@@ -2460,6 +2464,10 @@
 
     public static Object byteReadU32Le(Object view) {
         return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_le", true);
+    }
+
+    public static Object byteReadU64Le(Object view) {
+        return byteReadUnsigned(view, 8, Long.MAX_VALUE, "byte_read_u64_le", true);
     }
 
     private static Object byteReadUnsigned(
@@ -4265,6 +4273,10 @@
         return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_be", false);
     }
 
+    public static Object byteWriteU64Be(Object value) {
+        return byteWriteUnsigned(value, 8, Long.MAX_VALUE, "byte_write_u64_be", false);
+    }
+
     public static Object byteWriteU16Le(Object value) {
         return byteWriteUnsigned(value, 2, 0xffffL, "byte_write_u16_le", true);
     }
@@ -4279,6 +4291,10 @@
 
     public static Object byteWriteU32Le(Object value) {
         return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_le", true);
+    }
+
+    public static Object byteWriteU64Le(Object value) {
+        return byteWriteUnsigned(value, 8, Long.MAX_VALUE, "byte_write_u64_le", true);
     }
 
     private static Object byteWriteUnsigned(

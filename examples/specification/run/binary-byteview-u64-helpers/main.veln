@@ -1,0 +1,42 @@
+# ByteView u64 helpers read and write source-visible Int values.
+use stdio
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_written(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let chunk: ByteChunk = byte_chunk_from_hex("01020304050607080807060504030201")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(8)?
+	let big_view: ByteView = byte_view(chunk, offset, count)?
+	let little_view: ByteView = byte_view(chunk, byte_offset(8)?, count)?
+	let big_value: Int = byte_read_u64_be(big_view)?
+	let little_value: Int = byte_read_u64_le(little_view)?
+	stdio::print("u64-read ")
+	stdio::print(int_to_string(big_value))
+	stdio::print(" ")
+	stdio::println(int_to_string(little_value))
+	emit_written("u64-big", byte_write_u64_be(big_value)?, "0102030405060708")
+	emit_written("u64-little", byte_write_u64_le(little_value)?, "0807060504030201")
+	Ok(())
+end

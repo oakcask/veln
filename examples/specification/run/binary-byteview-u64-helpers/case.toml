@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "u64-read 72623859790382856 72623859790382856\noutput_chunk_list u64-big count 1\noutput_chunk u64-big index 0 hex \"0102030405060708\" count 8\noutput_chunk_list u64-little count 1\noutput_chunk u64-little index 0 hex \"0807060504030201\" count 8\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "u64-big"
+chunks = ["0102030405060708"]
+
+[[output_chunk_list]]
+name = "u64-little"
+chunks = ["0807060504030201"]

@@ -223,6 +223,12 @@ cover the `UInt64be` and `UInt64le` schema primitive slice for
 source-visible `Int` values. The runtime cases prove big-endian and
 little-endian byte order, the shared `schema.truncated_field` diagnostic
 shape, and generated encode helper range failures.
+`../../examples/specification/run/binary-byteview-u64-helpers/`,
+`../../examples/specification/run/binary-byteview-u64-truncated-json/`, and
+`../../examples/specification/run/binary-byteview-u64-write-failure-human/`
+cover the ordinary prelude byte-helper `u64` slice. The runtime cases prove
+big-endian and little-endian read byte order, matching write byte order,
+truncated-read diagnostics, and the source-visible `Int` write boundary.
 
 `../../examples/specification/run/binary-schema-integer-out-of-range-json/`
 and
