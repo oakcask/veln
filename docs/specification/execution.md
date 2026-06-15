@@ -646,7 +646,9 @@ execution reference.
   small deterministic set of header-block byte fixtures, including the HPACK
   static indexed `0x82` `:method: GET`, `0x84` `:path: /`, `0x85`
   `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
-  `:scheme: https` bytes, returns
+  `:scheme: https`, plus `0x88` `:status: 200`, `0x89` `:status: 204`,
+  `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c` `:status: 400`,
+  `0x8d` `:status: 404`, and `0x8e` `:status: 500` bytes, returns
   ordinary header-list data plus the next immutable fixture state, and projects
   unsupported fixture input through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct

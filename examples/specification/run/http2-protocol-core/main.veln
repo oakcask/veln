@@ -4289,6 +4289,34 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-scheme-https", hpack_static_indexed_scheme_https)
 	let ignored_hpack_static_indexed_scheme_https: () = emit_header_block("http2-hpack-static-indexed-scheme-https", hpack_static_indexed_scheme_https, "87")?
 	print_hpack_transition("hpack-static-indexed-scheme-https", hpack_static_indexed_scheme_https)
+	let hpack_static_indexed_status_200: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?
+	print_step("hpack-static-indexed-status-200", hpack_static_indexed_status_200)
+	let ignored_hpack_static_indexed_status_200: () = emit_header_block("http2-hpack-static-indexed-status-200", hpack_static_indexed_status_200, "88")?
+	print_hpack_transition("hpack-static-indexed-status-200", hpack_static_indexed_status_200)
+	let hpack_static_indexed_status_204: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000189")?), state)?
+	print_step("hpack-static-indexed-status-204", hpack_static_indexed_status_204)
+	let ignored_hpack_static_indexed_status_204: () = emit_header_block("http2-hpack-static-indexed-status-204", hpack_static_indexed_status_204, "89")?
+	print_hpack_transition("hpack-static-indexed-status-204", hpack_static_indexed_status_204)
+	let hpack_static_indexed_status_206: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018a")?), state)?
+	print_step("hpack-static-indexed-status-206", hpack_static_indexed_status_206)
+	let ignored_hpack_static_indexed_status_206: () = emit_header_block("http2-hpack-static-indexed-status-206", hpack_static_indexed_status_206, "8a")?
+	print_hpack_transition("hpack-static-indexed-status-206", hpack_static_indexed_status_206)
+	let hpack_static_indexed_status_304: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018b")?), state)?
+	print_step("hpack-static-indexed-status-304", hpack_static_indexed_status_304)
+	let ignored_hpack_static_indexed_status_304: () = emit_header_block("http2-hpack-static-indexed-status-304", hpack_static_indexed_status_304, "8b")?
+	print_hpack_transition("hpack-static-indexed-status-304", hpack_static_indexed_status_304)
+	let hpack_static_indexed_status_400: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018c")?), state)?
+	print_step("hpack-static-indexed-status-400", hpack_static_indexed_status_400)
+	let ignored_hpack_static_indexed_status_400: () = emit_header_block("http2-hpack-static-indexed-status-400", hpack_static_indexed_status_400, "8c")?
+	print_hpack_transition("hpack-static-indexed-status-400", hpack_static_indexed_status_400)
+	let hpack_static_indexed_status_404: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018d")?), state)?
+	print_step("hpack-static-indexed-status-404", hpack_static_indexed_status_404)
+	let ignored_hpack_static_indexed_status_404: () = emit_header_block("http2-hpack-static-indexed-status-404", hpack_static_indexed_status_404, "8d")?
+	print_hpack_transition("hpack-static-indexed-status-404", hpack_static_indexed_status_404)
+	let hpack_static_indexed_status_500: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018e")?), state)?
+	print_step("hpack-static-indexed-status-500", hpack_static_indexed_status_500)
+	let ignored_hpack_static_indexed_status_500: () = emit_header_block("http2-hpack-static-indexed-status-500", hpack_static_indexed_status_500, "8e")?
+	print_hpack_transition("hpack-static-indexed-status-500", hpack_static_indexed_status_500)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000010102030405")?), state)?
 	print_step("header-list-start", header_list_start)
 	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005090400000001060708090a")?), step_state(header_list_start))?
