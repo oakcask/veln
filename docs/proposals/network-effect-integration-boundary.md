@@ -6,8 +6,9 @@ This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
 boundary calls, the first fixture-backed socket listener/stream calls, the
 narrow socket-to-handler routing and stream-task handler slices, the
-fixture-backed multi-event socket routing slice, and the first cancellable
-adapter-owned wait boundary are current behavior under
+fixture-backed multi-event socket routing slice, the clean stream-end adapter
+slice, and the first cancellable adapter-owned wait boundary are current
+behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced read and write failures, and forced timeout
@@ -30,7 +31,8 @@ commit to a full network runtime.
 
 Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, and narrow
-multi-event socket-to-handler routing and stream-task handler slices for:
+multi-event socket-to-handler routing, stream-task handler, and clean
+stream-end adapter slices for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   accept, read-one-chunk, and write-one-chunk slice
@@ -49,12 +51,13 @@ multi-event socket-to-handler routing and stream-task handler slices for:
 
 ## Discussion Result: Network Effect Labels
 
-Implemented first socket slice: source-visible `NetListener` and `NetStream`
+Implemented first socket slices: source-visible `NetListener` and `NetStream`
 handle types are returned by `net::listen(address)` and
-`net::accept(listener)`. `net::read_chunk(stream)` reads one `ByteChunk`, and
-`net::write_chunk(stream, bytes)` writes one `ByteChunk`. All four calls use
-the existing coarse `net` effect label and are fixture-backed runtime
-boundaries.
+`net::accept(listener)`. `net::read_chunk(stream)` reads one `ByteChunk`,
+`net::read_chunk_or_end(stream)` returns `Option<ByteChunk>` so adapter-owned
+source can observe clean end without a runtime failure, and
+`net::write_chunk(stream, bytes)` writes one `ByteChunk`. These calls use the
+existing coarse `net` effect label and are fixture-backed runtime boundaries.
 
 The remaining transport surface should keep the existing coarse `net` effect
 label. Listen, accept, read, and write operations should be distinguished by
@@ -148,14 +151,24 @@ code and can be called without socket ownership. Non-write response intents
 remain values for adapter code to interpret rather than implicit socket
 operations.
 
+Implemented clean stream-end slice: an executable specification case uses
+`net::read_chunk_or_end` to read one or more chunks, observe clean end as
+`None`, translate that clean end into the standard `StreamInput.End` value,
+route ordinary stream inputs through an existing channel, call a pure handler,
+and project response actions back into ordered `net::write_chunk` calls.
+Forced read failure on the same optional read path remains a runtime
+transport failure.
+
 ## Discussion Result: Transport Error Boundary
 
 Implemented first slices: descriptor-backed `net::receive_chunk` reports
 malformed host-fed `VELN_NET_CHUNK_HEX` as a runtime failure,
 descriptor-backed `net::send_chunk` reports failed outgoing event recording as
 a runtime failure, and fixture-backed socket listen, accept, read, and write
-failures are runtime failures. Successful descriptor-backed `net` and `time`
-calls plus fixture-backed listener/stream calls remain current behavior under
+failures are runtime failures. Clean end observed through
+`net::read_chunk_or_end` is a successful adapter-observable condition, not a
+runtime failure. Successful descriptor-backed `net` and `time` calls plus
+fixture-backed listener/stream calls remain current behavior under
 `../specification/names-effects.md`.
 
 Transport failures should enter the system as host or runtime errors owned by

@@ -40,13 +40,13 @@ execution reference.
   without socket calls.
 - Fixture-backed `net` and `time` calls are host runtime boundaries:
   descriptor chunk receive/send, listener creation, accept, stream read,
-  stream write, timeout, deadline waits, and cancellable deadline waits
-  execute outside the pure protocol core. `CancelToken` handles are
-  source-visible time-boundary values used by adapter-owned waits. Malformed
-  received or read bytes, failed outgoing send or write event recording, and
-  forced listen, accept, read, write, timeout, deadline, or cancellable-wait
-  cancellation failures stop the entry as runtime failures rather than schema,
-  codec, or peer protocol diagnostics.
+  optional clean-end stream read, stream write, timeout, deadline waits, and
+  cancellable deadline waits execute outside the pure protocol core.
+  `CancelToken` handles are source-visible time-boundary values used by
+  adapter-owned waits. Malformed received or read bytes, failed outgoing send
+  or write event recording, and forced listen, accept, read, write, timeout,
+  deadline, or cancellable-wait cancellation failures stop the entry as
+  runtime failures rather than schema, codec, or peer protocol diagnostics.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus
@@ -55,13 +55,14 @@ execution reference.
 - The socket stream adapter routing example composes the existing
   fixture-backed socket calls with the source-level event/action handler
   boundary. Adapter code reads multiple fixture-backed `ByteChunk` values
-  from one `NetStream`, routes ordinary events through a standard channel
-  under `concurrency`, carries explicit handler state across those events,
-  joins a spawned stream-handler task over the same event/action boundary, and
-  translates ordered `SendBytes` actions into `net::write_chunk` calls.
-  Handler code remains free of socket handles and `net` calls. The checked
-  example is
-  `examples/specification/run/socket-stream-adapter-routing/`.
+  from one `NetStream`, can translate clean end into `StreamInput.End`, routes
+  ordinary events through a standard channel under `concurrency`, carries
+  explicit handler state across those events, joins a spawned stream-handler
+  task over the same event/action boundary, and translates ordered
+  `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
+  of socket handles and `net` calls. The checked examples are
+  `examples/specification/run/socket-stream-adapter-routing/` and
+  `examples/specification/run/socket-stream-adapter-clean-end/`.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes

@@ -1044,7 +1044,10 @@ against the built `veln` binary.
   source-visible listener and stream handles, one stream read, one stream
   write, and recorded host transport events under the coarse `net` effect.
 - `check/transport-socket-effects/`: listener creation, accept, stream read,
-  and stream write infer the `net` effect for public effect checking.
+  optional clean-end stream read, and stream write infer the `net` effect for
+  public effect checking.
+- `check/transport-socket-clean-end-effects/`: optional clean-end stream read
+  directly infers the `net` effect for public effect checking.
 - `run/transport-deadline/`: relative deadline creation and waiting succeed
   through descriptor-backed `time` calls.
 - `check/transport-deadline-effects/`: deadline creation and waiting infer
@@ -1062,6 +1065,9 @@ against the built `veln` binary.
   runtime blame in human command output.
 - `run/transport-socket-read-failure-json/`: forced socket read failure uses
   the run JSON runtime error shape.
+- `run/transport-socket-read-or-end-failure-json/`: forced socket read
+  failure through the optional clean-end read path uses the same run JSON
+  runtime error shape.
 - `run/transport-socket-write-failure-human/`: forced socket write failure
   stays runtime blame in human command output.
 - `run/transport-socket-write-failure-json/`: forced socket write failure uses
@@ -1086,6 +1092,11 @@ against the built `veln` binary.
   standard channel, handled by a plain event handler with explicit state,
   joined through a spawned stream-task handler path, and projected back to
   ordered socket writes by adapter code.
+- `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
+  socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
+  translates it into `StreamInput.End`, routes stream inputs through a
+  standard channel, and keeps the pure handler free of socket handles and
+  `net` calls while preserving forced read failures as runtime failures.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, and task calls; the plain handler boundary stays free of

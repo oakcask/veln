@@ -192,6 +192,7 @@ net::send_chunk(bytes: ByteChunk) -> () effects [net]
 net::listen(address: String) -> NetListener effects [net]
 net::accept(listener: NetListener) -> NetStream effects [net]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
+net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
@@ -202,10 +203,11 @@ time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effec
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `net::listen`, `net::accept`, `net::read_chunk`, and
-`net::write_chunk` also infer the same coarse `net` effect. Direct calls to
-`time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
-`time::cancel_token`, `time::cancel`, and
+effect. Direct calls to `net::listen`, `net::accept`, `net::read_chunk`,
+`net::read_chunk_or_end`, and `net::write_chunk` also infer the same coarse
+`net` effect. Direct calls to `time::timeout_ms`,
+`time::deadline_after_ms`, `time::wait_until`, `time::cancel_token`,
+`time::cancel`, and
 `time::wait_until_cancellable` infer the `time` effect. A public function or
 test that calls one of them directly or through a private helper must declare the
 matching effect in its `effects [...]` list.
@@ -214,8 +216,10 @@ This boundary is intentionally fixture-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
 `NetListener`; `net::accept` returns a distinct source-visible `NetStream`;
-`net::read_chunk` reads one immutable `ByteChunk` from that stream; and
-`net::write_chunk` writes one immutable `ByteChunk` to that stream.
+`net::read_chunk` reads one immutable `ByteChunk` from that stream;
+`net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
+and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
+writes one immutable `ByteChunk` to that stream.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;
@@ -228,13 +232,16 @@ transport runtime failures, not schema, codec, or peer protocol diagnostics.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
 
-The implemented socket stream adapter routing example composes multiple
-`net::read_chunk` calls and ordered `net::write_chunk` calls with standard
-channel and task calls. The adapter function therefore declares both `net`
-and `concurrency`; the plain handler it calls remains free of socket handles
-and `net` calls. This composition does not add any effect label beyond the
-existing coarse labels or any compiler-known routing symbol beyond the socket,
-channel, and task calls listed here.
+The implemented socket stream adapter routing examples compose multiple
+socket reads and ordered `net::write_chunk` calls with standard channel and
+task calls. One case uses `net::read_chunk` for byte-only reads; the clean-end
+case uses `net::read_chunk_or_end` so adapter-owned source can translate
+`None` into the standard `StreamInput.End` value for a pure handler boundary.
+The adapter functions therefore declare both `net` and `concurrency`; the
+plain handlers they call remain free of socket handles and `net` calls. This
+composition does not add any effect label beyond the existing coarse labels
+or any compiler-known routing symbol beyond the socket, channel, and task
+calls listed here.
 
 ## Process Calls
 

@@ -509,9 +509,13 @@ accepts a distinct `NetStream`, reads one immutable `ByteChunk`, writes one
 immutable `ByteChunk`, and records host transport events while keeping all
 calls under the coarse `net` effect. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
-missing-effect diagnostics for the socket calls. The
+missing-effect diagnostics for the socket calls, including the optional
+clean-end stream read, and
+`../../examples/specification/check/transport-socket-clean-end-effects/` pins
+the optional clean-end read directly. The
 `../../examples/specification/run/transport-socket-read-failure-human/`,
 `../../examples/specification/run/transport-socket-read-failure-json/`,
+`../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases
 show read and write failures as runtime transport failures, not schema, codec,
@@ -546,6 +550,15 @@ The handler has no socket handle and performs no `net` calls. The matching
 case pins that adapter-owned routing must declare the existing `net` and
 `concurrency` effects for socket, channel, and task calls instead of adding a
 new routing effect, while the plain handler boundary stays free of `net`.
+
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-clean-end/` covers the
+clean stream-end adapter slice. Adapter-owned source reads one or more chunks
+with `net::read_chunk_or_end`, observes clean end as `None`, translates that
+condition into the ordinary `StreamInput.End` value, routes stream inputs
+through an existing channel, calls a pure handler, and projects response
+actions back to ordered `net::write_chunk` calls. Forced read failure on the
+same optional read path remains a runtime transport failure.
 
 ## Pending Input Byte Chunks
 

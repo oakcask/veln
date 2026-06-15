@@ -1,0 +1,4 @@
+# Optional clean-end socket reads infer net for public effect checking.
+pub fn socket_clean_end(stream: NetStream) -> Option<ByteChunk>
+	net::read_chunk_or_end(stream)
+end
