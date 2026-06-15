@@ -52,6 +52,18 @@ fn static_indexed_path_root_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
 end
 
+fn static_indexed_path_index_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/index.html"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_scheme_http_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "http"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn static_indexed_scheme_https_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -62,6 +74,18 @@ end
 
 fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_path_root_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_index(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_index_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_http(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_http_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_https(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_https_headers(), next_state(state)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -85,7 +109,16 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 							true => decoded_static_indexed_method_get(state)
 							false => match first_byte == 132 and observed_size == 1
 								true => decoded_static_indexed_path_root(state)
-								false => unsupported(block, offset)
+								false => match first_byte == 133 and observed_size == 1
+									true => decoded_static_indexed_path_index(state)
+									false => match first_byte == 134 and observed_size == 1
+										true => decoded_static_indexed_scheme_http(state)
+										false => match first_byte == 135 and observed_size == 1
+											true => decoded_static_indexed_scheme_https(state)
+											false => unsupported(block, offset)
+										end
+									end
+								end
 							end
 						end
 					end
