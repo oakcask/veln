@@ -519,6 +519,10 @@ path.
 `../../examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`
 asserts the same nested field path behavior through a public imported payload
 schema.
+`../../examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`
+pins the same public imported nested payload helper eligibility when reached
+through a `derive encode` codec boundary, including helper error projection to
+`EncodeStep::Invalid`.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
@@ -542,6 +546,10 @@ the nested helper. The unknown-tag failing cases assert
 `schema.dispatch_unknown_tag`, the dispatch byte offset, structured field path,
 decoded tag field and value, expected tag values, structured byte preview
 fields, and focused human related notes.
+`../../examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`
+pins the same public imported nested payload helper eligibility when reached
+through a `derive decode` codec boundary, including the returned
+`DecodeStep` consumed count.
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
 missing names, non-schema names, private imported schemas, self references,

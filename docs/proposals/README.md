@@ -74,11 +74,12 @@ compare it with `../specification/` before changing behavior.
   parameter boundaries, derived codec mapping value boundary checks,
   source-visible decode and encode result vocabulary, generated binary schema
   decode-step helper slice for implemented exact-width, repeat-backed, and
-  same-module nested dispatch payload boundaries, hand-written codec decode
-  consumed-count validation, hand-written codec encode and decode execution
-  boundaries including source-visible partial encode preservation and resume,
-  plus eligible derived codec decode and encode execution boundaries over the
-  checked non-HTTP composite helper shape.
+  same-module and public imported nested dispatch payload boundaries,
+  hand-written codec decode consumed-count validation, hand-written codec
+  encode and decode execution boundaries including source-visible partial
+  encode preservation and resume, plus eligible derived codec decode and
+  encode execution boundaries over the checked non-HTTP composite helper
+  shape.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
