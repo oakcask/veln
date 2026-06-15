@@ -633,8 +633,9 @@ source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported packed
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
-complete one, two, or three big-endian bytes, supported `UIntN` plus reserved
-suffix layouts whose widths complete one, two, or three big-endian bytes,
+complete one, two, three, or four big-endian bytes, supported `UIntN` plus
+reserved suffix layouts whose widths complete one, two, three, or four
+big-endian bytes,
 length-bounded
 `ByteView(length_field)` fields whose
 length names an earlier visible exact-width field,
