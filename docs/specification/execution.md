@@ -706,8 +706,15 @@ execution reference.
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`
   supplies the outbound stream credit for the peer-owned stream window, valid
-  DATA intents consume outbound connection and stream credit, and oversized or
-  over-window DATA intents are rejected before credit changes.
+  DATA intents emit one immutable DATA frame-header-plus-payload chunk and
+  consume outbound connection and stream credit, and oversized or over-window
+  DATA intents are rejected before output bytes or credit changes. Accepted
+  outbound DATA with `END_STREAM` records local closed-stream state; later
+  outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE`
+  for that stream follow the existing closed stream-state rejection boundary.
+  Generated frame-header representation failures remain
+  `codec.encode_value_unrepresentable` encode errors rather than HTTP/2
+  diagnostics.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
   header encode slice. Ordinary source builds a record-shaped frame
   description with `length`, `kind`, `flags`, and `stream_id`, passes it to an
