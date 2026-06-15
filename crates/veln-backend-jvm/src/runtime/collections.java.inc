@@ -1896,7 +1896,7 @@
                 bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
                 continue;
             }
-            if (field.width < 1 || field.width > 4) {
+            if (field.width < 1 || field.width > 8) {
                 return err(encodeError(
                     "codec.metadata",
                     schema.name + "." + field.name,
@@ -2487,7 +2487,7 @@
             int byteIndex = littleEndian ? width - 1 - index : index;
             value = (value << 8) | byteValueLong(bytes.get((int) storageOffset + byteIndex));
         }
-        if (value > maxValue) {
+        if (value < 0L || value > maxValue) {
             return err(name + " value exceeds maximum " + maxValue);
         }
         return ok(Long.valueOf(value));
@@ -2579,7 +2579,7 @@
             value = (value << 8)
                 | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + byteIndex));
         }
-        if (value > maxValue) {
+        if (value < 0L || value > maxValue) {
             if (width == 1 && maxValue < 0xffL) {
                 value = value & maxValue;
             } else {
@@ -3845,7 +3845,7 @@
                     return err("invalid repeat metadata for field `" + fieldName + "` in schema `" + name + "`");
                 }
                 long repeatWidth = asLong(repeatWidthValues.get(index));
-                if (repeatWidth < 1L || repeatWidth > 4L) {
+                if (repeatWidth < 1L || repeatWidth > 8L) {
                     Object repeatPayloadSchema = repeatSchemaSpecValues == null
                         ? ""
                         : repeatSchemaSpecValues.get(index);
@@ -3913,7 +3913,7 @@
                 fields[index] = new SchemaFieldSpec(fieldName, lengthField);
                 continue;
             }
-            if (width < 1L || width > 4L) {
+            if (width < 1L || width > 8L) {
                 return err(
                     "unsupported schema field width "
                         + width
@@ -4088,7 +4088,7 @@
                 );
                 continue;
             }
-            if (width < 1L || width > 4L) {
+            if (width < 1L || width > 8L) {
                 return err(
                     "unsupported dispatch field width "
                         + width
@@ -4649,7 +4649,7 @@
             return err(encodeError(
                 "codec.encode_value_unrepresentable",
                 schemaName + "." + fieldName,
-                "value must be between 0 and " + maxValue
+                "value must be between 0 and " + schemaUnsignedMaxValueText(width, maxValue)
             ));
         }
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
@@ -4658,6 +4658,13 @@
             bytes.add(byteObject((unsigned >> (shiftIndex * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static String schemaUnsignedMaxValueText(int width, long maxValue) {
+        if (width == 8 && maxValue == Long.MAX_VALUE) {
+            return "18446744073709551615";
+        }
+        return String.valueOf(maxValue);
     }
 
     private static Object schemaFieldEncodeValue(Object value, SchemaFieldSpec field) {

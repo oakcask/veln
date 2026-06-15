@@ -3791,6 +3791,8 @@ pub(in crate::analysis) fn exact_width_binary_primitive_name(name: &str) -> Opti
         "UInt31be" => Some("UInt31be"),
         "UInt32be" => Some("UInt32be"),
         "UInt32le" => Some("UInt32le"),
+        "UInt64be" => Some("UInt64be"),
+        "UInt64le" => Some("UInt64le"),
         _ => None,
     }
 }

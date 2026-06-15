@@ -121,7 +121,9 @@ The `SchemaWidthSample` primitive decode helper consumes one `UInt16be` field
 followed by one `UInt32be` field from a `ByteView`. Both fields produce
 ordinary `Int` values in the decoded record. Generated binary schema decode
 helpers also support `UInt16le`, `UInt24le`, and `UInt32le` as little-endian
-unsigned primitives, decode them to ordinary `Int`, and preserve structural
+unsigned primitives. `UInt64be` and `UInt64le` are implemented as eight-byte
+schema primitives and decode to ordinary `Int` values when the decoded value is
+representable as source-visible `Int`. The helper preserves structural
 `map to` runtime mappings. Truncation reports the same `schema.truncated_field`
 diagnostic shape as the frame-header helper, including byte offset,
 structured field path, expected byte count, available byte count, readiness,
@@ -333,9 +335,10 @@ earlier length field with `codec.dispatch_length_mismatch`. Visible tag and
 payload variant disagreements report `codec.dispatch_mismatch`.
 The helper writes fields in declaration order into one immutable `ByteChunk`,
 using each primitive's declared byte order, and returns
-`Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, and `UInt32le` emit
-little-endian bytes and use the same representability boundaries as their
-matching unsigned widths. Standalone visible `UInt1` through `UInt7` fields
+`Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, `UInt32le`, and
+`UInt64le` emit little-endian bytes and use the same representability
+boundaries as their matching unsigned widths. `UInt64be` emits big-endian
+eight-byte values. Standalone visible `UInt1` through `UInt7` fields
 emit one byte with the value in the declared low bits. Values outside the
 primitive range return
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;

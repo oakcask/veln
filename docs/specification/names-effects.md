@@ -70,8 +70,9 @@ compiler-known calls.
   direct field projections or a direct single-constructor ADT wrapping a
   schema-local `Flag8` field. Generated encode helpers return
   `Result<ByteChunk, EncodeError>`.
-  `UInt16le`, `UInt24le`, and `UInt32le` fields use little-endian byte order
-  in generated decode and encode helpers.
+  `UInt16le`, `UInt24le`, `UInt32le`, and `UInt64le` fields use little-endian
+  byte order in generated decode and encode helpers. `UInt64be` uses the
+  matching eight-byte big-endian representation.
   HTTP/2 frame-header decoding,
   bounded payload frame decoding, and protocol diagnostic projection helpers
   including stream id domain and post-GOAWAY stream failure projection are
