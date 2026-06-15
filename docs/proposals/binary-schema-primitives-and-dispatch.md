@@ -187,7 +187,10 @@ for:
   fields, one-byte, two-byte, three-byte, and four-byte packed reserved
   prefixes,
   one-byte, two-byte, three-byte, and four-byte packed reserved suffixes, and
-  `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
+  `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and
+  non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
+  `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
+  or four-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset and
   two-byte big-endian `Flag16be` bitset, checked `Flag8` bit helper access,
   direct structural mapping boundary, and implemented single-constructor
@@ -318,8 +321,10 @@ the external representation but omitted from the mapped Veln value by default.
 The byte-aligned `ReservedBits(width, value)` slice, one-byte, two-byte,
 three-byte, and four-byte packed reserved prefix slices, one-byte, two-byte,
 three-byte, and four-byte packed reserved suffix slice, and the
-`ReservedBits(1, 0)` plus `UInt31be` shared-bit layout are implemented under
-`../specification/execution.md`.
+`ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
+`UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
+complete one byte or one two-byte, three-byte, or four-byte big-endian
+storage unit are implemented under `../specification/execution.md`.
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

@@ -2381,6 +2381,11 @@ pub(crate) fn supported_encode_reserved_bits(
             return Some((bit_width as u8, expected_value));
         }
     }
+    if let (Some(previous_field), Some(next_field)) = (previous_field, next_field)
+        && supported_middle_reserved_bits(previous_field, next_field, bit_width, expected_value)
+    {
+        return Some((bit_width as u8, expected_value));
+    }
     if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
         return None;
     }
@@ -2408,6 +2413,36 @@ fn supported_packed_reserved_prefix(
             i64::from(visible_bit_width) + bit_width == storage_bit_width
         }) && expected_value < (1_i64 << bit_width)
     })
+}
+
+fn supported_middle_reserved_bits(
+    previous_field: &veln_ast::SchemaField,
+    next_field: &veln_ast::SchemaField,
+    bit_width: i64,
+    expected_value: i64,
+) -> bool {
+    if bit_width <= 0 || bit_width > 32 {
+        return false;
+    }
+    if exact_width_schema_primitive_little_endian(&previous_field.ty)
+        || exact_width_schema_primitive_little_endian(&next_field.ty)
+        || flag_schema_primitive(&previous_field.ty).is_some()
+        || flag_schema_primitive(&next_field.ty).is_some()
+    {
+        return false;
+    }
+    let Some(previous_bit_width) = exact_width_schema_primitive_bit_width(&previous_field.ty)
+    else {
+        return false;
+    };
+    let Some(next_bit_width) = exact_width_schema_primitive_bit_width(&next_field.ty) else {
+        return false;
+    };
+    let total_bit_width = i64::from(previous_bit_width) + bit_width + i64::from(next_bit_width);
+    previous_bit_width % 8 != 0
+        && (i64::from(previous_bit_width) + bit_width) % 8 != 0
+        && matches!(total_bit_width, 8 | 16 | 24 | 32)
+        && expected_value <= (1_i64 << bit_width) - 1
 }
 
 fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {

@@ -153,7 +153,13 @@ immediately by `ReservedBits(width, value)` where the two widths complete one
 byte or the same two-byte, three-byte, or four-byte big-endian storage unit.
 That form decodes the visible value from the high bits, validates the low
 reserved bits at the reserved field path, omits the reserved field, and
-advances by the shared storage width.
+advances by the shared storage width. The supported middle layout is a
+visible `UIntN` field, a `ReservedBits(width, value)` field, and another
+visible `UIntN` field whose widths together complete one byte or the same
+two-byte, three-byte, or four-byte big-endian storage unit. That form decodes
+the visible fields from their declared high-to-low positions, validates the
+middle reserved field at the reserved field path, omits the reserved field,
+and advances by the shared storage width.
 Generated binary schema decode helpers also support standalone visible
 `UInt1` through `UInt7` fields. Each field consumes one byte, exposes the
 declared low bits as an ordinary `Int`, advances by one byte, preserves
@@ -368,7 +374,12 @@ encoder input record. A visible `UIntN` field followed by a
 `ReservedBits(width, value)` suffix that completes the same one-byte,
 two-byte, three-byte, or four-byte big-endian storage unit is
 representation-only in the same way, but emits the visible value in the high
-bits and the declared reserved value in the low bits.
+bits and the declared reserved value in the low bits. A visible `UIntN`
+field, middle `ReservedBits(width, value)` field, and following visible
+`UIntN` field whose widths complete the same storage unit are also
+representation-only: the helper writes both visible values around the
+declared reserved value in declaration order and reports
+`codec.encode_value_unrepresentable` at the out-of-range visible field.
 Unsupported non-byte-aligned reserved-bit encode shapes report
 `schema.reserved_bits_encode`.
 This slice excludes multiple selected mapping clauses, mapping expressions

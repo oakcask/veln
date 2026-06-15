@@ -49,6 +49,8 @@ compare it with `../specification/` before changing behavior.
   and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-suffix decode
   and encode,
+  non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
+  `UIntN` decode and encode,
   opt-in `Flag8` one-byte and `Flag16be` two-byte big-endian visible flag
   bitset decode and encode, `Flag8` checked bit helpers, structural mapping
   decode, direct mapped-record encode, and single ADT constructor mapped
