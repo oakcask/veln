@@ -191,6 +191,7 @@ net::receive_chunk() -> ByteChunk effects [net]
 net::send_chunk(bytes: ByteChunk) -> () effects [net]
 net::listen(address: String) -> NetListener effects [net]
 net::accept(listener: NetListener) -> NetStream effects [net]
+net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
@@ -203,9 +204,10 @@ time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effec
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `net::listen`, `net::accept`, `net::read_chunk`,
-`net::read_chunk_or_end`, and `net::write_chunk` also infer the same coarse
-`net` effect. Direct calls to `time::timeout_ms`,
+effect. Direct calls to `net::listen`, `net::accept`,
+`net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
+`net::write_chunk` also infer the same coarse `net` effect. Direct calls to
+`time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`, `time::cancel_token`,
 `time::cancel`, and
 `time::wait_until_cancellable` infer the `time` effect. A public function or
@@ -216,7 +218,9 @@ This boundary is intentionally fixture-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
 `NetListener`; `net::accept` returns a distinct source-visible `NetStream`;
-`net::read_chunk` reads one immutable `ByteChunk` from that stream;
+`net::accept_or_end` returns `Some(stream)` for a fixture-accepted stream and
+`None` when the fixture listener reaches a clean end; `net::read_chunk` reads
+one immutable `ByteChunk` from that stream;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream.

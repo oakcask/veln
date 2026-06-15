@@ -132,9 +132,9 @@
             throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
         }
         NetListener value = asNetListener(listener);
-        String streamId = System.getenv("VELN_NET_ACCEPT_STREAM");
-        if (streamId == null || streamId.isEmpty()) {
-            streamId = "stream-1";
+        String streamId = acceptedNetStreamIdOrNull();
+        if (streamId == null) {
+            throw new RuntimeFailure("transport accept failed: listener ended");
         }
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
@@ -145,6 +145,45 @@
             );
         }
         return new NetStream(streamId);
+    }
+
+    public static Object netAcceptOrEnd(Object listener) {
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        String streamId = acceptedNetStreamIdOrNull();
+        if (streamId == null) {
+            try {
+                writeNetEvent("accept-end " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
+        try {
+            writeNetEvent("accept " + value.address + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport accept failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return some(new NetStream(streamId));
+    }
+
+    private static String acceptedNetStreamIdOrNull() {
+        if (forced("VELN_NET_ACCEPT_END")) {
+            return null;
+        }
+        String streamId = System.getenv("VELN_NET_ACCEPT_STREAM");
+        if (streamId == null || streamId.isEmpty()) {
+            streamId = "stream-1";
+        }
+        return streamId;
     }
 
     public static Object netReadChunk(Object stream) {

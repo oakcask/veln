@@ -476,11 +476,13 @@ Network and time boundary intrinsics are backend-owned runtime operations.
 `net::receive_chunk` returns a host-fed immutable `ByteChunk`.
 `net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
 runtime and returns `()`. `net::listen` returns a source-visible `NetListener`,
-`net::accept` returns a source-visible `NetStream`, `net::read_chunk` reads
-one immutable `ByteChunk` from that stream, `net::read_chunk_or_end` returns
-`Some(bytes)` for a successful stream read and `None` for clean end of the
-fixture stream, and `net::write_chunk` writes one immutable `ByteChunk` to
-that stream. `time::timeout_ms` waits for a
+`net::accept` returns a source-visible `NetStream`, `net::accept_or_end`
+returns `Some(stream)` for a fixture-accepted stream and `None` for clean end
+of the fixture listener, `net::read_chunk` reads one immutable `ByteChunk`
+from that stream, `net::read_chunk_or_end` returns `Some(bytes)` for a
+successful stream read and `None` for clean end of the fixture stream, and
+`net::write_chunk` writes one immutable `ByteChunk` to that stream.
+`time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
@@ -491,7 +493,9 @@ handle is cancelled first.
 Malformed host-fed receive or read bytes, failed outgoing send or write event
 recording, and host-fixture-forced listen, accept, read, write, timeout, or
 deadline expiry, or cancellable-wait cancellation stop the entry as runtime
-failures. They do not produce
+failures. Clean listener end observed through `net::accept_or_end` and clean
+stream end observed through `net::read_chunk_or_end` are successful optional
+results. They do not produce
 schema, codec, or HTTP/2 peer protocol diagnostics. The deadline boundary does
 not add a source timer handle beyond the returned `Deadline`, cancellation
 handle beyond `CancelToken`, routing API, or new effect label.
@@ -513,7 +517,9 @@ labels. Adapter code owns the `NetListener` and `NetStream`, reads multiple
 immutable `ByteChunk` values with `net::read_chunk` or
 `net::read_chunk_or_end`, routes ordinary source values through a standard
 channel under `concurrency`, calls the plain handler with explicit state, and
-then walks the returned action list. The clean-end case translates
+then walks the returned action list. Optional accept cases use
+`net::accept_or_end` to accept a usable stream as `Some(stream)` or observe a
+clean listener end as `None`. The clean stream-end case translates
 `net::read_chunk_or_end` returning `None` into the standard `StreamInput.End`
 value before calling the pure handler. The same checked boundary also joins a
 spawned stream-handler task that uses the same ordinary event/action values.

@@ -86,6 +86,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
         ("net", "send_chunk") => Some((vec![byte_chunk_type()], Type::unit())),
         ("net", "listen") => Some((vec![Type::string()], net_listener_type())),
         ("net", "accept") => Some((vec![net_listener_type()], net_stream_type())),
+        ("net", "accept_or_end") => Some((
+            vec![net_listener_type()],
+            adt::option_type(net_stream_type()),
+        )),
         ("net", "read_chunk") => Some((vec![net_stream_type()], byte_chunk_type())),
         ("net", "read_chunk_or_end") => {
             Some((vec![net_stream_type()], adt::option_type(byte_chunk_type())))

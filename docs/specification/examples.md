@@ -555,19 +555,27 @@ The executable specification case
 fixture-backed socket API slice. It creates a source-visible `NetListener`,
 accepts a distinct `NetStream`, reads one immutable `ByteChunk`, writes one
 immutable `ByteChunk`, and records host transport events while keeping all
-calls under the coarse `net` effect. The matching
+calls under the coarse `net` effect. The
+`../../examples/specification/run/transport-socket-optional-accept-boundary/`
+case covers `net::accept_or_end` returning `Some(stream)` and using that
+stream with the existing read behavior, while
+`../../examples/specification/run/transport-socket-optional-accept-clean-end/`
+covers clean listener end returning `None`. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
 missing-effect diagnostics for the socket calls, including the optional
-clean-end stream read, and
+clean-end listener accept and stream read,
+`../../examples/specification/check/transport-socket-optional-accept-effects/`
+pins the optional accept directly, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
 `../../examples/specification/run/transport-socket-read-failure-human/`,
 `../../examples/specification/run/transport-socket-read-failure-json/`,
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
+`../../examples/specification/run/transport-socket-optional-accept-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases
-show read and write failures as runtime transport failures, not schema, codec,
-or peer protocol diagnostics.
+show accept, read, and write failures as runtime transport failures, not
+schema, codec, or peer protocol diagnostics.
 
 The executable specification cases
 `../../examples/specification/run/transport-boundary/`,

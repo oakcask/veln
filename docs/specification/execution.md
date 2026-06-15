@@ -39,9 +39,10 @@ execution reference.
   retained input advances, and collect outgoing immutable `ByteChunk` values
   without socket calls.
 - Fixture-backed `net` and `time` calls are host runtime boundaries:
-  descriptor chunk receive/send, listener creation, accept, stream read,
-  optional clean-end stream read, stream write, timeout, deadline waits, and
-  cancellable deadline waits execute outside the pure protocol core.
+  descriptor chunk receive/send, listener creation, accept, optional
+  clean-end listener accept, stream read, optional clean-end stream read,
+  stream write, timeout, deadline waits, and cancellable deadline waits
+  execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. Malformed received or read bytes, failed outgoing send
   or write event recording, and forced listen, accept, read, write, timeout,
@@ -54,8 +55,9 @@ execution reference.
   actions do not perform socket writes or introduce new effect labels.
 - The socket stream adapter routing example composes the existing
   fixture-backed socket calls with the source-level event/action handler
-  boundary. Adapter code reads multiple fixture-backed `ByteChunk` values
-  from one `NetStream`, can translate clean end into `StreamInput.End`, routes
+  boundary. Adapter code can accept a listener as `Some(stream)` or clean end
+  as `None`, reads multiple fixture-backed `ByteChunk` values from one
+  `NetStream`, can translate clean stream end into `StreamInput.End`, routes
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler
   task over the same event/action boundary, and translates ordered

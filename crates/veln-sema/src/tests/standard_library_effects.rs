@@ -481,6 +481,7 @@ fn net_calls_require_net_effect_with_descriptor_provenance() {
             "pub fn main() -> Option<ByteChunk>\n",
             "  let listener: NetListener = net::listen(\"127.0.0.1:0\")\n",
             "  let stream: NetStream = net::accept(listener)\n",
+            "  let optional_stream: Option<NetStream> = net::accept_or_end(listener)\n",
             "  let _ = net::read_chunk(stream)\n",
             "  net::read_chunk_or_end(stream)\n",
             "end\n",
@@ -545,6 +546,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  net::send_chunk(chunk)\n",
             "  let listener: NetListener = net::listen(\"127.0.0.1:0\")\n",
             "  let stream: NetStream = net::accept(listener)\n",
+            "  let optional_stream: Option<NetStream> = net::accept_or_end(listener)\n",
             "  let socket_chunk: ByteChunk = net::read_chunk(stream)\n",
             "  let socket_chunk_or_end: Option<ByteChunk> = net::read_chunk_or_end(stream)\n",
             "  net::write_chunk(stream, socket_chunk)\n",
@@ -621,6 +623,16 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
         } if symbol == "net::accept"
     ));
     let IrStmtKind::Let { value, .. } = &main.body[6].kind else {
+        panic!("net optional accept call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::accept_or_end"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[7].kind else {
         panic!("net read call should lower as a let");
     };
     assert!(matches!(
@@ -630,7 +642,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "net::read_chunk"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[7].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[8].kind else {
         panic!("net optional read call should lower as a let");
     };
     assert!(matches!(
@@ -640,7 +652,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "net::read_chunk_or_end"
     ));
-    let IrStmtKind::Expr { value } = &main.body[8].kind else {
+    let IrStmtKind::Expr { value } = &main.body[9].kind else {
         panic!("net write call should lower as an expression");
     };
     assert!(matches!(
@@ -650,7 +662,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "net::write_chunk"
     ));
-    let IrStmtKind::Expr { value } = &main.body[9].kind else {
+    let IrStmtKind::Expr { value } = &main.body[10].kind else {
         panic!("time call should lower as an expression");
     };
     assert!(matches!(
@@ -660,7 +672,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::timeout_ms"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[10].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[11].kind else {
         panic!("deadline call should lower as a let");
     };
     assert!(matches!(
@@ -670,7 +682,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::deadline_after_ms"
     ));
-    let IrStmtKind::Expr { value } = &main.body[11].kind else {
+    let IrStmtKind::Expr { value } = &main.body[12].kind else {
         panic!("wait call should lower as an expression");
     };
     assert!(matches!(
@@ -680,7 +692,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::wait_until"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[12].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[13].kind else {
         panic!("cancel token call should lower as a let");
     };
     assert!(matches!(
@@ -690,7 +702,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::cancel_token"
     ));
-    let IrStmtKind::Expr { value } = &main.body[13].kind else {
+    let IrStmtKind::Expr { value } = &main.body[14].kind else {
         panic!("cancellable wait call should lower as an expression");
     };
     assert!(matches!(
@@ -700,7 +712,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::wait_until_cancellable"
     ));
-    let IrStmtKind::Expr { value } = &main.body[14].kind else {
+    let IrStmtKind::Expr { value } = &main.body[15].kind else {
         panic!("cancel call should lower as an expression");
     };
     assert!(matches!(
@@ -710,7 +722,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::cancel"
     ));
-    let IrStmtKind::Return { value } = &main.body[15].kind else {
+    let IrStmtKind::Return { value } = &main.body[16].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(
