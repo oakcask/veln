@@ -1,0 +1,39 @@
+# Binary schema mapping can wrap a Flag8 field with an ADT constructor.
+use stdio
+
+type Http2Flags
+	Http2Flags(Flag8)
+end
+
+type FlagPacket
+	FlagPacket {flags: Http2Flags}
+end
+
+schema FlagPacketWire
+	format binary
+
+	wire_flags: Flag8
+
+	map to FlagPacket
+		flags = Http2Flags(wire_flags)
+end
+
+fn flag_bits(flags: Flag8) -> Int
+	match flags
+		Flag8(bits) => bits
+	end
+end
+
+fn emit_flags(flags: Http2Flags) -> () effects [stdio]
+	match flags
+		Http2Flags(raw) => stdio::println(int_to_string(flag_bits(raw)))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("28")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let packet: {flags: Http2Flags} = byte_decode_flag_packet_wire(view)?
+	emit_flags(packet.flags)
+	Ok(())
+end

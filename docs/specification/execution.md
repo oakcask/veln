@@ -228,7 +228,8 @@ execution reference.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone
-  `UInt1` through `UInt7`, as `Int`; length-bounded
+  `UInt1` through `UInt7`, as `Int`; `Flag8` fields as `Flag8`;
+  length-bounded
   `ByteView(length_field)` and `ByteView(left_length - right_length)` payload
   fields as `ByteView`; closed nested dispatch payload fields as the
   nested schema record shape; and extension dispatch payload fields as
@@ -237,6 +238,10 @@ execution reference.
   functions, read runtime settings, inspect stream state, recover from decode
   failures, or perform effects. The checked examples are
   `examples/specification/run/binary-schema-sub-byte-decode/`,
+  `examples/specification/run/binary-schema-flag8-mapped-record-decode/`,
+  `examples/specification/run/binary-schema-flag8-mapped-constructor-decode/`,
+  `examples/specification/run/binary-schema-flag8-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-flag8-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapped-record-decode/`,
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
@@ -349,6 +354,7 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
+  `examples/specification/run/binary-schema-flag8-mapped-record-encode/`,
   `examples/specification/run/binary-schema-mapped-record-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,

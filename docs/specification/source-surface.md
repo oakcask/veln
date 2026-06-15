@@ -94,7 +94,8 @@ and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has one structural mapping, or
 multiple structural mappings selected by `when field == literal`, and all
 assignment expressions use implemented decoded field types:
-exact-width unsigned primitive fields as `Int`, length-bounded
+exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
+length-bounded
 `ByteView(length_field)` or `ByteView(left_length - right_length)` payload
 fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
@@ -151,14 +152,14 @@ same-module binary schema payloads or public imported binary schema payloads
 named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 one direct structural `map to Target` clause can make that helper accept the
-mapping target record shape when every visible encode field is assigned from a
-schema-local field reference. Multiple selected mapping clauses, mapping
-expressions that cannot be projected back to schema-local fields, encode-time
-field-local validation beyond primitive representation ranges, recursive or
-otherwise ineligible dispatch payload schemas, non-byte-aligned reserved
-fields outside the supported packed and `UInt31be` shared-bit layouts, and
-derived codec encode execution over unsupported schemas are outside that
-encode helper slice.
+mapping target record shape when every visible encode field, including
+`Flag8` fields, is assigned from a schema-local field reference. Multiple
+selected mapping clauses, mapping expressions that cannot be projected back to
+schema-local fields, encode-time field-local validation beyond primitive
+representation ranges, recursive or otherwise ineligible dispatch payload
+schemas, non-byte-aligned reserved fields outside the supported packed and
+`UInt31be` shared-bit layouts, and derived codec encode execution over
+unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 
