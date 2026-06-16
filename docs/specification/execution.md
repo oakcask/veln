@@ -777,6 +777,14 @@ execution reference.
   decoded-field selected mappings that resolve to one implemented target
   record shape, the referenced function must return `DecodeStep<T>` for that
   selected mapping record shape.
+- For `veln run` entries, a returned
+  `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` is
+  projected to a focused human runtime diagnostic and
+  `details.byte_diagnostic` JSON using the contained diagnostic id, byte
+  offset, and field path. `Decoded` and `NeedMore` remain ordinary successful
+  entry values. The checked examples are
+  `examples/specification/run/codec-decode-invalid-step-human/` and
+  `examples/specification/run/codec-decode-invalid-step-json/`.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function

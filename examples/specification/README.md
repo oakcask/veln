@@ -1041,6 +1041,10 @@ against the built `veln` binary.
   valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
   schema mapping pins the accepted value type. It projects an oversized
   consumed count to `codec.consumed_count_invalid`.
+- `run/codec-decode-invalid-step-human/` and
+  `run/codec-decode-invalid-step-json/`: when a `veln run` entry returns
+  `Invalid(DecodeError(...))`, `veln run` projects the contained decode error
+  through focused human diagnostics and `run --json` `details.byte_diagnostic`.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
   deterministic header-block byte fixtures and the static indexed `0x83`
   `:method: POST`, `0x8f` `accept-charset:`, `0x90`

@@ -10,6 +10,16 @@
         return Result.err(adtPayload(value, 0));
     }
 
+    public static boolean isDecodeStepInvalid(Object value) {
+        return isAdt(value, "DecodeStep::Invalid");
+    }
+
+    public static Object decodeStepInvalidAsErr(Object value) {
+        Object error = adtPayload(value, 0);
+        registerDecodeErrorByteDiagnostic(error, format(error));
+        return Result.err(error);
+    }
+
     public static void checkContract(
         Object value,
         String clause,

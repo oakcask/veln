@@ -193,6 +193,16 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
     let id = json_string(byte_entries, "id")?;
     let byte_offset = byte_offset_value(byte_entries)?;
 
+    if is_decode_error_result_failure(failure) {
+        return Some(decode_error_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        ));
+    }
+
     let mut diagnostic = match id.as_str() {
         "codec.incomplete_input" => {
             let expected_count = json_number(byte_entries, "expected_count")?;
@@ -363,8 +373,54 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
         diagnostic
             .related
             .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
     }
     Some(diagnostic)
+}
+
+fn is_decode_error_result_failure(failure: &TestFailure) -> bool {
+    result_failure_value(failure)
+        .as_deref()
+        .is_some_and(|value| value.starts_with("DecodeError("))
+}
+
+fn decode_error_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("decode error at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
 }
 
 fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
@@ -1322,6 +1378,59 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `DemoPacket` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_decode_error_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.invalid_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(5)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("kind")),
+                    ]),
+                ]),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.kind"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.invalid_input");
+        assert_eq!(diagnostic.message, "decode error at byte offset 5");
+        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(
+            diagnostic.related[0].to_json(),
+            "{\"message\":\"Field path: schema `ManualPacketWire` / field `kind`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"DecodeError value: DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind).\"}"
         );
     }
 

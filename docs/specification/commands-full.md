@@ -242,6 +242,11 @@ When binary schema decode returns `schema.integer_out_of_range`, human mode
 reports the failed integer range fact at the field byte offset and puts byte
 width, accepted range, actual value, bounded nearby byte preview, and field
 path in related notes.
+When a `veln run` entry returns
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, human mode
+reports the failed decode fact at the contained byte offset and puts field
+path plus the source-visible `DecodeError` value in related notes. `Decoded`
+and `NeedMore` entry values remain ordinary successful values.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

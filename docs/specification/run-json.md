@@ -172,6 +172,20 @@ as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
 `EncodeStep::Encoded(...)` and `EncodeStep::Partial(...)` entry results do not
 populate `error` or `details.value_diagnostic`.
 
+When a `veln run` entry returns
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id`: the source-visible decode error id
+- `byte_offset`: the source-visible `ByteOffset`
+- `field_path`: schema-local path segment objects with `kind` and `name`,
+  derived from the source-visible field path
+- `field_path_display`: the source-visible field path string
+
+`DecodeStep::Decoded(...)` and `DecodeStep::NeedMore(...)` entry results do
+not populate `error` or `details.byte_diagnostic`.
+
 When the result value is a binary schema closed dispatch unknown tag failure,
 `details.byte_diagnostic` includes:
 

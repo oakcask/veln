@@ -1,0 +1,8 @@
+# Source-visible DecodeStep Invalid entries populate byte_diagnostic JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(5)
+		Ok(offset) => Invalid(DecodeError("codec.invalid_input", offset, "ManualPacketWire.kind"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

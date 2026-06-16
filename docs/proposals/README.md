@@ -119,10 +119,12 @@ compare it with `../specification/` before changing behavior.
   binary schema encode value-representation failures, generated `EncodeError`
   command-facing projection for encode value, dispatch unknown tag, dispatch
   length mismatch, and dispatch mismatch failures, command-facing projection
-  for `EncodeStep::Invalid(EncodeError(...))` entry results, generated binary
-  schema decode integer range failures, generated bounded repeated schema field
-  truncation diagnostics with indexed field paths in JSON and human output,
-  plus hand-written codec decode consumed-count failures.
+  for `EncodeStep::Invalid(EncodeError(...))` entry results,
+  command-facing projection for
+  `DecodeStep::Invalid(DecodeError(...))` entry results, generated binary
+  schema decode integer range failures, generated bounded repeated schema
+  field truncation diagnostics with indexed field paths in JSON and human
+  output, plus hand-written codec decode consumed-count failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface
