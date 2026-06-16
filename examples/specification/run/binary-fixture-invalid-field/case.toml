@@ -20,6 +20,7 @@ equals = "fixture invalid-frame-kind hex ff0001 count 3 consumed 1 diagnostic sc
 
 [[binary_fixture]]
 name = "invalid-frame-kind"
+schema = "DemoPacket"
 hex = "ff0001"
 consumed = 1
 diagnostic_id = "schema.invalid_field_value"

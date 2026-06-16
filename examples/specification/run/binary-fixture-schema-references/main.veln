@@ -1,0 +1,25 @@
+use stdio
+use wire
+use facade
+
+schema LocalPacket
+	format binary
+
+	length: UInt8
+end
+
+fn emit_schema_fixture(name: String, hex: String, field_path: String) -> () effects [stdio]
+	stdio::print("fixture ")
+	stdio::print(name)
+	stdio::print(" hex ")
+	stdio::print(hex)
+	stdio::print(" count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path ")
+	stdio::println(field_path)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	emit_schema_fixture("local-private", "00", "[{\"kind\":\"schema\",\"name\":\"LocalPacket\"}]")
+	emit_schema_fixture("imported-public", "01", "[{\"kind\":\"schema\",\"name\":\"PublicPacket\"}]")
+	emit_schema_fixture("imported-alias", "02", "[{\"kind\":\"schema\",\"name\":\"PublicPacket\"}]")
+	Ok(())
+end

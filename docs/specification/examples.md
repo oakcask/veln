@@ -63,6 +63,15 @@ the read under test. The case metadata keeps the fixture name, complete
 lowercase hex, decoded byte count, expected consumed count, byte offset,
 expected byte count, available byte count, readiness, and empty direct-read
 field path separate from the `codec.incomplete_input` JSON assertion.
+`../../examples/specification/run/binary-fixture-invalid-field/` shows a named
+fixture record with schema-aware metadata for a same-module schema reference
+and a matching structured field path.
+`../../examples/specification/run/binary-fixture-schema-references/` checks
+same-module, imported public schema, and imported public schema-alias fixture
+references with matching structured field paths. The companion
+`../../examples/specification/run/binary-fixture-schema-reference-diagnostics/`
+case pins manifest-time rejection for missing, private imported, wrong-kind,
+generated-helper, missing-use, and field-path-mismatched schema references.
 
 ## Binary Byte Views
 
