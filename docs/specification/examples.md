@@ -538,6 +538,24 @@ pin checked `Flag32be` helper behavior for successful raw-bit extraction,
 raw-bit construction, bit reads, and bit sets plus JSON raw-bit range and
 human invalid-index runtime result failures.
 
+`../../examples/specification/run/binary-schema-flag32le-decode/`,
+`../../examples/specification/run/binary-schema-flag32le-encode/`,
+`../../examples/specification/run/binary-schema-flag32le-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag32le-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag32le-encode-out-of-range/`
+pin the four-byte little-endian visible flag bitset slice. The cases prove
+source-visible `Flag32le(bits)` decode, little-endian encode, direct structural
+mapping in both directions, and the ordinary encode value-representation
+failure shape for values outside the four-byte range.
+`../../examples/specification/run/binary-schema-flag32le-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag32le-from-bits-out-of-range-json/`,
+`../../examples/specification/run/binary-schema-flag32le-bit-index-json/`, and
+`../../examples/specification/run/binary-schema-flag32le-bit-index-human/`
+pin checked `Flag32le` helper behavior for successful raw-bit extraction,
+raw-bit construction, bit reads, and bit sets plus JSON raw-bit range and
+human invalid-index runtime result failures.
+
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
 The case checks complete lowercase hex output for an HTTP/2-style stream

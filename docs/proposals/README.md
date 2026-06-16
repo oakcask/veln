@@ -56,7 +56,8 @@ compare it with `../specification/` before changing behavior.
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode,
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
-  two-byte little-endian, and `Flag32be` four-byte big-endian visible flag
+  two-byte little-endian, `Flag32be` four-byte big-endian, and `Flag32le`
+  four-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
   structural mapping decode, direct mapped-record encode, and direct ADT
   constructor mapped encode boundaries for supported schema-local fields plus
