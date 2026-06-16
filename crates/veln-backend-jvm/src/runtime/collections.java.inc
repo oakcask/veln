@@ -1317,6 +1317,49 @@
         return ok(Long.valueOf(1L << bitIndex));
     }
 
+    public static Object flag32leIsSet(Object flags, Object index) {
+        Object maskResult = flag32leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag32leBits(flags);
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag32leSet(Object flags, Object index) {
+        Object maskResult = flag32leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag32leBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag32leObject(bits + mask));
+    }
+
+    public static Object flag32leRawBits(Object flags) {
+        return Long.valueOf(flag32leBits(flags));
+    }
+
+    public static Object flag32leFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 4294967295L) {
+            return err("flag32le bits must be between 0 and 4294967295");
+        }
+        return ok(flag32leObject(bits));
+    }
+
+    private static Object flag32leBitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 31) {
+            return err("flag bit index must be between 0 and 31");
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
     public static Object byteChunk(Object bytes) {
         return byteChunkObject(asList(bytes));
     }
@@ -5658,6 +5701,14 @@
 
     private static long flag32beBits(Object value) {
         return schemaFlagBits(value, "Flag32be");
+    }
+
+    private static Object flag32leObject(long bits) {
+        return flagObject("Flag32le", bits);
+    }
+
+    private static long flag32leBits(Object value) {
+        return schemaFlagBits(value, "Flag32le");
     }
 
     private static Object flagObject(String flagType, long bits) {

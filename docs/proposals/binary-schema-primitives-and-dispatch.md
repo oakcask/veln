@@ -168,6 +168,20 @@ indexes instead of masking or wrapping. Raw-bit helpers expose the wrapped
 integer bits and construct `Flag32be` values only for integers in the
 four-byte range, returning `Result` failures before invalid values reach
 generated schema encoders.
+The narrow four-byte little-endian visible flag bitset slice is implemented as
+`Flag32le` for generated binary schema decode and encode helpers. `Flag32le`
+consumes and emits four bytes through the existing `UInt32le` representation
+path, decodes to the source-visible `Flag32le(bits: Int)` value instead of a
+raw `Int`, preserves existing `UInt32le` field behavior, shares exact-width
+truncation behavior, supports direct mapped-record decode and encode, and
+reports existing encode value-representation failures when `bits` cannot be
+represented in four bytes.
+Pure prelude helpers expose checked four-byte `Flag32le` bit access through
+bit indexes `0` through `31`, returning `Result` failures for out-of-range
+indexes instead of masking or wrapping. Raw-bit helpers expose the wrapped
+integer bits and construct `Flag32le` values only for integers in the
+four-byte range, returning `Result` failures before invalid values reach
+generated schema encoders.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
@@ -230,8 +244,9 @@ for:
   or four-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset,
   two-byte big-endian `Flag16be` bitset, two-byte little-endian `Flag16le`
-  bitset, and four-byte big-endian `Flag32be`
-  bitset, checked `Flag8`, `Flag16be`, `Flag16le`, and `Flag32be` bit
+  bitset, four-byte big-endian `Flag32be` bitset, and four-byte little-endian
+  `Flag32le` bitset, checked `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`,
+  and `Flag32le` bit
   and raw-bit helper access,
   direct structural mapping boundary, and implemented direct constructor
   mapped encode boundaries, including broader frame-specific ADTs beyond the
@@ -333,6 +348,9 @@ source-visible `Flag16le(bits: Int)` values while leaving existing `UInt16le`
 fields as ordinary `Int` values. The implemented `Flag32be` helper slice
 consumes and emits four-byte big-endian visible bitsets as source-visible
 `Flag32be(bits: Int)` values while leaving existing `UInt32be` fields as
+ordinary `Int` values. The implemented `Flag32le` helper slice consumes and
+emits four-byte little-endian visible bitsets as source-visible
+`Flag32le(bits: Int)` values while leaving existing `UInt32le` fields as
 ordinary `Int` values. Structural decode mappings can use decoded
 flag values through the implemented field reference, same-module ADT
 constructor, pure same-module converter, and imported public pure converter
@@ -447,10 +465,10 @@ clause.
 
 Exact-width integer primitives produce ordinary `Int` values unless a
 schema-declared representation conversion maps the field into a visible domain
-type. `Flag8`, `Flag16be`, `Flag16le`, and `Flag32be` fields produce
+type. `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields produce
 source-visible `Flag8(bits: Int)`, `Flag16be(bits: Int)`,
-`Flag16le(bits: Int)`, and `Flag32be(bits: Int)` values in the implemented
-helper and mapping slices. Byte ranges produce `ByteView` or
+`Flag16le(bits: Int)`, `Flag32be(bits: Int)`, and `Flag32le(bits: Int)`
+values in the implemented helper and mapping slices. Byte ranges produce `ByteView` or
 `ByteChunk` values according to the field vocabulary. Reserved fields, fixed
 fields, and other representation-only fields stay available for validation
 and diagnostics but are omitted from the mapped value unless the mapping

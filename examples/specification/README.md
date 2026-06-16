@@ -556,6 +556,20 @@ against the built `veln` binary.
   command output.
 - `run/binary-schema-flag32be-bit-index-human/`: `flag32be_set` reports the
   same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag32le-decode/`: generated schema decode helpers read a
+  four-byte little-endian `Flag32le` field as a source-visible bitset value.
+- `run/binary-schema-flag32le-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag32le` raw bits and bit positions, construct a new `Flag32le`
+  from raw bits and four-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag32le-from-bits-out-of-range-json/`:
+  `flag32le_from_bits` rejects an integer outside the four-byte range with the
+  checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag32le-bit-index-json/`: `flag32le_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag32le-bit-index-human/`: `flag32le_set` reports the
+  same out-of-range bit-index failure through human command output.
 - `run/binary-schema-u16le-decode/`: generated schema decode helpers read
   `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
   structural `map to` target record shape.
@@ -703,6 +717,12 @@ against the built `veln` binary.
   representation path.
 - `run/binary-schema-flag32be-encode-out-of-range/`: generated schema encode
   helpers reject `Flag32be(bits)` values outside the four-byte unsigned range
+  with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag32le-encode/`: generated schema encode helpers write
+  a `Flag32le(bits)` field through the four-byte little-endian `UInt32le`
+  representation path.
+- `run/binary-schema-flag32le-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag32le(bits)` values outside the four-byte unsigned range
   with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-int-mapped-constructor-encode/`: generated schema encode
   helpers project direct single-constructor ADT integer payloads back to
