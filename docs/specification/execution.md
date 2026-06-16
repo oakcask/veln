@@ -376,7 +376,8 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
-  `examples/specification/run/binary-schema-mapping-selection-decode/`, and
+  `examples/specification/run/binary-schema-mapping-selection-decode/`,
+  `examples/specification/run/binary-schema-mapped-field-selection-decode/`, and
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
