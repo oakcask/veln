@@ -34,7 +34,8 @@ compare it with `../specification/` before changing behavior.
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup and documentation comments that reference schemas through
-  schema-aware lookup.
+  schema-aware lookup. Binary fixture metadata in executable specification
+  cases may also validate schema-aware references.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed

@@ -862,11 +862,22 @@ execution reference.
   fixture records can represent valid decoded bytes that fail a test-owned
   codec or protocol field check; their metadata records the diagnostic id,
   byte offset, structured field path, and consumed count where the case has
-  one.
+  one. A fixture may also write `schema = "Name"` or
+  `schema = "module::Name"` to validate that the fixture metadata names a
+  schema from the command source set. Bare names resolve in the fixture's
+  source module. Qualified names require a written `use` path and a public
+  schema or public schema alias. When `field_path` is present, its first
+  segment must name the resolved schema. Invalid fixture schema references are
+  manifest validation errors for executable specification cases, not runtime
+  `veln run` output.
 - Executable specification cases may also assert named output `ByteChunk`
   lists through complete lowercase hex in `case.toml`. The harness checks
   stable consecutive program-output lines for the list count, chunk order,
   exact hex strings, decoded byte counts, empty lists, and zero-length chunks.
+- Executable specification cases that intentionally reject fixture schema
+  metadata may write `[manifest_error]` with `contains = [...]`; the harness
+  validates those substrings against the manifest validation failure and does
+  not run the command.
 - The first ordinary-source HTTP/2 sans-I/O protocol-core example models
   chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
   undecoded suffix bytes, the next absolute byte offset, client connection

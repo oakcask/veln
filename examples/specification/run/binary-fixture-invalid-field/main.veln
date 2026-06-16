@@ -1,6 +1,12 @@
 # Named binary fixtures can own valid bytes that fail a field check.
 use stdio
 
+schema DemoPacket
+	format binary
+
+	kind: UInt8
+end
+
 fn emit_consumed(consumed: Option<ByteCount>) -> () effects [stdio]
 	match consumed
 		Some(count) => stdio::print(int_to_string(byte_count_to_int(count)))

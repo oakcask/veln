@@ -7,6 +7,10 @@ use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use veln_analysis::{derive_source_module_path, load_surface_module};
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_project::Project;
+
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
@@ -34,6 +38,17 @@ fn run_case(case_dir: &Path) {
     let project = TestProject::new(case_name(case_dir), &manifest.tools);
     project.copy_fixtures(case_dir);
     project.setup_tools(&manifest.tools);
+    if let Some(expected_error) = &manifest.manifest_error {
+        let panic = std::panic::catch_unwind(|| {
+            manifest.validate_fixture_schema_references(&project.root);
+        })
+        .expect_err("case should fail manifest validation");
+        let message = panic_message(panic);
+        expected_error.assert_matches(case_dir, &message);
+        return;
+    }
+
+    manifest.validate_fixture_schema_references(&project.root);
 
     for run_index in 0..manifest.invocation.repeat {
         let context = CaseRunContext {
@@ -359,6 +374,7 @@ struct CaseExpectations {
 struct CaseManifest {
     invocation: CaseInvocation,
     expectations: CaseExpectations,
+    manifest_error: Option<ManifestErrorExpectation>,
     tools: ToolSetup,
     requires: Requirements,
     skip: SkipRules,
@@ -393,6 +409,29 @@ impl CaseManifest {
 
     fn requires_jdk(&self) -> bool {
         self.requires.jdk || self.tools.requires_jdk()
+    }
+
+    fn validate_fixture_schema_references(&self, project_root: &Path) {
+        if self
+            .expectations
+            .binary_fixtures
+            .iter()
+            .all(|fixture| fixture.schema.is_none())
+        {
+            return;
+        }
+
+        let inputs = command_source_inputs(&self.invocation.command);
+        let project = Project::discover(project_root.to_path_buf(), &inputs)
+            .unwrap_or_else(|error| manifest_error(project_root, 0, error));
+        let current_module = fixture_reference_module(&project, inputs.first());
+        let (module, _) = load_surface_module(&project);
+        validate_binary_fixture_schema_references(
+            project_root,
+            &module,
+            current_module.as_deref(),
+            &self.expectations.binary_fixtures,
+        );
     }
 }
 
@@ -477,6 +516,27 @@ impl CaseExpectations {
                 assertion.path
             );
         }
+    }
+}
+
+#[derive(Debug, Default)]
+struct ManifestErrorExpectation {
+    contains: Vec<String>,
+}
+
+impl ManifestErrorExpectation {
+    fn assert_matches(&self, case_dir: &Path, message: &str) {
+        for expected in &self.contains {
+            assert!(
+                message.contains(expected),
+                "{}: manifest error should contain `{expected}`, got `{message}`",
+                case_dir.display()
+            );
+        }
+    }
+
+    fn has_assertion(&self) -> bool {
+        !self.contains.is_empty()
     }
 }
 
@@ -639,6 +699,7 @@ struct DiagnosticExpectation {
 #[derive(Debug)]
 struct BinaryFixtureExpectation {
     name: String,
+    schema: Option<String>,
     bytes: Option<BinaryFixtureBytes>,
     consumed: Option<usize>,
     error: Option<String>,
@@ -794,6 +855,7 @@ enum Section {
     FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
+    ManifestError,
     BinaryFixture(usize),
     OutputChunkList(usize),
     Requires,
@@ -823,6 +885,7 @@ struct ManifestParser<'a> {
     json_assertions: Vec<JsonAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
+    manifest_error: Option<ManifestErrorExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
     output_chunk_lists: Vec<OutputChunkListExpectation>,
     tools: ToolSetup,
@@ -846,6 +909,7 @@ impl<'a> ManifestParser<'a> {
             json_assertions: Vec::new(),
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
+            manifest_error: None,
             binary_fixtures: Vec::new(),
             output_chunk_lists: Vec::new(),
             tools: ToolSetup::default(),
@@ -885,6 +949,7 @@ impl<'a> ManifestParser<'a> {
             "[[file_assert]]" => self.parse_file_assert_header(),
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
+            "[manifest_error]" => self.parse_manifest_error_header(line_number),
             "[[binary_fixture]]" => self.parse_binary_fixture_header(),
             "[[output_chunk_list]]" => self.parse_output_chunk_list_header(),
             _ => manifest_error(self.path, line_number, format!("unknown section `{line}`")),
@@ -940,9 +1005,18 @@ impl<'a> ManifestParser<'a> {
         Section::DiagnosticSpan(index)
     }
 
+    fn parse_manifest_error_header(&mut self, line_number: usize) -> Section {
+        if self.manifest_error.is_some() {
+            manifest_error(self.path, line_number, "duplicate manifest_error section");
+        }
+        self.manifest_error = Some(ManifestErrorExpectation::default());
+        Section::ManifestError
+    }
+
     fn parse_binary_fixture_header(&mut self) -> Section {
         self.binary_fixtures.push(BinaryFixtureExpectation {
             name: String::new(),
+            schema: None,
             bytes: None,
             consumed: None,
             error: None,
@@ -991,6 +1065,7 @@ impl<'a> ManifestParser<'a> {
             Section::DiagnosticSpan(index) => {
                 self.parse_diagnostic_span_key(index, line_number, key, value);
             }
+            Section::ManifestError => self.parse_manifest_error_key(line_number, key, value),
             Section::BinaryFixture(index) => {
                 self.parse_binary_fixture_key(index, line_number, key, value)
             }
@@ -1129,6 +1204,23 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
+    fn parse_manifest_error_key(&mut self, line_number: usize, key: &str, value: &str) {
+        let expectation = self
+            .manifest_error
+            .as_mut()
+            .expect("manifest_error section should exist");
+        match key {
+            "contains" => {
+                expectation.contains = parse_string_array(self.path, line_number, value);
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown manifest_error key `{key}`"),
+            ),
+        }
+    }
+
     fn parse_binary_fixture_key(
         &mut self,
         index: usize,
@@ -1139,6 +1231,7 @@ impl<'a> ManifestParser<'a> {
         let fixture = &mut self.binary_fixtures[index];
         match key {
             "name" => fixture.name = parse_string(self.path, line_number, value),
+            "schema" => fixture.schema = Some(parse_string(self.path, line_number, value)),
             "hex" => {
                 fixture.bytes = Some(parse_binary_fixture_hex(self.path, line_number, value));
             }
@@ -1238,6 +1331,7 @@ impl<'a> ManifestParser<'a> {
                 binary_fixtures: self.binary_fixtures,
                 output_chunk_lists: self.output_chunk_lists,
             },
+            manifest_error: self.manifest_error,
             tools: self.tools,
             requires: self.requires,
             skip: self.skip,
@@ -1270,6 +1364,11 @@ impl<'a> ManifestParser<'a> {
             if diagnostic.id.is_empty() {
                 manifest_error(self.path, 0, format!("diagnostics {index} is missing `id`"));
             }
+        }
+        if let Some(manifest_error_expectation) = &manifest.manifest_error
+            && !manifest_error_expectation.has_assertion()
+        {
+            manifest_error(self.path, 0, "manifest_error section has no assertion");
         }
         for (index, fixture) in manifest.expectations.binary_fixtures.iter().enumerate() {
             if fixture.name.is_empty() {
@@ -1420,6 +1519,287 @@ fn validate_binary_fixture_field_path(
             );
         }
     }
+}
+
+fn command_source_inputs(command: &[String]) -> Vec<PathBuf> {
+    let Some(command_name) = command.first().map(String::as_str) else {
+        return Vec::new();
+    };
+    match command_name {
+        "run" => run_command_source_inputs(&command[1..]),
+        "check" | "doc" | "fmt" | "test" => source_inputs_after_flags(&command[1..]),
+        _ => Vec::new(),
+    }
+}
+
+fn run_command_source_inputs(args: &[String]) -> Vec<PathBuf> {
+    let mut saw_entry = false;
+    let mut inputs = Vec::new();
+    for arg in args {
+        if arg == "--" {
+            break;
+        }
+        if arg == "--json" {
+            continue;
+        }
+        if !saw_entry {
+            saw_entry = true;
+            continue;
+        }
+        inputs.push(PathBuf::from(arg));
+    }
+    inputs
+}
+
+fn source_inputs_after_flags(args: &[String]) -> Vec<PathBuf> {
+    let mut inputs = Vec::new();
+    for arg in args {
+        if arg == "--" {
+            break;
+        }
+        if arg == "--json" {
+            continue;
+        }
+        inputs.push(PathBuf::from(arg));
+    }
+    inputs
+}
+
+fn fixture_reference_module(project: &Project, first_input: Option<&PathBuf>) -> Option<String> {
+    if let Some(first_input) = first_input {
+        let source_path = if first_input.is_absolute() {
+            first_input.clone()
+        } else {
+            project.root.join(first_input)
+        };
+        if source_path.is_file()
+            && let Ok(source) = veln_source::SourceFile::read(&project.root, &source_path)
+            && let Ok(module) = derive_source_module_path(&source)
+        {
+            return Some(module);
+        }
+    }
+    project
+        .files
+        .first()
+        .and_then(|source| derive_source_module_path(source).ok())
+}
+
+fn validate_binary_fixture_schema_references(
+    path: &Path,
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    fixtures: &[BinaryFixtureExpectation],
+) {
+    let mut errors = Vec::new();
+    for (index, fixture) in fixtures.iter().enumerate() {
+        let Some(schema) = &fixture.schema else {
+            continue;
+        };
+        match resolve_fixture_schema_reference(module, schema, current_module) {
+            FixtureSchemaResolution::Resolved { name } => {
+                if let Some(error) =
+                    validate_binary_fixture_schema_field_path(index, &name, fixture)
+                {
+                    errors.push(error);
+                }
+            }
+            FixtureSchemaResolution::Private => errors.push(format!(
+                "binary_fixture {index} schema reference `{schema}` is private"
+            )),
+            FixtureSchemaResolution::WrongKind(kind) => errors.push(format!(
+                "binary_fixture {index} schema reference `{schema}` is a {kind}, not a schema"
+            )),
+            FixtureSchemaResolution::Unresolved => errors.push(format!(
+                "unresolved binary_fixture {index} schema reference `{schema}`"
+            )),
+        }
+    }
+    if !errors.is_empty() {
+        manifest_error(path, 0, errors.join("\n"));
+    }
+}
+
+fn validate_binary_fixture_schema_field_path(
+    fixture_index: usize,
+    schema_name: &str,
+    fixture: &BinaryFixtureExpectation,
+) -> Option<String> {
+    let Some(field_path) = fixture
+        .byte_diagnostic
+        .as_ref()
+        .and_then(|diagnostic| diagnostic.field_path.as_ref())
+    else {
+        return None;
+    };
+    let Some(segments) = field_path.as_array() else {
+        return None;
+    };
+    let first_schema = segments
+        .first()
+        .and_then(|segment| match segment.object_field("kind") {
+            Some(kind) if kind.as_str() == Some("schema") => segment.object_field("name"),
+            _ => None,
+        })
+        .and_then(JsonValue::as_str);
+    if first_schema != Some(schema_name) {
+        return Some(format!(
+            "binary_fixture {fixture_index} `field_path` first segment must name schema `{schema_name}`"
+        ));
+    }
+    None
+}
+
+enum FixtureSchemaResolution {
+    Resolved { name: String },
+    Private,
+    WrongKind(&'static str),
+    Unresolved,
+}
+
+fn resolve_fixture_schema_reference(
+    module: &SurfaceModule,
+    target: &str,
+    current_module: Option<&str>,
+) -> FixtureSchemaResolution {
+    let segments = target.split("::").map(str::to_string).collect::<Vec<_>>();
+    resolve_fixture_schema_segments(module, &segments, current_module, true, &mut Vec::new())
+}
+
+fn resolve_fixture_schema_segments(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    allow_private_local_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> FixtureSchemaResolution {
+    match segments {
+        [name] => resolve_fixture_schema_in_module(
+            module,
+            current_module,
+            name,
+            allow_private_local_schema,
+            visited_aliases,
+        ),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
+                return FixtureSchemaResolution::Unresolved;
+            };
+            resolve_fixture_schema_in_module(
+                module,
+                Some(&use_decl.name),
+                name,
+                false,
+                visited_aliases,
+            )
+        }
+        _ => FixtureSchemaResolution::Unresolved,
+    }
+}
+
+fn resolve_fixture_schema_in_module(
+    module: &SurfaceModule,
+    module_name: Option<&str>,
+    name: &str,
+    allow_private_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> FixtureSchemaResolution {
+    if let Some(schema) = module.schemas.iter().find(|schema| {
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+    }) {
+        return if allow_private_schema || schema.visibility == Visibility::Public {
+            FixtureSchemaResolution::Resolved {
+                name: schema.name.clone().expect("schema should have a name"),
+            }
+        } else {
+            FixtureSchemaResolution::Private
+        };
+    }
+    if let Some(alias) = module.aliases.iter().find(|alias| {
+        alias.kind == PublicAliasKind::Schema
+            && alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+    }) {
+        return resolve_fixture_schema_alias_target(module, alias, visited_aliases);
+    }
+    fixture_schema_wrong_kind(module, module_name, name).map_or(
+        FixtureSchemaResolution::Unresolved,
+        FixtureSchemaResolution::WrongKind,
+    )
+}
+
+fn resolve_fixture_schema_alias_target(
+    module: &SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> FixtureSchemaResolution {
+    let Some(name) = &alias.name else {
+        return FixtureSchemaResolution::Unresolved;
+    };
+    let key = (alias.module_name.clone(), name.clone());
+    if visited_aliases.contains(&key) {
+        return FixtureSchemaResolution::Unresolved;
+    }
+    visited_aliases.push(key);
+    let resolution = resolve_fixture_schema_segments(
+        module,
+        &alias.target,
+        alias.module_name.as_deref(),
+        false,
+        visited_aliases,
+    );
+    visited_aliases.pop();
+    resolution
+}
+
+fn imported_use_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    uses.iter().find(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}
+
+fn fixture_schema_wrong_kind(
+    module: &SurfaceModule,
+    module_name: Option<&str>,
+    name: &str,
+) -> Option<&'static str> {
+    if module.functions.iter().any(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_deref() == Some(name)
+            && function.module_name.as_deref() == module_name
+    }) {
+        return Some("function");
+    }
+    if module.types.iter().any(|type_decl| {
+        type_decl.name.as_deref() == Some(name) && type_decl.module_name.as_deref() == module_name
+    }) {
+        return Some("type");
+    }
+    if module.codecs.iter().any(|codec| {
+        codec.name.as_deref() == Some(name) && codec.module_name.as_deref() == module_name
+    }) {
+        return Some("codec");
+    }
+    if let Some(alias) = module.aliases.iter().find(|alias| {
+        alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
+    }) {
+        return match alias.kind {
+            PublicAliasKind::Function => Some("function"),
+            PublicAliasKind::Type => Some("type"),
+            PublicAliasKind::Schema => None,
+        };
+    }
+    None
 }
 
 fn parse_help_key(
@@ -1936,6 +2316,7 @@ field_path = []
 
 [[binary_fixture]]
 name = "invalid-frame-kind"
+schema = "DemoPacket"
 hex = "ff0001"
 consumed = 1
 diagnostic_id = "schema.invalid_field_value"
@@ -1960,6 +2341,7 @@ error = "fixture.hex.invalid_character"
         "fixture short-u24 hex 0001 count 2 consumed 2 offset 2 expected 3 available 2 readiness need_bytes field_path []"
     );
     assert_eq!(fixtures[1].name, "invalid-frame-kind");
+    assert_eq!(fixtures[1].schema.as_deref(), Some("DemoPacket"));
     assert_eq!(fixtures[1].bytes.as_ref().unwrap().hex, "ff0001");
     assert_eq!(fixtures[1].consumed, Some(1));
     assert_eq!(
@@ -1974,6 +2356,95 @@ error = "fixture.hex.invalid_character"
     assert_eq!(
         expected_binary_fixture_line(&fixtures[2]),
         "fixture bad-separator error fixture.hex.invalid_character"
+    );
+}
+
+#[test]
+fn binary_fixture_schema_references_resolve_from_command_sources() {
+    let root = test_temp_root("fixture-schema-references");
+    write_fixture_schema_sources(&root);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "local-private"
+schema = "LocalPacket"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"LocalPacket"}]
+
+[[binary_fixture]]
+name = "imported-public"
+schema = "wire::PublicPacket"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"PublicPacket"}]
+
+[[binary_fixture]]
+name = "imported-alias"
+schema = "facade::AliasPacket"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"PublicPacket"}]
+"#,
+    );
+
+    manifest.validate_fixture_schema_references(&root);
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn binary_fixture_schema_references_reject_wrong_targets() {
+    assert_fixture_schema_error(
+        "MissingPacket",
+        Some(r#"[{"kind":"schema","name":"MissingPacket"}]"#),
+        "unresolved binary_fixture 0 schema reference `MissingPacket`",
+    );
+    assert_fixture_schema_error(
+        "PrivatePacket",
+        Some(r#"[{"kind":"schema","name":"PrivatePacket"}]"#),
+        "unresolved binary_fixture 0 schema reference `PrivatePacket`",
+    );
+    assert_fixture_schema_error(
+        "wire::PrivatePacket",
+        Some(r#"[{"kind":"schema","name":"PrivatePacket"}]"#),
+        "binary_fixture 0 schema reference `wire::PrivatePacket` is private",
+    );
+    assert_fixture_schema_error(
+        "wire::make_packet",
+        Some(r#"[{"kind":"schema","name":"make_packet"}]"#),
+        "binary_fixture 0 schema reference `wire::make_packet` is a function, not a schema",
+    );
+    assert_fixture_schema_error(
+        "wire::PacketShape",
+        Some(r#"[{"kind":"schema","name":"PacketShape"}]"#),
+        "binary_fixture 0 schema reference `wire::PacketShape` is a type, not a schema",
+    );
+    assert_fixture_schema_error(
+        "wire::PacketCodec",
+        Some(r#"[{"kind":"schema","name":"PacketCodec"}]"#),
+        "binary_fixture 0 schema reference `wire::PacketCodec` is a codec, not a schema",
+    );
+    assert_fixture_schema_error(
+        "wire::byte_decode_public_packet",
+        Some(r#"[{"kind":"schema","name":"PublicPacket"}]"#),
+        "unresolved binary_fixture 0 schema reference `wire::byte_decode_public_packet`",
+    );
+    assert_fixture_schema_error(
+        "other::PublicPacket",
+        Some(r#"[{"kind":"schema","name":"PublicPacket"}]"#),
+        "unresolved binary_fixture 0 schema reference `other::PublicPacket`",
+    );
+    assert_fixture_schema_error(
+        "wire::PublicPacket",
+        Some(r#"[{"kind":"schema","name":"OtherPacket"}]"#),
+        "binary_fixture 0 `field_path` first segment must name schema `PublicPacket`",
     );
 }
 
@@ -2087,6 +2558,104 @@ fn fake_success_tool_setup_installs_success_launcher() {
     assert_eq!(output.stderr, b"");
 
     fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+fn assert_fixture_schema_error(schema: &str, field_path: Option<&str>, expected: &str) {
+    let root = test_temp_root("fixture-schema-error");
+    write_fixture_schema_sources(&root);
+    let field_path = field_path
+        .map(|value| format!("field_path = {value}"))
+        .unwrap_or_default();
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        &format!(
+            r#"
+command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "schema-reference"
+schema = "{schema}"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+{field_path}
+"#
+        ),
+    );
+    let panic = std::panic::catch_unwind(|| manifest.validate_fixture_schema_references(&root))
+        .expect_err("schema reference should be rejected");
+    let message = panic_message(panic);
+    assert!(
+        message.contains(expected),
+        "expected panic to contain `{expected}`, got `{message}`"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+fn write_fixture_schema_sources(root: &Path) {
+    fs::write(
+        root.join("main.veln"),
+        r#"
+use wire
+use facade
+
+schema LocalPacket
+	format binary
+
+	length: UInt8
+end
+"#,
+    )
+    .expect("main source should be written");
+    fs::write(
+        root.join("wire.veln"),
+        r#"
+pub schema PublicPacket
+	format binary
+
+	length: UInt8
+end
+
+schema PrivatePacket
+	format binary
+
+	length: UInt8
+end
+
+pub fn make_packet() -> Int
+	1
+end
+
+pub type PacketShape
+	pub Packet(Int)
+end
+
+pub codec PacketCodec for PublicPacket decode
+	derive decode
+end
+"#,
+    )
+    .expect("wire source should be written");
+    fs::write(
+        root.join("facade.veln"),
+        r#"
+use wire
+
+pub schema AliasPacket = wire::PublicPacket
+"#,
+    )
+    .expect("facade source should be written");
+}
+
+fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = panic.downcast_ref::<String>() {
+        return message.clone();
+    }
+    if let Some(message) = panic.downcast_ref::<&str>() {
+        return message.to_string();
+    }
+    "non-string panic".to_string()
 }
 
 fn test_temp_root(name: &str) -> PathBuf {

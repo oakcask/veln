@@ -332,6 +332,10 @@ targets are rejected at the documentation reference span. Schema references in
 documentation do not expose schema-local field names, generated helper names,
 codec names, or ordinary source type bindings.
 
+Executable specification fixture metadata reuses the same schema-aware lookup
+rules for optional binary fixture `schema` references. Fixture references do
+not create source bindings or expose generated helpers.
+
 ## Expressions
 
 See [source-surface-full.md#expressions](source-surface-full.md#expressions).

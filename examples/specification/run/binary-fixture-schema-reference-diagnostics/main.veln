@@ -1,0 +1,6 @@
+use wire
+use facade
+
+pub fn main() -> Result<(), String>
+	Ok(())
+end

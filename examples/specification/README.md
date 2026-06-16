@@ -394,7 +394,11 @@ against the built `veln` binary.
   facts separately from the `codec.incomplete_input` JSON details.
 - `run/binary-fixture-invalid-field/`: a named binary fixture record decodes
   valid compact hex bytes and records a test-owned invalid field check with a
-  diagnostic id, byte offset, structured field path, and consumed count.
+  diagnostic id, byte offset, structured field path, consumed count, and
+  same-module fixture schema reference.
+- `run/binary-fixture-schema-reference-diagnostics/`: binary fixture metadata
+  rejects missing, private imported, wrong-kind, generated-helper, missing-use,
+  and field-path-mismatched schema references before running the command.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
   and little-endian reads and writes, truncation failures, range failures, and
   conversion overflow failures, plus channel freeze preservation for bounded
