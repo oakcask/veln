@@ -155,7 +155,8 @@ as `EncodeError(id, field_path, reason)`, `details.value_diagnostic` includes:
 
 - `kind: "value_diagnostic"`
 - `id`: one of `codec.encode_value_unrepresentable`,
-  `codec.dispatch_unknown_tag`, `codec.dispatch_length_mismatch`, or
+  `codec.encode_mapping_mismatch`, `codec.dispatch_unknown_tag`,
+  `codec.dispatch_length_mismatch`, or
   `codec.dispatch_mismatch`
 - `field_path`: schema-local path segment objects with `kind` and `name`,
   derived from the source-visible field path

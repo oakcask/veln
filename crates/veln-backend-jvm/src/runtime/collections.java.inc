@@ -4255,14 +4255,6 @@
         if (spec.size() == 3 && asString(spec.get(0)).equals("constructor")) {
             String constructorName = asString(spec.get(1));
             java.util.List<Object> args = asList(spec.get(2));
-            java.util.ArrayList<String> sources = new java.util.ArrayList<String>(args.size());
-            for (Object arg : args) {
-                String source = schemaMappingDirectSource(arg);
-                if (source == null) {
-                    return err("unsupported constructor mapping");
-                }
-                sources.add(source);
-            }
             if (!isAdtNamed(targetValue, constructorName)) {
                 return err(encodeError(
                     "codec.encode_mapping_mismatch",
@@ -4271,12 +4263,22 @@
                 ));
             }
             Adt value = asAdt(targetValue, constructorName);
-            if (value.payloads.length != sources.size()) {
+            if (value.payloads.length != args.size()) {
                 return err("unsupported constructor mapping");
             }
-            java.util.ArrayList<Object> values = new java.util.ArrayList<Object>(sources.size());
-            for (int index = 0; index < sources.size(); index += 1) {
-                values.add(new SchemaEncodeMappingValue(sources.get(index), value.payloads[index]));
+            java.util.ArrayList<Object> values = new java.util.ArrayList<Object>(args.size());
+            for (int index = 0; index < args.size(); index += 1) {
+                Object mapped = schemaEncodeMappingArgValues(
+                    value.payloads[index],
+                    args.get(index),
+                    schemaName,
+                    targetField,
+                    constructorName
+                );
+                if (isErr(mapped)) {
+                    return mapped;
+                }
+                values.addAll(asList(unwrapOk(mapped)));
             }
             return ok(values);
         }
@@ -4289,6 +4291,59 @@
         java.util.ArrayList<Object> values = new java.util.ArrayList<Object>(1);
         values.add(value);
         return values;
+    }
+
+    private static Object schemaEncodeMappingArgValues(
+        Object payloadValue,
+        Object expr,
+        String schemaName,
+        String targetField,
+        String constructorName
+    ) {
+        String source = schemaMappingDirectSource(expr);
+        if (source != null) {
+            return ok(schemaEncodeMappingValueList(
+                new SchemaEncodeMappingValue(source, payloadValue)
+            ));
+        }
+        java.util.List<Object> spec = asList(expr);
+        if (spec.size() == 3 && asString(spec.get(0)).equals("record")) {
+            if (!(payloadValue instanceof java.util.Map)) {
+                return err(encodeError(
+                    "codec.encode_mapping_mismatch",
+                    schemaName + "." + targetField,
+                    "expected record payload for constructor `" + constructorName + "`"
+                ));
+            }
+            java.util.List<Object> names = asList(spec.get(1));
+            java.util.List<Object> values = asList(spec.get(2));
+            java.util.Map<Object, Object> payloadFields = asMap(payloadValue);
+            java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>(values.size());
+            for (int index = 0; index < names.size(); index += 1) {
+                String fieldName = asString(names.get(index));
+                if (!payloadFields.containsKey(fieldName)) {
+                    return err(encodeError(
+                        "codec.encode_mapping_mismatch",
+                        schemaName + "." + targetField,
+                        "expected record field `" + fieldName
+                            + "` in constructor `" + constructorName + "` payload"
+                    ));
+                }
+                Object fieldMapped = schemaEncodeMappingArgValues(
+                    payloadFields.get(fieldName),
+                    values.get(index),
+                    schemaName,
+                    targetField,
+                    constructorName
+                );
+                if (isErr(fieldMapped)) {
+                    return fieldMapped;
+                }
+                mapped.addAll(asList(unwrapOk(fieldMapped)));
+            }
+            return ok(mapped);
+        }
+        return err("unsupported constructor mapping");
     }
 
     private static String schemaEncodeConstructorMismatchReason(

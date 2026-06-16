@@ -863,6 +863,9 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
         "codec.encode_value_unrepresentable" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
+        "codec.encode_mapping_mismatch" => {
+            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
         "codec.dispatch_unknown_tag" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
@@ -914,6 +917,7 @@ fn encode_result_failure_diagnostic(
 fn encode_diagnostic_message(id: &str) -> String {
     match id {
         "codec.encode_value_unrepresentable" => "encode value is unrepresentable",
+        "codec.encode_mapping_mismatch" => "encode mapping does not match value",
         "codec.dispatch_unknown_tag" => "unknown dispatch tag in encode value",
         "codec.dispatch_length_mismatch" => "dispatch payload length mismatch",
         "codec.dispatch_mismatch" => "dispatch tag and payload mismatch",

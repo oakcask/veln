@@ -1225,21 +1225,57 @@ fn schema_encode_mapping_assignment_sources(
     {
         return None;
     }
-    if args.len() == 1 && descriptor.variants.len() != 1 {
+    if args.len() == 1
+        && descriptor.variants.len() != 1
+        && !matches!(args.first(), Some(SchemaDecodeMappingExpr::Record(_)))
+    {
         return None;
     }
     let mut sources = Vec::with_capacity(args.len());
     for arg in args {
-        let SchemaDecodeMappingExpr::Field(source) = arg else {
-            return None;
-        };
-        let source_ty = schema_field_types.get(&source)?;
-        if !schema_encode_mapping_source_supported(&source, source_ty, exact_width_field_names) {
+        let arg_sources =
+            schema_encode_mapping_expr_sources(&arg, schema_field_types, exact_width_field_names)?;
+        if arg_sources.is_empty() {
             return None;
         }
-        sources.push(source.clone());
+        sources.extend(arg_sources);
     }
     Some(sources)
+}
+
+fn schema_encode_mapping_expr_sources(
+    expr: &SchemaDecodeMappingExpr,
+    schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
+) -> Option<Vec<String>> {
+    match expr {
+        SchemaDecodeMappingExpr::Field(source) => {
+            let source_ty = schema_field_types.get(source)?;
+            schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
+                .then(|| vec![source.clone()])
+        }
+        SchemaDecodeMappingExpr::Record(fields) => {
+            let mut sources = Vec::with_capacity(fields.len());
+            for field in fields {
+                let SchemaDecodeMappingExpr::Field(source) = &field.expr else {
+                    return None;
+                };
+                let source_ty = schema_field_types.get(source)?;
+                if !schema_encode_mapping_source_supported(
+                    source,
+                    source_ty,
+                    exact_width_field_names,
+                ) {
+                    return None;
+                }
+                sources.push(source.clone());
+            }
+            Some(sources)
+        }
+        SchemaDecodeMappingExpr::Constructor { .. } | SchemaDecodeMappingExpr::Converter { .. } => {
+            None
+        }
+    }
 }
 
 fn schema_encode_mapping_source_supported(
