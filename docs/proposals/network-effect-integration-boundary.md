@@ -43,8 +43,8 @@ slices, and narrow deadline and cancellation slices, for:
   adapter-level cancellable stream routing, socket/channel routing, and
   deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, four-route, receiver-list five-route, receiver-list six-route,
-  and receiver-list timeout fixture shapes
+  three-route, four-route, receiver-list five-route, and receiver-list
+  six-route fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, and four-argument spawned handler task shapes over ordinary
   source values
@@ -209,19 +209,10 @@ The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
-The receiver-list five-route and six-route channel-first stream routing
-slices, including the `channel::select_many_priority` helper, are recorded as
-implemented in
+The receiver-list five-route, six-route, and timeout channel-first stream
+routing slices, including the `channel::select_many_priority` and
+`channel::select_many_timeout` helpers, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
-
-Implemented receiver-list timeout stream routing slice: source-visible
-`channel::select_many_timeout(receivers, timeout_ms)` accepts a non-empty
-`List<Receiver<T>>`, preserves supplied receiver order as priority order,
-returns `Some({index, value})` for the first ready receiver by that priority,
-and returns `None` when no receiver becomes ready before the timeout. It uses
-the existing `concurrency` effect and has executable coverage for ready
-selection, timeout, effect inference, and adapter-style routing of ordinary
-`StreamInput` values into a plain handler.
 
 The four-argument argument-carrying stream-task slice is recorded as
 implemented in
@@ -316,10 +307,9 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, receiver-list five-route, and receiver-list
-  six-route channel-first stream routing, receiver-list timeout selection,
-  one-argument, two-argument, three-argument, and four-argument spawned
-  handler task, and
+  three-route, four-route, receiver-list five-route, receiver-list six-route,
+  and receiver-list timeout channel-first stream routing, one-argument,
+  two-argument, three-argument, and four-argument spawned handler task, and
   adapter-level cancellable stream routing slices; remaining examples still
   need richer stream routing and richer deadline and cancellation APIs beyond
   the narrow relative `Deadline` boundary, `CancelToken` boundary, and
