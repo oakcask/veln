@@ -45,8 +45,9 @@ slices, and narrow deadline and cancellation slices, for:
   slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
-  receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
-  and receiver-list cancellable channel-first fixture shapes
+  receiver-list seven-route, receiver-list eight-route, receiver-list
+  nine-route, receiver-list timeout, and receiver-list cancellable
+  channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, four-argument, and five-argument spawned handler task shapes
   over ordinary source values
@@ -213,8 +214,8 @@ The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
-The receiver-list five-route, six-route, seven-route, eight-route, and timeout
-channel-first stream routing slices, including the
+The receiver-list five-route, six-route, seven-route, eight-route, nine-route,
+and timeout channel-first stream routing slices, including the
 `channel::select_many_priority` and
 `channel::select_many_timeout` helpers, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
@@ -318,8 +319,9 @@ or the pure protocol core.
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
-  receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
-  and receiver-list cancellable channel-first stream routing, one-argument,
+  receiver-list seven-route, receiver-list eight-route, receiver-list
+  nine-route, receiver-list timeout, and receiver-list cancellable
+  channel-first stream routing, one-argument,
   two-argument, three-argument, four-argument, and five-argument spawned
   handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and

@@ -92,7 +92,8 @@ execution reference.
   accepted-stream ownership in one adapter function.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, receiver-list five-route, receiver-list
-  six-route, receiver-list seven-route, receiver-list eight-route, and
+  six-route, receiver-list seven-route, receiver-list eight-route,
+  receiver-list nine-route, and
   receiver-list timeout typed channel
   routes, select the next ready route with the existing channel selection
   vocabulary, and only then invoke a plain handler with explicit per-stream
@@ -112,6 +113,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-six-route/`,
   `examples/specification/run/channel-first-stream-routing-seven-route/`,
   `examples/specification/run/channel-first-stream-routing-eight-route/`,
+  `examples/specification/run/channel-first-stream-routing-nine-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
   `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
@@ -124,6 +126,8 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
   and
   `examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
+  and
+  `examples/specification/check/channel-first-stream-routing-nine-route-effects/`,
   and
   `examples/specification/check/channel-select-many-timeout-effects/`, and
   `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.

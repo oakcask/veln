@@ -12,6 +12,8 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-seven-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-eight-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-nine-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
@@ -20,12 +22,16 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
+and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`.
 
 ## Outcome
 
-The completed slice adds the narrow `channel::select_many_priority(receivers)`
-standard-library boundary for a non-empty `List<Receiver<T>>`. It returns
+The completed route-count slices add checked five-, six-, seven-, eight-, and
+nine-route evidence for the narrow
+`channel::select_many_priority(receivers)` standard-library boundary over a
+non-empty `List<Receiver<T>>`. It returns
 `Option<{index: Int, value: T}>`, where `index` is the zero-based receiver
 position in the supplied list. When multiple receivers are ready, selection
 uses the existing priority rule: the earliest ready receiver in the supplied
