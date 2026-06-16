@@ -3174,6 +3174,76 @@ fn generated_schema_decode_helpers_keep_field_selection_mapping_expressions() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {body_length: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding: UInt8\n",
+            "  checksum: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    body_length = (length - padding) + checksum\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{body_length: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let body_length = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "body_length")
+        .expect("body_length mapping should be emitted");
+    assert!(matches!(
+        &body_length.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Binary {
+            op: veln_ast::BinaryOp::Add,
+            left,
+            right,
+        } if matches!(
+                left.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                    op: veln_ast::BinaryOp::Subtract,
+                    left,
+                    right,
+                } if matches!(
+                        left.as_ref(),
+                        veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "length"
+                    )
+                    && matches!(
+                        right.as_ref(),
+                        veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "padding"
+                    )
+            )
+            && matches!(
+                right.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "checksum"
+            )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions() {
     let app_source = SourceFile::new(
         "app.veln",

@@ -1,5 +1,5 @@
 type Header
-	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, unsupported: Int}
+	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, bad_operand: Int, unsupported_operand: Int, unsupported_call: Int, unsupported_operator: Int}
 end
 
 type FrameKind
@@ -15,10 +15,14 @@ schema HeaderWire
 
 	length: UInt16be
 	kind: UInt8
+	payload: ByteView(length)
 
 	map to Header
 		wrapped = Missing(kind)
 		bad_arity = FrameKind(kind, length)
 		bad_type = FrameKind({value: kind})
-		unsupported = kind + length
+		bad_operand = length + payload
+		unsupported_operand = length + 1
+		unsupported_call = convert(length) + kind
+		unsupported_operator = kind * length
 end

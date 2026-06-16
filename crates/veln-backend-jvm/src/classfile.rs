@@ -1544,6 +1544,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
+            IrSchemaDecodeMappingExpr::Binary { op, left, right } => {
+                self.emit_object_array(code, 4, |this, code, index| match index {
+                    0 => code.ldc_string("binary"),
+                    1 => code.ldc_string(schema_mapping_binary_op_text(*op)),
+                    2 => this.emit_schema_mapping_expr_spec(code, left),
+                    3 => this.emit_schema_mapping_expr_spec(code, right),
+                    _ => unreachable!(),
+                });
+            }
         }
         code.invokestatic(
             &self.program.options.runtime_class,
@@ -2214,6 +2223,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .locals
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
+    }
+}
+
+fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
+    match op {
+        BinaryOp::Add => "+",
+        BinaryOp::Subtract => "-",
+        _ => unreachable!("schema mapping binary expressions only support + and -"),
     }
 }
 

@@ -203,11 +203,7 @@ fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &Sc
             comments,
             assignment.span.start.line,
             2,
-            format!(
-                "{} = {}",
-                assignment.target,
-                format_expr_at_indent(&assignment.expr, 2)
-            ),
+            format!("{} = {}", assignment.target, assignment.source),
         );
     }
 }

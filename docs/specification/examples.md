@@ -398,6 +398,10 @@ and
 `../../examples/specification/run/binary-schema-mapped-constructor-expression-decode/`
 pin the structural mapping expression slice. The helper constructs nested
 record and ADT target fields from decoded schema-local values.
+`../../examples/specification/run/binary-schema-mapping-arithmetic-decode/`
+pins the decoded-field integer arithmetic mapping slice. The helper evaluates
+supported `+` and `-` expressions after field-local validation and returns the
+computed `Int` target field.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
@@ -409,7 +413,8 @@ pins JSON diagnostics for missing, ambiguous, and unsupported mapping
 selection.
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
-arity, and constructor payload type diagnostics.
+arity, constructor payload type, non-`Int` arithmetic operand, and unsupported
+arithmetic expression diagnostics.
 
 `../../examples/specification/run/binary-schema-primitive-encode/` and
 `../../examples/specification/run/binary-schema-primitive-encode-out-of-range/`

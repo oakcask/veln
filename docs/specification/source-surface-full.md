@@ -151,10 +151,13 @@ construction resolved through ordinary source module rules, one pure
 same-module converter call, and one imported public pure converter call
 through a written `use` path or alias, and field selection from an already
 supported structural mapping expression whose type has the selected record
-field. Converter calls take exactly one
+field. An `Int` target field may also use `+` and `-` expressions whose
+operands are decoded schema-local `Int` fields or nested supported integer
+arithmetic mapping expressions. Converter calls take exactly one
 argument: either a schema-local field reference or an already implemented
 structural mapping expression made from schema-local fields, records, ADT
-constructors, and nested combinations of those forms.
+constructors, supported integer arithmetic mapping expressions, and nested
+combinations of those forms.
 Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
@@ -171,8 +174,9 @@ report `schema.mapping_selection_required`, duplicate selector values report
 `schema.mapping_selection_ambiguous`, and unsupported selector or target-shape
 boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
-record slice, arbitrary calls, value-dependent mapping beyond decoded-field
-integer equality, and encode-side mapping are not implemented.
+record slice, arbitrary calls, converter calls inside arithmetic operands,
+value-dependent mapping beyond decoded-field integer arithmetic and equality,
+and encode-side mapping are not implemented.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 keeps the mapping-selection boundary executable.

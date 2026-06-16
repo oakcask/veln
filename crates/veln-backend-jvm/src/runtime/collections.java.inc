@@ -5421,6 +5421,18 @@
         if (tag.equals("converter")) {
             return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(2)));
         }
+        if (tag.equals("binary")) {
+            Object left = schemaMappingExprValue(decoded, spec.get(2));
+            Object right = schemaMappingExprValue(decoded, spec.get(3));
+            String op = asString(spec.get(1));
+            if (op.equals("+")) {
+                return add(left, right);
+            }
+            if (op.equals("-")) {
+                return subtract(left, right);
+            }
+            throw new IllegalStateException("unsupported schema mapping binary operator");
+        }
         throw new IllegalStateException("unsupported schema mapping expression metadata");
     }
 

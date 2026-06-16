@@ -16,6 +16,7 @@ pub  schema   Http2FrameHeader
     kind= kind
     stream_id=stream_id
     checksum = checksum
+    body_length=(length-padding_length)+checksum
     settings=settings
     payload=payload
 end

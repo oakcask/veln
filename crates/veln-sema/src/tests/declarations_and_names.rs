@@ -1718,7 +1718,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
             "    bad_arity = FrameKind(kind, length)\n",
             "    bad_type = FrameKind({value: kind})\n",
             "    unresolved = helper(kind)\n",
-            "    unsupported = kind + length\n",
+            "    unsupported = kind * length\n",
             "end\n",
         ),
     );
@@ -1754,7 +1754,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_expression_unsupported"
                 && diagnostic.message
-                    == "schema mapping expression `kind + length` is not supported"
+                    == "schema mapping expression `kind * length` is not supported"
         }),
         "{diagnostics:#?}"
     );
@@ -1762,6 +1762,63 @@ fn generated_schema_mappings_report_expression_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_converter"
                 && diagnostic.message == "schema mapping converter `helper` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn generated_schema_mappings_report_arithmetic_operand_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {bad_operand: Int, unsupported_operand: Int, unsupported_call: Int}\n",
+            "end\n",
+            "\n",
+            "fn identity(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "\n",
+            "  map to Header\n",
+            "    bad_operand = length + payload\n",
+            "    unsupported_operand = length + 1\n",
+            "    unsupported_call = identity(length) + kind\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_type"
+                && diagnostic.message
+                    == "schema mapping target field `bad_operand` expects `Int`, but expression `payload` has type `ByteView`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_expression_unsupported"
+                && diagnostic.message == "schema mapping expression `length + 1` is not supported"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_expression_unsupported"
+                && diagnostic.message
+                    == "schema mapping expression `identity(length) + kind` is not supported"
         }),
         "{diagnostics:#?}"
     );

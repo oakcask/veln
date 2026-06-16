@@ -105,14 +105,17 @@ construction resolved through ordinary source module rules, one pure
 same-module converter function call, or one imported public pure converter
 function call through a written `use` path or alias, and field selection from
 an already supported structural mapping expression whose type has the selected
-record field. Converter calls take one
+record field. An `Int` target field may also use `+` and `-` expressions whose
+operands are decoded schema-local `Int` fields or nested supported integer
+arithmetic mapping expressions. Converter calls take one
 argument: either a schema-local field reference or an already implemented
 structural mapping expression made from schema-local fields, records, ADT
-constructors, and nested combinations of those forms. The converter return
-value is assigned to the target field.
+constructors, supported integer arithmetic mapping expressions, and nested
+combinations of those forms. The converter return value is assigned to the
+target field.
 Other ordinary calls, bare imported converter names, private imported
-converters, effects, runtime settings, stream state, and recovery behavior are
-not mapping expressions.
+converters, converter calls inside arithmetic operands, effects, runtime
+settings, stream state, and recovery behavior are not mapping expressions.
 Mapping clauses are parsed, formatted, lowered, exposed to editor support,
 and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has one structural mapping, or

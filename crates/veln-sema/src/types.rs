@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{
-    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
-    NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause, SurfaceModule,
-    TypeDecl, TypeVariantDecl, UseDecl, Visibility,
+    BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
+    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause,
+    SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -1253,7 +1253,8 @@ fn schema_encode_mapping_expr_sources(
         }
         SchemaDecodeMappingExpr::Constructor { .. }
         | SchemaDecodeMappingExpr::Converter { .. }
-        | SchemaDecodeMappingExpr::FieldAccess { .. } => None,
+        | SchemaDecodeMappingExpr::FieldAccess { .. }
+        | SchemaDecodeMappingExpr::Binary { .. } => None,
     }
 }
 
@@ -1313,6 +1314,11 @@ pub(crate) enum SchemaDecodeMappingExpr {
     Converter {
         function: String,
         arg: Box<SchemaDecodeMappingExpr>,
+    },
+    Binary {
+        op: BinaryOp,
+        left: Box<SchemaDecodeMappingExpr>,
+        right: Box<SchemaDecodeMappingExpr>,
     },
 }
 
@@ -1743,6 +1749,9 @@ fn schema_mapping_expr_typed_unchecked(
                 allow_converter_calls,
             )
         }
+        ExprKind::Binary { op, left, right } => {
+            schema_mapping_binary_expr(context, expr, *op, left, right, allow_converter_calls)
+        }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
@@ -1876,9 +1885,94 @@ fn schema_mapping_expr_inferred(
                 allow_converter_calls,
             )
         }
+        ExprKind::Binary { op, left, right } => {
+            schema_mapping_binary_expr(context, expr, *op, left, right, allow_converter_calls)
+        }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
+        })),
+    }
+}
+
+fn schema_mapping_binary_expr(
+    context: &SchemaMappingExprContext<'_>,
+    expr: &Expr,
+    op: BinaryOp,
+    left: &Expr,
+    right: &Expr,
+    allow_converter_calls: bool,
+) -> SchemaMappingExprResult {
+    if !matches!(op, BinaryOp::Add | BinaryOp::Subtract) {
+        return Err(Box::new(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        }));
+    }
+    let expected = Type::int();
+    let left =
+        schema_mapping_arithmetic_operand(context, expr, left, &expected, allow_converter_calls)?;
+    let right =
+        schema_mapping_arithmetic_operand(context, expr, right, &expected, allow_converter_calls)?;
+    Ok(SchemaMappingTypedExpr {
+        ty: expected,
+        expr: SchemaDecodeMappingExpr::Binary {
+            op,
+            left: Box::new(left.expr),
+            right: Box::new(right.expr),
+        },
+    })
+}
+
+fn schema_mapping_arithmetic_operand(
+    context: &SchemaMappingExprContext<'_>,
+    whole_expr: &Expr,
+    operand: &Expr,
+    expected: &Type,
+    allow_converter_calls: bool,
+) -> SchemaMappingExprResult {
+    match &operand.kind {
+        ExprKind::NamePath(segments) => {
+            let [name] = segments.as_slice() else {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(whole_expr),
+                    span: whole_expr.span.clone(),
+                }));
+            };
+            let Some(ty) = context.schema_fields.get(name) else {
+                return Err(Box::new(SchemaMappingExprError::UnknownSchemaField {
+                    name: name.clone(),
+                    span: operand.span.clone(),
+                }));
+            };
+            if !is_assignable(expected, ty) {
+                return Err(Box::new(SchemaMappingExprError::TypeMismatch {
+                    expected: Box::new(expected.clone()),
+                    actual: Box::new(ty.clone()),
+                    text: schema_mapping_expr_render(operand),
+                    span: operand.span.clone(),
+                }));
+            }
+            Ok(SchemaMappingTypedExpr {
+                ty: ty.clone(),
+                expr: SchemaDecodeMappingExpr::Field(name.clone()),
+            })
+        }
+        ExprKind::Binary { op, left, right } => {
+            schema_mapping_binary_expr(context, operand, *op, left, right, allow_converter_calls)
+                .map_err(|error| match *error {
+                    SchemaMappingExprError::Unsupported { .. } => {
+                        Box::new(SchemaMappingExprError::Unsupported {
+                            text: schema_mapping_expr_render(whole_expr),
+                            span: whole_expr.span.clone(),
+                        })
+                    }
+                    other => Box::new(other),
+                })
+        }
+        _ => Err(Box::new(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(whole_expr),
+            span: whole_expr.span.clone(),
         })),
     }
 }
@@ -2095,6 +2189,13 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
             .record_field(field)
             .cloned()
             .unwrap_or(Type::Unknown),
+        ExprKind::Binary { op, left, right }
+            if matches!(op, BinaryOp::Add | BinaryOp::Subtract)
+                && schema_mapping_expr_actual_type(context, left) == Type::int()
+                && schema_mapping_expr_actual_type(context, right) == Type::int() =>
+        {
+            Type::int()
+        }
         _ => Type::Unknown,
     }
 }
