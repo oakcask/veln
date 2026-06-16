@@ -1949,7 +1949,7 @@ fn check_schema_repeat_byte_view_reference(
         } else {
             "unknown_field_reference"
         };
-        diagnostics.push(schema_repeat_payload_diagnostic(
+        let mut diagnostic = schema_repeat_payload_diagnostic(
             schema,
             field,
             length_field,
@@ -1958,11 +1958,13 @@ fn check_schema_repeat_byte_view_reference(
                 "repeat ByteView length field `{length_field}` must be an earlier decoded `Int` field"
             ),
             [],
-        ));
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, "length");
+        diagnostics.push(diagnostic);
         return false;
     };
     if ty != &Type::int() {
-        diagnostics.push(schema_repeat_payload_diagnostic(
+        let mut diagnostic = schema_repeat_payload_diagnostic(
             schema,
             field,
             length_field,
@@ -1972,7 +1974,9 @@ fn check_schema_repeat_byte_view_reference(
                 ty.render()
             ),
             [("actual", JsonValue::string(ty.render()))],
-        ));
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, "length");
+        diagnostics.push(diagnostic);
         return false;
     }
     true
@@ -1993,7 +1997,7 @@ fn check_schema_byte_view_reference(
             } else {
                 "unknown_field_reference"
             };
-            diagnostics.push(schema_byte_view_reference_diagnostic(
+            let mut diagnostic = schema_byte_view_reference_diagnostic(
                 schema,
                 field,
                 reference,
@@ -2002,12 +2006,19 @@ fn check_schema_byte_view_reference(
                     "ByteView length operand `{reference}` must be an earlier decoded `Int` field"
                 ),
                 [],
-            ));
+            );
+            add_compatible_prior_int_field_related(
+                &mut diagnostic,
+                schema,
+                decoded_fields,
+                "length",
+            );
+            diagnostics.push(diagnostic);
             valid = false;
             continue;
         };
         if ty != &Type::int() {
-            diagnostics.push(schema_byte_view_reference_diagnostic(
+            let mut diagnostic = schema_byte_view_reference_diagnostic(
                 schema,
                 field,
                 reference,
@@ -2017,7 +2028,14 @@ fn check_schema_byte_view_reference(
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
-            ));
+            );
+            add_compatible_prior_int_field_related(
+                &mut diagnostic,
+                schema,
+                decoded_fields,
+                "length",
+            );
+            diagnostics.push(diagnostic);
             valid = false;
         }
     }
@@ -2047,19 +2065,26 @@ fn check_schema_repeat_references(
             } else {
                 "unknown_field_reference"
             };
-            diagnostics.push(schema_repeat_reference_diagnostic(
+            let mut diagnostic = schema_repeat_reference_diagnostic(
                 schema,
                 field,
                 reference,
                 reason,
                 format!("{label} `{reference}` must be an earlier decoded `Int` field"),
                 [],
-            ));
+            );
+            add_compatible_prior_int_field_related(
+                &mut diagnostic,
+                schema,
+                decoded_fields,
+                "count",
+            );
+            diagnostics.push(diagnostic);
             valid = false;
             continue;
         };
         if ty != &Type::int() {
-            diagnostics.push(schema_repeat_reference_diagnostic(
+            let mut diagnostic = schema_repeat_reference_diagnostic(
                 schema,
                 field,
                 reference,
@@ -2069,7 +2094,14 @@ fn check_schema_repeat_references(
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
-            ));
+            );
+            add_compatible_prior_int_field_related(
+                &mut diagnostic,
+                schema,
+                decoded_fields,
+                "count",
+            );
+            diagnostics.push(diagnostic);
             valid = false;
         }
     }
@@ -2496,7 +2528,7 @@ fn check_schema_dispatch_reference(
         } else {
             "unknown_field_reference"
         };
-        diagnostics.push(schema_dispatch_reference_diagnostic(
+        let mut diagnostic = schema_dispatch_reference_diagnostic(
             schema,
             field,
             reference,
@@ -2504,11 +2536,13 @@ fn check_schema_dispatch_reference(
             reason,
             format!("dispatch {role} field `{reference}` must be an earlier decoded `Int` field"),
             [],
-        ));
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, role);
+        diagnostics.push(diagnostic);
         return false;
     };
     if ty != &Type::int() {
-        diagnostics.push(schema_dispatch_reference_diagnostic(
+        let mut diagnostic = schema_dispatch_reference_diagnostic(
             schema,
             field,
             reference,
@@ -2519,7 +2553,9 @@ fn check_schema_dispatch_reference(
                 ty.render()
             ),
             [("actual", JsonValue::string(ty.render()))],
-        ));
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, role);
+        diagnostics.push(diagnostic);
         return false;
     }
     true
@@ -2752,6 +2788,52 @@ fn schema_field_declared_after(schema: &SchemaDecl, field: &SchemaField, referen
         .iter()
         .position(|candidate| candidate.name == reference);
     matches!((current_index, reference_index), (Some(current), Some(reference)) if reference > current)
+}
+
+fn add_compatible_prior_int_field_related(
+    diagnostic: &mut Diagnostic,
+    schema: &SchemaDecl,
+    decoded_fields: &BTreeMap<String, Type>,
+    role: &str,
+) {
+    let expected_type = Type::int();
+    let int_field = |field: &&SchemaField| decoded_fields.get(&field.name) == Some(&expected_type);
+    let Some(candidate_field) = schema
+        .fields
+        .iter()
+        .find(|field| int_field(field) && field.name.contains(role))
+        .or_else(|| schema.fields.iter().find(int_field))
+    else {
+        return;
+    };
+    let candidate_name = &candidate_field.name;
+    diagnostic.related.push(JsonValue::object([
+        ("span", span_json(&candidate_field.span)),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Compatible earlier {role} field `{candidate_name}` is declared here."
+            )),
+        ),
+        (
+            "field_path",
+            JsonValue::array([
+                JsonValue::object([
+                    ("kind", JsonValue::string("schema")),
+                    (
+                        "name",
+                        JsonValue::string(
+                            schema.name.as_deref().unwrap_or("<missing>").to_string(),
+                        ),
+                    ),
+                ]),
+                JsonValue::object([
+                    ("kind", JsonValue::string("field")),
+                    ("name", JsonValue::string(candidate_name.clone())),
+                ]),
+            ]),
+        ),
+    ]));
 }
 
 fn schema_dispatch_reference_diagnostic<const N: usize>(

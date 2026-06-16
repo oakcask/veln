@@ -1,0 +1,122 @@
+# Binary schema field references stay schema-local and point backward.
+
+schema MissingRepeatCount
+	format binary
+
+	available_count: UInt8
+	items: Repeat(missing_count, UInt8)
+end
+
+schema ForwardRepeatCount
+	format binary
+
+	available_count: UInt8
+	items: Repeat(later_count, UInt8)
+	later_count: UInt8
+end
+
+schema WrongRepeatCount
+	format binary
+
+	available_count: UInt8
+	flags: Flag8
+	items: Repeat(flags, UInt8)
+end
+
+schema MissingByteViewLength
+	format binary
+
+	available_length: UInt8
+	payload: ByteView(missing_length)
+end
+
+schema ForwardByteViewLength
+	format binary
+
+	available_length: UInt8
+	payload: ByteView(later_length)
+	later_length: UInt8
+end
+
+schema WrongByteViewLength
+	format binary
+
+	available_length: UInt8
+	flags: Flag8
+	payload: ByteView(flags)
+end
+
+schema MissingDispatchTag
+	format binary
+
+	available_tag: UInt8
+	payload: Dispatch(missing_tag, 1 => UInt8)
+end
+
+schema ForwardDispatchTag
+	format binary
+
+	available_tag: UInt8
+	payload: Dispatch(later_tag, 1 => UInt8)
+	later_tag: UInt8
+end
+
+schema WrongDispatchTag
+	format binary
+
+	available_tag: UInt8
+	flags: Flag8
+	payload: Dispatch(flags, 1 => UInt8)
+end
+
+schema MissingExtensionTag
+	format binary
+
+	available_tag: UInt8
+	length: UInt8
+	payload: ExtensionDispatch(missing_extension_tag, length, 1 => UInt8)
+end
+
+schema ForwardExtensionTag
+	format binary
+
+	available_tag: UInt8
+	length: UInt8
+	payload: ExtensionDispatch(later_extension_tag, length, 1 => UInt8)
+	later_extension_tag: UInt8
+end
+
+schema WrongExtensionTag
+	format binary
+
+	available_tag: UInt8
+	length: UInt8
+	extension_tag_flags: Flag8
+	payload: ExtensionDispatch(extension_tag_flags, length, 1 => UInt8)
+end
+
+schema MissingExtensionLength
+	format binary
+
+	kind: UInt8
+	available_length: UInt8
+	payload: ExtensionDispatch(kind, missing_extension_length, 1 => UInt8)
+end
+
+schema ForwardExtensionLength
+	format binary
+
+	kind: UInt8
+	available_length: UInt8
+	payload: ExtensionDispatch(kind, later_extension_length, 1 => UInt8)
+	later_extension_length: UInt8
+end
+
+schema WrongExtensionLength
+	format binary
+
+	kind: UInt8
+	available_length: UInt8
+	extension_length_flags: Flag8
+	payload: ExtensionDispatch(kind, extension_length_flags, 1 => UInt8)
+end

@@ -73,17 +73,21 @@ exact-width unsigned primitive, an eligible nested binary schema payload, or
 field in the same schema. A repeated primitive field decodes and encodes as
 `List<Int>`; a repeated nested schema field decodes and encodes as a list of
 the nested schema's decoded record shape; and a repeated `ByteView` field
-decodes and encodes as `List<ByteView>`. The narrow closed tag-dispatch field type
-`Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
-previously decoded schema field and each case payload is either one of the
-implemented exact-width unsigned binary primitives, a same-module binary
-schema item, or a public imported binary schema named through a written `use`
-path. The extension-tolerant field type
+decodes and encodes as `List<ByteView>`. Missing, forward, or non-`Int`
+repeat count references report `schema.repeat_reference`; missing, forward,
+or non-`Int` byte-view length references report
+`schema.byte_view_reference`. The narrow closed tag-dispatch field type
+`Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names
+a previously decoded visible `Int` field and each case payload is either one
+of the implemented exact-width unsigned binary primitives, a same-module
+binary schema item, or a public imported binary schema named through a written
+`use` path. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
-when both referenced fields were decoded earlier in the same schema. Its known
-cases use the same payload vocabulary, and its unknown cases preserve a
-bounded raw payload selected by `length_field`. These primitive names are
-representation-local field vocabulary, not ordinary source types or values.
+when both referenced fields were decoded earlier in the same schema as visible
+`Int` fields. Its known cases use the same payload vocabulary, and its unknown
+cases preserve a bounded raw payload selected by `length_field`. These
+primitive names are representation-local field vocabulary, not ordinary source
+types or values.
 One schema-level `validate` predicate may appear after binary schema fields.
 It uses the same predicate syntax as field-local `where` clauses, but may
 reference only `Int` fields decoded by the same schema helper. Unknown field
@@ -94,7 +98,10 @@ or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward or recursively, or
-decodes to an incompatible payload shape. The checked diagnostics case is
+decodes to an incompatible payload shape. The checked field-reference
+diagnostics case is
+`../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
+the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
 A schema may end with
 structural `map to Target` clauses whose assignment lines use

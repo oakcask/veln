@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.byte_view_reference]: ByteView length operand `missing_length` must be an earlier decoded `Int` field", "Compatible earlier length field `available_length` is declared here."]
+
+[stderr]
+format = "empty"

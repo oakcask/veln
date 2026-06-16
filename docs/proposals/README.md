@@ -73,8 +73,12 @@ compare it with `../specification/` before changing behavior.
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
   decode and encode slices, bounded `Repeat(count_field, ByteView(length_field))`
-  decode and encode plus derived codec boundary slices, length-bounded `ByteView(length_field)` and
-  `ByteView(left_length - right_length)` decode and encode,
+  decode and encode plus derived codec boundary slices, length-bounded
+  `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
+  and encode,
+  declaration-time missing, forward, and wrong-role schema-local field
+  reference diagnostics for repeat counts, byte-view lengths, dispatch tags,
+  and extension-dispatch tags and lengths,
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the narrow HTTP/2 payload

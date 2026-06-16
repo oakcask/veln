@@ -653,6 +653,14 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-byteview-truncated-json/`: repeated `ByteView`
   truncation reports `schema.truncated_field` with the repeated field path and
   failing element `index`.
+- `check/binary-schema-field-reference-diagnostics/`: binary schema field
+  definitions reject missing, forward, and non-`Int` schema-local references
+  in repeat counts, byte-view lengths, dispatch tags, and extension-dispatch
+  tags and lengths, with compatible earlier fields reported as related
+  context.
+- `check/binary-schema-field-reference-human/`: human `check` diagnostics for
+  invalid binary schema field references keep the primary message focused on
+  the failed reference and put the compatible earlier field in a note.
 - `run/binary-schema-integer-out-of-range-json/`: schema decode reports
   `schema.integer_out_of_range` through JSON run output when a structurally
   present `UInt31be` field exceeds its external integer range, including byte
