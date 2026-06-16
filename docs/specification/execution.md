@@ -77,14 +77,17 @@ execution reference.
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler
   task over the same event/action boundary, passes ordinary event and state
-  values into an argument-carrying task helper, and translates ordered
+  values into `task::spawn_with2`, and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
-  `examples/specification/run/socket-stream-adapter-routing/` and
-  `examples/specification/run/socket-stream-adapter-clean-end/`, with
-  `examples/specification/run/socket-stream-adapter-owned-lifecycle/`
-  covering the listener-to-clean-stream-end ownership boundary in one adapter
-  function.
+  `examples/specification/run/socket-stream-adapter-routing/`,
+  `examples/specification/run/socket-stream-adapter-clean-end/`,
+  `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
+  `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
+  and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
+  The owned-lifecycle cases cover the listener-to-clean-stream-end ownership
+  and effect boundary, and the deadline lifecycle case covers deadline-aware
+  accepted-stream ownership in one adapter function.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, and receiver-list five-route typed channel
   routes, select the next ready route with the existing channel selection

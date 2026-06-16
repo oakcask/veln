@@ -274,11 +274,18 @@ The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and
 projects `SendBytes` actions back into ordered `net::write_chunk` calls. The
-adapter functions therefore declare both `net` and `concurrency`; the plain
-handlers they call remain free of socket handles and `net` calls. This
-composition does not add any effect label beyond the existing coarse labels or
-any compiler-known routing symbol beyond the socket, channel, and task calls
-listed here.
+deadline-aware lifecycle case accepts with `net::accept_until`, owns the
+accepted stream through repeated `net::read_chunk_until` attempts, translates
+deadline expiry into the ordinary stream boundary value before calling the
+plain handler, and projects only `SendBytes` actions to ordered writes. The
+matching owned-lifecycle effect check rejects adapter paths that omit either
+`net` or `concurrency`. The non-deadline adapter functions declare both `net`
+and `concurrency`; the deadline-aware lifecycle adapter declares `net`,
+`time`, and `concurrency`.
+The plain handlers they call remain free of socket handles and `net` calls.
+This composition does not add any effect label beyond the existing coarse
+labels or any compiler-known routing symbol beyond the socket, channel, task,
+and deadline calls listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
 through two, three, four, and receiver-list five-route typed channel routes,
@@ -385,18 +392,23 @@ task::spawn(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrenc
 task::spawn<T>(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
 task::spawn_with(job: fn(A) -> T effects [concurrency], arg: A) -> Task<T> effects [concurrency]
 task::spawn_with<T>(job: fn(A) -> T effects [concurrency], arg: A) -> Task<T> effects [concurrency]
+task::spawn_with2(job: fn(A, B) -> T effects [concurrency], first: A, second: B) -> Task<T> effects [concurrency]
+task::spawn_with2<T>(job: fn(A, B) -> T effects [concurrency], first: A, second: B) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
 
 `task::spawn` starts a zero-argument callable in a concurrent task and returns
 its task handle. `task::spawn_with` starts a one-argument callable with an
-ordinary source value argument. The argument is frozen before crossing into the
-task, and the result value is frozen before it crosses back through the task
-handle. `task::join` waits for completion and returns `Ok(value)` when the task
-returns normally, or `Err(JoinError)` when the task is interrupted, cancelled,
-or fails at runtime. `task::cancel` requests cancellation by interrupting the
-task and returns `()`. Cancellation is cooperative at the JVM runtime boundary.
+ordinary source value argument. `task::spawn_with2` starts a two-argument
+callable with two ordinary source values, preserving the same return-type
+type-argument shape as `task::spawn_with<T>`. Arguments are frozen before
+crossing into the task, and the result value is frozen before it crosses back
+through the task handle. `task::join` waits for completion and returns
+`Ok(value)` when the task returns normally, or `Err(JoinError)` when the task
+is interrupted, cancelled, or fails at runtime. `task::cancel` requests
+cancellation by interrupting the task and returns `()`. Cancellation is
+cooperative at the JVM runtime boundary.
 
 Executable-command reachability also follows bare and `use`-alias qualified
 function declaration values in reachable expressions, public function aliases,

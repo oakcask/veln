@@ -1,6 +1,4 @@
-# Adapter-owned socket lifecycle keeps handlers on ordinary stream values.
-use stdio
-
+# Adapter-owned accepted-stream lifecycle must declare socket and channel effects.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
 	EndStream
@@ -11,42 +9,6 @@ fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }
 	match input
 		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
 		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
-	end
-end
-
-fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
-	match left
-		Nil => right
-		Cons(action, tail) => list_cons(action, append_actions(tail, right))
-	end
-end
-
-fn action_count(actions: List<ResponseAction>) -> Int
-	match actions
-		Nil => 0
-		Cons(_, tail) => 1 + action_count(tail)
-	end
-end
-
-fn write_count(actions: List<ResponseAction>) -> Int
-	match actions
-		Nil => 0
-		Cons(action, tail) => match action
-			SendBytes(_) => 1 + write_count(tail)
-			EndStream => write_count(tail)
-			Ignore => write_count(tail)
-		end
-	end
-end
-
-fn end_count(actions: List<ResponseAction>) -> Int
-	match actions
-		Nil => 0
-		Cons(action, tail) => match action
-			SendBytes(_) => end_count(tail)
-			EndStream => 1 + end_count(tail)
-			Ignore => end_count(tail)
-		end
 	end
 end
 
@@ -62,6 +24,13 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	match channel::recv(route.rx)
 		Some(value) => value
 		None => End
+	end
+end
+
+fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, append_actions(tail, right))
 	end
 end
 
@@ -99,38 +68,20 @@ fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseActi
 	apply_response_actions(stream, tail)
 end
 
-fn accepted_lifecycle(stream: NetStream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
-	let routed = collect_stream_actions(stream, { chunks: 0, ended: false })
+fn accepted_lifecycle(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+	let routed = collect_stream_actions(stream, state)
 	apply_response_actions(stream, routed.actions)
-	Ok(routed)
+	routed
 end
 
-fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
-	let listener: NetListener = net::listen(address)
-	match net::accept_or_end(listener)
-		Some(stream) => accepted_lifecycle(stream)
-		None => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
-	end
+pub fn handler_boundary(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(input, state)
 end
 
-fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
-	end
+pub fn adapter_missing_concurrency(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+	accepted_lifecycle(stream, state)
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
-	let routed: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
-	stdio::print("actions ")
-	stdio::print(int_to_string(action_count(routed.actions)))
-	stdio::print(" chunks ")
-	stdio::print(int_to_string(routed.next_state.chunks))
-	stdio::print(" ended ")
-	stdio::print(bool_text(routed.next_state.ended))
-	stdio::print(" writes ")
-	stdio::print(int_to_string(write_count(routed.actions)))
-	stdio::print(" end-actions ")
-	stdio::println(int_to_string(end_count(routed.actions)))
-	Ok(())
+pub fn adapter_missing_net(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	accepted_lifecycle(stream, state)
 end

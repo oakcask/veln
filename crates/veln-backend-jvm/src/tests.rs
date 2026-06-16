@@ -1380,6 +1380,35 @@ fn bytecode_backend_runs_argument_task_function_values_when_java_is_available() 
 }
 
 #[test]
+fn bytecode_backend_runs_two_argument_task_function_values_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn combine(left: String, right: Int) -> {left: String, right: Int} effects [concurrency]\n",
+        "  { left: left, right: right }\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let task = task::spawn_with2(combine, \"hello\", 42)\n",
+        "  let value: {left: String, right: Int} = task::join(task)?\n",
+        "  stdio::println(value.left)\n",
+        "  stdio::println(int_to_string(value.right))\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-task-arg2", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "hello\n42\n");
+}
+
+#[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Int) -> output: Int\n",
@@ -1709,6 +1738,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("channel::close", "channelClose"),
         ("task::spawn", "taskSpawn"),
         ("task::spawn_with", "taskSpawnWith"),
+        ("task::spawn_with2", "taskSpawnWith2"),
         ("task::join", "taskJoin"),
         ("task::cancel", "taskCancel"),
     ] {

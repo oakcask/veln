@@ -7,7 +7,9 @@ lifecycle slice from `../../proposals/network-effect-integration-boundary.md`.
 Current behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable case under
-`../../../examples/specification/run/socket-stream-adapter-owned-lifecycle/`.
+`../../../examples/specification/run/socket-stream-adapter-owned-lifecycle/`
+and its matching effect check under
+`../../../examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`.
 
 ## Outcome
 
@@ -22,9 +24,10 @@ through the standard channel API, invokes a plain handler, and projects
 The adapter declares only the existing coarse `net` and `concurrency` effects.
 The handler remains ordinary source code: it receives stream values and
 explicit state, does not receive socket handles, and does not call `net`
-functions. The executable case checks both the source-visible result and the
+functions. The executable cases check both the source-visible result and the
 ordered fixture event log, including listen, accept, reads, clean read end, and
-writes.
+writes, and reject adapter declarations that omit either `net` or
+`concurrency`.
 
 ## Remaining Work
 

@@ -1,4 +1,4 @@
-# Adapter-owned socket lifecycle keeps handlers on ordinary stream values.
+# Deadline-aware socket lifecycle keeps handlers on ordinary stream values.
 use stdio
 
 type ResponseAction
@@ -50,8 +50,8 @@ fn end_count(actions: List<ResponseAction>) -> Int
 	end
 end
 
-fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
-	match net::read_chunk_or_end(stream)
+fn read_stream_input_until(stream: NetStream, deadline: Deadline) -> StreamInput effects [net, time]
+	match net::read_chunk_until(stream, deadline)
 		Some(bytes) => Chunk(bytes)
 		None => End
 	end
@@ -65,22 +65,15 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
-	let input = route_input(route, read_stream_input(stream))
-	let handled = handle_stream_input(input, state)
-	match input
-		Chunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state))
-		End => handled
-	end
-end
-
-fn append_collected_actions(left: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, right: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
-	{ actions: append_actions(left.actions, right.actions), next_state: right.next_state }
-end
-
-fn collect_stream_actions(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+fn collect_stream_actions_until(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
-	collect_stream_actions_until_end(stream, route, state)
+	let first_deadline: Deadline = time::deadline_after_ms(100)
+	let first = handle_stream_input(route_input(route, read_stream_input_until(stream, first_deadline)), state)
+	let second_deadline: Deadline = time::deadline_after_ms(100)
+	let second = handle_stream_input(route_input(route, read_stream_input_until(stream, second_deadline)), first.next_state)
+	let stop_deadline: Deadline = time::deadline_after_ms(0)
+	let stopped = handle_stream_input(route_input(route, read_stream_input_until(stream, stop_deadline)), second.next_state)
+	{ actions: append_actions(first.actions, append_actions(second.actions, stopped.actions)), next_state: stopped.next_state }
 end
 
 fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
@@ -99,16 +92,17 @@ fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseActi
 	apply_response_actions(stream, tail)
 end
 
-fn accepted_lifecycle(stream: NetStream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
-	let routed = collect_stream_actions(stream, { chunks: 0, ended: false })
+fn accepted_lifecycle_until(stream: NetStream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
+	let routed = collect_stream_actions_until(stream, { chunks: 0, ended: false })
 	apply_response_actions(stream, routed.actions)
 	Ok(routed)
 end
 
-fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
+fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
 	let listener: NetListener = net::listen(address)
-	match net::accept_or_end(listener)
-		Some(stream) => accepted_lifecycle(stream)
+	let accept_deadline: Deadline = time::deadline_after_ms(100)
+	match net::accept_until(listener, accept_deadline)
+		Some(stream) => accepted_lifecycle_until(stream)
 		None => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
 	end
 end
@@ -120,7 +114,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let routed: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
 	stdio::print("actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))

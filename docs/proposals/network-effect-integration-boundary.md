@@ -30,17 +30,22 @@ slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, deadline-aware optional accept, optional stream-read,
-  deadline-aware optional stream-read, and ordered write lifecycle slice
+  deadline-aware optional stream-read, ordered write lifecycle slice, and
+  checked adapter-owned listener-to-clean-stream-end and deadline-aware
+  accepted-stream lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  the checked adapter-owned multi-event routing fixture
-- general mapping of outgoing chunks back to host transport writes beyond one
-  checked ordered `SendBytes` projection path
+  the checked adapter-owned multi-event routing and deadline-aware lifecycle
+  fixtures
+- general mapping of outgoing chunks back to host transport writes beyond the
+  checked ordered `SendBytes` projection paths in the socket routing,
+  owned-lifecycle, and deadline-aware lifecycle slices
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
-  adapter-level cancellable stream routing and socket/channel routing slices
+  adapter-level cancellable stream routing, socket/channel routing, and
+  deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, and receiver-list five-route fixture shapes
-- richer per-stream task handling beyond the one-argument spawned handler task
-  over ordinary source values
+- richer per-stream task handling beyond the one-argument and two-argument
+  spawned handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -142,9 +147,10 @@ boundary. Adapter-owned code reads multiple `ByteChunk` values from one
 event value, routes those events through an existing channel under the
 `concurrency` effect, calls a plain handler while carrying explicit state
 across events, joins a spawned stream-handler task over the same event/action
-boundary, and translates ordered `SendBytes` response actions into
-`net::write_chunk` calls. The handler receives only ordinary event and state
-values; it does not receive socket handles and does not call `net` functions.
+boundary with `task::spawn_with2` over separate event and state arguments, and
+translates ordered `SendBytes` response actions into `net::write_chunk` calls.
+The handler receives only ordinary event and state values; it does not receive
+socket handles and does not call `net` functions.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -184,6 +190,15 @@ read. The call infers both `net` and `time` under the existing coarse effect
 labels. Forced read failure on the same optional read path remains a runtime
 transport failure, not a protocol diagnostic.
 
+Implemented deadline-aware accepted-stream lifecycle slice: an executable
+specification case accepts a stream with `net::accept_until`, owns that
+`NetStream` in adapter code, repeatedly reads with `net::read_chunk_until`
+until deadline expiry returns `None`, routes ordinary `StreamInput` values
+through an existing channel, calls a pure handler with explicit state, and
+projects only ordered `SendBytes` response actions to `net::write_chunk`.
+The adapter declares the existing `net`, `time`, and `concurrency` effects;
+the handler receives no `NetStream` handle and performs no transport calls.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -192,10 +207,11 @@ The receiver-list five-route channel-first stream routing slice, including the
 `channel::select_many_priority` helper, is recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
-Implemented argument-carrying stream-task slice: `task::spawn_with` starts a
-one-argument callable under the existing `concurrency` effect and returns
-`Task<T>`. Executable stream adapter coverage passes ordinary stream event and
-state values into a spawned handler task, joins the task, and receives ordinary
+Implemented argument-carrying stream-task slices: `task::spawn_with` starts a
+one-argument callable, and `task::spawn_with2` starts a two-argument callable,
+under the existing `concurrency` effect and returns `Task<T>`. Executable
+stream adapter coverage passes ordinary stream event and state values as
+separate two-argument task values, joins the task, and receives ordinary
 response-action values. The spawned handler receives no `NetStream` or other
 transport handle, so task spawning requires `concurrency` but does not add a
 `net` requirement when the handler only receives ordinary values.
@@ -290,10 +306,11 @@ or the pure protocol core.
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
   three-route, four-route, and receiver-list five-route channel-first stream
-  routing, one-argument spawned handler task, and
-  adapter-level cancellable stream routing slices, richer stream routing, and
-  richer deadline and cancellation APIs beyond the narrow relative `Deadline`
-  boundary, `CancelToken` boundary, and cancellation status-query boundary.
+  routing, one-argument and two-argument spawned handler task, and
+  adapter-level cancellable stream routing slices; remaining examples still
+  need richer stream routing and richer deadline and cancellation APIs beyond
+  the narrow relative `Deadline` boundary, `CancelToken` boundary, and
+  cancellation status-query boundary.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

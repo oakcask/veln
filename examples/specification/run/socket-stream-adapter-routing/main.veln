@@ -74,14 +74,14 @@ fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count
 	{ actions: append_actions(first_result.actions, second_result.actions), next_state: second_result.next_state }
 end
 
-fn spawned_stream_handler(input: { event : StreamEvent, state : { request_count : Int, marker : ByteChunk } }) -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
-	Ok(handle_stream_event(input.event, input.state))
+fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
+	Ok(handle_stream_event(event, state))
 end
 
 fn run_stream_task() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
 	let payload: ByteChunk = byte_chunk_from_hex("050607")?
 	let marker: ByteChunk = byte_chunk_from_hex("cc")?
-	let worker = task::spawn_with<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler, { event: Request(11, payload), state: { request_count: 40, marker: marker } })
+	let worker = task::spawn_with2<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler, Request(11, payload), { request_count: 40, marker: marker })
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => Err("stream task failed")
