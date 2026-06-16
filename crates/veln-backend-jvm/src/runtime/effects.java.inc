@@ -177,6 +177,52 @@
         return some(new NetStream(streamId));
     }
 
+    public static Object netAcceptUntil(Object listener, Object deadline) {
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        if (acceptDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("accept-deadline " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
+        String streamId = acceptedNetStreamIdOrNull();
+        if (streamId == null) {
+            try {
+                writeNetEvent("accept-end " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
+        try {
+            writeNetEvent("accept " + value.address + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport accept failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return some(new NetStream(streamId));
+    }
+
+    private static boolean acceptDeadlineExpired(Object deadline) {
+        long target = asLong(deadline);
+        return forced("VELN_NET_ACCEPT_DEADLINE_EXPIRED")
+            || forced("VELN_TIME_DEADLINE_EXPIRED")
+            || target <= System.nanoTime();
+    }
+
     private static String acceptedNetStreamIdOrNull() {
         if (forced("VELN_NET_ACCEPT_END")) {
             return null;

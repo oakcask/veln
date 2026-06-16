@@ -153,8 +153,8 @@ compare it with `../specification/` before changing behavior.
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, route-count, task, deadline, and
-  cancellation slices documented under `../specification/` and
-  `../reference/implemented-proposals/`.
+  cancellation slices, including deadline-aware listener accept, documented
+  under `../specification/` and `../reference/implemented-proposals/`.
 
 ## Update When
 

@@ -1,0 +1,20 @@
+# Deadline-aware socket accept returns a usable stream before the deadline.
+fn emit_accept_result(result: Option<NetStream>) -> () effects [net, stdio]
+	match result
+		Some(stream) => emit_accepted_stream(stream)
+		None => stdio::println("deadline")
+	end
+end
+
+fn emit_accepted_stream(stream: NetStream) -> () effects [net, stdio]
+	let incoming: ByteChunk = net::read_chunk(stream)
+	stdio::print("accepted ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	emit_accept_result(net::accept_until(listener, deadline))
+	Ok(())
+end

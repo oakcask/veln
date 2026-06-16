@@ -20,7 +20,8 @@ compiler-known calls.
   The network and time boundary keeps the coarse `net` and `time` effect
   labels and includes descriptor-backed chunk calls, fixture-backed listener
   and stream calls, optional clean-end listener accepts and stream reads,
-  relative deadline calls, and cancellable deadline waits through
+  deadline-aware listener accepts that return `None` on accept deadline
+  expiry, relative deadline calls, and cancellable deadline waits through
   source-visible `CancelToken` handles. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
   cancellation. The value-returning cancellable wait returns
@@ -30,9 +31,10 @@ compiler-known calls.
   `StreamInput` values declares both `time` and `concurrency`; the handler it
   calls stays free of transport effects.
   Malformed receive fixtures, failed send or write recording, forced accept,
-  read, or write failures, forced timeout or deadline expiry, and forced
-  cancellable-wait cancellation through the runtime-failure wait are runtime
-  failures.
+  read, or write failures, forced timeout or deadline expiry through
+  runtime-failure waits, and forced cancellable-wait cancellation through the
+  runtime-failure wait are runtime failures. Forced accept failure through the
+  deadline-aware optional accept path also stays a runtime failure.
   The socket stream adapter routing examples compose existing `net` stream
   calls with existing channel and task calls under `concurrency`, including
   optional listener accept, multiple optional reads from an accepted stream,

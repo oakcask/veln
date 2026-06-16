@@ -1717,6 +1717,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::listen", "netListen"),
         ("net::accept", "netAccept"),
         ("net::accept_or_end", "netAcceptOrEnd"),
+        ("net::accept_until", "netAcceptUntil"),
         ("net::read_chunk", "netReadChunk"),
         ("net::read_chunk_or_end", "netReadChunkOrEnd"),
         ("net::write_chunk", "netWriteChunk"),

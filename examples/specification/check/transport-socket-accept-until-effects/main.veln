@@ -1,0 +1,8 @@
+# Deadline-aware socket accepts infer both net and time for public effect checking.
+pub fn accept_until_missing_time(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net]
+	net::accept_until(listener, deadline)
+end
+
+pub fn accept_until_missing_net(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [time]
+	net::accept_until(listener, deadline)
+end
