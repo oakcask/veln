@@ -615,7 +615,9 @@ Implemented expressions:
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn<Item>(job)`,
   `task::spawn_with(job, arg)`, `task::spawn_with<Item>(job, arg)`,
-  `task::join(task)`, and `task::cancel(task)`
+  `task::spawn_with2(job, first, second)`,
+  `task::spawn_with2<Item>(job, first, second)`, `task::join(task)`, and
+  `task::cancel(task)`
 - network and time boundary calls: `net::receive_chunk()`,
   `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,
   `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,

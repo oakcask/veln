@@ -514,11 +514,13 @@ cooperative cancellation interrupts the waiting selection.
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread. `task::spawn_with` starts a
 one-argument callable on a JVM thread after freezing the ordinary source value
-argument at the task boundary. Both helpers freeze the returned value before it
-crosses back through the task handle. `task::join` waits for that task and
-returns `Ok(value)` on ordinary completion or `Err(JoinError)` on
-interruption, cancellation, or runtime failure. `task::cancel` requests
-cooperative cancellation by interrupting the task.
+argument at the task boundary. `task::spawn_with2` starts a two-argument
+callable on a JVM thread after freezing both ordinary source values at the task
+boundary. All task spawn helpers freeze the returned value before it crosses
+back through the task handle. `task::join` waits for that task and returns
+`Ok(value)` on ordinary completion or `Err(JoinError)` on interruption,
+cancellation, or runtime failure. `task::cancel` requests cooperative
+cancellation by interrupting the task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
@@ -607,20 +609,23 @@ expiry or clean stream end as `None`. The clean stream-end case translates
 value before calling the pure handler. The owned-lifecycle case combines
 `net::listen`, `net::accept_or_end`, repeated `net::read_chunk_or_end`, channel
 routing, pure handler invocation, and ordered `net::write_chunk` projection in
-one adapter function. The deadline-aware lifecycle case combines
+one adapter path. The deadline-aware lifecycle case combines
 `net::accept_until`, repeated `net::read_chunk_until` attempts, channel
 routing, pure handler invocation, and ordered write projection in one accepted
 stream adapter path, with deadline expiry becoming the ordinary stream
 boundary value before handler invocation. The same checked boundary also joins
-a spawned stream-handler task that uses the same ordinary event/action values.
+a spawned stream-handler task that passes ordinary event and state values
+directly through `task::spawn_with2` instead of bundling them into an adapter
+record first.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
 functions. The checked examples are
 `examples/specification/run/socket-stream-adapter-routing/`,
-`examples/specification/run/socket-stream-adapter-clean-end/`, and
-`examples/specification/run/socket-stream-adapter-owned-lifecycle/`, and
-`examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
+`examples/specification/run/socket-stream-adapter-clean-end/`,
+`examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
+`examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
+and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, and receiver-list

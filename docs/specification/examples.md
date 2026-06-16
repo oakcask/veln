@@ -888,13 +888,15 @@ narrow adapter-owned socket-to-handler routing and stream-task handler slice.
 It reads multiple fixture-backed `ByteChunk` values from one `NetStream`,
 sends ordinary stream events through a standard channel under `concurrency`,
 calls the plain handler with explicit state across those events, joins a
-spawned stream-handler task over the same event/action boundary, and
+spawned stream-handler task over the same event/action boundary by passing the
+ordinary event and state values directly through `task::spawn_with2`, and
 translates ordered `SendBytes` response actions into `net::write_chunk` calls.
 The handler has no socket handle and performs no `net` calls. The matching
 `../../examples/specification/check/socket-stream-adapter-routing-effects/`
 case pins that adapter-owned routing must declare the existing `net` and
 `concurrency` effects for socket, channel, and task calls instead of adding a
-new routing effect, while the plain handler boundary stays free of `net`.
+new routing effect, while the spawned handler that receives only ordinary
+event and state values stays free of `net`.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-clean-end/` covers the
@@ -908,13 +910,16 @@ same optional read path remains a runtime transport failure.
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-owned-lifecycle/`
 covers the listener-to-clean-stream-end ownership boundary in one adapter
-function. The adapter creates and owns the `NetListener`, accepts an optional
+path. The adapter creates and owns the `NetListener`, accepts an optional
 `NetStream` with `net::accept_or_end`, reads accepted stream chunks until
 clean end with `net::read_chunk_or_end`, routes ordinary stream input values
 through a channel, calls a pure handler without exposing socket handles, and
 projects `SendBytes` response actions back to ordered `net::write_chunk`
 calls. The adapter declares the existing coarse `net` and `concurrency`
-effects; the handler remains free of `net` calls.
+effects; the handler remains free of `net` calls. The matching
+`../../examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`
+case pins that missing either adapter effect is rejected while the handler
+boundary remains transport-free.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-deadline-lifecycle/`
