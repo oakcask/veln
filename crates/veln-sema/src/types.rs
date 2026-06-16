@@ -456,7 +456,7 @@ fn codec_call_signatures(
                 codec
                     .implementations
                     .iter()
-                    .filter_map(move |implementation| {
+                    .flat_map(move |implementation| {
                         match (&implementation.direction, &implementation.kind) {
                             (
                                 CodecDirection::Decode,
@@ -469,7 +469,9 @@ fn codec_call_signatures(
                                 name.clone(),
                                 function_name,
                                 CodecCallBoundary::HandWrittenDecode,
-                            ),
+                            )
+                            .into_iter()
+                            .collect(),
                             (
                                 CodecDirection::Encode,
                                 CodecImplementationKind::With {
@@ -481,7 +483,9 @@ fn codec_call_signatures(
                                 name.clone(),
                                 function_name,
                                 CodecCallBoundary::Direct,
-                            ),
+                            )
+                            .into_iter()
+                            .collect(),
                             (CodecDirection::Decode, CodecImplementationKind::Derive) => {
                                 codec_derive_decode_signature(
                                     module,
@@ -489,16 +493,18 @@ fn codec_call_signatures(
                                     codec,
                                     name.clone(),
                                 )
+                                .into_iter()
+                                .collect()
                             }
                             (CodecDirection::Encode, CodecImplementationKind::Derive) => {
-                                codec_derive_encode_signature(
+                                codec_derive_encode_signatures(
                                     module,
                                     functions,
                                     codec,
                                     name.clone(),
                                 )
                             }
-                            (_, CodecImplementationKind::With { function: None }) => None,
+                            (_, CodecImplementationKind::With { function: None }) => Vec::new(),
                         }
                     }),
             )
@@ -557,19 +563,25 @@ fn codec_derive_decode_signature(
     })
 }
 
-fn codec_derive_encode_signature(
+fn codec_derive_encode_signatures(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
     codec: &CodecDecl,
     name: String,
-) -> Option<CodecCallSignature> {
-    let schema = codec_referenced_schema(module, codec)?;
-    let schema_name = schema.name.as_ref()?;
+) -> Vec<CodecCallSignature> {
+    let Some(schema) = codec_referenced_schema(module, codec) else {
+        return Vec::new();
+    };
+    let Some(schema_name) = schema.name.as_ref() else {
+        return Vec::new();
+    };
     let encode_name = schema_encode_function_name(schema_name);
-    let function = functions.iter().find(|function| {
+    let Some(function) = functions.iter().find(|function| {
         function.name == encode_name && function.module_name == schema.module_name
-    })?;
-    Some(CodecCallSignature {
+    }) else {
+        return Vec::new();
+    };
+    let unbounded = CodecCallSignature {
         name,
         target_name: format!("{SCHEMA_ENCODE_STEP_TARGET_PREFIX}{schema_name}"),
         boundary: CodecCallBoundary::Direct,
@@ -580,7 +592,31 @@ fn codec_derive_encode_signature(
         effects: function.effects.clone(),
         node_id: codec.node_id,
         span: codec.span.clone(),
-    })
+    };
+    let Some(value_type) = function.params.first().cloned() else {
+        return vec![unbounded];
+    };
+    let mut state_fields = match &value_type {
+        Type::Record(fields) => fields.clone(),
+        _ => Vec::new(),
+    };
+    state_fields.push((
+        "encoded_offset".to_string(),
+        Type::named("ByteCount", Vec::new()),
+    ));
+    let budgeted = CodecCallSignature {
+        name: unbounded.name.clone(),
+        target_name: unbounded.target_name.clone(),
+        boundary: unbounded.boundary,
+        module_name: unbounded.module_name.clone(),
+        visibility: unbounded.visibility,
+        params: vec![value_type, Type::named("ByteCount", Vec::new())],
+        return_type: Type::named("EncodeStep", vec![Type::Record(state_fields)]),
+        effects: unbounded.effects.clone(),
+        node_id: unbounded.node_id,
+        span: unbounded.span.clone(),
+    };
+    vec![unbounded, budgeted]
 }
 
 fn codec_referenced_schema<'a>(

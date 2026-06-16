@@ -1,0 +1,153 @@
+# Budgeted derived codec encode boundaries expose partial output and resumable state.
+use stdio
+
+schema HeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
+
+codec HeaderCodec for HeaderWire encode
+	derive encode
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_byte_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_chunks(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_count(chunks)
+		Partial(chunks, _, _) => chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn encoded_offset(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(_) => 0
+		Partial(_, _, state) => byte_count_to_int(state.encoded_offset)
+		Invalid(_) => 0
+	end
+end
+
+fn partial_state(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}, String>
+	match step
+		Encoded(_) => Err("expected partial encode")
+		Partial(_, _, state) => Ok(state)
+		Invalid(_) => Err("expected partial encode")
+	end
+end
+
+fn error_id(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_one_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_step_chunk(name: String, step: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_one_chunk(name, chunk, expected_hex)
+		Partial(Cons(chunk, Nil), _, _) => emit_one_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => stdio::println(int_to_string(chunk_count(chunks)))
+		Partial(chunks, _, _) => stdio::println(int_to_string(chunk_count(chunks)))
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = {length: 5, kind: 1, flags: 4, stream_id: 1}
+	let complete: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}> = HeaderCodec(header, byte_count(9)?)
+	stdio::println(step_kind(complete))
+	stdio::println(int_to_string(emitted_chunks(complete)))
+	stdio::println(int_to_string(emitted_bytes(complete)))
+	emit_step_chunk("budget-complete", complete, "000005010400000001")
+
+	let partial: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}> = HeaderCodec(header, byte_count(4)?)
+	stdio::println(step_kind(partial))
+	stdio::println(int_to_string(emitted_chunks(partial)))
+	stdio::println(int_to_string(emitted_bytes(partial)))
+	stdio::println(int_to_string(encoded_offset(partial)))
+	emit_step_chunk("budget-partial", partial, "00000501")
+
+	let resume: {length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount} = partial_state(partial)?
+	let resumed: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}> = HeaderCodec(resume, byte_count(5)?)
+	stdio::println(step_kind(resumed))
+	stdio::println(int_to_string(emitted_chunks(resumed)))
+	stdio::println(int_to_string(emitted_bytes(resumed)))
+	emit_step_chunk("budget-resume", resumed, "0400000001")
+
+	let invalid: EncodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int, encoded_offset: ByteCount}> = HeaderCodec({length: 5, kind: 1, flags: 4, stream_id: 2147483648}, byte_count(4)?)
+	stdio::println(step_kind(invalid))
+	stdio::println(int_to_string(emitted_chunks(invalid)))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

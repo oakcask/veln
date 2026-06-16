@@ -2658,6 +2658,107 @@
         return adt("EncodeStep::Encoded", new Object[] { chunks });
     }
 
+    public static Object byteEncodeStepDeclaredBinarySchemaBudgeted(
+        Object value,
+        Object budget,
+        Object schemaName,
+        Object fieldNames,
+        Object widths,
+        Object maxValues,
+        Object littleEndianValues,
+        Object flag8Values,
+        Object repeatCountFields,
+        Object repeatWidths,
+        Object repeatMaxValues,
+        Object repeatLittleEndianValues,
+        Object repeatByteViewLengthFields,
+        Object repeatSchemaSpecs,
+        Object reservedBitWidths,
+        Object reservedValues,
+        Object predicates,
+        Object dispatchTagFields,
+        Object dispatchLengthFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
+        Object dispatchCaseSchemaSpecs,
+        Object mappingTargets,
+        Object mappingSources
+    ) {
+        Object encoded = byteEncodeDeclaredBinarySchema(
+            value,
+            schemaName,
+            fieldNames,
+            widths,
+            maxValues,
+            littleEndianValues,
+            flag8Values,
+            repeatCountFields,
+            repeatWidths,
+            repeatMaxValues,
+            repeatLittleEndianValues,
+            repeatByteViewLengthFields,
+            repeatSchemaSpecs,
+            reservedBitWidths,
+            reservedValues,
+            predicates,
+            dispatchTagFields,
+            dispatchLengthFields,
+            dispatchCaseTags,
+            dispatchCaseWidths,
+            dispatchCaseLittleEndianValues,
+            dispatchCaseSchemaSpecs,
+            mappingTargets,
+            mappingSources
+        );
+        if (isErr(encoded)) {
+            return adt("EncodeStep::Invalid", new Object[] { resultValue(encoded) });
+        }
+
+        Object chunk = unwrapOk(encoded);
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        long total = bytes.size();
+        long offset = Math.max(0L, Math.min(encodeResumeOffset(value), total));
+        long limit = Math.max(0L, byteCountLong(budget));
+        long remaining = total - offset;
+        if (remaining <= limit) {
+            Object output = byteChunkObject(bytes.subList((int) offset, (int) total));
+            return adt(
+                "EncodeStep::Encoded",
+                new Object[] { listCons(output, listNil()) }
+            );
+        }
+
+        long nextOffset = offset + limit;
+        Object output = byteChunkObject(bytes.subList((int) offset, (int) nextOffset));
+        Object state = encodeResumeState(value, nextOffset);
+        return adt(
+            "EncodeStep::Partial",
+            new Object[] { listCons(output, listNil()), byteCountObject(limit), state }
+        );
+    }
+
+    private static long encodeResumeOffset(Object value) {
+        if (!(value instanceof java.util.Map)) {
+            return 0L;
+        }
+        java.util.Map<Object, Object> fields = asMap(value);
+        if (!fields.containsKey("encoded_offset")) {
+            return 0L;
+        }
+        return byteCountLong(fields.get("encoded_offset"));
+    }
+
+    private static Object encodeResumeState(Object value, long offset) {
+        java.util.LinkedHashMap<Object, Object> fields =
+            new java.util.LinkedHashMap<Object, Object>();
+        if (value instanceof java.util.Map) {
+            fields.putAll(asMap(value));
+        }
+        fields.put("encoded_offset", byteCountObject(offset));
+        return freezeMap(fields);
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,

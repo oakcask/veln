@@ -742,6 +742,7 @@ execution reference.
   and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
+  `examples/specification/run/derived-codec-budgeted-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
@@ -755,6 +756,16 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks both successful `Ok(ByteChunk)` projection and helper
   `Err(EncodeError)` projection.
+  The budgeted boundary case calls the same derived codec with the value
+  record plus an explicit `ByteCount` output budget. If the generated
+  `ByteChunk` fits in the budget, the call returns
+  `Encoded(List<ByteChunk>)`; if the chunk exceeds the budget, the call
+  returns `Partial(List<ByteChunk>, ByteCount, state)` with the emitted prefix,
+  produced byte count, and a state record that carries the original value
+  fields plus `encoded_offset: ByteCount`. Passing that state record back to
+  the same codec with a later budget resumes at the committed offset. Helper
+  `Err(EncodeError)` output still projects to `Invalid(EncodeError)` before
+  any output chunk is exposed.
   A `derive encode` clause is rejected with
   `codec.derive_helper_unsupported` when the referenced schema cannot expose
   the required generated encode helper, including mapping expression shapes

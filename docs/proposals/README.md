@@ -103,9 +103,10 @@ compare it with `../specification/` before changing behavior.
   encode and decode execution boundaries including caller-owned parser-state
   retention around `Decoded` and `NeedMore`, source-visible partial encode
   preservation and resume, plus eligible derived codec decode and encode
-  execution boundaries over the checked non-HTTP composite helper shape and
-  selected structural mapping encode slice, and derived helper eligibility
-  diagnostics for unsupported generated decode and encode directions.
+  execution boundaries, including budgeted derived encode, over the checked
+  non-HTTP composite helper shape and selected structural mapping encode
+  slice, and derived helper eligibility diagnostics for unsupported generated
+  decode and encode directions.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
