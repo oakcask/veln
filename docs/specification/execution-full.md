@@ -600,9 +600,12 @@ deadline boundary does not add a source timer handle beyond the returned
 effect label.
 The stream adapter cancellable routing cases compose those outcome values with
 channel-routed `StreamInput` values and ordinary response action values.
-Completed waits keep the handler-produced actions, deadline expiry prepends a
-retry action, and cancellation prepends a cleanup action without exposing
-timer handles or transport effects to the handler.
+The receiver-list cancellable channel-first case selects ordinary
+`StreamInput` values with `channel::select_many_timeout` before translating
+completed wait, deadline-expired, and cancelled outcomes into response action
+values. Completed waits keep the handler-produced actions, deadline expiry
+prepends a retry action, and cancellation prepends a cleanup action without
+exposing timer handles or transport effects to the handler.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model
@@ -673,6 +676,7 @@ are
 `examples/specification/run/channel-first-stream-routing-seven-route/`,
 `examples/specification/run/channel-first-stream-routing-eight-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
+`examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
 `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
 and
@@ -684,7 +688,8 @@ and
 and
 `examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
 and
-`examples/specification/check/channel-select-many-timeout-effects/`.
+`examples/specification/check/channel-select-many-timeout-effects/`, and
+`examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

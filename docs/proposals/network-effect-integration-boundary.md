@@ -40,11 +40,13 @@ slices, and narrow deadline and cancellation slices, for:
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, and deadline-aware lifecycle slices
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
-  adapter-level cancellable stream routing, socket/channel routing, and
-  deadline-aware lifecycle slices
+  adapter-level cancellable stream routing, receiver-list cancellable
+  channel-first routing, socket/channel routing, and deadline-aware lifecycle
+  slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
-  receiver-list seven-route, and receiver-list eight-route fixture shapes
+  receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
+  and receiver-list cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, and four-argument spawned handler task shapes over ordinary
   source values
@@ -273,7 +275,10 @@ deadline expiry, and cancellation into ordinary source decisions. Executable
 stream adapter cases compose that outcome with channel-routed `StreamInput`
 values and ordinary response action values: one fixture output shows completed
 waits keeping handler-produced actions, deadline expiry becoming a retry
-action, and cancellation becoming a cleanup action. Host fixtures can force
+action, and cancellation becoming a cleanup action. The receiver-list
+cancellable channel-first fixture routes ordinary `StreamInput` values through
+`channel::select_many_timeout` before applying the same wait-outcome
+translation. Host fixtures can force
 timeout expiry, deadline expiry, or cancellable-wait cancellation as runtime
 failures through the runtime-failure wait. These calls do not add a separate
 richer timer effect or timer-specific source construct.
@@ -309,9 +314,9 @@ or the pure protocol core.
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
-  receiver-list seven-route, receiver-list eight-route, and receiver-list
-  timeout channel-first stream routing, one-argument, two-argument,
-  three-argument, and four-argument
+  receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
+  and receiver-list cancellable channel-first stream routing, one-argument,
+  two-argument, three-argument, and four-argument
   spawned handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,

@@ -261,9 +261,12 @@ These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
 The checked stream adapter cancellable routing cases use
 `time::wait_until_cancellable_outcome` before returning ordinary response
-action values from channel-routed `StreamInput` handling. The adapter declares
-both `time` and `concurrency`; the pure handler it calls remains free of
-transport effects.
+action values from channel-routed `StreamInput` handling. The receiver-list
+cancellable channel-first case selects ordinary `StreamInput` values with
+`channel::select_many_timeout` before translating completed wait,
+deadline-expired, and cancelled outcomes into response actions. The adapter
+declares both `time` and `concurrency`; the pure handler it calls remains free
+of transport effects.
 
 The implemented socket stream adapter routing examples compose multiple
 socket reads and ordered `net::write_chunk` calls with standard channel and
@@ -297,8 +300,9 @@ handler with explicit per-stream state. The receiver-list priority routes use
 `List<Receiver<StreamInput>>` and preserve supplied list order as priority
 order. The timeout route uses `channel::select_many_timeout` with the same
 list priority and returns `None` when no receiver is ready before the timeout.
-The routing adapter declares `concurrency`; a socket wrapper that reads
-`NetStream` input, calls the channel-first route, and projects response
+The routing adapter declares `concurrency`; the cancellable channel-first
+adapter declares both `time` and `concurrency`; and a socket wrapper that
+reads `NetStream` input, calls the channel-first route, and projects response
 actions back to `net::write_chunk` declares both `net` and `concurrency`. The
 handler itself remains free of transport effects.
 

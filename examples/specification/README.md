@@ -1537,8 +1537,16 @@ against the built `veln` binary.
 - `run/stream-adapter-cancellable-routing-deadline/`: the same adapter-owned
   routing also translates the global host-forced deadline expiry fixture into
   an ordinary retry response action value.
+- `run/stream-adapter-cancellable-channel-first-routing/`: adapter-owned
+  stream routing selects ordinary `StreamInput` values through receiver-list
+  `channel::select_many_timeout`, then translates completed, deadline-expired,
+  and cancelled wait outcomes into ordinary response action values.
 - `check/stream-adapter-cancellable-routing-effects/`: stream routing that
   combines cancellable waits with channels must declare both `time` and
+  `concurrency`, while the pure handler boundary stays free of transport
+  effects.
+- `check/stream-adapter-cancellable-channel-first-routing-effects/`:
+  receiver-list cancellable stream routing must declare both `time` and
   `concurrency`, while the pure handler boundary stays free of transport
   effects.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
@@ -1638,6 +1646,9 @@ against the built `veln` binary.
   supplied receiver order as priority order, returns `None` when no receiver
   becomes ready before the timeout, and routes ordinary `StreamInput` values
   to the same pure stream handler shape.
+- `run/stream-adapter-cancellable-channel-first-routing/`: receiver-list
+  channel-first routing can compose with value-returning cancellable waits
+  while preserving ordinary handler inputs and response action values.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, four-argument task spawn, and task join calls; a spawned
@@ -1675,6 +1686,9 @@ against the built `veln` binary.
 - `check/channel-select-many-timeout-effects/`: receiver-list timeout
   selection keeps the same effect boundary: the routing adapter declares
   `concurrency`, and the handler remains effect-free.
+- `check/stream-adapter-cancellable-channel-first-routing-effects/`:
+  receiver-list channel-first routing plus value-returning cancellable waits
+  requires `time` and `concurrency`, and the handler remains effect-free.
 - `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
   `ByteChunk` values into bounded pending input, `End` remains distinct,
   bounded `ByteView` consumption preserves absolute `ByteOffset` facts,
