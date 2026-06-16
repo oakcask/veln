@@ -574,10 +574,18 @@ execution reference.
   as related notes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
-  This slice excludes multiple selected mapping clauses, mapping expressions
-  that cannot be projected back to schema-local fields, recursive or otherwise
-  ineligible dispatch payload schemas, nested mappings, and derived codec
-  encode execution for unsupported schemas.
+  Multiple selected mapping clauses selected by `when field == literal` are
+  eligible when all clauses resolve to the same target record shape and every
+  schema-local encode field, including the selector field, projects back from
+  the selected target record through direct source-field assignments. The
+  helper selects the mapping whose projected selector value matches the clause
+  literal, then uses the same generated encode diagnostic shape for selector
+  and projected-field representation failures. This slice excludes selected
+  mappings that cannot reconstruct all schema-local encode fields through
+  direct source-field assignments, mapping expressions that cannot be
+  projected back to schema-local fields, recursive or otherwise ineligible
+  dispatch payload schemas, nested mappings, and derived codec encode
+  execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
@@ -678,16 +686,17 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
-  repeat-backed schemas, the implemented direct structural mapping slice, and
-  same-module or public imported nested dispatch payload schemas already
-  accepted by `byte_encode_<schema>`. The call accepts the generated helper's
-  value record or mapped target record, invokes the schema encode helper,
-  returns `EncodeStep<()>`, projects helper `Ok(ByteChunk)` output to
-  `Encoded(List<ByteChunk>)` with one chunk, and projects helper
-  `Err(EncodeError)` output to `Invalid(EncodeError)`.
+  repeat-backed schemas, the implemented direct structural mapping and
+  selected structural mapping slices, and same-module or public imported
+  nested dispatch payload schemas already accepted by `byte_encode_<schema>`.
+  The call accepts the generated helper's value record or mapped target
+  record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
+  helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
+  and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,

@@ -196,21 +196,26 @@ named through written `use` paths, also expose generated
 one structural `map to Target` clause can make that helper accept the mapping
 target record shape when every visible encode field, including `Flag8`,
 `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields, is assigned from a
-projectable schema-local field reference. Projectable expressions are direct
-schema-local field references, record expressions whose fields are direct
-schema-local visible field references, field selection from such a record
-expression when the selected field maps directly to one schema-local visible
-field, or a direct ADT constructor call whose payload arguments use those
-projectable field and record-expression forms already supported by the
-generated encode helper. Single-payload constructor wrappers remain limited to
-the existing single-constructor flag and exact-width integer cases unless the
-payload is that record-expression slice.
-Multiple selected mapping clauses, mapping expressions that cannot be
-projected back to schema-local fields, recursive or otherwise ineligible
-dispatch payload schemas, non-byte-aligned reserved fields outside the
-supported packed, middle, and `UInt31be` shared-bit layouts, and derived codec
-encode execution over unsupported schemas are outside that encode helper
-slice.
+projectable schema-local field reference. Multiple selected
+`map to Target when field == literal` clauses can make the helper accept that
+same target record shape when all selected mappings resolve to it and every
+schema-local encode field, including the selector field, projects back from
+the selected target record through direct source-field assignments.
+Projectable expressions for the one-clause form are direct schema-local field
+references, record expressions whose fields are direct schema-local visible
+field references, field selection from such a record expression when the
+selected field maps directly to one schema-local visible field, or a direct
+ADT constructor call whose payload arguments use those projectable field and
+record-expression forms already supported by the generated encode helper.
+Single-payload constructor wrappers remain limited to the existing
+single-constructor flag and exact-width integer cases unless the payload is
+that record-expression slice. Selected mappings that cannot reconstruct every
+schema-local encode field through direct source-field assignments, mapping
+expressions that cannot be projected back to schema-local fields, recursive or
+otherwise ineligible dispatch payload schemas, non-byte-aligned reserved
+fields outside the supported packed, middle, and `UInt31be` shared-bit
+layouts, and derived codec encode execution over unsupported schemas are
+outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

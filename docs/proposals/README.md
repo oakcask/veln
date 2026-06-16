@@ -28,9 +28,9 @@ compare it with `../specification/` before changing behavior.
   generated `validate_<schema>` decoded-record validation boundary, plus
   projectable structural mapped schema encode helper, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
-  support, and codec decode boundaries
-  over multiple decoded-field selected mappings that resolve to one mapped
-  record shape.
+  support, derived selected-mapping encode boundary support, and codec decode
+  boundaries over multiple decoded-field selected mappings that resolve to one
+  mapped record shape.
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup and documentation comments that reference schemas through
@@ -96,7 +96,7 @@ compare it with `../specification/` before changing behavior.
   encode and decode execution boundaries including source-visible partial
   encode preservation and resume, plus eligible derived codec decode and
   encode execution boundaries over the checked non-HTTP composite helper
-  shape.
+  shape and selected structural mapping encode slice.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema

@@ -70,7 +70,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   structural `map to Target` clause whose assignments project the visible
   encode fields through direct field references, record-shaped direct field
   projections, field selection from those record-shaped projections, and the
-  implemented direct ADT constructor wrapper forms
+  implemented direct ADT constructor wrapper forms, plus multiple selected
+  structural mapping clauses when all selected mappings resolve to one target
+  record shape and every schema-local encode field projects back from that
+  selected target record through direct source-field assignments
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`

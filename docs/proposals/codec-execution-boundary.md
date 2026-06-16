@@ -32,7 +32,8 @@ decode calls, hand-written encode calls, derived decode calls for schemas that
 are already eligible for the generated exact-width binary schema decode-step
 helper, and derived encode calls for schemas that are already eligible for the
 generated binary schema encode helper, including the checked non-HTTP
-composite helper shape in `../specification/execution.md`.
+composite helper shape and selected structural mapping encode slice in
+`../specification/execution.md`.
 
 Define codec support for:
 
@@ -311,7 +312,8 @@ encoder state owns only the remaining encode work.
   implemented exact-width, same-module nested dispatch payload, and public
   imported nested dispatch payload boundaries, hand-written plus eligible
   derived codec decode execution boundaries, and hand-written plus eligible
-  derived codec encode execution boundaries.
+  derived codec encode execution boundaries, including selected structural
+  mapping encode cases already accepted by the generated helper.
 - Examples show decode, encode, consumed byte counts, and `NeedMore` behavior.
 - Codec failures include structured diagnostic data.
 - Incremental examples keep only undecoded suffix bytes in parser state.

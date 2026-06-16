@@ -4815,15 +4815,64 @@
         if (schema.mapping.length == 0) {
             return ok(value);
         }
-        if (schema.mapping.length != 1 || schema.mapping[0].selectorValue != null) {
+        if (schema.mapping.length == 1 && schema.mapping[0].selectorValue == null) {
+            return schemaEncodeRecordWithMapping(value, schema, schema.mapping[0]);
+        }
+        if (schema.mapping.length > 1) {
+            return schemaEncodeSelectedRecord(value, schema);
+        }
+        return err(encodeError(
+            "codec.metadata",
+            schema.name,
+            "unsupported schema encode mapping selection for schema `" + schema.name + "`"
+        ));
+    }
+
+    private static Object schemaEncodeSelectedRecord(Object value, BinarySchemaSpec schema) {
+        Object selected = null;
+        for (SchemaMappingSpec mapping : schema.mapping) {
+            if (mapping.selectorValue == null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schema.name,
+                    "unsupported schema encode mapping selection for schema `" + schema.name + "`"
+                ));
+            }
+            Object projected = schemaEncodeRecordWithMapping(value, schema, mapping);
+            if (isErr(projected)) {
+                return projected;
+            }
+            java.util.Map<Object, Object> fields = asMap(unwrapOk(projected));
+            Object selector = fields.get(mapping.selectorField);
+            if (!(selector instanceof Long)
+                || ((Long) selector).longValue() != mapping.selectorValue.longValue()) {
+                continue;
+            }
+            if (selected != null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schema.name,
+                    "ambiguous schema encode mapping selection for schema `" + schema.name + "`"
+                ));
+            }
+            selected = projected;
+        }
+        if (selected == null) {
             return err(encodeError(
-                "codec.metadata",
+                "codec.encode_mapping_mismatch",
                 schema.name,
-                "unsupported schema encode mapping selection for schema `" + schema.name + "`"
+                "encoded value does not match a selected mapping selector"
             ));
         }
+        return selected;
+    }
+
+    private static Object schemaEncodeRecordWithMapping(
+        Object value,
+        BinarySchemaSpec schema,
+        SchemaMappingSpec mapping
+    ) {
         java.util.Map<Object, Object> targetFields = asMap(value);
-        SchemaMappingSpec mapping = schema.mapping[0];
         java.util.ArrayList<Object> entries =
             new java.util.ArrayList<Object>(mapping.fields.length * 2);
         for (SchemaMappingFieldSpec field : mapping.fields) {
