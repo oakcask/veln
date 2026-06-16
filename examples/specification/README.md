@@ -306,9 +306,15 @@ against the built `veln` binary.
   `codec.encode_value_type` when their value boundaries do not match the
   schema mapping target record shape.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped
-  `derive encode` clauses report `codec.encode_value_type` when the generated
-  boundary cannot project the schema mapping target value back to
+  `derive encode` clauses report `codec.derive_helper_unsupported` when the
+  generated boundary cannot project the schema mapping target value back to
   schema-local fields.
+- `check/derived-codec-helper-eligibility-diagnostics/`: unsupported
+  `derive decode` and `derive encode` clauses report
+  `codec.derive_helper_unsupported` with direction-specific helper details.
+- `check/derived-codec-helper-eligibility-human/`: human `check` output keeps
+  the derived helper eligibility primary message at the codec implementation
+  clause and reports schema/helper context as related notes.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
@@ -1108,6 +1114,9 @@ against the built `veln` binary.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot project the mapping target
   value back to schema-local fields.
+- `check/derived-codec-helper-eligibility-diagnostics/`: derived codec
+  clauses reject directions whose referenced schema cannot expose the matching
+  generated helper.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

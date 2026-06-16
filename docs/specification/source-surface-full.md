@@ -283,8 +283,10 @@ called through a written import-qualified module path. The call expects
 `DecodeStep<T>` result. For the implemented structural mapping slice, `T` is
 the mapping target record shape when each assignment source has the
 same implemented decoded field type as the target field and all selected
-mappings resolve to that same record shape. Bare imported codec names are not
-call targets, and encode-only codecs do not expose this decode boundary.
+mappings resolve to that same record shape. Unsupported generated decode
+helper eligibility reports `codec.derive_helper_unsupported` at the
+`derive decode` clause. Bare imported codec names are not call targets, and
+encode-only codecs do not expose this decode boundary.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in
@@ -311,9 +313,9 @@ selection, or direct ADT constructor mapping expressions. Multiple selected
 when all selected mappings resolve to it and every schema-local encode field,
 including the selector field, projects back from the selected target record
 through direct source-field assignments. Other mapped encode boundaries are
-rejected at the clause with `codec.encode_value_type`. This keeps mapped
-schemas from silently exposing the schema-local generated encode record as the
-codec value boundary.
+rejected at the clause with `codec.derive_helper_unsupported`. This keeps
+mapped schemas from silently exposing the schema-local generated encode record
+as the codec value boundary.
 
 Codec declarations do not generate general executable decode or encode
 functions beyond the derived decode and derived encode slices routed from

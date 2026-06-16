@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"codec.encode_value_type\"", "\"reason\":\"generated_encode_value_type\"", "\"expected_value_type\":\"{length: Int, kind: Int}\""]
+contains = ["\"id\":\"codec.derive_helper_unsupported\"", "\"reason\":\"generated_encode_helper_unavailable\"", "\"expected_helper\":\"byte_encode_header_wire\"", "\"helper_boundary\":\"generated_binary_schema_encode\""]
 
 [stderr]
 format = "empty"
@@ -13,7 +13,7 @@ path = "status"
 equals = "error"
 
 [[diagnostics]]
-id = "codec.encode_value_type"
+id = "codec.derive_helper_unsupported"
 severity = "error"
 kind = "type"
-message = "derived encode value parameter must match schema mapping value type"
+message = "derived encode is not available for this schema"

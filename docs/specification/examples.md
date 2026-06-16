@@ -154,6 +154,12 @@ The executable specification case
 `../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
 covers mapped derived encode clauses whose generated helper boundary cannot
 project the schema mapping target value back to schema-local fields.
+The executable specification cases
+`../../examples/specification/check/derived-codec-helper-eligibility-diagnostics/`
+and
+`../../examples/specification/check/derived-codec-helper-eligibility-human/`
+cover unsupported derived codec helper directions and their related schema
+context in JSON and human output.
 
 ## Codec Encode Step Vocabulary
 
@@ -210,7 +216,7 @@ schema shape listed above and checks that helper `Ok(ByteChunk)` output
 projects to one `Encoded(List<ByteChunk>)` chunk, while helper
 `Err(EncodeError)` output projects to `Invalid(EncodeError)`.
 The derived mapping-boundary diagnostics case listed above pins the matching
-`codec.encode_value_type` rejection for generated encode boundaries.
+`codec.derive_helper_unsupported` rejection for generated encode boundaries.
 
 ## Binary Schema Frame Header
 

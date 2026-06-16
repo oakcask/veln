@@ -165,11 +165,12 @@ and diagnostics.
 The checker accepts mapped `derive decode` clauses when the generated
 decode-step helper can expose the schema mapping target value type, and
 accepts mapped `derive encode` clauses when the generated direction can
-project that target value back to schema-local encode fields. Remaining
-checker work should reject other directions that the named schema cannot
-support. For example, encoding is unavailable when schema mapping is not total
-or when a field can be decoded but cannot be reconstructed from the mapped
-value without an explicit encoder body.
+project that target value back to schema-local encode fields. The checker
+rejects other directions that the named schema cannot support with
+`codec.derive_helper_unsupported` before the codec item becomes callable. For
+example, encoding is unavailable when schema mapping is not total or when a
+field can be decoded but cannot be reconstructed from the mapped value without
+an explicit encoder body.
 Importing or exporting the codec declaration must not silently add directions
 that are missing from its head.
 

@@ -4,9 +4,9 @@ use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaMappingConverterInput,
     SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive, repeat_schema_primitive,
-    schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
-    schema_length_expression_references, schema_payload_name_last_segment,
-    schema_payload_name_path, supported_encode_reserved_bits,
+    schema_decode_record_type, schema_decode_step_function_name, schema_decode_value_type,
+    schema_encode_function_name, schema_encode_value_type, schema_length_expression_references,
+    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -804,13 +804,20 @@ fn codec_derive_decode_value_type_diagnostics(
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
 ) -> Vec<Diagnostic> {
-    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
-        return Vec::new();
-    };
     let Some(schema) = codec_referenced_schema(module, codec) else {
         return Vec::new();
     };
-    let actual_value_type = schema_decode_value_type(module, schema).unwrap_or(Type::Unknown);
+    let Some(actual_value_type) = schema_decode_value_type(module, schema) else {
+        return vec![codec_derive_helper_unsupported_diagnostic(
+            codec,
+            implementation,
+            schema,
+            CodecDirection::Decode,
+        )];
+    };
+    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
+        return Vec::new();
+    };
     if types_match(&expected_value_type, &actual_value_type) {
         return Vec::new();
     }
@@ -828,13 +835,20 @@ fn codec_derive_encode_value_type_diagnostics(
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
 ) -> Vec<Diagnostic> {
-    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
-        return Vec::new();
-    };
     let Some(schema) = codec_referenced_schema(module, codec) else {
         return Vec::new();
     };
-    let actual_value_type = schema_encode_value_type(module, schema).unwrap_or(Type::Unknown);
+    let Some(actual_value_type) = schema_encode_value_type(module, schema) else {
+        return vec![codec_derive_helper_unsupported_diagnostic(
+            codec,
+            implementation,
+            schema,
+            CodecDirection::Encode,
+        )];
+    };
+    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
+        return Vec::new();
+    };
     if types_match(&expected_value_type, &actual_value_type) {
         return Vec::new();
     }
@@ -1338,6 +1352,71 @@ fn codec_derive_encode_value_type_diagnostic(
             actual_value_type,
         ),
     )
+}
+
+fn codec_derive_helper_unsupported_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    schema: &SchemaDecl,
+    direction: CodecDirection,
+) -> Diagnostic {
+    let direction_text = direction.as_str();
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let (reason, helper, boundary) = match direction {
+        CodecDirection::Decode => (
+            "generated_decode_helper_unavailable",
+            schema_decode_step_function_name(schema_name),
+            "generated_binary_schema_decode_step",
+        ),
+        CodecDirection::Encode => (
+            "generated_encode_helper_unavailable",
+            schema_encode_function_name(schema_name),
+            "generated_binary_schema_encode",
+        ),
+    };
+    let mut diagnostic = Diagnostic::new(
+        "codec.derive_helper_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("derived {direction_text} is not available for this schema"),
+        Some(implementation.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("codec")),
+            (
+                "node_id",
+                JsonValue::string(implementation.node_id.display("codec-impl")),
+            ),
+            (
+                "codec",
+                JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("direction", JsonValue::string(direction_text)),
+            ("reason", JsonValue::string(reason)),
+            ("schema", JsonValue::string(schema_name)),
+            ("expected_helper", JsonValue::string(helper.clone())),
+            ("helper_boundary", JsonValue::string(boundary)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_declaration")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Schema `{schema_name}` is declared here and is outside the generated {direction_text} helper slice."
+            )),
+        ),
+        ("span", span_json(&schema.span)),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("helper_boundary")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "`derive {direction_text}` requires the named schema to expose the generated `{helper}` helper."
+            )),
+        ),
+    ]));
+    diagnostic
 }
 
 struct EncodeValueTypeMismatch<'a> {
