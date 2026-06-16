@@ -869,7 +869,9 @@ execution reference.
   schema or public schema alias. When `field_path` is present, its first
   segment must name the resolved schema. Invalid fixture schema references are
   manifest validation errors for executable specification cases, not runtime
-  `veln run` output.
+  `veln run` output. The accepted fixture metadata reference cases cover
+  same-module schemas, imported public schemas, and imported public schema
+  aliases.
 - Executable specification cases may also assert named output `ByteChunk`
   lists through complete lowercase hex in `case.toml`. The harness checks
   stable consecutive program-output lines for the list count, chunk order,

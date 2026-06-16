@@ -396,6 +396,9 @@ against the built `veln` binary.
   valid compact hex bytes and records a test-owned invalid field check with a
   diagnostic id, byte offset, structured field path, consumed count, and
   same-module fixture schema reference.
+- `run/binary-fixture-schema-references/`: binary fixture metadata accepts
+  same-module schema references, imported public schema references, and
+  imported public schema-alias references with matching field paths.
 - `run/binary-fixture-schema-reference-diagnostics/`: binary fixture metadata
   rejects missing, private imported, wrong-kind, generated-helper, missing-use,
   and field-path-mismatched schema references before running the command.

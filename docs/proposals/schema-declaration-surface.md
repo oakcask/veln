@@ -268,7 +268,8 @@ visible.
 The binary fixture metadata schema reference slice is implemented as current
 behavior under `../specification/source-surface.md` and
 `../specification/execution.md`, with executable coverage under
-`../../examples/specification/run/binary-fixture-invalid-field/` and
+`../../examples/specification/run/binary-fixture-invalid-field/`,
+`../../examples/specification/run/binary-fixture-schema-references/`, and
 `../../examples/specification/run/binary-fixture-schema-reference-diagnostics/`.
 
 Executable specification cases may add `schema = "Name"` or

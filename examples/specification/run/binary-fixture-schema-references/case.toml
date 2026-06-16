@@ -1,0 +1,43 @@
+command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "fixture local-private hex 00 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{\"kind\":\"schema\",\"name\":\"LocalPacket\"}]\nfixture imported-public hex 01 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{\"kind\":\"schema\",\"name\":\"PublicPacket\"}]\nfixture imported-alias hex 02 count 1 consumed none diagnostic schema.invalid_field_value offset 0 field_path [{\"kind\":\"schema\",\"name\":\"PublicPacket\"}]\n"
+
+[[binary_fixture]]
+name = "local-private"
+schema = "LocalPacket"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"LocalPacket"}]
+
+[[binary_fixture]]
+name = "imported-public"
+schema = "wire::PublicPacket"
+hex = "01"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"PublicPacket"}]
+
+[[binary_fixture]]
+name = "imported-alias"
+schema = "facade::AliasPacket"
+hex = "02"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"PublicPacket"}]
