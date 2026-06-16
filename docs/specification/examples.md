@@ -973,6 +973,8 @@ and
 and
 `../../examples/specification/run/channel-first-stream-routing-seven-route/`
 and
+`../../examples/specification/run/channel-first-stream-routing-eight-route/`
+and
 `../../examples/specification/run/channel-select-many-timeout/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
@@ -990,6 +992,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
 and
 `../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
+and
+`../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,

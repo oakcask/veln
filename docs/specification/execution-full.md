@@ -652,8 +652,9 @@ and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list
-five-route, receiver-list six-route, receiver-list seven-route, and
-receiver-list timeout typed channel routes before handler invocation. Adapter
+five-route, receiver-list six-route, receiver-list seven-route,
+receiver-list eight-route, and receiver-list timeout typed channel routes
+before handler invocation. Adapter
 code selects the ready route with existing channel selection and requires
 `concurrency`; the receiver-list priority cases use
 `channel::select_many_priority` on a non-empty `List<Receiver<StreamInput>>`
@@ -670,6 +671,7 @@ are
 `examples/specification/run/channel-first-stream-routing-five-route/`,
 `examples/specification/run/channel-first-stream-routing-six-route/`,
 `examples/specification/run/channel-first-stream-routing-seven-route/`,
+`examples/specification/run/channel-first-stream-routing-eight-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
 `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
@@ -679,6 +681,8 @@ and
 `examples/specification/check/channel-first-stream-routing-five-route-effects/`,
 and
 `examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`.
 
