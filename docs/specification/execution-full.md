@@ -284,13 +284,13 @@ A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
 executable encode boundary in ordinary source calls, including same-module
 nested dispatch payload schemas, public imported nested dispatch payload
-schemas, and repeat-backed schemas already accepted by
-`byte_encode_<schema>`.
-The call accepts the generated helper's value record, invokes the generated
-schema encode helper, and returns `EncodeStep<()>`. Successful helper output
-is projected from `Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with one
-immutable output chunk. Helper `Err(EncodeError)` output is projected to
-`Invalid(EncodeError)`.
+schemas, repeat-backed schemas, direct structural mappings, and selected
+structural mappings already accepted by `byte_encode_<schema>`.
+The call accepts the generated helper's schema-local value record or mapped
+target record, invokes the generated schema encode helper, and returns
+`EncodeStep<()>`. Successful helper output is projected from `Ok(ByteChunk)`
+to `Encoded(List<ByteChunk>)` with one immutable output chunk. Helper
+`Err(EncodeError)` output is projected to `Invalid(EncodeError)`.
 Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
@@ -313,7 +313,13 @@ from those record expressions when the selected field maps directly to one
 schema-local visible field, or the supported direct ADT constructor wrapper
 forms, the helper accepts the mapping target record shape instead and projects
 those target fields back to the schema-local encode record before writing
-bytes.
+bytes. For multiple selected `map to Target when field == literal` clauses,
+the helper accepts the mapping target record shape when all selected mappings
+resolve to that same record shape and every schema-local encode field,
+including the selector field, projects back from the selected target record
+through direct source-field assignments. The helper selects the mapping whose
+projected selector value matches the clause literal and then writes the
+projected schema-local record.
 Length-bounded `ByteView(length_field)` and
 `ByteView(left_length - right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier
@@ -406,10 +412,11 @@ fields from the encoder value record, and reports
 `codec.encode_value_unrepresentable` at the out-of-range visible field.
 Unsupported non-byte-aligned reserved-bit encode shapes report
 `schema.reserved_bits_encode`.
-This slice excludes multiple selected mapping clauses, mapping expressions
+This slice excludes selected mappings that cannot reconstruct all schema-local
+encode fields through direct source-field assignments, mapping expressions
 that cannot be projected back to schema-local fields, field-local validation,
-generalized dispatch payload schemas, other fixed fields, nested mappings,
-and derived codec encode execution for unsupported schemas.
+generalized dispatch payload schemas, other fixed fields, nested mappings, and
+derived codec encode execution for unsupported schemas.
 
 The narrow frame decode helper extends the frame-header layout with a bounded
 payload view. It first applies the same header validation, then returns the

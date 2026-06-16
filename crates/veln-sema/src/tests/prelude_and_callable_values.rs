@@ -717,6 +717,76 @@ fn generated_schema_encode_helpers_accept_mapped_value_records() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_selected_mapped_value_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {kind: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  value: UInt8\n",
+            "\n",
+            "  map to Packet when kind == 1\n",
+            "    kind = kind\n",
+            "    value = value\n",
+            "\n",
+            "  map to Packet when kind == 2\n",
+            "    kind = kind\n",
+            "    value = value\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {kind: Int, value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
 fn generated_schema_encode_helpers_accept_mapped_record_expression_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -2815,6 +2885,80 @@ fn derived_codec_encode_resolves_mapped_schema_encode_step_boundary() {
             target: IrCallTarget::SchemaEncodeStep(name),
             ..
         } if name == "HeaderWire"
+    ));
+}
+
+#[test]
+fn derived_codec_encode_resolves_selected_mapped_schema_encode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {kind: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  value: UInt8\n",
+            "\n",
+            "  map to Packet when kind == 1\n",
+            "    kind = kind\n",
+            "    value = value\n",
+            "\n",
+            "  map to Packet when kind == 2\n",
+            "    kind = kind\n",
+            "    value = value\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {kind: Int, value: Int}) -> EncodeStep<()>\n",
+            "  PacketCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "PacketWire"
     ));
 }
 

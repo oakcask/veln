@@ -1125,21 +1125,89 @@ fn schema_encode_mapping_value_fields(
     exact_width_field_names: &[String],
 ) -> Option<Vec<(String, Type)>> {
     let [mapping] = schema.mappings.as_slice() else {
-        return None;
+        return schema_encode_selected_mapping_value_fields(
+            module,
+            schema,
+            schema_fields,
+            exact_width_field_names,
+        );
     };
-    if mapping.selector.is_some() {
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    if mapping.selector.is_some()
+        || schema_encode_mapping_source_targets(
+            module,
+            schema,
+            schema_fields,
+            &schema_field_types,
+            exact_width_field_names,
+            mapping,
+            &target_fields,
+        )
+        .is_none()
+    {
         return None;
     }
-    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    Some(target_fields)
+}
+
+fn schema_encode_selected_mapping_value_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
+) -> Option<Vec<(String, Type)>> {
+    let [first, rest @ ..] = schema.mappings.as_slice() else {
+        return None;
+    };
+    first.selector.as_ref()?;
+    let target_fields = schema_mapping_target_record_fields(module, schema, first)?;
     let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    schema_encode_mapping_source_targets(
+        module,
+        schema,
+        schema_fields,
+        &schema_field_types,
+        exact_width_field_names,
+        first,
+        &target_fields,
+    )?;
+    for mapping in rest {
+        mapping.selector.as_ref()?;
+        let candidate_target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+        if candidate_target_fields != target_fields {
+            return None;
+        }
+        schema_encode_mapping_source_targets(
+            module,
+            schema,
+            schema_fields,
+            &schema_field_types,
+            exact_width_field_names,
+            mapping,
+            &target_fields,
+        )?;
+    }
+    Some(target_fields)
+}
+
+fn schema_encode_mapping_source_targets(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+    schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
+    mapping: &veln_ast::SchemaMappingClause,
+    target_fields: &[(String, Type)],
+) -> Option<BTreeMap<String, String>> {
+    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
     let mut source_to_target = BTreeMap::<String, String>::new();
     for assignment in &mapping.assignments {
         let target_ty = target_field_types.get(&assignment.target)?;
         let sources = schema_encode_mapping_assignment_sources(
             module,
             schema,
-            &schema_field_types,
+            schema_field_types,
             exact_width_field_names,
             assignment,
             target_ty,
@@ -1159,7 +1227,7 @@ fn schema_encode_mapping_value_fields(
     {
         return None;
     }
-    Some(target_fields)
+    Some(source_to_target)
 }
 
 fn schema_encode_mapping_assignment_sources(

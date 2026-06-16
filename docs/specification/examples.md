@@ -427,6 +427,11 @@ field path, and the `UInt31be` maximum.
 the direct structural mapping encode helper slice: the helper accepts the
 mapping target record shape, projects target fields back to schema-local
 fields, and writes one immutable `ByteChunk`.
+`../../examples/specification/run/derived-codec-selected-mapping-encode-boundary/`
+pins the same generated helper behavior through a `derive encode` codec
+boundary for selected structural mappings: both selector cases encode through
+the mapped target record shape, and representation failures project to
+`EncodeStep::Invalid`.
 `../../examples/specification/run/binary-schema-mapped-record-expression-encode/`
 pins the same inverse projection when one mapped target field is a record
 value whose fields recover schema-local fields.
