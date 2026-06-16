@@ -880,6 +880,12 @@ against the built `veln` binary.
 - `run/binary-schema-encode-value-diagnostic-human/`: returning the same
   generated encode range `EncodeError` from human `veln run` emits a focused
   runtime diagnostic with field path and reason notes.
+- `run/binary-schema-encode-validation-json/`: generated schema encode
+  evaluates field-local `where` predicates and reports
+  `schema.validation_failed` through `run --json`.
+- `run/binary-schema-mapped-encode-validation-human/`: direct mapped-record
+  schema encode projects the same field-local validation failure as a focused
+  human diagnostic.
 - `run/binary-schema-extension-dispatch-encode/`: a generated binary schema
   encode helper writes a known extension-tolerant primitive payload selected
   by the earlier visible tag field and preserves matching unknown raw bounded

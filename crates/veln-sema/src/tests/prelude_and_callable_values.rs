@@ -174,6 +174,68 @@ fn generated_schema_value_validation_helpers_resolve_from_binary_schema_declarat
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_with_field_local_predicates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, padding_length: Int}\n",
+            "end\n",
+            "\n",
+            "schema PaddedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8 where padding_length <= length\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "  wire_padding_length: UInt8 where wire_padding_length <= wire_length\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "    padding_length = wire_padding_length\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {length: Int, padding_length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_padded_header(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn mapped(packet: {length: Int, padding_length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_header_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for (function_name, schema_name) in [("direct", "PaddedHeader"), ("mapped", "HeaderWire")] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaEncode(name),
+                ..
+            } if name == schema_name
+        ));
+    }
+}
+
+#[test]
 fn schema_level_validation_rejects_unsupported_references() {
     let source = SourceFile::new(
         "main.veln",

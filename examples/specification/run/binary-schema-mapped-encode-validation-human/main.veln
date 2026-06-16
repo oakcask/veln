@@ -1,0 +1,18 @@
+type Header
+	Header {length: Int, padding_length: Int}
+end
+
+schema HeaderWire
+	format binary
+
+	wire_length: UInt8
+	wire_padding_length: UInt8 where wire_padding_length <= wire_length
+
+	map to Header
+		length = wire_length
+		padding_length = wire_padding_length
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_header_wire({length: 5, padding_length: 6})
+end

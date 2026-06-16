@@ -198,12 +198,11 @@ helper. Single-payload constructor wrappers remain limited to the existing
 single-constructor flag and exact-width integer cases unless the payload is
 that record-expression slice.
 Multiple selected mapping clauses, mapping expressions that cannot be
-projected back to schema-local fields, encode-time
-field-local validation beyond primitive
-representation ranges, recursive or otherwise ineligible dispatch payload
-schemas, non-byte-aligned reserved fields outside the supported packed,
-middle, and `UInt31be` shared-bit layouts, and derived codec encode execution
-over unsupported schemas are outside that encode helper slice.
+projected back to schema-local fields, recursive or otherwise ineligible
+dispatch payload schemas, non-byte-aligned reserved fields outside the
+supported packed, middle, and `UInt31be` shared-bit layouts, and derived codec
+encode execution over unsupported schemas are outside that encode helper
+slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

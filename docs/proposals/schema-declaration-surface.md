@@ -69,6 +69,11 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
   structural `map to Target` clause whose assignments are direct
   `target_field = schema_field` references covering the visible encode fields
+- generated encode-time field-local validation for eligible
+  `byte_encode_<schema>` helpers, using the supported schema predicate
+  language over the current visible `Int` field and earlier visible `Int`
+  fields after primitive, fixed-field, length, repeat, and dispatch
+  representability checks have succeeded
 - codec decode boundaries over schemas with multiple decoded-field selected
   mappings when all selected mappings resolve to one record shape already
   accepted by the generated decode-step helper
@@ -385,6 +390,11 @@ Implemented:
 - Eligible generated `byte_encode_<schema>` helpers and `derive encode`
   codec boundaries accept one direct structural mapping target record when
   every visible encode field is assigned from a schema-local field reference.
+- Eligible generated `byte_encode_<schema>` helpers evaluate supported
+  field-local `where` predicates over schema-local visible `Int` values during
+  encode and report `schema.validation_failed` with field path, predicate
+  text, owning field value, supplied schema-local values, and command-facing
+  JSON details after representation failures have had priority.
 
 Remaining:
 

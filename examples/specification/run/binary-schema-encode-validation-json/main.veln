@@ -1,0 +1,10 @@
+schema PaddedHeader
+	format binary
+
+	length: UInt8
+	padding_length: UInt8 where padding_length <= length
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_padded_header({length: 5, padding_length: 6})
+end

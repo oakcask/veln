@@ -157,11 +157,15 @@ as `EncodeError(id, field_path, reason)`, `details.value_diagnostic` includes:
 - `id`: one of `codec.encode_value_unrepresentable`,
   `codec.encode_mapping_mismatch`, `codec.dispatch_unknown_tag`,
   `codec.dispatch_length_mismatch`, or
-  `codec.dispatch_mismatch`
+  `codec.dispatch_mismatch`, or `schema.validation_failed`
 - `field_path`: schema-local path segment objects with `kind` and `name`,
   derived from the source-visible field path
-- `field_path_display`: the source-visible field path string
-- `reason`: the source-visible encode failure reason
+- `field_path_display`: the source-visible field path string for
+  representation, dispatch, and mapping failures
+- `reason`: the source-visible encode failure reason for representation,
+  dispatch, and mapping failures
+- `predicate`, `field_value`, `supplied_values`, and supplied schema-local
+  `Int` values keyed by field name for encode-time `schema.validation_failed`
 
 When the result value is a binary schema closed dispatch unknown tag failure,
 `details.byte_diagnostic` includes:
