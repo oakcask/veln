@@ -649,7 +649,7 @@ impl<'a> CoreLowerer<'a> {
                     .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self
-                .core_call_signature(callee, None)
+                .core_call_signature(callee, None, None)
                 .map(|signature| signature.return_type),
             _ => None,
         }
@@ -890,7 +890,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let signature = self.core_call_signature(callee, expected);
+        let signature = self.core_call_signature(callee, expected, Some(args.len()));
         if let Some(signature) = &signature {
             self.validate_call_arity(expr, args.len(), signature.params.len());
         }
@@ -1313,6 +1313,7 @@ impl<'a> CoreLowerer<'a> {
         &self,
         callee: &Expr,
         expected: Option<&CoreType>,
+        arg_count: Option<usize>,
     ) -> Option<CoreCallSignature> {
         let bindings = self
             .bindings
@@ -1325,6 +1326,7 @@ impl<'a> CoreLowerer<'a> {
         crate::call_resolution::core_call_signature(
             callee,
             expected,
+            arg_count,
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),

@@ -1264,6 +1264,7 @@ impl<'a> FunctionChecker<'a> {
             args.first()
                 .and_then(|arg| self.shallow_expr_type(arg))
                 .as_ref(),
+            Some(args.len()),
         )?;
 
         for effect in &origin.effects {
@@ -1446,6 +1447,7 @@ impl<'a> FunctionChecker<'a> {
         callee: &Expr,
         expected: Option<&Type>,
         handle_type: Option<&Type>,
+        arg_count: Option<usize>,
     ) -> Option<(Vec<Type>, Type, CallOrigin)> {
         let bindings = self
             .bindings
@@ -1459,6 +1461,7 @@ impl<'a> FunctionChecker<'a> {
             callee,
             expected,
             handle_type,
+            arg_count,
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),
@@ -2303,7 +2306,7 @@ impl<'a> FunctionChecker<'a> {
                 _ => None,
             },
             ExprKind::Call { callee, .. } => self
-                .call_signature(callee, None, None)
+                .call_signature(callee, None, None, None)
                 .map(|(_, return_type, _)| return_type),
             _ => None,
         }

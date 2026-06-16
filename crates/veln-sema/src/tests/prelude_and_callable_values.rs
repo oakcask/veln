@@ -3094,6 +3094,67 @@ fn derived_codec_encode_resolves_nested_dispatch_schema_encode_step_boundary() {
 }
 
 #[test]
+fn derived_codec_encode_resolves_budgeted_schema_encode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int}, budget: ByteCount) -> EncodeStep<{length: Int, encoded_offset: ByteCount}>\n",
+            "  PacketCodec(packet, budget)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+}
+
+#[test]
 fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
     let source = SourceFile::new(
         "main.veln",

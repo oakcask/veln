@@ -193,6 +193,14 @@ helper slice: a codec item call observes successful helper output as
 `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
 failures as `Invalid(EncodeError)`.
 The executable specification case
+`../../examples/specification/run/derived-codec-budgeted-encode-boundary/`
+covers the budgeted form of that boundary: a codec item call accepts the same
+value record plus a `ByteCount` output budget, returns complete output as
+`Encoded`, returns oversized output as `Partial` with the committed prefix and
+a state record carrying `encoded_offset`, resumes by passing that state record
+back to the codec with a later budget, and still projects helper failures to
+`Invalid` before exposing output.
+The executable specification case
 `../../examples/specification/run/derived-codec-mapped-encode-boundary/`
 covers the same boundary when a direct structural mapping makes the generated
 helper accept the mapping target record shape.

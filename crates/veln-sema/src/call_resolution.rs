@@ -43,6 +43,7 @@ pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    arg_count: Option<usize>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -53,6 +54,7 @@ pub(crate) fn type_call_signature(
             segments,
             expected,
             handle_type,
+            arg_count,
             bindings,
             environment,
             current_module,
@@ -65,6 +67,7 @@ pub(crate) fn type_call_signature(
 pub(crate) fn core_call_signature(
     callee: &Expr,
     expected: Option<&CoreType>,
+    arg_count: Option<usize>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -76,6 +79,7 @@ pub(crate) fn core_call_signature(
         callee,
         segments,
         expected,
+        arg_count,
         bindings,
         environment,
         current_module,
@@ -87,6 +91,7 @@ fn type_name_path_call_signature(
     segments: &[String],
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    arg_count: Option<usize>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -99,7 +104,13 @@ fn type_name_path_call_signature(
         BindingCallSignature::ShadowedNonCallable => None,
         BindingCallSignature::Missing => {
             function_type_call_signature(segments, environment, current_module).or_else(|| {
-                codec_type_call_signature(segments, expected, environment, current_module)
+                codec_type_call_signature(
+                    segments,
+                    expected,
+                    arg_count,
+                    environment,
+                    current_module,
+                )
             })
         }
     }
@@ -187,6 +198,7 @@ fn core_name_path_call_signature(
     callee: &Expr,
     segments: &[String],
     expected: Option<&CoreType>,
+    arg_count: Option<usize>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -222,8 +234,9 @@ fn core_name_path_call_signature(
         BindingCallSignature::ShadowedNonCallable => return None,
         BindingCallSignature::Missing => {}
     }
-    core_function_call_signature(segments, expected, environment, current_module)
-        .or_else(|| core_codec_call_signature(segments, expected, environment, current_module))
+    core_function_call_signature(segments, expected, environment, current_module).or_else(|| {
+        core_codec_call_signature(segments, expected, arg_count, environment, current_module)
+    })
 }
 
 fn qualified_core_prelude_call_signature(
@@ -347,10 +360,11 @@ fn resolve_function<'a>(
 fn codec_type_call_signature(
     segments: &[String],
     expected: Option<&Type>,
+    arg_count: Option<usize>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<TypeCallSignature> {
-    let (codecs, symbol) = match segments {
+    let (mut codecs, symbol) = match segments {
         [name] => (
             environment.unqualified_codec_calls(name, current_module),
             name.clone(),
@@ -360,6 +374,7 @@ fn codec_type_call_signature(
             segments.join("::"),
         ),
     };
+    narrow_codec_candidates_by_arity(&mut codecs, arg_count);
     let codec = select_codec_type_call(codecs, expected)?;
     Some(TypeCallSignature {
         params: codec.params.clone(),
@@ -376,13 +391,15 @@ fn codec_type_call_signature(
 fn core_codec_call_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    arg_count: Option<usize>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
-    let codecs = match segments {
+    let mut codecs = match segments {
         [name] => environment.unqualified_codec_calls(name, current_module),
         _ => environment.codec_call_path(segments, current_module),
     };
+    narrow_codec_candidates_by_arity(&mut codecs, arg_count);
     let codec = select_codec_core_call(codecs, expected)?;
     Some(CoreCallSignature {
         target: core_codec_call_target(codec),
@@ -398,6 +415,18 @@ fn core_codec_call_target(codec: &CodecCallSignature) -> CoreCallTarget {
             function: codec.target_name.clone(),
             codec: codec.name.clone(),
         },
+    }
+}
+
+fn narrow_codec_candidates_by_arity(
+    codecs: &mut Vec<&crate::types::CodecCallSignature>,
+    arg_count: Option<usize>,
+) {
+    let Some(arg_count) = arg_count else {
+        return;
+    };
+    if codecs.iter().any(|codec| codec.params.len() == arg_count) {
+        codecs.retain(|codec| codec.params.len() == arg_count);
     }
 }
 
