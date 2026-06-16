@@ -1090,7 +1090,12 @@ sets `END_STREAM`, and records local closed-stream state after an accepted
 `END_STREAM` intent. It rejects stream id `0`, missing streams, closed
 streams, already reset streams, mismatched open streams, payloads larger than
 the peer-advertised maximum frame size, and generated frame-header
-representation failures before accepted bytes are produced.
+representation failures before accepted bytes are produced. After receiving
+GOAWAY, the same slice accepts outbound HEADERS at the recorded last-stream-id
+boundary and rejects a higher open stream through the existing
+`http2.protocol.stream_after_goaway` diagnostic before frame-size or encode
+checks. Stream id zero and closed stream cases keep their narrower existing
+failures.
 The outbound GOAWAY send-intent slice accepts a last stream id and error code,
 emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
@@ -1115,8 +1120,9 @@ frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
 `SETTINGS_MAX_HEADER_LIST_SIZE`, an accepted `RST_STREAM` frame plus error-code
 payload, accepted PRIORITY frame-header-plus-priority-payload chunks,
 accepted HEADERS frame-header-plus-header-block chunks with and without
-`END_STREAM`, an accepted GOAWAY frame plus last-stream-id and error-code
-payload, and the maximum valid `UInt31be` stream id. The source
+`END_STREAM`, an accepted post-GOAWAY HEADERS frame at the recorded boundary,
+an accepted GOAWAY frame plus last-stream-id and error-code payload, and the
+maximum valid `UInt31be` stream id. The source
 output also matches generated helper `codec.encode_value_unrepresentable`
 failure for an out-of-range stream id, keeping field path and reason text
 visible without converting it into a protocol diagnostic.

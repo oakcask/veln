@@ -36,8 +36,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
-  slice, outbound DATA local closed-stream send-intent slice, and GOAWAY
-  last-stream-id enforcement for later peer-created HEADERS
+  slice, outbound DATA local closed-stream send-intent slice, GOAWAY
+  last-stream-id enforcement for later peer-created HEADERS, and outbound
+  HEADERS send-intent rejection above a received GOAWAY boundary
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented narrow outbound DATA frame-header-plus-payload
   send-intent slice, outbound `RST_STREAM` reset send intent, inbound DATA,
@@ -45,7 +46,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   intent, and `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window
   accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  outbound GOAWAY send-intent state, and later peer-created HEADERS rejection
+  outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
+  and outbound HEADERS send-intent rejection above a received GOAWAY boundary
 
 ## Discussion Result: Limit Placement
 
@@ -356,6 +358,12 @@ state so later outbound DATA, outbound HEADERS, and stream-level outbound
 `WINDOW_UPDATE` for that stream use the existing closed stream-state rejection
 boundary. Generated frame-header representation failures stay on the
 `codec.encode_value_unrepresentable` encode-error path.
+The implemented outbound HEADERS send-intent slice also observes received
+GOAWAY graceful-shutdown state. It accepts an open stream at the recorded
+last-stream-id boundary, rejects an open stream above that boundary with
+`http2.protocol.stream_after_goaway` before frame-size or encode checks, and
+keeps stream id zero plus closed-stream failures on their narrower existing
+paths.
 The implemented slice also includes the outbound `WINDOW_UPDATE`
 receive-credit intent. Ordinary source accepts connection-level and
 currently open stream-level increments, emits exactly one immutable frame

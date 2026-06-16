@@ -135,7 +135,8 @@ compare it with `../specification/` before changing behavior.
   peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice including HEADERS and
   CONTINUATION on the connection stream, GOAWAY last-stream-id enforcement
-  for later peer-created HEADERS, `RST_STREAM` receive slice,
+  for later peer-created HEADERS and local outbound HEADERS send-intents,
+  `RST_STREAM` receive slice,
   PRIORITY receive slice with dependency facts, tracked open-stream priority
   state replacement, stream-state failure preservation, and self-dependency
   diagnostic,

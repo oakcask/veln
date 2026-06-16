@@ -752,7 +752,8 @@ execution reference.
   streams, PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE`
   rejection,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS streams, and accepted
+  enforcement for later peer-created HEADERS streams and local outbound
+  HEADERS send-intents above a received boundary, and accepted
   `RST_STREAM` error-code facts as typed protocol values. In the server-side
   fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA, PRIORITY, `RST_STREAM`,
@@ -887,7 +888,12 @@ execution reference.
   boundary. Stream id `0`, missing streams, closed streams, already reset
   streams, mismatched open streams, payloads larger than the peer-advertised
   maximum frame size, and generated frame-header representation failures are
-  rejected before accepted output bytes are produced.
+  rejected before accepted output bytes are produced. After receiving GOAWAY,
+  outbound HEADERS for an open stream id greater than the recorded
+  last-stream-id are rejected with `http2.protocol.stream_after_goaway`
+  before frame-size or encode checks; HEADERS for an open stream at the
+  boundary remain accepted, and stream id zero plus closed stream cases keep
+  their narrower existing failures.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
   GOAWAY send-intent. Ordinary source validates the selected last stream id
   through the generated `UInt31be` payload helper and the error code through
