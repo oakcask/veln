@@ -500,17 +500,24 @@ against the built `veln` binary.
   opt-in `Flag8` field as a source-visible bitset value instead of the raw
   `Int` used by `UInt8`.
 - `run/binary-schema-flag8-bit-helpers/`: pure prelude helpers inspect
-  decoded `Flag8` bit positions, construct a new `Flag8` by setting named bit
-  indexes, and encode the result through the generated schema helper.
+  decoded `Flag8` raw bits and bit positions, construct a new `Flag8` from
+  raw bits and named bit indexes, and encode the result through the generated
+  schema helper.
+- `run/binary-schema-flag8-from-bits-out-of-range-json/`: `flag8_from_bits`
+  rejects an integer outside the one-byte range with the checked runtime
+  `Result` failure in JSON command output.
 - `run/binary-schema-flag8-bit-index-json/`: `flag8_is_set` rejects an
   out-of-range bit index with the checked runtime `Result` failure in JSON
   command output.
 - `run/binary-schema-flag8-bit-index-human/`: `flag8_set` reports the same
   out-of-range bit-index failure through human command output.
 - `run/binary-schema-flag16be-bit-helpers/`: pure prelude helpers inspect
-  decoded `Flag16be` bit positions, construct a new `Flag16be` by setting
-  two-byte bit indexes, and encode the result through the generated schema
-  helper.
+  decoded `Flag16be` raw bits and bit positions, construct a new `Flag16be`
+  from raw bits and two-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag16be-from-bits-out-of-range-json/`:
+  `flag16be_from_bits` rejects an integer outside the two-byte range with the
+  checked runtime `Result` failure in JSON command output.
 - `run/binary-schema-flag16be-bit-index-json/`: `flag16be_is_set` rejects an
   out-of-range bit index with the checked runtime `Result` failure in JSON
   command output.

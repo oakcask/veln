@@ -1,4 +1,4 @@
-# Flag8 helper functions inspect decoded flags and construct flags for encode.
+# Flag8 helper functions inspect raw bits, inspect decoded flags, and construct flags for encode.
 use stdio
 
 schema FlagPacket
@@ -61,10 +61,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let padded_set: Bool = flag8_is_set(packet.flags, padded_bit())?
 	let priority_set: Bool = flag8_is_set(packet.flags, priority_bit())?
 	let ack_set: Bool = flag8_is_set(packet.flags, ack_bit())?
+	stdio::println(int_to_string(flag8_bits(packet.flags)))
 	stdio::println(int_to_string(bool_to_int(padded_set)))
 	stdio::println(int_to_string(bool_to_int(priority_set)))
 	stdio::println(int_to_string(bool_to_int(ack_set)))
-	let padded: Flag8 = flag8_set(Flag8(0), padded_bit())?
+	let empty: Flag8 = flag8_from_bits(0)?
+	let padded: Flag8 = flag8_set(empty, padded_bit())?
 	let encoded_flags: Flag8 = flag8_set(padded, priority_bit())?
 	let encoded: Result<ByteChunk, EncodeError> = byte_encode_flag_packet({flags: encoded_flags})
 	match encoded

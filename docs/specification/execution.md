@@ -135,13 +135,18 @@ execution reference.
   to decode as ordinary `Int` fields. Pure prelude helpers inspect or set
   `Flag8` bit indexes `0` through `7` and `Flag16be` bit indexes `0` through
   `15`, returning `Result` failures for indexes outside each helper's range.
+  Raw-bit helpers expose decoded `Flag8` and `Flag16be` integer bits and
+  construct flag values for encode only when the supplied integer fits the
+  matching flag width.
   The checked examples are
   `examples/specification/run/binary-schema-flag8-decode/`,
   `examples/specification/run/binary-schema-flag16be-decode/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag8-from-bits-out-of-range-json/`,
   `examples/specification/run/binary-schema-flag8-bit-index-json/`,
   `examples/specification/run/binary-schema-flag8-bit-index-human/`,
   `examples/specification/run/binary-schema-flag16be-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag16be-from-bits-out-of-range-json/`,
   `examples/specification/run/binary-schema-flag16be-bit-index-json/`, and
   `examples/specification/run/binary-schema-flag16be-bit-index-human/`.
 - Generated binary schema decode helpers support bounded
