@@ -361,7 +361,7 @@ boundary. Generated frame-header representation failures stay on the
 The implemented outbound HEADERS send-intent slice also observes received
 GOAWAY graceful-shutdown state. It accepts an open stream at the recorded
 last-stream-id boundary, rejects an open stream above that boundary with
-`http2.protocol.stream_after_goaway` before frame-size or encode checks, and
+`http2.protocol.stream_after_goaway` before frame splitting or encode checks, and
 keeps stream id zero plus closed-stream failures on their narrower existing
 paths.
 The implemented slice also includes the outbound `WINDOW_UPDATE`
@@ -445,16 +445,18 @@ stream id or dependency payload remain `codec.encode_value_unrepresentable`
 encode errors instead of protocol diagnostics.
 The implemented slice also includes the narrow outbound HEADERS send-intent.
 Ordinary source accepts a nonzero currently open stream and an already-encoded
-opaque header-block `ByteChunk`, encodes a nine-byte header with the
-header-block length, kind `1`, `END_HEADERS` set, optional `END_STREAM`, and
-the selected stream id, then appends the header-block bytes. Accepted
-`END_STREAM` records local closed-stream state so a later stream-level
-`WINDOW_UPDATE` for that stream uses the same closed stream-state rejection
-boundary. It rejects stream id `0`, missing or non-open streams, already
-closed or reset streams, payload lengths that exceed the peer-advertised
-maximum frame size, and generated frame-header representation failures before
-accepted bytes are produced. HPACK remains outside the send intent because
-the header-block bytes are already encoded.
+opaque header-block `ByteChunk`. Header blocks within the peer-advertised
+maximum frame size encode as one HEADERS frame with kind `1`, `END_HEADERS`,
+optional `END_STREAM`, and the selected stream id. Larger header blocks encode
+as one HEADERS frame followed by CONTINUATION frames on the same stream; every
+payload chunk respects the peer-advertised maximum frame size, `END_HEADERS`
+is set only on the final frame, and optional `END_STREAM` stays on the first
+HEADERS frame. Accepted `END_STREAM` records local closed-stream state so a
+later stream-level `WINDOW_UPDATE` for that stream uses the same closed
+stream-state rejection boundary. It rejects stream id `0`, missing or non-open
+streams, already closed or reset streams, and generated frame-header
+representation failures before accepted bytes are produced. HPACK remains
+outside the send intent because the header-block bytes are already encoded.
 The implemented slice also includes the narrow outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id through the same
 generated `UInt31be` payload representation boundary used by inbound GOAWAY

@@ -1138,18 +1138,23 @@ and preserves generated encode-helper representation failures for the frame
 stream id or dependency payload as `codec.encode_value_unrepresentable`
 encode errors.
 The outbound HEADERS send-intent slice accepts an already-encoded opaque
-header-block chunk for a nonzero currently open stream, emits a frame-header
-plus header-block output chunk with kind `1` and `END_HEADERS`, optionally
-sets `END_STREAM`, and records local closed-stream state after an accepted
-`END_STREAM` intent. It rejects stream id `0`, missing streams, closed
-streams, already reset streams, mismatched open streams, payloads larger than
-the peer-advertised maximum frame size, and generated frame-header
-representation failures before accepted bytes are produced. After receiving
-GOAWAY, the same slice accepts outbound HEADERS at the recorded last-stream-id
-boundary and rejects a higher open stream through the existing
-`http2.protocol.stream_after_goaway` diagnostic before frame-size or encode
-checks. Stream id zero and closed stream cases keep their narrower existing
-failures.
+header-block chunk for a nonzero currently open stream. Header blocks within
+the peer-advertised maximum frame size emit one HEADERS frame-header plus
+payload output chunk with kind `1`, `END_HEADERS`, and optional `END_STREAM`.
+Larger header blocks emit one output chunk containing a HEADERS frame followed
+by one or more CONTINUATION frames on the same stream. Each emitted frame
+payload respects the peer-advertised maximum frame size, `END_HEADERS` appears
+only on the final frame, and optional `END_STREAM` stays on the first HEADERS
+frame. Accepted `END_STREAM` records local closed-stream state. The checked
+case pins one-continuation, multiple-continuation, and `END_STREAM`-plus-final
+`END_HEADERS` split outputs as complete lowercase hex. It rejects stream id
+`0`, missing streams, closed streams, already reset streams, mismatched open
+streams, and generated frame-header representation failures before accepted
+bytes are produced. After receiving GOAWAY, the same slice accepts outbound
+HEADERS at the recorded last-stream-id boundary and rejects a higher open
+stream through the existing `http2.protocol.stream_after_goaway` diagnostic
+before frame splitting or encode checks. Stream id zero and closed stream
+cases keep their narrower existing failures.
 The outbound GOAWAY send-intent slice accepts a last stream id and error code,
 emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
