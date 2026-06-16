@@ -21,7 +21,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "actions 6 state 2 writes 4 first-bytes 2 task-actions 3 task-state 41 task-first-bytes 1\n"
+equals = "actions 6 state 2 writes 4 first-bytes 2 task-actions 3 task-state 43 task-first-bytes 2\n"
 
 [[json_assert]]
 path = "error"

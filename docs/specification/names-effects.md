@@ -42,7 +42,8 @@ compiler-known calls.
   calls with existing channel and task calls under `concurrency`, including
   optional listener accept, multiple optional reads from an accepted stream,
   clean end translated to `StreamInput.End`, argument-carrying spawned
-  handler tasks over ordinary event and state values using `task::spawn_with2`,
+  handler tasks over ordinary event, state, and adapter context values using
+  `task::spawn_with3`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, and ordered write projection; they
   add no new effect label or compiler-known routing call. The owned-lifecycle

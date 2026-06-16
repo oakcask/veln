@@ -76,8 +76,8 @@ execution reference.
   stream end, translates clean stream end into `StreamInput.End`, routes
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler
-  task over the same event/action boundary, passes ordinary event and state
-  values into `task::spawn_with2`, and translates ordered
+  task over the same event/action boundary, passes ordinary event, state, and
+  adapter context values into `task::spawn_with3`, and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
   `examples/specification/run/socket-stream-adapter-routing/`,

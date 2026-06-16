@@ -286,6 +286,7 @@ fn task_signature(
         "spawn" => task_spawn_signature(expected, handle_type, explicit_item),
         "spawn_with" => task_spawn_with_signature(expected, handle_type, explicit_item),
         "spawn_with2" => task_spawn_with2_signature(expected, handle_type, explicit_item),
+        "spawn_with3" => task_spawn_with3_signature(expected, handle_type, explicit_item),
         "join" => task_join_signature(handle_type),
         "cancel" => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
         _ => None,
@@ -374,6 +375,39 @@ fn task_spawn_with2_signature(
             },
             first_arg,
             second_arg,
+        ],
+        Type::named("Task", vec![item]),
+    ))
+}
+
+fn task_spawn_with3_signature(
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let params = handle_type.and_then(function_params).unwrap_or(&[]);
+    let first_arg = params.first().cloned().unwrap_or(Type::Unknown);
+    let second_arg = params.get(1).cloned().unwrap_or(Type::Unknown);
+    let third_arg = params.get(2).cloned().unwrap_or(Type::Unknown);
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(function_return_type).cloned())
+        .unwrap_or(Type::Unknown);
+    Some((
+        vec![
+            Type::Function {
+                params: vec![first_arg.clone(), second_arg.clone(), third_arg.clone()],
+                return_type: Box::new(item.clone()),
+                effects: vec!["concurrency".to_string()],
+            },
+            first_arg,
+            second_arg,
+            third_arg,
         ],
         Type::named("Task", vec![item]),
     ))
@@ -566,6 +600,7 @@ fn core_task_signature(
         "spawn" => core_task_spawn_signature(expected, handle_type, explicit_item),
         "spawn_with" => core_task_spawn_with_signature(expected, handle_type, explicit_item),
         "spawn_with2" => core_task_spawn_with2_signature(expected, handle_type, explicit_item),
+        "spawn_with3" => core_task_spawn_with3_signature(expected, handle_type, explicit_item),
         "join" => core_task_join_signature(handle_type),
         "cancel" => Some((
             vec![CoreType::named("Task", vec![unknown])],
@@ -657,6 +692,39 @@ fn core_task_spawn_with2_signature(
             },
             first_arg,
             second_arg,
+        ],
+        CoreType::named("Task", vec![item]),
+    ))
+}
+
+fn core_task_spawn_with3_signature(
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let params = handle_type.and_then(core_function_params).unwrap_or(&[]);
+    let first_arg = params.first().cloned().unwrap_or(CoreType::Unknown);
+    let second_arg = params.get(1).cloned().unwrap_or(CoreType::Unknown);
+    let third_arg = params.get(2).cloned().unwrap_or(CoreType::Unknown);
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| core_named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(core_function_return_type).cloned())
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![
+            CoreType::Function {
+                params: vec![first_arg.clone(), second_arg.clone(), third_arg.clone()],
+                return_type: Box::new(item.clone()),
+                effects: vec!["concurrency".to_string()],
+            },
+            first_arg,
+            second_arg,
+            third_arg,
         ],
         CoreType::named("Task", vec![item]),
     ))

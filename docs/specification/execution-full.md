@@ -527,11 +527,13 @@ zero-argument callable on a JVM thread. `task::spawn_with` starts a
 one-argument callable on a JVM thread after freezing the ordinary source value
 argument at the task boundary. `task::spawn_with2` starts a two-argument
 callable on a JVM thread after freezing both ordinary source values at the task
-boundary. All task spawn helpers freeze the returned value before it crosses
-back through the task handle. `task::join` waits for that task and returns
-`Ok(value)` on ordinary completion or `Err(JoinError)` on interruption,
-cancellation, or runtime failure. `task::cancel` requests cooperative
-cancellation by interrupting the task.
+boundary. `task::spawn_with3` starts a three-argument callable on a JVM thread
+after freezing all three ordinary source values at the task boundary. All task
+spawn helpers freeze the returned value before it crosses back through the
+task handle. `task::join` waits for that task and returns `Ok(value)` on
+ordinary completion or `Err(JoinError)` on interruption, cancellation, or
+runtime failure. `task::cancel` requests cooperative cancellation by
+interrupting the task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
@@ -625,9 +627,9 @@ one adapter path. The deadline-aware lifecycle case combines
 routing, pure handler invocation, and ordered write projection in one accepted
 stream adapter path, with deadline expiry becoming the ordinary stream
 boundary value before handler invocation. The same checked boundary also joins
-a spawned stream-handler task that passes ordinary event and state values
-directly through `task::spawn_with2` instead of bundling them into an adapter
-record first.
+a spawned stream-handler task that passes ordinary event, state, and adapter
+context values directly through `task::spawn_with3` instead of bundling them
+into one adapter record first.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
