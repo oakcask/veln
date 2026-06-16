@@ -183,7 +183,8 @@ keeps the mapping-selection boundary executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 keeps unsupported mapping expression, unresolved constructor, constructor
-arity, and constructor payload type diagnostics executable.
+arity, constructor payload type, non-`Int` arithmetic operand, and unsupported
+arithmetic expression diagnostics executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 keeps unresolved converter, converter arity, converter input type, converter

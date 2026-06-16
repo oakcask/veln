@@ -386,9 +386,10 @@ Implemented:
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module
   representation converter call, and imported public pure converter call
-  assignment expressions through a written `use` path or alias. Converter
-  arguments may be schema-local field references or structural mapping
-  expressions.
+  assignment expressions through a written `use` path or alias, field
+  selection from record-shaped structural mapping expressions, and
+  decoded-field integer `+` and `-` mapping arithmetic. Converter arguments
+  may be schema-local field references or structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, when assignment
   expressions type check against target record fields, rejects invalid mapping
@@ -409,8 +410,9 @@ Remaining:
 
 - Runtime schema value mapping beyond the implemented schema-local field
   reference, record construction, ADT constructor construction, one pure
-  same-module or imported public converter call, and decoded-field integer
-  equality selection slices.
+  same-module or imported public converter call, field selection from
+  record-shaped structural mapping expressions, decoded-field integer
+  arithmetic, and decoded-field integer equality selection slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

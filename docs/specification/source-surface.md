@@ -151,7 +151,8 @@ The checked diagnostics case
 pins the mapping selection boundary. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
-arity, and constructor payload type diagnostics. The checked diagnostics case
+arity, constructor payload type, non-`Int` arithmetic operand, and
+unsupported arithmetic expression diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
