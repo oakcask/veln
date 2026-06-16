@@ -107,6 +107,59 @@ fn channel_select_priority_preserves_receiver_item_type() {
 }
 
 #[test]
+fn channel_select_many_priority_preserves_receiver_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(receivers: List<Receiver<String>>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
+            "  channel::select_many_priority(receivers)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = &core.functions[0];
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("expected select many priority return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::option(CoreType::Record(vec![
+            ("index".to_string(), CoreType::int()),
+            ("value".to_string(), CoreType::string()),
+        ]))
+    );
+}
+
+#[test]
+fn channel_select_many_priority_checks_receiver_list_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(receivers: List<Receiver<Int>>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
+            "  channel::select_many_priority(receivers)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `List<Receiver<String>>`, but found `List<Receiver<Int>>`"
+    );
+}
+
+#[test]
 fn channel_select_timeout_preserves_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",

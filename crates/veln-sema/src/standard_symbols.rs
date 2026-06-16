@@ -93,6 +93,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol(
         "channel",
+        "select_many_priority",
+        CONCURRENCY_EFFECTS,
+        "runtime.channel.select_many_priority",
+    ),
+    runtime_symbol(
+        "channel",
         "select_timeout",
         CONCURRENCY_EFFECTS,
         "runtime.channel.select_timeout",

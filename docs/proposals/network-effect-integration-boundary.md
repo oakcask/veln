@@ -8,8 +8,9 @@ boundary calls, the first fixture-backed socket listener/stream calls, the
 narrow socket-to-handler routing and stream-task handler slices, the
 fixture-backed multi-event socket routing slice, the clean stream-end adapter
 slice, the optional clean-end listener accept slice, the adapter-owned
-listener-to-clean-stream-end lifecycle slice, the two-route, three-route, and
-four-route channel-first stream event routing slices, the first cancellable
+listener-to-clean-stream-end lifecycle slice, the two-route, three-route,
+four-route, and receiver-list five-route channel-first stream event routing
+slices, the first cancellable
 adapter-owned wait boundary, the value-returning cancellable wait outcome
 slice, the cancellation-token status query slice, and
 adapter-level cancellable stream routing over ordinary response action values,
@@ -41,8 +42,9 @@ Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, and narrow
 multi-event socket-to-handler routing, stream-task handler, and clean
 stream-end adapter plus optional clean-end listener accept and
-adapter-owned lifecycle and two-route, three-route, and four-route
-channel-first stream routing slices for:
+adapter-owned lifecycle and two-route, three-route, four-route, and
+receiver-list five-route channel-first stream routing slices, including the
+`channel::select_many_priority` helper, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, optional stream-read, and ordered write lifecycle slice
@@ -53,7 +55,7 @@ channel-first stream routing slices for:
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing and socket/channel routing slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, and four-route fixture shapes
+  three-route, four-route, and receiver-list five-route fixture shapes
 - richer per-stream task handling beyond the one-argument spawned handler task
   over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
@@ -186,13 +188,18 @@ implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
 Implemented channel-first stream routing slices: executable specification
-cases route ordinary `StreamInput` values through two, three, and four typed
-channel routes, select the ready route with existing channel selection, and
-then invoke a plain handler with explicit per-stream state. The handler
-remains free of socket handles and transport effects. The routing adapter
-requires `concurrency`; socket wrappers around the same boundary require
-`net` plus `concurrency` and keep `NetStream` ownership and writes in adapter
-code. These slices add no new effect label or compiler-known routing call.
+cases route ordinary `StreamInput` values through two, three, four, and
+receiver-list five-route typed channel routes, select the ready route with
+existing channel selection, and then invoke a plain handler with explicit
+per-stream state. The receiver-list helper
+`channel::select_many_priority(receivers)` accepts a non-empty
+`List<Receiver<T>>`, returns `Option<{index: Int, value: T}>` with the
+zero-based receiver index from the supplied list, preserves the existing
+priority rule that the earliest ready receiver wins, and requires only the
+existing `concurrency` effect. The handler remains free of socket handles and
+transport effects. Socket wrappers around the same boundary require `net` plus
+`concurrency` and keep `NetStream` ownership and writes in adapter code. These
+slices add no new effect label.
 
 Implemented argument-carrying stream-task slice: `task::spawn_with` starts a
 one-argument callable under the existing `concurrency` effect and returns
@@ -290,8 +297,9 @@ or the pure protocol core.
 - Examples show production adapter socket ownership beyond the first
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
-  accept, adapter-owned lifecycle, two-route, three-route, and four-route
-  channel-first stream routing, one-argument spawned handler task, and
+  accept, adapter-owned lifecycle, two-route, three-route, four-route, and
+  receiver-list five-route channel-first stream routing, one-argument spawned
+  handler task, and
   adapter-level cancellable stream routing slices, richer stream routing, and
   richer deadline and cancellation APIs beyond the narrow relative `Deadline`
   boundary, `CancelToken` boundary, and cancellation status-query boundary.
