@@ -31,7 +31,9 @@ compiler-known calls.
   treat completion, deadline expiry, and cancellation as ordinary values.
   Stream adapter routing that combines those outcomes with channel-routed
   `StreamInput` values declares both `time` and `concurrency`; the handler it
-  calls stays free of transport effects.
+  calls stays free of transport effects. The cancellable channel-first routing
+  case uses receiver-list selection before the wait outcome and keeps the same
+  adapter effect boundary.
   Malformed receive fixtures, failed send or write recording, forced accept,
   read, or write failures, forced timeout or deadline expiry through
   runtime-failure waits, and forced cancellable-wait cancellation through the
@@ -57,9 +59,11 @@ compiler-known calls.
   `List<Receiver<StreamInput>>`, and the timeout selection example uses
   `channel::select_many_timeout` to preserve receiver-list priority while
   returning `None` when no route is ready before the timeout, before invoking
-  a plain handler. The routing adapter requires `concurrency`, socket wrappers
-  around it require both `net` and `concurrency`, and the handler boundary
-  remains free of transport effects.
+  a plain handler. A cancellable channel-first adapter composes that
+  receiver-list route with `time::wait_until_cancellable_outcome`; it declares
+  `time` and `concurrency` while the handler boundary remains free of
+  transport effects. Other routing adapters require `concurrency`, and socket
+  wrappers around them require both `net` and `concurrency`.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).

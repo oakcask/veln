@@ -48,10 +48,11 @@ execution reference.
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
   `CancellableWaitOutcome` values let adapter-owned waits observe completion,
-  deadline expiry, or cancellation without stopping the entry. A stream
-  adapter example composes those outcomes with channel-routed `StreamInput`
-  values and ordinary response actions in one fixture output so completed
-  waits, deadline expiry, and cancellation become adapter routing decisions.
+  deadline expiry, or cancellation without stopping the entry. Stream adapter
+  examples compose those outcomes with channel-routed `StreamInput` values,
+  receiver-list channel-first selection, and ordinary response actions in
+  fixture output so completed waits, deadline expiry, and cancellation become
+  adapter routing decisions.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
@@ -112,6 +113,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-seven-route/`,
   `examples/specification/run/channel-first-stream-routing-eight-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
+  `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
   and
@@ -123,7 +125,8 @@ execution reference.
   and
   `examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
   and
-  `examples/specification/check/channel-select-many-timeout-effects/`.
+  `examples/specification/check/channel-select-many-timeout-effects/`, and
+  `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 - The generated binary schema helper execution slice decodes the
   `Http2FrameHeaderWire` field sequence from a `ByteView`: `UInt24be`,
   `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value

@@ -889,15 +889,20 @@ completion, deadline expiry, and cancellation into ordinary source decisions.
 The
 `../../examples/specification/run/stream-adapter-cancellable-routing/`,
 `../../examples/specification/run/stream-adapter-cancellable-routing-deadline/`,
+`../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 and
 `../../examples/specification/check/stream-adapter-cancellable-routing-effects/`
+and
+`../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`
 cases compose those wait outcomes with channel-routed `StreamInput` values and
-ordinary response action values. The main routing case pins completed wait,
-deadline-expired, and cancelled paths in one fixture output; the deadline case
-also pins the global host-forced deadline expiry fixture. Together they show
-that these outcomes become adapter decisions rather than runtime failures, and
-that the adapter declares both `time` and `concurrency` while the handler
-boundary stays free of transport effects.
+ordinary response action values. The cancellable channel-first case routes
+ordinary stream inputs through receiver-list `channel::select_many_timeout`
+before translating completed wait, deadline-expired, and cancelled outcomes.
+The main routing case also pins those three wait paths in one fixture output;
+the deadline case pins the global host-forced deadline expiry fixture.
+Together they show that these outcomes become adapter decisions rather than
+runtime failures, and that the adapter declares both `time` and `concurrency`
+while the handler boundary stays free of transport effects.
 The
 `../../examples/specification/run/transport-timeout-expired-json/`,
 `../../examples/specification/run/transport-deadline-expired-json/`,
@@ -976,6 +981,8 @@ and
 `../../examples/specification/run/channel-first-stream-routing-eight-route/`
 and
 `../../examples/specification/run/channel-select-many-timeout/`
+and
+`../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
 `channel::select_priority`, `channel::select_many_priority`, or
@@ -996,8 +1003,12 @@ and
 `../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
+and
+`../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,
-socket wrappers around it require both `net` and `concurrency`, and the
+the cancellable channel-first adapter requires both `time` and `concurrency`,
+socket wrappers around the routing boundary require both `net` and
+`concurrency`, and the
 handler boundary remains free of transport effects.
 
 ## Pending Input Byte Chunks
