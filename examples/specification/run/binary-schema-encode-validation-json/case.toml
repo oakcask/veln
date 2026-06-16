@@ -1,0 +1,51 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "EncodeError(schema.validation_failed, PaddedHeader.padding_length, schema encode validation failed for field `padding_length`)"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.id"
+equals = "schema.validation_failed"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.field_path"
+equals = [{"kind":"schema","name":"PaddedHeader"},{"kind":"field","name":"padding_length"}]
+
+[[json_assert]]
+path = "error.details.value_diagnostic.predicate"
+equals = "padding_length <= length"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.field_value"
+equals = 6
+
+[[json_assert]]
+path = "error.details.value_diagnostic.supplied_values"
+equals = "length=5, padding_length=6"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.length"
+equals = 5
+
+[[json_assert]]
+path = "error.details.value_diagnostic.padding_length"
+equals = 6

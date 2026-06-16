@@ -511,21 +511,32 @@ execution reference.
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` and `UInt31le` use the 31-bit maximum even though they occupy four
   bytes.
+  After the helper has projected the input value to schema-local visible
+  fields and checked primitive, fixed-field, length, repeat, and dispatch
+  representability, it evaluates supported field-local `where` predicates in
+  declaration order over the current visible `Int` field and earlier visible
+  `Int` fields. Primitive representation failures and other encode
+  representability failures win before field-local predicate failures. A
+  failed encode predicate returns
+  `Err(EncodeError("schema.validation_failed", field_path, reason))` and
+  command value diagnostics preserve the schema field path, predicate text,
+  owning field value, and available schema-local `Int` values.
   When a `veln run` entry returns these generated `EncodeError` values
   directly, command diagnostics preserve the source-visible
   `EncodeError(id, field_path, reason)` shape and attach
   `details.value_diagnostic` for
   `codec.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
-  `codec.dispatch_length_mismatch`, and `codec.dispatch_mismatch`. Human
+  `codec.dispatch_length_mismatch`, `codec.dispatch_mismatch`, and
+  encode-time `schema.validation_failed`. Human
   output keeps the primary message focused on the failed encode fact and
-  reports field path, reason, and rendered result value as related notes.
+  reports field path, predicate or reason details, and rendered result value
+  as related notes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
   This slice excludes multiple selected mapping clauses, mapping expressions
-  that cannot be projected back to schema-local fields, encode-time
-  field-local validation beyond primitive representation ranges, recursive or
-  otherwise ineligible dispatch payload schemas, nested mappings, and derived
-  codec encode execution for unsupported schemas.
+  that cannot be projected back to schema-local fields, recursive or otherwise
+  ineligible dispatch payload schemas, nested mappings, and derived codec
+  encode execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
@@ -609,6 +620,8 @@ execution reference.
   `examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`,
   `examples/specification/run/binary-schema-encode-value-diagnostic-json/`,
   `examples/specification/run/binary-schema-encode-value-diagnostic-human/`,
+  `examples/specification/run/binary-schema-encode-validation-json/`,
+  `examples/specification/run/binary-schema-mapped-encode-validation-human/`,
   `examples/specification/run/binary-schema-dispatch-unknown-tag-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-unknown-tag-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-json/`,

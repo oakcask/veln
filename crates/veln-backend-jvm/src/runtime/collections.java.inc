@@ -2047,6 +2047,7 @@
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
         Object reservedValues,
+        Object predicates,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -2070,6 +2071,7 @@
         java.util.List<Object> repeatSchemaSpecValues = asList(repeatSchemaSpecs);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
+        java.util.List<Object> predicateValues = asList(predicates);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
         java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
@@ -2091,6 +2093,7 @@
             || fieldNameValues.size() != repeatSchemaSpecValues.size()
             || fieldNameValues.size() != reservedBitWidthValues.size()
             || fieldNameValues.size() != reservedValueValues.size()
+            || fieldNameValues.size() != predicateValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
@@ -2119,11 +2122,28 @@
             long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            String predicateText = asString(predicateValues.get(index));
+            SchemaPredicate predicate = null;
+            Long fixedValue = null;
             boolean littleEndian = asBool(littleEndianValueList.get(index));
             String flagType = schemaFlagTypeFromMetadata(flag8ValueList.get(index));
             String repeatCountField = asString(repeatCountFieldValues.get(index));
             String repeatByteViewLengthField =
                 asString(repeatByteViewLengthFieldValues.get(index));
+            if (!predicateText.isEmpty()) {
+                fixedValue = schemaFixedFieldValue(fieldName, predicateText, maxValue);
+                if (fixedValue == null) {
+                    try {
+                        predicate = new SchemaPredicateParser(predicateText).parse();
+                    } catch (IllegalStateException failure) {
+                        return err(encodeError(
+                            "codec.metadata",
+                            name + "." + fieldName,
+                            failure.getMessage()
+                        ));
+                    }
+                }
+            }
             if (reservedBitWidth > 0) {
                 schemaFields[index] = new SchemaFieldSpec(
                     fieldName,
@@ -2196,7 +2216,8 @@
                 maxValue,
                 littleEndian,
                 flagType,
-                null
+                predicate,
+                fixedValue
             );
         }
         SchemaMappingSpec[] mapping = schemaMappingSpecs(mappingTargetValues, mappingSourceValues);
@@ -2360,9 +2381,76 @@
             if (isErr(encoded)) {
                 return encoded;
             }
+            long fieldValue = asLong(schemaFieldEncodeValue(fields.get(field.name), field));
+            if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
+                return err(encodeError(
+                    "codec.encode_value_unrepresentable",
+                    schema.name + "." + field.name,
+                    "fixed field expected value "
+                        + field.fixedValue
+                        + "; actual value was "
+                        + fieldValue
+                ));
+            }
             bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
         }
+        Object validation = validateEncodedSchemaFields(fields, schema);
+        if (isErr(validation)) {
+            return validation;
+        }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static Object validateEncodedSchemaFields(
+        java.util.Map<Object, Object> fields,
+        BinarySchemaSpec schema
+    ) {
+        java.util.LinkedHashMap<String, Long> supplied = new java.util.LinkedHashMap<String, Long>();
+        for (int index = 0; index < schema.fields.length; index += 1) {
+            SchemaFieldSpec field = schema.fields[index];
+            Object value = fields.get(field.name);
+            Long intValue = schemaEncodedIntValue(value, field);
+            if (intValue != null) {
+                supplied.put(field.name, intValue);
+            }
+            if (field.predicate == null) {
+                continue;
+            }
+            if (intValue == null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schema.name + "." + field.name,
+                    "schema validation field `" + field.name + "` is not an Int"
+                ));
+            }
+            boolean passed;
+            try {
+                passed = field.predicate.eval(supplied);
+            } catch (IllegalStateException failure) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schema.name + "." + field.name,
+                    failure.getMessage()
+                ));
+            }
+            if (!passed) {
+                Object error = encodeError(
+                    "schema.validation_failed",
+                    schema.name + "." + field.name,
+                    "schema encode validation failed for field `" + field.name + "`"
+                );
+                registerSchemaValueValidationFailedDiagnostic(
+                    format(error),
+                    schema.name,
+                    field.name,
+                    field.predicate.text,
+                    intValue,
+                    supplied
+                );
+                return err(error);
+            }
+        }
+        return ok(null);
     }
 
     public static Object byteEncodeStepDeclaredBinarySchema(
@@ -2381,6 +2469,7 @@
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
         Object reservedValues,
+        Object predicates,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -2406,6 +2495,7 @@
             repeatSchemaSpecs,
             reservedBitWidths,
             reservedValues,
+            predicates,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -5658,6 +5748,13 @@
 
     private static Object schemaFieldEncodeValue(Object value, SchemaFieldSpec field) {
         return field.isFlagBitset() ? Long.valueOf(schemaFlagBits(value, field.flagType)) : value;
+    }
+
+    private static Long schemaEncodedIntValue(Object value, SchemaFieldSpec field) {
+        if (field.isFlagBitset()) {
+            return null;
+        }
+        return value instanceof Long ? (Long) value : null;
     }
 
     private static String schemaFlagTypeFromMetadata(Object value) {

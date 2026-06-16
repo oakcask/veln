@@ -26,7 +26,8 @@ compare it with `../specification/` before changing behavior.
   selection, focused mapping selection diagnostics, and the
   generated-helper schema validation diagnostic boundary, generated
   `validate_<schema>` decoded-record validation boundary, plus direct
-  structural mapped schema encode helper, derived encode boundary support, and
+  structural mapped schema encode helper, generated encode-time field-local
+  validation for eligible schema helpers, derived encode boundary support, and
   codec decode boundaries
   over multiple decoded-field selected mappings that resolve to one mapped
   record shape.

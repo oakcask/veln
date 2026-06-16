@@ -234,6 +234,10 @@ When binary schema field-local validation returns `schema.validation_failed`,
 human mode reports the failed validation fact at the owning field byte offset
 and puts predicate text, decoded values, bounded nearby byte preview, and
 field path in related notes.
+When generated binary schema encode returns encode-time
+`schema.validation_failed`, human mode reports the failed encode validation
+fact and puts predicate text, supplied schema-local `Int` values, field path,
+and the source-visible `EncodeError` value in related notes.
 When binary schema decode returns `schema.integer_out_of_range`, human mode
 reports the failed integer range fact at the field byte offset and puts byte
 width, accepted range, actual value, bounded nearby byte preview, and field

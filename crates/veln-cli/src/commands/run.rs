@@ -833,11 +833,17 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
         "schema.validation_failed" => {
             let predicate = json_string(value_entries, "predicate")?;
             let supplied_values = json_string(value_entries, "supplied_values")?;
+            let result_value = result_failure_value(failure)?;
+            let encode_result = result_value.starts_with("EncodeError(schema.validation_failed,");
             let mut diagnostic = Diagnostic::new(
                 id,
                 Severity::Error,
                 DiagnosticKind::Runtime,
-                result_failure_value(failure)?,
+                if encode_result {
+                    "schema encode validation failed".to_string()
+                } else {
+                    result_value.clone()
+                },
                 None,
                 value_diagnostic.clone(),
             );
@@ -857,6 +863,11 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
                 diagnostic
                     .related
                     .push(note_json(format!("Field path: {field_path}.")));
+            }
+            if encode_result {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Result value: {result_value}.")));
             }
             Some(diagnostic)
         }

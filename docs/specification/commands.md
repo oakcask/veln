@@ -59,8 +59,9 @@ requiring the full command reference on the first read.
   expected counts, actual counts, accepted ranges, actual values, matched
   prefix counts, byte values, and rule provenance in separate notes or
   structured details. Generated binary schema encode diagnostics keep the
-  primary message on the failed encode fact and put field path, reason, and
-  source-visible `EncodeError` value in related notes. Transport runtime
+  primary message on the failed encode fact and put field path, reason or
+  predicate details, and source-visible `EncodeError` value in related notes.
+  Transport runtime
   failures from descriptor-backed
   receive/send calls, fixture-backed socket listen/accept/read/write calls,
   and relative timeout or deadline calls stay runtime errors.

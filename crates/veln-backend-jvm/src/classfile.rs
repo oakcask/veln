@@ -848,6 +848,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
+        self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
@@ -859,7 +860,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
-            &object_method_descriptor(23),
+            &object_method_descriptor(24),
         );
     }
 
@@ -889,6 +890,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
+        self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
@@ -900,7 +902,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeStepDeclaredBinarySchema",
-            &object_method_descriptor(23),
+            &object_method_descriptor(24),
         );
     }
 

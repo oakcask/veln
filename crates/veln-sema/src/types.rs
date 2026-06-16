@@ -1010,9 +1010,6 @@ fn schema_encode_function_signature_for_schema(
     let mut fields = Vec::new();
     let mut exact_width_field_names = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
-        if field.where_clause.is_some() {
-            return None;
-        }
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
             supported_encode_reserved_bits(
                 index
