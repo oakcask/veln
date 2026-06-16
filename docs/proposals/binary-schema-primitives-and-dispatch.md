@@ -11,12 +11,19 @@ implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt1` through `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`,
 `UInt32be`, `UInt32le`, `UInt64be`, and `UInt64le` are also implemented there
-for `format binary` schema field type positions only. The executable frame-header
-primitive decode slice is implemented under `../specification/execution.md`:
-it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
-`UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
-values, and reports structured schema failures for truncated fields and
-reserved-bit mismatches. Generated schema helpers also consume byte-aligned
+for `format binary` schema field type positions only. The generated
+`Http2FrameHeaderWire` helper slice is implemented under
+`../specification/execution.md`: it consumes `UInt24be`, `UInt8`, `UInt8`,
+`ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`, returns ordinary
+`Int` fields for the visible values, and reports structured schema failures
+for truncated fields and reserved-bit mismatches. The HTTP/2 protocol-core
+frame-header decode path and focused protocol diagnostic projection examples
+declare and call that generated helper instead of the former source-visible
+`byte_decode_http2_frame_header` prelude helper. The narrow runtime method
+remains only as internal compatibility for the source-visible
+`byte_decode_http2_frame` payload-boundary helper until that payload slice is
+also generalized. Generated schema helpers
+also consume byte-aligned
 `ReservedBits(width, value)` fields up to four bytes wide as
 representation-only fields, omit those fields from decoded records and
 mapping source values, encode them from the declared fixed value, and report
@@ -241,11 +248,12 @@ external representation facts, not internal Veln type declarations.
 
 ## Scope
 
-Define remaining binary schema support beyond the implemented narrow
-primitive, little-endian primitive widths through `UInt64le`, the `UInt64be`
-big-endian primitive, payload-boundary, closed-dispatch, extension-dispatch,
-same-module nested dispatch payload, imported nested dispatch payload decode,
-and imported nested dispatch payload encode slices
+Define remaining binary schema support beyond the implemented
+`Http2FrameHeaderWire` generated helper, little-endian primitive widths
+through `UInt64le`, the `UInt64be` big-endian primitive, payload-boundary,
+closed-dispatch, extension-dispatch, same-module nested dispatch payload,
+imported nested dispatch payload decode, and imported nested dispatch payload
+encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the
@@ -546,5 +554,5 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- The HTTP/2 design driver can express frame header and payload boundaries
-  through general schema declarations instead of the current narrow helper.
+- The HTTP/2 design driver can express payload boundaries through general
+  schema declarations instead of the remaining narrow payload helper.

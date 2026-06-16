@@ -546,7 +546,6 @@ byte_chunks_one(chunk: ByteChunk) -> List<ByteChunk>
 byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteChunk>
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
-byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
 byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
 byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
 byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
@@ -802,7 +801,7 @@ The implemented standard symbol table has this current pure-helper split:
   `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
   `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
   `byte_read_u8_be`,
-  `byte_expect_fixed_u8_be`, `byte_decode_http2_frame_header`,
+  `byte_expect_fixed_u8_be`,
   `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,
   `byte_decode_schema_validation_sample`,
   `http2_protocol_closed_with_pending`,

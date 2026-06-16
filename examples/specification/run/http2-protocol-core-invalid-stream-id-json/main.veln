@@ -1,5 +1,15 @@
 # HTTP/2 stream id domain failures project structured runtime details.
 
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
+
 type Http2ProtocolFailure
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 end
@@ -22,7 +32,7 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 	let zero: ByteOffset = byte_offset(0)?
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, zero, header_count)?
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
 	validate_stream_id_domain(0, header.kind, header.stream_id)
 end
 

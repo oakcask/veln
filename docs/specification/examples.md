@@ -253,10 +253,10 @@ The executable specification cases
 `../../examples/specification/run/binary-schema-frame-header-truncated-json/`,
 and
 `../../examples/specification/run/binary-schema-frame-header-reserved-json/`
-cover the implemented frame-header primitive decode slice. The valid case
-checks `UInt24be`, two `UInt8` fields, `ReservedBits(1, 0)`, and `UInt31be`
-over one `ByteView`, and its expected record omits the reserved field. The
-failure cases pin structured `schema.truncated_field` and
+cover the generated `Http2FrameHeaderWire` helper path. The valid case checks
+`UInt24be`, two `UInt8` fields, `ReservedBits(1, 0)`, and `UInt31be` over one
+`ByteView`, and its expected record omits the reserved field. The failure
+cases pin structured `schema.truncated_field` and
 `schema.reserved_bits_mismatch` details, including byte offsets and schema
 field paths. The sibling human-output cases
 `../../examples/specification/run/binary-schema-frame-header-truncated-human/`
@@ -977,8 +977,8 @@ ordinary-source HTTP/2 sans-I/O decode-state slice. The example models input
 chunks and end-of-stream as explicit ADT events, stores parser state as the
 undecoded `ByteChunk` suffix plus the next absolute byte offset, validates the
 HTTP/2 client connection preface before any frame header is decoded, and
-reuses the binary frame-header primitive for each available header after the
-preface is consumed.
+reuses the generated `Http2FrameHeaderWire` binary schema helper for each
+available header after the preface is consumed.
 
 The case pins a valid preface followed by a SETTINGS frame, partial preface
 input that waits for more bytes, end-of-stream with a partial preface, a
@@ -1224,6 +1224,10 @@ preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface and invalid-payload byte preview fields,
 concurrent-stream attempted and allowed counts, required stream id domain,
 endpoint role, PRIORITY dependency stream id, and rule provenance. The
+focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
+`Http2FrameHeaderWire` and decode through the generated schema helper before
+projecting protocol diagnostics, so those command-facing cases cover the
+general schema helper path as well as the larger protocol-core fixture. The
 preface human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit

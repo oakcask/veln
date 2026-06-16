@@ -1,5 +1,15 @@
-# Binary schema frame-header primitives decode mapped Int fields.
+# Generated binary schema frame-header helpers decode mapped Int fields.
 use stdio
+
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
 
 fn emit_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> () effects [stdio]
 	stdio::print(int_to_string(header.length))
@@ -16,7 +26,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
 	emit_header(header)
 	Ok(())
 end

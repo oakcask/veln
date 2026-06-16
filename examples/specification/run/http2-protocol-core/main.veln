@@ -503,7 +503,7 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let zero: ByteOffset = byte_offset(0)?
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(pending, zero, header_count)?
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
 	let max_frame_size: Int = receive_limit_value(receive_limit)
 	match header.length > max_frame_size
 		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))

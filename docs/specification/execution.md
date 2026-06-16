@@ -108,14 +108,20 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-four-route-effects/`,
   and
   `examples/specification/check/channel-first-stream-routing-five-route-effects/`.
-- The implemented binary schema primitive execution slice decodes the
-  `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
-  `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
-  ordinary `Int` fields for `length`, `kind`, `flags`, and `stream_id`.
-  The reserved field is consumed and validated but is not exposed in the
-  mapped record. Truncated schema fields report `schema.truncated_field`;
-  invalid reserved bits report `schema.reserved_bits_mismatch`. Both carry
-  byte offset and schema field path details.
+- The generated binary schema helper execution slice decodes the
+  `Http2FrameHeaderWire` field sequence from a `ByteView`: `UInt24be`,
+  `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value
+  exposes ordinary `Int` fields for `length`, `kind`, `flags`, and
+  `stream_id`. The reserved field is consumed and validated but is not
+  exposed in the mapped record. Truncated schema fields report
+  `schema.truncated_field`; invalid reserved bits report
+  `schema.reserved_bits_mismatch`. Both carry byte offset and schema field
+  path details. The checked examples are
+  `examples/specification/run/binary-schema-frame-header-decode/`,
+  `examples/specification/run/binary-schema-frame-header-truncated-json/`,
+  `examples/specification/run/binary-schema-frame-header-truncated-human/`,
+  `examples/specification/run/binary-schema-frame-header-reserved-json/`, and
+  `examples/specification/run/binary-schema-frame-header-reserved-human/`.
 - The `SchemaWidthSample` primitive decode slice consumes `UInt16be` followed
   by `UInt32be` from a `ByteView`. Both visible fields decode to ordinary
   `Int` values. Truncated fields use the same `schema.truncated_field` byte
