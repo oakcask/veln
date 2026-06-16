@@ -726,6 +726,8 @@ complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, or four
 big-endian bytes, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one,
+two, three, or four big-endian bytes, supported consecutive non-byte-aligned
+`UIntN` and `ReservedBits(width, value)` groups whose widths complete one,
 two, three, or four big-endian bytes,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width field and whose payload is an exact-width unsigned
@@ -756,7 +758,10 @@ the visible low-bit record field in the shared storage unit. Supported suffix
 layouts omit the reserved field and write the visible high-bit record field
 with the declared low reserved bits in the shared storage unit. Supported
 middle layouts omit the reserved field and write both adjacent visible record
-fields around the declared reserved bits in the shared storage unit. The closed
+fields around the declared reserved bits in the shared storage unit. Supported
+consecutive non-byte-aligned `UIntN` and `ReservedBits(width, value)` groups
+omit every reserved field and write visible and declared reserved values in
+declaration order in the shared storage unit. The closed
 dispatch encode layout selects the payload width from the earlier visible tag
 field and reports `codec.dispatch_unknown_tag` when no
 case matches. The extension dispatch encode layout writes `Known` selected

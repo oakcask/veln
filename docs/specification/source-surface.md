@@ -167,6 +167,9 @@ plus reserved suffix layouts whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
+supported consecutive non-byte-aligned `UIntN` and
+`ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
+twenty-four, or thirty-two bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` fields whose operands both name
