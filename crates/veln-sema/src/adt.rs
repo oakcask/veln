@@ -516,6 +516,24 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "Flag16le".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag16le".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag16le(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag16le".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "Flag32be".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
@@ -977,6 +995,7 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
             "StreamInput"
                 | "Flag8"
                 | "Flag16be"
+                | "Flag16le"
                 | "Flag32be"
                 | "DecodeError"
                 | "DecodeReadiness"

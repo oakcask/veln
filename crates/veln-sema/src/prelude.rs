@@ -111,6 +111,7 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let byte = Type::named("Byte", Vec::new());
     let flag8 = Type::named("Flag8", Vec::new());
     let flag16be = Type::named("Flag16be", Vec::new());
+    let flag16le = Type::named("Flag16le", Vec::new());
     let flag32be = Type::named("Flag32be", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let byte_view = Type::named("ByteView", Vec::new());
@@ -147,6 +148,19 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "flag16be_from_bits" => Some((
             vec![Type::int()],
             adt::result_type(flag16be.clone(), Type::string()),
+        )),
+        "flag16le_is_set" => Some((
+            vec![flag16le.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag16le_set" => Some((
+            vec![flag16le.clone(), Type::int()],
+            adt::result_type(flag16le.clone(), Type::string()),
+        )),
+        "flag16le_bits" => Some((vec![flag16le.clone()], Type::int())),
+        "flag16le_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag16le.clone(), Type::string()),
         )),
         "flag32be_is_set" => Some((
             vec![flag32be.clone(), Type::int()],
@@ -962,6 +976,7 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
     let byte = CoreType::named("Byte", Vec::new());
     let flag8 = CoreType::named("Flag8", Vec::new());
     let flag16be = CoreType::named("Flag16be", Vec::new());
+    let flag16le = CoreType::named("Flag16le", Vec::new());
     let flag32be = CoreType::named("Flag32be", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
     let byte_view = CoreType::named("ByteView", Vec::new());
@@ -998,6 +1013,19 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "flag16be_from_bits" => Some((
             vec![CoreType::int()],
             adt::core_result_type(flag16be.clone(), CoreType::string()),
+        )),
+        "flag16le_is_set" => Some((
+            vec![flag16le.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag16le_set" => Some((
+            vec![flag16le.clone(), CoreType::int()],
+            adt::core_result_type(flag16le.clone(), CoreType::string()),
+        )),
+        "flag16le_bits" => Some((vec![flag16le.clone()], CoreType::int())),
+        "flag16le_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag16le.clone(), CoreType::string()),
         )),
         "flag32be_is_set" => Some((
             vec![flag32be.clone(), CoreType::int()],
