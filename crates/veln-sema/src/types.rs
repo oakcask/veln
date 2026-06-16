@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
@@ -805,15 +805,8 @@ fn schema_decode_record_fields_inner_after_push(
             {
                 return None;
             }
-            let mut payload_types = dispatch
-                .cases
-                .iter()
-                .map(|case| schema_dispatch_case_type(module, schema, case, stack))
-                .collect::<Option<Vec<_>>>()?;
-            let payload_ty = payload_types.pop()?;
-            if payload_types.iter().any(|ty| ty != &payload_ty) {
-                return None;
-            }
+            let payload_types = schema_dispatch_case_types(module, schema, &dispatch, stack)?;
+            let payload_ty = schema_dispatch_payload_type(schema, &dispatch, &payload_types)?;
             let field_ty = if dispatch.length_field.is_some() {
                 Type::named("SchemaDispatchPayload", vec![payload_ty])
             } else {
@@ -825,6 +818,37 @@ fn schema_decode_record_fields_inner_after_push(
         fields.push((field.name.clone(), ty, width));
     }
     Some(fields)
+}
+
+fn schema_dispatch_case_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    stack: &mut Vec<String>,
+) -> Option<Vec<(i64, Type)>> {
+    dispatch
+        .cases
+        .iter()
+        .map(|case| {
+            let ty = schema_dispatch_case_type(module, schema, case, stack)?;
+            Some((case.tag, ty))
+        })
+        .collect()
+}
+
+fn schema_dispatch_payload_type(
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    payload_types: &[(i64, Type)],
+) -> Option<Type> {
+    let first = payload_types.first()?.1.clone();
+    if payload_types.iter().all(|(_, ty)| ty == &first)
+        || selected_mappings_cover_closed_dispatch(schema, dispatch)
+    {
+        Some(first)
+    } else {
+        None
+    }
 }
 
 fn schema_dispatch_case_type(
@@ -926,6 +950,36 @@ pub(crate) fn schema_decode_value_type(
     schema: &SchemaDecl,
 ) -> Option<Type> {
     schema_decode_value_type_inner(module, schema, &mut Vec::new())
+}
+
+pub(crate) fn selected_mappings_cover_closed_dispatch(
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+) -> bool {
+    if dispatch.length_field.is_some()
+        || schema.mappings.len() != dispatch.cases.len()
+        || schema.mappings.is_empty()
+    {
+        return false;
+    }
+    let case_tags = dispatch
+        .cases
+        .iter()
+        .map(|case| case.tag)
+        .collect::<BTreeSet<_>>();
+    let mut selector_tags = BTreeSet::<i64>::new();
+    for mapping in &schema.mappings {
+        let Some(selector) = &mapping.selector else {
+            return false;
+        };
+        if selector.field != dispatch.tag_field
+            || !case_tags.contains(&selector.value)
+            || !selector_tags.insert(selector.value)
+        {
+            return false;
+        }
+    }
+    selector_tags == case_tags
 }
 
 pub(crate) fn schema_payload_name_path(text: &str) -> Option<Vec<String>> {
@@ -1557,10 +1611,12 @@ fn schema_decode_mapping_record_fields(
         .iter()
         .map(|(name, ty, _)| (name.clone(), ty.clone()))
         .collect::<BTreeMap<_, _>>();
+    let mapping_source_field_types =
+        schema_mapping_source_field_types(module, schema, &source_field_types, first_mapping)?;
     validate_schema_decode_mapping_fields(
         module,
         schema,
-        &source_field_types,
+        &mapping_source_field_types,
         first_mapping,
         &target_fields,
     )?;
@@ -1569,10 +1625,12 @@ fn schema_decode_mapping_record_fields(
         if schema_mapping_target_record_fields(module, schema, mapping)? != target_fields {
             return None;
         }
+        let mapping_source_field_types =
+            schema_mapping_source_field_types(module, schema, &source_field_types, mapping)?;
         validate_schema_decode_mapping_fields(
             module,
             schema,
-            &source_field_types,
+            &mapping_source_field_types,
             mapping,
             &target_fields,
         )?;
@@ -1628,6 +1686,8 @@ fn schema_decode_mapping_fields_for_mapping(
         .iter()
         .map(|(name, ty, _)| (name.clone(), ty.clone()))
         .collect::<BTreeMap<_, _>>();
+    let source_field_types =
+        schema_mapping_source_field_types(module, schema, &source_field_types, mapping)?;
     let mut fields = Vec::new();
     for (target, target_ty) in target_fields {
         let assignment = mapping
@@ -1647,6 +1707,35 @@ fn schema_decode_mapping_fields_for_mapping(
             source: assignment.source.clone(),
             expr: typed.expr,
         });
+    }
+    Some(fields)
+}
+
+pub(crate) fn schema_mapping_source_field_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &BTreeMap<String, Type>,
+    mapping: &SchemaMappingClause,
+) -> Option<BTreeMap<String, Type>> {
+    let mut fields = schema_fields.clone();
+    let Some(selector) = &mapping.selector else {
+        return Some(fields);
+    };
+    for field in &schema.fields {
+        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty) else {
+            continue;
+        };
+        if dispatch.tag_field != selector.field
+            || !selected_mappings_cover_closed_dispatch(schema, &dispatch)
+        {
+            continue;
+        }
+        let case = dispatch
+            .cases
+            .iter()
+            .find(|case| case.tag == selector.value)?;
+        let ty = schema_dispatch_case_type(module, schema, case, &mut Vec::new())?;
+        fields.insert(field.name.clone(), ty);
     }
     Some(fields)
 }

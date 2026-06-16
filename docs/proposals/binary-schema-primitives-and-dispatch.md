@@ -107,6 +107,14 @@ paths are accepted by those same dispatch decode helper slices and decode to
 the imported schema's record shape. Imported private, missing, wrong-kind,
 non-binary, recursive, or otherwise ineligible payload schemas use the
 existing `schema.dispatch_payload` diagnostic shape.
+Closed dispatch payload cases with mixed primitive and nested schema decoded
+shapes are implemented for the selected mapping boundary when every selector
+uses the dispatch tag field, every dispatch case has one distinct matching
+selector literal, each selected branch type-checks `payload` against that
+case's payload shape, and all selected mappings resolve to one target record
+shape. Selectors outside the dispatch tag field, extension dispatch, and
+uncovered mixed cases remain rejected through the existing dispatch payload or
+mapping selection diagnostics.
 The same-module and imported public nested payload encode slice implements known
 `Dispatch(..., tag => SchemaName, ...)` and
 `ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
@@ -252,8 +260,8 @@ Define remaining binary schema support beyond the implemented
 `Http2FrameHeaderWire` generated helper, little-endian primitive widths
 through `UInt64le`, the `UInt64be` big-endian primitive, payload-boundary,
 closed-dispatch, extension-dispatch, same-module nested dispatch payload,
-imported nested dispatch payload decode, and imported nested dispatch payload
-encode slices
+imported nested dispatch payload decode, mixed closed dispatch selected
+mapping decode, and imported nested dispatch payload encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the

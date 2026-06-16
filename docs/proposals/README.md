@@ -87,7 +87,10 @@ compare it with `../specification/` before changing behavior.
   The nested payload helper slices accept eligible nested payload schemas that
   use the same generated binary schema helper path used for ordinary generated
   schema fields, and checked non-HTTP coverage combines the implemented helper
-  vocabulary in one decode-and-encode schema.
+  vocabulary in one decode-and-encode schema. Closed dispatch payload cases
+  with mixed primitive and nested decoded shapes are implemented for selected
+  mappings keyed by the dispatch tag field when those mappings cover the
+  dispatch cases and resolve to one target record shape.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

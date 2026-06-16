@@ -352,6 +352,19 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
   `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
+- Closed dispatch cases may decode to mixed primitive and nested record payload
+  shapes only when selected `map to Target when tag_field == literal` clauses
+  cover the dispatch tag cases with distinct literals and all selected
+  mappings resolve to the same target record shape. Each selected branch
+  type-checks `payload` as the payload shape chosen by that branch literal;
+  other fields keep their schema-local decoded types. The helper still decodes
+  the dispatch case from the already decoded tag value before applying the
+  selected mapping. Extension dispatch, selectors other than the dispatch tag,
+  and uncovered or duplicate case selectors remain outside this mixed-payload
+  boundary. The checked examples are
+  `examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`
+  and
+  `examples/specification/check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`.
 - The narrow binary schema extension dispatch slice decodes
   `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields
   after both referenced fields have been decoded by earlier exact-width fields
@@ -411,7 +424,9 @@ execution reference.
   length-bounded
   `ByteView(length_field)` and `ByteView(left_length - right_length)` payload
   fields as `ByteView`; closed nested dispatch payload fields as the
-  nested schema record shape; and extension dispatch payload fields as
+  nested schema record shape; closed mixed dispatch payload fields as the
+  selected primitive `Int` or nested schema record shape inside the matching
+  selector branch; and extension dispatch payload fields as
   `SchemaDispatchPayload<T>`. Mapping expressions cannot call bare imported
   converter names, private imported converter functions, arbitrary ordinary
   functions, read runtime settings, inspect stream state, recover from decode
@@ -433,8 +448,10 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
-  `examples/specification/run/binary-schema-mapped-field-selection-decode/`, and
-  `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
+  `examples/specification/run/binary-schema-mapped-field-selection-decode/`,
+  `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`,
+  and
+  `examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
   `ByteOffset`. When the view has at least the schema's exact-width byte

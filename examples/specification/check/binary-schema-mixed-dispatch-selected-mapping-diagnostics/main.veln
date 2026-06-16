@@ -1,0 +1,27 @@
+# Mixed dispatch payloads still require selected mappings to use the dispatch tag.
+type Packet
+	Packet {kind: Int, value: Int}
+end
+
+schema PriorPayload
+	format binary
+
+	code: UInt8
+	value: UInt8
+end
+
+schema WrongSelectorPacket
+	format binary
+
+	kind: UInt8
+	selector: UInt8
+	payload: Dispatch(kind, 1 => UInt8, 2 => PriorPayload)
+
+	map to Packet when selector == 1
+		kind = kind
+		value = payload
+
+	map to Packet when selector == 2
+		kind = kind
+		value = payload.value
+end

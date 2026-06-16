@@ -1,0 +1,19 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"

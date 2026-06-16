@@ -433,6 +433,9 @@ returns the computed `Int` target field.
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
 pins mapping assignment field selection from a decoded nested record value.
+`../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`
+pins selected mapping branches that wrap mixed primitive and nested closed
+dispatch payloads into one target record shape.
 `../../examples/specification/check/schema-mapping-field-selection-diagnostics/`
 pins missing selected fields and selection from non-record mapping values.
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
@@ -800,6 +803,10 @@ through a `derive decode` codec boundary, including the returned
 pins the static boundary for nested dispatch payload schema names, including
 missing names, non-schema names, private imported schemas, closed and
 extension self references, forward references, and incompatible payload shapes.
+`../../examples/specification/check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`
+pins the remaining `schema.dispatch_payload` rejection when mixed dispatch
+payload shapes use selected mappings keyed by a field other than the dispatch
+tag.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
