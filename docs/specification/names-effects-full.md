@@ -289,14 +289,17 @@ and deadline calls listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
 through two, three, four, receiver-list five-route, and receiver-list
-six-route typed channel routes, select a ready route with existing channel
-selection, and then invoke a plain handler with explicit per-stream state. The
-receiver-list routes use `channel::select_many_priority` on a non-empty
-`List<Receiver<StreamInput>>` and preserve supplied list order as priority
-order. The routing adapter declares `concurrency`; a socket wrapper that reads
-`NetStream` input, calls the channel-first route, and projects response
-actions back to `net::write_chunk` declares both `net` and `concurrency`. The
-handler itself remains free of transport effects.
+six-route, and receiver-list timeout typed channel routes, select a ready
+route with existing channel selection, and then invoke a plain handler with
+explicit per-stream state. The receiver-list priority routes use
+`channel::select_many_priority` on a non-empty `List<Receiver<StreamInput>>`
+and preserve supplied list order as priority order. The timeout route uses
+`channel::select_many_timeout` with the same list priority and returns `None`
+when no receiver is ready before the timeout. The routing adapter declares
+`concurrency`; a socket wrapper that reads `NetStream` input, calls the
+channel-first route, and projects response actions back to
+`net::write_chunk` declares both `net` and `concurrency`. The handler itself
+remains free of transport effects.
 
 ## Process Calls
 
@@ -335,6 +338,7 @@ channel::recv(rx: Receiver<T>) -> Option<T> effects [concurrency]
 channel::select(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_priority(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_many_priority(receivers: List<Receiver<T>>) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_many_timeout(receivers: List<Receiver<T>>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_timeout(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_priority_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
@@ -373,6 +377,11 @@ left receiver wins.
 receiver index from that list. When multiple receivers are ready in the same
 poll, the earliest receiver in the supplied list wins. It returns `None` after
 all supplied receivers are closed and drained.
+`channel::select_many_timeout(receivers, timeout_ms)` has the same receiver
+list and return typing as `channel::select_many_priority`, plus an `Int`
+millisecond timeout. It preserves supplied list order as priority order and
+returns `None` when no supplied receiver has a ready value before the timeout
+elapses. Negative timeouts wait without a timeout.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative

@@ -1,0 +1,32 @@
+# Receiver-list timeout selection requires the adapter concurrency effect.
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match selected
+		Some(route) => handle_stream_input(route.index, route.value, state)
+		None => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+	end
+end
+
+fn route_with_timeout(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	handle_selected(channel::select_many_timeout(receivers, 25), state)
+end
+
+pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id, input, state)
+end
+
+pub fn adapter_missing_concurrency(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	route_with_timeout(receivers, state)
+end

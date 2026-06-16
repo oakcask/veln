@@ -1,0 +1,98 @@
+# Receiver-list timeout selection keeps list priority and adapter handlers plain.
+use stdio
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+fn ready_score(selected: Option<{ index : Int, value : Int }>) -> Int
+	match selected
+		Some(value) => value.index * 100 + value.value
+		None => 0
+	end
+end
+
+fn timeout_score(selected: Option<{ index : Int, value : Int }>) -> Int
+	match selected
+		Some(value) => value.index * 100 + value.value
+		None => 0
+	end
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn stream_id_for_index(index: Int) -> Int
+	match index
+		0 => 11
+		1 => 13
+		_ => 17
+	end
+end
+
+fn handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match selected
+		Some(route) => handle_stream_input(stream_id_for_index(route.index), route.value, state)
+		None => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+	end
+end
+
+fn route_with_timeout(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	handle_selected(channel::select_many_timeout(receivers, 25), state)
+end
+
+fn action_score(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(stream_id, _) => stream_id * 10 + action_score(tail)
+			EndStream(stream_id) => stream_id * 10 + action_score(tail)
+			Decline(stream_id) => stream_id * 10 + action_score(tail)
+		end
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let first = channel::bounded<Int>(1)
+	let second = channel::bounded<Int>(1)
+	let third = channel::bounded<Int>(1)
+	let _ = channel::send(second.tx, 21)
+	let _ = channel::send(third.tx, 34)
+	let ready_receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_nil())))
+	let ready_selected = channel::select_many_timeout(ready_receivers, 25)
+	let timeout_first = channel::bounded<Int>(1)
+	let timeout_second = channel::bounded<Int>(1)
+	let timeout_receivers: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))
+	let timeout_selected = channel::select_many_timeout(timeout_receivers, 0)
+	let stream_bytes: ByteChunk = byte_chunk_from_hex("abcd")?
+	let stream_first = channel::bounded<StreamInput>(1)
+	let stream_second = channel::bounded<StreamInput>(1)
+	let stream_third = channel::bounded<StreamInput>(1)
+	let _ = channel::send(stream_third.tx, Chunk(stream_bytes))
+	let stream_receivers: List<Receiver<StreamInput>> = list_cons(stream_first.rx, list_cons(stream_second.rx, list_cons(stream_third.rx, list_nil())))
+	let handled = route_with_timeout(stream_receivers, { chunks: 0, ended: false })
+	stdio::print("ready ")
+	stdio::print(int_to_string(ready_score(ready_selected)))
+	stdio::print(" timeout ")
+	stdio::print(int_to_string(timeout_score(timeout_selected)))
+	stdio::print(" route-actions ")
+	stdio::print(int_to_string(action_score(handled.actions)))
+	stdio::print(" chunks ")
+	stdio::print(int_to_string(handled.next_state.chunks))
+	stdio::print(" ended ")
+	stdio::println(bool_text(handled.next_state.ended))
+	Ok(())
+end
