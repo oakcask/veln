@@ -238,7 +238,12 @@ execution reference.
   two-byte, three-byte, or four-byte big-endian storage unit. That form
   decodes the visible fields from their declared high-to-low positions,
   validates the middle reserved field at the reserved field path, omits the
-  reserved field, and advances by the shared storage width.
+  reserved field, and advances by the shared storage width. A supported
+  prefix group may also place `ReservedBits(width, value)` before two visible
+  `UIntN` fields when all three widths complete one byte. That form validates
+  the high reserved bits, decodes the following visible fields from their
+  declared high-to-low positions, omits the reserved field, and advances by
+  the shared storage width.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports
@@ -472,6 +477,11 @@ execution reference.
   storage unit are also representation-only: the helper writes both visible
   values around the declared reserved value in declaration order and reports
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
+  A supported prefix group with `ReservedBits(width, value)` followed by two
+  visible `UIntN` fields whose widths complete one byte writes the declared
+  reserved value first, then the two visible values in declaration order, and
+  reports `codec.encode_value_unrepresentable` at the out-of-range visible
+  field.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -600,6 +610,7 @@ execution reference.
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-middle-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,

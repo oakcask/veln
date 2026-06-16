@@ -179,6 +179,7 @@ fn schema_decode_spec_inner_after_push(
                     .checked_sub(1)
                     .and_then(|previous| schema.fields.get(previous)),
                 schema.fields.get(index + 1),
+                schema.fields.get(index + 2),
                 reserved,
             )?;
             fields.push(IrSchemaDecodeField {

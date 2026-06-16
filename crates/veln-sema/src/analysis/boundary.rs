@@ -1801,10 +1801,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                             .and_then(|index| index.checked_sub(1))
                             .and_then(|index| schema.fields.get(index));
                         let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
+                        let next_next_field =
+                            field_index.and_then(|index| schema.fields.get(index + 2));
                         if supported_encode_reserved_bits(
                             previous_previous_field,
                             previous_field,
                             next_field,
+                            next_next_field,
                             reserved,
                         )
                         .is_none()

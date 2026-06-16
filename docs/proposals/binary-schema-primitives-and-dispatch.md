@@ -41,6 +41,14 @@ emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
 truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema
+helpers also consume and encode a one-byte reserved prefix group where
+`ReservedBits(width, value)` is followed by two visible `UIntN` fields and
+all three widths complete the byte. The helpers validate or emit the high
+reserved bits, decode or encode the two visible fields from high to low, omit
+the reserved field from decoded records and mapping source values, and report
+the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
+Generated schema
 helpers also decode and encode standalone visible
 `UInt1` through `UInt7` fields as one byte each, expose the declared low bits
 as ordinary `Int` values, preserve structural mapping and generated
@@ -241,7 +249,8 @@ for:
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
-  or four-byte big-endian storage unit
+  or four-byte big-endian storage unit, and one-byte reserved prefix groups
+  followed by two visible `UIntN` fields
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset,
   two-byte big-endian `Flag16be` bitset, two-byte little-endian `Flag16le`
   bitset, four-byte big-endian `Flag32be` bitset, and four-byte little-endian
@@ -390,7 +399,8 @@ three-byte, and four-byte packed reserved suffix slice, and the
 `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
-storage unit are implemented under `../specification/execution.md`.
+storage unit, and one-byte reserved prefix groups followed by two visible
+`UIntN` fields are implemented under `../specification/execution.md`.
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

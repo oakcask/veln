@@ -770,6 +770,7 @@ fn schema_decode_record_fields_inner_after_push(
                     .checked_sub(1)
                     .and_then(|previous| schema.fields.get(previous)),
                 schema.fields.get(index + 1),
+                schema.fields.get(index + 2),
                 reserved,
             )?;
             continue;
@@ -1019,6 +1020,7 @@ fn schema_encode_function_signature_for_schema(
                     .checked_sub(1)
                     .and_then(|previous| schema.fields.get(previous)),
                 schema.fields.get(index + 1),
+                schema.fields.get(index + 2),
                 reserved,
             )?;
             continue;
@@ -2760,6 +2762,7 @@ pub(crate) fn supported_encode_reserved_bits(
     previous_previous_field: Option<&veln_ast::SchemaField>,
     previous_field: Option<&veln_ast::SchemaField>,
     next_field: Option<&veln_ast::SchemaField>,
+    next_next_field: Option<&veln_ast::SchemaField>,
     reserved: (i64, i64),
 ) -> Option<(u8, i64)> {
     let (bit_width, expected_value) = reserved;
@@ -2791,6 +2794,11 @@ pub(crate) fn supported_encode_reserved_bits(
         if expected_value <= max_value {
             return Some((bit_width as u8, expected_value));
         }
+    }
+    if let (Some(next_field), Some(next_next_field)) = (next_field, next_next_field)
+        && supported_prefix_reserved_group(next_field, next_next_field, bit_width, expected_value)
+    {
+        return Some((bit_width as u8, expected_value));
     }
     if let Some(packed_storage_bit_width) = packed_reserved_storage_bit_width(bit_width)
         && !previous_previous_field.is_some_and(|field| {
@@ -2824,6 +2832,37 @@ pub(crate) fn supported_encode_reserved_bits(
         return Some((bit_width as u8, expected_value));
     }
     None
+}
+
+fn supported_prefix_reserved_group(
+    first_visible_field: &veln_ast::SchemaField,
+    second_visible_field: &veln_ast::SchemaField,
+    bit_width: i64,
+    expected_value: i64,
+) -> bool {
+    if bit_width <= 0 || bit_width > 32 {
+        return false;
+    }
+    if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
+        || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
+        || flag_schema_primitive(&first_visible_field.ty).is_some()
+        || flag_schema_primitive(&second_visible_field.ty).is_some()
+    {
+        return false;
+    }
+    let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_visible_field.ty)
+    else {
+        return false;
+    };
+    let Some(second_bit_width) = exact_width_schema_primitive_bit_width(&second_visible_field.ty)
+    else {
+        return false;
+    };
+    let total_bit_width = bit_width + i64::from(first_bit_width) + i64::from(second_bit_width);
+    bit_width % 8 != 0
+        && (bit_width + i64::from(first_bit_width)) % 8 != 0
+        && total_bit_width == 8
+        && expected_value < (1_i64 << bit_width)
 }
 
 fn supported_packed_reserved_prefix(

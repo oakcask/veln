@@ -578,6 +578,13 @@ visible fields, and visible out-of-range encode values keep the ordinary
 pins `schema.reserved_bits_mismatch` field path, byte offset, bit width,
 expected value, actual value, and byte preview details for the same middle
 layout.
+`../../examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`
+pins a non-byte-aligned reserved prefix followed by two visible `UIntN`
+fields in the same one-byte storage unit: decode omits the
+`ReservedBits(width, value)` field while preserving both visible fields,
+encode writes the declared reserved bits before those visible fields, and
+visible out-of-range encode values keep the ordinary
+`codec.encode_value_unrepresentable` shape.
 
 `../../examples/specification/run/binary-schema-byteview-encode/` and
 `../../examples/specification/run/binary-schema-byteview-encode-length-mismatch/`
@@ -641,6 +648,11 @@ also pins middle reserved-bit encode: the helper writes the declared reserved
 value between adjacent visible fields in the shared storage unit and reports
 `codec.encode_value_unrepresentable` against the adjacent visible field when
 the input record value exceeds that field's range.
+`../../examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`
+pins the matching reserved prefix group encode slice for one-byte storage:
+the helper writes the declared reserved value before two visible `UIntN`
+fields and reports `codec.encode_value_unrepresentable` against the visible
+field whose input value exceeds its range.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-encode/`
 pins the closed dispatch encode helper slice. The passing cases select
