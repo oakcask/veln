@@ -736,6 +736,10 @@ against the built `veln` binary.
   slice returns a structured `EncodeError` with
   `codec.encode_value_unrepresentable`, schema field path, and primitive range
   reason when a `UInt31be` value exceeds its maximum.
+- `run/binary-schema-goaway-payload-encode/`: a schema-declared GOAWAY
+  payload record encodes `ReservedBits(1, 0)`, `UInt31be`, and `UInt32be`
+  through the general generated helper path, preserving field-path range
+  failures for both visible payload fields.
 - `run/binary-schema-flag8-encode/`: generated schema encode helpers write a
   `Flag8(bits)` field through the one-byte `UInt8` representation path.
 - `run/binary-schema-flag8-encode-out-of-range/`: generated schema encode

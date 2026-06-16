@@ -81,8 +81,8 @@ compare it with `../specification/` before changing behavior.
   and extension-dispatch tags and lengths,
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema
-  decode helpers, exact-width primitive encode, the narrow HTTP/2 payload
-  boundary helper, and narrow closed-dispatch and extension-dispatch
+  decode helpers, exact-width primitive encode, the HTTP/2 GOAWAY payload
+  schema encode boundary, and narrow closed-dispatch and extension-dispatch
   primitive, same-module nested, and imported public nested payload helpers.
   The nested payload helper slices route selected nested payload schemas
   through the same generated binary schema helper path used for ordinary

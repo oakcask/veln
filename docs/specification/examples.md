@@ -1230,8 +1230,11 @@ emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
 so a later peer-created HEADERS stream greater than the sent last stream id
 follows the existing post-GOAWAY stream rejection boundary. It preserves
-generated encode-helper representation failures for the last stream id or
-error-code payload before accepted bytes are produced.
+generated schema payload encode-helper representation failures for the last
+stream id or error-code payload before accepted bytes are produced. The
+focused `run/binary-schema-goaway-payload-encode/` case pins the same
+`ReservedBits(1, 0)` plus `UInt31be` and `UInt32be` payload boundary through
+the general `byte_encode_<schema>` helper path.
 Protocol failures stay as ordinary ADT values and are projected by source code
 into stable diagnostic ids and related context fields for byte offset,
 observed and allowed lengths, actual and expected frame kind, stream reference,
