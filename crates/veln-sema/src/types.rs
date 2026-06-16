@@ -2186,13 +2186,13 @@ fn schema_mapping_name_expr_inferred(
     expr: &Expr,
     segments: &[String],
 ) -> SchemaMappingExprResult {
-    if let [name] = segments {
-        if let Some(ty) = context.schema_fields.get(name) {
-            return Ok(SchemaMappingTypedExpr {
-                ty: ty.clone(),
-                expr: SchemaDecodeMappingExpr::Field(name.clone()),
-            });
-        }
+    if let [name] = segments
+        && let Some(ty) = context.schema_fields.get(name)
+    {
+        return Ok(SchemaMappingTypedExpr {
+            ty: ty.clone(),
+            expr: SchemaDecodeMappingExpr::Field(name.clone()),
+        });
     }
     let constructor = schema_mapping_constructor(
         context.registry,
