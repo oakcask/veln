@@ -70,9 +70,11 @@ and
 `../../examples/specification/run/binary-schema-integer-out-of-range-human/`.
 Generated bounded repeated binary schema fields append an `index` segment to
 the structured schema field path when a repeated element truncates; the
-current behavior is specified under `../specification/run-json.md` and
+current behavior is specified under `../specification/run-json.md`,
+`../specification/commands.md`, and `../specification/execution.md` and
 checked by
-`../../examples/specification/run/binary-schema-repeat-truncated-json/`.
+`../../examples/specification/run/binary-schema-repeat-truncated-json/` and
+`../../examples/specification/run/binary-schema-repeat-truncated-human/`.
 The implemented HTTP/2 projection boundary now also includes an ordinary
 source-level `Http2DiagnosticContext` and top-level
 `http2_protocol_diagnostic` function in the protocol-core executable example.

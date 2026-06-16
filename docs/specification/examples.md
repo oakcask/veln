@@ -528,6 +528,14 @@ pin the same boundary for `ByteView(length - padding_length)`, including
 negative computed lengths, payload truncation, direct helper encode mismatch,
 and derived codec encode success.
 
+`../../examples/specification/run/binary-schema-repeat-truncated-json/` and
+`../../examples/specification/run/binary-schema-repeat-truncated-human/` pin
+repeated primitive decode truncation. The JSON case asserts
+`schema.truncated_field` with the repeated field path plus the failed element
+`index` segment. The human case keeps the primary message focused on the
+missing byte offset and carries readiness, byte counts, nearby bytes, and the
+same indexed field path in related notes.
+
 `../../examples/specification/run/binary-schema-packed-reserved-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-encode/`,

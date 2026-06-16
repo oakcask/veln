@@ -576,6 +576,9 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-truncated-json/`: repeated primitive truncation
   reports `schema.truncated_field` with the repeated field path plus an
   `index` segment for the element that could not be fully read.
+- `run/binary-schema-repeat-truncated-human/`: repeated primitive truncation
+  keeps the human primary message focused on the missing byte offset and puts
+  readiness, byte counts, nearby bytes, and the indexed field path in notes.
 - `run/binary-schema-repeat-nested-decode/`: generated schema decode helpers
   read a bounded `Repeat(count_field, SchemaName)` field into a list of nested
   decoded records.
