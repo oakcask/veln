@@ -283,9 +283,10 @@ for:
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode helper slices
-- field references inside later field definitions beyond implemented
-  bounded repeat counts, byte-view lengths, dispatch tags, and extension
-  dispatch lengths
+- field references inside later field definitions beyond implemented bounded
+  repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
+  lengths, and their declaration-time missing, forward, and wrong-role
+  reference diagnostics
 - recursive or otherwise ineligible dispatch payload schemas beyond the
   implemented same-module and imported public nested helper slices
 
@@ -523,7 +524,7 @@ codec functions after schema decoding.
 ## Discussion Result: Field Reference Scope
 
 Field references inside binary schemas should be schema-local, unique, and
-forward-only. A field definition may reference fields decoded earlier in the
+backward-only. A field definition may reference fields decoded earlier in the
 same schema by their field name. It must not reference later fields, ordinary
 source values, imported functions, runtime settings, connection state, or
 stream state.

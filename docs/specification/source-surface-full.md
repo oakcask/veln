@@ -117,21 +117,26 @@ both references name earlier visible `Int` fields in the same schema. A
 repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
 schema field decodes and encodes as a list of the nested schema's decoded
 record shape; and a repeated `ByteView(length_field)` field decodes and
-encodes as `List<ByteView>`. Binary schema fields
-also accept the closed dispatch
+encodes as `List<ByteView>`. Missing, forward, or non-`Int` repeat count
+references report `schema.repeat_reference`; missing, forward, or non-`Int`
+byte-view length references report `schema.byte_view_reference`. Binary schema
+fields also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
 the referenced fields were decoded earlier in the same schema and case
 payloads are implemented exact-width unsigned primitives, same-module binary
 schema items, or public imported binary schemas named through written `use`
-paths. Exact-width primitive names used outside `format binary` schema
-field type positions report `schema.exact_width_primitive`. Missing
+paths. The tag and length references must resolve to visible `Int` fields.
+Exact-width primitive names used outside `format binary` schema field type
+positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
 recursive, or incompatible report `schema.dispatch_payload`. The checked
-diagnostics case is
+field-reference diagnostics case is
+`../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
+the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
 
 A schema may end with one or more structural mapping clauses:

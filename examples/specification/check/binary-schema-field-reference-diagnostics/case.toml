@@ -1,0 +1,107 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.repeat_reference\"", "\"id\":\"schema.byte_view_reference\"", "\"id\":\"schema.dispatch_reference\"", "\"reason\":\"unknown_field_reference\"", "\"reason\":\"forward_field_reference\"", "\"reason\":\"incompatible_field_reference\"", "Compatible earlier count field `available_count` is declared here.", "Compatible earlier length field `available_length` is declared here.", "Compatible earlier tag field `available_tag` is declared here."]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 15
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count field `missing_count` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count field `later_count` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count field `flags` decodes as `Flag8`, not `Int`"
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `missing_length` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `later_length` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `missing_tag` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `later_tag` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `flags` decodes as `Flag8`, not `Int`"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `missing_extension_tag` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `later_extension_tag` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch tag field `extension_tag_flags` decodes as `Flag8`, not `Int`"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch length field `missing_extension_length` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch length field `later_extension_length` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.dispatch_reference"
+severity = "error"
+kind = "name"
+message = "dispatch length field `extension_length_flags` decodes as `Flag8`, not `Int`"

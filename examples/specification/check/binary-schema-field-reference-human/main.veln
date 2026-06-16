@@ -1,0 +1,8 @@
+# Human diagnostics include the compatible earlier schema field when available.
+
+schema Packet
+	format binary
+
+	available_length: UInt8
+	payload: ByteView(missing_length)
+end
