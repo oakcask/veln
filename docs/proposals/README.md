@@ -23,7 +23,8 @@ compare it with `../specification/` before changing behavior.
   public representation conversion hooks whose arguments may be schema-local
   fields or structural mapping expressions, decoded-field integer equality
   mapping selection, focused mapping selection diagnostics, and the
-  generated-helper schema validation diagnostic boundary, plus direct
+  generated-helper schema validation diagnostic boundary, generated
+  `validate_<schema>` decoded-record validation boundary, plus direct
   structural mapped schema encode helper, derived encode boundary support, and
   codec decode boundaries
   over multiple decoded-field selected mappings that resolve to one mapped

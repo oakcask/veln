@@ -181,7 +181,9 @@ fn run_human(
 }
 
 fn runtime_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
-    byte_result_failure_diagnostic(failure).or_else(|| protocol_result_failure_diagnostic(failure))
+    byte_result_failure_diagnostic(failure)
+        .or_else(|| value_result_failure_diagnostic(failure))
+        .or_else(|| protocol_result_failure_diagnostic(failure))
 }
 
 fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
@@ -815,6 +817,47 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic
                 .related
                 .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
+        _ => None,
+    }
+}
+
+fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
+    let details = json_object(&failure.details)?;
+    let value_diagnostic = json_field(details, "value_diagnostic")?;
+    let value_entries = json_object(value_diagnostic)?;
+    let id = json_string(value_entries, "id")?;
+
+    match id.as_str() {
+        "schema.validation_failed" => {
+            let predicate = json_string(value_entries, "predicate")?;
+            let supplied_values = json_string(value_entries, "supplied_values")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                result_failure_value(failure)?,
+                None,
+                value_diagnostic.clone(),
+            );
+            if let Some(field_value) = json_number(value_entries, "field_value") {
+                diagnostic.related.push(note_json(format!(
+                    "Predicate `{predicate}` failed for supplied field value {field_value}."
+                )));
+            } else {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Schema predicate `{predicate}` failed.")));
+            }
+            diagnostic
+                .related
+                .push(note_json(format!("Supplied values: {supplied_values}.")));
+            if let Some(field_path) = field_path_text(value_entries) {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Field path: {field_path}.")));
+            }
             Some(diagnostic)
         }
         _ => None,

@@ -53,6 +53,10 @@ The implemented first slice covers:
 - executable field-local validation helper slices that decode binary schema
   fields in declaration order and evaluate supported `where` predicates after
   the owning field is decoded
+- generated `validate_<schema>` helper bindings for eligible source
+  `format binary` schemas that validate a supplied schema-local decoded record
+  with the same supported field-local `where` predicate language used by
+  generated binary decode helpers
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
 schemas whose fields use implemented exact-width unsigned primitives,
   length-bounded `ByteView(length_field)` or
@@ -349,6 +353,11 @@ Implemented:
   decoded fields, and report `schema.validation_failed` with byte offset,
   field path, predicate text, decoded values, and structured byte preview
   fields.
+- Executable `validate_<schema>` helpers evaluate supported field-local
+  `where` predicates over supplied schema-local decoded records, return the
+  supplied record on success, and report `schema.validation_failed` with
+  field path, predicate text, owning supplied field value, and supplied decoded
+  values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
@@ -371,8 +380,8 @@ Implemented:
 
 Remaining:
 
-- General schema validation execution beyond the implemented generated-helper
-  slice evaluates arbitrary schema declarations.
+- General schema validation execution outside the implemented binary
+  schema-local decoded-record helper slice.
 - Runtime schema value mapping beyond the implemented schema-local field
   reference, record construction, ADT constructor construction, one pure
   same-module or imported public converter call, and decoded-field integer

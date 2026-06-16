@@ -697,6 +697,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaEncodeStep(name) => {
                 self.emit_schema_encode_step_call(code, name, args);
             }
+            IrCallTarget::SchemaValidate(name) => {
+                self.emit_schema_validate_call(code, name, args);
+            }
             IrCallTarget::StdioBuiltin(name) => {
                 for arg in args {
                     self.emit_expr(code, arg);
@@ -898,6 +901,29 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             &self.program.options.runtime_class,
             "byteEncodeStepDeclaredBinarySchema",
             &object_method_descriptor(23),
+        );
+    }
+
+    fn emit_schema_validate_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema validation spec `{name}`"));
+        let [value] = args else {
+            panic!("schema validation call should receive one record argument");
+        };
+        self.emit_expr(code, value);
+        code.ldc_string(&schema.schema_name);
+        self.emit_schema_field_names(code, schema);
+        self.emit_schema_field_predicates(code, schema);
+        self.emit_schema_validation(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "validateDeclaredSchemaValue",
+            &object_method_descriptor(5),
         );
     }
 

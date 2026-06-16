@@ -55,6 +55,7 @@ pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
 pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
 pub(crate) const SCHEMA_ENCODE_STEP_TARGET_PREFIX: &str = "schema-encode-step:";
+pub(crate) const SCHEMA_VALIDATE_TARGET_PREFIX: &str = "schema-validate:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
@@ -281,6 +282,7 @@ impl TypeEnvironment {
         let mut functions = ordinary_function_signatures(module);
         functions.extend(schema_decode_function_signatures(module));
         functions.extend(schema_encode_function_signatures(module));
+        functions.extend(schema_validate_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
@@ -961,6 +963,40 @@ fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
         .iter()
         .filter_map(|schema| schema_encode_function_signature_for_schema(module, schema))
         .collect()
+}
+
+fn schema_validate_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+    module
+        .schemas
+        .iter()
+        .filter_map(|schema| schema_validate_function_signature_for_schema(module, schema))
+        .collect()
+}
+
+fn schema_validate_function_signature_for_schema(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<FunctionSignature> {
+    let schema_name = schema.name.as_ref()?;
+    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+        return None;
+    }
+    let fields = schema_decode_record_fields(module, schema)?
+        .into_iter()
+        .map(|(name, ty, _)| (name, ty))
+        .collect::<Vec<_>>();
+    let decoded_type = Type::Record(fields);
+    Some(FunctionSignature {
+        name: schema_validate_function_name(schema_name),
+        target_name: format!("{SCHEMA_VALIDATE_TARGET_PREFIX}{schema_name}"),
+        module_name: schema.module_name.clone(),
+        visibility: schema.visibility,
+        params: vec![decoded_type.clone()],
+        return_type: Type::named("Result", vec![decoded_type, Type::string()]),
+        effects: Vec::new(),
+        node_id: schema.node_id,
+        span: schema.span.clone(),
+    })
 }
 
 fn schema_encode_function_signature_for_schema(
@@ -2185,6 +2221,10 @@ pub(crate) fn schema_decode_step_function_name(schema_name: &str) -> String {
 
 pub(crate) fn schema_encode_function_name(schema_name: &str) -> String {
     format!("byte_encode_{}", snake_case_identifier(schema_name))
+}
+
+pub(crate) fn schema_validate_function_name(schema_name: &str) -> String {
+    format!("validate_{}", snake_case_identifier(schema_name))
 }
 
 pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {

@@ -1,0 +1,23 @@
+# Schema value validation accepts an ordinary decoded schema representation.
+use stdio
+
+schema OrdinaryPacket
+	format binary
+
+	length: UInt8
+	padding_length: UInt8 where padding_length <= length
+	payload: ByteView(length - padding_length)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {length: Int, padding_length: Int, payload: ByteView} = validate_ordinary_packet({length: 5, padding_length: 3, payload: view})?
+	stdio::print("validated ")
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::println(int_to_string(packet.padding_length))
+	Ok(())
+end

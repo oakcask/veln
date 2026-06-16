@@ -35,6 +35,7 @@
         String value = format(asResult(result).value());
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
         ByteDiagnostic byteDiagnostic = byteDiagnostics.get().remove(value);
+        ValueDiagnostic valueDiagnostic = valueDiagnostics.get().remove(value);
         ProtocolDiagnostic protocolDiagnostic = protocolDiagnostics.get().remove(value);
         String line = "result"
             + "\t" + hex(value);
@@ -59,6 +60,15 @@
                 + formatByteDiagnosticFieldPath(byteDiagnostic.fieldPath)
                 + "\t" + Integer.toString(byteDiagnostic.details.size())
                 + formatDiagnosticDetails(byteDiagnostic.details);
+        }
+        if (valueDiagnostic != null) {
+            line = line
+                + "\tvalue_diagnostic"
+                + "\t" + valueDiagnostic.id
+                + "\t" + Integer.toString(valueDiagnostic.fieldPath.size())
+                + formatByteDiagnosticFieldPath(valueDiagnostic.fieldPath)
+                + "\t" + Integer.toString(valueDiagnostic.details.size())
+                + formatDiagnosticDetails(valueDiagnostic.details);
         }
         if (protocolDiagnostic != null) {
             line = line
@@ -85,6 +95,9 @@
         ThreadLocal.withInitial(java.util.HashMap::new);
 
     private static final ThreadLocal<java.util.Map<String, ByteDiagnostic>> byteDiagnostics =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static final ThreadLocal<java.util.Map<String, ValueDiagnostic>> valueDiagnostics =
         ThreadLocal.withInitial(java.util.HashMap::new);
 
     private static final ThreadLocal<java.util.Map<String, ProtocolDiagnostic>> protocolDiagnostics =
@@ -829,6 +842,36 @@
         );
     }
 
+    private static void registerSchemaValueValidationFailedDiagnostic(
+        String message,
+        String schemaName,
+        String fieldName,
+        String predicate,
+        Long fieldValue,
+        java.util.Map<String, Long> suppliedValues
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("predicate", predicate));
+        if (fieldValue != null) {
+            details.add(DiagnosticDetail.number("field_value", fieldValue.longValue()));
+        }
+        details.add(DiagnosticDetail.string("supplied_values", formatDecodedSchemaValues(suppliedValues)));
+        for (java.util.Map.Entry<String, Long> entry : suppliedValues.entrySet()) {
+            details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        if (fieldName != null && !fieldName.isEmpty()) {
+            path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
+        }
+        valueDiagnostics.get().put(
+            message,
+            new ValueDiagnostic("schema.validation_failed", path, details)
+        );
+    }
+
     private static void registerSchemaDispatchUnknownTagDiagnostic(
         String message,
         long byteOffset,
@@ -962,6 +1005,22 @@
         ) {
             this.id = id;
             this.byteOffset = byteOffset;
+            this.fieldPath = fieldPath;
+            this.details = details;
+        }
+    }
+
+    private static final class ValueDiagnostic {
+        final String id;
+        final java.util.List<ByteDiagnosticFieldPathSegment> fieldPath;
+        final java.util.List<DiagnosticDetail> details;
+
+        ValueDiagnostic(
+            String id,
+            java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+            java.util.List<DiagnosticDetail> details
+        ) {
+            this.id = id;
             this.fieldPath = fieldPath;
             this.details = details;
         }

@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[schema.validation_failed]: schema value validation failed for field `padding_length`", "note: Predicate `padding_length <= length` failed for supplied field value 6.", "note: Supplied values: length=5, padding_length=6.", "note: Field path: schema `OrdinaryPacket` / field `padding_length`."]
