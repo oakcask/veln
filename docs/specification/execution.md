@@ -172,6 +172,7 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-subtract-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-json/`,
+  `examples/specification/run/binary-schema-repeat-truncated-human/`,
   `examples/specification/run/binary-schema-repeat-nested-decode/`, and
   `examples/specification/run/binary-schema-repeat-nested-truncated-json/`,
   `examples/specification/run/binary-schema-repeat-byteview-decode/`, and
