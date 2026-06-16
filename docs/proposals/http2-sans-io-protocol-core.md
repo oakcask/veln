@@ -425,6 +425,16 @@ same reset stream-state rejection boundary. It rejects stream id `0`, missing
 or non-open streams, already reset streams, and generated encode-helper
 representation failures for the stream id or error-code payload before
 accepted bytes are produced.
+The implemented slice also includes the narrow outbound PRIORITY send-intent.
+Ordinary source accepts a nonzero currently open stream, encodes a nine-byte
+header with length `5`, kind `2`, flags `0`, and the selected stream id,
+appends the five-byte priority payload with exclusive flag, dependency stream
+id, and weight, and leaves outbound receive credit unchanged. It rejects
+stream id `0`, missing or non-open streams, already closed or reset streams,
+mismatched open streams, and self-dependency before accepted bytes are
+produced. Generated encode-helper representation failures for the frame
+stream id or dependency payload remain `codec.encode_value_unrepresentable`
+encode errors instead of protocol diagnostics.
 The implemented slice also includes the narrow outbound HEADERS send-intent.
 Ordinary source accepts a nonzero currently open stream and an already-encoded
 opaque header-block `ByteChunk`, encodes a nine-byte header with the
