@@ -1,0 +1,103 @@
+# Codec decode callers retain only undecoded suffix bytes.
+use stdio
+
+schema WordWire
+	format binary
+
+	value: UInt16be
+end
+
+codec WordCodec for WordWire decode
+	derive decode
+end
+
+fn decode_once(state: { pending : ByteChunk, base : ByteOffset }) -> Result<{ kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset }, String>
+	let count: ByteCount = byte_chunk_count(state.pending)
+	let view: ByteView = byte_view(state.pending, byte_offset(0)?, count)?
+	let step: DecodeStep<{ value : Int }> = WordCodec(view, state.base)
+	match step
+		Decoded(word, consumed) => advance_state(word.value, consumed, state)
+		NeedMore(NeedBytes(expected)) => Ok({ kind: "need_more", value: -1, consumed: 0, expected: byte_count_to_int(expected), pending: state.pending, base: state.base })
+		NeedMore(NeedEnd) => Ok({ kind: "need_end", value: -1, consumed: 0, expected: 0, pending: state.pending, base: state.base })
+		Invalid(DecodeError(id, _, _)) => Ok({ kind: id, value: -1, consumed: 0, expected: 0, pending: state.pending, base: state.base })
+	end
+end
+
+fn advance_state(value: Int, consumed: ByteCount, state: { pending : ByteChunk, base : ByteOffset }) -> Result<{ kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset }, String>
+	let suffix: ByteChunk = byte_drop(state.pending, consumed)?
+	let advanced: ByteOffset = byte_offset(byte_offset_to_int(state.base) + byte_count_to_int(consumed))?
+	Ok({ kind: "decoded", value: value, consumed: byte_count_to_int(consumed), expected: 0, pending: suffix, base: advanced })
+end
+
+fn first_u8(chunk: ByteChunk) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn first_u16(chunk: ByteChunk) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
+	byte_read_u16_be(view)
+end
+
+fn emit_decoded(label: String, result: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset }) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(result.kind)
+	stdio::print(" value ")
+	stdio::print(int_to_string(result.value))
+	stdio::print(" consumed ")
+	stdio::print(int_to_string(result.consumed))
+	stdio::print(" pending ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(result.pending))))
+	stdio::print(" base ")
+	stdio::print(int_to_string(byte_offset_to_int(result.base)))
+	stdio::print(" suffix16 ")
+	stdio::println(int_to_string(first_u16(result.pending)?))
+	Ok(())
+end
+
+fn emit_drained(label: String, result: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset }) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(result.kind)
+	stdio::print(" value ")
+	stdio::print(int_to_string(result.value))
+	stdio::print(" consumed ")
+	stdio::print(int_to_string(result.consumed))
+	stdio::print(" pending ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(result.pending))))
+	stdio::print(" base ")
+	stdio::println(int_to_string(byte_offset_to_int(result.base)))
+end
+
+fn emit_waiting(label: String, result: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset }) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(result.kind)
+	stdio::print(" expected ")
+	stdio::print(int_to_string(result.expected))
+	stdio::print(" consumed ")
+	stdio::print(int_to_string(result.consumed))
+	stdio::print(" pending ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(result.pending))))
+	stdio::print(" base ")
+	stdio::print(int_to_string(byte_offset_to_int(result.base)))
+	stdio::print(" first8 ")
+	stdio::println(int_to_string(first_u8(result.pending)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let ready_bytes: ByteChunk = byte_chunk_from_hex("01020304")?
+	let ready_state: { pending : ByteChunk, base : ByteOffset } = { pending: ready_bytes, base: byte_offset(100)? }
+	let first: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset } = decode_once(ready_state)?
+	let first_emit: () = emit_decoded("first", first)?
+	let second_state: { pending : ByteChunk, base : ByteOffset } = { pending: first.pending, base: first.base }
+	let second: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset } = decode_once(second_state)?
+	emit_drained("second", second)
+	let short_bytes: ByteChunk = byte_chunk_from_hex("05")?
+	let short_state: { pending : ByteChunk, base : ByteOffset } = { pending: short_bytes, base: byte_offset(200)? }
+	let waiting: { kind : String, value : Int, consumed : Int, expected : Int, pending : ByteChunk, base : ByteOffset } = decode_once(short_state)?
+	let waiting_emit: () = emit_waiting("waiting", waiting)?
+	Ok(())
+end
