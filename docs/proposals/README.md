@@ -172,7 +172,7 @@ compare it with `../specification/` before changing behavior.
   beyond the implemented transport, channel-first route-count, task, deadline,
   cancellation, deadline-aware listener accept, deadline-aware stream read,
   adapter-owned listener-to-clean-stream-end lifecycle, network task
-  two-argument, three-argument, and four-argument spawn, and deadline-aware
+  two-argument, three-argument, and four-argument spawn, deadline-aware
   accepted-stream lifecycle slices
   documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.

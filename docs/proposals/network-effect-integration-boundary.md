@@ -209,9 +209,9 @@ The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
-The receiver-list five-route and six-route channel-first stream routing
-slices, including the `channel::select_many_priority` helper, are recorded as
-implemented in
+The receiver-list five-route, six-route, and timeout channel-first stream
+routing slices, including the `channel::select_many_priority` and
+`channel::select_many_timeout` helpers, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
 The four-argument argument-carrying stream-task slice is recorded as
@@ -307,9 +307,9 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, receiver-list five-route, and receiver-list
-  six-route channel-first stream routing, one-argument, two-argument,
-  three-argument, and four-argument spawned handler task, and
+  three-route, four-route, receiver-list five-route, receiver-list six-route,
+  and receiver-list timeout channel-first stream routing, one-argument,
+  two-argument, three-argument, and four-argument spawned handler task, and
   adapter-level cancellable stream routing slices; remaining examples still
   need richer stream routing and richer deadline and cancellation APIs beyond
   the narrow relative `Deadline` boundary, `CancelToken` boundary, and

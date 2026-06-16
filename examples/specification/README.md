@@ -1607,6 +1607,10 @@ against the built `veln` binary.
   ready routes in receiver-list priority order with
   `channel::select_many_priority`, and then invokes the same pure stream
   handler shape with explicit per-stream state.
+- `run/channel-select-many-timeout/`: receiver-list timeout selection keeps
+  supplied receiver order as priority order, returns `None` when no receiver
+  becomes ready before the timeout, and routes ordinary `StreamInput` values
+  to the same pure stream handler shape.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, four-argument task spawn, and task join calls; a spawned
@@ -1634,6 +1638,9 @@ against the built `veln` binary.
 - `check/channel-first-stream-routing-five-route-effects/`: receiver-list
   channel-first stream routing keeps the same handler boundary as the
   two-route, three-route, and four-route cases: routing declares
+  `concurrency`, and the handler remains effect-free.
+- `check/channel-select-many-timeout-effects/`: receiver-list timeout
+  selection keeps the same effect boundary: the routing adapter declares
   `concurrency`, and the handler remains effect-free.
 - `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
   `ByteChunk` values into bounded pending input, `End` remains distinct,

@@ -970,10 +970,15 @@ and
 `../../examples/specification/run/channel-first-stream-routing-five-route/`
 and
 `../../examples/specification/run/channel-first-stream-routing-six-route/`
+and
+`../../examples/specification/run/channel-select-many-timeout/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
-`channel::select_priority` or `channel::select_many_priority`, then call a
-plain stream handler with explicit per-stream state. The matching
+`channel::select_priority`, `channel::select_many_priority`, or
+`channel::select_many_timeout`, then call a plain stream handler with explicit
+per-stream state. The timeout case also pins ready receiver-list selection and
+`None` when no supplied receiver becomes ready before the timeout. The
+matching
 `../../examples/specification/check/channel-first-stream-routing-effects/`
 and
 `../../examples/specification/check/channel-first-stream-routing-three-route-effects/`
@@ -981,6 +986,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-four-route-effects/`
 and
 `../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
+and
+`../../examples/specification/check/channel-select-many-timeout-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,
 socket wrappers around it require both `net` and `concurrency`, and the
 handler boundary remains free of transport effects.

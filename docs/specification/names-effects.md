@@ -51,12 +51,14 @@ compiler-known calls.
   adapter declares `net`, `time`, and `concurrency`; the pure handler boundary
   remains free of transport effects.
   The channel-first stream routing examples use two, three, and four typed
-  `StreamInput` channels plus existing channel selection, and receiver-list
+  `StreamInput` channels plus existing channel selection. Receiver-list
   five-route and six-route examples use `channel::select_many_priority` on a
-  non-empty `List<Receiver<StreamInput>>`, before invoking a plain handler.
-  The routing adapter requires `concurrency`, socket wrappers around it
-  require both `net` and `concurrency`, and the handler boundary remains free
-  of transport effects.
+  non-empty `List<Receiver<StreamInput>>`, and the timeout selection example
+  uses `channel::select_many_timeout` to preserve receiver-list priority while
+  returning `None` when no route is ready before the timeout, before invoking
+  a plain handler. The routing adapter requires `concurrency`, socket wrappers
+  around it require both `net` and `concurrency`, and the handler boundary
+  remains free of transport effects.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
