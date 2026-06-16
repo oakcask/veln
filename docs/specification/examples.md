@@ -365,6 +365,15 @@ The passing case decodes an exact-width arithmetic predicate. The failing case
 asserts the same `schema.validation_failed` shape with decoded values keyed by
 schema field name.
 
+`../../examples/specification/run/schema-value-validation/`,
+`../../examples/specification/run/schema-value-validation-json/`, and
+`../../examples/specification/run/schema-value-validation-human/` pin generated
+`validate_<schema>` helpers for ordinary supplied decoded records. The passing
+case returns the supplied record after field-local validation succeeds. The
+failing cases assert the value-diagnostic `schema.validation_failed` shape,
+schema and field path, predicate text, owning supplied field value, supplied
+decoded values, and the focused human primary message.
+
 `../../examples/specification/run/binary-schema-structural-validation-decode/`,
 `../../examples/specification/run/binary-schema-structural-validation-json/`,
 and
