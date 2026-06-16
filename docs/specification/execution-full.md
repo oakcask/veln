@@ -306,11 +306,14 @@ the schema-local encode record, the `derive encode` clause is rejected with
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
 visible exact-width unsigned primitive fields as ordinary `Int` values. For
-one structural `map to Target` clause whose assignments are direct
-`target_field = schema_field` references covering the helper's visible encode
-fields, the helper accepts the mapping target record shape instead and
-projects those target fields back to the schema-local encode record before
-writing bytes.
+one structural `map to Target` clause whose assignments project every visible
+encode field through direct schema-local field references, record expressions
+whose fields are direct schema-local visible field references, field selection
+from those record expressions when the selected field maps directly to one
+schema-local visible field, or the supported direct ADT constructor wrapper
+forms, the helper accepts the mapping target record shape instead and projects
+those target fields back to the schema-local encode record before writing
+bytes.
 Length-bounded `ByteView(length_field)` and
 `ByteView(left_length - right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier

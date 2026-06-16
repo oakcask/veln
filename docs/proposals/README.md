@@ -24,11 +24,11 @@ compare it with `../specification/` before changing behavior.
   fields or structural mapping expressions, field selection from record-shaped
   structural mapping expressions, decoded-field integer mapping arithmetic,
   decoded-field integer equality mapping selection, focused mapping selection
-  diagnostics, and the generated-helper schema validation diagnostic boundary, generated
-  `validate_<schema>` decoded-record validation boundary, plus direct
-  structural mapped schema encode helper, generated encode-time field-local
-  validation for eligible schema helpers, derived encode boundary support, and
-  codec decode boundaries
+  diagnostics, and the generated-helper schema validation diagnostic boundary,
+  generated `validate_<schema>` decoded-record validation boundary, plus
+  projectable structural mapped schema encode helper, generated encode-time
+  field-local validation for eligible schema helpers, derived encode boundary
+  support, and codec decode boundaries
   over multiple decoded-field selected mappings that resolve to one mapped
   record shape.
   The implemented source-surface slice also includes top-level public schema
@@ -66,7 +66,7 @@ compare it with `../specification/` before changing behavior.
   two-byte little-endian, `Flag32be` four-byte big-endian, and `Flag32le`
   four-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
-  structural mapping decode, direct mapped-record encode, and direct ADT
+  structural mapping decode, projectable mapped-record encode, and direct ADT
   constructor mapped encode boundaries for supported schema-local fields plus
   one record-payload constructor slice,
   standalone visible `UInt1` through `UInt7` decode and encode,

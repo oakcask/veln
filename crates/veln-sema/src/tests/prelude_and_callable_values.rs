@@ -717,6 +717,104 @@ fn generated_schema_encode_helpers_accept_mapped_value_records() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_mapped_record_expression_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {summary: {value: Int}, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt16be\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = {value: length}\n",
+            "    kind = kind\n",
+            "end\n",
+            "\n",
+            "pub fn main(header: {summary: {value: Int}, kind: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_header_wire(header)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "HeaderWire"
+    ));
+}
+
+#[test]
+fn generated_schema_encode_helpers_accept_mapped_field_selection_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {code: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_code: UInt8\n",
+            "  wire_value: UInt16be\n",
+            "\n",
+            "  map to Header\n",
+            "    code = {code: wire_code}.code\n",
+            "    value = wire_value\n",
+            "end\n",
+            "\n",
+            "pub fn main(header: {code: Int, value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_header_wire(header)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "HeaderWire"
+    ));
+}
+
+#[test]
 fn generated_schema_encode_helpers_accept_flag8_mapped_constructor_records() {
     let source = SourceFile::new(
         "main.veln",
@@ -874,6 +972,76 @@ fn generated_schema_encode_helpers_accept_multi_payload_mapped_constructor_recor
             "\n",
             "  map to RangePacket\n",
             "    range = Between(start, finish)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {range: FieldRange}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_range_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "RangePacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "RangePacketWire"
+    ));
+}
+
+#[test]
+fn generated_schema_encode_helpers_accept_mapped_constructor_field_selection_args() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type FieldRange\n",
+            "  Empty\n",
+            "  Between(Int, Int)\n",
+            "end\n",
+            "\n",
+            "type RangePacket\n",
+            "  RangePacket {range: FieldRange}\n",
+            "end\n",
+            "\n",
+            "schema RangePacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  start: UInt16be\n",
+            "  finish: UInt16be\n",
+            "\n",
+            "  map to RangePacket\n",
+            "    range = Between({value: start}.value, finish)\n",
             "end\n",
             "\n",
             "pub fn main(packet: {range: FieldRange}) -> Result<ByteChunk, EncodeError>\n",

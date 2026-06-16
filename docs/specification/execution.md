@@ -426,15 +426,15 @@ execution reference.
   visible exact-width unsigned primitive fields as ordinary `Int` values and
   whose `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields are source-visible
   `Flag8(bits)`, `Flag16be(bits)`, `Flag16le(bits)`, `Flag32be(bits)`, and `Flag32le(bits)` values. For one
-  structural `map to Target` clause whose
-  assignments are direct
-  `target_field = schema_field` references covering the helper's visible
-  encode fields, the helper accepts the mapping target record shape instead
+  structural `map to Target` clause whose assignments project every visible
+  encode field, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
-  The same narrow inverse projection also supports one target field assigned
-  from a direct ADT constructor call whose payload arguments are direct
-  schema-local visible fields, or whose single payload argument is a record
-  expression whose fields are direct schema-local visible field references,
+  The narrow inverse projection supports direct schema-local field
+  references, record expressions whose fields are direct schema-local visible
+  field references, field selection from those record expressions when the
+  selected field maps directly to one schema-local visible field, and one
+  target field assigned from a direct ADT constructor call whose payload
+  arguments use those supported projectable field and record-expression forms
   already supported by the generated encode helper. Single-payload
   constructor wrappers remain limited to the existing single-constructor flag
   and exact-width integer cases unless the payload is that record-expression
@@ -443,7 +443,11 @@ execution reference.
   `Err(EncodeError("codec.encode_mapping_mismatch", field_path, reason))`.
   If the expected constructor payload is not the expected record shape, the
   same `codec.encode_mapping_mismatch` id is returned. These mapped encode
-  paths write bytes through the schema-local fields. A
+  paths write bytes through the schema-local fields. The checked examples are
+  `examples/specification/run/binary-schema-mapped-record-expression-encode/`
+  and
+  `examples/specification/run/binary-schema-mapped-field-selection-encode/`.
+  A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
@@ -606,6 +610,7 @@ execution reference.
   `examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`,
+  `examples/specification/run/binary-schema-mapped-constructor-field-selection-encode/`,
   `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`,
   `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`,

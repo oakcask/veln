@@ -136,9 +136,10 @@ represented in one byte. The structural mapping slice also treats decoded
 assignment, same-module ADT constructor expressions, one pure same-module
 converter call, and one imported public pure converter call through a written
 `use` path or alias. Generated encode helpers keep schema-local `Flag8`
-encode behavior and accept a direct mapped-record encode boundary when every
-visible encode field, such as `target_flags = flags`, can be projected by the
-existing direct assignment rule. They also project the first narrow ADT
+encode behavior and accept a projectable mapped-record encode boundary when
+every visible encode field, such as `target_flags = flags`, can be projected
+by a supported direct field, record-shaped, or field-selection mapping. They
+also project the first narrow ADT
 constructor inverse when a single target field wraps one schema-local `Flag8`
 field or exact-width integer field, such as
 `flags = Http2Flags(wire_flags)` or `kind = FrameKind(wire_kind)`, and
@@ -382,15 +383,16 @@ emits four-byte little-endian visible bitsets as source-visible
 ordinary `Int` values. Structural decode mappings can use decoded
 flag values through the implemented field reference, same-module ADT
 constructor, pure same-module converter, and imported public pure converter
-expression forms where those forms are implemented for the flag type. Direct
-mapped-record encode is implemented when every visible encode field can be
-projected back to a schema-local field by the existing direct assignment
-rule. A single target field assigned from a direct ADT constructor call is
-also implemented when every constructor payload argument is a schema-local
-field supported by the generated encode helper, including the single-payload
-flag and exact-width integer cases, the first multi-payload direct-field
-case, and one single record payload whose fields are direct schema-local
-visible field references supported by the generated encode helper. General
+expression forms where those forms are implemented for the flag type.
+Mapped-record encode is implemented when every visible encode field can be
+projected back to a schema-local field by a projectable direct field,
+record-shaped, or field-selection mapping. A single target field assigned from
+a direct ADT constructor call is also implemented when every constructor
+payload argument is a schema-local field supported by the generated encode
+helper, including the single-payload flag and exact-width integer cases, the
+first multi-payload direct-field case, and one single record payload whose
+fields are direct schema-local visible field references supported by the
+generated encode helper. General
 inverse mapping for converter calls, nested ADT constructors, selected
 mappings, and other non-direct expressions remains outside the implemented
 encode slice.

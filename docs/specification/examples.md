@@ -427,6 +427,12 @@ field path, and the `UInt31be` maximum.
 the direct structural mapping encode helper slice: the helper accepts the
 mapping target record shape, projects target fields back to schema-local
 fields, and writes one immutable `ByteChunk`.
+`../../examples/specification/run/binary-schema-mapped-record-expression-encode/`
+pins the same inverse projection when one mapped target field is a record
+value whose fields recover schema-local fields.
+`../../examples/specification/run/binary-schema-mapped-field-selection-encode/`
+pins the same inverse projection when a mapped target field selects a direct
+schema-local field from a record-shaped mapping expression.
 `../../examples/specification/run/binary-schema-int-mapped-constructor-encode/`
 and
 `../../examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`
@@ -442,6 +448,9 @@ pin direct multi-payload ADT inverse mapping. The passing case projects two
 constructor payloads back to schema-local fields. The failing case reports
 `codec.encode_mapping_mismatch` when the target field carries a different
 constructor than the mapping expects.
+`../../examples/specification/run/binary-schema-mapped-constructor-field-selection-encode/`
+pins the same ADT inverse projection when a constructor payload is recovered
+through field selection from a record-shaped mapping expression.
 `../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode/`,
 `../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`,
 `../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`,

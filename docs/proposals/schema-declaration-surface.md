@@ -67,8 +67,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   expression uses the implemented structural expression slice and type checks
   against the target record field
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
-  structural `map to Target` clause whose assignments are direct
-  `target_field = schema_field` references covering the visible encode fields
+  structural `map to Target` clause whose assignments project the visible
+  encode fields through direct field references, record-shaped direct field
+  projections, field selection from those record-shaped projections, and the
+  implemented direct ADT constructor wrapper forms
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
