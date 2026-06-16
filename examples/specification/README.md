@@ -523,6 +523,20 @@ against the built `veln` binary.
   command output.
 - `run/binary-schema-flag16be-bit-index-human/`: `flag16be_set` reports the
   same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag16le-decode/`: generated schema decode helpers read a
+  two-byte little-endian `Flag16le` field as a source-visible bitset value.
+- `run/binary-schema-flag16le-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag16le` raw bits and bit positions, construct a new `Flag16le`
+  from raw bits and two-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag16le-from-bits-out-of-range-json/`:
+  `flag16le_from_bits` rejects an integer outside the two-byte range with the
+  checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag16le-bit-index-json/`: `flag16le_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag16le-bit-index-human/`: `flag16le_set` reports the
+  same out-of-range bit-index failure through human command output.
 - `run/binary-schema-flag32be-decode/`: generated schema decode helpers read a
   four-byte big-endian `Flag32be` field as a source-visible bitset value.
 - `run/binary-schema-flag32be-bit-helpers/`: pure prelude helpers inspect

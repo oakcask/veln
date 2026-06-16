@@ -10,6 +10,10 @@ pub type Flag16be
 	Flag16be(bits: Int)
 end
 
+pub type Flag16le
+	Flag16le(bits: Int)
+end
+
 pub type Flag32be
 	Flag32be(bits: Int)
 end
@@ -44,6 +48,22 @@ end
 
 pub fn flag16be_from_bits(bits: Int) -> Result<Flag16be, String>
 	prelude_builtin::flag16be_from_bits(bits)
+end
+
+pub fn flag16le_is_set(flags: Flag16le, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag16le_is_set(flags, index)
+end
+
+pub fn flag16le_set(flags: Flag16le, index: Int) -> Result<Flag16le, String>
+	prelude_builtin::flag16le_set(flags, index)
+end
+
+pub fn flag16le_bits(flags: Flag16le) -> Int
+	prelude_builtin::flag16le_bits(flags)
+end
+
+pub fn flag16le_from_bits(bits: Int) -> Result<Flag16le, String>
+	prelude_builtin::flag16le_from_bits(bits)
 end
 
 pub fn flag32be_is_set(flags: Flag32be, index: Int) -> Result<Bool, String>

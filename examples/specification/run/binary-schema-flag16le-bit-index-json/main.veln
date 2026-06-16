@@ -1,0 +1,6 @@
+# Flag16le helper functions reject indexes outside the two-byte bit range.
+
+pub fn main() -> Result<(), String>
+	let ignored: Bool = flag16le_is_set(Flag16le(0), 16)?
+	Ok(())
+end

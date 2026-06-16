@@ -1231,6 +1231,49 @@
         return ok(Long.valueOf(1L << bitIndex));
     }
 
+    public static Object flag16leIsSet(Object flags, Object index) {
+        Object maskResult = flag16leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag16leBits(flags);
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag16leSet(Object flags, Object index) {
+        Object maskResult = flag16leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag16leBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag16leObject(bits + mask));
+    }
+
+    public static Object flag16leRawBits(Object flags) {
+        return Long.valueOf(flag16leBits(flags));
+    }
+
+    public static Object flag16leFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 65535) {
+            return err("flag16le bits must be between 0 and 65535");
+        }
+        return ok(flag16leObject(bits));
+    }
+
+    private static Object flag16leBitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 15) {
+            return err("flag bit index must be between 0 and 15");
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
     public static Object flag32beIsSet(Object flags, Object index) {
         Object maskResult = flag32beBitMask(index);
         if (!isOk(maskResult)) {
@@ -5596,6 +5639,14 @@
 
     private static long flag16beBits(Object value) {
         return schemaFlagBits(value, "Flag16be");
+    }
+
+    private static Object flag16leObject(long bits) {
+        return flagObject("Flag16le", bits);
+    }
+
+    private static long flag16leBits(Object value) {
+        return schemaFlagBits(value, "Flag16le");
     }
 
     private static Object flag32beObject(long bits) {

@@ -1,0 +1,6 @@
+# Flag16le helper functions report range failures through human command output.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag16le = flag16le_set(Flag16le(0), -1)?
+	Ok(())
+end
