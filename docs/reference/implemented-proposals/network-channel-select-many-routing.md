@@ -8,9 +8,13 @@ behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
 `../../../examples/specification/run/channel-first-stream-routing-five-route/`
 and `../../../examples/specification/run/channel-first-stream-routing-six-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-seven-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
+and
+`../../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`.
 
