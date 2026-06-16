@@ -101,7 +101,9 @@ compare it with `../specification/` before changing behavior.
   HTTP/2 protocol diagnostic projection boundary for representative protocol
   and peer-limit failures, post-GOAWAY stream rejection projection, and
   generated
-  binary schema encode value-representation failures, generated binary schema
+  binary schema encode value-representation failures, generated `EncodeError`
+  command-facing projection for encode value, dispatch unknown tag, dispatch
+  length mismatch, and dispatch mismatch failures, generated binary schema
   decode integer range failures, generated bounded repeated schema field
   truncation diagnostics with indexed field paths in JSON and human output,
   plus hand-written codec decode consumed-count failures.
