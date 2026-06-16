@@ -68,6 +68,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
+- Network channel select-many routing:
+  [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 

@@ -147,22 +147,11 @@ compare it with `../specification/` before changing behavior.
   `RST_STREAM` reset send-intent, outbound PRIORITY send-intent, outbound
   HEADERS send-intent, and GOAWAY send-intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  define remaining transport adapter, production socket lifecycle,
+  define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
-  beyond the implemented descriptor-backed `net` and `time` boundary calls,
-  first fixture-backed listener/stream calls, first transport-error,
-  timeout-expiry, deadline-expiry, and cancellable-wait cancellation runtime
-  failure slices, the first source-visible cancellation handle, the
-  cancellation-token status query, the value-returning cancellable wait
-  outcome slice, and the source-level stream event/action handler boundary
-  examples plus the narrow multi-event
-  socket-to-handler routing, stream-task handler, clean stream-end adapter,
-  optional clean-end listener accept, and adapter-owned
-  listener-to-clean-stream-end lifecycle, two-route, three-route, four-route,
-  and receiver-list five-route channel-first stream routing, one-argument
-  spawned handler task, and
-  adapter-level cancellable stream routing slices, including fixture output
-  for completed, deadline-expired, and cancelled wait outcomes.
+  beyond the implemented transport, route-count, task, deadline, and
+  cancellation slices documented under `../specification/` and
+  `../reference/implemented-proposals/`.
 
 ## Update When
 

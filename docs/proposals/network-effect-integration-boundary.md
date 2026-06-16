@@ -3,27 +3,12 @@
 Status: proposed
 
 This proposal tracks remaining work between a pure sans-I/O protocol core and
-transport integration. The first descriptor-backed `net` and `time`
-boundary calls, the first fixture-backed socket listener/stream calls, the
-narrow socket-to-handler routing and stream-task handler slices, the
-fixture-backed multi-event socket routing slice, the clean stream-end adapter
-slice, the optional clean-end listener accept slice, the adapter-owned
-listener-to-clean-stream-end lifecycle slice, the two-route, three-route,
-four-route, and receiver-list five-route channel-first stream event routing
-slices, the first cancellable
-adapter-owned wait boundary, the value-returning cancellable wait outcome
-slice, the cancellation-token status query slice, and
-adapter-level cancellable stream routing over ordinary response action values,
-including one fixture output that routes completed, deadline-expired, and
-cancelled outcomes, plus the one-argument spawned handler task slice that
-passes ordinary event and state values across the task boundary, are current
-behavior under
-`../specification/names-effects.md` and `../specification/execution.md`,
-including host-runtime failures for malformed received or read bytes, failed
-outgoing event recording, forced accept, read, and write failures, and forced
-timeout and deadline expiry, plus forced cancellable-wait cancellation through
-the runtime-failure wait. This page keeps the larger transport adapter, richer
-stream routing, richer deadline, cancellation, and socket work open.
+transport integration. Current implemented transport, channel, task, deadline,
+and cancellation slices are specified by `../specification/names-effects.md`
+and `../specification/execution.md`; completed proposal records live under
+`../reference/implemented-proposals/`. This page keeps the larger transport
+adapter, richer stream routing, richer deadline, cancellation, and socket work
+open.
 
 ## Problem
 
@@ -39,12 +24,9 @@ commit to a full network runtime.
 ## Remaining Scope
 
 Define future integration support beyond the implemented descriptor-backed
-boundary calls, first fixture-backed listener/stream calls, and narrow
-multi-event socket-to-handler routing, stream-task handler, and clean
-stream-end adapter plus optional clean-end listener accept and
-adapter-owned lifecycle and two-route, three-route, four-route, and
-receiver-list five-route channel-first stream routing slices, including the
-`channel::select_many_priority` helper, for:
+boundary calls, first fixture-backed listener/stream calls, narrow socket and
+stream routing slices, checked channel-first route-count slices, checked task
+slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, optional stream-read, and ordered write lifecycle slice
@@ -187,19 +169,9 @@ The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
-Implemented channel-first stream routing slices: executable specification
-cases route ordinary `StreamInput` values through two, three, four, and
-receiver-list five-route typed channel routes, select the ready route with
-existing channel selection, and then invoke a plain handler with explicit
-per-stream state. The receiver-list helper
-`channel::select_many_priority(receivers)` accepts a non-empty
-`List<Receiver<T>>`, returns `Option<{index: Int, value: T}>` with the
-zero-based receiver index from the supplied list, preserves the existing
-priority rule that the earliest ready receiver wins, and requires only the
-existing `concurrency` effect. The handler remains free of socket handles and
-transport effects. Socket wrappers around the same boundary require `net` plus
-`concurrency` and keep `NetStream` ownership and writes in adapter code. These
-slices add no new effect label.
+The receiver-list five-route channel-first stream routing slice, including the
+`channel::select_many_priority` helper, is recorded as implemented in
+`../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
 Implemented argument-carrying stream-task slice: `task::spawn_with` starts a
 one-argument callable under the existing `concurrency` effect and returns
