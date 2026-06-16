@@ -158,6 +158,16 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			150 => decoded_static_indexed_header("allow", "", state)
 			151 => decoded_static_indexed_header("authorization", "", state)
 			152 => decoded_static_indexed_header("cache-control", "", state)
+			153 => decoded_static_indexed_header("content-disposition", "", state)
+			154 => decoded_static_indexed_header("content-encoding", "", state)
+			155 => decoded_static_indexed_header("content-language", "", state)
+			156 => decoded_static_indexed_header("content-length", "", state)
+			157 => decoded_static_indexed_header("content-location", "", state)
+			158 => decoded_static_indexed_header("content-range", "", state)
+			159 => decoded_static_indexed_header("content-type", "", state)
+			160 => decoded_static_indexed_header("cookie", "", state)
+			161 => decoded_static_indexed_header("date", "", state)
+			162 => decoded_static_indexed_header("etag", "", state)
 			_ => unsupported(block, offset)
 		end
 	end
