@@ -158,7 +158,8 @@ compare it with `../specification/` before changing behavior.
   outbound DATA frame-header-plus-payload send intent with `END_STREAM` local
   closed-stream state, and outbound `WINDOW_UPDATE` receive-credit intent,
   `RST_STREAM` reset send-intent, outbound PRIORITY send-intent, outbound
-  HEADERS send-intent, and GOAWAY send-intent slices.
+  HEADERS send-intent including CONTINUATION splitting, and GOAWAY send-intent
+  slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

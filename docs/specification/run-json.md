@@ -207,6 +207,10 @@ stable helper that owns the diagnostic id, primary message, related notes, and
 structured details. The HTTP/2 protocol-core executable example and the
 converted command-facing frame-size and invalid-frame-kind examples check this
 boundary for both `http2.peer_limit.*` and `http2.protocol.*` failures.
+Accepted HTTP/2 send-intents, including outbound HEADERS output split across
+HEADERS and CONTINUATION frames, remain ordinary program stdout in the
+aggregate protocol-core run case; they do not populate `error` or
+`details.protocol_diagnostic`.
 
 HTTP/2 protocol-core failures that originate from this source-visible
 projection helper attach `details.protocol_diagnostic`. End-of-stream with a

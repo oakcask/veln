@@ -937,18 +937,23 @@ execution reference.
   `codec.encode_value_unrepresentable` failures with the generated field path.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
   HEADERS send-intent. Ordinary source accepts an already-encoded opaque
-  header-block chunk for a nonzero currently open stream, emits one immutable
-  output chunk with a HEADERS frame header kind `1`, `END_HEADERS` set, and an
-  optional `END_STREAM` flag, followed by the header-block bytes. Accepted
-  `END_STREAM` records local closed-stream state so a later stream-level
-  `WINDOW_UPDATE` for that stream follows the existing closed stream-state
-  boundary. Stream id `0`, missing streams, closed streams, already reset
-  streams, mismatched open streams, payloads larger than the peer-advertised
-  maximum frame size, and generated frame-header representation failures are
-  rejected before accepted output bytes are produced. After receiving GOAWAY,
+  header-block chunk for a nonzero currently open stream. When the
+  header-block fits within the peer-advertised maximum frame size, the intent
+  emits one immutable output chunk with a HEADERS frame header kind `1`,
+  `END_HEADERS` set, and an optional `END_STREAM` flag, followed by the
+  header-block bytes. When the header-block is larger, the same output chunk
+  contains one HEADERS frame followed by as many CONTINUATION frames as needed;
+  every payload chunk respects the peer-advertised maximum frame size,
+  `END_HEADERS` is set only on the final frame, and optional `END_STREAM` is
+  set only on the first HEADERS frame. Accepted `END_STREAM` records local
+  closed-stream state so a later stream-level `WINDOW_UPDATE` for that stream
+  follows the existing closed stream-state boundary. Stream id `0`, missing
+  streams, closed streams, already reset streams, mismatched open streams, and
+  generated frame-header representation failures are rejected before accepted
+  output bytes are produced. After receiving GOAWAY,
   outbound HEADERS for an open stream id greater than the recorded
   last-stream-id are rejected with `http2.protocol.stream_after_goaway`
-  before frame-size or encode checks; HEADERS for an open stream at the
+  before frame splitting or encode checks; HEADERS for an open stream at the
   boundary remain accepted, and stream id zero plus closed stream cases keep
   their narrower existing failures.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
