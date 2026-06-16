@@ -81,19 +81,25 @@ execution reference.
   covering the listener-to-clean-stream-end ownership boundary in one adapter
   function.
 - The channel-first stream routing examples route ordinary `StreamInput`
-  values through two, three, and four typed channel routes, select the next
-  ready route with the existing channel selection vocabulary, and only then
-  invoke a plain handler with explicit per-stream state. The handler remains an
+  values through two, three, four, and receiver-list five-route typed channel
+  routes, select the next ready route with the existing channel selection
+  vocabulary, and only then invoke a plain handler with explicit per-stream
+  state. The five-route example uses `channel::select_many_priority` on a
+  non-empty `List<Receiver<StreamInput>>`; when multiple receivers are ready,
+  the earliest receiver in the supplied list wins. The handler remains an
   ordinary source function over stream input and state; adapter code owns
   channel routing, and socket wrappers around the same boundary own
   `NetStream` handles and writes. The checked examples are
   `examples/specification/run/channel-first-stream-routing/`,
   `examples/specification/run/channel-first-stream-routing-three-route/`,
   `examples/specification/run/channel-first-stream-routing-four-route/`,
+  `examples/specification/run/channel-first-stream-routing-five-route/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
   and
-  `examples/specification/check/channel-first-stream-routing-four-route-effects/`.
+  `examples/specification/check/channel-first-stream-routing-four-route-effects/`,
+  and
+  `examples/specification/check/channel-first-stream-routing-five-route-effects/`.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes

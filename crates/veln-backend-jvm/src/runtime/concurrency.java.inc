@@ -184,6 +184,11 @@
         return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, false, false);
     }
 
+    public static Object channelSelectManyPriority(Object receiverList) {
+        Receiver[] receivers = channelReceiverArray(receiverList);
+        return channelSelectReceiversWithTimeout(receivers, -1L, false, false);
+    }
+
     public static Object channelSelectTimeout(
         Object leftReceiver,
         Object rightReceiver,
@@ -218,7 +223,19 @@
         Receiver left = (Receiver) leftReceiver;
         Receiver right = (Receiver) rightReceiver;
         Receiver[] receivers = new Receiver[] { left, right };
-        boolean[] registered = new boolean[] { false, false };
+        return channelSelectReceiversWithTimeout(receivers, timeoutMillis, rotateTies, reportInterrupt);
+    }
+
+    private static Object channelSelectReceiversWithTimeout(
+        Receiver[] receivers,
+        long timeoutMillis,
+        boolean rotateTies,
+        boolean reportInterrupt
+    ) {
+        if (receivers.length == 0) {
+            throw new RuntimeFailure("channel select_many_priority failed: receiver list is empty");
+        }
+        boolean[] registered = new boolean[receivers.length];
         long startNanos = timeoutMillis >= 0L ? System.nanoTime() : 0L;
         long timeoutNanos = timeoutMillis >= 0L
             ? (timeoutMillis > Long.MAX_VALUE / 1000000L
@@ -274,6 +291,16 @@
                 }
             }
         }
+    }
+
+    private static Receiver[] channelReceiverArray(Object receiverList) {
+        java.util.ArrayList<Receiver> receivers = new java.util.ArrayList<Receiver>();
+        ListValue current = asListValue(receiverList);
+        while (current.cons) {
+            receivers.add((Receiver) current.head);
+            current = asListValue(current.tail);
+        }
+        return receivers.toArray(new Receiver[receivers.size()]);
     }
 
     private static Object channelSelectReturn(Object selected, boolean reportInterrupt) {
