@@ -1625,16 +1625,11 @@ fn validate_binary_fixture_schema_field_path(
     schema_name: &str,
     fixture: &BinaryFixtureExpectation,
 ) -> Option<String> {
-    let Some(field_path) = fixture
+    let field_path = fixture
         .byte_diagnostic
         .as_ref()
-        .and_then(|diagnostic| diagnostic.field_path.as_ref())
-    else {
-        return None;
-    };
-    let Some(segments) = field_path.as_array() else {
-        return None;
-    };
+        .and_then(|diagnostic| diagnostic.field_path.as_ref())?;
+    let segments = field_path.as_array()?;
     let first_schema = segments
         .first()
         .and_then(|segment| match segment.object_field("kind") {
