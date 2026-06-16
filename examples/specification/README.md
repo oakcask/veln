@@ -1629,6 +1629,11 @@ against the built `veln` binary.
   all ready routes in receiver-list priority order with
   `channel::select_many_priority`, and then invokes the same pure stream
   handler shape with explicit per-stream state.
+- `run/channel-first-stream-routing-eight-route/`: adapter-owned source routes
+  ordinary `StreamInput` values through eight typed channel routes, selects
+  all ready routes in receiver-list priority order with
+  `channel::select_many_priority`, and then invokes the same pure stream
+  handler shape with explicit per-stream state.
 - `run/channel-select-many-timeout/`: receiver-list timeout selection keeps
   supplied receiver order as priority order, returns `None` when no receiver
   becomes ready before the timeout, and routes ordinary `StreamInput` values
@@ -1662,6 +1667,9 @@ against the built `veln` binary.
   two-route, three-route, and four-route cases: routing declares
   `concurrency`, and the handler remains effect-free.
 - `check/channel-first-stream-routing-seven-route-effects/`: seven-route
+  receiver-list channel-first stream routing keeps the same handler boundary:
+  routing declares `concurrency`, and the handler remains effect-free.
+- `check/channel-first-stream-routing-eight-route-effects/`: eight-route
   receiver-list channel-first stream routing keeps the same handler boundary:
   routing declares `concurrency`, and the handler remains effect-free.
 - `check/channel-select-many-timeout-effects/`: receiver-list timeout

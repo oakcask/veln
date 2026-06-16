@@ -91,7 +91,8 @@ execution reference.
   accepted-stream ownership in one adapter function.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, receiver-list five-route, receiver-list
-  six-route, receiver-list seven-route, and receiver-list timeout typed channel
+  six-route, receiver-list seven-route, receiver-list eight-route, and
+  receiver-list timeout typed channel
   routes, select the next ready route with the existing channel selection
   vocabulary, and only then invoke a plain handler with explicit per-stream
   state. The receiver-list priority examples use
@@ -109,6 +110,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-five-route/`,
   `examples/specification/run/channel-first-stream-routing-six-route/`,
   `examples/specification/run/channel-first-stream-routing-seven-route/`,
+  `examples/specification/run/channel-first-stream-routing-eight-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
@@ -118,6 +120,8 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-five-route-effects/`,
   and
   `examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
+  and
+  `examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
   and
   `examples/specification/check/channel-select-many-timeout-effects/`.
 - The generated binary schema helper execution slice decodes the
