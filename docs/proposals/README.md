@@ -152,9 +152,10 @@ compare it with `../specification/` before changing behavior.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
-  beyond the implemented transport, route-count, task, deadline, and
-  cancellation slices, including deadline-aware listener accept, documented
-  under `../specification/` and `../reference/implemented-proposals/`.
+  beyond the implemented transport, route-count, task, deadline,
+  cancellation, and deadline-aware listener accept slices documented under
+  `../specification/`; completed proposal records live under
+  `../reference/implemented-proposals/`.
 
 ## Update When
 
