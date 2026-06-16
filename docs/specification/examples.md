@@ -738,18 +738,26 @@ calls under the coarse `net` effect. The
 case covers `net::accept_or_end` returning `Some(stream)` and using that
 stream with the existing read behavior, while
 `../../examples/specification/run/transport-socket-optional-accept-clean-end/`
-covers clean listener end returning `None`. The matching
+covers clean listener end returning `None`.
+`../../examples/specification/run/transport-socket-accept-until-boundary/`
+covers `net::accept_until` returning `Some(stream)` when a fixture accepts
+before the deadline, while
+`../../examples/specification/run/transport-socket-accept-until-deadline/`
+covers fixture-reported accept deadline expiry returning `None`. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
 missing-effect diagnostics for the socket calls, including the optional
 clean-end listener accept and stream read,
 `../../examples/specification/check/transport-socket-optional-accept-effects/`
 pins the optional accept directly, and
+`../../examples/specification/check/transport-socket-accept-until-effects/`
+pins that deadline-aware accept requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
 `../../examples/specification/run/transport-socket-read-failure-human/`,
 `../../examples/specification/run/transport-socket-read-failure-json/`,
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
 `../../examples/specification/run/transport-socket-optional-accept-failure-json/`,
+`../../examples/specification/run/transport-socket-accept-until-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases
 show accept, read, and write failures as runtime transport failures, not

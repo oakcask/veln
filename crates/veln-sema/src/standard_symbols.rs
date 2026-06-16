@@ -26,6 +26,7 @@ const STDIO_EFFECTS: &[&str] = &["stdio"];
 const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
 const NET_EFFECTS: &[&str] = &["net"];
+const NET_TIME_EFFECTS: &[&str] = &["net", "time"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const TIME_EFFECTS: &[&str] = &["time"];
 const PURE_EFFECTS: &[&str] = &[];
@@ -159,6 +160,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "accept_or_end",
         NET_EFFECTS,
         "runtime.net.accept_or_end",
+    ),
+    runtime_symbol(
+        "net",
+        "accept_until",
+        NET_TIME_EFFECTS,
+        "runtime.net.accept_until",
     ),
     runtime_symbol("net", "read_chunk", NET_EFFECTS, "runtime.net.read_chunk"),
     runtime_symbol(

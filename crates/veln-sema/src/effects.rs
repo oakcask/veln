@@ -90,6 +90,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             vec![net_listener_type()],
             adt::option_type(net_stream_type()),
         )),
+        ("net", "accept_until") => Some((
+            vec![net_listener_type(), Type::named("Deadline", Vec::new())],
+            adt::option_type(net_stream_type()),
+        )),
         ("net", "read_chunk") => Some((vec![net_stream_type()], byte_chunk_type())),
         ("net", "read_chunk_or_end") => {
             Some((vec![net_stream_type()], adt::option_type(byte_chunk_type())))
@@ -787,6 +791,14 @@ mod tests {
             standard_library_signature(&path("net", "send_chunk")).expect("net signature");
         assert_eq!(params, vec![byte_chunk_type()]);
         assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("net", "accept_until")).expect("net signature");
+        assert_eq!(
+            params,
+            vec![net_listener_type(), Type::named("Deadline", Vec::new())]
+        );
+        assert_eq!(return_type, adt::option_type(net_stream_type()));
 
         let (params, return_type) =
             standard_library_signature(&path("net", "read_chunk_or_end")).expect("net signature");

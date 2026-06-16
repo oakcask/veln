@@ -29,7 +29,8 @@ stream routing slices, checked channel-first route-count slices, checked task
 slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
-  optional accept, optional stream-read, and ordered write lifecycle slice
+  optional accept, deadline-aware optional accept, optional stream-read, and
+  ordered write lifecycle slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
@@ -44,7 +45,7 @@ slices, and narrow deadline and cancellation slices, for:
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
-  `time::wait_until_cancellable_outcome`
+  `time::wait_until_cancellable_outcome` and deadline-aware listener accept
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -165,6 +166,14 @@ and `None` when the listener reaches a clean end before accepting. The accepted
 stream follows the same stream-handle behavior as `net::accept`. Forced accept
 failure on the same optional accept path remains a runtime transport failure.
 
+Implemented deadline-aware listener accept slice: executable specification
+cases use `net::accept_until(listener, deadline)` to return `Some(stream)` when
+the fixture accepts before the deadline and `None` when the fixture reports
+deadline expiry before accepting or the supplied deadline has already expired.
+The call infers both `net` and `time` under the existing coarse effect labels.
+Forced accept failure on the same optional accept path remains a runtime
+transport failure, not a protocol diagnostic.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -269,9 +278,9 @@ or the pure protocol core.
 - Examples show production adapter socket ownership beyond the first
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
-  accept, adapter-owned lifecycle, two-route, three-route, four-route, and
-  receiver-list five-route channel-first stream routing, one-argument spawned
-  handler task, and
+  accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
+  three-route, four-route, and receiver-list five-route channel-first stream
+  routing, one-argument spawned handler task, and
   adapter-level cancellable stream routing slices, richer stream routing, and
   richer deadline and cancellation APIs beyond the narrow relative `Deadline`
   boundary, `CancelToken` boundary, and cancellation status-query boundary.

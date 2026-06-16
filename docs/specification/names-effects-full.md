@@ -192,6 +192,7 @@ net::send_chunk(bytes: ByteChunk) -> () effects [net]
 net::listen(address: String) -> NetListener effects [net]
 net::accept(listener: NetListener) -> NetStream effects [net]
 net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
+net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
@@ -209,7 +210,8 @@ Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
 `net::write_chunk` also infer the same coarse `net` effect. Direct calls to
-`time::timeout_ms`,
+`net::accept_until` infer both `net` and `time` because the adapter-owned
+accept attempt observes a `Deadline`. Direct calls to `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`, `time::cancel_token`,
 `time::cancel`, `time::is_cancelled`, and
 `time::wait_until_cancellable`,
@@ -222,8 +224,11 @@ returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
 `NetListener`; `net::accept` returns a distinct source-visible `NetStream`;
 `net::accept_or_end` returns `Some(stream)` for a fixture-accepted stream and
-`None` when the fixture listener reaches a clean end; `net::read_chunk` reads
-one immutable `ByteChunk` from that stream;
+`None` when the fixture listener reaches a clean end; `net::accept_until`
+returns `Some(stream)` when a fixture accepts before the deadline and `None`
+when the deadline has already expired or the fixture reports deadline expiry
+before accepting; `net::read_chunk`
+reads one immutable `ByteChunk` from that stream;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream.
@@ -239,9 +244,12 @@ handle is cancelled first.
 and returns `WaitCompleted`, `WaitDeadlineExpired`, or `WaitCancelled` as an
 ordinary `CancellableWaitOutcome` value for adapter-owned branching. Malformed
 host-fed receive or read bytes, failed outgoing send or write event recording,
-forced listen, accept, read, write, timeout, deadline expiry, or
-cancellable-wait cancellation failures through the runtime-failure wait are
-transport runtime failures, not schema, codec, or peer protocol diagnostics.
+forced listen, accept, read, write, timeout, deadline expiry through
+runtime-failure waits, or cancellable-wait cancellation failures through the
+runtime-failure wait are transport runtime failures, not schema, codec, or
+peer protocol diagnostics. Forced accept failure through `net::accept_until`
+remains a runtime failure; only deadline expiry reported by that optional
+accept path becomes `None`.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
 The checked stream adapter cancellable routing cases use

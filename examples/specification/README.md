@@ -1359,11 +1359,19 @@ against the built `veln` binary.
   follows the existing socket read behavior.
 - `run/transport-socket-optional-accept-clean-end/`: optional socket accept
   observes clean listener end as `None` without a runtime failure.
+- `run/transport-socket-accept-until-boundary/`: deadline-aware socket accept
+  returns `Some(stream)` when the fixture accepts before the deadline and the
+  accepted stream remains usable for reads.
+- `run/transport-socket-accept-until-deadline/`: deadline-aware socket accept
+  observes fixture-reported accept deadline expiry as `None` without a
+  runtime failure.
 - `check/transport-socket-effects/`: listener creation, accept, stream read,
   optional clean-end listener accept and stream read, and stream write infer
   the `net` effect for public effect checking.
 - `check/transport-socket-optional-accept-effects/`: optional clean-end
   listener accept directly infers the `net` effect for public effect checking.
+- `check/transport-socket-accept-until-effects/`: deadline-aware listener
+  accept directly infers both `net` and `time` for public effect checking.
 - `check/transport-socket-clean-end-effects/`: optional clean-end stream read
   directly infers the `net` effect for public effect checking.
 - `run/transport-deadline/`: relative deadline creation and waiting succeed
@@ -1413,6 +1421,9 @@ against the built `veln` binary.
 - `run/transport-socket-optional-accept-failure-json/`: forced socket accept
   failure through the optional clean-end accept path uses the same run JSON
   runtime error shape.
+- `run/transport-socket-accept-until-failure-json/`: forced socket accept
+  failure through the deadline-aware optional accept path uses the same run
+  JSON runtime error shape.
 - `run/transport-socket-write-failure-human/`: forced socket write failure
   stays runtime blame in human command output.
 - `run/transport-socket-write-failure-json/`: forced socket write failure uses

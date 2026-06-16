@@ -40,9 +40,9 @@ execution reference.
   without socket calls.
 - Fixture-backed `net` and `time` calls are host runtime boundaries:
   descriptor chunk receive/send, listener creation, accept, optional
-  clean-end listener accept, stream read, optional clean-end stream read,
-  stream write, timeout, deadline waits, and cancellable deadline waits
-  execute outside the pure protocol core.
+  clean-end listener accept, deadline-aware optional listener accept, stream
+  read, optional clean-end stream read, stream write, timeout, deadline waits,
+  and cancellable deadline waits execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -58,7 +58,8 @@ execution reference.
   recording, and forced listen, accept, read, write, timeout, deadline, or
   cancellable-wait cancellation failures through the runtime-failure wait stop
   the entry as runtime failures rather than schema, codec, or peer protocol
-  diagnostics.
+  diagnostics. `net::accept_until` turns accept deadline expiry into `None`,
+  while forced host accept failure through that path remains a runtime failure.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus
@@ -67,7 +68,8 @@ execution reference.
 - The socket stream adapter routing example composes the existing
   fixture-backed socket calls with the source-level event/action handler
   boundary. Adapter code can accept a listener as `Some(stream)` or clean end
-  as `None`, owns the accepted `NetStream` across optional reads until clean
+  as `None`, accept before a deadline as `Some(stream)` or deadline expiry as
+  `None`, owns the accepted `NetStream` across optional reads until clean
   stream end, translates clean stream end into `StreamInput.End`, routes
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler

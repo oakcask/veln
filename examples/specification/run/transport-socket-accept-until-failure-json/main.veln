@@ -1,0 +1,6 @@
+# Deadline-aware socket accept host failures stay runtime transport failures.
+pub fn main() -> Option<NetStream> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(5)
+	net::accept_until(listener, deadline)
+end
