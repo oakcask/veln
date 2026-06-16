@@ -1,0 +1,23 @@
+# Hand-written codec encode Invalid steps populate value_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt8
+	kind: UInt8
+end
+
+codec ManualPacketCodec for ManualPacketWire encode
+	encode with encode_packet
+end
+
+fn encode_packet(packet: {length: Int, kind: Int}) -> EncodeStep<()>
+	match packet.kind <= packet.length
+		true => Encoded(list_nil())
+		false => Invalid(EncodeError("codec.encode_value_unrepresentable", "ManualPacketWire.kind", "kind must be less than or equal to length"))
+	end
+end
+
+pub fn main() -> EncodeStep<()>
+	ManualPacketCodec({length: 1, kind: 7})
+end

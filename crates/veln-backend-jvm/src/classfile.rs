@@ -202,7 +202,7 @@ impl<'a> ClassfileEmitter<'a> {
             "isErr",
             "(Ljava/lang/Object;)Z",
         );
-        let ok = code.branch(0x99);
+        let result_ok = code.branch(0x99);
         code.aload(1);
         code.invokestatic(
             &self.options.runtime_class,
@@ -211,6 +211,37 @@ impl<'a> ClassfileEmitter<'a> {
         );
         code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
         code.aload(1);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "format",
+            "(Ljava/lang/Object;)Ljava/lang/String;",
+        );
+        code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        code.push_i32(1);
+        code.invokestatic("java/lang/System", "exit", "(I)V");
+        code.bind(result_ok);
+        code.aload(1);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "isEncodeStepInvalid",
+            "(Ljava/lang/Object;)Z",
+        );
+        let ok = code.branch(0x99);
+        code.aload(1);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "encodeStepInvalidAsErr",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+        code.astore(2);
+        code.aload(2);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "recordResultFailure",
+            "(Ljava/lang/Object;)V",
+        );
+        code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
+        code.aload(2);
         code.invokestatic(
             &self.options.runtime_class,
             "format",

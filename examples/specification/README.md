@@ -1048,6 +1048,11 @@ against the built `veln` binary.
   `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged. The partial
   path keeps the emitted chunk list, produced byte count, and resumed encoder
   state visible to ordinary source before resuming to a complete encode.
+- `run/codec-encode-invalid-step-human/` and
+  `run/codec-encode-invalid-step-json/`: when a hand-written codec encode
+  entry returns `Invalid(EncodeError(...))`, `veln run` projects the contained
+  encode error through focused human diagnostics and `run --json`
+  `details.value_diagnostic`.
 - `run/derived-codec-encode-boundary/`: a `derive encode` codec item call
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated

@@ -151,7 +151,9 @@ When the result value is a schema value validation failure from
   field name, such as `length` and `padding_length`
 
 When the result value is a generated binary schema encode failure represented
-as `EncodeError(id, field_path, reason)`, `details.value_diagnostic` includes:
+as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
+`EncodeStep::Invalid(EncodeError(id, field_path, reason))`,
+`details.value_diagnostic` includes:
 
 - `kind: "value_diagnostic"`
 - `id`: one of `codec.encode_value_unrepresentable`,
@@ -166,6 +168,9 @@ as `EncodeError(id, field_path, reason)`, `details.value_diagnostic` includes:
   dispatch, and mapping failures
 - `predicate`, `field_value`, `supplied_values`, and supplied schema-local
   `Int` values keyed by field name for encode-time `schema.validation_failed`
+
+`EncodeStep::Encoded(...)` and `EncodeStep::Partial(...)` entry results do not
+populate `error` or `details.value_diagnostic`.
 
 When the result value is a binary schema closed dispatch unknown tag failure,
 `details.byte_diagnostic` includes:

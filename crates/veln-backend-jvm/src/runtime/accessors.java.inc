@@ -2,6 +2,14 @@
         return value instanceof Result && !((Result) value).isOk();
     }
 
+    public static boolean isEncodeStepInvalid(Object value) {
+        return isAdt(value, "EncodeStep::Invalid");
+    }
+
+    public static Object encodeStepInvalidAsErr(Object value) {
+        return Result.err(adtPayload(value, 0));
+    }
+
     public static void checkContract(
         Object value,
         String clause,

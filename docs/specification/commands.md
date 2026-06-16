@@ -43,7 +43,8 @@ requiring the full command reference on the first read.
   failures, payload length boundary failures, generated binary schema
   `EncodeError` value failures for primitive representability, dispatch
   unknown tags, dispatch length mismatches, and dispatch tag/payload
-  mismatches, HTTP/2 protocol-core failures
+  mismatches, hand-written codec `EncodeStep::Invalid(EncodeError(...))`
+  entry results, HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid connection-state and stream-state frame-kind failures, and
@@ -58,9 +59,10 @@ requiring the full command reference on the first read.
   lowercase hex pairs grouped with spaces and keep byte offsets, field paths,
   expected counts, actual counts, accepted ranges, actual values, matched
   prefix counts, byte values, and rule provenance in separate notes or
-  structured details. Generated binary schema encode diagnostics keep the
-  primary message on the failed encode fact and put field path, reason or
-  predicate details, and source-visible `EncodeError` value in related notes.
+  structured details. Generated binary schema encode diagnostics and
+  `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
+  message on the failed encode fact and put field path, reason or predicate
+  details, and source-visible `EncodeError` value in related notes.
   Transport runtime
   failures from descriptor-backed
   receive/send calls, fixture-backed socket listen/accept/read/write calls,
