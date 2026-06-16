@@ -1,11 +1,13 @@
-# Derived codec encode calls can use same-module nested dispatch helpers.
+# Derived codec encode calls can use general same-module nested dispatch helpers.
 use stdio
 
 schema SettingsPayload
 	format binary
 
+	version: UInt8
+	padding: ReservedBits(8, 0)
 	code: UInt8
-	value: UInt16be
+	value: UInt16le
 end
 
 schema ClosedNestedPacket
@@ -83,11 +85,11 @@ fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () 
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: EncodeStep<()> = ClosedNestedCodec({kind: 1, payload: {code: 7, value: 4660}})
+	let encoded: EncodeStep<()> = ClosedNestedCodec({kind: 1, payload: {version: 1, code: 7, value: 4660}})
 	stdio::println(step_kind(encoded))
-	emit_encoded("derived-closed-nested", encoded, "01071234")
+	emit_encoded("derived-closed-nested", encoded, "010100073412")
 
-	let invalid: EncodeStep<()> = ClosedNestedCodec({kind: 2, payload: {code: 7, value: 4660}})
+	let invalid: EncodeStep<()> = ClosedNestedCodec({kind: 2, payload: {version: 1, code: 7, value: 4660}})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

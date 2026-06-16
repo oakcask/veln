@@ -96,8 +96,8 @@ compiler-known calls.
   Generated binary schema encode
   helpers for the exact-width
   primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`, supported reserved-bit, length-bounded
-  `ByteView`, closed dispatch, extension dispatch, and same-module or
-  imported public nested dispatch payload slices accept schema-local visible
+  `ByteView`, closed dispatch, extension dispatch, and eligible nested
+  dispatch payload slices accept schema-local visible
   fields, using `ByteView` fields for length-bounded payloads and
   `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
   unselected structural mapping can instead accept a mapped record shape for

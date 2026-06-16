@@ -121,10 +121,9 @@ helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, extension-tolerant known payloads, and nested helper
 diagnostics. A checked non-HTTP telemetry envelope combines the implemented
-helper vocabulary in one generated decode-and-encode schema. Recursive or
-otherwise ineligible dispatch payload schemas, broader unsupported field
-layouts, and schema value mapping beyond the implemented structural slices
-remain proposal work.
+helper vocabulary in one generated decode-and-encode schema. Recursive
+dispatch payload schemas, broader unsupported field layouts, and schema value
+mapping beyond the implemented structural slices remain proposal work.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
 one byte through the existing `UInt8` representation path, decodes to the
@@ -287,8 +286,8 @@ for:
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
-- recursive or otherwise ineligible dispatch payload schemas beyond the
-  implemented same-module and imported public nested helper slices
+- recursive dispatch payload schemas and dispatch payload schemas outside the
+  generated helper slice
 
 ## Discussion Result: Dependent Structure Boundary
 
@@ -410,8 +409,9 @@ when both operands name earlier visible `Int` fields in the same schema.
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or
 an eligible nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
-recursive or otherwise ineligible dispatch payload schemas, and mapping
-beyond the implemented slices remain proposal work. A `UInt31be` field
+recursive dispatch payload schemas, dispatch payload schemas outside the
+generated helper slice, and mapping beyond the implemented slices remain
+proposal work. A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
 remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
 should not become a general-purpose source type.

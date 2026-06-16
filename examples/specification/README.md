@@ -1000,9 +1000,11 @@ against the built `veln` binary.
   unknown-tag failure projects focused human `run` diagnostics with related
   tag, byte context, and field-path notes.
 - `check/binary-schema-dispatch-payload-diagnostics/`: nested dispatch payload
-  schema names are checked against the narrow eligible schema boundary, with
+  schema names are checked against the eligible generated-helper schema
+  boundary, with
   diagnostics for missing names, non-schema names, private imported schemas,
-  self references, forward references, and incompatible payload shapes.
+  closed and extension self references, forward references, and incompatible
+  payload shapes.
 - `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
   decode helper reads an extension-tolerant dispatch tag, selects a known
   payload case, and returns `SchemaDispatchPayload::Known`.
@@ -1110,7 +1112,8 @@ against the built `veln` binary.
   `Invalid(EncodeError)`.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload
-  schema, including generated helper dispatch selection failure projection.
+  schema whose generated helper uses reserved fields and little-endian output,
+  including generated helper dispatch selection failure projection.
 - `run/derived-codec-imported-nested-dispatch-encode-boundary/`: the same
   `derive encode` codec item boundary over a public imported nested dispatch
   payload schema, including generated helper dispatch selection failure
@@ -1138,8 +1141,9 @@ against the built `veln` binary.
   repeated `ByteView` field.
 - `run/derived-codec-nested-dispatch-decode-boundary/`: the same `derive
   decode` codec item boundary over a same-module nested dispatch payload
-  schema, including the generated helper's nested record value and consumed
-  count.
+  schema whose generated helper uses field-local validation, reserved fields,
+  and little-endian reads, including the generated helper's nested record
+  value and consumed count.
 - `run/derived-codec-imported-nested-dispatch-decode-boundary/`: the same
   `derive decode` codec item boundary over a public imported nested dispatch
   payload schema, including the generated helper's nested record value and

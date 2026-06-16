@@ -79,9 +79,12 @@ or non-`Int` byte-view length references report
 `schema.byte_view_reference`. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names
 a previously decoded visible `Int` field and each case payload is either one
-of the implemented exact-width unsigned binary primitives, a same-module
-binary schema item, or a public imported binary schema named through a written
-`use` path. The extension-tolerant field type
+of the implemented exact-width unsigned binary primitives or an eligible
+nested binary schema payload. Nested payload schema names must resolve to an
+earlier same-module binary schema item or a public imported binary schema
+named through a written `use` path, and the named schema must itself be
+eligible for the generated binary schema helper path. The extension-tolerant
+field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
@@ -98,7 +101,8 @@ or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward or recursively, or
-decodes to an incompatible payload shape. The checked field-reference
+uses a schema outside the generated helper slice, or decodes to an
+incompatible payload shape. The checked field-reference
 diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
@@ -147,12 +151,11 @@ and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`, supported reserved-bit, closed
 dispatch, extension dispatch, bounded repeated primitive or nested schema field,
-length-bounded `ByteView`, and same-module or imported public nested dispatch
-payload helper slices, general ADT constructor mapping beyond schema-local
-structural expressions,
-recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
-expressions, and mapping selection beyond decoded-field integer equality are
-not implemented.
+length-bounded `ByteView`, and eligible nested dispatch payload helper
+slices, general ADT constructor mapping beyond schema-local structural
+expressions, recursive dispatch payload schemas, dispatch payload schemas
+outside the generated helper slice, arbitrary mapping expressions, and mapping
+selection beyond decoded-field integer equality are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the mapping selection boundary. The checked diagnostics case
@@ -196,9 +199,8 @@ earlier visible exact-width unsigned `Int` fields,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
-and whose cases are exact-width unsigned primitive payloads or earlier
-same-module binary schema payloads or public imported binary schema payloads
-named through written `use` paths, also expose generated
+and whose cases are exact-width unsigned primitive payloads or eligible
+nested binary schema payloads, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 one structural `map to Target` clause can make that helper accept the mapping
 target record shape when every visible encode field, including `Flag8`,
@@ -218,9 +220,10 @@ Single-payload constructor wrappers remain limited to the existing
 single-constructor flag and exact-width integer cases unless the payload is
 that record-expression slice. Selected mappings that cannot reconstruct every
 schema-local encode field through direct source-field assignments, mapping
-expressions that cannot be projected back to schema-local fields, recursive or
-otherwise ineligible dispatch payload schemas, non-byte-aligned reserved
-fields outside the supported packed, middle, and `UInt31be` shared-bit
+expressions that cannot be projected back to schema-local fields, recursive
+dispatch payload schemas, dispatch payload schemas outside the generated
+helper slice, non-byte-aligned reserved fields outside the supported packed,
+middle, and `UInt31be` shared-bit
 layouts, and derived codec encode execution over unsupported schemas are
 outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type

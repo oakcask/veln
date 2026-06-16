@@ -61,6 +61,14 @@ schema ForwardPacket
 	payload: Dispatch(kind, 1 => LaterPayload)
 end
 
+schema ExtensionSelfPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => ExtensionSelfPacket)
+end
+
 schema PriorPayload
 	format binary
 

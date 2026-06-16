@@ -535,8 +535,9 @@ execution reference.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
-  earlier same-module binary schema payload or public imported binary schema
-  named through a written `use` path. The record contains the visible tag
+  eligible nested binary schema payload named as an earlier same-module binary
+  schema or a public imported binary schema through a written `use` path. The
+  record contains the visible tag
   field and one payload field; for nested payload schemas the payload field
   uses the nested schema decoded record shape. The helper chooses the case
   from the encoded tag value, writes selected nested payload schemas through
@@ -545,10 +546,10 @@ execution reference.
   field_path, reason))` when the tag value has no case.
   Extension-tolerant
   `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
-  eligible for the same exact-width unsigned primitive, same-module nested
-  binary schema, or public imported nested binary schema payload cases when
-  both the tag and length fields are earlier visible exact-width unsigned
-  fields. The payload record field is `SchemaDispatchPayload<T>`, where `T`
+  eligible for the same exact-width unsigned primitive or eligible nested
+  binary schema payload cases when both the tag and length fields are earlier
+  visible exact-width unsigned fields. The payload record field is
+  `SchemaDispatchPayload<T>`, where `T`
   is the selected primitive `Int` or nested schema decoded record shape.
   `Known(value)` writes the payload selected by the visible tag field.
   `Unknown(tag, payload)` writes the bounded raw bytes from the `ByteView`
@@ -607,8 +608,9 @@ execution reference.
   and projected-field representation failures. This slice excludes selected
   mappings that cannot reconstruct all schema-local encode fields through
   direct source-field assignments, mapping expressions that cannot be
-  projected back to schema-local fields, recursive or otherwise ineligible
-  dispatch payload schemas, nested mappings, and derived codec encode
+  projected back to schema-local fields, recursive dispatch payload schemas,
+  dispatch payload schemas outside the generated helper slice, nested
+  mappings, and derived codec encode
   execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
@@ -711,8 +713,8 @@ execution reference.
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
   repeat-backed schemas, the implemented direct structural mapping and
-  selected structural mapping slices, and same-module or public imported
-  nested dispatch payload schemas already accepted by `byte_encode_<schema>`.
+  selected structural mapping slices, and eligible nested dispatch payload
+  schemas already accepted by `byte_encode_<schema>`.
   The call accepts the generated helper's value record or mapped target
   record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
   helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
