@@ -160,6 +160,12 @@ its returned `Encoded`, `Partial`, and `Invalid(EncodeError)`
 `EncodeStep<TState>` values unchanged. The partial path keeps the emitted
 chunk list, produced `ByteCount`, and resumed encoder state source-visible,
 then uses the returned state to complete a later encode call.
+The executable specification cases
+`../../examples/specification/run/codec-encode-invalid-step-human/` and
+`../../examples/specification/run/codec-encode-invalid-step-json/` cover
+command-facing projection when a hand-written codec encode entry returns
+`Invalid(EncodeError(...))`: human output uses the focused encode diagnostic,
+and `run --json` attaches `details.value_diagnostic`.
 The executable specification case
 `../../examples/specification/run/derived-codec-encode-boundary/` covers a
 derived codec encode boundary for the eligible generated binary schema encode

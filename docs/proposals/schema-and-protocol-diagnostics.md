@@ -62,7 +62,11 @@ projection for generated `EncodeError` result values is also implemented for
 human output reports focused runtime diagnostics, and `veln run --json`
 attaches `details.value_diagnostic` with field path and reason details as
 specified under `../specification/run-json.md` and
-`../specification/commands.md`. Hand-written
+`../specification/commands.md`. The same command-facing projection is
+implemented when a `veln run` entry returns
+`EncodeStep::Invalid(EncodeError(...))`, including hand-written codec
+`encode with` functions; successful `Encoded` and `Partial` entry values
+remain ordinary values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
@@ -368,5 +372,4 @@ The implemented protocol-state diagnostic projection slice covers:
 
 The proposal remains open for broader schema and codec diagnostics that are not
 specified as current behavior under `../specification/`, including codec
-diagnostic ids outside the implemented generated `EncodeError` command-facing
-slice.
+diagnostic ids outside the implemented `EncodeError` command-facing slice.

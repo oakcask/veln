@@ -113,8 +113,9 @@ compare it with `../specification/` before changing behavior.
   generated
   binary schema encode value-representation failures, generated `EncodeError`
   command-facing projection for encode value, dispatch unknown tag, dispatch
-  length mismatch, and dispatch mismatch failures, generated binary schema
-  decode integer range failures, generated bounded repeated schema field
+  length mismatch, and dispatch mismatch failures, command-facing projection
+  for `EncodeStep::Invalid(EncodeError(...))` entry results, generated binary
+  schema decode integer range failures, generated bounded repeated schema field
   truncation diagnostics with indexed field paths in JSON and human output,
   plus hand-written codec decode consumed-count failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the

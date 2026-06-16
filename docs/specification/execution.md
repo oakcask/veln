@@ -575,6 +575,11 @@ execution reference.
   output keeps the primary message focused on the failed encode fact and
   reports field path, predicate or reason details, and rendered result value
   as related notes.
+  When a `veln run` entry returns
+  `EncodeStep::Invalid(EncodeError(id, field_path, reason))`, the command
+  reports the contained `EncodeError` through the same command-facing value
+  diagnostic projection. `Encoded` and `Partial` remain ordinary successful
+  source-visible values.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
   Multiple selected mapping clauses selected by `when field == literal` are
@@ -759,7 +764,12 @@ execution reference.
   budgeted encode example observes `Partial` with its emitted chunk list,
   produced byte count, and resumed encoder state as ordinary source-visible
   values, then uses the returned state to complete a later encode call. For
-  the implemented structural `map to Target` schema slice, the first encoder
+  `veln run` entries, a returned `Invalid(EncodeError(...))` is projected to
+  the same focused human and `details.value_diagnostic` JSON diagnostics used
+  for command-facing `EncodeError` result values. The checked examples are
+  `examples/specification/run/codec-encode-invalid-step-human/` and
+  `examples/specification/run/codec-encode-invalid-step-json/`. For the
+  implemented structural `map to Target` schema slice, the first encoder
   parameter remains the mapped target record shape.
 - Same-module private decode codecs are callable only in their declaring
   module; same-module private encode codecs follow the same rule. Imported
