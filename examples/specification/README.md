@@ -242,8 +242,8 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
-  decode computes an `Int` target field with supported decoded-field `+` and
-  `-` mapping arithmetic.
+  decode computes an `Int` target field with supported decoded-field `+`,
+  `-`, and `*` mapping arithmetic.
 - `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
   mapping expressions reject missing selected fields and non-record selection
   targets.

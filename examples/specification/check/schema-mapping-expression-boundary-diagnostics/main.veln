@@ -21,8 +21,8 @@ schema HeaderWire
 		wrapped = Missing(kind)
 		bad_arity = FrameKind(kind, length)
 		bad_type = FrameKind({value: kind})
-		bad_operand = length + payload
+		bad_operand = length * payload
 		unsupported_operand = length + 1
 		unsupported_call = convert(length) + kind
-		unsupported_operator = kind * length
+		unsupported_operator = kind / length
 end

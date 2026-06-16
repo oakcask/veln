@@ -205,15 +205,18 @@ has one eligible structural `map to Target` clause. In that mapped slice, the
 generated helper constructs the target record field names from decoded schema
 fields, record construction expressions, and ADT constructor construction
 expressions after all field-local `where` predicates pass. A mapping
+assignment may also use `+`, `-`, and `*` over decoded schema-local `Int`
+fields and nested supported mapping arithmetic expressions. A mapping
 assignment may also call one pure same-module converter function or one
 imported public pure converter function through a written `use` path or alias
 with either one decoded schema-local field argument or one already implemented
 structural mapping expression made from decoded schema fields, records, ADT
-constructors, and nested combinations of those forms before assigning the
-returned value to the target field. A mapping assignment may also select a
-field from an already supported structural mapping expression after that
-source expression is available, when the source expression has a record-shaped
-type with the selected field. Mapping diagnostics reject unknown source fields,
+constructors, integer arithmetic mapping expressions, and nested combinations
+of those forms before assigning the returned value to the target field. A
+mapping assignment may also select a field from an already supported
+structural mapping expression after that source expression is available, when
+the source expression has a record-shaped type with the selected field.
+Mapping diagnostics reject unknown source fields,
 unknown target fields, duplicate or missing target fields, unsupported
 expression forms, unresolved constructors or converters, private imported
 converters, constructor or converter arity mismatches, impure converters,
