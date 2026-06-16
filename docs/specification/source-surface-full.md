@@ -149,7 +149,9 @@ schema mapping expression on the right. The implemented expression slice
 supports schema-local field references, record construction, ADT constructor
 construction resolved through ordinary source module rules, one pure
 same-module converter call, and one imported public pure converter call
-through a written `use` path or alias. Converter calls take exactly one
+through a written `use` path or alias, and field selection from an already
+supported structural mapping expression whose type has the selected record
+field. Converter calls take exactly one
 argument: either a schema-local field reference or an already implemented
 structural mapping expression made from schema-local fields, records, ADT
 constructors, and nested combinations of those forms.

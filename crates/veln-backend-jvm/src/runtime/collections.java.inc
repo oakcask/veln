@@ -4828,6 +4828,9 @@
         if (tag.equals("field")) {
             return decoded.get(asString(spec.get(1)));
         }
+        if (tag.equals("field_access")) {
+            return recordField(schemaMappingExprValue(decoded, spec.get(1)), asString(spec.get(2)));
+        }
         if (tag.equals("record")) {
             java.util.List<Object> names = asList(spec.get(1));
             java.util.List<Object> values = asList(spec.get(2));

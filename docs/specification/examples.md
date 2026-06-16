@@ -400,6 +400,10 @@ pin the structural mapping expression slice. The helper constructs nested
 record and ADT target fields from decoded schema-local values.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
+`../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
+pins mapping assignment field selection from a decoded nested record value.
+`../../examples/specification/check/schema-mapping-field-selection-diagnostics/`
+pins missing selected fields and selection from non-record mapping values.
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins JSON diagnostics for missing, ambiguous, and unsupported mapping
 selection.

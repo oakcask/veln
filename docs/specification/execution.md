@@ -340,7 +340,10 @@ execution reference.
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules, or
   call one pure same-module converter function or one imported public pure
-  converter function through a written `use` path or alias. A converter
+  converter function through a written `use` path or alias. They may also
+  select a field from an already supported structural mapping expression after
+  the source expression is available, when that source expression has a
+  record-shaped type with the selected field. A converter
   argument is either one decoded schema-local field or an already implemented
   structural mapping expression made from decoded schema fields, records, ADT
   constructors, and nested combinations of those forms. The returned value is

@@ -344,6 +344,12 @@ fn schema_decode_spec_inner_after_push(
 fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappingExpr {
     match expr {
         SchemaDecodeMappingExpr::Field(name) => IrSchemaDecodeMappingExpr::Field(name),
+        SchemaDecodeMappingExpr::FieldAccess { base, field } => {
+            IrSchemaDecodeMappingExpr::FieldAccess {
+                base: Box::new(ir_schema_mapping_expr(*base)),
+                field,
+            }
+        }
         SchemaDecodeMappingExpr::Record(fields) => IrSchemaDecodeMappingExpr::Record(
             fields
                 .into_iter()

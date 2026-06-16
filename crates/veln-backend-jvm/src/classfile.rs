@@ -1483,6 +1483,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
+            IrSchemaDecodeMappingExpr::FieldAccess { base, field } => {
+                self.emit_object_array(code, 3, |this, code, index| match index {
+                    0 => code.ldc_string("field_access"),
+                    1 => this.emit_schema_mapping_expr_spec(code, base),
+                    2 => code.ldc_string(field),
+                    _ => unreachable!(),
+                });
+            }
             IrSchemaDecodeMappingExpr::Record(fields) => {
                 self.emit_object_array(code, 3, |this, code, index| match index {
                     0 => code.ldc_string("record"),
