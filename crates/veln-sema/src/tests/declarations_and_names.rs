@@ -1718,7 +1718,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
             "    bad_arity = FrameKind(kind, length)\n",
             "    bad_type = FrameKind({value: kind})\n",
             "    unresolved = helper(kind)\n",
-            "    unsupported = kind * length\n",
+            "    unsupported = kind / length\n",
             "end\n",
         ),
     );
@@ -1754,7 +1754,7 @@ fn generated_schema_mappings_report_expression_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_expression_unsupported"
                 && diagnostic.message
-                    == "schema mapping expression `kind * length` is not supported"
+                    == "schema mapping expression `kind / length` is not supported"
         }),
         "{diagnostics:#?}"
     );

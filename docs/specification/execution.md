@@ -376,9 +376,9 @@ execution reference.
   select a field from an already supported structural mapping expression after
   the source expression is available, when that source expression has a
   record-shaped type with the selected field. An `Int` target field may also
-  use `+` and `-` over decoded schema-local `Int` fields and nested supported
-  mapping arithmetic expressions. A converter argument is either one decoded
-  schema-local field or an already implemented structural mapping expression
+  use `+`, `-`, and `*` over decoded schema-local `Int` fields and nested
+  supported mapping arithmetic expressions. A converter argument is either one
+  decoded schema-local field or an already implemented structural mapping expression
   made from decoded schema fields, records, ADT constructors, integer
   arithmetic mapping expressions, and nested combinations of those forms. The
   returned value is then assigned to the target field.

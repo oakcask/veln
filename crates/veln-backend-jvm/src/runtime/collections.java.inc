@@ -5556,6 +5556,9 @@
             if (op.equals("-")) {
                 return subtract(left, right);
             }
+            if (op.equals("*")) {
+                return multiply(left, right);
+            }
             throw new IllegalStateException("unsupported schema mapping binary operator");
         }
         throw new IllegalStateException("unsupported schema mapping expression metadata");

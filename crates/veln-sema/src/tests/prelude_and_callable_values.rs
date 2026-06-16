@@ -3491,7 +3491,7 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
         "main.veln",
         concat!(
             "type Header\n",
-            "  Header {body_length: Int}\n",
+            "  Header {body_length: Int, scaled_length: Int}\n",
             "end\n",
             "\n",
             "schema HeaderWire\n",
@@ -3503,9 +3503,10 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
             "\n",
             "  map to Header\n",
             "    body_length = (length - padding) + checksum\n",
+            "    scaled_length = (length + padding) * checksum\n",
             "end\n",
             "\n",
-            "pub fn main(view: ByteView) -> Result<{body_length: Int}, String>\n",
+            "pub fn main(view: ByteView) -> Result<{body_length: Int, scaled_length: Int}, String>\n",
             "  byte_decode_header_wire(view)\n",
             "end\n",
         ),
@@ -3537,6 +3538,37 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
                 left.as_ref(),
                 veln_ir::IrSchemaDecodeMappingExpr::Binary {
                     op: veln_ast::BinaryOp::Subtract,
+                    left,
+                    right,
+                } if matches!(
+                        left.as_ref(),
+                        veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "length"
+                    )
+                    && matches!(
+                        right.as_ref(),
+                        veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "padding"
+                    )
+            )
+            && matches!(
+                right.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "checksum"
+            )
+    ));
+    let scaled_length = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "scaled_length")
+        .expect("scaled_length mapping should be emitted");
+    assert!(matches!(
+        &scaled_length.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Binary {
+            op: veln_ast::BinaryOp::Multiply,
+            left,
+            right,
+        } if matches!(
+                left.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                    op: veln_ast::BinaryOp::Add,
                     left,
                     right,
                 } if matches!(

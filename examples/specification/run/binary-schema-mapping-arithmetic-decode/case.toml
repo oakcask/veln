@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "13\n"
+equals = "40\n"
 
 [[json_assert]]
 path = "error"

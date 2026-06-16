@@ -13,7 +13,7 @@ schema PacketWire
 	checksum: UInt8
 
 	map to Packet
-		body_length = (length - padding) + checksum
+		body_length = (length - padding) * checksum
 end
 
 pub fn main() -> Result<(), String> effects [stdio]

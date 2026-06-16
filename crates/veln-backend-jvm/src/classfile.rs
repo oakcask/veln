@@ -2261,7 +2261,8 @@ fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
     match op {
         BinaryOp::Add => "+",
         BinaryOp::Subtract => "-",
-        _ => unreachable!("schema mapping binary expressions only support + and -"),
+        BinaryOp::Multiply => "*",
+        _ => unreachable!("schema mapping binary expressions only support +, -, and *"),
     }
 }
 
