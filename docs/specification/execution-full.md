@@ -269,6 +269,14 @@ mapping record shape. Same-module private decode codecs are callable only
 inside their declaring module; imported calls require a written qualified
 module path to a `pub codec`.
 
+For `veln run` entries, a returned
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` is projected
+to a focused human runtime diagnostic and `details.byte_diagnostic` JSON using
+the contained diagnostic id, byte offset, and field path. `Decoded` and
+`NeedMore` remain ordinary successful entry values. The checked examples are
+`examples/specification/run/codec-decode-invalid-step-human/` and
+`examples/specification/run/codec-decode-invalid-step-json/`.
+
 A codec declaration with a valid hand-written `encode with function_name`
 clause exposes the codec item name as an executable encode boundary in
 ordinary source calls. The call invokes the already-checked same-module encode

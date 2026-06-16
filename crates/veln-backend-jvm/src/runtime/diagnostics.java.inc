@@ -903,6 +903,23 @@
             || id.equals("codec.dispatch_mismatch");
     }
 
+    public static void registerDecodeErrorByteDiagnostic(Object value, String message) {
+        if (!isAdtNamed(value, "DecodeError::DecodeError")) {
+            return;
+        }
+        Adt error = asAdt(value, "DecodeError::DecodeError");
+        String id = asString(error.payloads[0]);
+        long byteOffset = byteOffsetLong(error.payloads[1]);
+        String fieldPath = asString(error.payloads[2]);
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("field_path_display", fieldPath));
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details)
+        );
+    }
+
     private static java.util.List<ByteDiagnosticFieldPathSegment> encodeErrorFieldPath(
         String fieldPath
     ) {

@@ -105,6 +105,13 @@ hand-written codec decode boundary: a codec item call passes `ByteView` and
 `NeedMore`, and `Invalid` `DecodeStep<T>` values, and projects an oversized
 consumed count to `codec.consumed_count_invalid` while the schema mapping pins
 the accepted value type.
+The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-step-human/` and
+`../../examples/specification/run/codec-decode-invalid-step-json/` cover
+command-facing projection when a `veln run` entry returns
+`Invalid(DecodeError(...))`: human output reports the failed decode fact at
+the contained byte offset with related field-path and source-visible value
+notes, and `run --json` attaches `details.byte_diagnostic`.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

@@ -66,7 +66,19 @@ specified under `../specification/run-json.md` and
 implemented when a `veln run` entry returns
 `EncodeStep::Invalid(EncodeError(...))`, including hand-written codec
 `encode with` functions; successful `Encoded` and `Partial` entry values
-remain ordinary values. Hand-written
+remain ordinary values. Command-facing projection for
+`DecodeStep::Invalid(DecodeError(...))` entry results is implemented;
+`veln run` human output reports a focused runtime diagnostic at the contained
+byte offset with field-path and source-visible value notes, and
+`veln run --json` attaches
+`details.byte_diagnostic` with the contained id, byte offset, and field path
+as specified under `../specification/run-json.md`,
+`../specification/commands.md`, and `../specification/execution.md` and
+checked by
+`../../examples/specification/run/codec-decode-invalid-step-json/` and
+`../../examples/specification/run/codec-decode-invalid-step-human/`.
+Successful `Decoded(...)` and `NeedMore(...)` entry values remain ordinary
+values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
@@ -344,7 +356,8 @@ to stable human and JSON diagnostics.
 The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
-failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
+failures, command-facing `DecodeStep::Invalid(DecodeError(...))` entry
+projection, plus HTTP/2 protocol-state projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
