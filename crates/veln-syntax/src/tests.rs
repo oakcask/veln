@@ -492,6 +492,7 @@ fn parses_schema_mapping_expression_values() {
             "\tmap to Header\n",
             "\t\tlength = {value: length}\n",
             "\t\tkind = Wrap(kind)\n",
+            "\t\tcode = {value: kind}.value\n",
             "end\n",
         ),
     );
@@ -514,6 +515,14 @@ fn parses_schema_mapping_expression_values() {
     assert!(matches!(
         schema.mappings[0].assignments[1].expr.kind,
         ExprKind::Call { .. }
+    ));
+    assert_eq!(
+        schema.mappings[0].assignments[2].source,
+        "{ value: kind }.value"
+    );
+    assert!(matches!(
+        schema.mappings[0].assignments[2].expr.kind,
+        ExprKind::FieldAccess { .. }
     ));
 }
 

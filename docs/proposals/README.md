@@ -21,8 +21,9 @@ compare it with `../specification/` before changing behavior.
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions, pure same-module and imported
   public representation conversion hooks whose arguments may be schema-local
-  fields or structural mapping expressions, decoded-field integer equality
-  mapping selection, focused mapping selection diagnostics, and the
+  fields or structural mapping expressions, field selection from record-shaped
+  structural mapping expressions, decoded-field integer equality mapping
+  selection, focused mapping selection diagnostics, and the
   generated-helper schema validation diagnostic boundary, generated
   `validate_<schema>` decoded-record validation boundary, plus direct
   structural mapped schema encode helper, derived encode boundary support, and

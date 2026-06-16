@@ -239,6 +239,11 @@ against the built `veln` binary.
   missing, ambiguous, and unsupported structural mapping selection.
 - `run/binary-schema-mapping-selection-decode/`: generated binary schema
   decode selects one structural mapping from an already decoded field value.
+- `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
+  decode maps a selected field from an already decoded nested record value.
+- `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
+  mapping expressions reject missing selected fields and non-record selection
+  targets.
 - `check/schema-mapping-expression-boundary-diagnostics/`: record and
   constructor-shaped schema mapping assignment values report unsupported
   expression, unresolved constructor, constructor arity, and payload type

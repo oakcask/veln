@@ -79,7 +79,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   records, construct ADT payloads through ordinary source module constructor
   resolution, call one pure same-module representation converter, or call one
   imported public pure converter through a written `use` path or alias from a
-  schema-local field or structural mapping expression into a target field
+  schema-local field or structural mapping expression into a target field, or
+  select a visible field from a record-shaped structural mapping expression
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -91,7 +92,8 @@ This proposal remains open for:
   closed dispatch, and extension dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
   construction, ADT constructor construction, single pure same-module or
-  imported public representation conversion hook expression slice, and
+  imported public representation conversion hook expression slice, field
+  selection from record-shaped structural mapping expressions, and
   decoded-field integer equality mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
@@ -132,12 +134,14 @@ implemented expression slice supports schema-local field references, record
 construction, ADT constructor construction resolved through ordinary source
 module rules, one pure same-module converter function call, and one imported
 public pure converter function call through a written `use` path or alias from
-a schema-local field or structural mapping expression into a target field.
+a schema-local field or structural mapping expression into a target field, and
+field selection from record-shaped structural mapping expressions.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
 construction, a single same-module pure converter call, and a single imported
-public pure converter call through a written `use` path or alias. Converter
+public pure converter call through a written `use` path or alias, and field
+selection from record-shaped structural mapping expressions. Converter
 arguments may be schema-local field references or structural mapping
 expressions made from schema-local fields, records, ADT constructors, and
 nested combinations of those forms. A schema does not implicitly publish a

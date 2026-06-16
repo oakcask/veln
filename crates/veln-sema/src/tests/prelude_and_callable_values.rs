@@ -2889,6 +2889,109 @@ fn generated_schema_decode_helpers_keep_structural_mapping_expressions() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_field_selection_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {summary: Int, converted: Int, wrapped: FrameKind}\n",
+            "end\n",
+            "\n",
+            "type FrameKind\n",
+            "  FrameKind(Int)\n",
+            "end\n",
+            "\n",
+            "fn wrap(input: Int) -> {code: Int}\n",
+            "  {code: input}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = {code: kind}.code\n",
+            "    converted = wrap(kind).code\n",
+            "    wrapped = FrameKind({code: kind}.code)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{summary: Int, converted: Int, wrapped: FrameKind}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let summary = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "summary")
+        .expect("summary mapping should be emitted");
+    assert!(matches!(
+        &summary.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::FieldAccess { base, field }
+            if field == "code"
+                && matches!(
+                    base.as_ref(),
+                    veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+                        if fields.len() == 1
+                            && fields[0].name == "code"
+                            && matches!(
+                                fields[0].expr,
+                                veln_ir::IrSchemaDecodeMappingExpr::Field(ref name)
+                                    if name == "kind"
+                            )
+                )
+    ));
+    let converted = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "converted")
+        .expect("converted mapping should be emitted");
+    assert!(matches!(
+        &converted.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::FieldAccess { base, field }
+            if field == "code"
+                && matches!(
+                    base.as_ref(),
+                    veln_ir::IrSchemaDecodeMappingExpr::Converter { function, .. }
+                        if function == "wrap"
+                )
+    ));
+    let wrapped = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "wrapped")
+        .expect("wrapped mapping should be emitted");
+    assert!(matches!(
+        &wrapped.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Constructor { args, .. }
+            if args.len() == 1
+                && matches!(
+                    &args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::FieldAccess { base, field }
+                        if field == "code"
+                            && matches!(
+                                base.as_ref(),
+                                veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+                                    if fields.len() == 1 && fields[0].name == "code"
+                            )
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions() {
     let app_source = SourceFile::new(
         "app.veln",

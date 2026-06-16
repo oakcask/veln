@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `payload.missing` is not supported", "schema mapping expression `kind.code` is not supported"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -102,7 +102,9 @@ source value shape. The implemented mapping expression slice supports
 schema-local field references, record construction, ADT constructor
 construction resolved through ordinary source module rules, one pure
 same-module converter function call, or one imported public pure converter
-function call through a written `use` path or alias. Converter calls take one
+function call through a written `use` path or alias, and field selection from
+an already supported structural mapping expression whose type has the selected
+record field. Converter calls take one
 argument: either a schema-local field reference or an already implemented
 structural mapping expression made from schema-local fields, records, ADT
 constructors, and nested combinations of those forms. The converter return

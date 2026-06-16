@@ -340,7 +340,10 @@ execution reference.
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules, or
   call one pure same-module converter function or one imported public pure
-  converter function through a written `use` path or alias. A converter
+  converter function through a written `use` path or alias. They may also
+  select a field from an already supported structural mapping expression after
+  the source expression is available, when that source expression has a
+  record-shaped type with the selected field. A converter
   argument is either one decoded schema-local field or an already implemented
   structural mapping expression made from decoded schema fields, records, ADT
   constructors, and nested combinations of those forms. The returned value is
@@ -373,7 +376,8 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
-  `examples/specification/run/binary-schema-mapping-selection-decode/`, and
+  `examples/specification/run/binary-schema-mapping-selection-decode/`,
+  `examples/specification/run/binary-schema-mapped-field-selection-decode/`, and
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
