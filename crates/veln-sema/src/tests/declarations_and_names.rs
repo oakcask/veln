@@ -1439,10 +1439,10 @@ fn codec_derive_encode_reports_converter_mapping_that_generated_encode_cannot_ac
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     let diagnostic = &diagnostics[0];
-    assert_eq!(diagnostic.id, "codec.encode_value_type");
+    assert_eq!(diagnostic.id, "codec.derive_helper_unsupported");
     assert_eq!(
         diagnostic.message,
-        "derived encode value parameter must match schema mapping value type"
+        "derived encode is not available for this schema"
     );
     assert!(
         diagnostic
@@ -1454,21 +1454,9 @@ fn codec_derive_encode_reports_converter_mapping_that_generated_encode_cannot_ac
         diagnostic
             .details
             .to_json()
-            .contains("\"reason\":\"generated_encode_value_type\"")
+            .contains("\"reason\":\"generated_encode_helper_unavailable\"")
     );
-    assert!(
-        diagnostic
-            .details
-            .to_json()
-            .contains("\"expected_value_type\":\"{length: Int, kind: Int}\"")
-    );
-    assert!(
-        diagnostic
-            .details
-            .to_json()
-            .contains("\"actual_value_type\":\"unknown\"")
-    );
-    assert!(diagnostic.related.is_empty());
+    assert_eq!(diagnostic.related.len(), 2);
 }
 
 #[test]
@@ -1506,24 +1494,77 @@ fn codec_derive_encode_reports_non_total_nested_mapping_value_boundary() {
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     let diagnostic = &diagnostics[0];
-    assert_eq!(diagnostic.id, "codec.encode_value_type");
+    assert_eq!(diagnostic.id, "codec.derive_helper_unsupported");
     assert_eq!(
         diagnostic.message,
-        "derived encode value parameter must match schema mapping value type"
+        "derived encode is not available for this schema"
     );
     assert!(
         diagnostic
             .details
             .to_json()
-            .contains("\"expected_value_type\":\"{body: {code: Int}}\"")
+            .contains("\"reason\":\"generated_encode_helper_unavailable\"")
+    );
+    assert_eq!(diagnostic.related.len(), 2);
+}
+
+#[test]
+fn codec_derive_reports_unsupported_generated_helper_directions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema UnsupportedPackedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  control_reserved: ReservedBits(9, 0)\n",
+            "  control: UInt8\n",
+            "end\n",
+            "\n",
+            "codec UnsupportedDecode for UnsupportedPackedHeader decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec UnsupportedEncode for UnsupportedPackedHeader encode\n",
+            "  derive encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let codec_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "codec.derive_helper_unsupported")
+        .collect::<Vec<_>>();
+    assert_eq!(codec_diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        codec_diagnostics.iter().any(|diagnostic| {
+            diagnostic.message == "derived decode is not available for this schema"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"generated_decode_helper_unavailable\"")
+        }),
+        "{diagnostics:#?}"
     );
     assert!(
-        diagnostic
-            .details
-            .to_json()
-            .contains("\"actual_value_type\":\"unknown\"")
+        codec_diagnostics.iter().any(|diagnostic| {
+            diagnostic.message == "derived encode is not available for this schema"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"generated_encode_helper_unavailable\"")
+        }),
+        "{diagnostics:#?}"
     );
-    assert!(diagnostic.related.is_empty());
+    assert!(
+        codec_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.related.len() == 2),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

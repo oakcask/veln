@@ -1,0 +1,14 @@
+schema UnsupportedPackedHeader
+	format binary
+
+	control_reserved: ReservedBits(9, 0)
+	control: UInt8
+end
+
+codec UnsupportedDecode for UnsupportedPackedHeader decode
+	derive decode
+end
+
+codec UnsupportedEncode for UnsupportedPackedHeader encode
+	derive encode
+end

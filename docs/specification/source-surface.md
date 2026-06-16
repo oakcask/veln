@@ -280,7 +280,9 @@ call returns that generated helper's `DecodeStep<T>` result. For the
 implemented structural mapping slice, `T` is the mapping target record
 shape when each assignment source has the same implemented decoded field type
 as the target field and all selected mappings resolve to that same record
-shape. Bare imported codec names are not ordinary call targets.
+shape. Unsupported generated decode helper eligibility reports
+`codec.derive_helper_unsupported` at the `derive decode` clause. Bare imported
+codec names are not ordinary call targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the
@@ -305,7 +307,8 @@ derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by
 [execution.md](execution.md).
 When a mapped schema cannot expose the mapping target through a generated
-encode boundary, the `derive encode` clause reports `codec.encode_value_type`.
+encode boundary, the `derive encode` clause reports
+`codec.derive_helper_unsupported`.
 The implemented direct structural mapping slice exposes that target record as
 the generated encode boundary.
 

@@ -732,8 +732,14 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks both successful `Ok(ByteChunk)` projection and helper
   `Err(EncodeError)` projection.
-  A mapped schema is rejected with `codec.encode_value_type` when its mapping
-  expression shape cannot be projected back to the schema-local encode record.
+  A `derive encode` clause is rejected with
+  `codec.derive_helper_unsupported` when the referenced schema cannot expose
+  the required generated encode helper, including mapping expression shapes
+  that cannot be projected back to the schema-local encode record.
+  `examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
+  and
+  `examples/specification/check/derived-codec-helper-eligibility-diagnostics/`
+  pin those checker boundaries.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
@@ -765,6 +771,10 @@ execution reference.
   target record shape when each assignment source has the same implemented
   decoded field type as the target field and all selected mappings resolve to
   that same record shape.
+  A `derive decode` clause is rejected with
+  `codec.derive_helper_unsupported` when the referenced schema cannot expose
+  the required generated decode-step helper. The helper eligibility diagnostics
+  case listed above pins that checker boundary.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit

@@ -253,6 +253,9 @@ the implemented structural mapping slice, `T` is the mapping target record
 shape when each assignment source has the same implemented decoded field type
 as the target field and all selected mappings resolve to that same record
 shape.
+A `derive decode` clause is rejected with `codec.derive_helper_unsupported`
+when the referenced schema cannot expose the required generated decode-step
+helper.
 
 A codec declaration with a valid hand-written `decode with function_name`
 clause also exposes the codec item name as an executable decode boundary in
@@ -312,7 +315,7 @@ same-module or imported public nested dispatch payload slices remains
 unimplemented. When a
 mapped schema uses a mapping expression shape that cannot be projected back to
 the schema-local encode record, the `derive encode` clause is rejected with
-`codec.encode_value_type`.
+`codec.derive_helper_unsupported`.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
