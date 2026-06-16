@@ -17,8 +17,15 @@ fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker 
 	end
 end
 
-fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
-	handle_stream_event(event, state)
+fn handle_stream_event_with_context(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	match event
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, context.adapter_marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + context.adapter_id, marker: payload } }
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	handle_stream_event_with_context(event, state, context)
 end
 
 fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
@@ -43,17 +50,18 @@ pub fn handler_boundary(event: StreamEvent, state: { request_count : Int, marker
 	handle_stream_event(event, state)
 end
 
-pub fn task_handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
-	let worker = task::spawn_with2<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, event, state)
+pub fn task_handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	let worker = task::spawn_with3<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, event, state, context)
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => { actions: list_nil(), next_state: state }
 	end
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
+pub fn adapter_missing_concurrency(stream: NetStream, state: { request_count : Int, marker : ByteChunk }, deadline: Deadline) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
 	let marker: ByteChunk = byte_chunk([])
-	let worker = task::spawn_with2<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, Request(11, marker), state)
+	let context = { adapter_id: 1, deadline: deadline, adapter_marker: marker }
+	let worker = task::spawn_with3<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, Request(11, marker), state, context)
 	let _ = task::join(worker)
 	route_socket_events(stream, 7, state)
 end

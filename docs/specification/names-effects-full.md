@@ -394,6 +394,8 @@ task::spawn_with(job: fn(A) -> T effects [concurrency], arg: A) -> Task<T> effec
 task::spawn_with<T>(job: fn(A) -> T effects [concurrency], arg: A) -> Task<T> effects [concurrency]
 task::spawn_with2(job: fn(A, B) -> T effects [concurrency], first: A, second: B) -> Task<T> effects [concurrency]
 task::spawn_with2<T>(job: fn(A, B) -> T effects [concurrency], first: A, second: B) -> Task<T> effects [concurrency]
+task::spawn_with3(job: fn(A, B, C) -> T effects [concurrency], first: A, second: B, third: C) -> Task<T> effects [concurrency]
+task::spawn_with3<T>(job: fn(A, B, C) -> T effects [concurrency], first: A, second: B, third: C) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -402,12 +404,14 @@ task::cancel(task: Task<T>) -> () effects [concurrency]
 its task handle. `task::spawn_with` starts a one-argument callable with an
 ordinary source value argument. `task::spawn_with2` starts a two-argument
 callable with two ordinary source values, preserving the same return-type
-type-argument shape as `task::spawn_with<T>`. Arguments are frozen before
-crossing into the task, and the result value is frozen before it crosses back
-through the task handle. `task::join` waits for completion and returns
-`Ok(value)` when the task returns normally, or `Err(JoinError)` when the task
-is interrupted, cancelled, or fails at runtime. `task::cancel` requests
-cancellation by interrupting the task and returns `()`. Cancellation is
+type-argument shape as `task::spawn_with<T>`. `task::spawn_with3` starts a
+three-argument callable with three ordinary source values and the same
+optional return-type argument shape. Arguments are frozen before crossing into
+the task, and the result value is frozen before it crosses back through the
+task handle. `task::join` waits for completion and returns `Ok(value)` when
+the task returns normally, or `Err(JoinError)` when the task is interrupted,
+cancelled, or fails at runtime. `task::cancel` requests cancellation by
+interrupting the task and returns `()`. Cancellation is
 cooperative at the JVM runtime boundary.
 
 Executable-command reachability also follows bare and `use`-alias qualified
