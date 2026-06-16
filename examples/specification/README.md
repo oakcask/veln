@@ -698,6 +698,19 @@ against the built `veln` binary.
   same mapped ADT constructor encode path reports
   `codec.encode_mapping_mismatch` when the target field carries another
   constructor.
+- `run/binary-schema-record-payload-mapped-constructor-encode/`: generated
+  schema encode helpers destructure a mapped ADT constructor record payload
+  and project its fields back to schema-local exact-width fields.
+- `run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`: the
+  record-payload mapped ADT constructor encode path reports
+  `codec.encode_mapping_mismatch` when the target field carries another
+  constructor.
+- `run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`:
+  the same mismatch is exposed as a run result value diagnostic with field
+  path and reason details.
+- `run/binary-schema-record-payload-mapped-constructor-encode-out-of-range/`:
+  record-payload projection preserves the ordinary exact-width integer range
+  failure shape on the projected schema-local field path.
 - `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
   bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
   explicit count field.
@@ -965,6 +978,9 @@ against the built `veln` binary.
 - `run/derived-codec-mapped-encode-boundary/`: the same `derive encode`
   boundary accepts the direct structural mapping target record and projects
   one encoded output chunk.
+- `run/derived-codec-record-payload-mapped-encode-boundary/`: the same
+  `derive encode` boundary accepts a mapped target record containing an ADT
+  constructor record payload and projects it to one encoded output chunk.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.

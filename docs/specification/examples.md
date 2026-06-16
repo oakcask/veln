@@ -171,6 +171,11 @@ The executable specification case
 covers the same boundary when a direct structural mapping makes the generated
 helper accept the mapping target record shape.
 The executable specification case
+`../../examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`
+covers the same boundary when that mapped target record contains an ADT
+constructor field whose payload is a record projected back to schema-local
+fields.
+The executable specification case
 `../../examples/specification/run/derived-codec-repeat-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
 writes a bounded repeated primitive field.
@@ -428,6 +433,19 @@ pin direct multi-payload ADT inverse mapping. The passing case projects two
 constructor payloads back to schema-local fields. The failing case reports
 `codec.encode_mapping_mismatch` when the target field carries a different
 constructor than the mapping expects.
+`../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode/`,
+`../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`,
+`../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`,
+and
+`../../examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-out-of-range/`
+pin the record-payload ADT inverse mapping slice. The passing case
+destructures the expected constructor and its record payload, then projects
+record fields back to schema-local fields. The mismatch case reports
+`codec.encode_mapping_mismatch` when the target field carries a different
+constructor; the JSON variant pins that id in run result diagnostic details.
+The range case preserves the ordinary
+`codec.encode_value_unrepresentable` shape on the projected schema-local
+field path.
 `../../examples/specification/run/binary-schema-sub-byte-decode/`,
 `../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
 `../../examples/specification/run/binary-schema-sub-byte-encode/`,

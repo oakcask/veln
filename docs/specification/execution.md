@@ -386,13 +386,17 @@ execution reference.
   and projects those target fields back to the schema-local encode record.
   The same narrow inverse projection also supports one target field assigned
   from a direct ADT constructor call whose payload arguments are direct
-  schema-local visible fields already supported by the generated encode
-  helper. Single-payload constructor wrappers remain limited to the existing
-  single-constructor flag and exact-width integer cases. A target value whose
-  ADT constructor does not match the constructor expected by the mapping
-  returns `Err(EncodeError("codec.encode_mapping_mismatch", field_path,
-  reason))`. These mapped encode paths write bytes through the schema-local
-  fields. A
+  schema-local visible fields, or whose single payload argument is a record
+  expression whose fields are direct schema-local visible field references,
+  already supported by the generated encode helper. Single-payload
+  constructor wrappers remain limited to the existing single-constructor flag
+  and exact-width integer cases unless the payload is that record-expression
+  slice. A target value whose ADT constructor does not match the constructor
+  expected by the mapping returns
+  `Err(EncodeError("codec.encode_mapping_mismatch", field_path, reason))`.
+  If the expected constructor payload is not the expected record shape, the
+  same `codec.encode_mapping_mismatch` id is returned. These mapped encode
+  paths write bytes through the schema-local fields. A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
@@ -523,6 +527,10 @@ execution reference.
   `examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-byteview-encode/`,
   `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,
@@ -592,6 +600,7 @@ execution reference.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,

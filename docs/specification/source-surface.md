@@ -185,9 +185,12 @@ mapping target record shape when every visible encode field, including
 `Flag8`, `Flag16be`, and `Flag32be` fields, is assigned from a schema-local
 field reference, or when the visible encode field is wrapped by a direct
 ADT constructor call whose payload arguments are schema-local visible fields
-already supported by the generated encode helper. Single-payload constructor
-wrappers remain limited to the existing single-constructor flag and
-exact-width integer cases.
+already supported by the generated encode helper. One constructor payload
+argument may instead be a record expression whose fields are direct
+schema-local visible field references supported by the generated encode
+helper. Single-payload constructor wrappers remain limited to the existing
+single-constructor flag and exact-width integer cases unless the payload is
+that record-expression slice.
 Multiple selected mapping clauses, mapping expressions that cannot be
 projected back to schema-local fields, encode-time
 field-local validation beyond primitive

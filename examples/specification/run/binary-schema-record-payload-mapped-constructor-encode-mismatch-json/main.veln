@@ -1,0 +1,22 @@
+type PacketPayload
+	Empty
+	Known({code: Int, value: Int})
+end
+
+type Packet
+	Packet {payload: PacketPayload}
+end
+
+schema PacketWire
+	format binary
+
+	code: UInt8
+	value: UInt16be
+
+	map to Packet
+		payload = PacketPayload::Known({code: code, value: value})
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_packet_wire({payload: PacketPayload::Empty})
+end

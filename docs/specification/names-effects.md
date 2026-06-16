@@ -82,7 +82,8 @@ compiler-known calls.
   unselected structural mapping can instead accept a mapped record shape for
   direct field projections or a direct ADT constructor whose payloads are
   schema-local visible fields already supported by the generated encode
-  helper. Generated encode helpers return `Result<ByteChunk, EncodeError>`.
+  helper, or whose single payload is a record expression over those fields.
+  Generated encode helpers return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, and `UInt64le` fields use
   little-endian byte order in generated decode and encode helpers.
   Source-visible byte helpers also expose checked `u64` big-endian and little-endian reads and
