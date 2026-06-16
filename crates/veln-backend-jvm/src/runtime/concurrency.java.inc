@@ -81,6 +81,18 @@
             this.thread = new Thread(this.future);
             this.thread.start();
         }
+
+        private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg) {
+            Object frozenFirstArg = freezeBoundaryValue(firstArg);
+            Object frozenSecondArg = freezeBoundaryValue(secondArg);
+            Object frozenThirdArg = freezeBoundaryValue(thirdArg);
+            Object frozenFourthArg = freezeBoundaryValue(fourthArg);
+            this.future = new java.util.concurrent.FutureTask<Object>(
+                () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg))
+            );
+            this.thread = new Thread(this.future);
+            this.thread.start();
+        }
     }
     public static Object channelBounded(Object capacity) {
         Channel channel = new Channel(asLong(capacity));
@@ -373,6 +385,10 @@
 
     public static Object taskSpawnWith3(Object fn, Object firstArg, Object secondArg, Object thirdArg) {
         return new Task((Fn) fn, firstArg, secondArg, thirdArg);
+    }
+
+    public static Object taskSpawnWith4(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg) {
+        return new Task((Fn) fn, firstArg, secondArg, thirdArg, fourthArg);
     }
 
     public static Object taskJoin(Object task) {

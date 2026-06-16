@@ -1552,9 +1552,9 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-routing/`: multiple fixture-backed socket reads
   from one stream are wrapped as ordinary stream events, routed through a
   standard channel, handled by a plain event handler with explicit state,
-  passed with explicit state and adapter context into a three-argument spawned
-  stream-task handler path, joined, and projected back to ordered socket
-  writes by adapter code.
+  passed with explicit state, adapter context, and routing metadata into a
+  four-argument spawned stream-task handler path, joined, and projected back
+  to ordered socket writes by adapter code.
 - `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
   socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
   translates it into `StreamInput.End`, routes stream inputs through a
@@ -1595,9 +1595,10 @@ against the built `veln` binary.
   handler shape with explicit per-stream state.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
-  socket, channel, zero-argument task, and three-argument task calls; a spawned
-  handler that receives only ordinary event, state, and adapter context values
-  requires `concurrency` but stays free of `net` and `time`.
+  socket, channel, four-argument task spawn, and task join calls; a spawned
+  handler that receives only ordinary event, state, adapter context, and
+  routing metadata values requires `concurrency` but stays free of `net` and
+  `time`.
 - `check/socket-stream-adapter-owned-lifecycle-effects/`: the accepted-stream
   lifecycle shape must declare `net` and `concurrency`, while the handler
   boundary remains free of transport effects.

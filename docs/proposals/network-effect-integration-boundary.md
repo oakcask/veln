@@ -45,8 +45,9 @@ slices, and narrow deadline and cancellation slices, for:
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route, and receiver-list
   six-route fixture shapes
-- richer per-stream task handling beyond the one-argument, two-argument, and
-  three-argument spawned handler task shapes over ordinary source values
+- richer per-stream task handling beyond the one-argument, two-argument,
+  three-argument, and four-argument spawned handler task shapes over ordinary
+  source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -154,6 +155,9 @@ context arguments, and translates ordered `SendBytes` response actions into
 adapter context values; it does not receive socket handles and does not call
 `net` functions.
 
+The four-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
+
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
 routing, and task spawn/join. The handler boundary remains ordinary source
@@ -210,15 +214,9 @@ slices, including the `channel::select_many_priority` helper, are recorded as
 implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
-Implemented argument-carrying stream-task slices: `task::spawn_with` starts a
-one-argument callable, `task::spawn_with2` starts a two-argument callable, and
-`task::spawn_with3` starts a three-argument callable under the existing
-`concurrency` effect and returns `Task<T>`. Executable stream adapter coverage
-passes ordinary stream event, state, and adapter context values as separate
-three-argument task values, joins the task, and receives ordinary
-response-action values. The spawned handler receives no `NetStream` or other
-transport handle, so task spawning requires `concurrency` but does not add
-`net` or `time` requirements when the handler only receives ordinary values.
+The four-argument argument-carrying stream-task slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
 
 ## Discussion Result: Transport Error Boundary
 
@@ -310,8 +308,8 @@ or the pure protocol core.
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
   three-route, four-route, receiver-list five-route, and receiver-list
-  six-route channel-first stream routing, one-argument, two-argument, and
-  three-argument spawned handler task, and
+  six-route channel-first stream routing, one-argument, two-argument,
+  three-argument, and four-argument spawned handler task, and
   adapter-level cancellable stream routing slices; remaining examples still
   need richer stream routing and richer deadline and cancellation APIs beyond
   the narrow relative `Deadline` boundary, `CancelToken` boundary, and
