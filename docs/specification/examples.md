@@ -916,6 +916,18 @@ projects `SendBytes` response actions back to ordered `net::write_chunk`
 calls. The adapter declares the existing coarse `net` and `concurrency`
 effects; the handler remains free of `net` calls.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-deadline-lifecycle/`
+covers the deadline-aware accepted-stream ownership boundary. The adapter
+accepts a stream with `net::accept_until`, reads chunks with
+`net::read_chunk_until` until a read attempt returns `None` for deadline
+expiry, routes ordinary `StreamInput` values through a channel, calls a pure
+handler without exposing socket handles, and projects only `SendBytes`
+response actions back to ordered `net::write_chunk` calls. The matching
+`../../examples/specification/check/socket-stream-adapter-deadline-lifecycle-effects/`
+case pins the composed `net`, `time`, and `concurrency` effect boundary while
+the handler stays free of transport effects.
+
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing/` and
 `../../examples/specification/run/channel-first-stream-routing-three-route/`

@@ -1547,6 +1547,11 @@ against the built `veln` binary.
   through a channel, invokes a pure handler, and projects `SendBytes` response
   actions to ordered `net::write_chunk` calls while keeping the same coarse
   `net` and `concurrency` effects.
+- `run/socket-stream-adapter-deadline-lifecycle/`: one adapter function owns
+  an accepted stream, reads deadline-aware chunks with `net::read_chunk_until`
+  until a read attempt returns `None` for deadline expiry, routes ordinary
+  stream values through a channel, invokes a pure handler, and projects only
+  `SendBytes` response actions to ordered `net::write_chunk` calls.
 - `run/channel-first-stream-routing/`: adapter-owned source routes ordinary
   `StreamInput` values through two typed channel routes, selects between them
   with existing channel selection, and then invokes a pure stream handler with
@@ -1569,6 +1574,9 @@ against the built `veln` binary.
   socket, channel, zero-argument task, and argument-carrying task calls; a
   spawned handler that receives only ordinary event and state values requires
   `concurrency` but stays free of `net`.
+- `check/socket-stream-adapter-deadline-lifecycle-effects/`: the
+  deadline-aware adapter lifecycle shape must declare `net`, `time`, and
+  `concurrency`, while the handler boundary remains free of transport effects.
 - `check/channel-first-stream-routing-effects/`: channel-first stream routing
   must declare `concurrency`, socket wrappers around that routing must declare
   both `net` and `concurrency`, and the plain handler boundary stays free of

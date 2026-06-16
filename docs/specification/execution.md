@@ -83,8 +83,9 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-routing/` and
   `examples/specification/run/socket-stream-adapter-clean-end/`, with
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`
-  covering the listener-to-clean-stream-end ownership boundary in one adapter
-  function.
+  covering the listener-to-clean-stream-end ownership boundary and
+  `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`
+  covering deadline-aware accepted-stream ownership in one adapter function.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, and receiver-list five-route typed channel
   routes, select the next ready route with the existing channel selection

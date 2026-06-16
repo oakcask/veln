@@ -274,11 +274,16 @@ The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and
 projects `SendBytes` actions back into ordered `net::write_chunk` calls. The
-adapter functions therefore declare both `net` and `concurrency`; the plain
-handlers they call remain free of socket handles and `net` calls. This
-composition does not add any effect label beyond the existing coarse labels or
-any compiler-known routing symbol beyond the socket, channel, and task calls
-listed here.
+deadline-aware lifecycle case accepts with `net::accept_until`, owns the
+accepted stream through repeated `net::read_chunk_until` attempts, translates
+deadline expiry into the ordinary stream boundary value before calling the
+plain handler, and projects only `SendBytes` actions to ordered writes. The
+non-deadline adapter functions declare both `net` and `concurrency`; the
+deadline-aware lifecycle adapter declares `net`, `time`, and `concurrency`.
+The plain handlers they call remain free of socket handles and `net` calls.
+This composition does not add any effect label beyond the existing coarse
+labels or any compiler-known routing symbol beyond the socket, channel, task,
+and deadline calls listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
 through two, three, four, and receiver-list five-route typed channel routes,

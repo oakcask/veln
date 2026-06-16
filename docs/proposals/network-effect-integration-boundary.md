@@ -30,13 +30,17 @@ slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, deadline-aware optional accept, optional stream-read,
-  deadline-aware optional stream-read, and ordered write lifecycle slice
+  deadline-aware optional stream-read, ordered write lifecycle slice, and
+  checked deadline-aware accepted-stream lifecycle slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  the checked adapter-owned multi-event routing fixture
+  the checked adapter-owned multi-event routing and deadline-aware lifecycle
+  fixtures
 - general mapping of outgoing chunks back to host transport writes beyond one
-  checked ordered `SendBytes` projection path
+  checked ordered `SendBytes` projection path and the deadline-aware lifecycle
+  projection path
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
-  adapter-level cancellable stream routing and socket/channel routing slices
+  adapter-level cancellable stream routing, socket/channel routing, and
+  deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, and receiver-list five-route fixture shapes
 - richer per-stream task handling beyond the one-argument spawned handler task
@@ -183,6 +187,15 @@ already expired, or the fixture stream reaches clean end before a chunk is
 read. The call infers both `net` and `time` under the existing coarse effect
 labels. Forced read failure on the same optional read path remains a runtime
 transport failure, not a protocol diagnostic.
+
+Implemented deadline-aware accepted-stream lifecycle slice: an executable
+specification case accepts a stream with `net::accept_until`, owns that
+`NetStream` in adapter code, repeatedly reads with `net::read_chunk_until`
+until deadline expiry returns `None`, routes ordinary `StreamInput` values
+through an existing channel, calls a pure handler with explicit state, and
+projects only ordered `SendBytes` response actions to `net::write_chunk`.
+The adapter declares the existing `net`, `time`, and `concurrency` effects;
+the handler receives no `NetStream` handle and performs no transport calls.
 
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
