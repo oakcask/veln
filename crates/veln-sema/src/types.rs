@@ -1189,37 +1189,47 @@ fn schema_encode_mapping_assignment_sources(
         target_ty,
     )
     .ok()?;
-    let SchemaDecodeMappingExpr::Constructor { name, args } = typed.expr else {
-        return None;
-    };
-    let registry = AdtRegistry::from_module(module);
-    let descriptor = registry.descriptor_for_type(target_ty)?;
-    if name.len() != 2 || name[0] != descriptor.type_name {
-        return None;
-    }
-    if !descriptor
-        .variants
-        .iter()
-        .any(|variant| variant.name == name[1] && variant.payload_fields.len() == args.len())
-    {
-        return None;
-    }
-    if args.len() == 1
-        && descriptor.variants.len() != 1
-        && !matches!(args.first(), Some(SchemaDecodeMappingExpr::Record(_)))
-    {
-        return None;
-    }
-    let mut sources = Vec::with_capacity(args.len());
-    for arg in args {
-        let arg_sources =
-            schema_encode_mapping_expr_sources(&arg, schema_field_types, exact_width_field_names)?;
-        if arg_sources.is_empty() {
-            return None;
+    match typed.expr {
+        SchemaDecodeMappingExpr::Constructor { name, args } => {
+            let registry = AdtRegistry::from_module(module);
+            let descriptor = registry.descriptor_for_type(target_ty)?;
+            if name.len() != 2 || name[0] != descriptor.type_name {
+                return None;
+            }
+            if !descriptor.variants.iter().any(|variant| {
+                variant.name == name[1] && variant.payload_fields.len() == args.len()
+            }) {
+                return None;
+            }
+            if args.len() == 1
+                && descriptor.variants.len() != 1
+                && !matches!(args.first(), Some(SchemaDecodeMappingExpr::Record(_)))
+            {
+                return None;
+            }
+            let mut sources = Vec::with_capacity(args.len());
+            for arg in args {
+                let arg_sources = schema_encode_mapping_expr_sources(
+                    &arg,
+                    schema_field_types,
+                    exact_width_field_names,
+                )?;
+                if arg_sources.is_empty() {
+                    return None;
+                }
+                sources.extend(arg_sources);
+            }
+            Some(sources)
         }
-        sources.extend(arg_sources);
+        expr => {
+            let sources = schema_encode_mapping_expr_sources(
+                &expr,
+                schema_field_types,
+                exact_width_field_names,
+            )?;
+            (!sources.is_empty()).then_some(sources)
+        }
     }
-    Some(sources)
 }
 
 fn schema_encode_mapping_expr_sources(
@@ -1251,11 +1261,37 @@ fn schema_encode_mapping_expr_sources(
             }
             Some(sources)
         }
+        SchemaDecodeMappingExpr::FieldAccess { base, field } => {
+            schema_encode_mapping_selected_record_source(
+                base,
+                field,
+                schema_field_types,
+                exact_width_field_names,
+            )
+            .map(|source| vec![source])
+        }
         SchemaDecodeMappingExpr::Constructor { .. }
         | SchemaDecodeMappingExpr::Converter { .. }
-        | SchemaDecodeMappingExpr::FieldAccess { .. }
         | SchemaDecodeMappingExpr::Binary { .. } => None,
     }
+}
+
+fn schema_encode_mapping_selected_record_source(
+    base: &SchemaDecodeMappingExpr,
+    field: &str,
+    schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
+) -> Option<String> {
+    let SchemaDecodeMappingExpr::Record(fields) = base else {
+        return None;
+    };
+    let selected = fields.iter().find(|candidate| candidate.name == field)?;
+    let SchemaDecodeMappingExpr::Field(source) = &selected.expr else {
+        return None;
+    };
+    let source_ty = schema_field_types.get(source)?;
+    schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
+        .then(|| source.clone())
 }
 
 fn schema_encode_mapping_source_supported(

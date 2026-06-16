@@ -1,0 +1,44 @@
+use stdio
+
+type FieldRange
+	Empty
+	Between(Int, Int)
+end
+
+type RangePacket
+	RangePacket {range: FieldRange}
+end
+
+schema RangePacketWire
+	format binary
+
+	start: UInt16be
+	finish: UInt16be
+
+	map to RangePacket
+		range = Between({value: start}.value, finish)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	stdio::println("output_chunk_list range-field-selection count 1")
+	emit_output_chunk("range-field-selection", 0, bytes, "12340102")
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_range_packet_wire({range: Between(4660, 258)})
+	match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end

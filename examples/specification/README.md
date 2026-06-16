@@ -701,6 +701,12 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-record-encode/`: the same generated encode helper
   path accepts a direct structural mapping target record and writes the
   schema-local fields projected from that target value.
+- `run/binary-schema-mapped-record-expression-encode/`: generated schema
+  encode helpers project a mapped target record field through a record-shaped
+  mapping expression and write the recovered schema-local fields.
+- `run/binary-schema-mapped-field-selection-encode/`: generated schema encode
+  helpers project a mapped target field selected from a record-shaped mapping
+  expression back to one schema-local field.
 - `run/binary-schema-sub-byte-encode/`: generated schema encode helpers write
   standalone `UInt1` through `UInt7` visible fields as one byte each with the
   value in the declared low bits and keep derived encode codec boundaries
@@ -752,6 +758,9 @@ against the built `veln` binary.
   same mapped ADT constructor encode path reports
   `codec.encode_mapping_mismatch` when the target field carries another
   constructor.
+- `run/binary-schema-mapped-constructor-field-selection-encode/`: generated
+  schema encode helpers project a mapped ADT constructor payload through field
+  selection from a record-shaped mapping expression.
 - `run/binary-schema-record-payload-mapped-constructor-encode/`: generated
   schema encode helpers destructure a mapped ADT constructor record payload
   and project its fields back to schema-local exact-width fields.

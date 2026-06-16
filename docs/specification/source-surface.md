@@ -193,17 +193,18 @@ and whose cases are exact-width unsigned primitive payloads or earlier
 same-module binary schema payloads or public imported binary schema payloads
 named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
-one direct structural `map to Target` clause can make that helper accept the
-mapping target record shape when every visible encode field, including
-`Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields, is assigned from a
-schema-local field reference, or when the visible encode field is wrapped by a direct
-ADT constructor call whose payload arguments are schema-local visible fields
-already supported by the generated encode helper. One constructor payload
-argument may instead be a record expression whose fields are direct
-schema-local visible field references supported by the generated encode
-helper. Single-payload constructor wrappers remain limited to the existing
-single-constructor flag and exact-width integer cases unless the payload is
-that record-expression slice.
+one structural `map to Target` clause can make that helper accept the mapping
+target record shape when every visible encode field, including `Flag8`,
+`Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields, is assigned from a
+projectable schema-local field reference. Projectable expressions are direct
+schema-local field references, record expressions whose fields are direct
+schema-local visible field references, field selection from such a record
+expression when the selected field maps directly to one schema-local visible
+field, or a direct ADT constructor call whose payload arguments use those
+projectable field and record-expression forms already supported by the
+generated encode helper. Single-payload constructor wrappers remain limited to
+the existing single-constructor flag and exact-width integer cases unless the
+payload is that record-expression slice.
 Multiple selected mapping clauses, mapping expressions that cannot be
 projected back to schema-local fields, recursive or otherwise ineligible
 dispatch payload schemas, non-byte-aligned reserved fields outside the
