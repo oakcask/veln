@@ -295,8 +295,10 @@ static indexed
 bytes plus the static indexed `accept-charset:`,
 `accept-encoding: gzip, deflate`, `accept-language:`, `accept-ranges:`,
 `accept:`, `access-control-allow-origin:`, `age:`, `allow:`,
-`authorization:`, and `cache-control:` request header bytes, plus the
-no-Huffman literal-without-indexing
+`authorization:`, `cache-control:`, `content-disposition:`,
+`content-encoding:`, `content-language:`, `content-length:`,
+`content-location:`, `content-range:`, `content-type:`, `cookie:`, `date:`,
+and `etag:` header bytes, plus the no-Huffman literal-without-indexing
 `04 07 2f 74 61 72 67 65 74` header block for `:path: /target`, in completed
 HEADERS frames, returns ordinary header-list data through the same accessors
 as the deterministic fixture-label blocks, advances immutable fixture state,
@@ -535,9 +537,13 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 `accept-encoding: gzip, deflate`, `0x91` `accept-language:`, `0x92`
 `accept-ranges:`, `0x93` `accept:`, `0x94`
 `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-`authorization:`, and `0x98` `cache-control:` bytes, plus the no-Huffman
-literal-without-indexing `04 07 2f 74 61 72 67 65 74` header block for
-`:path: /target`.
+`authorization:`, `0x98` `cache-control:`, `0x99`
+`content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
+`content-language:`, `0x9c` `content-length:`, `0x9d`
+`content-location:`, `0x9e` `content-range:`, `0x9f`
+`content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, and `0xa2` `etag:`
+bytes, plus the no-Huffman literal-without-indexing
+`04 07 2f 74 61 72 67 65 74` header block for `:path: /target`.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after

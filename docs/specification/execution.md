@@ -896,9 +896,14 @@ execution reference.
   `0x8f` `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, and
   `0x91` `accept-language:`, plus `0x92` `accept-ranges:`, `0x93`
   `accept:`, `0x94` `access-control-allow-origin:`, `0x95` `age:`,
-  `0x96` `allow:`, `0x97` `authorization:`, and `0x98`
-  `cache-control:` bytes, plus the no-Huffman literal-without-indexing
-  fixture `04 07 2f 74 61 72 67 65 74` for `:path: /target`,
+  `0x96` `allow:`, `0x97` `authorization:`, `0x98` `cache-control:`,
+  plus `0x99` `content-disposition:`, `0x9a`
+  `content-encoding:`, `0x9b` `content-language:`, `0x9c`
+  `content-length:`, `0x9d` `content-location:`, `0x9e`
+  `content-range:`, `0x9f` `content-type:`, `0xa0` `cookie:`, `0xa1`
+  `date:`, and `0xa2` `etag:` bytes, plus the no-Huffman
+  literal-without-indexing fixture `04 07 2f 74 61 72 67 65 74` for
+  `:path: /target`,
   returns
   ordinary header-list data plus the next immutable fixture state, and projects
   unsupported fixture input, including malformed literal-without-indexing

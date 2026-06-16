@@ -83,6 +83,29 @@ fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int,
 	end
 end
 
+fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 1
+		false => unsupported(block, offset)
+		true => match first_byte
+			131 => decoded_static_indexed_method_post(state)
+			143 => decoded_static_indexed_header("accept-charset", "", state)
+			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
+			145 => decoded_static_indexed_header("accept-language", "", state)
+			153 => decoded_static_indexed_header("content-disposition", "", state)
+			154 => decoded_static_indexed_header("content-encoding", "", state)
+			155 => decoded_static_indexed_header("content-language", "", state)
+			156 => decoded_static_indexed_header("content-length", "", state)
+			157 => decoded_static_indexed_header("content-location", "", state)
+			158 => decoded_static_indexed_header("content-range", "", state)
+			159 => decoded_static_indexed_header("content-type", "", state)
+			160 => decoded_static_indexed_header("cookie", "", state)
+			161 => decoded_static_indexed_header("date", "", state)
+			162 => decoded_static_indexed_header("etag", "", state)
+			_ => unsupported(block, offset)
+		end
+	end
+end
+
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = byte_at_or_missing(block, 0)
@@ -106,23 +129,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			true => decoded("continuation", 9, state)
 			false => unsupported(block, offset)
 		end
-		131 => match observed_size == 1
-			true => decoded_static_indexed_method_post(state)
-			false => unsupported(block, offset)
-		end
-		143 => match observed_size == 1
-			true => decoded_static_indexed_header("accept-charset", "", state)
-			false => unsupported(block, offset)
-		end
-		144 => match observed_size == 1
-			true => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
-			false => unsupported(block, offset)
-		end
-		145 => match observed_size == 1
-			true => decoded_static_indexed_header("accept-language", "", state)
-			false => unsupported(block, offset)
-		end
-		_ => unsupported(block, offset)
+		_ => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
 	end
 end
 

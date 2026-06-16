@@ -33,54 +33,83 @@ fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFi
 	end
 end
 
+fn next_state_or(result: Result<HpackDecodeTransition, HpackFixtureFailure>, fallback: HpackFixtureState) -> HpackFixtureState
+	match result
+		Ok(transition) => transition_state(transition)
+		Err(_) => fallback
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let initial: HpackFixtureState = initial_state()
 	let first_block: ByteChunk = byte_chunk_from_hex("102030")?
 	let first: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(first_block, initial, 9)
 	print_transition("first", first)
-	let second_state: HpackFixtureState = match first
-		Ok(transition) => transition_state(transition)
-		Err(_) => initial
-	end
+	let second_state: HpackFixtureState = next_state_or(first, initial)
 	let second_block: ByteChunk = byte_chunk_from_hex("0102030405060708")?
 	let second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(second_block, second_state, 18)
 	print_transition("second", second)
-	let third_state: HpackFixtureState = match second
-		Ok(transition) => transition_state(transition)
-		Err(_) => second_state
-	end
+	let third_state: HpackFixtureState = next_state_or(second, second_state)
 	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
 	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, third_state, 26)
 	print_transition("method-post", method_post)
-	let accept_charset_state: HpackFixtureState = match method_post
-		Ok(transition) => transition_state(transition)
-		Err(_) => third_state
-	end
+	let accept_charset_state: HpackFixtureState = next_state_or(method_post, third_state)
 	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
 	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
 	print_transition("accept-charset", accept_charset)
-	let accept_encoding_state: HpackFixtureState = match accept_charset
-		Ok(transition) => transition_state(transition)
-		Err(_) => accept_charset_state
-	end
+	let accept_encoding_state: HpackFixtureState = next_state_or(accept_charset, accept_charset_state)
 	let accept_encoding_block: ByteChunk = byte_chunk_from_hex("90")?
 	let accept_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_encoding_block, accept_encoding_state, 28)
 	print_transition("accept-encoding", accept_encoding)
-	let accept_language_state: HpackFixtureState = match accept_encoding
-		Ok(transition) => transition_state(transition)
-		Err(_) => accept_encoding_state
-	end
+	let accept_language_state: HpackFixtureState = next_state_or(accept_encoding, accept_encoding_state)
 	let accept_language_block: ByteChunk = byte_chunk_from_hex("91")?
 	let accept_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_language_block, accept_language_state, 29)
 	print_transition("accept-language", accept_language)
-	let literal_state: HpackFixtureState = match accept_language
-		Ok(transition) => transition_state(transition)
-		Err(_) => accept_language_state
-	end
+	let content_disposition_state: HpackFixtureState = next_state_or(accept_language, accept_language_state)
+	let content_disposition_block: ByteChunk = byte_chunk_from_hex("99")?
+	let content_disposition: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_disposition_block, content_disposition_state, 30)
+	print_transition("content-disposition", content_disposition)
+	let content_encoding_state: HpackFixtureState = next_state_or(content_disposition, content_disposition_state)
+	let content_encoding_block: ByteChunk = byte_chunk_from_hex("9a")?
+	let content_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_encoding_block, content_encoding_state, 31)
+	print_transition("content-encoding", content_encoding)
+	let content_language_state: HpackFixtureState = next_state_or(content_encoding, content_encoding_state)
+	let content_language_block: ByteChunk = byte_chunk_from_hex("9b")?
+	let content_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_language_block, content_language_state, 32)
+	print_transition("content-language", content_language)
+	let content_length_state: HpackFixtureState = next_state_or(content_language, content_language_state)
+	let content_length_block: ByteChunk = byte_chunk_from_hex("9c")?
+	let content_length: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_length_block, content_length_state, 33)
+	print_transition("content-length", content_length)
+	let content_location_state: HpackFixtureState = next_state_or(content_length, content_length_state)
+	let content_location_block: ByteChunk = byte_chunk_from_hex("9d")?
+	let content_location: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_location_block, content_location_state, 34)
+	print_transition("content-location", content_location)
+	let content_range_state: HpackFixtureState = next_state_or(content_location, content_location_state)
+	let content_range_block: ByteChunk = byte_chunk_from_hex("9e")?
+	let content_range: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_range_block, content_range_state, 35)
+	print_transition("content-range", content_range)
+	let content_type_state: HpackFixtureState = next_state_or(content_range, content_range_state)
+	let content_type_block: ByteChunk = byte_chunk_from_hex("9f")?
+	let content_type: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_type_block, content_type_state, 36)
+	print_transition("content-type", content_type)
+	let cookie_state: HpackFixtureState = next_state_or(content_type, content_type_state)
+	let cookie_block: ByteChunk = byte_chunk_from_hex("a0")?
+	let cookie: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(cookie_block, cookie_state, 37)
+	print_transition("cookie", cookie)
+	let date_state: HpackFixtureState = next_state_or(cookie, cookie_state)
+	let date_block: ByteChunk = byte_chunk_from_hex("a1")?
+	let date: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(date_block, date_state, 38)
+	print_transition("date", date)
+	let etag_state: HpackFixtureState = next_state_or(date, date_state)
+	let etag_block: ByteChunk = byte_chunk_from_hex("a2")?
+	let etag: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(etag_block, etag_state, 39)
+	print_transition("etag", etag)
+	let literal_state: HpackFixtureState = next_state_or(etag, etag_state)
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
-	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 30))
+	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 40))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
-	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 39))
+	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 49))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

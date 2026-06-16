@@ -143,7 +143,12 @@ compare it with `../specification/` before changing behavior.
   `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
   `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
   `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-  `authorization:`, and `0x98` `cache-control:` bytes, plus the
+  `authorization:`, `0x98` `cache-control:`, `0x99`
+  `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
+  `content-language:`, `0x9c` `content-length:`, `0x9d`
+  `content-location:`, `0x9e` `content-range:`, `0x9f`
+  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, and `0xa2`
+  `etag:` bytes, plus the
   no-Huffman literal-without-indexing
   `04 07 2f 74 61 72 67 65 74` header block for `:path: /target`,
   unknown extension-frame preservation slice, PING/GOAWAY
