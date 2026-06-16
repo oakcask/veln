@@ -955,6 +955,8 @@ and
 `../../examples/specification/run/channel-first-stream-routing-four-route/`
 and
 `../../examples/specification/run/channel-first-stream-routing-five-route/`
+and
+`../../examples/specification/run/channel-first-stream-routing-six-route/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
 `channel::select_priority` or `channel::select_many_priority`, then call a
