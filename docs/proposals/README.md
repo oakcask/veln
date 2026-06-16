@@ -177,9 +177,9 @@ compare it with `../specification/` before changing behavior.
   send intents for `SETTINGS_HEADER_TABLE_SIZE`,
   `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_ENABLE_PUSH`,
   `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, and
-  `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound PING ACK send intent, narrow
-  outbound DATA frame-header-plus-payload send intent with `END_STREAM` local
-  closed-stream state, and outbound `WINDOW_UPDATE` receive-credit intent,
+  `SETTINGS_MAX_HEADER_LIST_SIZE`, outbound PING ACK send intent, outbound
+  DATA send-intent frame-size splitting with `END_STREAM` local closed-stream
+  state, and outbound `WINDOW_UPDATE` receive-credit intent,
   `RST_STREAM` reset send-intent, outbound PRIORITY send-intent, outbound
   HEADERS send-intent including CONTINUATION splitting, and GOAWAY send-intent
   slices.

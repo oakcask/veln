@@ -988,13 +988,18 @@ execution reference.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`
-  supplies the outbound stream credit for the peer-owned stream window, valid
-  DATA intents emit one immutable DATA frame-header-plus-payload chunk and
-  consume outbound connection and stream credit, and oversized or over-window
-  DATA intents are rejected before output bytes or credit changes. Accepted
-  outbound DATA with `END_STREAM` records local closed-stream state; later
-  outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE`
-  for that stream follow the existing closed stream-state rejection boundary.
+  supplies the outbound stream credit for the peer-owned stream window, and
+  valid DATA intents first check the full payload against available outbound
+  connection and stream credit. Payloads larger than the peer-advertised
+  maximum frame size are emitted in one immutable output chunk containing
+  multiple DATA frames, each no larger than that maximum, with `END_STREAM`
+  only on the final DATA frame when requested. Accepted DATA consumes outbound
+  connection and stream credit by the full payload length after all split
+  frames encode. Over-window DATA intents are rejected before output bytes or
+  credit changes. Accepted outbound DATA with `END_STREAM` records local
+  closed-stream state; later outbound DATA, outbound HEADERS, and
+  stream-level outbound `WINDOW_UPDATE` for that stream follow the existing
+  closed stream-state rejection boundary.
   Outbound `WINDOW_UPDATE` send-intents accept connection-level and
   currently open stream-level receive-credit increments, emit one immutable
   frame with a four-byte increment payload, reject zero, negative,

@@ -1191,17 +1191,19 @@ advances the immutable fixture state, and keeps unsupported HPACK input on
 `hpack.fixture.unsupported_header_block`, including malformed
 literal-without-indexing variants.
 The outbound DATA send-intent slice keeps outbound connection and stream
-credit separate from inbound receive windows. It accepts a DATA intent within
-the peer-advertised maximum frame size and available outbound connection and
-stream windows, emits one immutable DATA frame-header-plus-payload chunk, then
-consumes both outbound credits by payload length. It rejects DATA intents that
-exceed the received `SETTINGS_MAX_FRAME_SIZE`, the available outbound
-connection credit, or the peer-advertised stream credit derived from received
-`SETTINGS_INITIAL_WINDOW_SIZE` before output bytes are emitted. Accepted DATA
-with `END_STREAM` records local closed-stream state; later outbound DATA,
-outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for that stream
-use the same closed stream-state rejection boundary. Generated DATA
-frame-header representation failures remain codec encode errors.
+credit separate from inbound receive windows. It accepts a DATA intent whose
+full payload fits available outbound connection and stream windows. Payloads
+larger than the peer-advertised maximum frame size are emitted in one
+immutable output chunk containing multiple DATA frames, each no larger than
+that maximum, then both outbound credits are consumed by the full payload
+length after all frames encode. `END_STREAM` appears only on the final DATA
+frame when requested. DATA intents that exceed the available outbound
+connection credit or the peer-advertised stream credit derived from received
+`SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
+Accepted DATA with `END_STREAM` records local closed-stream state; later
+outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
+that stream use the same closed stream-state rejection boundary. Generated
+DATA frame-header representation failures remain codec encode errors.
 The local SETTINGS send-intent slice emits exactly one SETTINGS item per
 intent for `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
