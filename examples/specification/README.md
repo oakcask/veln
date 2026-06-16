@@ -1036,8 +1036,12 @@ against the built `veln` binary.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
   deterministic header-block byte fixtures and the static indexed `0x83`
   `:method: POST`, `0x8f` `accept-charset:`, `0x90`
-  `accept-encoding: gzip, deflate`, and `0x91` `accept-language:` bytes into
-  ordinary header-list data and returns the next immutable fixture state.
+  `accept-encoding: gzip, deflate`, and `0x91` `accept-language:` bytes, plus
+  the no-Huffman literal-without-indexing
+  `04 07 2f 74 61 72 67 65 74` header block for `:path: /target`, then returns
+  ordinary header-list data and the next immutable fixture state while
+  malformed literal-without-indexing input remains on the unsupported fixture
+  failure path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
@@ -1179,8 +1183,9 @@ against the built `veln` binary.
   `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
   `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
   `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-  `authorization:`, and `0x98` `cache-control:` bytes through the imported
-  fixture codec,
+  `authorization:`, and `0x98` `cache-control:` bytes, plus the no-Huffman
+  literal-without-indexing `04 07 2f 74 61 72 67 65 74` header block for
+  `:path: /target`, through the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind

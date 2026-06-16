@@ -4940,6 +4940,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-path", hpack_static_indexed_path)
 	let ignored_hpack_static_indexed_path: () = emit_header_block("http2-hpack-static-indexed-path", hpack_static_indexed_path, "84")?
 	print_hpack_transition("hpack-static-indexed-path", hpack_static_indexed_path)
+	let hpack_literal_path_target: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000104072f746172676574")?), state)?
+	print_step("hpack-literal-path-target", hpack_literal_path_target)
+	let ignored_hpack_literal_path_target: () = emit_header_block("http2-hpack-literal-path-target", hpack_literal_path_target, "04072f746172676574")?
+	print_hpack_transition("hpack-literal-path-target", hpack_literal_path_target)
 	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?
 	print_step("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
 	let ignored_hpack_static_indexed_path_index: () = emit_header_block("http2-hpack-static-indexed-path-index", hpack_static_indexed_path_index, "85")?

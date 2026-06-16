@@ -888,10 +888,12 @@ execution reference.
   `0x91` `accept-language:`, plus `0x92` `accept-ranges:`, `0x93`
   `accept:`, `0x94` `access-control-allow-origin:`, `0x95` `age:`,
   `0x96` `allow:`, `0x97` `authorization:`, and `0x98`
-  `cache-control:` bytes,
+  `cache-control:` bytes, plus the no-Huffman literal-without-indexing
+  fixture `04 07 2f 74 61 72 67 65 74` for `:path: /target`,
   returns
   ordinary header-list data plus the next immutable fixture state, and projects
-  unsupported fixture input through
+  unsupported fixture input, including malformed literal-without-indexing
+  variants, through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
   HTTP/2 core still owns the local
