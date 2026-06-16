@@ -29,8 +29,8 @@ stream routing slices, checked channel-first route-count slices, checked task
 slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
-  optional accept, deadline-aware optional accept, optional stream-read, and
-  ordered write lifecycle slice
+  optional accept, deadline-aware optional accept, optional stream-read,
+  deadline-aware optional stream-read, and ordered write lifecycle slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
@@ -45,7 +45,8 @@ slices, and narrow deadline and cancellation slices, for:
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
-  `time::wait_until_cancellable_outcome` and deadline-aware listener accept
+  `time::wait_until_cancellable_outcome`, deadline-aware listener accept, and
+  deadline-aware stream read
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -172,6 +173,15 @@ the fixture accepts before the deadline and `None` when the fixture reports
 deadline expiry before accepting or the supplied deadline has already expired.
 The call infers both `net` and `time` under the existing coarse effect labels.
 Forced accept failure on the same optional accept path remains a runtime
+transport failure, not a protocol diagnostic.
+
+Implemented deadline-aware stream read slice: executable specification cases
+use `net::read_chunk_until(stream, deadline)` to return `Some(bytes)` when the
+fixture stream yields a chunk before the deadline and `None` when the fixture
+reports deadline expiry before a chunk is read, the supplied deadline has
+already expired, or the fixture stream reaches clean end before a chunk is
+read. The call infers both `net` and `time` under the existing coarse effect
+labels. Forced read failure on the same optional read path remains a runtime
 transport failure, not a protocol diagnostic.
 
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as

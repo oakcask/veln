@@ -294,6 +294,59 @@
         return some(unwrapOk(chunk));
     }
 
+    public static Object netReadChunkUntil(Object stream, Object deadline) {
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        if (readDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("read-deadline " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
+        String input = nextNetReadChunkHexOrNull(value.id);
+        if (input == null) {
+            try {
+                writeNetEvent("read-end " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
+        String sourceName = System.getenv("VELN_NET_READ_CHUNKS_HEX") != null
+            ? "VELN_NET_READ_CHUNKS_HEX"
+            : "VELN_NET_READ_CHUNK_HEX";
+        Object chunk = byteChunkFromHex(input);
+        if (isErr(chunk)) {
+            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+        }
+        try {
+            writeNetEvent("read " + value.id + " " + input);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport read failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return some(unwrapOk(chunk));
+    }
+
+    private static boolean readDeadlineExpired(Object deadline) {
+        long target = asLong(deadline);
+        return forced("VELN_NET_READ_DEADLINE_EXPIRED")
+            || forced("VELN_TIME_DEADLINE_EXPIRED")
+            || target <= System.nanoTime();
+    }
+
     private static String nextNetReadChunkHex(String streamId) {
         String input = nextNetReadChunkHexOrNull(streamId);
         if (input == null) {

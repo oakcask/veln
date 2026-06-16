@@ -1404,6 +1404,17 @@ against the built `veln` binary.
 - `run/transport-socket-accept-until-deadline/`: deadline-aware socket accept
   observes fixture-reported accept deadline expiry as `None` without a
   runtime failure.
+- `run/transport-socket-read-until-boundary/`: deadline-aware socket read
+  returns `Some(bytes)` when the fixture stream yields a chunk before the
+  deadline.
+- `run/transport-socket-read-until-expired/`: deadline-aware socket read
+  observes an already expired supplied deadline as `None` without a runtime
+  failure.
+- `run/transport-socket-read-until-deadline/`: deadline-aware socket read
+  observes fixture-reported read deadline expiry as `None` without a runtime
+  failure.
+- `run/transport-socket-read-until-clean-end/`: deadline-aware socket read
+  observes clean stream end as `None` without a runtime failure.
 - `check/transport-socket-effects/`: listener creation, accept, stream read,
   optional clean-end listener accept and stream read, and stream write infer
   the `net` effect for public effect checking.
@@ -1411,6 +1422,8 @@ against the built `veln` binary.
   listener accept directly infers the `net` effect for public effect checking.
 - `check/transport-socket-accept-until-effects/`: deadline-aware listener
   accept directly infers both `net` and `time` for public effect checking.
+- `check/transport-socket-read-until-effects/`: deadline-aware stream read
+  directly infers both `net` and `time` for public effect checking.
 - `check/transport-socket-clean-end-effects/`: optional clean-end stream read
   directly infers the `net` effect for public effect checking.
 - `run/transport-deadline/`: relative deadline creation and waiting succeed
@@ -1463,6 +1476,9 @@ against the built `veln` binary.
 - `run/transport-socket-accept-until-failure-json/`: forced socket accept
   failure through the deadline-aware optional accept path uses the same run
   JSON runtime error shape.
+- `run/transport-socket-read-until-failure-json/`: forced socket read failure
+  through the deadline-aware optional read path uses the same run JSON
+  runtime error shape.
 - `run/transport-socket-write-failure-human/`: forced socket write failure
   stays runtime blame in human command output.
 - `run/transport-socket-write-failure-json/`: forced socket write failure uses

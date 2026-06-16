@@ -21,7 +21,9 @@ compiler-known calls.
   labels and includes descriptor-backed chunk calls, fixture-backed listener
   and stream calls, optional clean-end listener accepts and stream reads,
   deadline-aware listener accepts that return `None` on accept deadline
-  expiry, relative deadline calls, and cancellable deadline waits through
+  expiry, deadline-aware stream reads that return `None` on read deadline
+  expiry or clean stream end, relative deadline calls, and cancellable
+  deadline waits through
   source-visible `CancelToken` handles. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
   cancellation. The value-returning cancellable wait returns
@@ -34,7 +36,8 @@ compiler-known calls.
   read, or write failures, forced timeout or deadline expiry through
   runtime-failure waits, and forced cancellable-wait cancellation through the
   runtime-failure wait are runtime failures. Forced accept failure through the
-  deadline-aware optional accept path also stays a runtime failure.
+  deadline-aware optional accept path and forced read failure through the
+  deadline-aware optional read path also stay runtime failures.
   The socket stream adapter routing examples compose existing `net` stream
   calls with existing channel and task calls under `concurrency`, including
   optional listener accept, multiple optional reads from an accepted stream,

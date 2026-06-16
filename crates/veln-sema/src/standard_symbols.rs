@@ -170,6 +170,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("net", "read_chunk", NET_EFFECTS, "runtime.net.read_chunk"),
     runtime_symbol(
         "net",
+        "read_chunk_until",
+        NET_TIME_EFFECTS,
+        "runtime.net.read_chunk_until",
+    ),
+    runtime_symbol(
+        "net",
         "read_chunk_or_end",
         NET_EFFECTS,
         "runtime.net.read_chunk_or_end",

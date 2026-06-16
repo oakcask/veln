@@ -95,6 +95,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             adt::option_type(net_stream_type()),
         )),
         ("net", "read_chunk") => Some((vec![net_stream_type()], byte_chunk_type())),
+        ("net", "read_chunk_until") => Some((
+            vec![net_stream_type(), Type::named("Deadline", Vec::new())],
+            adt::option_type(byte_chunk_type()),
+        )),
         ("net", "read_chunk_or_end") => {
             Some((vec![net_stream_type()], adt::option_type(byte_chunk_type())))
         }
