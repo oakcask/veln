@@ -400,8 +400,11 @@ Implemented:
 - Binary schemas that declare ambiguous or unsupported mapping selection report
   focused `schema.mapping_selection_*` diagnostics.
 - Eligible generated `byte_encode_<schema>` helpers and `derive encode`
-  codec boundaries accept one direct structural mapping target record when
-  every visible encode field is assigned from a schema-local field reference.
+  codec boundaries accept one structural mapping target record when every
+  visible encode field is projected through direct schema-local field
+  references, record-shaped direct field projections, field selection from
+  those record-shaped projections, or the implemented direct ADT constructor
+  wrapper forms.
 - Eligible generated `byte_encode_<schema>` helpers evaluate supported
   field-local `where` predicates over schema-local visible `Int` values during
   encode and report `schema.validation_failed` with field path, predicate
