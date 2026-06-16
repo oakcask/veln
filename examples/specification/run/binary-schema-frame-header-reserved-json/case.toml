@@ -32,7 +32,7 @@ equals = 5
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"Http2FrameHeader"},{"kind":"field","name":"stream_reserved"}]
+equals = [{"kind":"schema","name":"Http2FrameHeaderWire"},{"kind":"field","name":"stream_reserved"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.bit_width"

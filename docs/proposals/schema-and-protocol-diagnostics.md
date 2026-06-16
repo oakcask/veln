@@ -228,7 +228,7 @@ that name the failed representation fact. The first canonical ids are:
   pattern differs from the required pattern; the frame-header
   `ReservedBits(1, 0)` slice is implemented under `../specification/run-json.md`
 - `schema.truncated_field` for a schema field whose representation bytes are
-  unavailable; the frame-header primitive decode slice is implemented under
+  unavailable; the generated frame-header helper slice is implemented under
   `../specification/run-json.md`
 - `schema.validation_failed` for a field-local schema `where` predicate that
   evaluates to false; the first narrow validation slice is implemented under

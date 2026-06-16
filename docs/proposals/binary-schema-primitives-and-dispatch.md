@@ -11,12 +11,13 @@ implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt1` through `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`,
 `UInt32be`, `UInt32le`, `UInt64be`, and `UInt64le` are also implemented there
-for `format binary` schema field type positions only. The executable frame-header
-primitive decode slice is implemented under `../specification/execution.md`:
-it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
-`UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
-values, and reports structured schema failures for truncated fields and
-reserved-bit mismatches. Generated schema helpers also consume byte-aligned
+for `format binary` schema field type positions only. The generated
+`Http2FrameHeaderWire` helper slice is implemented under
+`../specification/execution.md`: it consumes `UInt24be`, `UInt8`, `UInt8`,
+`ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`, returns ordinary
+`Int` fields for the visible values, and reports structured schema failures
+for truncated fields and reserved-bit mismatches. Generated schema helpers
+also consume byte-aligned
 `ReservedBits(width, value)` fields up to four bytes wide as
 representation-only fields, omit those fields from decoded records and
 mapping source values, encode them from the declared fixed value, and report
@@ -241,11 +242,12 @@ external representation facts, not internal Veln type declarations.
 
 ## Scope
 
-Define remaining binary schema support beyond the implemented narrow
-primitive, little-endian primitive widths through `UInt64le`, the `UInt64be`
-big-endian primitive, payload-boundary, closed-dispatch, extension-dispatch,
-same-module nested dispatch payload, imported nested dispatch payload decode,
-and imported nested dispatch payload encode slices
+Define remaining binary schema support beyond the implemented
+`Http2FrameHeaderWire` generated helper, little-endian primitive widths
+through `UInt64le`, the `UInt64be` big-endian primitive, payload-boundary,
+closed-dispatch, extension-dispatch, same-module nested dispatch payload,
+imported nested dispatch payload decode, and imported nested dispatch payload
+encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the

@@ -106,11 +106,11 @@ exposes owned-byte semantics directly by returning an immutable `ByteChunk`
 containing exactly the bounded view bytes. The exact host representation of
 byte chunks, byte views, counts, offsets, and bytes is backend-owned.
 
-The binary schema primitive execution slice exposes a narrow frame-header
-decode helper over `ByteView`. It consumes a `UInt24be` length field, two
-`UInt8` fields, one `ReservedBits(1, 0)` field, and one `UInt31be` stream id
-field. Exact-width unsigned fields produce ordinary `Int` values in the
-decoded record. The reserved field is representation-only: it advances the
+The generated `Http2FrameHeaderWire` binary schema helper decodes the HTTP/2
+frame-header field sequence over `ByteView`. It consumes a `UInt24be` length
+field, two `UInt8` fields, one `ReservedBits(1, 0)` field, and one `UInt31be`
+stream id field. Exact-width unsigned fields produce ordinary `Int` values in
+the decoded record. The reserved field is representation-only: it advances the
 decode position and validates the fixed bit pattern but is omitted from the
 record. Truncated schema fields return a `schema.truncated_field` result
 failure with expected and available byte counts. Reserved-bit mismatches
@@ -408,9 +408,10 @@ that cannot be projected back to schema-local fields, field-local validation,
 generalized dispatch payload schemas, other fixed fields, nested mappings,
 and derived codec encode execution for unsupported schemas.
 
-The frame decode helper extends that slice with a bounded payload view. It
-first applies the same header validation, then returns the visible header
-fields plus `payload: ByteView`. The payload view shares the input chunk,
+The narrow frame decode helper extends the frame-header layout with a bounded
+payload view. It first applies the same header validation, then returns the
+visible header fields plus `payload: ByteView`. The payload view shares the
+input chunk,
 starts immediately after the nine-byte frame header, and uses the decoded
 length field as its count. If the closed input has fewer payload bytes than
 the decoded length, the helper returns `schema.length_out_of_bounds` with the

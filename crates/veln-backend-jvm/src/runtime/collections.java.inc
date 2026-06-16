@@ -3554,12 +3554,20 @@
         long available = Math.max(0L, count - relativeOffset);
         SchemaFieldSpec first = fields[fieldIndex];
         if (available < group.storageByteWidth) {
+            SchemaFieldSpec truncatedField = first;
+            if (group.fieldCount == 2 && first.isReserved() && first.reservedBitWidth == 1) {
+                SchemaFieldSpec second = fields[fieldIndex + 1];
+                if (!second.isReserved() && bitPackedGroupFieldBitWidth(second) == 31) {
+                    truncatedField = second;
+                }
+            }
             long byteOffset = diagnosticBaseOffset + count;
-            String message = "truncated schema field `" + first.name + "` at byte offset " + byteOffset;
+            String message =
+                "truncated schema field `" + truncatedField.name + "` at byte offset " + byteOffset;
             registerSchemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
-                schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, first.name),
+                schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, truncatedField.name),
                 group.storageByteWidth,
                 available,
                 byteViewPreviewTrace(view, 8)
