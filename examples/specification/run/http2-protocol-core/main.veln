@@ -1091,9 +1091,9 @@ end
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	let length: Int = byte_count_to_int(byte_chunk_count(payload))
 	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
-	match length > max_frame_size
+	match max_frame_size < 1
 		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FrameSizeExceeded(0, length, ReceiveLimit(max_frame_size, LocalConfiguration), 0, stream_id)))
-		false => consume_outbound_data_window(stream_id, payload, length, end_stream, receive_credit)
+		false => consume_outbound_data_window(stream_id, payload, length, end_stream, max_frame_size, receive_credit)
 	end
 end
 
@@ -1519,7 +1519,7 @@ fn headers_sent_receive_credit(stream_id: Int, end_stream: Bool, connection_wind
 	end
 end
 
-fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match length > connection_window
@@ -1528,7 +1528,7 @@ fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int,
 				false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
 				true => match length > stream_window
 					true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
-					false => encode_data_intent(stream_id, payload, length, end_stream, connection_window, stream_window)
+					false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 				end
 			end
 		end
@@ -1543,10 +1543,55 @@ fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int,
 	end
 end
 
-fn encode_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+fn encode_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match length > max_frame_size
+		true => encode_split_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		false => encode_single_data_intent(stream_id, payload, length, end_stream, connection_window, stream_window)
+	end
+end
+
+fn encode_single_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: length, kind: 0, flags: data_flags(end_stream), stream_id: stream_id})
 	match encoded_header
 		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_receive_credit(stream_id, end_stream, connection_window - length, stream_window - length), byte_append(header, payload)))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
+	end
+end
+
+fn encode_split_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let first_payload: ByteChunk = byte_take(payload, chunk_count)?
+	let remaining: ByteChunk = byte_drop(payload, chunk_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 0, flags: 0, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_remaining_data_frames(stream_id, length, end_stream, max_frame_size, connection_window, stream_window, remaining, byte_append(header, first_payload))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
+	end
+end
+
+fn encode_remaining_data_frames(stream_id: Int, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	match remaining_length > max_frame_size
+		true => encode_nonfinal_data_frame(stream_id, length, end_stream, max_frame_size, connection_window, stream_window, remaining, encoded)
+		false => encode_final_data_frame(stream_id, length, end_stream, remaining_length, connection_window, stream_window, remaining, encoded)
+	end
+end
+
+fn encode_nonfinal_data_frame(stream_id: Int, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let payload: ByteChunk = byte_take(remaining, chunk_count)?
+	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 0, flags: 0, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_remaining_data_frames(stream_id, length, end_stream, max_frame_size, connection_window, stream_window, next_remaining, byte_append(byte_append(encoded, header), payload))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
+	end
+end
+
+fn encode_final_data_frame(stream_id: Int, length: Int, end_stream: Bool, final_length: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: final_length, kind: 0, flags: data_flags(end_stream), stream_id: stream_id})
+	match encoded_header
+		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_receive_credit(stream_id, end_stream, connection_window - length, stream_window - length), byte_append(byte_append(encoded, header), remaining)))
 		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
 	end
 end
@@ -4669,6 +4714,10 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let ignored_data_chunk: () = print_outbound_data_chunk("http2-data", outbound_data_accepted, "0000020000000000010102")?
 	let outbound_data_frame_size: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, small_peer_max_frame_size_settings(1), outbound_initial)?
 	print_outbound_data("outbound-data-frame-size", outbound_data_frame_size)
+	let ignored_split_data_chunk: () = print_outbound_data_chunk("http2-data-split", outbound_data_frame_size, "0000010000000000010100000100000000000102")?
+	let outbound_data_split_end_stream: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aabbcc")?, true, small_peer_max_frame_size_settings(2), outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_data("outbound-data-split-end-stream", outbound_data_split_end_stream)
+	let ignored_split_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-split-end-stream", outbound_data_split_end_stream, "000002000000000001aabb000001000100000001cc")?
 	let outbound_data_connection_window: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(1, 1, 3))?
 	print_outbound_data("outbound-data-connection-window", outbound_data_connection_window)
 	let outbound_data_stream_window: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(65533, 1, 1))?
