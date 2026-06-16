@@ -783,7 +783,16 @@ covers clean listener end returning `None`.
 covers `net::accept_until` returning `Some(stream)` when a fixture accepts
 before the deadline, while
 `../../examples/specification/run/transport-socket-accept-until-deadline/`
-covers fixture-reported accept deadline expiry returning `None`. The matching
+covers fixture-reported accept deadline expiry returning `None`.
+`../../examples/specification/run/transport-socket-read-until-boundary/`
+covers `net::read_chunk_until` returning `Some(bytes)` when a fixture stream
+yields a chunk before the deadline,
+`../../examples/specification/run/transport-socket-read-until-expired/`
+covers an already expired supplied deadline returning `None`,
+`../../examples/specification/run/transport-socket-read-until-deadline/`
+covers fixture-reported read deadline expiry returning `None`, and
+`../../examples/specification/run/transport-socket-read-until-clean-end/`
+covers clean stream end returning `None`. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
 missing-effect diagnostics for the socket calls, including the optional
 clean-end listener accept and stream read,
@@ -791,6 +800,8 @@ clean-end listener accept and stream read,
 pins the optional accept directly, and
 `../../examples/specification/check/transport-socket-accept-until-effects/`
 pins that deadline-aware accept requires both `net` and `time`, and
+`../../examples/specification/check/transport-socket-read-until-effects/`
+pins that deadline-aware read requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
 `../../examples/specification/run/transport-socket-read-failure-human/`,
@@ -798,6 +809,7 @@ the optional clean-end read directly. The
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
 `../../examples/specification/run/transport-socket-optional-accept-failure-json/`,
 `../../examples/specification/run/transport-socket-accept-until-failure-json/`,
+`../../examples/specification/run/transport-socket-read-until-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases
 show accept, read, and write failures as runtime transport failures, not

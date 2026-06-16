@@ -523,9 +523,13 @@ of the fixture listener, `net::accept_until` returns `Some(stream)` when the
 fixture accepts before the supplied `Deadline` and `None` when the fixture
 reports deadline expiry before accepting or the supplied `Deadline` has
 already expired, `net::read_chunk` reads one immutable `ByteChunk` from that
-stream, `net::read_chunk_or_end` returns `Some(bytes)` for a
-successful stream read and `None` for clean end of the fixture stream, and
-`net::write_chunk` writes one immutable `ByteChunk` to that stream.
+stream, `net::read_chunk_until` returns `Some(bytes)` when the fixture stream
+yields a chunk before the supplied `Deadline` and `None` when the fixture
+reports deadline expiry before a chunk is read, the supplied `Deadline` has
+already expired, or the fixture stream reaches clean end before a chunk is
+read, `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream
+read and `None` for clean end of the fixture stream, and `net::write_chunk`
+writes one immutable `ByteChunk` to that stream.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
@@ -545,8 +549,10 @@ deadline expiry, or cancellable-wait cancellation through the runtime-failure
 wait stop the entry as runtime failures. Clean listener end observed through
 `net::accept_or_end`, accept deadline expiry observed through
 `net::accept_until`, clean stream end observed through `net::read_chunk_or_end`,
-and value-returning cancellable wait outcomes are successful source values.
-Forced accept failure through `net::accept_until` stays a runtime failure.
+read deadline expiry or clean stream end observed through
+`net::read_chunk_until`, and value-returning cancellable wait outcomes are
+successful source values. Forced accept failure through `net::accept_until`
+and forced read failure through `net::read_chunk_until` stay runtime failures.
 They do not produce schema, codec, or HTTP/2 peer protocol diagnostics. The
 deadline boundary does not add a source timer handle beyond the returned
 `Deadline`, cancellation handle beyond `CancelToken`, routing API, or new
@@ -578,7 +584,9 @@ then walks the returned action list. Optional accept cases use
 `net::accept_or_end` to accept a usable stream as `Some(stream)` or observe a
 clean listener end as `None`. Deadline-aware optional accept cases use
 `net::accept_until` to accept a usable stream before the deadline or observe
-deadline expiry as `None`. The clean stream-end case translates
+deadline expiry as `None`. Deadline-aware optional read cases use
+`net::read_chunk_until` to read bytes before the deadline or observe deadline
+expiry or clean stream end as `None`. The clean stream-end case translates
 `net::read_chunk_or_end` returning `None` into the standard `StreamInput.End`
 value before calling the pure handler. The owned-lifecycle case combines
 `net::listen`, `net::accept_or_end`, repeated `net::read_chunk_or_end`, channel

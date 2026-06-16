@@ -177,6 +177,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::accept_or_end" => "netAcceptOrEnd",
         "net::accept_until" => "netAcceptUntil",
         "net::read_chunk" => "netReadChunk",
+        "net::read_chunk_until" => "netReadChunkUntil",
         "net::read_chunk_or_end" => "netReadChunkOrEnd",
         "net::write_chunk" => "netWriteChunk",
         "process::args" => "processArgs",

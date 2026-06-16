@@ -41,8 +41,9 @@ execution reference.
 - Fixture-backed `net` and `time` calls are host runtime boundaries:
   descriptor chunk receive/send, listener creation, accept, optional
   clean-end listener accept, deadline-aware optional listener accept, stream
-  read, optional clean-end stream read, stream write, timeout, deadline waits,
-  and cancellable deadline waits execute outside the pure protocol core.
+  read, optional clean-end stream read, deadline-aware optional stream read,
+  stream write, timeout, deadline waits, and cancellable deadline waits
+  execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -59,7 +60,9 @@ execution reference.
   cancellable-wait cancellation failures through the runtime-failure wait stop
   the entry as runtime failures rather than schema, codec, or peer protocol
   diagnostics. `net::accept_until` turns accept deadline expiry into `None`,
-  while forced host accept failure through that path remains a runtime failure.
+  and `net::read_chunk_until` turns read deadline expiry into `None`, while
+  forced host accept or read failure through those paths remains a runtime
+  failure.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

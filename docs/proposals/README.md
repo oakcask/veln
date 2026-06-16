@@ -155,8 +155,8 @@ compare it with `../specification/` before changing behavior.
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, route-count, task, deadline,
-  cancellation, and deadline-aware listener accept slices documented under
-  `../specification/`; completed proposal records live under
+  cancellation, deadline-aware listener accept, and deadline-aware stream read
+  slices documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.
 
 ## Update When

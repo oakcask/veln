@@ -1,0 +1,20 @@
+# Deadline-aware socket read returns a chunk before the deadline.
+fn emit_read_result(result: Option<ByteChunk>) -> () effects [stdio]
+	match result
+		Some(bytes) => emit_chunk(bytes)
+		None => stdio::println("none")
+	end
+end
+
+fn emit_chunk(bytes: ByteChunk) -> () effects [stdio]
+	stdio::print("read ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	emit_read_result(net::read_chunk_until(stream, deadline))
+	Ok(())
+end
