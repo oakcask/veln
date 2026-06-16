@@ -171,6 +171,11 @@ The executable specification case
 covers the same boundary when a direct structural mapping makes the generated
 helper accept the mapping target record shape.
 The executable specification case
+`../../examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`
+covers the same boundary when that mapped target record contains an ADT
+constructor field whose payload is a record projected back to schema-local
+fields.
+The executable specification case
 `../../examples/specification/run/derived-codec-repeat-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
 writes a bounded repeated primitive field.

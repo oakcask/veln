@@ -527,6 +527,10 @@ execution reference.
   `examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-multi-payload-mapped-constructor-encode-mismatch/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-mismatch-json/`,
+  `examples/specification/run/binary-schema-record-payload-mapped-constructor-encode-out-of-range/`,
   `examples/specification/run/binary-schema-byteview-encode/`,
   `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,
@@ -596,6 +600,7 @@ execution reference.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,

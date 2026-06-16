@@ -978,6 +978,9 @@ against the built `veln` binary.
 - `run/derived-codec-mapped-encode-boundary/`: the same `derive encode`
   boundary accepts the direct structural mapping target record and projects
   one encoded output chunk.
+- `run/derived-codec-record-payload-mapped-encode-boundary/`: the same
+  `derive encode` boundary accepts a mapped target record containing an ADT
+  constructor record payload and projects it to one encoded output chunk.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.
