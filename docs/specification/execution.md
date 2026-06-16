@@ -89,19 +89,21 @@ execution reference.
   and effect boundary, and the deadline lifecycle case covers deadline-aware
   accepted-stream ownership in one adapter function.
 - The channel-first stream routing examples route ordinary `StreamInput`
-  values through two, three, four, and receiver-list five-route typed channel
-  routes, select the next ready route with the existing channel selection
-  vocabulary, and only then invoke a plain handler with explicit per-stream
-  state. The five-route example uses `channel::select_many_priority` on a
-  non-empty `List<Receiver<StreamInput>>`; when multiple receivers are ready,
-  the earliest receiver in the supplied list wins. The handler remains an
-  ordinary source function over stream input and state; adapter code owns
-  channel routing, and socket wrappers around the same boundary own
-  `NetStream` handles and writes. The checked examples are
+  values through two, three, four, receiver-list five-route, and receiver-list
+  six-route typed channel routes, select the next ready route with the existing
+  channel selection vocabulary, and only then invoke a plain handler with
+  explicit per-stream state. The receiver-list examples use
+  `channel::select_many_priority` on a non-empty
+  `List<Receiver<StreamInput>>`; when multiple receivers are ready, the
+  earliest receiver in the supplied list wins. The handler remains an ordinary
+  source function over stream input and state; adapter code owns channel
+  routing, and socket wrappers around the same boundary own `NetStream`
+  handles and writes. The checked examples are
   `examples/specification/run/channel-first-stream-routing/`,
   `examples/specification/run/channel-first-stream-routing-three-route/`,
   `examples/specification/run/channel-first-stream-routing-four-route/`,
   `examples/specification/run/channel-first-stream-routing-five-route/`,
+  `examples/specification/run/channel-first-stream-routing-six-route/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
   and

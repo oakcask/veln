@@ -43,7 +43,8 @@ slices, and narrow deadline and cancellation slices, for:
   adapter-level cancellable stream routing, socket/channel routing, and
   deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, four-route, and receiver-list five-route fixture shapes
+  three-route, four-route, receiver-list five-route, and receiver-list
+  six-route fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument, and
   three-argument spawned handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
@@ -204,8 +205,9 @@ The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
-The receiver-list five-route channel-first stream routing slice, including the
-`channel::select_many_priority` helper, is recorded as implemented in
+The receiver-list five-route and six-route channel-first stream routing
+slices, including the `channel::select_many_priority` helper, are recorded as
+implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
 Implemented argument-carrying stream-task slices: `task::spawn_with` starts a
@@ -307,9 +309,9 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, and receiver-list five-route channel-first stream
-  routing, one-argument, two-argument, and three-argument spawned handler task,
-  and
+  three-route, four-route, receiver-list five-route, and receiver-list
+  six-route channel-first stream routing, one-argument, two-argument, and
+  three-argument spawned handler task, and
   adapter-level cancellable stream routing slices; remaining examples still
   need richer stream routing and richer deadline and cancellation APIs beyond
   the narrow relative `Deadline` boundary, `CancelToken` boundary, and

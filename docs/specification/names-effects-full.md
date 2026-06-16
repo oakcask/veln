@@ -288,15 +288,15 @@ labels or any compiler-known routing symbol beyond the socket, channel, task,
 and deadline calls listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
-through two, three, four, and receiver-list five-route typed channel routes,
-select a ready route with existing channel selection, and then invoke a plain
-handler with explicit per-stream state. The receiver-list route uses
-`channel::select_many_priority` on a non-empty `List<Receiver<StreamInput>>`
-and preserves supplied list order as priority order. The routing adapter
-declares `concurrency`; a socket wrapper that reads `NetStream` input, calls
-the channel-first route, and projects response actions back to
-`net::write_chunk` declares both `net` and `concurrency`. The handler itself
-remains free of transport effects.
+through two, three, four, receiver-list five-route, and receiver-list
+six-route typed channel routes, select a ready route with existing channel
+selection, and then invoke a plain handler with explicit per-stream state. The
+receiver-list routes use `channel::select_many_priority` on a non-empty
+`List<Receiver<StreamInput>>` and preserve supplied list order as priority
+order. The routing adapter declares `concurrency`; a socket wrapper that reads
+`NetStream` input, calls the channel-first route, and projects response
+actions back to `net::write_chunk` declares both `net` and `concurrency`. The
+handler itself remains free of transport effects.
 
 ## Process Calls
 

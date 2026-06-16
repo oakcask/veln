@@ -1588,6 +1588,11 @@ against the built `veln` binary.
   next ready route by priority with `channel::select_many_priority` over a
   non-empty receiver list, and then invokes the same pure stream handler shape
   with explicit per-stream state.
+- `run/channel-first-stream-routing-six-route/`: adapter-owned source routes
+  ordinary `StreamInput` values through six typed channel routes, selects all
+  ready routes in receiver-list priority order with
+  `channel::select_many_priority`, and then invokes the same pure stream
+  handler shape with explicit per-stream state.
 - `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
   must declare the existing `net` and `concurrency` effects when it uses
   socket, channel, zero-argument task, and three-argument task calls; a spawned

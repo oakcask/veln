@@ -7,6 +7,7 @@ slice from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
 `../../../examples/specification/run/channel-first-stream-routing-five-route/`
+and `../../../examples/specification/run/channel-first-stream-routing-six-route/`
 and
 `../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`.
 
@@ -20,10 +21,10 @@ uses the existing priority rule: the earliest ready receiver in the supplied
 list wins.
 
 The helper uses only the existing `concurrency` effect. It does not add channel,
-socket, task, timer, or network-specific effect labels. The checked run example
-routes five ordinary `StreamInput` values through five typed channels, selects
-them by receiver-list priority, and only then invokes the same pure handler
-shape used by the smaller routing examples.
+socket, task, timer, or network-specific effect labels. The checked run
+examples route five and six ordinary `StreamInput` values through typed
+channels, select them by receiver-list priority, and only then invoke the same
+pure handler shape used by the smaller routing examples.
 
 The checked effect example keeps the adapter boundary explicit: source that
 owns channel routing declares `concurrency`, while the handler receives only
