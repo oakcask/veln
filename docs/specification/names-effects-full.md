@@ -490,6 +490,10 @@ flag16be_is_set(flags: Flag16be, index: Int) -> Result<Bool, String>
 flag16be_set(flags: Flag16be, index: Int) -> Result<Flag16be, String>
 flag16be_bits(flags: Flag16be) -> Int
 flag16be_from_bits(bits: Int) -> Result<Flag16be, String>
+flag32be_is_set(flags: Flag32be, index: Int) -> Result<Bool, String>
+flag32be_set(flags: Flag32be, index: Int) -> Result<Flag32be, String>
+flag32be_bits(flags: Flag32be) -> Int
+flag32be_from_bits(bits: Int) -> Result<Flag32be, String>
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
@@ -614,12 +618,14 @@ fails. `int_to_string` renders an integer for display and string composition.
 `byte(value)` accepts integers from `0` through `255` and returns `Err(String)`
 for values outside that range. `flag8_is_set` and `flag8_set` read and set
 `Flag8` bit indexes `0` through `7`; `flag16be_is_set` and `flag16be_set`
-read and set `Flag16be` bit indexes `0` through `15`. Each checked flag helper
-returns `Err(String)` for indexes outside its supported range instead of
-masking or wrapping. `flag8_bits` and `flag16be_bits` expose the wrapped
-integer bits. `flag8_from_bits` and `flag16be_from_bits` return
-`Err(String)` for integers outside the one-byte or two-byte flag range before
-an invalid flag value reaches generated schema encode helpers.
+read and set `Flag16be` bit indexes `0` through `15`; `flag32be_is_set` and
+`flag32be_set` read and set `Flag32be` bit indexes `0` through `31`. Each
+checked flag helper returns `Err(String)` for indexes outside its supported
+range instead of masking or wrapping. `flag8_bits`, `flag16be_bits`, and
+`flag32be_bits` expose the wrapped integer bits. `flag8_from_bits`,
+`flag16be_from_bits`, and `flag32be_from_bits` return `Err(String)` for
+integers outside the one-byte, two-byte, or four-byte flag range before an
+invalid flag value reaches generated schema encode helpers.
 `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
 chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk

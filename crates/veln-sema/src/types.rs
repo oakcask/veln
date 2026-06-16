@@ -1256,7 +1256,7 @@ fn is_type_flag_bitset(ty: &Type) -> bool {
     matches!(
         ty,
         Type::Named { name, args }
-            if matches!(name.as_str(), "Flag8" | "Flag16be") && args.is_empty()
+            if matches!(name.as_str(), "Flag8" | "Flag16be" | "Flag32be") && args.is_empty()
     )
 }
 
@@ -2232,6 +2232,7 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         "UInt1" | "UInt2" | "UInt3" | "UInt4" | "UInt5" | "UInt6" | "UInt7" => Some(1),
         "UInt8" | "Flag8" => Some(1),
         "Flag16be" => Some(2),
+        "Flag32be" => Some(4),
         "UInt16be" | "UInt16le" => Some(2),
         "UInt24be" | "UInt24le" => Some(3),
         "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
@@ -2251,6 +2252,7 @@ pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
     match ty.trim() {
         "Flag8" => Some("Flag8"),
         "Flag16be" => Some("Flag16be"),
+        "Flag32be" => Some("Flag32be"),
         _ => None,
     }
 }
@@ -2266,6 +2268,7 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "UInt7" => Some(7),
         "UInt8" | "Flag8" => Some(8),
         "Flag16be" => Some(16),
+        "Flag32be" => Some(32),
         "UInt16be" | "UInt16le" => Some(16),
         "UInt24be" | "UInt24le" => Some(24),
         "UInt31be" | "UInt31le" => Some(31),
@@ -2286,6 +2289,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt7" => Some(0x7f),
         "UInt8" | "Flag8" => Some(0xff),
         "Flag16be" => Some(0xffff),
+        "Flag32be" => Some(0xffffffff),
         "UInt16be" | "UInt16le" => Some(0xffff),
         "UInt24be" | "UInt24le" => Some(0xffffff),
         "UInt31be" | "UInt31le" => Some(0x7fffffff),

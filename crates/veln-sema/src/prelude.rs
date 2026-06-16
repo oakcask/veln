@@ -111,6 +111,7 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let byte = Type::named("Byte", Vec::new());
     let flag8 = Type::named("Flag8", Vec::new());
     let flag16be = Type::named("Flag16be", Vec::new());
+    let flag32be = Type::named("Flag32be", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let byte_view = Type::named("ByteView", Vec::new());
     let byte_count = Type::named("ByteCount", Vec::new());
@@ -146,6 +147,19 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "flag16be_from_bits" => Some((
             vec![Type::int()],
             adt::result_type(flag16be.clone(), Type::string()),
+        )),
+        "flag32be_is_set" => Some((
+            vec![flag32be.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag32be_set" => Some((
+            vec![flag32be.clone(), Type::int()],
+            adt::result_type(flag32be.clone(), Type::string()),
+        )),
+        "flag32be_bits" => Some((vec![flag32be.clone()], Type::int())),
+        "flag32be_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag32be.clone(), Type::string()),
         )),
         "byte_chunk" => Some((vec![Type::vec(byte.clone())], byte_chunk.clone())),
         "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
@@ -948,6 +962,7 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
     let byte = CoreType::named("Byte", Vec::new());
     let flag8 = CoreType::named("Flag8", Vec::new());
     let flag16be = CoreType::named("Flag16be", Vec::new());
+    let flag32be = CoreType::named("Flag32be", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
     let byte_view = CoreType::named("ByteView", Vec::new());
     let byte_count = CoreType::named("ByteCount", Vec::new());
@@ -983,6 +998,19 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "flag16be_from_bits" => Some((
             vec![CoreType::int()],
             adt::core_result_type(flag16be.clone(), CoreType::string()),
+        )),
+        "flag32be_is_set" => Some((
+            vec![flag32be.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag32be_set" => Some((
+            vec![flag32be.clone(), CoreType::int()],
+            adt::core_result_type(flag32be.clone(), CoreType::string()),
+        )),
+        "flag32be_bits" => Some((vec![flag32be.clone()], CoreType::int())),
+        "flag32be_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag32be.clone(), CoreType::string()),
         )),
         "byte_chunk" => Some((vec![CoreType::vec(byte.clone())], byte_chunk.clone())),
         "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
