@@ -471,6 +471,14 @@ execution reference.
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` and `UInt31le` use the 31-bit maximum even though they occupy four
   bytes.
+  When a `veln run` entry returns these generated `EncodeError` values
+  directly, command diagnostics preserve the source-visible
+  `EncodeError(id, field_path, reason)` shape and attach
+  `details.value_diagnostic` for
+  `codec.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
+  `codec.dispatch_length_mismatch`, and `codec.dispatch_mismatch`. Human
+  output keeps the primary message focused on the failed encode fact and
+  reports field path, reason, and rendered result value as related notes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
   This slice excludes multiple selected mapping clauses, mapping expressions
@@ -546,6 +554,14 @@ execution reference.
   `examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-dispatch-nested-encode-failure/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`,
+  `examples/specification/run/binary-schema-encode-value-diagnostic-json/`,
+  `examples/specification/run/binary-schema-encode-value-diagnostic-human/`,
+  `examples/specification/run/binary-schema-dispatch-unknown-tag-encode-diagnostic-json/`,
+  `examples/specification/run/binary-schema-dispatch-unknown-tag-encode-diagnostic-human/`,
+  `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-json/`,
+  `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-human/`,
+  `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-json/`,
+  `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-general-helper-roundtrip/`,
   and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.

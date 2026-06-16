@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.dispatch_unknown_tag]: unknown dispatch tag in encode value", "note: Field path: schema `ClosedDispatchWritePacket` / field `payload`.", "note: Encode failure reason: tag field `kind` value 7 must be one of 1, 2.", "note: Result value: EncodeError(codec.dispatch_unknown_tag, ClosedDispatchWritePacket.payload, tag field `kind` value 7 must be one of 1, 2)."]

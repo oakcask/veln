@@ -55,7 +55,14 @@ direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
 HTTP/2 frame-header encode fixture, including selected dispatch payload encode
 paths that surface the same generated helper failure; the current behavior is
 specified under `../specification/execution.md` and checked by the generated
-encode cases under `../../examples/specification/run/`. Hand-written
+encode cases under `../../examples/specification/run/`. Command-facing
+projection for generated `EncodeError` result values is also implemented for
+`codec.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
+`codec.dispatch_length_mismatch`, and `codec.dispatch_mismatch`; `veln run`
+human output reports focused runtime diagnostics, and `veln run --json`
+attaches `details.value_diagnostic` with field path and reason details as
+specified under `../specification/run-json.md` and
+`../specification/commands.md`. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
@@ -360,4 +367,6 @@ The implemented protocol-state diagnostic projection slice covers:
   stable diagnostic assertions.
 
 The proposal remains open for broader schema and codec diagnostics that are not
-specified as current behavior under `../specification/`.
+specified as current behavior under `../specification/`, including codec
+diagnostic ids outside the implemented generated `EncodeError` command-facing
+slice.

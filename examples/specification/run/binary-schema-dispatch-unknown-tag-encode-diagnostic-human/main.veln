@@ -1,0 +1,10 @@
+schema ClosedDispatchWritePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UInt8, 2 => UInt16be)
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_closed_dispatch_write_packet({kind: 7, payload: 1})
+end

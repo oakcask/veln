@@ -32,7 +32,9 @@
         if (path == null || path.isEmpty()) {
             return;
         }
-        String value = format(asResult(result).value());
+        Object resultValue = asResult(result).value();
+        String value = format(resultValue);
+        registerEncodeErrorValueDiagnostic(resultValue, value);
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
         ByteDiagnostic byteDiagnostic = byteDiagnostics.get().remove(value);
         ValueDiagnostic valueDiagnostic = valueDiagnostics.get().remove(value);
@@ -870,6 +872,53 @@
             message,
             new ValueDiagnostic("schema.validation_failed", path, details)
         );
+    }
+
+    private static void registerEncodeErrorValueDiagnostic(Object value, String message) {
+        if (!isAdtNamed(value, "EncodeError::EncodeError")) {
+            return;
+        }
+        Adt error = asAdt(value, "EncodeError::EncodeError");
+        String id = asString(error.payloads[0]);
+        if (!isCommandEncodeDiagnosticId(id)) {
+            return;
+        }
+        String fieldPath = asString(error.payloads[1]);
+        String reason = asString(error.payloads[2]);
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("reason", reason));
+        details.add(DiagnosticDetail.string("field_path_display", fieldPath));
+        valueDiagnostics.get().put(
+            message,
+            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
+        );
+    }
+
+    private static boolean isCommandEncodeDiagnosticId(String id) {
+        return id.equals("codec.encode_value_unrepresentable")
+            || id.equals("codec.dispatch_unknown_tag")
+            || id.equals("codec.dispatch_length_mismatch")
+            || id.equals("codec.dispatch_mismatch");
+    }
+
+    private static java.util.List<ByteDiagnosticFieldPathSegment> encodeErrorFieldPath(
+        String fieldPath
+    ) {
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        if (fieldPath == null || fieldPath.isEmpty()) {
+            return path;
+        }
+        String[] segments = fieldPath.split("\\.");
+        for (int index = 0; index < segments.length; index += 1) {
+            String segment = segments[index];
+            if (segment.isEmpty()) {
+                continue;
+            }
+            path.add(new ByteDiagnosticFieldPathSegment(index == 0 ? "schema" : "field", segment));
+        }
+        return path;
     }
 
     private static void registerSchemaDispatchUnknownTagDiagnostic(

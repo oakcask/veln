@@ -793,9 +793,21 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
+- `run/binary-schema-dispatch-unknown-tag-encode-diagnostic-json/`: returning
+  the same `EncodeError` from `veln run --json` attaches
+  `details.value_diagnostic` with field path and reason details.
+- `run/binary-schema-dispatch-unknown-tag-encode-diagnostic-human/`: returning
+  the same `EncodeError` from human `veln run` emits a focused runtime
+  diagnostic with field path and reason notes.
 - `run/binary-schema-closed-dispatch-encode-out-of-range/`: the same encode
   helper reports `codec.encode_value_unrepresentable` when the selected
   dispatch payload case is outside its primitive range.
+- `run/binary-schema-encode-value-diagnostic-json/`: returning a generated
+  `codec.encode_value_unrepresentable` `EncodeError` from `veln run --json`
+  attaches value diagnostic details.
+- `run/binary-schema-encode-value-diagnostic-human/`: returning the same
+  generated encode range `EncodeError` from human `veln run` emits a focused
+  runtime diagnostic with field path and reason notes.
 - `run/binary-schema-extension-dispatch-encode/`: a generated binary schema
   encode helper writes a known extension-tolerant primitive payload selected
   by the earlier visible tag field and preserves matching unknown raw bounded
@@ -812,6 +824,12 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-encode-mismatch/`: the same encode
   helper reports `codec.dispatch_mismatch` when a known tag is paired with an
   unknown payload variant.
+- `run/binary-schema-dispatch-mismatch-encode-diagnostic-json/`: returning a
+  generated `codec.dispatch_mismatch` `EncodeError` from `veln run --json`
+  attaches value diagnostic details.
+- `run/binary-schema-dispatch-mismatch-encode-diagnostic-human/`: returning
+  the same dispatch mismatch `EncodeError` from human `veln run` emits a
+  focused runtime diagnostic with field path and reason notes.
 - `run/binary-schema-extension-dispatch-encode-tag-mismatch/`: the same
   encode helper reports `codec.dispatch_mismatch` when an unknown payload
   variant carries a tag that differs from the visible tag field.
@@ -821,6 +839,12 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-encode-length-mismatch/`: the same
   encode helper reports `codec.dispatch_length_mismatch` when the earlier
   length field does not match the emitted payload byte count.
+- `run/binary-schema-dispatch-length-encode-diagnostic-json/`: returning a
+  generated `codec.dispatch_length_mismatch` `EncodeError` from
+  `veln run --json` attaches value diagnostic details.
+- `run/binary-schema-dispatch-length-encode-diagnostic-human/`: returning the
+  same dispatch length mismatch `EncodeError` from human `veln run` emits a
+  focused runtime diagnostic with field path and reason notes.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
   failures report `codec.encode_value_unrepresentable` and keep the nested
   schema field path in structured `EncodeError` output.

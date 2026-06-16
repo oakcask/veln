@@ -860,8 +860,66 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
             }
             Some(diagnostic)
         }
+        "codec.encode_value_unrepresentable" => {
+            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
+        "codec.dispatch_unknown_tag" => {
+            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
+        "codec.dispatch_length_mismatch" => {
+            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
+        "codec.dispatch_mismatch" => {
+            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
         _ => None,
     }
+}
+
+fn encode_result_failure_diagnostic(
+    failure: &TestFailure,
+    value_diagnostic: &JsonValue,
+    value_entries: &[(String, JsonValue)],
+) -> Option<Diagnostic> {
+    let id = json_string(value_entries, "id")?;
+    let reason = json_string(value_entries, "reason")?;
+    let mut diagnostic = Diagnostic::new(
+        id.clone(),
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        encode_diagnostic_message(&id),
+        None,
+        value_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(value_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(value_entries, "field_path_display") {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    diagnostic
+        .related
+        .push(note_json(format!("Encode failure reason: {reason}.")));
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("Result value: {value}.")));
+    }
+    Some(diagnostic)
+}
+
+fn encode_diagnostic_message(id: &str) -> String {
+    match id {
+        "codec.encode_value_unrepresentable" => "encode value is unrepresentable",
+        "codec.dispatch_unknown_tag" => "unknown dispatch tag in encode value",
+        "codec.dispatch_length_mismatch" => "dispatch payload length mismatch",
+        "codec.dispatch_mismatch" => "dispatch tag and payload mismatch",
+        _ => "encode failed",
+    }
+    .to_string()
 }
 
 fn byte_offset_value(entries: &[(String, JsonValue)]) -> Option<i64> {
