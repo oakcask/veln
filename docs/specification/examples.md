@@ -1091,7 +1091,10 @@ The same HPACK fixture boundary accepts the static indexed `0x82`
 `0x88` `:status: 200`, `0x89` `:status: 204`, `0x8a` `:status: 206`,
 `0x8b` `:status: 304`, `0x8c` `:status: 400`, `0x8d` `:status: 404`, and
 `0x8e` `:status: 500`, plus `0x8f` `accept-charset:`,
-`0x90` `accept-encoding: gzip, deflate`, and `0x91` `accept-language:`
+`0x90` `accept-encoding: gzip, deflate`, `0x91` `accept-language:`,
+`0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
+`access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
+`authorization:`, and `0x98` `cache-control:`
 header-block bytes in completed HEADERS frames, exposes
 the decoded header name and value through ordinary header-list accessors,
 advances the immutable fixture state, and keeps unsupported HPACK input on

@@ -161,7 +161,28 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 																					true => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
 																					false => match first_byte == 145 and observed_size == 1
 																						true => decoded_static_indexed_header("accept-language", "", state)
-																						false => unsupported(block, offset)
+																						false => match first_byte == 146 and observed_size == 1
+																							true => decoded_static_indexed_header("accept-ranges", "", state)
+																							false => match first_byte == 147 and observed_size == 1
+																								true => decoded_static_indexed_header("accept", "", state)
+																								false => match first_byte == 148 and observed_size == 1
+																									true => decoded_static_indexed_header("access-control-allow-origin", "", state)
+																									false => match first_byte == 149 and observed_size == 1
+																										true => decoded_static_indexed_header("age", "", state)
+																										false => match first_byte == 150 and observed_size == 1
+																											true => decoded_static_indexed_header("allow", "", state)
+																											false => match first_byte == 151 and observed_size == 1
+																												true => decoded_static_indexed_header("authorization", "", state)
+																												false => match first_byte == 152 and observed_size == 1
+																													true => decoded_static_indexed_header("cache-control", "", state)
+																													false => unsupported(block, offset)
+																												end
+																											end
+																										end
+																									end
+																								end
+																							end
+																						end
 																					end
 																				end
 																			end

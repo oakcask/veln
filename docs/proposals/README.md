@@ -134,8 +134,10 @@ compare it with `../specification/` before changing behavior.
   `:scheme: https`, plus `0x88` `:status: 200`, `0x89` `:status: 204`,
   `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c` `:status: 400`,
   `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`
-  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, and `0x91`
-  `accept-language:` bytes,
+  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
+  `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
+  `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
+  `authorization:`, and `0x98` `cache-control:` bytes,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   PADDED DATA receive handling with invalid-padding diagnostics,
