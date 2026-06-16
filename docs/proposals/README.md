@@ -185,8 +185,9 @@ compare it with `../specification/` before changing behavior.
   cancellation, deadline-aware listener accept, deadline-aware stream read,
   adapter-owned listener-to-clean-stream-end lifecycle, network task
   two-argument, three-argument, four-argument, and five-argument spawn,
-  deadline-aware accepted-stream lifecycle, receiver-list seven-route and
-  eight-route routing, and receiver-list cancellable channel-first routing
+  deadline-aware accepted-stream lifecycle, receiver-list seven-route,
+  eight-route, and nine-route routing, and receiver-list cancellable
+  channel-first routing
   slices documented under `../specification/`; completed proposal records live
   under `../reference/implemented-proposals/`.
 

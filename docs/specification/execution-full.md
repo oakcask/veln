@@ -670,7 +670,8 @@ and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list
 five-route, receiver-list six-route, receiver-list seven-route,
-receiver-list eight-route, and receiver-list timeout typed channel routes
+receiver-list eight-route, receiver-list nine-route, and receiver-list timeout
+typed channel routes
 before handler invocation. Adapter
 code selects the ready route with existing channel selection and requires
 `concurrency`; the receiver-list priority cases use
@@ -689,6 +690,7 @@ are
 `examples/specification/run/channel-first-stream-routing-six-route/`,
 `examples/specification/run/channel-first-stream-routing-seven-route/`,
 `examples/specification/run/channel-first-stream-routing-eight-route/`,
+`examples/specification/run/channel-first-stream-routing-nine-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
@@ -701,6 +703,8 @@ and
 `examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
 and
 `examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-nine-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`, and
 `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
