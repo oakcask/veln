@@ -1167,8 +1167,11 @@ against the built `veln` binary.
   `0x87` `:scheme: https`, plus `0x88` `:status: 200`, `0x89`
   `:status: 204`, `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c`
   `:status: 400`, `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`
-  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, and `0x91`
-  `accept-language:` bytes through the imported fixture codec,
+  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
+  `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
+  `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
+  `authorization:`, and `0x98` `cache-control:` bytes through the imported
+  fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind
