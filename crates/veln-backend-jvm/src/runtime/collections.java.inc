@@ -1790,6 +1790,94 @@
         );
     }
 
+    public static Object validateDeclaredSchemaValue(
+        Object value,
+        Object schemaName,
+        Object fieldNames,
+        Object predicates,
+        Object schemaValidation
+    ) {
+        String name = asString(schemaName);
+        java.util.List<Object> fieldNameValues = asList(fieldNames);
+        java.util.List<Object> predicateValues = asList(predicates);
+        if (fieldNameValues.size() != predicateValues.size()) {
+            return err("invalid schema validation metadata for schema `" + name + "`");
+        }
+        String schemaValidationText = asString(schemaValidation);
+        SchemaPredicate validation = null;
+        if (!schemaValidationText.isEmpty()) {
+            try {
+                validation = new SchemaPredicateParser(schemaValidationText).parse();
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+        }
+        java.util.Map<Object, Object> record = asMap(value);
+        java.util.LinkedHashMap<String, Long> supplied = new java.util.LinkedHashMap<String, Long>();
+        for (int index = 0; index < fieldNameValues.size(); index += 1) {
+            String fieldName = asString(fieldNameValues.get(index));
+            Object fieldValue = record.get(fieldName);
+            Long intValue = fieldValue instanceof Long ? (Long) fieldValue : null;
+            if (intValue != null) {
+                supplied.put(fieldName, intValue);
+            }
+            String predicateText = asString(predicateValues.get(index));
+            if (predicateText.isEmpty()) {
+                continue;
+            }
+            if (intValue == null) {
+                return err(
+                    "schema validation field `" + fieldName + "` in schema `" + name + "` is not an Int"
+                );
+            }
+            SchemaPredicate predicate;
+            try {
+                predicate = new SchemaPredicateParser(predicateText).parse();
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            boolean passed;
+            try {
+                passed = predicate.eval(supplied);
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            if (!passed) {
+                String message = "schema value validation failed for field `" + fieldName + "`";
+                registerSchemaValueValidationFailedDiagnostic(
+                    message,
+                    name,
+                    fieldName,
+                    predicate.text,
+                    intValue,
+                    supplied
+                );
+                return err(message);
+            }
+        }
+        if (validation != null) {
+            boolean passed;
+            try {
+                passed = validation.eval(supplied);
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            if (!passed) {
+                String message = "schema value validation failed for schema `" + name + "`";
+                registerSchemaValueValidationFailedDiagnostic(
+                    message,
+                    name,
+                    "",
+                    validation.text,
+                    null,
+                    supplied
+                );
+                return err(message);
+            }
+        }
+        return ok(value);
+    }
+
     public static Object byteEncodeDeclaredBinarySchema(
         Object value,
         Object schemaName,

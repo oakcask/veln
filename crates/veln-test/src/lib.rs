@@ -440,6 +440,7 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
     let value = decode_hex_text(fields.next()?)?;
     let mut fixture_hex = None;
     let mut byte_diagnostic = None;
+    let mut value_diagnostic = None;
     let mut protocol_diagnostic = None;
     while let Some(kind) = fields.next() {
         match kind {
@@ -448,16 +449,18 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
             "byte_diagnostic_v2" => {
                 byte_diagnostic = Some(byte_diagnostic_v2_details(&mut fields)?)
             }
+            "value_diagnostic" => value_diagnostic = Some(value_diagnostic_details(&mut fields)?),
             "protocol_diagnostic" => {
                 protocol_diagnostic = Some(protocol_diagnostic_details(&mut fields)?)
             }
             _ => return None,
         }
     }
-    Some(TestFailure::result_with_details(
+    Some(TestFailure::result_with_extended_details(
         value,
         fixture_hex,
         byte_diagnostic,
+        value_diagnostic,
         protocol_diagnostic,
     ))
 }
@@ -653,6 +656,38 @@ fn protocol_diagnostic_details<'a>(
             "string" => JsonValue::string(decode_hex_text(value)?),
             "byte_preview" => byte_preview_value(value)?,
             "byte_preview_v2" => byte_preview_v2_value(value)?,
+            _ => return None,
+        };
+        entries.push((key, json_value));
+    }
+    Some(JsonValue::Object(entries))
+}
+
+fn value_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
+    let id = fields.next()?.to_string();
+    let field_path_count = fields.next()?.parse::<usize>().ok()?;
+    let mut field_path = Vec::with_capacity(field_path_count);
+    for _ in 0..field_path_count {
+        let kind = fields.next()?.to_string();
+        let name = decode_hex_text(fields.next()?)?;
+        field_path.push(JsonValue::object([
+            ("kind", JsonValue::string(kind)),
+            ("name", JsonValue::string(name)),
+        ]));
+    }
+    let detail_count = fields.next()?.parse::<usize>().ok()?;
+    let mut entries = vec![
+        ("kind".to_string(), JsonValue::string("value_diagnostic")),
+        ("id".to_string(), JsonValue::string(id)),
+        ("field_path".to_string(), JsonValue::array(field_path)),
+    ];
+    for _ in 0..detail_count {
+        let key = fields.next()?.to_string();
+        let value_kind = fields.next()?;
+        let value = fields.next()?;
+        let json_value = match value_kind {
+            "number" => JsonValue::Number(value.parse::<i64>().ok()?),
+            "string" => JsonValue::string(decode_hex_text(value)?),
             _ => return None,
         };
         entries.push((key, json_value));
@@ -907,6 +942,22 @@ impl TestFailure {
         byte_diagnostic: Option<JsonValue>,
         protocol_diagnostic: Option<JsonValue>,
     ) -> Self {
+        Self::result_with_extended_details(
+            value,
+            fixture_hex,
+            byte_diagnostic,
+            None,
+            protocol_diagnostic,
+        )
+    }
+
+    fn result_with_extended_details(
+        value: String,
+        fixture_hex: Option<JsonValue>,
+        byte_diagnostic: Option<JsonValue>,
+        value_diagnostic: Option<JsonValue>,
+        protocol_diagnostic: Option<JsonValue>,
+    ) -> Self {
         let mut details = vec![
             ("kind", JsonValue::string("result")),
             ("phase", JsonValue::string("runtime")),
@@ -917,6 +968,9 @@ impl TestFailure {
         }
         if let Some(byte_diagnostic) = byte_diagnostic {
             details.push(("byte_diagnostic", byte_diagnostic));
+        }
+        if let Some(value_diagnostic) = value_diagnostic {
+            details.push(("value_diagnostic", value_diagnostic));
         }
         if let Some(protocol_diagnostic) = protocol_diagnostic {
             details.push(("protocol_diagnostic", protocol_diagnostic));
@@ -3856,6 +3910,41 @@ mod tests {
                 "\"preview_byte_count\":3,",
                 "\"total_byte_count\":7,",
                 "\"truncated\":true}}}"
+            )
+        );
+    }
+
+    #[test]
+    fn value_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "736368656d612076616c75652076616c69646174696f6e206661696c656420666f72206669656c64206070616464696e675f6c656e67746860",
+            "\tvalue_diagnostic\tschema.validation_failed",
+            "\t2\tschema\t4f7264696e6172795061636b6574\tfield\t70616464696e675f6c656e677468",
+            "\t5\tpredicate\tstring\t70616464696e675f6c656e677468203c3d206c656e677468",
+            "\tfield_value\tnumber\t6",
+            "\tsupplied_values\tstring\t6c656e6774683d352c2070616464696e675f6c656e6774683d36",
+            "\tlength\tnumber\t5",
+            "\tpadding_length\tnumber\t6\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"schema value validation failed for field `padding_length`\",",
+                "\"value_diagnostic\":{\"kind\":\"value_diagnostic\",",
+                "\"id\":\"schema.validation_failed\",",
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"OrdinaryPacket\"},",
+                "{\"kind\":\"field\",\"name\":\"padding_length\"}],",
+                "\"predicate\":\"padding_length <= length\",",
+                "\"field_value\":6,",
+                "\"supplied_values\":\"length=5, padding_length=6\",",
+                "\"length\":5,",
+                "\"padding_length\":6}}"
             )
         );
     }

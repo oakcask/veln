@@ -1,0 +1,17 @@
+# Schema value validation reports a failed field-local predicate in JSON.
+schema OrdinaryPacket
+	format binary
+
+	length: UInt8
+	padding_length: UInt8 where padding_length <= length
+	payload: ByteView(length - padding_length)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {length: Int, padding_length: Int, payload: ByteView} = validate_ordinary_packet({length: 5, padding_length: 6, payload: view})?
+	Ok(())
+end

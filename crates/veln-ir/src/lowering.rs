@@ -314,6 +314,7 @@ fn lower_call_target(
         CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
         CoreCallTarget::SchemaEncode(name) => Ok(IrCallTarget::SchemaEncode(name.clone())),
         CoreCallTarget::SchemaEncodeStep(name) => Ok(IrCallTarget::SchemaEncodeStep(name.clone())),
+        CoreCallTarget::SchemaValidate(name) => Ok(IrCallTarget::SchemaValidate(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))

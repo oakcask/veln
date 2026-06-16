@@ -228,6 +228,17 @@ execution reference.
   reports `schema.validation_failed` at the owning field byte offset with
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
+- The schema value validation slice exposes generated `validate_<schema>`
+  helpers for eligible binary schema declarations. The helper accepts the
+  schema-local decoded record shape, checks field-local `where` predicates in
+  declaration order using the same supported predicate language as generated
+  binary decode helpers, and returns the supplied record on success. A failed
+  predicate reports `schema.validation_failed` with schema field path,
+  predicate text, owning supplied field value, and supplied decoded `Int`
+  values. Checked examples are
+  `examples/specification/run/schema-value-validation/`,
+  `examples/specification/run/schema-value-validation-json/`, and
+  `examples/specification/run/schema-value-validation-human/`.
 - The binary schema schema-level validation slice checks one `validate`
   predicate after all fields have decoded and after field-local validation has
   succeeded, but before structural mapping returns the decoded value.

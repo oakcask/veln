@@ -981,6 +981,15 @@ against the built `veln` binary.
 - `run/binary-schema-validation-arithmetic-json/`: the same schema reports a
   failed arithmetic predicate through `run --json` with decoded values keyed by
   schema field name.
+- `run/schema-value-validation/`: generated `validate_<schema>` accepts an
+  ordinary supplied decoded schema record after field-local validation passes.
+- `run/schema-value-validation-json/`: generated `validate_<schema>` reports
+  failed supplied-record validation through `run --json` with
+  `schema.validation_failed`, schema and field path, predicate text, supplied
+  field value, and supplied decoded values.
+- `run/schema-value-validation-human/`: the same supplied-record validation
+  failure projects a focused human `run` diagnostic with predicate,
+  supplied-value, supplied-field, and field-path notes.
 - `run/binary-schema-structural-validation-decode/`: schema-level `validate`
   preserves the decoded record shape when the field relationship passes.
 - `run/binary-schema-structural-validation-json/`: schema-level `validate`

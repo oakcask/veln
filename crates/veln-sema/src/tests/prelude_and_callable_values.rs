@@ -115,6 +115,65 @@ fn generated_schema_decode_helpers_keep_schema_level_validation() {
 }
 
 #[test]
+fn generated_schema_value_validation_helpers_resolve_from_binary_schema_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema OrdinaryPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8 where padding_length <= length\n",
+            "  payload: ByteView(length - padding_length)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, padding_length: Int, payload: ByteView}) -> Result<{length: Int, padding_length: Int, payload: ByteView}, String>\n",
+            "  validate_ordinary_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaValidate(name),
+            ..
+        } if name == "OrdinaryPacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "OrdinaryPacket");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.predicate.as_deref()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("length", None),
+            ("padding_length", Some("padding_length <= length")),
+            ("payload", None),
+        ]
+    );
+}
+
+#[test]
 fn schema_level_validation_rejects_unsupported_references() {
     let source = SourceFile::new(
         "main.veln",
