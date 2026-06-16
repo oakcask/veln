@@ -367,6 +367,11 @@ dispatch payload helper path reuses the generated binary schema helper for
 selected nested same-module and imported public payload schemas, including
 the supported primitive, reserved-field, fixed-field decode, endian, and
 diagnostic behavior already available to ordinary generated schema fields.
+The HTTP/2 GOAWAY payload boundary is also implemented as a schema-declared
+payload record with `ReservedBits(1, 0)`, `UInt31be`, and `UInt32be` fields,
+so outbound GOAWAY payload validation uses the general generated
+`byte_encode_<schema>` helper path and preserves schema field-path encode
+failures for both visible payload fields.
 The implemented `Flag8` helper slice consumes and emits one-byte visible
 bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
 `UInt8` fields as ordinary `Int` values. The implemented `Flag16be` helper
@@ -557,5 +562,6 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- The HTTP/2 design driver can express payload boundaries through general
-  schema declarations instead of the remaining narrow payload helper.
+- Broader unsupported field layouts, recursive or otherwise ineligible
+  dispatch payload schemas, and schema value mapping beyond the implemented
+  structural slices remain proposal work.

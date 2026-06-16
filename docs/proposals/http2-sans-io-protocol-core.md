@@ -463,16 +463,15 @@ stream-state rejection boundary. It rejects stream id `0`, missing or non-open
 streams, already closed or reset streams, and generated frame-header
 representation failures before accepted bytes are produced. HPACK remains
 outside the send intent because the header-block bytes are already encoded.
-The implemented slice also includes the narrow outbound GOAWAY send-intent.
-Ordinary source validates the selected last stream id through the same
-generated `UInt31be` payload representation boundary used by inbound GOAWAY
-payloads, validates the error code through the generated `UInt32be` payload
-boundary, encodes a nine-byte header with length `8`, kind `7`, flags `0`, and
-stream id `0`, appends the eight-byte GOAWAY payload, and records local
-graceful-shutdown state. A later peer-created HEADERS stream greater than the
-sent last stream id uses the same post-GOAWAY stream rejection boundary as
-received GOAWAY state. Generated encode-helper representation failures for
-the last stream id or error-code payload are preserved before accepted bytes
+The implemented slice also includes the outbound GOAWAY send-intent.
+Ordinary source validates the selected last stream id and error code through
+the schema-declared GOAWAY payload record, encodes a nine-byte header with
+length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
+GOAWAY payload, and records local graceful-shutdown state. A later
+peer-created HEADERS stream greater than the sent last stream id uses the
+same post-GOAWAY stream rejection boundary as received GOAWAY state.
+Generated schema encode-helper representation failures for the last stream id
+or error-code payload are preserved before accepted bytes
 are produced.
 The implemented slice also applies received `SETTINGS_INITIAL_WINDOW_SIZE`
 values to the tracked open stream's receive-window credit by the delta between

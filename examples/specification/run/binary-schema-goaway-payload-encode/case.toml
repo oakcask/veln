@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list goaway-payload count 1\noutput_chunk goaway-payload index 0 hex \"000000050000000b\" count 8\nlast-stream-id codec.encode_value_unrepresentable Http2GoawayPayloadWire.last_stream_id value must be between 0 and 2147483647\nerror-code codec.encode_value_unrepresentable Http2GoawayPayloadWire.error_code value must be between 0 and 4294967295\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "goaway-payload"
+chunks = ["000000050000000b"]

@@ -1027,16 +1027,17 @@ execution reference.
   before frame splitting or encode checks; HEADERS for an open stream at the
   boundary remain accepted, and stream id zero plus closed stream cases keep
   their narrower existing failures.
-- The same HTTP/2 protocol-core example also covers the narrow outbound
-  GOAWAY send-intent. Ordinary source validates the selected last stream id
-  through the generated `UInt31be` payload helper and the error code through
-  the generated `UInt32be` payload helper, then emits one immutable output
-  chunk with a nine-byte frame header length `8`, kind `7`, flags `0`, and
-  stream id `0` followed by the eight-byte GOAWAY payload. An accepted intent
+- The same HTTP/2 protocol-core example also covers the outbound GOAWAY
+  send-intent. Ordinary source validates the selected last stream id and
+  error code through a schema-declared `Http2GoawayPayloadWire` payload record
+  encoded by the generated `byte_encode_<schema>` helper path, then emits one
+  immutable output chunk with a nine-byte frame header length `8`, kind `7`,
+  flags `0`, and stream id `0` followed by the eight-byte GOAWAY payload. An
+  accepted intent
   records local graceful-shutdown state so a later peer-created HEADERS stream
   greater than the sent last stream id is rejected through the post-GOAWAY
   stream rule. Last-stream-id and error-code values outside the generated
-  payload helper's representable ranges stay as
+  schema payload helper's representable ranges stay as
   `codec.encode_value_unrepresentable` failures with the generated field path
   before accepted output bytes are produced.
 - Eligible direct tail-recursive user functions execute deep self-recursive
