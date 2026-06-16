@@ -159,7 +159,15 @@ visible `UIntN` field whose widths together complete one byte or the same
 two-byte, three-byte, or four-byte big-endian storage unit. That form decodes
 the visible fields from their declared high-to-low positions, validates the
 middle reserved field at the reserved field path, omits the reserved field,
-and advances by the shared storage width.
+and advances by the shared storage width. The same shared-storage rule also
+covers consecutive non-byte-aligned `UIntN` and
+`ReservedBits(width, value)` fields when the group contains at least one
+visible field and at least one reserved field, every visible field is a
+big-endian sub-byte `UIntN`, and the declared widths complete one byte or the
+same two-byte, three-byte, or four-byte big-endian storage unit. Reserved
+fields in the group remain representation-only, each reserved value is
+validated at its own field path, and visible fields are decoded from their
+declared high-to-low positions.
 Generated binary schema decode helpers also support standalone visible
 `UInt1` through `UInt7` fields. Each field consumes one byte, exposes the
 declared low bits as an ordinary `Int`, advances by one byte, preserves
@@ -384,6 +392,14 @@ field, middle `ReservedBits(width, value)` field, and following visible
 `UIntN` field whose widths complete the same storage unit are also
 representation-only: the helper writes both visible values around the
 declared reserved value in declaration order and reports
+`codec.encode_value_unrepresentable` at the out-of-range visible field.
+The same shared-storage encode rule also covers consecutive non-byte-aligned
+`UIntN` and `ReservedBits(width, value)` fields when the group contains at
+least one visible field and at least one reserved field, every visible field
+is a big-endian sub-byte `UIntN`, and the declared widths complete one byte or
+the same two-byte, three-byte, or four-byte big-endian storage unit. The
+helper writes visible and reserved values in declaration order, omits reserved
+fields from the encoder value record, and reports
 `codec.encode_value_unrepresentable` at the out-of-range visible field.
 Unsupported non-byte-aligned reserved-bit encode shapes report
 `schema.reserved_bits_encode`.

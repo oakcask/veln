@@ -57,7 +57,9 @@ compare it with `../specification/` before changing behavior.
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode,
   one-byte non-byte-aligned reserved prefix groups followed by two visible
-  `UIntN` fields,
+  `UIntN` fields, and consecutive non-byte-aligned `UIntN` and
+  `ReservedBits(width, value)` groups that complete one byte or one
+  two-byte, three-byte, or four-byte big-endian storage unit,
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
   two-byte little-endian, `Flag32be` four-byte big-endian, and `Flag32le`
   four-byte little-endian visible flag

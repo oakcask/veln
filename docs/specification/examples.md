@@ -585,6 +585,12 @@ fields in the same one-byte storage unit: decode omits the
 encode writes the declared reserved bits before those visible fields, and
 visible out-of-range encode values keep the ordinary
 `codec.encode_value_unrepresentable` shape.
+`../../examples/specification/run/binary-schema-split-reserved-decode-encode/`
+pins a shared storage byte containing multiple non-byte-aligned
+`ReservedBits(width, value)` fields: decode omits both reserved fields while
+preserving the visible fields, encode writes both declared reserved values in
+declaration order, and visible out-of-range encode values keep the ordinary
+`codec.encode_value_unrepresentable` shape.
 
 `../../examples/specification/run/binary-schema-byteview-encode/` and
 `../../examples/specification/run/binary-schema-byteview-encode-length-mismatch/`
@@ -651,6 +657,11 @@ the input record value exceeds that field's range.
 `../../examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`
 pins the matching reserved prefix group encode slice for one-byte storage:
 the helper writes the declared reserved value before two visible `UIntN`
+fields and reports `codec.encode_value_unrepresentable` against the visible
+field whose input value exceeds its range.
+`../../examples/specification/run/binary-schema-split-reserved-decode-encode/`
+also pins split reserved-bit encode: the helper writes multiple declared
+reserved values in one shared storage byte with adjacent visible `UIntN`
 fields and reports `codec.encode_value_unrepresentable` against the visible
 field whose input value exceeds its range.
 

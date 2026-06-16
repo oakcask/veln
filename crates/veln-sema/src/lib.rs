@@ -171,17 +171,8 @@ fn schema_decode_spec_inner_after_push(
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            let (bit_width, expected_value) = supported_encode_reserved_bits(
-                index
-                    .checked_sub(2)
-                    .and_then(|previous| schema.fields.get(previous)),
-                index
-                    .checked_sub(1)
-                    .and_then(|previous| schema.fields.get(previous)),
-                schema.fields.get(index + 1),
-                schema.fields.get(index + 2),
-                reserved,
-            )?;
+            let (bit_width, expected_value) =
+                supported_encode_reserved_bits(&schema.fields, index, reserved)?;
             fields.push(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
