@@ -1168,6 +1168,18 @@
         return ok(flag8Object(bits + mask));
     }
 
+    public static Object flag8RawBits(Object flags) {
+        return Long.valueOf(flag8Bits(flags));
+    }
+
+    public static Object flag8FromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 255) {
+            return err("flag8 bits must be between 0 and 255");
+        }
+        return ok(flag8Object(bits));
+    }
+
     private static Object flag8BitMask(Object index) {
         long bitIndex = asLong(index);
         if (bitIndex < 0 || bitIndex > 7) {
@@ -1197,6 +1209,18 @@
             return ok(flags);
         }
         return ok(flag16beObject(bits + mask));
+    }
+
+    public static Object flag16beRawBits(Object flags) {
+        return Long.valueOf(flag16beBits(flags));
+    }
+
+    public static Object flag16beFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 65535) {
+            return err("flag16be bits must be between 0 and 65535");
+        }
+        return ok(flag16beObject(bits));
     }
 
     private static Object flag16beBitMask(Object index) {

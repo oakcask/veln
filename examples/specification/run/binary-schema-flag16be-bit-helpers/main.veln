@@ -1,4 +1,4 @@
-# Flag16be helper functions inspect decoded flags and construct flags for encode.
+# Flag16be helper functions inspect raw bits, inspect decoded flags, and construct flags for encode.
 use stdio
 
 schema FlagPacket
@@ -61,10 +61,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let high_set: Bool = flag16be_is_set(packet.flags, high_bit())?
 	let low_set: Bool = flag16be_is_set(packet.flags, low_bit())?
 	let middle_set: Bool = flag16be_is_set(packet.flags, middle_bit())?
+	stdio::println(int_to_string(flag16be_bits(packet.flags)))
 	stdio::println(int_to_string(bool_to_int(high_set)))
 	stdio::println(int_to_string(bool_to_int(low_set)))
 	stdio::println(int_to_string(bool_to_int(middle_set)))
-	let high: Flag16be = flag16be_set(Flag16be(0), high_bit())?
+	let empty: Flag16be = flag16be_from_bits(0)?
+	let high: Flag16be = flag16be_set(empty, high_bit())?
 	let encoded_flags: Flag16be = flag16be_set(high, low_bit())?
 	let encoded: Result<ByteChunk, EncodeError> = byte_encode_flag_packet({flags: encoded_flags})
 	match encoded

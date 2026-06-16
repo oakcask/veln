@@ -444,6 +444,24 @@ structural mapping. The encode cases prove one-byte output and
 range. The truncation cases prove the existing `schema.truncated_field`
 diagnostic shape for a missing one-byte standalone field.
 
+`../../examples/specification/run/binary-schema-flag8-decode/`,
+`../../examples/specification/run/binary-schema-flag8-encode/`,
+`../../examples/specification/run/binary-schema-flag8-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag8-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag8-encode-out-of-range/`
+pin the one-byte visible flag bitset slice. The cases prove source-visible
+`Flag8(bits)` decode, one-byte encode, direct structural mapping in both
+directions, and the ordinary encode value-representation failure shape for
+values outside the one-byte range.
+`../../examples/specification/run/binary-schema-flag8-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag8-from-bits-out-of-range-json/`,
+`../../examples/specification/run/binary-schema-flag8-bit-index-json/`, and
+`../../examples/specification/run/binary-schema-flag8-bit-index-human/` pin
+checked `Flag8` helper behavior for successful raw-bit extraction, raw-bit
+construction, bit reads, and bit sets plus JSON raw-bit range and human
+invalid-index runtime result failures.
+
 `../../examples/specification/run/binary-schema-flag16be-decode/`,
 `../../examples/specification/run/binary-schema-flag16be-encode/`,
 `../../examples/specification/run/binary-schema-flag16be-mapped-record-decode/`,
@@ -455,10 +473,12 @@ source-visible `Flag16be(bits)` decode, big-endian encode, direct structural
 mapping in both directions, and the ordinary encode value-representation
 failure shape for values outside the two-byte range.
 `../../examples/specification/run/binary-schema-flag16be-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag16be-from-bits-out-of-range-json/`,
 `../../examples/specification/run/binary-schema-flag16be-bit-index-json/`, and
 `../../examples/specification/run/binary-schema-flag16be-bit-index-human/`
-pin checked `Flag16be` helper behavior for successful bit reads and sets plus
-JSON and human invalid-index runtime result failures.
+pin checked `Flag16be` helper behavior for successful raw-bit extraction,
+raw-bit construction, bit reads, and bit sets plus JSON raw-bit range and
+human invalid-index runtime result failures.
 
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.

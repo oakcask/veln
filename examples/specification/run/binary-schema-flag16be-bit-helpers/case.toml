@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "1\n1\n0\noutput_chunk_list flag16be-packet count 1\noutput_chunk flag16be-packet index 0 hex \"8001\" count 2\n"
+equals = "32769\n1\n1\n0\noutput_chunk_list flag16be-packet count 1\noutput_chunk flag16be-packet index 0 hex \"8001\" count 2\n"
 
 [[output_chunk_list]]
 name = "flag16be-packet"

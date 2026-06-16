@@ -1,0 +1,6 @@
+# Flag8 raw-bit construction rejects values outside the one-byte range.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag8 = flag8_from_bits(256)?
+	Ok(())
+end

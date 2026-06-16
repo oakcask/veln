@@ -65,8 +65,11 @@ compiler-known calls.
   that resolve to one record shape, resolves a mapped record shape; generated
   decode-step helpers expose the same value shape through `DecodeStep<T>` for
   open input. Pure source-backed prelude helpers `flag8_is_set`, `flag8_set`,
-  `flag16be_is_set`, and `flag16be_set` require no effects and return
-  `Result` values for invalid bit indexes. Generated binary schema encode
+  `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
+  `flag16be_bits`, and `flag16be_from_bits` require no effects. The checked
+  bit-index helpers return `Result` values for invalid indexes, and the
+  raw-bit constructors return `Result` values for out-of-range integers.
+  Generated binary schema encode
   helpers for the exact-width
   primitive, `Flag8`, `Flag16be`, supported reserved-bit, length-bounded
   `ByteView`, closed dispatch, extension dispatch, and same-module or

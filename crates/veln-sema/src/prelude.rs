@@ -129,12 +129,22 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![flag8.clone(), Type::int()],
             adt::result_type(flag8.clone(), Type::string()),
         )),
+        "flag8_bits" => Some((vec![flag8.clone()], Type::int())),
+        "flag8_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag8.clone(), Type::string()),
+        )),
         "flag16be_is_set" => Some((
             vec![flag16be.clone(), Type::int()],
             adt::result_type(Type::bool(), Type::string()),
         )),
         "flag16be_set" => Some((
             vec![flag16be.clone(), Type::int()],
+            adt::result_type(flag16be.clone(), Type::string()),
+        )),
+        "flag16be_bits" => Some((vec![flag16be.clone()], Type::int())),
+        "flag16be_from_bits" => Some((
+            vec![Type::int()],
             adt::result_type(flag16be.clone(), Type::string()),
         )),
         "byte_chunk" => Some((vec![Type::vec(byte.clone())], byte_chunk.clone())),
@@ -956,12 +966,22 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             vec![flag8.clone(), CoreType::int()],
             adt::core_result_type(flag8.clone(), CoreType::string()),
         )),
+        "flag8_bits" => Some((vec![flag8.clone()], CoreType::int())),
+        "flag8_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag8.clone(), CoreType::string()),
+        )),
         "flag16be_is_set" => Some((
             vec![flag16be.clone(), CoreType::int()],
             adt::core_result_type(CoreType::bool(), CoreType::string()),
         )),
         "flag16be_set" => Some((
             vec![flag16be.clone(), CoreType::int()],
+            adt::core_result_type(flag16be.clone(), CoreType::string()),
+        )),
+        "flag16be_bits" => Some((vec![flag16be.clone()], CoreType::int())),
+        "flag16be_from_bits" => Some((
+            vec![CoreType::int()],
             adt::core_result_type(flag16be.clone(), CoreType::string()),
         )),
         "byte_chunk" => Some((vec![CoreType::vec(byte.clone())], byte_chunk.clone())),

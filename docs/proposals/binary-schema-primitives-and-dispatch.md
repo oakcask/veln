@@ -122,7 +122,10 @@ preserve the ordinary encode range-failure shape on the schema-local field
 path.
 Pure prelude helpers expose checked one-byte `Flag8` bit access through bit
 indexes `0` through `7`, returning `Result` failures for out-of-range indexes
-instead of masking or wrapping.
+instead of masking or wrapping. Raw-bit helpers expose the wrapped integer
+bits and construct `Flag8` values only for integers in the one-byte range,
+returning `Result` failures before invalid values reach generated schema
+encoders.
 The narrow two-byte big-endian visible flag bitset slice is implemented as
 `Flag16be` for generated binary schema decode and encode helpers. `Flag16be`
 consumes and emits two bytes through the existing `UInt16be` representation
@@ -133,7 +136,10 @@ reports existing encode value-representation failures when `bits` cannot be
 represented in two bytes.
 Pure prelude helpers expose checked two-byte `Flag16be` bit access through bit
 indexes `0` through `15`, returning `Result` failures for out-of-range indexes
-instead of masking or wrapping.
+instead of masking or wrapping. Raw-bit helpers expose the wrapped integer
+bits and construct `Flag16be` values only for integers in the two-byte range,
+returning `Result` failures before invalid values reach generated schema
+encoders.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
@@ -196,10 +202,9 @@ for:
   or four-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset and
   two-byte big-endian `Flag16be` bitset, checked `Flag8` and `Flag16be` bit
-  helper access,
+  and raw-bit helper access,
   direct structural mapping boundary, and implemented direct constructor
-  mapped encode boundaries, including raw-bit variants and broader
-  frame-specific ADTs
+  mapped encode boundaries, including broader frame-specific ADTs
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode helper slices

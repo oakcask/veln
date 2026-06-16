@@ -18,12 +18,28 @@ pub fn flag8_set(flags: Flag8, index: Int) -> Result<Flag8, String>
 	prelude_builtin::flag8_set(flags, index)
 end
 
+pub fn flag8_bits(flags: Flag8) -> Int
+	prelude_builtin::flag8_bits(flags)
+end
+
+pub fn flag8_from_bits(bits: Int) -> Result<Flag8, String>
+	prelude_builtin::flag8_from_bits(bits)
+end
+
 pub fn flag16be_is_set(flags: Flag16be, index: Int) -> Result<Bool, String>
 	prelude_builtin::flag16be_is_set(flags, index)
 end
 
 pub fn flag16be_set(flags: Flag16be, index: Int) -> Result<Flag16be, String>
 	prelude_builtin::flag16be_set(flags, index)
+end
+
+pub fn flag16be_bits(flags: Flag16be) -> Int
+	prelude_builtin::flag16be_bits(flags)
+end
+
+pub fn flag16be_from_bits(bits: Int) -> Result<Flag16be, String>
+	prelude_builtin::flag16be_from_bits(bits)
 end
 
 pub type ByteChunk
