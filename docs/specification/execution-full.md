@@ -549,7 +549,9 @@ callable on a JVM thread after freezing both ordinary source values at the task
 boundary. `task::spawn_with3` starts a three-argument callable on a JVM thread
 after freezing all three ordinary source values at the task boundary.
 `task::spawn_with4` starts a four-argument callable on a JVM thread after
-freezing all four ordinary source values at the task boundary. All task spawn
+freezing all four ordinary source values at the task boundary.
+`task::spawn_with5` starts a five-argument callable on a JVM thread after
+freezing all five ordinary source values at the task boundary. All task spawn
 helpers freeze the returned value before it crosses back through the task
 handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
 completion or `Err(JoinError)` on interruption, cancellation, or runtime
@@ -652,8 +654,9 @@ routing, pure handler invocation, and ordered write projection in one accepted
 stream adapter path, with deadline expiry becoming the ordinary stream
 boundary value before handler invocation. The same checked boundary also joins
 a spawned stream-handler task that passes ordinary event, state, and adapter
-context values plus one routing metadata value directly through
-`task::spawn_with4` instead of bundling them into one adapter record first.
+context values plus one routing metadata value and one additional ordinary
+metadata value directly through `task::spawn_with5` instead of bundling them
+into one adapter record first.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`

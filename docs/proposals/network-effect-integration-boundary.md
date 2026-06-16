@@ -48,8 +48,8 @@ slices, and narrow deadline and cancellation slices, for:
   receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
   and receiver-list cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
-  three-argument, and four-argument spawned handler task shapes over ordinary
-  source values
+  three-argument, four-argument, and five-argument spawned handler task shapes
+  over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -159,6 +159,8 @@ adapter context values; it does not receive socket handles and does not call
 
 The four-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
+The five-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with5.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -217,9 +219,11 @@ channel-first stream routing slices, including the
 `channel::select_many_timeout` helpers, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
-The four-argument argument-carrying stream-task slice is recorded as
-implemented in
+The four-argument and five-argument argument-carrying stream-task slices are
+recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
+The five-argument completion evidence is recorded in
+`../reference/implemented-proposals/network-stream-task-spawn-with5.md`.
 
 ## Discussion Result: Transport Error Boundary
 
@@ -316,8 +320,8 @@ or the pure protocol core.
   three-route, four-route, receiver-list five-route, receiver-list six-route,
   receiver-list seven-route, receiver-list eight-route, receiver-list timeout,
   and receiver-list cancellable channel-first stream routing, one-argument,
-  two-argument, three-argument, and four-argument
-  spawned handler task, and adapter-level cancellable stream routing slices;
+  two-argument, three-argument, four-argument, and five-argument spawned
+  handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, and cancellation status-query boundary.

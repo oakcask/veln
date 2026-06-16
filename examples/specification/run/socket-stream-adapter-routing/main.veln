@@ -74,15 +74,15 @@ fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count
 	{ actions: append_actions(first_result.actions, second_result.actions), next_state: second_result.next_state }
 end
 
-fn handle_stream_event_with_context(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+fn handle_stream_event_with_context(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }, metadata: { metadata_offset : Int, metadata_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
 	match event
-		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, routing.route_marker), list_cons(SendBytes(stream_id, context.adapter_marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil())))), next_state: { request_count: state.request_count + context.adapter_id + routing.stream_offset, marker: payload } }
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, metadata.metadata_marker), list_cons(SendBytes(stream_id, routing.route_marker), list_cons(SendBytes(stream_id, context.adapter_marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil()))))), next_state: { request_count: state.request_count + context.adapter_id + routing.stream_offset + metadata.metadata_offset, marker: payload } }
 		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
 	end
 end
 
-fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }) -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
-	Ok(handle_stream_event_with_context(event, state, context, routing))
+fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }, metadata: { metadata_offset : Int, metadata_marker : ByteChunk }) -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
+	Ok(handle_stream_event_with_context(event, state, context, routing, metadata))
 end
 
 fn run_stream_task() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
@@ -90,9 +90,11 @@ fn run_stream_task() -> Result<{ actions : List<ResponseAction>, next_state : { 
 	let marker: ByteChunk = byte_chunk_from_hex("cc")?
 	let adapter_marker: ByteChunk = byte_chunk_from_hex("ddee")?
 	let route_marker: ByteChunk = byte_chunk_from_hex("ff")?
+	let metadata_marker: ByteChunk = byte_chunk_from_hex("1122")?
 	let context = { adapter_id: 3, adapter_marker: adapter_marker }
 	let routing = { stream_offset: 4, route_marker: route_marker }
-	let worker = task::spawn_with4<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler, Request(11, payload), { request_count: 40, marker: marker }, context, routing)
+	let metadata = { metadata_offset: 5, metadata_marker: metadata_marker }
+	let worker = task::spawn_with5<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler, Request(11, payload), { request_count: 40, marker: marker }, context, routing, metadata)
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => Err("stream task failed")
