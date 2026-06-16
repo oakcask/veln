@@ -112,6 +112,12 @@ decode-step slice: a codec item call observes the generated helper's
 `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
 item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
+`../../examples/specification/run/codec-needmore-parser-state/` covers
+caller-owned parser state around the codec boundary. It checks that `Decoded`
+advances the retained suffix and explicit base offset by the consumed count,
+then decodes over that suffix, while `NeedMore` keeps the same pending bytes
+and base offset.
+The executable specification case
 `../../examples/specification/run/derived-codec-repeat-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a bounded repeated primitive field and reports repeat-backed

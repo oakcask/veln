@@ -738,6 +738,11 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
   `Invalid` outcomes through the codec item.
+  `examples/specification/run/codec-needmore-parser-state/` covers
+  caller-owned parser state around the codec boundary: after `Decoded`, the
+  caller drops exactly the consumed prefix and advances the explicit base
+  offset by the consumed count; after `NeedMore`, the caller keeps the same
+  pending bytes and base offset.
   `examples/specification/run/codec-selected-mapping-decode-boundary/`
   covers the selected mapping boundary shared with hand-written decode
   codecs. For the implemented structural mapping slice, `T` is the mapping
