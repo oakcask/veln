@@ -1090,7 +1090,12 @@ against the built `veln` binary.
   `http2.protocol.unexpected_settings_ack`. After a valid inbound non-ACK
   PING frame, it constructs one immutable outbound PING ACK chunk
   through the frame-header encode path with the original opaque payload, while
-  a received PING ACK remains observable and produces no response chunk.
+  a received PING ACK remains observable and produces no response chunk. It
+  also constructs outbound PRIORITY chunks for an open stream, checks
+  replacement-friendly dependency and weight values, rejects missing, closed,
+  reset, mismatched, and self-dependent streams before output bytes, and
+  preserves frame stream-id and dependency-payload encode failures as codec
+  representation failures.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
