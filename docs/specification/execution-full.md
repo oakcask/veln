@@ -652,22 +652,24 @@ and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list
-five-route, receiver-list six-route, and receiver-list timeout typed channel
-routes before handler invocation. Adapter code selects the ready route with
-existing channel selection and requires `concurrency`; the receiver-list
-priority cases use `channel::select_many_priority` on a non-empty
-`List<Receiver<StreamInput>>` and preserve the supplied list order as the
-priority order. The timeout case uses `channel::select_many_timeout` to keep
-that list priority while returning `None` when no receiver is ready before the
-timeout. Socket wrappers that read `NetStream` input and write response bytes
-require both `net` and `concurrency`. The plain handler receives stream input
-plus explicit per-stream state and remains free of transport effects. The
-checked examples are
+five-route, receiver-list six-route, receiver-list seven-route, and
+receiver-list timeout typed channel routes before handler invocation. Adapter
+code selects the ready route with existing channel selection and requires
+`concurrency`; the receiver-list priority cases use
+`channel::select_many_priority` on a non-empty `List<Receiver<StreamInput>>`
+and preserve the supplied list order as the priority order. The timeout case
+uses `channel::select_many_timeout` to keep that list priority while returning
+`None` when no receiver is ready before the timeout. Socket wrappers that read
+`NetStream` input and write response bytes require both `net` and
+`concurrency`. The plain handler receives stream input plus explicit
+per-stream state and remains free of transport effects. The checked examples
+are
 `examples/specification/run/channel-first-stream-routing/`,
 `examples/specification/run/channel-first-stream-routing-three-route/`,
 `examples/specification/run/channel-first-stream-routing-four-route/`,
 `examples/specification/run/channel-first-stream-routing-five-route/`,
 `examples/specification/run/channel-first-stream-routing-six-route/`,
+`examples/specification/run/channel-first-stream-routing-seven-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
 `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
@@ -675,6 +677,8 @@ and
 `examples/specification/check/channel-first-stream-routing-four-route-effects/`,
 and
 `examples/specification/check/channel-first-stream-routing-five-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`.
 
