@@ -41,7 +41,7 @@ use crate::types::{
     flag_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_function_name, schema_decode_mapping_fields, schema_decode_mappings,
     schema_decode_value_type, schema_dispatch_payload_schema, schema_length_expression_references,
-    supported_encode_reserved_bits,
+    selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -469,7 +469,9 @@ fn schema_dispatch_field_type(
         })
         .collect::<Option<Vec<_>>>()?;
     let payload_ty = payload_types.pop()?;
-    if payload_types.iter().any(|ty| ty != &payload_ty) {
+    if payload_types.iter().any(|ty| ty != &payload_ty)
+        && !selected_mappings_cover_closed_dispatch(schema, dispatch)
+    {
         return None;
     }
     if dispatch.length_field.is_some() {

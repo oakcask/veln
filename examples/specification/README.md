@@ -241,6 +241,9 @@ against the built `veln` binary.
   decode selects one structural mapping from an already decoded field value.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
+- `run/binary-schema-mixed-dispatch-selected-mapping-decode/`: generated
+  binary schema decode accepts a closed dispatch whose primitive and nested
+  payload cases are wrapped by selected mappings into one target record shape.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
   decode computes an `Int` target field with supported decoded-field `+`,
   `-`, and `*` mapping arithmetic.
@@ -697,6 +700,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-nested-dispatch-decode/`: a generated binary
   schema decode helper maps a closed nested dispatch payload record into an
   outer target record field.
+- `check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`: mixed
+  dispatch payload shapes still report `schema.dispatch_payload` when selected
+  mappings use a selector other than the dispatch tag field.
 - `run/binary-schema-sub-byte-decode/`: generated schema decode helpers read
   standalone `UInt1` through `UInt7` visible fields from one byte each, expose
   the declared low bits as mapped `Int` values, and keep decode-step plus

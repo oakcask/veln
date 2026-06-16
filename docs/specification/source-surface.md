@@ -102,7 +102,13 @@ Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward or recursively, or
 uses a schema outside the generated helper slice, or decodes to an
-incompatible payload shape. The checked field-reference
+incompatible payload shape. Closed dispatch cases with mixed primitive and
+nested payload shapes are accepted only at an eligible selected mapping
+boundary where every `map to Target when tag_field == literal` selector uses
+the dispatch tag field, covers a distinct dispatch case, and type-checks that
+branch against the payload shape selected by the literal. Other mixed payload
+dispatch shapes keep the `schema.dispatch_payload` rejection. The checked
+field-reference
 diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
@@ -141,7 +147,9 @@ fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
 including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
 closed nested dispatch payload fields as the nested schema record shape, and
-extension dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
+closed mixed dispatch payload fields as the selected case payload shape within
+the matching selector branch, and extension dispatch payload fields as
+`SchemaDispatchPayload<T>`. Multiple selected mappings must
 all use the same decoded `Int` selector field, distinct selector literal
 values, and the same decoded record shape. Missing, duplicate, and unsupported
 selectors report `schema.mapping_selection_required`,

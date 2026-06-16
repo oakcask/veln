@@ -5,8 +5,10 @@ use crate::types::{
     SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive, repeat_schema_primitive,
     schema_decode_record_type, schema_decode_step_function_name, schema_decode_value_type,
-    schema_encode_function_name, schema_encode_value_type, schema_length_expression_references,
-    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
+    schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
+    schema_length_expression_references, schema_mapping_source_field_types,
+    schema_payload_name_last_segment, schema_payload_name_path,
+    selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -2521,6 +2523,8 @@ fn check_schema_dispatch_field(
     }
 
     let mut expected_payload_type = None::<Type>;
+    let mut mixed_payload_type = false;
+    let mut payload_resolution_failed = false;
     for case in &dispatch.cases {
         let payload_ty = match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
@@ -2554,31 +2558,52 @@ fn check_schema_dispatch_field(
         };
         let Some(payload_ty) = payload_ty else {
             valid = false;
+            payload_resolution_failed = true;
             continue;
         };
         if let Some(expected) = &expected_payload_type {
             if expected != &payload_ty {
-                diagnostics.push(schema_dispatch_payload_diagnostic(
-                    schema,
-                    field,
-                    case.tag,
-                    schema_dispatch_case_payload_name(&case.payload),
-                    "incompatible_payload_type",
-                    format!(
-                        "dispatch payload case `{}` decodes as `{}`, but earlier cases decode as `{}`",
-                        case.tag,
-                        payload_ty.render(),
-                        expected.render()
-                    ),
-                    [
-                        ("expected", JsonValue::string(expected.render())),
-                        ("actual", JsonValue::string(payload_ty.render())),
-                    ],
-                ));
+                mixed_payload_type = true;
                 valid = false;
             }
         } else {
             expected_payload_type = Some(payload_ty);
+        }
+    }
+
+    if mixed_payload_type && selected_mappings_cover_closed_dispatch(schema, dispatch) {
+        valid = !payload_resolution_failed;
+    } else if mixed_payload_type && payload_resolution_failed {
+        valid = false;
+    } else if mixed_payload_type {
+        let expected = expected_payload_type.as_ref()?;
+        if let Some((case, payload_ty)) = dispatch.cases.iter().find_map(|case| {
+            let payload_ty = match &case.payload {
+                SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+                SchemaDispatchCasePayload::Schema { schema_name } => {
+                    schema_dispatch_payload_schema(module, schema, schema_name)
+                        .and_then(|payload_schema| schema_decode_value_type(module, payload_schema))
+                }
+            }?;
+            (&payload_ty != expected).then_some((case, payload_ty))
+        }) {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                schema,
+                field,
+                case.tag,
+                schema_dispatch_case_payload_name(&case.payload),
+                "incompatible_payload_type",
+                format!(
+                    "dispatch payload case `{}` decodes as `{}`, but earlier cases decode as `{}`",
+                    case.tag,
+                    payload_ty.render(),
+                    expected.render()
+                ),
+                [
+                    ("expected", JsonValue::string(expected.render())),
+                    ("actual", JsonValue::string(payload_ty.render())),
+                ],
+            ));
         }
     }
 
@@ -3005,6 +3030,9 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
                 continue;
             };
             let target_field_types = target_fields.into_iter().collect::<BTreeMap<_, _>>();
+            let mapping_schema_fields =
+                schema_mapping_source_field_types(module, schema, &schema_fields, mapping)
+                    .unwrap_or_else(|| schema_fields.clone());
             let mut assigned_targets = BTreeMap::<String, SourceSpan>::new();
             for assignment in &mapping.assignments {
                 let Some(target_ty) = target_field_types.get(&assignment.target) else {
@@ -3016,7 +3044,7 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
                 if let Err(error) = schema_mapping_expr_typed(
                     module,
                     schema,
-                    &schema_fields,
+                    &mapping_schema_fields,
                     &assignment.expr,
                     target_ty,
                 ) {
