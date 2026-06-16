@@ -83,11 +83,11 @@ compare it with `../specification/` before changing behavior.
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the HTTP/2 GOAWAY payload
   schema encode boundary, and narrow closed-dispatch and extension-dispatch
-  primitive, same-module nested, and imported public nested payload helpers.
-  The nested payload helper slices route selected nested payload schemas
-  through the same generated binary schema helper path used for ordinary
-  generated schema fields, and checked non-HTTP coverage combines the
-  implemented helper vocabulary in one decode-and-encode schema.
+  primitive payload helpers plus eligible nested payload helpers.
+  The nested payload helper slices accept eligible nested payload schemas that
+  use the same generated binary schema helper path used for ordinary generated
+  schema fields, and checked non-HTTP coverage combines the implemented helper
+  vocabulary in one decode-and-encode schema.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

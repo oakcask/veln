@@ -1,11 +1,13 @@
-# Derived codec decode calls can use same-module nested dispatch helpers.
+# Derived codec decode calls can use general same-module nested dispatch helpers.
 use stdio
 
 schema SettingsPayload
 	format binary
 
+	version: UInt8 where version == 1
+	padding: ReservedBits(8, 0)
 	code: UInt8
-	value: UInt16be
+	value: UInt16le
 end
 
 schema ClosedNestedPacket
@@ -19,7 +21,7 @@ codec ClosedNestedCodec for ClosedNestedPacket decode
 	derive decode
 end
 
-fn step_kind(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>) -> String
+fn step_kind(step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}>) -> String
 	match step
 		Decoded(_, _) => "decoded"
 		NeedMore(_) => "need_more"
@@ -27,7 +29,15 @@ fn step_kind(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>) ->
 	end
 end
 
-fn payload_code(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>) -> Int
+fn payload_version(step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}>) -> Int
+	match step
+		Decoded(packet, _) => packet.payload.version
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn payload_code(step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}>) -> Int
 	match step
 		Decoded(packet, _) => packet.payload.code
 		NeedMore(_) => -1
@@ -35,7 +45,7 @@ fn payload_code(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>)
 	end
 end
 
-fn payload_value(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>) -> Int
+fn payload_value(step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}>) -> Int
 	match step
 		Decoded(packet, _) => packet.payload.value
 		NeedMore(_) => -1
@@ -43,7 +53,7 @@ fn payload_value(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>
 	end
 end
 
-fn consumed_count(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>) -> Int
+fn consumed_count(step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}>) -> Int
 	match step
 		Decoded(_, consumed) => byte_count_to_int(consumed)
 		NeedMore(_) => 0
@@ -52,10 +62,11 @@ fn consumed_count(step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("010700ff")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
-	let step: DecodeStep<{kind: Int, payload: {code: Int, value: Int}}> = ClosedNestedCodec(view, byte_offset(19)?)
+	let bytes: ByteChunk = byte_chunk_from_hex("010100073412")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let step: DecodeStep<{kind: Int, payload: {version: Int, code: Int, value: Int}}> = ClosedNestedCodec(view, byte_offset(19)?)
 	stdio::println(step_kind(step))
+	stdio::println(int_to_string(payload_version(step)))
 	stdio::println(int_to_string(payload_code(step)))
 	stdio::println(int_to_string(payload_value(step)))
 	stdio::println(int_to_string(consumed_count(step)))

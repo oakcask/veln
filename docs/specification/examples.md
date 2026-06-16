@@ -132,7 +132,8 @@ readiness or helper failure through the codec item.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
-helper decodes a same-module nested dispatch payload schema.
+helper decodes a same-module nested dispatch payload schema whose generated
+helper uses field-local validation, reserved fields, and little-endian reads.
 The executable specification case
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 covers the same derived codec decode boundary over one non-HTTP schema that
@@ -207,8 +208,9 @@ writes a bounded repeated primitive field.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
-writes a same-module nested dispatch payload schema and projects dispatch
-selection failures as `Invalid(EncodeError)`.
+writes a same-module nested dispatch payload schema whose generated helper
+uses reserved fields and little-endian output, and projects dispatch selection
+failures as `Invalid(EncodeError)`.
 The executable specification case
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 covers the same derived codec encode boundary over the combined non-HTTP
@@ -796,8 +798,8 @@ through a `derive decode` codec boundary, including the returned
 `DecodeStep` consumed count.
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
-missing names, non-schema names, private imported schemas, self references,
-forward references, and incompatible payload shapes.
+missing names, non-schema names, private imported schemas, closed and
+extension self references, forward references, and incompatible payload shapes.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,

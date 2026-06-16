@@ -124,16 +124,20 @@ fields also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
 the referenced fields were decoded earlier in the same schema and case
-payloads are implemented exact-width unsigned primitives, same-module binary
-schema items, or public imported binary schemas named through written `use`
-paths. The tag and length references must resolve to visible `Int` fields.
+payloads are implemented exact-width unsigned primitives or eligible nested
+binary schema payloads. Nested payload schema names must resolve to earlier
+same-module binary schema items or public imported binary schemas named
+through written `use` paths, and the named schemas must themselves be
+eligible for the generated binary schema helper path. The tag and length
+references must resolve to visible `Int` fields.
 Exact-width primitive names used outside `format binary` schema field type
 positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
-recursive, or incompatible report `schema.dispatch_payload`. The checked
+recursive, outside the generated helper slice, or incompatible report
+`schema.dispatch_payload`. The checked
 field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
@@ -226,15 +230,14 @@ visible exact-width fields, closed
 dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
-payloads or earlier same-module binary schema payloads or public imported
-binary schema payloads named through written `use` paths, expose generated
+payloads or eligible nested binary schema payloads, expose generated
 `byte_encode_<schema>` helpers routed from `execution.md`. General schema
 encode execution beyond those helper slices and schema decode outside the
 narrow generated binary helper slices are not implemented. The narrow
 primitive, field-local validation, mapped-record decode, dispatch decode, and
-primitive, reserved-bit, length-bounded `ByteView`, closed dispatch, extension
-dispatch, or same-module and imported public nested dispatch payload encode
-slices are routed from
+primitive, reserved-bit, length-bounded `ByteView`, closed dispatch,
+extension dispatch, and eligible nested dispatch payload encode slices are
+routed from
 `execution.md`. Field
 names must be ordinary identifiers; names
 beginning with `_` remain hole tokens and are rejected as schema field names.

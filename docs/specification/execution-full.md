@@ -296,10 +296,9 @@ declaring module; imported calls require a written qualified module path to a
 
 A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
-executable encode boundary in ordinary source calls, including same-module
-nested dispatch payload schemas, public imported nested dispatch payload
-schemas, repeat-backed schemas, direct structural mappings, and selected
-structural mappings already accepted by `byte_encode_<schema>`.
+executable encode boundary in ordinary source calls, including eligible nested
+dispatch payload schemas, repeat-backed schemas, direct structural mappings,
+and selected structural mappings already accepted by `byte_encode_<schema>`.
 The call accepts the generated helper's schema-local value record or mapped
 target record, invokes the generated schema encode helper, and returns
 `EncodeStep<()>`. Successful helper output is projected from `Ok(ByteChunk)`
@@ -311,7 +310,7 @@ declaring module; imported calls require a written qualified module path to a
 primitive, supported reserved-bit, length-bounded `ByteView`, bounded repeated
 primitive, nested schema, and `ByteView(length_field)` payloads, closed
 dispatch, extension dispatch, implemented direct structural mapping, and
-same-module or imported public nested dispatch payload slices remains
+eligible nested dispatch payload slices remains
 unimplemented. When a
 mapped schema uses a mapping expression shape that cannot be projected back to
 the schema-local encode record, the `derive encode` clause is rejected with
@@ -364,20 +363,21 @@ the record and the helper emits the required zero high bit in the shared
 four-byte position.
 Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
 `tag_field` names an earlier visible exact-width unsigned field and every case
-payload is an implemented exact-width unsigned primitive payload or an earlier
-same-module binary schema payload or public imported binary schema named
-through a written `use` path. The record contains the visible tag field and
+payload is an implemented exact-width unsigned primitive payload or an
+eligible nested binary schema payload named as an earlier same-module binary
+schema or a public imported binary schema through a written `use` path. The
+record contains the visible tag field and
 one payload field; nested schema payload fields use the selected nested schema
 decoded record shape. The helper chooses the case from the encoded tag value,
 writes the selected payload in declaration order, and reports
 `codec.dispatch_unknown_tag` when the tag value has no case.
 Extension-tolerant
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
-eligible for the same exact-width unsigned primitive, same-module nested
-binary schema, or public imported nested binary schema payload cases when both
-the tag and length fields are earlier visible exact-width unsigned fields. The
-payload record field is `SchemaDispatchPayload<T>`, where `T` is the selected
-primitive `Int` or nested schema decoded record shape. `Known(value)` writes
+eligible for the same exact-width unsigned primitive or eligible nested binary
+schema payload cases when both the tag and length fields are earlier visible
+exact-width unsigned fields. The payload record field is
+`SchemaDispatchPayload<T>`, where `T` is the selected primitive `Int` or
+nested schema decoded record shape. `Known(value)` writes
 the payload selected by the visible tag field. `Unknown(tag, payload)` writes
 the bounded raw bytes from the `ByteView` only when the visible tag value is
 not a known case and matches the unknown payload tag. The supplied length
@@ -428,9 +428,9 @@ Unsupported non-byte-aligned reserved-bit encode shapes report
 `schema.reserved_bits_encode`.
 This slice excludes selected mappings that cannot reconstruct all schema-local
 encode fields through direct source-field assignments, mapping expressions
-that cannot be projected back to schema-local fields, field-local validation,
-generalized dispatch payload schemas, other fixed fields, nested mappings, and
-derived codec encode execution for unsupported schemas.
+that cannot be projected back to schema-local fields, recursive dispatch
+payload schemas, dispatch payload schemas outside the generated helper slice,
+nested mappings, and derived codec encode execution for unsupported schemas.
 
 The narrow frame decode helper extends the frame-header layout with a bounded
 payload view. It first applies the same header validation, then returns the
