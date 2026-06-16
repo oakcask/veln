@@ -85,7 +85,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   resolution, call one pure same-module representation converter, or call one
   imported public pure converter through a written `use` path or alias from a
   schema-local field or structural mapping expression into a target field, or
-  select a visible field from a record-shaped structural mapping expression
+  select a visible field from a record-shaped structural mapping expression,
+  plus `+` and `-` integer arithmetic over decoded schema-local `Int` fields
+  and nested supported mapping arithmetic expressions into an `Int` target
+  field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -98,8 +101,9 @@ This proposal remains open for:
 - runtime mapping beyond the implemented schema-local field reference, record
   construction, ADT constructor construction, single pure same-module or
   imported public representation conversion hook expression slice, field
-  selection from record-shaped structural mapping expressions, and
-  decoded-field integer equality mapping selection
+  selection from record-shaped structural mapping expressions, decoded-field
+  integer mapping arithmetic, and decoded-field integer equality mapping
+  selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition and fixture surfaces
@@ -140,18 +144,22 @@ construction, ADT constructor construction resolved through ordinary source
 module rules, one pure same-module converter function call, and one imported
 public pure converter function call through a written `use` path or alias from
 a schema-local field or structural mapping expression into a target field, and
-field selection from record-shaped structural mapping expressions.
+field selection from record-shaped structural mapping expressions. An `Int`
+target field may also use `+` and `-` over decoded schema-local `Int` fields
+and nested supported mapping arithmetic expressions.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
 construction, a single same-module pure converter call, and a single imported
 public pure converter call through a written `use` path or alias, and field
-selection from record-shaped structural mapping expressions. Converter
+selection from record-shaped structural mapping expressions, plus
+decoded-field integer mapping arithmetic for `Int` target fields. Converter
 arguments may be schema-local field references or structural mapping
 expressions made from schema-local fields, records, ADT constructors, and
-nested combinations of those forms. A schema does not implicitly publish a
-record type just because it names fields, and importing a schema does not make
-its schema-local field names available as ordinary source bindings.
+nested combinations of those forms, including supported integer arithmetic
+mapping expressions. A schema does not implicitly publish a record type just
+because it names fields, and importing a schema does not make its schema-local
+field names available as ordinary source bindings.
 
 The runtime checker should resolve the target value shape and assign
 schema-local fields to the target's record fields or ADT constructor payload
@@ -172,7 +180,8 @@ a field-local representation conversion when the schema vocabulary defines one.
 Mapping expressions stay structural in the first surface: field selection,
 record construction, ADT construction, one pure same-module converter call,
 and one imported public pure converter call through a written `use` path or
-alias are implemented. Arbitrary function calls, bare imported converter
+alias, plus decoded-field integer `+` and `-` mapping arithmetic, are
+implemented. Arbitrary function calls, bare imported converter
 names, private imported converters, runtime settings, stream state, and
 recovery behavior belong in explicit codec functions rather than in schema
 mapping.
@@ -377,9 +386,10 @@ Implemented:
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module
   representation converter call, and imported public pure converter call
-  assignment expressions through a written `use` path or alias. Converter
-  arguments may be schema-local field references or structural mapping
-  expressions.
+  assignment expressions through a written `use` path or alias, field
+  selection from record-shaped structural mapping expressions, and
+  decoded-field integer `+` and `-` mapping arithmetic. Converter arguments
+  may be schema-local field references or structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, when assignment
   expressions type check against target record fields, rejects invalid mapping
@@ -400,8 +410,9 @@ Remaining:
 
 - Runtime schema value mapping beyond the implemented schema-local field
   reference, record construction, ADT constructor construction, one pure
-  same-module or imported public converter call, and decoded-field integer
-  equality selection slices.
+  same-module or imported public converter call, field selection from
+  record-shaped structural mapping expressions, decoded-field integer
+  arithmetic, and decoded-field integer equality selection slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

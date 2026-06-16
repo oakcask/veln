@@ -98,6 +98,11 @@ pub enum IrSchemaDecodeMappingExpr {
         function: String,
         arg: Box<IrSchemaDecodeMappingExpr>,
     },
+    Binary {
+        op: BinaryOp,
+        left: Box<IrSchemaDecodeMappingExpr>,
+        right: Box<IrSchemaDecodeMappingExpr>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

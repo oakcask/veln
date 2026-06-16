@@ -493,6 +493,7 @@ fn parses_schema_mapping_expression_values() {
             "\t\tlength = {value: length}\n",
             "\t\tkind = Wrap(kind)\n",
             "\t\tcode = {value: kind}.value\n",
+            "\t\tbody_length = (length-padding)+checksum\n",
             "end\n",
         ),
     );
@@ -523,6 +524,14 @@ fn parses_schema_mapping_expression_values() {
     assert!(matches!(
         schema.mappings[0].assignments[2].expr.kind,
         ExprKind::FieldAccess { .. }
+    ));
+    assert_eq!(
+        schema.mappings[0].assignments[3].source,
+        "(length - padding) + checksum"
+    );
+    assert!(matches!(
+        schema.mappings[0].assignments[3].expr.kind,
+        ExprKind::Binary { .. }
     ));
 }
 

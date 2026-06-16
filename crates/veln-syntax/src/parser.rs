@@ -729,7 +729,7 @@ impl<'a> Parser<'a> {
         } else {
             self.parse_expr_until_newline("schema_mapping").0
         };
-        let source = schema_mapping_expr_text(&expr);
+        let source = schema_mapping_expr_source_text(self.source, &expr);
         let end = TextRange::new(expr.span.start.offset, expr.span.end.offset);
         SchemaMappingAssignment {
             target,
@@ -3454,6 +3454,103 @@ fn schema_mapping_expr_text(expr: &Expr) -> String {
         }
         ExprKind::Hole { name, .. } => format!("_{}", name.as_deref().unwrap_or("")),
     }
+}
+
+fn schema_mapping_expr_source_text(source: &SourceFile, expr: &Expr) -> String {
+    if matches!(expr.kind, ExprKind::Missing) {
+        return schema_mapping_expr_text(expr);
+    }
+    source
+        .text()
+        .get(expr.span.start.offset..expr.span.end.offset)
+        .map(canonical_schema_mapping_expr_text)
+        .filter(|text| !text.is_empty())
+        .unwrap_or_else(|| schema_mapping_expr_text(expr))
+}
+
+fn canonical_schema_mapping_expr_text(text: &str) -> String {
+    let source = SourceFile::new("<schema-mapping-expression>", text);
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| {
+            !matches!(
+                token.kind,
+                TokenKind::Whitespace | TokenKind::Newline | TokenKind::Eof
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut out = String::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if schema_mapping_space_before(&tokens, index, &out) {
+            out.push(' ');
+        }
+        out.push_str(&token.text);
+    }
+    out
+}
+
+fn schema_mapping_space_before(tokens: &[Token], index: usize, out: &str) -> bool {
+    if out.is_empty() || index == 0 {
+        return false;
+    }
+    let prev = tokens[index - 1].kind;
+    let current = tokens[index].kind;
+    if matches!(
+        current,
+        TokenKind::RParen
+            | TokenKind::RBracket
+            | TokenKind::Comma
+            | TokenKind::Colon
+            | TokenKind::Dot
+            | TokenKind::DoubleColon
+            | TokenKind::Question
+    ) || matches!(
+        prev,
+        TokenKind::LParen | TokenKind::LBracket | TokenKind::Dot | TokenKind::DoubleColon
+    ) {
+        return false;
+    }
+    if current == TokenKind::RBrace {
+        return prev != TokenKind::LBrace;
+    }
+    if matches!(
+        prev,
+        TokenKind::Comma | TokenKind::Colon | TokenKind::LBrace
+    ) {
+        return true;
+    }
+    if current == TokenKind::LParen {
+        return !matches!(
+            prev,
+            TokenKind::Ident
+                | TokenKind::Hole
+                | TokenKind::RParen
+                | TokenKind::RBracket
+                | TokenKind::RBrace
+        );
+    }
+    if current == TokenKind::LBracket {
+        return !matches!(
+            prev,
+            TokenKind::Ident
+                | TokenKind::Hole
+                | TokenKind::RParen
+                | TokenKind::RBracket
+                | TokenKind::RBrace
+        );
+    }
+    if current == TokenKind::LBrace {
+        return !matches!(
+            prev,
+            TokenKind::LParen
+                | TokenKind::LBracket
+                | TokenKind::Comma
+                | TokenKind::Colon
+                | TokenKind::Equal
+        );
+    }
+    true
 }
 
 fn binary_op_text(op: BinaryOp) -> &'static str {

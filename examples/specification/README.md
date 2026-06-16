@@ -241,13 +241,17 @@ against the built `veln` binary.
   decode selects one structural mapping from an already decoded field value.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
+- `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
+  decode computes an `Int` target field with supported decoded-field `+` and
+  `-` mapping arithmetic.
 - `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
   mapping expressions reject missing selected fields and non-record selection
   targets.
 - `check/schema-mapping-expression-boundary-diagnostics/`: record and
   constructor-shaped schema mapping assignment values report unsupported
-  expression, unresolved constructor, constructor arity, and payload type
-  diagnostics when they exceed the implemented structural expression slice.
+  expression, unresolved constructor, constructor arity, payload type,
+  non-`Int` arithmetic operand, and unsupported arithmetic operand diagnostics
+  when they exceed the implemented structural expression slice.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter argument expression
@@ -325,7 +329,8 @@ against the built `veln` binary.
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.
 - `fmt/schema-declarations/`: canonical layout for schema headers,
-  `format binary`, fields, field-local `where` predicates, and idempotence.
+  `format binary`, fields, field-local `where` predicates, `map to`
+  arithmetic assignment expressions, and idempotence.
 - `fmt/codec-declarations/`: canonical layout for codec headers, direction
   lists, implementation clauses, and idempotence.
 - `fmt/all-or-nothing/`: parse-failure write gate across multiple files.

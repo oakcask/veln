@@ -1,0 +1,27 @@
+# Binary schema mapping can compute Int fields with decoded-field arithmetic.
+use stdio
+
+type Packet
+	Packet {body_length: Int}
+end
+
+schema PacketWire
+	format binary
+
+	length: UInt8
+	padding: UInt8
+	checksum: UInt8
+
+	map to Packet
+		body_length = (length - padding) + checksum
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0a0205")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {body_length: Int} = byte_decode_packet_wire(view)?
+	stdio::println(int_to_string(packet.body_length))
+	Ok(())
+end

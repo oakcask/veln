@@ -363,11 +363,13 @@ execution reference.
   converter function through a written `use` path or alias. They may also
   select a field from an already supported structural mapping expression after
   the source expression is available, when that source expression has a
-  record-shaped type with the selected field. A converter
-  argument is either one decoded schema-local field or an already implemented
-  structural mapping expression made from decoded schema fields, records, ADT
-  constructors, and nested combinations of those forms. The returned value is
-  then assigned to the target field.
+  record-shaped type with the selected field. An `Int` target field may also
+  use `+` and `-` over decoded schema-local `Int` fields and nested supported
+  mapping arithmetic expressions. A converter argument is either one decoded
+  schema-local field or an already implemented structural mapping expression
+  made from decoded schema fields, records, ADT constructors, integer
+  arithmetic mapping expressions, and nested combinations of those forms. The
+  returned value is then assigned to the target field.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone
@@ -395,6 +397,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
+  `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,

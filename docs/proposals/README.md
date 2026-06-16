@@ -22,9 +22,9 @@ compare it with `../specification/` before changing behavior.
   constructor construction mapping expressions, pure same-module and imported
   public representation conversion hooks whose arguments may be schema-local
   fields or structural mapping expressions, field selection from record-shaped
-  structural mapping expressions, decoded-field integer equality mapping
-  selection, focused mapping selection diagnostics, and the
-  generated-helper schema validation diagnostic boundary, generated
+  structural mapping expressions, decoded-field integer mapping arithmetic,
+  decoded-field integer equality mapping selection, focused mapping selection
+  diagnostics, and the generated-helper schema validation diagnostic boundary, generated
   `validate_<schema>` decoded-record validation boundary, plus direct
   structural mapped schema encode helper, generated encode-time field-local
   validation for eligible schema helpers, derived encode boundary support, and

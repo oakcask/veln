@@ -363,6 +363,11 @@ fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappin
                 arg: Box::new(ir_schema_mapping_expr(*arg)),
             }
         }
+        SchemaDecodeMappingExpr::Binary { op, left, right } => IrSchemaDecodeMappingExpr::Binary {
+            op,
+            left: Box::new(ir_schema_mapping_expr(*left)),
+            right: Box::new(ir_schema_mapping_expr(*right)),
+        },
     }
 }
 
