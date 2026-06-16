@@ -1439,6 +1439,40 @@ fn bytecode_backend_runs_three_argument_task_function_values_when_java_is_availa
 }
 
 #[test]
+fn bytecode_backend_runs_four_argument_task_function_values_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn combine(left: String, count: Int, marker: String, suffix: String) -> {left: String, count: Int, marker: String, suffix: String} effects [concurrency]\n",
+        "  { left: left, count: count, marker: marker, suffix: suffix }\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let task = task::spawn_with4(combine, \"hello\", 42, \"done\", \"extra\")\n",
+        "  let value: {left: String, count: Int, marker: String, suffix: String} = task::join(task)?\n",
+        "  stdio::println(value.left)\n",
+        "  stdio::println(int_to_string(value.count))\n",
+        "  stdio::println(value.marker)\n",
+        "  stdio::println(value.suffix)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-task-arg4", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n42\ndone\nextra\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Int) -> output: Int\n",
@@ -1766,6 +1800,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::spawn_with", "taskSpawnWith"),
         ("task::spawn_with2", "taskSpawnWith2"),
         ("task::spawn_with3", "taskSpawnWith3"),
+        ("task::spawn_with4", "taskSpawnWith4"),
         ("task::join", "taskJoin"),
         ("task::cancel", "taskCancel"),
     ] {
