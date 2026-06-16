@@ -1110,10 +1110,13 @@ The same HPACK fixture boundary accepts the static indexed `0x82`
 `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
 `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
 `authorization:`, and `0x98` `cache-control:`
-header-block bytes in completed HEADERS frames, exposes
+header-block bytes plus the no-Huffman literal-without-indexing
+`04 07 2f 74 61 72 67 65 74` header block for `:path: /target` in
+completed HEADERS frames, exposes
 the decoded header name and value through ordinary header-list accessors,
 advances the immutable fixture state, and keeps unsupported HPACK input on
-`hpack.fixture.unsupported_header_block`.
+`hpack.fixture.unsupported_header_block`, including malformed
+literal-without-indexing variants.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent within
 the peer-advertised maximum frame size and available outbound connection and

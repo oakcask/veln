@@ -71,7 +71,16 @@ pub fn main() -> Result<(), String> effects [stdio]
 		Err(_) => accept_encoding_state
 	end
 	let accept_language_block: ByteChunk = byte_chunk_from_hex("91")?
-	print_transition("accept-language", decode_header_block(accept_language_block, accept_language_state, 29))
+	let accept_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_language_block, accept_language_state, 29)
+	print_transition("accept-language", accept_language)
+	let literal_state: HpackFixtureState = match accept_language
+		Ok(transition) => transition_state(transition)
+		Err(_) => accept_language_state
+	end
+	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
+	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 30))
+	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
+	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 39))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

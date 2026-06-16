@@ -76,6 +76,10 @@ fn static_indexed_header(name: String, value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
+fn literal_without_indexing_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -112,8 +116,51 @@ fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtur
 	Ok(HpackDecodeTransition(static_indexed_header(name, value), next_state(state)))
 end
 
+fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_without_indexing_path_target_headers(), next_state(state)))
+end
+
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
+end
+
+fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
+	match first_byte == 4 and observed_size == 9
+		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
+		false => false
+	end
+end
+
+fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 1
+		false => unsupported(block, offset)
+		true => match first_byte
+			130 => decoded_static_indexed_method_get(state)
+			131 => decoded_static_indexed_method_post(state)
+			132 => decoded_static_indexed_path_root(state)
+			133 => decoded_static_indexed_path_index(state)
+			134 => decoded_static_indexed_scheme_http(state)
+			135 => decoded_static_indexed_scheme_https(state)
+			136 => decoded_static_indexed_status("200", state)
+			137 => decoded_static_indexed_status("204", state)
+			138 => decoded_static_indexed_status("206", state)
+			139 => decoded_static_indexed_status("304", state)
+			140 => decoded_static_indexed_status("400", state)
+			141 => decoded_static_indexed_status("404", state)
+			142 => decoded_static_indexed_status("500", state)
+			143 => decoded_static_indexed_header("accept-charset", "", state)
+			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
+			145 => decoded_static_indexed_header("accept-language", "", state)
+			146 => decoded_static_indexed_header("accept-ranges", "", state)
+			147 => decoded_static_indexed_header("accept", "", state)
+			148 => decoded_static_indexed_header("access-control-allow-origin", "", state)
+			149 => decoded_static_indexed_header("age", "", state)
+			150 => decoded_static_indexed_header("allow", "", state)
+			151 => decoded_static_indexed_header("authorization", "", state)
+			152 => decoded_static_indexed_header("cache-control", "", state)
+			_ => unsupported(block, offset)
+		end
+	end
 end
 
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -121,87 +168,27 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 	let first_byte: Int = byte_at_or_missing(block, 0)
 	match observed_size == 0
 		true => decoded("empty", 0, state)
-		false => match first_byte == 16 and observed_size == 3
-			true => decoded("single-headers", 8, state)
-			false => match first_byte == 1 and observed_size == 8
+		false => match first_byte
+			4 => match is_literal_without_indexing_path_target(block, observed_size, first_byte)
+				true => decoded_literal_without_indexing_path_target(state)
+				false => unsupported(block, offset)
+			end
+			16 => match observed_size == 3
+				true => decoded("single-headers", 8, state)
+				false => unsupported(block, offset)
+			end
+			1 => match observed_size == 8
 				true => decoded("header-list-accepted", 8, state)
-				false => match first_byte == 1 and observed_size == 10
+				false => match observed_size == 10
 					true => decoded("header-list-too-large", 10, state)
-					false => match first_byte == 170 and observed_size == 9
-						true => decoded("continuation", 9, state)
-						false => match first_byte == 130 and observed_size == 1
-							true => decoded_static_indexed_method_get(state)
-							false => match first_byte == 131 and observed_size == 1
-								true => decoded_static_indexed_method_post(state)
-								false => match first_byte == 132 and observed_size == 1
-									true => decoded_static_indexed_path_root(state)
-									false => match first_byte == 133 and observed_size == 1
-										true => decoded_static_indexed_path_index(state)
-										false => match first_byte == 134 and observed_size == 1
-											true => decoded_static_indexed_scheme_http(state)
-											false => match first_byte == 135 and observed_size == 1
-												true => decoded_static_indexed_scheme_https(state)
-												false => match first_byte == 136 and observed_size == 1
-													true => decoded_static_indexed_status("200", state)
-													false => match first_byte == 137 and observed_size == 1
-														true => decoded_static_indexed_status("204", state)
-														false => match first_byte == 138 and observed_size == 1
-															true => decoded_static_indexed_status("206", state)
-															false => match first_byte == 139 and observed_size == 1
-																true => decoded_static_indexed_status("304", state)
-																false => match first_byte == 140 and observed_size == 1
-																	true => decoded_static_indexed_status("400", state)
-																	false => match first_byte == 141 and observed_size == 1
-																		true => decoded_static_indexed_status("404", state)
-																		false => match first_byte == 142 and observed_size == 1
-																			true => decoded_static_indexed_status("500", state)
-																			false => match first_byte == 143 and observed_size == 1
-																				true => decoded_static_indexed_header("accept-charset", "", state)
-																				false => match first_byte == 144 and observed_size == 1
-																					true => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
-																					false => match first_byte == 145 and observed_size == 1
-																						true => decoded_static_indexed_header("accept-language", "", state)
-																						false => match first_byte == 146 and observed_size == 1
-																							true => decoded_static_indexed_header("accept-ranges", "", state)
-																							false => match first_byte == 147 and observed_size == 1
-																								true => decoded_static_indexed_header("accept", "", state)
-																								false => match first_byte == 148 and observed_size == 1
-																									true => decoded_static_indexed_header("access-control-allow-origin", "", state)
-																									false => match first_byte == 149 and observed_size == 1
-																										true => decoded_static_indexed_header("age", "", state)
-																										false => match first_byte == 150 and observed_size == 1
-																											true => decoded_static_indexed_header("allow", "", state)
-																											false => match first_byte == 151 and observed_size == 1
-																												true => decoded_static_indexed_header("authorization", "", state)
-																												false => match first_byte == 152 and observed_size == 1
-																													true => decoded_static_indexed_header("cache-control", "", state)
-																													false => unsupported(block, offset)
-																												end
-																											end
-																										end
-																									end
-																								end
-																							end
-																						end
-																					end
-																				end
-																			end
-																		end
-																	end
-																end
-															end
-														end
-													end
-												end
-											end
-										end
-									end
-								end
-							end
-						end
-					end
+					false => unsupported(block, offset)
 				end
 			end
+			170 => match observed_size == 9
+				true => decoded("continuation", 9, state)
+				false => unsupported(block, offset)
+			end
+			_ => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
 		end
 	end
 end
