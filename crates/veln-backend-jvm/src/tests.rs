@@ -1473,6 +1473,41 @@ fn bytecode_backend_runs_four_argument_task_function_values_when_java_is_availab
 }
 
 #[test]
+fn bytecode_backend_runs_five_argument_task_function_values_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn combine(left: String, count: Int, marker: String, suffix: String, tail: String) -> {left: String, count: Int, marker: String, suffix: String, tail: String} effects [concurrency]\n",
+        "  { left: left, count: count, marker: marker, suffix: suffix, tail: tail }\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let task = task::spawn_with5(combine, \"hello\", 42, \"done\", \"extra\", \"tail\")\n",
+        "  let value: {left: String, count: Int, marker: String, suffix: String, tail: String} = task::join(task)?\n",
+        "  stdio::println(value.left)\n",
+        "  stdio::println(int_to_string(value.count))\n",
+        "  stdio::println(value.marker)\n",
+        "  stdio::println(value.suffix)\n",
+        "  stdio::println(value.tail)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-task-arg5", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n42\ndone\nextra\ntail\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Int) -> output: Int\n",
@@ -1802,6 +1837,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::spawn_with2", "taskSpawnWith2"),
         ("task::spawn_with3", "taskSpawnWith3"),
         ("task::spawn_with4", "taskSpawnWith4"),
+        ("task::spawn_with5", "taskSpawnWith5"),
         ("task::join", "taskJoin"),
         ("task::cancel", "taskCancel"),
     ] {

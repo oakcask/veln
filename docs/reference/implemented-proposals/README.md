@@ -72,6 +72,8 @@ behavior.
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
 - Network stream task spawn with4:
   [network-stream-task-spawn-with4.md](network-stream-task-spawn-with4.md).
+- Network stream task spawn with5:
+  [network-stream-task-spawn-with5.md](network-stream-task-spawn-with5.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 
