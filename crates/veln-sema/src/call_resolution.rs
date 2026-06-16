@@ -39,6 +39,15 @@ pub(crate) struct CoreCallSignature {
     pub(crate) return_type: CoreType,
 }
 
+struct TypeNamePathCallContext<'a> {
+    expected: Option<&'a Type>,
+    handle_type: Option<&'a Type>,
+    arg_count: Option<usize>,
+    bindings: &'a [TypeBinding<'a>],
+    environment: &'a TypeEnvironment,
+    current_module: Option<&'a str>,
+}
+
 pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
@@ -52,12 +61,14 @@ pub(crate) fn type_call_signature(
         ExprKind::NamePath(segments) => type_name_path_call_signature(
             callee,
             segments,
-            expected,
-            handle_type,
-            arg_count,
-            bindings,
-            environment,
-            current_module,
+            TypeNamePathCallContext {
+                expected,
+                handle_type,
+                arg_count,
+                bindings,
+                environment,
+                current_module,
+            },
         ),
         ExprKind::TypeApply { .. } => type_applied_call_signature(callee, expected, handle_type),
         _ => None,
@@ -89,29 +100,27 @@ pub(crate) fn core_call_signature(
 fn type_name_path_call_signature(
     callee: &Expr,
     segments: &[String],
-    expected: Option<&Type>,
-    handle_type: Option<&Type>,
-    arg_count: Option<usize>,
-    bindings: &[TypeBinding<'_>],
-    environment: &TypeEnvironment,
-    current_module: Option<&str>,
+    context: TypeNamePathCallContext<'_>,
 ) -> Option<TypeCallSignature> {
-    if let Some(signature) = type_effect_call_signature(callee, segments, expected, handle_type) {
+    if let Some(signature) =
+        type_effect_call_signature(callee, segments, context.expected, context.handle_type)
+    {
         return Some(signature);
     }
-    match type_binding_call_signature(callee, segments, bindings) {
+    match type_binding_call_signature(callee, segments, context.bindings) {
         BindingCallSignature::Resolved(signature) => Some(signature),
         BindingCallSignature::ShadowedNonCallable => None,
         BindingCallSignature::Missing => {
-            function_type_call_signature(segments, environment, current_module).or_else(|| {
-                codec_type_call_signature(
-                    segments,
-                    expected,
-                    arg_count,
-                    environment,
-                    current_module,
-                )
-            })
+            function_type_call_signature(segments, context.environment, context.current_module)
+                .or_else(|| {
+                    codec_type_call_signature(
+                        segments,
+                        context.expected,
+                        context.arg_count,
+                        context.environment,
+                        context.current_module,
+                    )
+                })
         }
     }
 }
