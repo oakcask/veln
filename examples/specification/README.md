@@ -1340,6 +1340,9 @@ against the built `veln` binary.
   `PUSH_PROMISE` rejection reports `http2.protocol.invalid_frame_kind` through
   `run --json` with byte offset, actual frame kind, stream reference, expected
   frame kind, active state, and rule provenance.
+  The focused frame-kind, stream-id, and `PUSH_PROMISE` projection cases
+  declare `Http2FrameHeaderWire` locally and decode with the generated schema
+  helper before projecting protocol diagnostics.
 - `run/http2-protocol-core-settings-ack-length-human/`: a non-empty SETTINGS
   ACK payload reports `http2.protocol.invalid_payload_length` through human
   `run` stderr with observed and expected payload length plus protocol state

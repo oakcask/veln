@@ -16,7 +16,13 @@ for `format binary` schema field type positions only. The generated
 `../specification/execution.md`: it consumes `UInt24be`, `UInt8`, `UInt8`,
 `ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`, returns ordinary
 `Int` fields for the visible values, and reports structured schema failures
-for truncated fields and reserved-bit mismatches. Generated schema helpers
+for truncated fields and reserved-bit mismatches. The HTTP/2 protocol-core
+frame-header decode path and focused protocol diagnostic projection examples
+declare and call that generated helper instead of the former source-visible
+`byte_decode_http2_frame_header` prelude helper. The narrow runtime method
+remains only as internal compatibility for the source-visible
+`byte_decode_http2_frame` payload-boundary helper until that payload slice is
+also generalized. Generated schema helpers
 also consume byte-aligned
 `ReservedBits(width, value)` fields up to four bytes wide as
 representation-only fields, omit those fields from decoded records and
@@ -548,5 +554,5 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- The HTTP/2 design driver can express frame header and payload boundaries
-  through general schema declarations instead of the current narrow helper.
+- The HTTP/2 design driver can express payload boundaries through general
+  schema declarations instead of the remaining narrow payload helper.

@@ -47,7 +47,8 @@ compare it with `../specification/` before changing behavior.
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
   `ReservedBits(width, value)` declarations, generated `Http2FrameHeaderWire`
-  helper decode, width-sample primitive decode, `UInt16le`, `UInt24le`,
+  helper decode used by the HTTP/2 protocol-core frame-header path,
+  width-sample primitive decode, `UInt16le`, `UInt24le`,
   `UInt31le`, `UInt32le`, and `UInt64le` little-endian primitive decode and
   encode, `UInt64be` big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,

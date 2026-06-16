@@ -67,7 +67,6 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_chunks_append" => "byteChunksAppend",
     "byte_read_u8_be" => "byteReadU8Be",
     "byte_expect_fixed_u8_be" => "byteExpectFixedU8Be",
-    "byte_decode_http2_frame_header" => "byteDecodeHttp2FrameHeader",
     "byte_decode_http2_frame" => "byteDecodeHttp2Frame",
     "byte_decode_schema_width_sample" => "byteDecodeSchemaWidthSample",
     "byte_decode_schema_validation_sample" => "byteDecodeSchemaValidationSample",

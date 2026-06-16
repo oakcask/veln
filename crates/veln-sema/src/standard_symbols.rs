@@ -290,7 +290,6 @@ source_prelude_symbol_set! {
     "byte_chunks_append" => veln_stdlib::prelude_source("byte_chunks_append"),
     "byte_read_u8_be" => veln_stdlib::prelude_source("byte_read_u8_be"),
     "byte_expect_fixed_u8_be" => veln_stdlib::prelude_source("byte_expect_fixed_u8_be"),
-    "byte_decode_http2_frame_header" => veln_stdlib::prelude_source("byte_decode_http2_frame_header"),
     "byte_decode_http2_frame" => veln_stdlib::prelude_source("byte_decode_http2_frame"),
     "byte_decode_schema_width_sample" => veln_stdlib::prelude_source("byte_decode_schema_width_sample"),
     "byte_decode_schema_validation_sample" => veln_stdlib::prelude_source("byte_decode_schema_validation_sample"),

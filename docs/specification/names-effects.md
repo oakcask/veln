@@ -103,9 +103,10 @@ compiler-known calls.
   writes through ordinary `Int` values; eight-byte values above the
   source-visible `Int` maximum fail instead of wrapping. `UInt64be` uses the
   matching eight-byte big-endian representation.
-  HTTP/2 frame-header decoding,
-  bounded payload frame decoding, and protocol diagnostic projection helpers
-  including stream id domain and post-GOAWAY stream failure projection are
+  HTTP/2 frame-header decoding is provided by generated schema helpers such
+  as `byte_decode_http2_frame_header_wire`; bounded payload frame decoding and
+  protocol diagnostic projection helpers including stream id domain and
+  post-GOAWAY stream failure projection are
   listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
