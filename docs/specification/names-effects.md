@@ -45,7 +45,7 @@ compiler-known calls.
   optional listener accept, multiple optional reads from an accepted stream,
   clean end translated to `StreamInput.End`, argument-carrying spawned
   handler tasks over ordinary event, state, adapter context, routing metadata,
-  and one additional ordinary metadata value using `task::spawn_with5`,
+  and two additional ordinary metadata values using `task::spawn_with6`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, and ordered write projection; they
   add no new effect label or compiler-known routing call. The owned-lifecycle

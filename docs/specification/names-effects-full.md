@@ -419,6 +419,8 @@ task::spawn_with4(job: fn(A, B, C, D) -> T effects [concurrency], first: A, seco
 task::spawn_with4<T>(job: fn(A, B, C, D) -> T effects [concurrency], first: A, second: B, third: C, fourth: D) -> Task<T> effects [concurrency]
 task::spawn_with5(job: fn(A, B, C, D, E) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E) -> Task<T> effects [concurrency]
 task::spawn_with5<T>(job: fn(A, B, C, D, E) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E) -> Task<T> effects [concurrency]
+task::spawn_with6(job: fn(A, B, C, D, E, F) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F) -> Task<T> effects [concurrency]
+task::spawn_with6<T>(job: fn(A, B, C, D, E, F) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -433,8 +435,10 @@ optional return-type argument shape. `task::spawn_with4` starts a
 four-argument callable with four ordinary source values and the same optional
 return-type argument shape. `task::spawn_with5` starts a five-argument
 callable with five ordinary source values and the same optional return-type
-argument shape. Arguments are frozen before crossing into the task, and the
-result value is frozen before it crosses back through the task handle.
+argument shape. `task::spawn_with6` starts a six-argument callable with six
+ordinary source values and the same optional return-type argument shape.
+Arguments are frozen before crossing into the task, and the result value is
+frozen before it crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
 normally, or `Err(JoinError)` when the task is interrupted, cancelled, or fails
 at runtime. `task::cancel` requests cancellation by interrupting the task and

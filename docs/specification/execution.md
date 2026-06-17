@@ -78,11 +78,12 @@ execution reference.
   ordinary events through a standard channel under `concurrency`, carries
   explicit handler state across those events, joins a spawned stream-handler
   task over the same event/action boundary, passes ordinary event, state, and
-  adapter context values plus one routing metadata value and one additional
-  ordinary metadata value into `task::spawn_with5`, and translates ordered
+  adapter context values plus one routing metadata value and two additional
+  ordinary metadata values into `task::spawn_with6`, and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
   `examples/specification/run/socket-stream-adapter-routing/`,
+  `examples/specification/check/socket-stream-adapter-routing-effects/`,
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,

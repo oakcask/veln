@@ -1041,16 +1041,16 @@ It reads multiple fixture-backed `ByteChunk` values from one `NetStream`,
 sends ordinary stream events through a standard channel under `concurrency`,
 calls the plain handler with explicit state across those events, joins a
 spawned stream-handler task over the same event/action boundary by passing the
-ordinary event, state, adapter context, routing metadata, and one additional
-ordinary metadata value directly through `task::spawn_with5`, and
+ordinary event, state, adapter context, routing metadata, and two additional
+ordinary metadata values directly through `task::spawn_with6`, and
 translates ordered `SendBytes` response actions into `net::write_chunk` calls.
 The handler has no socket handle and performs no `net` calls. The matching
 `../../examples/specification/check/socket-stream-adapter-routing-effects/`
 case pins that adapter-owned routing must declare the existing `net` and
 `concurrency` effects for socket, channel, and task calls instead of adding a
 new routing effect, while the spawned handler that receives only ordinary
-event, state, adapter context, routing metadata, and one additional ordinary
-metadata value stays free of `net` and `time`.
+event, state, adapter context, routing metadata, and two additional ordinary
+metadata values stays free of `net` and `time`.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-clean-end/` covers the

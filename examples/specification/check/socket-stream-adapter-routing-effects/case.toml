@@ -34,5 +34,5 @@ message = "public function uses undeclared effect `net`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 71
+line = 72
 column = 1
