@@ -45,6 +45,14 @@ pub(crate) fn concurrency_origin(segments: &[String], callee: &Expr) -> Option<C
     })
 }
 
+pub(crate) fn concurrency_effects(segments: &[String]) -> Option<&'static [&'static str]> {
+    let symbol = qualified_symbol(segments)?;
+    if !symbol.effects.contains(&"concurrency") {
+        return None;
+    }
+    Some(symbol.effects)
+}
+
 pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
     if symbol.effects.is_empty()
@@ -205,6 +213,7 @@ fn channel_signature(
         | "select_many_priority"
         | "select_many_timeout"
         | "select_many_timeout_result"
+        | "select_many_timeout_cancellable"
         | "select_timeout"
         | "select_result"
         | "select_priority_result"
@@ -250,13 +259,16 @@ fn select_signature(
     expected: Option<&Type>,
     handle_type: Option<&Type>,
 ) -> Option<(Vec<Type>, Type)> {
-    let reports_interrupt = name.ends_with("_result");
+    let reports_interrupt = name.ends_with("_result") || name == "select_many_timeout_cancellable";
     let item = select_item_type(expected, reports_interrupt)
         .or_else(|| select_receiver_item_type(name, handle_type))
         .unwrap_or(Type::Unknown);
     let mut params = if matches!(
         name,
-        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+        "select_many_priority"
+            | "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
     ) {
         vec![Type::named(
             "List",
@@ -272,10 +284,14 @@ fn select_signature(
         name,
         "select_many_timeout"
             | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
             | "select_timeout"
             | "select_timeout_result"
     ) {
         params.push(Type::int());
+    }
+    if name == "select_many_timeout_cancellable" {
+        params.push(cancel_token_type());
     }
     let output = adt::option_type(select_output_record(item));
     let return_type = if reports_interrupt {
@@ -742,7 +758,10 @@ fn receiver_item_type(handle_type: Option<&Type>) -> Option<Type> {
 fn select_receiver_item_type(name: &str, handle_type: Option<&Type>) -> Option<Type> {
     if matches!(
         name,
-        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+        "select_many_priority"
+            | "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
     ) {
         handle_type
             .and_then(|ty| named_type_argument(ty, "List"))
@@ -824,6 +843,7 @@ fn core_channel_signature(
         | "select_many_priority"
         | "select_many_timeout"
         | "select_many_timeout_result"
+        | "select_many_timeout_cancellable"
         | "select_timeout"
         | "select_result"
         | "select_priority_result"
@@ -869,13 +889,16 @@ fn core_select_signature(
     expected: Option<&CoreType>,
     handle_type: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
-    let reports_interrupt = name.ends_with("_result");
+    let reports_interrupt = name.ends_with("_result") || name == "select_many_timeout_cancellable";
     let item = core_select_item_type(expected, reports_interrupt)
         .or_else(|| core_select_receiver_item_type(name, handle_type))
         .unwrap_or(CoreType::Unknown);
     let mut params = if matches!(
         name,
-        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+        "select_many_priority"
+            | "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
     ) {
         vec![CoreType::named(
             "List",
@@ -891,10 +914,14 @@ fn core_select_signature(
         name,
         "select_many_timeout"
             | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
             | "select_timeout"
             | "select_timeout_result"
     ) {
         params.push(CoreType::int());
+    }
+    if name == "select_many_timeout_cancellable" {
+        params.push(CoreType::named("CancelToken", Vec::new()));
     }
     let output = adt::core_option_type(core_select_output_record(item));
     let return_type = if reports_interrupt {
@@ -1357,7 +1384,10 @@ fn core_receiver_item_type(handle_type: Option<&CoreType>) -> Option<CoreType> {
 fn core_select_receiver_item_type(name: &str, handle_type: Option<&CoreType>) -> Option<CoreType> {
     if matches!(
         name,
-        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+        "select_many_priority"
+            | "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_many_timeout_cancellable"
     ) {
         handle_type
             .and_then(|ty| core_named_type_argument(ty, "List"))

@@ -1,0 +1,20 @@
+# Cancellable receiver-list timeout selection reports runtime wait cancellation as Err.
+use stdio
+
+fn result_text(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> String
+	match selected
+		Ok(Some(_)) => "ready"
+		Ok(None) => "timeout"
+		Err(_) => "cancelled"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+	let first = channel::bounded<Int>(1)
+	let second = channel::bounded<Int>(1)
+	let receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_nil()))
+	let token: CancelToken = time::cancel_token()
+	let selected = channel::select_many_timeout_cancellable(receivers, 25, token)
+	stdio::println(result_text(selected))
+	Ok(())
+end

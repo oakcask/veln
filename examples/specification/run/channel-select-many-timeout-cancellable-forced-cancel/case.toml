@@ -1,0 +1,26 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_TIME_WAIT_CANCELLED = "1"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "cancelled\n"
+
+[[json_assert]]
+path = "error"
+equals = null

@@ -1037,6 +1037,15 @@ cases compose those wait outcomes with channel-routed `StreamInput` values and
 ordinary response action values. The cancellable channel-first case routes
 ordinary stream inputs through receiver-list `channel::select_many_timeout`
 before translating completed wait, deadline-expired, and cancelled outcomes.
+The receiver-list timeout cancellation cases use
+`../../examples/specification/run/channel-select-many-timeout-cancellable/`,
+`../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
+and
+`../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`
+to pin the source-visible `channel::select_many_timeout_cancellable` boundary:
+ready receiver priority returns `Ok(Some(...))`, timeout returns `Ok(None)`,
+and token cancellation returns `Err(SelectError)` under the existing `time`
+and `concurrency` effects.
 The main routing case also pins those three wait paths in one fixture output;
 the deadline case pins the global host-forced deadline expiry fixture.
 Together they show that these outcomes become adapter decisions rather than
@@ -1149,7 +1158,9 @@ handler invocation. They use existing typed channels and
 per-stream state. The timeout case also pins ready receiver-list selection,
 `None` when no supplied receiver becomes ready before the timeout, and the
 matching `channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)`
-result boundary. The
+result boundary. The cancellable timeout cases pin the matching
+`channel::select_many_timeout_cancellable` `Ok(Some(...))`, `Ok(None)`, and
+`Err(SelectError)` paths with source-visible `CancelToken` observation. The
 matching
 `../../examples/specification/check/channel-first-stream-routing-effects/`
 and
@@ -1166,6 +1177,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
+and
+`../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`
 and
 `../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,

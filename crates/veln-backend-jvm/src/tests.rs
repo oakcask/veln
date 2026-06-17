@@ -294,6 +294,46 @@ public final class RuntimeChannelSelectManyTimeoutResultHarness {
         Thread.currentThread().interrupt();
         System.out.println(VelnRuntime.channelSelectManyTimeoutResult(interruptReceivers, Long.valueOf(10000)));
         Thread.interrupted();
+
+        Object cancelledToken = VelnRuntime.timeCancelToken();
+        VelnRuntime.timeCancel(cancelledToken);
+        Object cancelledReceivers = VelnRuntime.listCons(
+            VelnRuntime.recordField(VelnRuntime.channelBounded(Long.valueOf(1)), "rx"),
+            VelnRuntime.listCons(
+                VelnRuntime.recordField(VelnRuntime.channelBounded(Long.valueOf(1)), "rx"),
+                VelnRuntime.listNil()
+            )
+        );
+        System.out.println(VelnRuntime.channelSelectManyTimeoutCancellable(
+            cancelledReceivers,
+            Long.valueOf(10000),
+            cancelledToken
+        ));
+
+        final Object waitToken = VelnRuntime.timeCancelToken();
+        Thread canceller = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(10L);
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                }
+                VelnRuntime.timeCancel(waitToken);
+            }
+        });
+        Object waitingReceivers = VelnRuntime.listCons(
+            VelnRuntime.recordField(VelnRuntime.channelBounded(Long.valueOf(1)), "rx"),
+            VelnRuntime.listCons(
+                VelnRuntime.recordField(VelnRuntime.channelBounded(Long.valueOf(1)), "rx"),
+                VelnRuntime.listNil()
+            )
+        );
+        canceller.start();
+        System.out.println(VelnRuntime.channelSelectManyTimeoutCancellable(
+            waitingReceivers,
+            Long.valueOf(10000),
+            waitToken
+        ));
     }
 }
 "#;
@@ -1124,7 +1164,13 @@ fn jvm_runtime_reports_receiver_list_timeout_result_outcomes_when_java_is_availa
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "Ok(Some({index=1, value=21}))\nOk(None)\nErr(interrupted)\n"
+        concat!(
+            "Ok(Some({index=1, value=21}))\n",
+            "Ok(None)\n",
+            "Err(interrupted)\n",
+            "Err(cancelled)\n",
+            "Err(cancelled)\n",
+        )
     );
 }
 
@@ -2071,6 +2117,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         (
             "channel::select_many_timeout_result",
             "channelSelectManyTimeoutResult",
+        ),
+        (
+            "channel::select_many_timeout_cancellable",
+            "channelSelectManyTimeoutCancellable",
         ),
         ("channel::select_timeout", "channelSelectTimeout"),
         ("channel::select_result", "channelSelectResult"),

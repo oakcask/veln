@@ -162,6 +162,7 @@ runtime_method_table!(concurrency_method, "channelRecv", {
     "channel::select_many_priority" => "channelSelectManyPriority",
     "channel::select_many_timeout" => "channelSelectManyTimeout",
     "channel::select_many_timeout_result" => "channelSelectManyTimeoutResult",
+    "channel::select_many_timeout_cancellable" => "channelSelectManyTimeoutCancellable",
     "channel::select_timeout" => "channelSelectTimeout",
     "channel::select_result" => "channelSelectResult",
     "channel::select_priority_result" => "channelSelectPriorityResult",

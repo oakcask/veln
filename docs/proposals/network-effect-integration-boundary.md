@@ -41,13 +41,15 @@ slices, and narrow deadline and cancellation slices, for:
   owned-lifecycle, and deadline-aware lifecycle slices
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
-  channel-first routing, receiver-list timeout-result selection,
-  socket/channel routing, and deadline-aware lifecycle slices
+  channel-first routing, receiver-list timeout-result selection, receiver-list
+  cancellable timeout-result selection, socket/channel routing, and
+  deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
   receiver-list seven-route, receiver-list eight-route, receiver-list
   nine-route, receiver-list timeout, receiver-list timeout-result selection,
-  and receiver-list cancellable channel-first fixture shapes
+  receiver-list cancellable timeout-result selection, and receiver-list
+  cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, four-argument, five-argument, six-argument, seven-argument,
   eight-argument, and nine-argument spawned handler task shapes over ordinary
@@ -224,10 +226,11 @@ implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
 
 The receiver-list five-route, six-route, seven-route, eight-route, nine-route,
-timeout, and timeout-result channel-first stream routing slices, including the
-`channel::select_many_priority` and
+timeout, timeout-result, and cancellable timeout-result channel-first stream
+routing slices, including the `channel::select_many_priority` and
 `channel::select_many_timeout` helpers plus
-`channel::select_many_timeout_result`, are recorded as implemented in
+`channel::select_many_timeout_result` and
+`channel::select_many_timeout_cancellable`, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
 The argument-carrying stream-task slices are recorded as implemented in
@@ -295,7 +298,10 @@ waits keeping handler-produced actions, deadline expiry becoming a retry
 action, and cancellation becoming a cleanup action. The receiver-list
 cancellable channel-first fixture routes ordinary `StreamInput` values through
 `channel::select_many_timeout` before applying the same wait-outcome
-translation. Host fixtures can force
+translation. The receiver-list cancellable timeout-result helper
+`channel::select_many_timeout_cancellable` combines receiver-list priority,
+timeout, and `CancelToken` observation in one `channel` boundary that returns
+`Ok(Some(selected))`, `Ok(None)`, or `Err(SelectError)`. Host fixtures can force
 timeout expiry, deadline expiry, or cancellable-wait cancellation as runtime
 failures through the runtime-failure wait. These calls do not add a separate
 richer timer effect or timer-specific source construct.
@@ -333,7 +339,8 @@ or the pure protocol core.
   three-route, four-route, receiver-list five-route, receiver-list six-route,
   receiver-list seven-route, receiver-list eight-route, receiver-list
   nine-route, receiver-list timeout, receiver-list timeout-result selection,
-  and receiver-list cancellable channel-first stream routing, one-argument,
+  receiver-list cancellable timeout-result selection, and receiver-list
+  cancellable channel-first stream routing, one-argument,
   two-argument, three-argument, four-argument, and five-argument spawned
   handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and

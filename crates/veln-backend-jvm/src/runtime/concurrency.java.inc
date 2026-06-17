@@ -294,17 +294,32 @@
 
     public static Object channelSelectManyPriority(Object receiverList) {
         Receiver[] receivers = channelReceiverArray(receiverList);
-        return channelSelectReceiversWithTimeout(receivers, -1L, false, false);
+        return channelSelectReceiversWithTimeout(receivers, -1L, null, false, false);
     }
 
     public static Object channelSelectManyTimeout(Object receiverList, Object timeoutMillis) {
         Receiver[] receivers = channelReceiverArray(receiverList);
-        return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), false, false);
+        return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), null, false, false);
     }
 
     public static Object channelSelectManyTimeoutResult(Object receiverList, Object timeoutMillis) {
         Receiver[] receivers = channelReceiverArray(receiverList);
-        return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), false, true);
+        return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), null, false, true);
+    }
+
+    public static Object channelSelectManyTimeoutCancellable(
+        Object receiverList,
+        Object timeoutMillis,
+        Object token
+    ) {
+        Receiver[] receivers = channelReceiverArray(receiverList);
+        return channelSelectReceiversWithTimeout(
+            receivers,
+            asLong(timeoutMillis),
+            asCancelToken(token),
+            false,
+            true
+        );
     }
 
     public static Object channelSelectTimeout(
@@ -341,12 +356,19 @@
         Receiver left = (Receiver) leftReceiver;
         Receiver right = (Receiver) rightReceiver;
         Receiver[] receivers = new Receiver[] { left, right };
-        return channelSelectReceiversWithTimeout(receivers, timeoutMillis, rotateTies, reportInterrupt);
+        return channelSelectReceiversWithTimeout(
+            receivers,
+            timeoutMillis,
+            null,
+            rotateTies,
+            reportInterrupt
+        );
     }
 
     private static Object channelSelectReceiversWithTimeout(
         Receiver[] receivers,
         long timeoutMillis,
+        CancelToken cancelToken,
         boolean rotateTies,
         boolean reportInterrupt
     ) {
@@ -375,6 +397,9 @@
                 ? Math.floorMod(SELECT_CURSOR.getAndIncrement(), receivers.length)
                 : 0;
             while (true) {
+                if (cancelToken != null && waitCancelled(cancelToken)) {
+                    return err("cancelled");
+                }
                 boolean allClosed = true;
                 for (int offset = 0; offset < receivers.length; offset += 1) {
                     int i = (start + offset) % receivers.length;

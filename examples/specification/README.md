@@ -1691,6 +1691,13 @@ against the built `veln` binary.
   stream routing selects ordinary `StreamInput` values through receiver-list
   `channel::select_many_timeout`, then translates completed, deadline-expired,
   and cancelled wait outcomes into ordinary response action values.
+- `run/channel-select-many-timeout-cancellable/`: receiver-list cancellable
+  timeout selection preserves list priority for ready receivers, returns
+  `Ok(None)` for timeout, and returns `Err(SelectError)` for an already
+  cancelled token.
+- `run/channel-select-many-timeout-cancellable-forced-cancel/`: receiver-list
+  cancellable timeout selection returns `Err(SelectError)` when host-forced
+  wait cancellation wins before any receiver is ready.
 - `check/stream-adapter-cancellable-routing-effects/`: stream routing that
   combines cancellable waits with channels must declare both `time` and
   `concurrency`, while the pure handler boundary stays free of transport
@@ -1699,6 +1706,9 @@ against the built `veln` binary.
   receiver-list cancellable stream routing must declare both `time` and
   `concurrency`, while the pure handler boundary stays free of transport
   effects.
+- `check/channel-select-many-timeout-cancellable-effects/`: direct
+  cancellable receiver-list timeout selection must declare both `time` and
+  `concurrency`.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event

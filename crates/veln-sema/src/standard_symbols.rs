@@ -24,6 +24,7 @@ pub(crate) enum StandardSymbolStability {
 
 const STDIO_EFFECTS: &[&str] = &["stdio"];
 const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
+const TIME_CONCURRENCY_EFFECTS: &[&str] = &["time", "concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
 const NET_EFFECTS: &[&str] = &["net"];
 const NET_TIME_EFFECTS: &[&str] = &["net", "time"];
@@ -109,6 +110,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "select_many_timeout_result",
         CONCURRENCY_EFFECTS,
         "runtime.channel.select_many_timeout_result",
+    ),
+    runtime_symbol(
+        "channel",
+        "select_many_timeout_cancellable",
+        TIME_CONCURRENCY_EFFECTS,
+        "runtime.channel.select_many_timeout_cancellable",
     ),
     runtime_symbol(
         "channel",

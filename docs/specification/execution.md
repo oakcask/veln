@@ -115,7 +115,10 @@ execution reference.
   `channel::select_many_timeout` and
   `channel::select_many_timeout_result` to preserve supplied list order as
   priority order while returning `None` or `Ok(None)` when no receiver is
-  ready before the timeout.
+  ready before the timeout. The cancellable receiver-list timeout helper
+  `channel::select_many_timeout_cancellable` uses the same priority, timeout,
+  and selected value shape, and returns `Err(SelectError)` when its
+  `CancelToken` is already cancelled or wins during the wait.
   When multiple receivers are ready, the earliest receiver in the supplied
   list wins. The handler remains an ordinary source function over stream input
   and state; adapter code owns channel routing, and socket wrappers around the
@@ -129,6 +132,8 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-eight-route/`,
   `examples/specification/run/channel-first-stream-routing-nine-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
+  `examples/specification/run/channel-select-many-timeout-cancellable/`,
+  `examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
   `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
   `examples/specification/check/channel-first-stream-routing-effects/`, and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
@@ -144,6 +149,7 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-nine-route-effects/`,
   and
   `examples/specification/check/channel-select-many-timeout-effects/`, and
+  `examples/specification/check/channel-select-many-timeout-cancellable-effects/`, and
   `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 - The generated binary schema helper execution slice decodes the
   `Http2FrameHeaderWire` field sequence from a `ByteView`: `UInt24be`,

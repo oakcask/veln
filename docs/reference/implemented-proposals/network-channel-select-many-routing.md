@@ -16,6 +16,10 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-nine-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
+`../../../examples/specification/run/channel-select-many-timeout-cancellable/`
+and
+`../../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`
+and
 `../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
 and
 `../../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
@@ -24,7 +28,9 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
 and
-`../../../examples/specification/check/channel-select-many-timeout-effects/`.
+`../../../examples/specification/check/channel-select-many-timeout-effects/`
+and
+`../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
 
 ## Outcome
 
@@ -51,16 +57,26 @@ receiver produces a value, `Ok(None)` when selection closes or times out
 without a value, and `Err(SelectError)` when cooperative cancellation
 interrupts the waiting selection.
 
-These helpers use only the existing `concurrency` effect. They do not add
-channel, socket, task, timer, or network-specific effect labels. The checked
-run examples route ordinary `StreamInput` values through typed channels,
-select them by receiver-list priority, timeout, or timeout-result, and only
-then invoke the same pure handler shape used by the smaller routing examples.
+The completed cancellable timeout-result slice adds
+`channel::select_many_timeout_cancellable(receivers, timeout_ms, token)` with
+the same receiver list, priority rule, timeout behavior, and selected result
+shape, plus source-visible `CancelToken` observation. It returns
+`Err(SelectError)` when the token is already cancelled or becomes cancelled
+before a receiver wins.
+
+These helpers use the existing `concurrency` effect, and the cancellable
+helper also uses the existing `time` effect. They do not add channel, socket,
+task, timer, cancellation, or network-specific effect labels. The checked run
+examples route ordinary `StreamInput` values through typed channels, select
+them by receiver-list priority, timeout, timeout-result, or cancellable
+timeout-result, and only then invoke the same pure handler shape used by the
+smaller routing examples.
 
 The checked effect examples keep the adapter boundary explicit: source that
-owns channel routing declares `concurrency`, while the handler receives only
-ordinary stream input and state values and remains effect-free. Missing
-`concurrency` on the adapter path is rejected by static checking.
+owns channel routing declares `concurrency`, and source that owns cancellable
+channel routing declares both `time` and `concurrency`, while the handler
+receives only ordinary stream input and state values and remains effect-free.
+Missing effects on the adapter path are rejected by static checking.
 
 ## Remaining Work
 
