@@ -40,6 +40,21 @@ schema DuplicateSelectorWire
 		value = value
 end
 
+schema OverlappingSelectorWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Header when kind != 1
+		kind = kind
+		value = value
+
+	map to OtherHeader when kind == 2
+		kind = kind
+		value = value
+end
+
 schema FieldMismatchWire
 	format binary
 

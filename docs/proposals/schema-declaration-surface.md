@@ -63,9 +63,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `ByteView(left_length - right_length)` payload fields, or the implemented
   dispatch payload slices
 - generated runtime mapping for one structural `map to Target` clause, or
-  multiple clauses selected by `when field == literal`, when each assignment
-  expression uses the implemented structural expression slice and type checks
-  against the target record field
+  multiple clauses selected by `when field == literal` or
+  `when field != literal`, when each assignment expression uses the
+  implemented structural expression slice and type checks against the target
+  record field
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
   structural `map to Target` clause whose assignments project the visible
   encode fields through direct field references, record-shaped direct field
@@ -83,8 +84,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   mappings when all selected mappings resolve to one record shape already
   accepted by the generated decode-step helper
 - semantic rejection for ambiguous or unsupported mapping selection, including
-  missing selectors, duplicate selector values, selector field mismatches, and
-  selected target shape mismatches
+  missing selectors, duplicate or overlapping selector clauses, selector field
+  mismatches, and selected target shape mismatches
 - schema mapping expressions that reference schema-local fields, construct
   records, construct ADT payloads through ordinary source module constructor
   resolution, call one pure same-module representation converter, or call one
@@ -107,8 +108,8 @@ This proposal remains open for:
   construction, ADT constructor construction, single pure same-module or
   imported public representation conversion hook expression slice, field
   selection from record-shaped structural mapping expressions, decoded-field
-  integer mapping arithmetic, and decoded-field integer equality mapping
-  selection
+  integer mapping arithmetic, and decoded-field integer equality or inequality
+  mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition surfaces beyond codec
@@ -140,10 +141,11 @@ The structural mapping clause syntax is implemented as current behavior under
 `../specification/source-surface.md`. The generated runtime mapping slices are
 implemented under `../specification/execution.md`: an eligible binary schema
 may use one `map to Target` clause, or multiple clauses selected by
-`when field == literal`, to construct an ordinary mapped record after
-field-local validation succeeds when each assignment expression type checks
-against the target field. Selected mappings must use one decoded `Int` selector
-field, distinct selector literal values, and one decoded record shape. The
+`when field == literal` or `when field != literal`, to construct an ordinary
+mapped record after field-local validation succeeds when each assignment
+expression type checks against the target field. Selected mappings must use
+one decoded `Int` selector field, non-overlapping selector clauses, and one
+decoded record shape. The
 implemented expression slice supports schema-local field references, record
 construction, ADT constructor construction resolved through ordinary source
 module rules, one pure same-module converter function call, and one imported
@@ -420,10 +422,11 @@ Implemented:
   decoded-field integer `+`, `-`, and `*` mapping arithmetic. Converter arguments
   may be schema-local field references or structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
-  or multiple clauses selected by `when field == literal`, when assignment
-  expressions type check against target record fields, rejects invalid mapping
-  assignments before execution, and returns the selected mapped record shape
-  after field-local validation passes.
+  or multiple clauses selected by `when field == literal` or
+  `when field != literal`, when assignment expressions type check against
+  target record fields, rejects invalid mapping assignments before execution,
+  and returns the selected mapped record shape after field-local validation
+  passes.
 - Binary schemas that declare ambiguous or unsupported mapping selection report
   focused `schema.mapping_selection_*` diagnostics.
 - Eligible generated `byte_encode_<schema>` helpers and `derive encode`
@@ -444,7 +447,8 @@ Remaining:
   reference, record construction, ADT constructor construction, one pure
   same-module or imported public converter call, field selection from
   record-shaped structural mapping expressions, decoded-field integer
-  arithmetic, and decoded-field integer equality selection slices.
+  arithmetic, and decoded-field integer equality or inequality selection
+  slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

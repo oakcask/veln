@@ -689,30 +689,40 @@
 
     private static final class SchemaMappingSpec {
         final String selectorField;
+        final String selectorOperator;
         final Long selectorValue;
         final SchemaMappingFieldSpec[] fields;
 
         SchemaMappingSpec(SchemaMappingFieldSpec[] fields) {
-            this("", null, fields);
+            this("", "==", null, fields);
         }
 
         SchemaMappingSpec(
             String selectorField,
+            String selectorOperator,
             Long selectorValue,
             SchemaMappingFieldSpec[] fields
         ) {
             this.selectorField = selectorField;
+            this.selectorOperator = selectorOperator;
             this.selectorValue = selectorValue;
             this.fields = fields;
         }
 
-        boolean matches(java.util.Map<String, Object> decoded) {
+        boolean matches(java.util.Map<?, Object> decoded) {
             if (selectorValue == null) {
                 return true;
             }
             Object value = decoded.get(selectorField);
-            return value instanceof Long
-                && ((Long) value).longValue() == selectorValue.longValue();
+            if (!(value instanceof Long)) {
+                return false;
+            }
+            long decodedValue = ((Long) value).longValue();
+            long literal = selectorValue.longValue();
+            if (selectorOperator.equals("!=")) {
+                return decodedValue != literal;
+            }
+            return decodedValue == literal;
         }
     }
 
@@ -5173,9 +5183,7 @@
                 return projected;
             }
             java.util.Map<Object, Object> fields = asMap(unwrapOk(projected));
-            Object selector = fields.get(mapping.selectorField);
-            if (!(selector instanceof Long)
-                || ((Long) selector).longValue() != mapping.selectorValue.longValue()) {
+            if (!mapping.matches(fields)) {
                 continue;
             }
             if (selected != null) {
@@ -5249,7 +5257,9 @@
         BinarySchemaSpec schema,
         SchemaMappingSpec mapping
     ) {
-        if (mapping.selectorField == null || !(projected instanceof java.util.Map)) {
+        if (mapping.selectorField == null
+            || !mapping.selectorOperator.equals("==")
+            || !(projected instanceof java.util.Map)) {
             return projected;
         }
         java.util.Map<Object, Object> fields = asMap(projected);
@@ -5539,7 +5549,8 @@
             SchemaMappingSpec[] mapping = new SchemaMappingSpec[mappingTargetValues.size()];
             for (int index = 0; index < mappingTargetValues.size(); index += 1) {
                 java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
-                java.util.List<Object> targets = asList(targetSpec.get(3));
+                java.util.List<Object> targets =
+                    asList(targetSpec.get(targetSpec.size() > 4 ? 4 : 3));
                 java.util.List<Object> sources = asList(mappingSourceValues.get(index));
                 SchemaMappingFieldSpec[] mappingFields =
                     new SchemaMappingFieldSpec[targets.size()];
@@ -5551,6 +5562,7 @@
                 }
                 mapping[index] = new SchemaMappingSpec(
                     asString(targetSpec.get(1)),
+                    targetSpec.size() > 4 ? asString(targetSpec.get(3)) : "==",
                     Long.valueOf(asLong(targetSpec.get(2))),
                     mappingFields
                 );
@@ -5896,10 +5908,12 @@
             mapping = new SchemaMappingSpec[mappingTargetValues.size()];
             for (int index = 0; index < mappingTargetValues.size(); index += 1) {
                 java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
-                if (targetSpec.size() != 4 || !asString(targetSpec.get(0)).equals("select")) {
+                if ((targetSpec.size() != 4 && targetSpec.size() != 5)
+                    || !asString(targetSpec.get(0)).equals("select")) {
                     return err("invalid schema decoder mapping selection metadata for schema `" + name + "`");
                 }
-                java.util.List<Object> targets = asList(targetSpec.get(3));
+                String selectorOperator = targetSpec.size() > 4 ? asString(targetSpec.get(3)) : "==";
+                java.util.List<Object> targets = asList(targetSpec.get(targetSpec.size() > 4 ? 4 : 3));
                 java.util.List<Object> sources = asList(mappingSourceValues.get(index));
                 if (targets.size() != sources.size()) {
                     return err("invalid schema decoder mapping metadata for schema `" + name + "`");
@@ -5914,6 +5928,7 @@
                 }
                 mapping[index] = new SchemaMappingSpec(
                     asString(targetSpec.get(1)),
+                    selectorOperator,
                     Long.valueOf(asLong(targetSpec.get(2))),
                     mappingFields
                 );

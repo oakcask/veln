@@ -236,9 +236,12 @@ against the built `veln` binary.
   `ReservedBits(width, value)` fields are representation-only and are not
   available as structural mapping source fields.
 - `check/schema-mapping-selection-diagnostics/`: binary schema diagnostics for
-  missing, ambiguous, and unsupported structural mapping selection.
+  missing, duplicate, overlapping, and unsupported structural mapping
+  selection.
 - `run/binary-schema-mapping-selection-decode/`: generated binary schema
   decode selects one structural mapping from an already decoded field value.
+- `run/binary-schema-mapping-selection-not-equal-decode/`: generated binary
+  schema decode selects a structural mapping with `when field != literal`.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
 - `run/binary-schema-mixed-dispatch-selected-mapping-decode/`: generated

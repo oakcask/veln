@@ -9,9 +9,9 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
-    UseDecl, UsePackage, Visibility, lex,
+    SchemaMappingClause, SchemaMappingSelector, SchemaMappingSelectorOp, SchemaValidationClause,
+    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
+    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -647,7 +647,16 @@ impl<'a> Parser<'a> {
         let field = self
             .expect_ident("schema_mapping", "mapping selector field")
             .unwrap_or_else(|| "<missing>".to_string());
-        self.expect(TokenKind::EqualEqual, "schema_mapping", vec!["=="]);
+        let op = if self.at(TokenKind::EqualEqual) {
+            self.bump();
+            SchemaMappingSelectorOp::Equal
+        } else if self.at(TokenKind::BangEqual) {
+            self.bump();
+            SchemaMappingSelectorOp::NotEqual
+        } else {
+            self.expect(TokenKind::EqualEqual, "schema_mapping", vec!["==", "!="]);
+            SchemaMappingSelectorOp::Equal
+        };
         let value_token = if self.at(TokenKind::Int) {
             self.bump()
         } else {
@@ -664,6 +673,7 @@ impl<'a> Parser<'a> {
         let value = value_token.text.parse::<i64>().unwrap_or(0);
         Some(SchemaMappingSelector {
             field,
+            op,
             value,
             span: self.source.span(start.cover(value_token.range)),
         })
