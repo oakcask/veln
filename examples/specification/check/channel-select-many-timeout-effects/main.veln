@@ -19,8 +19,15 @@ fn handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state
 	end
 end
 
+fn handle_selected_result(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match selected
+		Ok(value) => handle_selected(value, state)
+		Err(_) => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+	end
+end
+
 fn route_with_timeout(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
-	handle_selected(channel::select_many_timeout(receivers, 25), state)
+	handle_selected_result(channel::select_many_timeout_result(receivers, 25), state)
 end
 
 pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }

@@ -106,6 +106,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol(
         "channel",
+        "select_many_timeout_result",
+        CONCURRENCY_EFFECTS,
+        "runtime.channel.select_many_timeout_result",
+    ),
+    runtime_symbol(
+        "channel",
         "select_timeout",
         CONCURRENCY_EFFECTS,
         "runtime.channel.select_timeout",

@@ -344,6 +344,7 @@ channel::select(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, va
 channel::select_priority(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_many_priority(receivers: List<Receiver<T>>) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_many_timeout(receivers: List<Receiver<T>>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_many_timeout_result(receivers: List<Receiver<T>>, timeout_ms: Int) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_timeout(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_priority_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
@@ -387,15 +388,19 @@ list and return typing as `channel::select_many_priority`, plus an `Int`
 millisecond timeout. It preserves supplied list order as priority order and
 returns `None` when no supplied receiver has a ready value before the timeout
 elapses. Negative timeouts wait without a timeout.
+`channel::select_many_timeout_result(receivers, timeout_ms)` has the same
+receiver list, priority order, and timeout behavior as
+`channel::select_many_timeout`, but returns `Ok(Some(selected))` for a
+selected value, `Ok(None)` for closed or timed-out selection, and
+`Err(SelectError)` when cooperative cancellation interrupts the waiting
+selection.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative
 timeouts wait without a timeout.
 `channel::select_result`, `channel::select_priority_result`, and
 `channel::select_timeout_result` use the same selection rules as their
-non-result counterparts, but return `Ok(Some(selected))` for a selected value,
-`Ok(None)` for closed or timed-out selection, and `Err(SelectError)` when
-cooperative cancellation interrupts the waiting selection.
+non-result counterparts with the same result boundary.
 `channel::close` closes the sender endpoint, wakes waiting receivers, and
 returns `()`.
 

@@ -43,11 +43,19 @@ list, return shape, and priority rule, plus an `Int` millisecond timeout. It
 returns `None` when no receiver has a ready value before the timeout. Negative
 timeouts wait without a timeout, matching the priority helper.
 
-Both helpers use only the existing `concurrency` effect. They do not add
+The completed timeout-result slice adds
+`channel::select_many_timeout_result(receivers, timeout_ms)` with the same
+receiver list, priority rule, and timeout behavior, plus the existing
+fallible selection result boundary. It returns `Ok(Some(selected))` when a
+receiver produces a value, `Ok(None)` when selection closes or times out
+without a value, and `Err(SelectError)` when cooperative cancellation
+interrupts the waiting selection.
+
+These helpers use only the existing `concurrency` effect. They do not add
 channel, socket, task, timer, or network-specific effect labels. The checked
 run examples route ordinary `StreamInput` values through typed channels,
-select them by receiver-list priority or timeout, and only then invoke the
-same pure handler shape used by the smaller routing examples.
+select them by receiver-list priority, timeout, or timeout-result, and only
+then invoke the same pure handler shape used by the smaller routing examples.
 
 The checked effect examples keep the adapter boundary explicit: source that
 owns channel routing declares `concurrency`, while the handler receives only

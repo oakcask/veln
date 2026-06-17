@@ -204,6 +204,7 @@ fn channel_signature(
         | "select_priority"
         | "select_many_priority"
         | "select_many_timeout"
+        | "select_many_timeout_result"
         | "select_timeout"
         | "select_result"
         | "select_priority_result"
@@ -253,7 +254,10 @@ fn select_signature(
     let item = select_item_type(expected, reports_interrupt)
         .or_else(|| select_receiver_item_type(name, handle_type))
         .unwrap_or(Type::Unknown);
-    let mut params = if matches!(name, "select_many_priority" | "select_many_timeout") {
+    let mut params = if matches!(
+        name,
+        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+    ) {
         vec![Type::named(
             "List",
             vec![Type::named("Receiver", vec![item.clone()])],
@@ -266,7 +270,10 @@ fn select_signature(
     };
     if matches!(
         name,
-        "select_many_timeout" | "select_timeout" | "select_timeout_result"
+        "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_timeout"
+            | "select_timeout_result"
     ) {
         params.push(Type::int());
     }
@@ -527,7 +534,10 @@ fn receiver_item_type(handle_type: Option<&Type>) -> Option<Type> {
 }
 
 fn select_receiver_item_type(name: &str, handle_type: Option<&Type>) -> Option<Type> {
-    if matches!(name, "select_many_priority" | "select_many_timeout") {
+    if matches!(
+        name,
+        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+    ) {
         handle_type
             .and_then(|ty| named_type_argument(ty, "List"))
             .and_then(|ty| named_type_argument(ty, "Receiver"))
@@ -607,6 +617,7 @@ fn core_channel_signature(
         | "select_priority"
         | "select_many_priority"
         | "select_many_timeout"
+        | "select_many_timeout_result"
         | "select_timeout"
         | "select_result"
         | "select_priority_result"
@@ -656,7 +667,10 @@ fn core_select_signature(
     let item = core_select_item_type(expected, reports_interrupt)
         .or_else(|| core_select_receiver_item_type(name, handle_type))
         .unwrap_or(CoreType::Unknown);
-    let mut params = if matches!(name, "select_many_priority" | "select_many_timeout") {
+    let mut params = if matches!(
+        name,
+        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+    ) {
         vec![CoreType::named(
             "List",
             vec![CoreType::named("Receiver", vec![item.clone()])],
@@ -669,7 +683,10 @@ fn core_select_signature(
     };
     if matches!(
         name,
-        "select_many_timeout" | "select_timeout" | "select_timeout_result"
+        "select_many_timeout"
+            | "select_many_timeout_result"
+            | "select_timeout"
+            | "select_timeout_result"
     ) {
         params.push(CoreType::int());
     }
@@ -926,7 +943,10 @@ fn core_receiver_item_type(handle_type: Option<&CoreType>) -> Option<CoreType> {
 }
 
 fn core_select_receiver_item_type(name: &str, handle_type: Option<&CoreType>) -> Option<CoreType> {
-    if matches!(name, "select_many_priority" | "select_many_timeout") {
+    if matches!(
+        name,
+        "select_many_priority" | "select_many_timeout" | "select_many_timeout_result"
+    ) {
         handle_type
             .and_then(|ty| core_named_type_argument(ty, "List"))
             .and_then(|ty| core_named_type_argument(ty, "Receiver"))

@@ -1103,8 +1103,10 @@ cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
 `channel::select_priority`, `channel::select_many_priority`, or
 `channel::select_many_timeout`, then call a plain stream handler with explicit
-per-stream state. The timeout case also pins ready receiver-list selection and
-`None` when no supplied receiver becomes ready before the timeout. The
+per-stream state. The timeout case also pins ready receiver-list selection,
+`None` when no supplied receiver becomes ready before the timeout, and the
+matching `channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)`
+result boundary. The
 matching
 `../../examples/specification/check/channel-first-stream-routing-effects/`
 and

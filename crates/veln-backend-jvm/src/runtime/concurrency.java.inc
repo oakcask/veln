@@ -240,6 +240,11 @@
         return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), false, false);
     }
 
+    public static Object channelSelectManyTimeoutResult(Object receiverList, Object timeoutMillis) {
+        Receiver[] receivers = channelReceiverArray(receiverList);
+        return channelSelectReceiversWithTimeout(receivers, asLong(timeoutMillis), false, true);
+    }
+
     public static Object channelSelectTimeout(
         Object leftReceiver,
         Object rightReceiver,

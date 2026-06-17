@@ -57,9 +57,11 @@ compiler-known calls.
   five-route, six-route, seven-route, eight-route, and nine-route examples
   use `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`, and the timeout selection example uses
-  `channel::select_many_timeout` to preserve receiver-list priority while
-  returning `None` when no route is ready before the timeout, before invoking
-  a plain handler. A cancellable channel-first adapter composes that
+  `channel::select_many_timeout` and
+  `channel::select_many_timeout_result` to preserve receiver-list priority
+  while returning `None` or `Ok(None)` when no route is ready before the
+  timeout, before invoking a plain handler. A cancellable channel-first
+  adapter composes that
   receiver-list route with `time::wait_until_cancellable_outcome`; it declares
   `time` and `concurrency` while the handler boundary remains free of
   transport effects. Other routing adapters require `concurrency`, and socket

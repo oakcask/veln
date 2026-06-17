@@ -1829,6 +1829,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("channel::select_priority", "channelSelectPriority"),
         ("channel::select_many_priority", "channelSelectManyPriority"),
         ("channel::select_many_timeout", "channelSelectManyTimeout"),
+        (
+            "channel::select_many_timeout_result",
+            "channelSelectManyTimeoutResult",
+        ),
         ("channel::select_timeout", "channelSelectTimeout"),
         ("channel::select_result", "channelSelectResult"),
         (
