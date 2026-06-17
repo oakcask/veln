@@ -88,11 +88,11 @@ unsigned binary primitives or an eligible nested binary schema payload.
 Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
-schema helper path. A same-module closed dispatch case may name the enclosing
-schema recursively only in the length-bounded form, when selected
-`map to Target when tag_field == literal` clauses cover every case and all
-clauses resolve to one record shape, with at least one non-recursive case as
-the base case. The extension-tolerant field type
+schema helper path. A same-module closed or extension-tolerant dispatch case
+may name the enclosing schema recursively only in the length-bounded form,
+when selected `map to Target when tag_field == literal` clauses cover every
+case and all clauses resolve to one record shape, with at least one
+non-recursive case as the base case. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
@@ -116,7 +116,9 @@ primitive and
 nested payload shapes are accepted only at an eligible selected mapping
 boundary where every `map to Target when tag_field == literal` selector uses
 the dispatch tag field, covers a distinct dispatch case, and type-checks that
-branch against the payload shape selected by the literal. Other mixed payload
+branch against the payload shape selected by the literal. Extension-tolerant
+recursive dispatch uses the same selected mapping boundary for known cases and
+still preserves unknown tags as bounded raw payloads. Other mixed payload
 dispatch shapes keep the `schema.dispatch_payload` rejection. The checked
 field-reference
 diagnostics case is
@@ -175,7 +177,7 @@ dispatch, extension dispatch, bounded repeated primitive or nested schema field,
 length-bounded `ByteView`, and eligible nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
 expressions, recursive dispatch payload schemas outside the selected
-same-module length-bounded closed-dispatch decode-and-encode slice, dispatch payload
+same-module length-bounded dispatch decode-and-encode slice, dispatch payload
 schemas outside the generated helper slice, arbitrary mapping expressions, and
 mapping selection beyond decoded-field integer equality are not implemented.
 The checked diagnostics case

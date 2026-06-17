@@ -5046,6 +5046,9 @@
         if (schema.mapping.length > 0) {
             SchemaMappingSpec mapping = selectedSchemaMapping(schema, decoded);
             if (mapping == null) {
+                if (schemaHasUnknownExtensionDispatch(schema, decoded)) {
+                    return schemaRawDecodedRecord(decoded);
+                }
                 return err(
                     "schema mapping selection did not match any mapping in schema `"
                         + schema.name
@@ -5054,19 +5057,68 @@
             }
             java.util.ArrayList<Object> entries =
                 new java.util.ArrayList<Object>(mapping.fields.length * 2);
+            java.util.LinkedHashMap<String, Object> mappingDecoded =
+                schemaMappingDecodedValues(schema, decoded, mapping);
             for (SchemaMappingFieldSpec field : mapping.fields) {
                 entries.add(field.target);
-                entries.add(schemaMappingExprValue(decoded, field.expr));
+                entries.add(schemaMappingExprValue(mappingDecoded, field.expr));
             }
             return record(entries.toArray(new Object[entries.size()]));
         }
 
+        return schemaRawDecodedRecord(decoded);
+    }
+
+    private static Object schemaRawDecodedRecord(java.util.LinkedHashMap<String, Object> decoded) {
         java.util.ArrayList<Object> entries = new java.util.ArrayList<Object>(decoded.size() * 2);
         for (java.util.Map.Entry<String, Object> entry : decoded.entrySet()) {
             entries.add(entry.getKey());
             entries.add(entry.getValue());
         }
         return record(entries.toArray(new Object[entries.size()]));
+    }
+
+    private static java.util.LinkedHashMap<String, Object> schemaMappingDecodedValues(
+        BinarySchemaSpec schema,
+        java.util.LinkedHashMap<String, Object> decoded,
+        SchemaMappingSpec mapping
+    ) {
+        java.util.LinkedHashMap<String, Object> values =
+            new java.util.LinkedHashMap<String, Object>(decoded);
+        if (mapping.selectorField == null) {
+            return values;
+        }
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.dispatch == null
+                || !field.dispatch.preservesUnknown
+                || !field.dispatch.tagField.equals(mapping.selectorField)) {
+                continue;
+            }
+            SchemaDispatchCaseSpec dispatchCase =
+                schemaDispatchCaseForTag(field.dispatch, decoded.get(field.dispatch.tagField));
+            Object payload = decoded.get(field.name);
+            if (dispatchCase != null && isAdtNamed(payload, "SchemaDispatchPayload::Known")) {
+                values.put(field.name, asAdt(payload, "SchemaDispatchPayload::Known").payloads[0]);
+            }
+        }
+        return values;
+    }
+
+    private static boolean schemaHasUnknownExtensionDispatch(
+        BinarySchemaSpec schema,
+        java.util.Map<String, Object> decoded
+    ) {
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.dispatch == null || !field.dispatch.preservesUnknown) {
+                continue;
+            }
+            if (decoded.get(field.dispatch.tagField) instanceof Long
+                && schemaDispatchCaseForTag(field.dispatch, decoded.get(field.dispatch.tagField))
+                    == null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static SchemaMappingSpec selectedSchemaMapping(
@@ -5188,7 +5240,62 @@
                 entries.add(mappingValue.value);
             }
         }
-        return ok(record(entries.toArray(new Object[entries.size()])));
+        Object projected = record(entries.toArray(new Object[entries.size()]));
+        return ok(schemaWrapSelectedExtensionDispatchPayloads(projected, schema, mapping));
+    }
+
+    private static Object schemaWrapSelectedExtensionDispatchPayloads(
+        Object projected,
+        BinarySchemaSpec schema,
+        SchemaMappingSpec mapping
+    ) {
+        if (mapping.selectorField == null || !(projected instanceof java.util.Map)) {
+            return projected;
+        }
+        java.util.Map<Object, Object> fields = asMap(projected);
+        java.util.ArrayList<Object> entries = new java.util.ArrayList<Object>(fields.size() * 2);
+        for (java.util.Map.Entry<Object, Object> entry : fields.entrySet()) {
+            String fieldName = asString(entry.getKey());
+            Object value = entry.getValue();
+            SchemaFieldSpec schemaField = schemaFieldByName(schema, fieldName);
+            if (schemaField != null
+                && schemaField.dispatch != null
+                && schemaField.dispatch.preservesUnknown
+                && schemaField.dispatch.tagField.equals(mapping.selectorField)
+                && schemaDispatchCaseForTag(schemaField.dispatch, fields.get(mapping.selectorField))
+                    != null
+                && !isAdtNamed(value, "SchemaDispatchPayload::Known")) {
+                value = adt("SchemaDispatchPayload::Known", new Object[] { value });
+            }
+            entries.add(fieldName);
+            entries.add(value);
+        }
+        return record(entries.toArray(new Object[entries.size()]));
+    }
+
+    private static SchemaFieldSpec schemaFieldByName(BinarySchemaSpec schema, String name) {
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.name.equals(name)) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    private static SchemaDispatchCaseSpec schemaDispatchCaseForTag(
+        SchemaDispatchSpec dispatch,
+        Object tag
+    ) {
+        if (!(tag instanceof Long)) {
+            return null;
+        }
+        long tagValue = ((Long) tag).longValue();
+        for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
+            if (dispatchCase.tag == tagValue) {
+                return dispatchCase;
+            }
+        }
+        return null;
     }
 
     private static Object schemaEncodeMappingValues(
@@ -5325,6 +5432,36 @@
                 targetField,
                 "constructor `" + constructorName + "` payload"
             );
+        }
+        if (spec.size() == 3 && asString(spec.get(0)).equals("constructor")) {
+            String nestedConstructor = asString(spec.get(1));
+            java.util.List<Object> args = asList(spec.get(2));
+            if (!isAdtNamed(payloadValue, nestedConstructor)) {
+                return err(encodeError(
+                    "codec.encode_mapping_mismatch",
+                    schemaName + "." + targetField,
+                    schemaEncodeConstructorMismatchReason(payloadValue, nestedConstructor)
+                ));
+            }
+            Adt value = asAdt(payloadValue, nestedConstructor);
+            if (value.payloads.length != args.size()) {
+                return err("unsupported constructor mapping");
+            }
+            java.util.ArrayList<Object> values = new java.util.ArrayList<Object>(args.size());
+            for (int index = 0; index < args.size(); index += 1) {
+                Object mapped = schemaEncodeMappingArgValues(
+                    value.payloads[index],
+                    args.get(index),
+                    schemaName,
+                    targetField,
+                    nestedConstructor
+                );
+                if (isErr(mapped)) {
+                    return mapped;
+                }
+                values.addAll(asList(unwrapOk(mapped)));
+            }
+            return ok(values);
         }
         return err("unsupported constructor mapping");
     }
@@ -6138,7 +6275,7 @@
         String fieldName
     ) {
         if (dispatch.preservesUnknown) {
-            return schemaWriteExtensionDispatchPayload(fields, dispatch, schema.name, fieldName);
+            return schemaWriteExtensionDispatchPayload(fields, dispatch, schema, fieldName);
         }
         long tagValue = asLong(fields.get(dispatch.tagField));
         String fieldPath = schema.name + "." + fieldName;
@@ -6189,10 +6326,10 @@
     private static Object schemaWriteExtensionDispatchPayload(
         java.util.Map<Object, Object> fields,
         SchemaDispatchSpec dispatch,
-        String schemaName,
+        BinarySchemaSpec schema,
         String fieldName
     ) {
-        String fieldPath = schemaName + "." + fieldName;
+        String fieldPath = schema.name + "." + fieldName;
         long tagValue = asLong(fields.get(dispatch.tagField));
         long suppliedLength = asLong(fields.get(dispatch.lengthField));
         Object payload = fields.get(fieldName);
@@ -6212,10 +6349,11 @@
                         + " selects a known payload case"
                 ));
             }
-            if (selectedCase.payloadSchema != null) {
+            BinarySchemaSpec payloadSchema = selectedCase.payloadSchema(schema);
+            if (payloadSchema != null) {
                 Object encoded = byteEncodeBinarySchema(
                     asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],
-                    selectedCase.payloadSchema
+                    payloadSchema
                 );
                 if (isErr(encoded)) {
                     return encoded;
@@ -6232,7 +6370,7 @@
                 selectedCase.width,
                 selectedCase.maxValue,
                 selectedCase.littleEndian,
-                schemaName,
+                schema.name,
                 fieldName
             );
             if (isErr(encoded)) {

@@ -1043,6 +1043,10 @@ against the built `veln` binary.
   length-bounded recursive closed-dispatch encode reports
   `codec.dispatch_length_mismatch` when the supplied length field does not
   match the encoded recursive payload byte count.
+- `run/binary-schema-recursive-extension-dispatch-length-encode-diagnostic-json/`:
+  length-bounded recursive extension-dispatch encode reports
+  `codec.dispatch_length_mismatch` when a known recursive payload byte count
+  differs from the supplied length field.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
   failures report `codec.encode_value_unrepresentable` and keep the nested
   schema field path in structured `EncodeError` output.
@@ -1059,6 +1063,10 @@ against the built `veln` binary.
   recursive closed-dispatch payload decodes through a length-bounded closed
   dispatch, selected mappings, a non-recursive base case, and the generated
   schema helper path.
+- `run/binary-schema-recursive-extension-dispatch-decode/`: a same-module
+  recursive extension-dispatch payload decodes known recursive payloads through
+  the generated helper path and still preserves unknown tags with bounded raw
+  payload bytes.
 - `run/binary-schema-dispatch-nested-general-helper-decode/`: closed and
   extension-tolerant nested dispatch known cases decode the selected nested
   payload through the generated schema helper path, preserving fixed-field
@@ -1077,8 +1085,8 @@ against the built `veln` binary.
   schema names are checked against the eligible generated-helper schema
   boundary, with
   diagnostics for missing names, non-schema names, private imported schemas,
-  closed and extension self references outside the eligible recursive
-  closed-dispatch slice, forward references, and incompatible payload shapes.
+  self references outside the eligible recursive length-bounded dispatch
+  slice, forward references, and incompatible payload shapes.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
   closed dispatch remains rejected when the self-reference is not
   length-bounded.
@@ -1089,6 +1097,9 @@ against the built `veln` binary.
   extension-tolerant known case may decode a same-module nested binary schema
   payload and wrap the decoded record shape in
   `SchemaDispatchPayload::Known`.
+- `run/binary-schema-recursive-extension-dispatch-encode/`: a same-module
+  recursive extension-dispatch known payload encodes through the generated
+  helper path and validates the explicit length field.
 - `run/binary-schema-imported-extension-dispatch-nested-decode/`: an
   extension-tolerant known case may decode a public imported binary schema
   payload and wrap the decoded record shape in

@@ -2735,6 +2735,70 @@ fn generated_schema_encode_helpers_resolve_for_recursive_closed_dispatch_binary_
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_for_recursive_extension_dispatch_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type NodePayload\n",
+            "  Leaf(Int)\n",
+            "  Branch({length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>})\n",
+            "end\n",
+            "\n",
+            "type Node\n",
+            "  Node {length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>}\n",
+            "end\n",
+            "\n",
+            "schema RecursiveExtensionNode\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionNode)\n",
+            "\n",
+            "  map to Node when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = Known(NodePayload::Leaf(payload))\n",
+            "\n",
+            "  map to Node when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = Known(NodePayload::Branch(payload))\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_recursive_extension_node(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "RecursiveExtensionNode")
+        .expect("recursive extension node encoder metadata should be emitted");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry extension dispatch metadata");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert!(dispatch.preserves_unknown);
+    assert_eq!(dispatch.cases[0].tag, 0);
+    assert_eq!(dispatch.cases[0].width, 1);
+    assert_eq!(dispatch.cases[1].tag, 1);
+    assert_eq!(
+        dispatch.cases[1].payload_schema_name.as_deref(),
+        Some("RecursiveExtensionNode")
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",
@@ -4391,6 +4455,70 @@ fn generated_schema_decode_helpers_keep_length_bounded_recursive_dispatch_metada
     assert_eq!(
         dispatch.cases[1].payload_schema_name.as_deref(),
         Some("RecursiveNode")
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_keep_recursive_extension_dispatch_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type NodePayload\n",
+            "  Leaf(Int)\n",
+            "  Branch({length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>})\n",
+            "end\n",
+            "\n",
+            "type Node\n",
+            "  Node {length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>}\n",
+            "end\n",
+            "\n",
+            "schema RecursiveExtensionNode\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionNode)\n",
+            "\n",
+            "  map to Node when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = Known(NodePayload::Leaf(payload))\n",
+            "\n",
+            "  map to Node when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = Known(NodePayload::Branch(payload))\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>}, String>\n",
+            "  byte_decode_recursive_extension_node(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "RecursiveExtensionNode")
+        .expect("recursive extension node decoder metadata should be emitted");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry extension dispatch metadata");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert!(dispatch.preserves_unknown);
+    assert_eq!(dispatch.cases[0].tag, 0);
+    assert_eq!(dispatch.cases[0].width, 1);
+    assert_eq!(dispatch.cases[1].tag, 1);
+    assert_eq!(
+        dispatch.cases[1].payload_schema_name.as_deref(),
+        Some("RecursiveExtensionNode")
     );
 }
 

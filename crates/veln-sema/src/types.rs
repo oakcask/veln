@@ -842,7 +842,8 @@ fn schema_decode_record_fields_inner_after_push(
                 return None;
             }
             let payload_types = schema_dispatch_case_types(module, schema, &dispatch, stack)?;
-            let payload_ty = schema_dispatch_payload_type(schema, &dispatch, &payload_types)?;
+            let payload_ty =
+                schema_dispatch_payload_type(module, schema, &dispatch, &payload_types)?;
             let field_ty = if dispatch.preserves_unknown {
                 Type::named("SchemaDispatchPayload", vec![payload_ty])
             } else {
@@ -873,15 +874,26 @@ fn schema_dispatch_case_types(
 }
 
 fn schema_dispatch_payload_type(
+    module: &SurfaceModule,
     schema: &SchemaDecl,
     dispatch: &SchemaDispatchSpec,
     payload_types: &[(i64, Type)],
 ) -> Option<Type> {
     let first = payload_types.first()?.1.clone();
-    if payload_types.iter().all(|(_, ty)| ty == &first)
-        || selected_mappings_cover_closed_dispatch(schema, dispatch)
-    {
+    if payload_types.iter().all(|(_, ty)| ty == &first) {
         Some(first)
+    } else if selected_mappings_cover_closed_dispatch(schema, dispatch)
+        || (dispatch.length_field.is_some()
+            && dispatch.cases.iter().any(|case| {
+                matches!(
+                    &case.payload,
+                    SchemaDispatchCasePayload::Schema { schema_name }
+                        if schema.name.as_deref() == Some(schema_name.as_str())
+                )
+            })
+            && selected_mappings_cover_dispatch_cases(schema, dispatch))
+    {
+        schema_recursive_dispatch_payload_type(module, schema)
     } else {
         None
     }
@@ -949,17 +961,16 @@ pub(crate) fn schema_recursive_dispatch_payload_type(
     Some(Type::Record(target_fields))
 }
 
-pub(crate) fn recursive_closed_dispatch_payload_is_eligible(
+pub(crate) fn recursive_dispatch_payload_is_eligible(
     schema: &SchemaDecl,
     field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
     schema_name: &str,
 ) -> bool {
     schema.name.as_deref() == Some(schema_name)
-        && !dispatch.preserves_unknown
         && dispatch.length_field.is_some()
         && schema.mappings.len() == dispatch.cases.len()
-        && selected_mappings_cover_closed_dispatch(schema, dispatch)
+        && selected_mappings_cover_dispatch_cases(schema, dispatch)
         && schema
             .fields
             .iter()
@@ -1037,10 +1048,14 @@ pub(crate) fn selected_mappings_cover_closed_dispatch(
     schema: &SchemaDecl,
     dispatch: &SchemaDispatchSpec,
 ) -> bool {
-    if dispatch.preserves_unknown
-        || schema.mappings.len() != dispatch.cases.len()
-        || schema.mappings.is_empty()
-    {
+    !dispatch.preserves_unknown && selected_mappings_cover_dispatch_cases(schema, dispatch)
+}
+
+pub(crate) fn selected_mappings_cover_dispatch_cases(
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+) -> bool {
+    if schema.mappings.len() != dispatch.cases.len() || schema.mappings.is_empty() {
         return false;
     }
     let case_tags = dispatch
@@ -1185,8 +1200,8 @@ fn schema_encode_function_signature_for_schema(
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-        let recursive_closed_dispatch_payload =
-            recursive_closed_dispatch_encode_payload_field(schema, field, &dispatch);
+        let recursive_dispatch_payload =
+            recursive_dispatch_encode_payload_field(schema, field, &dispatch);
         if !exact_width_field_names.contains(&dispatch.tag_field)
             || dispatch
                 .length_field
@@ -1194,7 +1209,7 @@ fn schema_encode_function_signature_for_schema(
                 .is_some_and(|length_field| !exact_width_field_names.contains(length_field))
             || (dispatch.length_field.is_some()
                 && !dispatch.preserves_unknown
-                && !recursive_closed_dispatch_payload)
+                && !recursive_dispatch_payload)
         {
             return None;
         }
@@ -1203,8 +1218,8 @@ fn schema_encode_function_signature_for_schema(
             .iter()
             .map(|case| schema_dispatch_case_type(module, schema, case, &mut Vec::new()))
             .collect::<Option<Vec<_>>>()?;
-        let payload_ty = if recursive_closed_dispatch_payload
-            && selected_mappings_cover_closed_dispatch(schema, &dispatch)
+        let payload_ty = if recursive_dispatch_payload
+            && selected_mappings_cover_dispatch_cases(schema, &dispatch)
         {
             schema_recursive_dispatch_payload_type(module, schema)?
         } else {
@@ -1214,7 +1229,7 @@ fn schema_encode_function_signature_for_schema(
             }
             payload_ty
         };
-        if !recursive_closed_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
+        if !recursive_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
             return None;
         }
         if dispatch.preserves_unknown {
@@ -1243,13 +1258,13 @@ fn schema_encode_function_signature_for_schema(
     })
 }
 
-fn recursive_closed_dispatch_encode_payload_field(
+fn recursive_dispatch_encode_payload_field(
     schema: &SchemaDecl,
     field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
 ) -> bool {
     schema.name.as_deref().is_some_and(|schema_name| {
-        recursive_closed_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
+        recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
     })
 }
 
@@ -1382,10 +1397,20 @@ fn schema_encode_mapping_field_types(
     let mut supported_int_field_names = exact_width_field_names.to_vec();
     let selector = mapping.selector.as_ref()?;
     for field in &schema.fields {
-        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty) else {
+        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+        else {
             continue;
         };
-        if dispatch.preserves_unknown || selector.field != dispatch.tag_field {
+        if selector.field != dispatch.tag_field
+            || (dispatch.preserves_unknown
+                && !recursive_dispatch_payload_is_eligible(
+                    schema,
+                    field,
+                    &dispatch,
+                    schema.name.as_deref().unwrap_or_default(),
+                ))
+        {
             continue;
         }
         let case = dispatch
@@ -1553,9 +1578,19 @@ fn schema_encode_mapping_expr_sources(
             )
             .map(|source| vec![source])
         }
-        SchemaDecodeMappingExpr::Constructor { .. }
-        | SchemaDecodeMappingExpr::Converter { .. }
-        | SchemaDecodeMappingExpr::Binary { .. } => None,
+        SchemaDecodeMappingExpr::Constructor { args, .. } => {
+            let mut sources = Vec::new();
+            for arg in args {
+                let arg_sources = schema_encode_mapping_expr_sources(
+                    arg,
+                    schema_field_types,
+                    exact_width_field_names,
+                )?;
+                sources.extend(arg_sources);
+            }
+            Some(sources)
+        }
+        SchemaDecodeMappingExpr::Converter { .. } | SchemaDecodeMappingExpr::Binary { .. } => None,
     }
 }
 
@@ -1884,11 +1919,13 @@ pub(crate) fn schema_mapping_source_field_types(
         return Some(fields);
     };
     for field in &schema.fields {
-        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty) else {
+        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+        else {
             continue;
         };
         if dispatch.tag_field != selector.field
-            || !selected_mappings_cover_closed_dispatch(schema, &dispatch)
+            || !selected_mappings_cover_dispatch_cases(schema, &dispatch)
         {
             continue;
         }

@@ -4,11 +4,10 @@ use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaMappingConverterInput,
     SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive,
-    recursive_closed_dispatch_payload_is_eligible, repeat_schema_primitive,
-    schema_decode_record_type, schema_decode_step_function_name, schema_decode_value_type,
-    schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
-    schema_length_expression_references, schema_mapping_source_field_types,
-    schema_payload_name_last_segment, schema_payload_name_path,
+    recursive_dispatch_payload_is_eligible, repeat_schema_primitive, schema_decode_record_type,
+    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_encode_function_name, schema_encode_value_type, schema_length_expression_references,
+    schema_mapping_source_field_types, schema_payload_name_last_segment, schema_payload_name_path,
     schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
     supported_encode_reserved_bits,
 };
@@ -2532,12 +2531,8 @@ fn check_schema_dispatch_field(
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
                 if schema.name.as_deref() == Some(schema_name.as_str()) {
-                    if !recursive_closed_dispatch_payload_is_eligible(
-                        schema,
-                        field,
-                        dispatch,
-                        schema_name,
-                    ) {
+                    if !recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
+                    {
                         diagnostics.push(schema_dispatch_payload_diagnostic(
                             schema,
                             field,
@@ -2611,7 +2606,16 @@ fn check_schema_dispatch_field(
         }
     }
 
-    if mixed_payload_type && selected_mappings_cover_closed_dispatch(schema, dispatch) {
+    let recursive_dispatch_payload = dispatch.cases.iter().any(|case| {
+        matches!(
+            &case.payload,
+            SchemaDispatchCasePayload::Schema { schema_name }
+                if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
+        )
+    });
+    if mixed_payload_type
+        && (selected_mappings_cover_closed_dispatch(schema, dispatch) || recursive_dispatch_payload)
+    {
         valid = !payload_resolution_failed;
     } else if mixed_payload_type && payload_resolution_failed {
         valid = false;

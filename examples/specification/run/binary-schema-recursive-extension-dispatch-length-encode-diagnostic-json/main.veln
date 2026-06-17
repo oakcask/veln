@@ -1,0 +1,34 @@
+type NodePayload
+	Leaf(Int)
+	Branch({length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>})
+end
+
+type Node
+	Node {length: Int, kind: Int, payload: SchemaDispatchPayload<NodePayload>}
+end
+
+schema RecursiveExtensionNode
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionNode)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = Known(NodePayload::Leaf(payload))
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = Known(NodePayload::Branch(payload))
+end
+
+pub fn main() -> Result<(), EncodeError>
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_recursive_extension_node({length: 2, kind: 1, payload: Known(NodePayload::Branch({length: 1, kind: 0, payload: Known(NodePayload::Leaf(42))}))})
+	match encoded
+		Ok(_) => Ok(())
+		Err(error) => Err(error)
+	end
+end
