@@ -558,17 +558,23 @@ timeout, matching `channel::select_many_priority`.
 receiver list, priority behavior, and timeout behavior as
 `channel::select_many_timeout`, but reports the wait outcome through the result
 boundary used by the other fallible selection helpers.
+`channel::select_many_timeout_cancellable(receivers, timeout_ms, token)` uses
+the same receiver list, priority behavior, timeout behavior, and result value
+shape, and additionally observes the supplied `CancelToken`. It returns
+`Err(SelectError)` when that token is already cancelled or becomes cancelled
+before a ready receiver wins.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver,
 return, and rotating tie-breaking behavior. It also returns `None` when no
 value is selected before the non-negative millisecond timeout elapses. A
 negative timeout waits without a timeout, matching `channel::select`.
 `channel::select_result`, `channel::select_priority_result`,
-`channel::select_many_timeout_result`, and `channel::select_timeout_result`
-use the same readiness, tie-breaking, closed-channel, and timeout rules as
-their non-result counterparts. They return `Ok(Some(selected))` when a
-receiver produces a value, `Ok(None)` when selection closes or times out
-without a value, and `Err(SelectError)` when cooperative cancellation
-interrupts the waiting selection.
+`channel::select_many_timeout_result`,
+`channel::select_many_timeout_cancellable`, and
+`channel::select_timeout_result` use the same readiness, tie-breaking,
+closed-channel, and timeout rules as their non-result counterparts. They
+return `Ok(Some(selected))` when a receiver produces a value, `Ok(None)` when
+selection closes or times out without a value, and `Err(SelectError)` when
+cooperative cancellation interrupts the waiting selection.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread. `task::spawn_with` starts a

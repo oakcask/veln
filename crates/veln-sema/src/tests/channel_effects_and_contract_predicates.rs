@@ -263,6 +263,62 @@ fn channel_select_many_timeout_result_requires_integer_timeout() {
 }
 
 #[test]
+fn channel_select_many_timeout_cancellable_reports_cancellation_with_receiver_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(receivers: List<Receiver<String>>, token: CancelToken) -> Result<Option<{index: Int, value: String}>, SelectError> effects [time, concurrency]\n",
+            "  channel::select_many_timeout_cancellable(receivers, 10, token)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = &core.functions[0];
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("expected cancellable select many timeout return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::result(
+            CoreType::option(CoreType::Record(vec![
+                ("index".to_string(), CoreType::int()),
+                ("value".to_string(), CoreType::string()),
+            ])),
+            CoreType::named("SelectError", Vec::new())
+        )
+    );
+}
+
+#[test]
+fn channel_select_many_timeout_cancellable_requires_cancel_token() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(receivers: List<Receiver<String>>) -> Result<Option<{index: Int, value: String}>, SelectError> effects [time, concurrency]\n",
+            "  channel::select_many_timeout_cancellable(receivers, 10, \"stop\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `CancelToken`, but found `String`"
+    );
+}
+
+#[test]
 fn channel_select_timeout_preserves_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",

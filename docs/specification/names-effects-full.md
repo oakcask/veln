@@ -345,6 +345,7 @@ channel::select_priority(left: Receiver<T>, right: Receiver<T>) -> Option<{index
 channel::select_many_priority(receivers: List<Receiver<T>>) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_many_timeout(receivers: List<Receiver<T>>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_many_timeout_result(receivers: List<Receiver<T>>, timeout_ms: Int) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
+channel::select_many_timeout_cancellable(receivers: List<Receiver<T>>, timeout_ms: Int, token: CancelToken) -> Result<Option<{index: Int, value: T}>, SelectError> effects [time, concurrency]
 channel::select_timeout(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
 channel::select_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_priority_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
@@ -352,9 +353,11 @@ channel::select_timeout_result(left: Receiver<T>, right: Receiver<T>, timeout_ms
 channel::close(tx: Sender<T>) -> () effects [concurrency]
 ```
 
-Direct calls to these functions infer the `concurrency` effect. A public
-function or test that calls one of them must declare `concurrency` in its
-`effects [...]` list.
+Direct calls to these functions infer their listed effects. A public function
+or test that calls one of them must declare those effects in its
+`effects [...]` list. The cancellable receiver-list timeout helper is the
+only channel helper in this set that also infers `time`, because observing its
+`CancelToken` is a time-boundary operation.
 
 `channel::bounded(capacity)` creates a bounded channel pair. Its item type is
 inferred from the expected record type, such as
@@ -394,6 +397,13 @@ receiver list, priority order, and timeout behavior as
 selected value, `Ok(None)` for closed or timed-out selection, and
 `Err(SelectError)` when cooperative cancellation interrupts the waiting
 selection.
+`channel::select_many_timeout_cancellable(receivers, timeout_ms, token)` has
+the same receiver list, priority order, timeout behavior, and selected value
+shape as `channel::select_many_timeout_result`. It returns
+`Ok(Some(selected))` for the first ready receiver in supplied list order,
+`Ok(None)` when the timeout elapses or all supplied receivers close before a
+value is selected, and `Err(SelectError)` when the supplied `CancelToken`
+is already cancelled or becomes cancelled before a ready receiver wins.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative

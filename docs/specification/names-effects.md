@@ -64,10 +64,13 @@ compiler-known calls.
   `channel::select_many_timeout` and
   `channel::select_many_timeout_result` to preserve receiver-list priority
   while returning `None` or `Ok(None)` when no route is ready before the
-  timeout, before invoking a plain handler. A cancellable channel-first
-  adapter composes that
-  receiver-list route with `time::wait_until_cancellable_outcome`; it declares
-  `time` and `concurrency` while the handler boundary remains free of
+  timeout, before invoking a plain handler. Cancellable receiver-list timeout
+  selection uses `channel::select_many_timeout_cancellable` with the same
+  selected value shape and returns `Err(SelectError)` when its
+  source-visible `CancelToken` wins before a ready receiver. A cancellable
+  channel-first adapter composes receiver-list routes with
+  `time::wait_until_cancellable_outcome`; these cancellable adapter paths
+  declare `time` and `concurrency` while the handler boundary remains free of
   transport effects. Other routing adapters require `concurrency`, and socket
   wrappers around them require both `net` and `concurrency`.
 - Prelude helper signatures, value semantics, source-backed helper set, and
