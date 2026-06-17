@@ -1294,16 +1294,19 @@ fn schema_encode_mapping_value_fields(
     };
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let source_context = SchemaEncodeMappingSourceContext {
+        module,
+        schema,
+        schema_field_types: &schema_field_types,
+        exact_width_field_names,
+        allow_single_payload_variant: false,
+    };
     if mapping.selector.is_some()
         || schema_encode_mapping_source_targets(
-            module,
-            schema,
             schema_fields,
-            &schema_field_types,
-            exact_width_field_names,
+            &source_context,
             mapping,
             &target_fields,
-            false,
         )
         .is_none()
     {
@@ -1330,16 +1333,14 @@ fn schema_encode_selected_mapping_value_fields(
         exact_width_field_names,
         first,
     )?;
-    schema_encode_mapping_source_targets(
+    let source_context = SchemaEncodeMappingSourceContext {
         module,
         schema,
-        schema_fields,
-        &schema_field_types,
-        &supported_int_field_names,
-        first,
-        &target_fields,
-        true,
-    )?;
+        schema_field_types: &schema_field_types,
+        exact_width_field_names: &supported_int_field_names,
+        allow_single_payload_variant: true,
+    };
+    schema_encode_mapping_source_targets(schema_fields, &source_context, first, &target_fields)?;
     for mapping in rest {
         mapping.selector.as_ref()?;
         let candidate_target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
@@ -1353,15 +1354,18 @@ fn schema_encode_selected_mapping_value_fields(
             exact_width_field_names,
             mapping,
         )?;
-        schema_encode_mapping_source_targets(
+        let source_context = SchemaEncodeMappingSourceContext {
             module,
             schema,
+            schema_field_types: &schema_field_types,
+            exact_width_field_names: &supported_int_field_names,
+            allow_single_payload_variant: true,
+        };
+        schema_encode_mapping_source_targets(
             schema_fields,
-            &schema_field_types,
-            &supported_int_field_names,
+            &source_context,
             mapping,
             &target_fields,
-            true,
         )?;
     }
     Some(target_fields)
@@ -1397,28 +1401,32 @@ fn schema_encode_mapping_field_types(
     Some((schema_field_types, supported_int_field_names))
 }
 
+struct SchemaEncodeMappingSourceContext<'a> {
+    module: &'a SurfaceModule,
+    schema: &'a SchemaDecl,
+    schema_field_types: &'a BTreeMap<String, Type>,
+    exact_width_field_names: &'a [String],
+    allow_single_payload_variant: bool,
+}
+
 fn schema_encode_mapping_source_targets(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
     schema_fields: &[(String, Type)],
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
+    context: &SchemaEncodeMappingSourceContext<'_>,
     mapping: &veln_ast::SchemaMappingClause,
     target_fields: &[(String, Type)],
-    allow_single_payload_variant: bool,
 ) -> Option<BTreeMap<String, String>> {
     let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
     let mut source_to_target = BTreeMap::<String, String>::new();
     for assignment in &mapping.assignments {
         let target_ty = target_field_types.get(&assignment.target)?;
         let sources = schema_encode_mapping_assignment_sources(
-            module,
-            schema,
-            schema_field_types,
-            exact_width_field_names,
+            context.module,
+            context.schema,
+            context.schema_field_types,
+            context.exact_width_field_names,
             assignment,
             target_ty,
-            allow_single_payload_variant,
+            context.allow_single_payload_variant,
         )?;
         for source in sources {
             if source_to_target
