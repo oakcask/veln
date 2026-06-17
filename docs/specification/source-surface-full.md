@@ -178,16 +178,17 @@ omitted unless explicitly assigned. The parser, formatter, lowered AST, and
 editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
 multiple eligible mapping clauses selected by `when field == literal` or
-`when field != literal`, when all
+`when field != literal`, or by narrow boolean selector expressions over
+decoded schema-local `Int` fields, when all
 schema fields are implemented exact-width unsigned primitives, supported
 reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
 fields, or extension dispatch fields and the target resolves to matching
-record fields. Multiple selected mappings must all use the same decoded `Int`
-selector field and must decode to the same record shape. `==` selector clauses
-overlap only with another `==` clause for the same literal or with a `!=`
-clause for a different literal; `!=` clauses overlap with each other. Missing
-selectors report `schema.mapping_selection_required`, duplicate or overlapping
-selectors report `schema.mapping_selection_ambiguous`, and unsupported selector
+record fields. Multiple selected mappings must decode to the same record
+shape. Selector comparisons may only compare decoded schema-local `Int` fields
+with integer literals, and selector clauses must not overlap for any concrete
+assignment of referenced selector fields. Missing selectors report
+`schema.mapping_selection_required`, duplicate or overlapping selectors report
+`schema.mapping_selection_ambiguous`, and unsupported selector
 or target-shape boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
 record slice, arbitrary calls, converter calls inside arithmetic operands,

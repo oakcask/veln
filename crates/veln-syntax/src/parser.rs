@@ -9,9 +9,9 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingSelector, SchemaMappingSelectorOp, SchemaValidationClause,
-    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    SchemaMappingClause, SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
+    UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -604,7 +604,11 @@ impl<'a> Parser<'a> {
         }
         let target = self.expect_name_path("schema_mapping", "mapping target");
         let selector = self.parse_schema_mapping_selector();
-        let mut end = self.expect_newline("schema_mapping").range;
+        let mut end = if selector.is_some() {
+            self.previous().map_or(start, |token| token.range)
+        } else {
+            self.expect_newline("schema_mapping").range
+        };
 
         let mut assignments = Vec::new();
         let mut assigned_targets = BTreeSet::new();
@@ -644,38 +648,23 @@ impl<'a> Parser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let field = self
-            .expect_ident("schema_mapping", "mapping selector field")
-            .unwrap_or_else(|| "<missing>".to_string());
-        let op = if self.at(TokenKind::EqualEqual) {
-            self.bump();
-            SchemaMappingSelectorOp::Equal
-        } else if self.at(TokenKind::BangEqual) {
-            self.bump();
-            SchemaMappingSelectorOp::NotEqual
-        } else {
-            self.expect(TokenKind::EqualEqual, "schema_mapping", vec!["==", "!="]);
-            SchemaMappingSelectorOp::Equal
-        };
-        let value_token = if self.at(TokenKind::Int) {
-            self.bump()
-        } else {
+        if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
             self.error_current(
                 "parse.schema_mapping_selector",
-                "schema mapping selector must compare a field to an integer literal",
+                "expected schema mapping selector expression",
                 "schema_mapping",
-                vec!["integer literal"],
+                vec!["selector expression"],
                 RecoveryStrategy::InsertToken,
                 Some("newline"),
             );
-            self.current().clone()
-        };
-        let value = value_token.text.parse::<i64>().unwrap_or(0);
+        }
+        let (expr, _) = self.parse_expr_until_newline("schema_mapping_selector");
+        let text = schema_mapping_expr_source_text(self.source, &expr);
+        let end = TextRange::new(expr.span.start.offset, expr.span.end.offset);
         Some(SchemaMappingSelector {
-            field,
-            op,
-            value,
-            span: self.source.span(start.cover(value_token.range)),
+            text,
+            expr,
+            span: self.source.span(start.cover(end)),
         })
     }
 

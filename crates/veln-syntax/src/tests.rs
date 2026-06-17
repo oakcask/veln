@@ -563,9 +563,8 @@ fn parses_and_formats_schema_mapping_inequality_selector() {
         .selector
         .as_ref()
         .expect("selector should parse");
-    assert_eq!(selector.field, "kind");
-    assert!(matches!(selector.op, SchemaMappingSelectorOp::NotEqual));
-    assert_eq!(selector.value, 1);
+    assert_eq!(selector.text, "kind != 1");
+    assert!(matches!(selector.expr.kind, ExprKind::Binary { .. }));
     assert_eq!(
         format_tree(&output.tree),
         concat!(
@@ -576,6 +575,55 @@ fn parses_and_formats_schema_mapping_inequality_selector() {
             "\tvalue: UInt8\n",
             "\n",
             "\tmap to Packet when kind != 1\n",
+            "\t\tkind = kind\n",
+            "\t\tvalue = value\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_and_formats_schema_mapping_boolean_selector() {
+    let source = SourceFile::new(
+        "mapping.veln",
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tkind: UInt8\n",
+            "\tflags: UInt8\n",
+            "\tvalue: UInt8\n",
+            "\n",
+            "\tmap to Packet when kind==1 and not flags==0\n",
+            "\t\tkind = kind\n",
+            "\t\tvalue = value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
+        panic!("expected schema declaration");
+    };
+    let selector = schema.mappings[0]
+        .selector
+        .as_ref()
+        .expect("selector should parse");
+    assert_eq!(selector.text, "kind == 1 and not flags == 0");
+    assert!(matches!(selector.expr.kind, ExprKind::Binary { .. }));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tkind: UInt8\n",
+            "\tflags: UInt8\n",
+            "\tvalue: UInt8\n",
+            "\n",
+            "\tmap to Packet when kind == 1 and not flags == 0\n",
             "\t\tkind = kind\n",
             "\t\tvalue = value\n",
             "end\n",

@@ -102,7 +102,7 @@ grammar_line(106, "CountExpr ::= Name | Name \"-\" Name").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
-grammar_line(107, "SchemaMappingSelector ::= \"when\" Name \"==\" IntLiteral").
+grammar_line(107, "SchemaMappingSelector ::= \"when\" Expr").
 grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Expr NL").
 grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
@@ -401,14 +401,9 @@ schema_mapping -->
 
 schema_mapping_selector_opt -->
     ident_text("when"),
-    ident,
-    schema_mapping_selector_op,
-    tok(int),
+    expr,
     !.
 schema_mapping_selector_opt --> [].
-
-schema_mapping_selector_op --> tok(equal_equal), !.
-schema_mapping_selector_op --> tok(bang_equal), !.
 
 schema_mapping_assignments --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
 schema_mapping_assignments_tail --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
