@@ -1,0 +1,6 @@
+# Source-visible DecodeStep NeedMore entries project focused human diagnostics.
+
+pub fn main() -> DecodeStep<Int>
+	let needed: ByteCount = byte_count(3)?
+	NeedMore(NeedBytes(needed))
+end

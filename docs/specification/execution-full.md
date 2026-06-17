@@ -276,10 +276,15 @@ module path to a `pub codec`.
 For `veln run` entries, a returned
 `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` is projected
 to a focused human runtime diagnostic and `details.byte_diagnostic` JSON using
-the contained diagnostic id, byte offset, and field path. `Decoded` and
-`NeedMore` remain ordinary successful entry values. The checked examples are
-`examples/specification/run/codec-decode-invalid-step-human/` and
-`examples/specification/run/codec-decode-invalid-step-json/`.
+the contained diagnostic id, byte offset, and field path. A returned
+`DecodeStep::NeedMore(readiness)` is projected at the closed-input reporting
+boundary as `codec.incomplete_input`, with readiness and requested byte count
+details from the source-visible `DecodeReadiness` value. `Decoded` remains an
+ordinary successful entry value. The checked examples are
+`examples/specification/run/codec-decode-invalid-step-human/`,
+`examples/specification/run/codec-decode-invalid-step-json/`,
+`examples/specification/run/codec-decode-need-more-human/`, and
+`examples/specification/run/codec-decode-need-more-json/`.
 
 A codec declaration with a valid hand-written `encode with function_name`
 clause exposes the codec item name as an executable encode boundary in

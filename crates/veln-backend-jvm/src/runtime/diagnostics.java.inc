@@ -965,6 +965,35 @@
         );
     }
 
+    public static void registerDecodeNeedMoreByteDiagnostic(Object value, String message) {
+        if (!isAdt(value, "DecodeStep::NeedMore")) {
+            return;
+        }
+        Object readiness = adtPayload(value, 0);
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        long byteOffset = 0L;
+        if (isAdt(readiness, "DecodeReadiness::NeedBytes")) {
+            long neededCount = byteCountLong(adtPayload(readiness, 0));
+            byteOffset = neededCount;
+            details.add(DiagnosticDetail.string("readiness", "need_bytes"));
+            details.add(DiagnosticDetail.number("needed_count", neededCount));
+        } else if (isAdt(readiness, "DecodeReadiness::NeedEnd")) {
+            details.add(DiagnosticDetail.string("readiness", "need_end"));
+        } else {
+            return;
+        }
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "codec.incomplete_input",
+                byteOffset,
+                new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(),
+                details
+            )
+        );
+    }
+
     private static java.util.List<ByteDiagnosticFieldPathSegment> encodeErrorFieldPath(
         String fieldPath
     ) {

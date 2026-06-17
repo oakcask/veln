@@ -20,6 +20,15 @@
         return Result.err(error);
     }
 
+    public static boolean isDecodeStepNeedMore(Object value) {
+        return isAdt(value, "DecodeStep::NeedMore");
+    }
+
+    public static Object decodeStepNeedMoreAsErr(Object value) {
+        registerDecodeNeedMoreByteDiagnostic(value, format(value));
+        return Result.err(value);
+    }
+
     public static void checkContract(
         Object value,
         String clause,

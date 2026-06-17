@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.incomplete_input]: incomplete input at byte offset 3", "note: Decode readiness is `need_bytes` because input is closed.", "note: Decoder needs at least 3 buffered byte(s) before retrying.", "note: DecodeStep value: NeedMore(NeedBytes(ByteCount(3)))."]
