@@ -694,6 +694,8 @@ functions. The checked examples are
 `examples/specification/check/socket-stream-adapter-routing-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn7/`,
 `examples/specification/check/socket-stream-adapter-routing-spawn7-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn8/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn8-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
