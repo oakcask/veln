@@ -177,20 +177,23 @@ lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
 editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
-multiple eligible mapping clauses selected by `when field == literal`, when all
+multiple eligible mapping clauses selected by `when field == literal` or
+`when field != literal`, when all
 schema fields are implemented exact-width unsigned primitives, supported
 reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
 fields, or extension dispatch fields and the target resolves to matching
-record fields. Multiple selected mappings must
-all use the same decoded `Int` selector field, must use distinct selector
-literal values, and must decode to the same record shape. Missing selectors
-report `schema.mapping_selection_required`, duplicate selector values report
-`schema.mapping_selection_ambiguous`, and unsupported selector or target-shape
-boundaries report `schema.mapping_selection` or
+record fields. Multiple selected mappings must all use the same decoded `Int`
+selector field and must decode to the same record shape. `==` selector clauses
+overlap only with another `==` clause for the same literal or with a `!=`
+clause for a different literal; `!=` clauses overlap with each other. Missing
+selectors report `schema.mapping_selection_required`, duplicate or overlapping
+selectors report `schema.mapping_selection_ambiguous`, and unsupported selector
+or target-shape boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
 record slice, arbitrary calls, converter calls inside arithmetic operands,
-value-dependent mapping beyond decoded-field integer arithmetic and equality,
-and encode-side mapping are not implemented.
+value-dependent mapping beyond decoded-field integer arithmetic and equality
+or inequality, and encode-side mapping outside the selected structural slice
+are not implemented.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 keeps the mapping-selection boundary executable.
@@ -317,7 +320,8 @@ structural mapping changes the value boundary uses the mapping target value
 type when the generated encode helper can project that target record back to
 schema-local fields through projectable field, record-expression, field
 selection, or direct ADT constructor mapping expressions. Multiple selected
-`map to Target when field == literal` clauses use that same target value type
+`map to Target when field == literal` or
+`map to Target when field != literal` clauses use that same target value type
 when all selected mappings resolve to it and every schema-local encode field,
 including the selector field, projects back from the selected target record
 through direct source-field assignments. Other mapped encode boundaries are

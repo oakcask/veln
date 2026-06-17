@@ -1069,6 +1069,7 @@ pub(crate) fn selected_mappings_cover_dispatch_cases(
             return false;
         };
         if selector.field != dispatch.tag_field
+            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
             || !case_tags.contains(&selector.value)
             || !selector_tags.insert(selector.value)
         {
@@ -1403,6 +1404,7 @@ fn schema_encode_mapping_field_types(
             continue;
         };
         if selector.field != dispatch.tag_field
+            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
             || (dispatch.preserves_unknown
                 && !recursive_dispatch_payload_is_eligible(
                     schema,
@@ -1651,6 +1653,7 @@ pub(crate) struct SchemaDecodeMapping {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDecodeMappingSelector {
     pub(crate) field: String,
+    pub(crate) op: veln_ast::SchemaMappingSelectorOp,
     pub(crate) value: i64,
 }
 
@@ -1865,6 +1868,7 @@ fn schema_decode_mappings_from_decoded_fields(
                 .as_ref()
                 .map(|selector| SchemaDecodeMappingSelector {
                     field: selector.field.clone(),
+                    op: selector.op,
                     value: selector.value,
                 });
             Some(SchemaDecodeMapping { selector, fields })
@@ -1925,6 +1929,7 @@ pub(crate) fn schema_mapping_source_field_types(
             continue;
         };
         if dispatch.tag_field != selector.field
+            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
             || !selected_mappings_cover_dispatch_cases(schema, &dispatch)
         {
             continue;

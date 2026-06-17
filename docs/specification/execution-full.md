@@ -327,13 +327,13 @@ from those record expressions when the selected field maps directly to one
 schema-local visible field, or the supported direct ADT constructor wrapper
 forms, the helper accepts the mapping target record shape instead and projects
 those target fields back to the schema-local encode record before writing
-bytes. For multiple selected `map to Target when field == literal` clauses,
-the helper accepts the mapping target record shape when all selected mappings
-resolve to that same record shape and every schema-local encode field,
-including the selector field, projects back from the selected target record
-through direct source-field assignments. The helper selects the mapping whose
-projected selector value matches the clause literal and then writes the
-projected schema-local record.
+bytes. For multiple selected `map to Target when field == literal` or
+`map to Target when field != literal` clauses, the helper accepts the mapping
+target record shape when all selected mappings resolve to that same record
+shape and every schema-local encode field, including the selector field,
+projects back from the selected target record through direct source-field
+assignments. The helper selects the mapping whose projected selector value
+satisfies the clause and then writes the projected schema-local record.
 Length-bounded `ByteView(length_field)` and
 `ByteView(left_length - right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier

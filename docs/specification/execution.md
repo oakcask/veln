@@ -429,12 +429,13 @@ execution reference.
   non-HTTP schema and checks successful decode followed by encode.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause, or multiple structural mapping clauses selected by
-  `when field == literal`, and each target resolves to the same decoded record
-  shape whose mapped expressions match the target field types, the
-  helper returns the selected mapped ordinary record shape instead of the
-  schema-local field shape. Mapping selection reads the already decoded `Int`
-  selector field after field-local validation succeeds; selector literals must
-  be distinct so at most one mapping is selected. Mapping assignment
+  `when field == literal` or `when field != literal`, and each target resolves
+  to the same decoded record shape whose mapped expressions match the target
+  field types, the helper returns the selected mapped ordinary record shape
+  instead of the schema-local field shape. Mapping selection reads the already
+  decoded `Int` selector field after field-local validation succeeds; selector
+  clauses must not overlap for any concrete selector value, so at most one
+  mapping is selected. Mapping assignment
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules, or
   call one pure same-module converter function or one imported public pure
@@ -666,13 +667,14 @@ execution reference.
   source-visible values.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
-  Multiple selected mapping clauses selected by `when field == literal` are
-  eligible when all clauses resolve to the same target record shape and every
-  schema-local encode field, including the selector field, projects back from
-  the selected target record through direct source-field assignments. The
-  helper selects the mapping whose projected selector value matches the clause
-  literal, then uses the same generated encode diagnostic shape for selector
-  and projected-field representation failures. Same-module recursive
+  Multiple selected mapping clauses selected by `when field == literal` or
+  `when field != literal` are eligible when all clauses resolve to the same
+  target record shape and every schema-local encode field, including the
+  selector field, projects back from the selected target record through direct
+  source-field assignments. The helper selects the mapping whose projected
+  selector value satisfies the clause, then uses the same generated encode
+  diagnostic shape for selector and projected-field representation failures.
+  Same-module recursive
   closed-dispatch and extension-dispatch payload cases are also eligible in
   the length-bounded form when selected mappings cover every dispatch case,
   all mappings resolve to one record shape, and at least one case is

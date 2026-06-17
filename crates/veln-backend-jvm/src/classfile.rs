@@ -1501,14 +1501,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                         .selector
                         .as_ref()
                         .expect("selected schema mapping should have a selector");
-                    this.emit_object_array(code, 4, |this, code, spec_index| match spec_index {
+                    this.emit_object_array(code, 5, |this, code, spec_index| match spec_index {
                         0 => code.ldc_string("select"),
                         1 => code.ldc_string(&selector.field),
                         2 => {
                             code.ldc_long(selector.value);
                             code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                         }
-                        3 => {
+                        3 => code.ldc_string(match selector.op {
+                            veln_ast::SchemaMappingSelectorOp::Equal => "==",
+                            veln_ast::SchemaMappingSelectorOp::NotEqual => "!=",
+                        }),
+                        4 => {
                             this.emit_object_array(
                                 code,
                                 mapping.fields.len(),

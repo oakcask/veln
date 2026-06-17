@@ -3141,7 +3141,7 @@ fn schema_mapping_selection_diagnostics(
 
     let mut diagnostics = Vec::new();
     let mut selector_field = None::<String>;
-    let mut seen_selectors = BTreeMap::<(String, i64), SourceSpan>::new();
+    let mut seen_selectors = Vec::<(&veln_ast::SchemaMappingSelector, SourceSpan)>::new();
     let mut target_fields = None::<Vec<(String, Type)>>;
     for mapping in &schema.mappings {
         let Some(selector) = &mapping.selector else {
@@ -3167,17 +3167,15 @@ fn schema_mapping_selection_diagnostics(
         } else {
             selector_field = Some(selector.field.clone());
         }
-        if let Some(first_span) = seen_selectors.insert(
-            (selector.field.clone(), selector.value),
-            selector.span.clone(),
-        ) {
+        if let Some((previous, first_span)) = seen_selectors
+            .iter()
+            .find(|(previous, _)| schema_mapping_selectors_overlap(previous, selector))
+        {
             diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
-                schema,
-                mapping,
-                selector,
-                &first_span,
+                schema, mapping, selector, previous, first_span,
             ));
         }
+        seen_selectors.push((selector, selector.span.clone()));
         if let Some(fields) = schema_mapping_target_record_fields(module, schema, mapping) {
             if let Some(first_fields) = &target_fields {
                 if first_fields != &fields {
@@ -3265,24 +3263,52 @@ fn schema_mapping_selection_ambiguous_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
     selector: &veln_ast::SchemaMappingSelector,
+    previous: &veln_ast::SchemaMappingSelector,
     first_span: &SourceSpan,
 ) -> Diagnostic {
+    let duplicate = selector.op == veln_ast::SchemaMappingSelectorOp::Equal
+        && previous.op == veln_ast::SchemaMappingSelectorOp::Equal
+        && selector.value == previous.value;
+    let message = if duplicate {
+        format!(
+            "schema mapping selector `{}` == {} is duplicated",
+            selector.field, selector.value
+        )
+    } else {
+        format!(
+            "schema mapping selector `{}` {} {} overlaps `{}` {} {}",
+            selector.field,
+            schema_mapping_selector_op_text(selector.op),
+            selector.value,
+            previous.field,
+            schema_mapping_selector_op_text(previous.op),
+            previous.value
+        )
+    };
     let mut diagnostic = Diagnostic::new(
         "schema.mapping_selection_ambiguous",
         Severity::Error,
         DiagnosticKind::Type,
-        format!(
-            "schema mapping selector `{}` == {} is duplicated",
-            selector.field, selector.value
-        ),
+        message,
         Some(selector.span.clone()),
         schema_mapping_details(
             selector.node_id.display("schema-mapping-selector"),
             schema,
             mapping,
             [
-                ("reason", JsonValue::string("duplicate_selector")),
+                (
+                    "reason",
+                    JsonValue::string(if duplicate {
+                        "duplicate_selector"
+                    } else {
+                        "overlapping_selector"
+                    }),
+                ),
                 ("selector_field", JsonValue::string(selector.field.clone())),
+                (
+                    "selector_operator",
+                    JsonValue::string(schema_mapping_selector_op_text(selector.op)),
+                ),
                 ("selector_value", JsonValue::Number(selector.value)),
             ],
         ),
@@ -3291,10 +3317,39 @@ fn schema_mapping_selection_ambiguous_diagnostic(
         ("span", span_json(first_span)),
         (
             "message",
-            JsonValue::string("Previous selector with the same field value is here."),
+            JsonValue::string("Previous overlapping selector is here."),
         ),
     ]));
     diagnostic
+}
+
+fn schema_mapping_selectors_overlap(
+    left: &veln_ast::SchemaMappingSelector,
+    right: &veln_ast::SchemaMappingSelector,
+) -> bool {
+    if left.field != right.field {
+        return false;
+    }
+    match (left.op, right.op) {
+        (veln_ast::SchemaMappingSelectorOp::Equal, veln_ast::SchemaMappingSelectorOp::Equal) => {
+            left.value == right.value
+        }
+        (veln_ast::SchemaMappingSelectorOp::Equal, veln_ast::SchemaMappingSelectorOp::NotEqual)
+        | (veln_ast::SchemaMappingSelectorOp::NotEqual, veln_ast::SchemaMappingSelectorOp::Equal) => {
+            left.value != right.value
+        }
+        (
+            veln_ast::SchemaMappingSelectorOp::NotEqual,
+            veln_ast::SchemaMappingSelectorOp::NotEqual,
+        ) => true,
+    }
+}
+
+fn schema_mapping_selector_op_text(op: veln_ast::SchemaMappingSelectorOp) -> &'static str {
+    match op {
+        veln_ast::SchemaMappingSelectorOp::Equal => "==",
+        veln_ast::SchemaMappingSelectorOp::NotEqual => "!=",
+    }
 }
 
 fn schema_mapping_selection_target_diagnostic(

@@ -319,6 +319,7 @@ fn schema_decode_spec_inner_after_push(
                     .selector
                     .map(|selector| IrSchemaDecodeMappingSelector {
                         field: selector.field,
+                        op: selector.op,
                         value: selector.value,
                     }),
                 fields: mapping

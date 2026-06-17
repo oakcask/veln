@@ -402,10 +402,13 @@ schema_mapping -->
 schema_mapping_selector_opt -->
     ident_text("when"),
     ident,
-    tok(equal_equal),
+    schema_mapping_selector_op,
     tok(int),
     !.
 schema_mapping_selector_opt --> [].
+
+schema_mapping_selector_op --> tok(equal_equal), !.
+schema_mapping_selector_op --> tok(bang_equal), !.
 
 schema_mapping_assignments --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
 schema_mapping_assignments_tail --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
