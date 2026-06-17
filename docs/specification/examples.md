@@ -779,6 +779,9 @@ pins the closed dispatch encode helper slice. The passing cases select
 tag field and write one `ByteChunk` in declaration order.
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-encode/`
 pins same-module nested payload encode for a closed dispatch case.
+`../../examples/specification/run/binary-schema-recursive-closed-dispatch-encode/`
+pins same-module recursive payload encode for a length-bounded closed dispatch
+case whose selected mappings cover every dispatch tag.
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`
 pins closed and extension-tolerant nested payload encode through the generated
 schema helper path, including byte-aligned reserved fields and little-endian
@@ -790,6 +793,9 @@ asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
 asserts `codec.encode_value_unrepresentable` against the selected `UInt8`
 payload case.
+`../../examples/specification/run/binary-schema-recursive-dispatch-length-encode-diagnostic-json/`
+asserts `codec.dispatch_length_mismatch` when recursive closed-dispatch encode
+produces a payload byte count that differs from the supplied length field.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-encode/`
 pins the extension-tolerant dispatch encode helper slice. The passing cases
@@ -866,7 +872,7 @@ through a `derive decode` codec boundary, including the returned
 pins the static boundary for nested dispatch payload schema names, including
 missing names, non-schema names, private imported schemas, closed and
 extension self references outside the eligible recursive closed-dispatch
-decode slice, forward references, and incompatible payload shapes.
+slice, forward references, and incompatible payload shapes.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
 is not length-bounded.

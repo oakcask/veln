@@ -2654,6 +2654,87 @@ fn generated_schema_encode_helpers_skip_length_bounded_closed_dispatch_binary_sc
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_for_recursive_closed_dispatch_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type NodePayload\n",
+            "  Leaf(Int)\n",
+            "  Branch({length: Int, kind: Int, payload: NodePayload})\n",
+            "end\n",
+            "\n",
+            "type Node\n",
+            "  Node {length: Int, kind: Int, payload: NodePayload}\n",
+            "end\n",
+            "\n",
+            "schema RecursiveNode\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveNode)\n",
+            "\n",
+            "  map to Node when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = NodePayload::Leaf(payload)\n",
+            "\n",
+            "  map to Node when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = NodePayload::Branch(payload)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, kind: Int, payload: NodePayload}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_recursive_node(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "RecursiveNode"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "RecursiveNode")
+        .expect("recursive node encoder metadata should be emitted");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry dispatch metadata");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert!(!dispatch.preserves_unknown);
+    assert_eq!(dispatch.cases[0].tag, 0);
+    assert_eq!(dispatch.cases[0].width, 1);
+    assert_eq!(dispatch.cases[1].tag, 1);
+    assert_eq!(
+        dispatch.cases[1].payload_schema_name.as_deref(),
+        Some("RecursiveNode")
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",

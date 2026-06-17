@@ -2612,8 +2612,8 @@
             if (field.dispatch != null) {
                 Object encoded = schemaWriteDispatchPayload(
                     fields,
+                    schema,
                     field.dispatch,
-                    schema.name,
                     field.name
                 );
                 if (isErr(encoded)) {
@@ -5115,6 +5115,9 @@
             }
             Object projected = schemaEncodeRecordWithMapping(value, schema, mapping);
             if (isErr(projected)) {
+                if (schemaEncodeProjectionVariantMismatch(projected)) {
+                    continue;
+                }
                 return projected;
             }
             java.util.Map<Object, Object> fields = asMap(unwrapOk(projected));
@@ -5140,6 +5143,16 @@
             ));
         }
         return selected;
+    }
+
+    private static boolean schemaEncodeProjectionVariantMismatch(Object projected) {
+        Object error = resultValue(projected);
+        if (!isAdtNamed(error, "EncodeError::EncodeError")) {
+            return false;
+        }
+        Adt encodeError = asAdt(error, "EncodeError::EncodeError");
+        return asString(encodeError.payloads[0]).equals("codec.encode_mapping_mismatch")
+            && asString(encodeError.payloads[2]).startsWith("expected constructor `");
     }
 
     private static Object schemaEncodeRecordWithMapping(
@@ -6120,33 +6133,50 @@
 
     private static Object schemaWriteDispatchPayload(
         java.util.Map<Object, Object> fields,
+        BinarySchemaSpec schema,
         SchemaDispatchSpec dispatch,
-        String schemaName,
         String fieldName
     ) {
         if (dispatch.preservesUnknown) {
-            return schemaWriteExtensionDispatchPayload(fields, dispatch, schemaName, fieldName);
+            return schemaWriteExtensionDispatchPayload(fields, dispatch, schema.name, fieldName);
         }
         long tagValue = asLong(fields.get(dispatch.tagField));
+        String fieldPath = schema.name + "." + fieldName;
         for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
             if (dispatchCase.tag != tagValue) {
                 continue;
             }
-            if (dispatchCase.payloadSchema != null) {
-                return byteEncodeBinarySchema(fields.get(fieldName), dispatchCase.payloadSchema);
+            BinarySchemaSpec payloadSchema = dispatchCase.payloadSchema(schema);
+            Object encoded;
+            if (payloadSchema != null) {
+                encoded = byteEncodeBinarySchema(fields.get(fieldName), payloadSchema);
+            } else {
+                encoded = schemaWriteUnsigned(
+                    fields.get(fieldName),
+                    dispatchCase.width,
+                    dispatchCase.maxValue,
+                    dispatchCase.littleEndian,
+                    schema.name,
+                    fieldName
+                );
             }
-            return schemaWriteUnsigned(
-                fields.get(fieldName),
-                dispatchCase.width,
-                dispatchCase.maxValue,
-                dispatchCase.littleEndian,
-                schemaName,
-                fieldName
-            );
+            if (isErr(encoded)) {
+                return encoded;
+            }
+            if (!dispatch.lengthField.isEmpty()) {
+                long suppliedLength = asLong(fields.get(dispatch.lengthField));
+                return schemaDispatchLengthCheckedChunk(
+                    unwrapOk(encoded),
+                    suppliedLength,
+                    dispatch.lengthField,
+                    fieldPath
+                );
+            }
+            return encoded;
         }
         return err(encodeError(
             "codec.dispatch_unknown_tag",
-            schemaName + "." + fieldName,
+            fieldPath,
             "tag field `"
                 + dispatch.tagField
                 + "` value "
