@@ -1767,6 +1767,10 @@ against the built `veln` binary.
   boundary passes a ninth ordinary metadata value through
   `task::spawn_with9`, preserving the existing `concurrency` effect and
   socket-free handler shape.
+- `run/socket-stream-adapter-routing-spawn10/`: the same stream-adapter task
+  boundary passes a tenth ordinary metadata value through
+  `task::spawn_with10`, preserving the existing `concurrency` effect and
+  socket-free handler shape.
 - `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
   socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
   translates it into `StreamInput.End`, routes stream inputs through a
@@ -1843,6 +1847,9 @@ against the built `veln` binary.
 - `check/socket-stream-adapter-routing-spawn9-effects/`: the nine-argument
   stream-task boundary has the same effect requirements when a handler
   receives one additional ordinary metadata value through `task::spawn_with9`.
+- `check/socket-stream-adapter-routing-spawn10-effects/`: the ten-argument
+  stream-task boundary has the same effect requirements when a handler
+  receives one additional ordinary metadata value through `task::spawn_with10`.
 - `check/socket-stream-adapter-owned-lifecycle-effects/`: the accepted-stream
   lifecycle shape must declare `net` and `concurrency`, while the handler
   boundary remains free of transport effects.

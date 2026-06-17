@@ -52,8 +52,8 @@ slices, and narrow deadline and cancellation slices, for:
   cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, four-argument, five-argument, six-argument, seven-argument,
-  eight-argument, and nine-argument spawned handler task shapes over ordinary
-  source values
+  eight-argument, nine-argument, and ten-argument spawned handler task shapes
+  over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -173,6 +173,8 @@ The eight-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with8.md`.
 The nine-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with9.md`.
+The ten-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with10.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -238,8 +240,9 @@ The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with5.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with6.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with7.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with8.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with9.md`.
+`../reference/implemented-proposals/network-stream-task-spawn-with8.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with9.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with10.md`.
 
 ## Discussion Result: Transport Error Boundary
 
