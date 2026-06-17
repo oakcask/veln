@@ -569,7 +569,9 @@ freezing all four ordinary source values at the task boundary.
 `task::spawn_with5` starts a five-argument callable on a JVM thread after
 freezing all five ordinary source values at the task boundary.
 `task::spawn_with6` starts a six-argument callable on a JVM thread after
-freezing all six ordinary source values at the task boundary. All task spawn
+freezing all six ordinary source values at the task boundary.
+`task::spawn_with7` starts a seven-argument callable on a JVM thread after
+freezing all seven ordinary source values at the task boundary. All task spawn
 helpers freeze the returned value before it crosses back through the task
 handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
 completion or `Err(JoinError)` on interruption, cancellation, or runtime
@@ -674,12 +676,17 @@ boundary value before handler invocation. The same checked boundary also joins
 a spawned stream-handler task that passes ordinary event, state, and adapter
 context values plus one routing metadata value and two additional ordinary
 metadata values directly through `task::spawn_with6` instead of bundling them
-into one adapter record first.
+into one adapter record first. The seven-argument stream-task case extends the
+same boundary with one more ordinary metadata value through
+`task::spawn_with7`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
 functions. The checked examples are
 `examples/specification/run/socket-stream-adapter-routing/`,
+`examples/specification/check/socket-stream-adapter-routing-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn7/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn7-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,

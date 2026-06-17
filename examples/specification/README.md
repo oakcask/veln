@@ -1730,6 +1730,10 @@ against the built `veln` binary.
   additional ordinary metadata values into a six-argument spawned stream-task
   handler path, joined, and projected back to ordered socket writes by adapter
   code.
+- `run/socket-stream-adapter-routing-spawn7/`: the same stream-adapter task
+  boundary passes a seventh ordinary metadata value through
+  `task::spawn_with7`, preserving the existing `concurrency` effect and
+  socket-free handler shape.
 - `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
   socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
   translates it into `StreamInput.End`, routes stream inputs through a
@@ -1797,6 +1801,9 @@ against the built `veln` binary.
   handler that receives only ordinary event, state, adapter context, routing
   metadata, and two additional ordinary metadata values requires
   `concurrency` but stays free of `net` and `time`.
+- `check/socket-stream-adapter-routing-spawn7-effects/`: the seven-argument
+  stream-task boundary has the same effect requirements when a handler
+  receives one more ordinary metadata value through `task::spawn_with7`.
 - `check/socket-stream-adapter-owned-lifecycle-effects/`: the accepted-stream
   lifecycle shape must declare `net` and `concurrency`, while the handler
   boundary remains free of transport effects.
