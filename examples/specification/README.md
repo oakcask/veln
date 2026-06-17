@@ -1777,8 +1777,9 @@ against the built `veln` binary.
   handler shape with explicit per-stream state.
 - `run/channel-select-many-timeout/`: receiver-list timeout selection keeps
   supplied receiver order as priority order, returns `None` when no receiver
-  becomes ready before the timeout, and routes ordinary `StreamInput` values
-  to the same pure stream handler shape.
+  becomes ready before the timeout, returns `Ok(Some(...))` and `Ok(None)`
+  through the result boundary, and routes ordinary `StreamInput` values to the
+  same pure stream handler shape.
 - `run/stream-adapter-cancellable-channel-first-routing/`: receiver-list
   channel-first routing can compose with value-returning cancellable waits
   while preserving ordinary handler inputs and response action values.
@@ -1820,8 +1821,8 @@ against the built `veln` binary.
   receiver-list channel-first stream routing keeps the same handler boundary:
   routing declares `concurrency`, and the handler remains effect-free.
 - `check/channel-select-many-timeout-effects/`: receiver-list timeout
-  selection keeps the same effect boundary: the routing adapter declares
-  `concurrency`, and the handler remains effect-free.
+  result selection keeps the same effect boundary: the routing adapter
+  declares `concurrency`, and the handler remains effect-free.
 - `check/stream-adapter-cancellable-channel-first-routing-effects/`:
   receiver-list channel-first routing plus value-returning cancellable waits
   requires `time` and `concurrency`, and the handler remains effect-free.

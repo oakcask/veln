@@ -28,6 +28,14 @@ fn timeout_score(selected: Option<{ index : Int, value : Int }>) -> Int
 	end
 end
 
+fn result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
 		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
@@ -77,6 +85,17 @@ pub fn main() -> Result<(), String> effects [concurrency, stdio]
 	let timeout_second = channel::bounded<Int>(1)
 	let timeout_receivers: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))
 	let timeout_selected = channel::select_many_timeout(timeout_receivers, 0)
+	let result_first = channel::bounded<Int>(1)
+	let result_second = channel::bounded<Int>(1)
+	let result_third = channel::bounded<Int>(1)
+	let _ = channel::send(result_second.tx, 21)
+	let _ = channel::send(result_third.tx, 34)
+	let result_receivers: List<Receiver<Int>> = list_cons(result_first.rx, list_cons(result_second.rx, list_cons(result_third.rx, list_nil())))
+	let result_selected = channel::select_many_timeout_result(result_receivers, 25)
+	let result_timeout_first = channel::bounded<Int>(1)
+	let result_timeout_second = channel::bounded<Int>(1)
+	let result_timeout_receivers: List<Receiver<Int>> = list_cons(result_timeout_first.rx, list_cons(result_timeout_second.rx, list_nil()))
+	let result_timeout_selected = channel::select_many_timeout_result(result_timeout_receivers, 0)
 	let stream_bytes: ByteChunk = byte_chunk_from_hex("abcd")?
 	let stream_first = channel::bounded<StreamInput>(1)
 	let stream_second = channel::bounded<StreamInput>(1)
@@ -88,6 +107,10 @@ pub fn main() -> Result<(), String> effects [concurrency, stdio]
 	stdio::print(int_to_string(ready_score(ready_selected)))
 	stdio::print(" timeout ")
 	stdio::print(int_to_string(timeout_score(timeout_selected)))
+	stdio::print(" result ")
+	stdio::print(int_to_string(result_score(result_selected)))
+	stdio::print(" result-timeout ")
+	stdio::print(int_to_string(result_score(result_timeout_selected)))
 	stdio::print(" route-actions ")
 	stdio::print(int_to_string(action_score(handled.actions)))
 	stdio::print(" chunks ")

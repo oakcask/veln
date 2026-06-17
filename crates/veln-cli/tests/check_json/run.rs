@@ -285,6 +285,47 @@ fn run_executes_channel_select_result_when_jdk_is_available() {
 }
 
 #[test]
+fn run_executes_channel_select_many_timeout_result_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-channel-select-many-timeout-result");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn output_score(selected: Result<Option<{index: Int, value: Int}>, SelectError>) -> Int\n",
+            "  match selected\n",
+            "    Ok(Some(value)) => value.index * 100 + value.value\n",
+            "    Ok(None) => 0\n",
+            "    Err(_) => -1\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> () effects [concurrency, stdio]\n",
+            "  let first: {tx: Sender<Int>, rx: Receiver<Int>} = channel::bounded(1)\n",
+            "  let second: {tx: Sender<Int>, rx: Receiver<Int>} = channel::bounded(1)\n",
+            "  let third: {tx: Sender<Int>, rx: Receiver<Int>} = channel::bounded(1)\n",
+            "  let _ = channel::send(second.tx, 21)\n",
+            "  let _ = channel::send(third.tx, 34)\n",
+            "  let ready: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_nil())))\n",
+            "  stdio::println(int_to_string(output_score(channel::select_many_timeout_result(ready, 10))))\n",
+            "  let timeout_first: {tx: Sender<Int>, rx: Receiver<Int>} = channel::bounded(1)\n",
+            "  let timeout_second: {tx: Sender<Int>, rx: Receiver<Int>} = channel::bounded(1)\n",
+            "  let waiting: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))\n",
+            "  stdio::println(int_to_string(output_score(channel::select_many_timeout_result(waiting, 0))))\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "121\n0\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_executes_task_spawn_and_join_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

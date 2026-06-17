@@ -200,7 +200,7 @@ compare it with `../specification/` before changing behavior.
   adapter-owned listener-to-clean-stream-end lifecycle, network task
   two-argument, three-argument, four-argument, and five-argument spawn,
   deadline-aware accepted-stream lifecycle, and receiver-list cancellable
-  channel-first routing
+  channel-first routing plus receiver-list timeout-result selection
   slices documented under `../specification/`; completed proposal records live
   under `../reference/implemented-proposals/`.
 

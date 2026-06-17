@@ -23,5 +23,5 @@ message = "public function uses undeclared effect `concurrency`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 30
+line = 37
 column = 1

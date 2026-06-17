@@ -100,8 +100,10 @@ execution reference.
   state. The receiver-list priority examples use
   `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`; the timeout example uses
-  `channel::select_many_timeout` to preserve supplied list order as priority
-  order while returning `None` when no receiver is ready before the timeout.
+  `channel::select_many_timeout` and
+  `channel::select_many_timeout_result` to preserve supplied list order as
+  priority order while returning `None` or `Ok(None)` when no receiver is
+  ready before the timeout.
   When multiple receivers are ready, the earliest receiver in the supplied
   list wins. The handler remains an ordinary source function over stream input
   and state; adapter code owns channel routing, and socket wrappers around the
