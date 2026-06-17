@@ -48,13 +48,14 @@ emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
 truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema
-helpers also consume and encode a one-byte reserved prefix group where
-`ReservedBits(width, value)` is followed by two visible `UIntN` fields and
-all three widths complete the byte. The helpers validate or emit the high
-reserved bits, decode or encode the two visible fields from high to low, omit
-the reserved field from decoded records and mapping source values, and report
-the same reserved-bit mismatch, truncation, and
-`codec.encode_value_unrepresentable` diagnostic shapes.
+helpers also consume and encode one-byte and selected two-byte big-endian
+reserved prefix groups where `ReservedBits(width, value)` is followed by two
+visible `UIntN` fields and all three widths complete the storage unit. The
+two-byte slice covers reserved widths nine through fourteen. The helpers
+validate or emit the high reserved bits, decode or encode the two visible
+fields from high to low, omit the reserved field from decoded records and
+mapping source values, and report the same reserved-bit mismatch, truncation,
+and `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
 group contains at least one visible field and at least one reserved field and
@@ -311,8 +312,9 @@ for:
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
-  or four-byte big-endian storage unit, one-byte reserved prefix groups
-  followed by two visible `UIntN` fields, and consecutive non-byte-aligned
+  or four-byte big-endian storage unit, one-byte and selected two-byte
+  reserved prefix groups followed by two visible `UIntN` fields, and
+  consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
   one two-byte, three-byte, or four-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset,
@@ -481,8 +483,8 @@ three-byte, and four-byte packed reserved suffix slice, and the
 `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
-storage unit, and one-byte reserved prefix groups followed by two visible
-`UIntN` fields, and consecutive non-byte-aligned `UIntN` and
+storage unit, and one-byte and selected two-byte reserved prefix groups
+followed by two visible `UIntN` fields, and consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups that complete one byte or one two-byte,
 three-byte, or four-byte big-endian storage unit are implemented under
 `../specification/execution.md`. Remaining proposal work is limited to

@@ -220,6 +220,9 @@ plus reserved suffix layouts whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
+supported `ReservedBits(width, value)` plus two visible `UIntN` prefix groups
+whose widths sum to eight bits or to sixteen bits with reserved width nine
+through fourteen,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,

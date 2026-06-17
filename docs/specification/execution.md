@@ -300,10 +300,12 @@ execution reference.
   validates the middle reserved field at the reserved field path, omits the
   reserved field, and advances by the shared storage width. A supported
   prefix group may also place `ReservedBits(width, value)` before two visible
-  `UIntN` fields when all three widths complete one byte. That form validates
-  the high reserved bits, decodes the following visible fields from their
-  declared high-to-low positions, omits the reserved field, and advances by
-  the shared storage width. The same shared-storage rule also covers
+  `UIntN` fields when all three widths complete one byte or a two-byte
+  big-endian storage unit with reserved width nine through fourteen. That
+  form validates the high reserved bits, decodes the following visible fields
+  from their declared high-to-low positions, omits the reserved field, and
+  advances by the shared storage width. The same shared-storage rule also
+  covers
   consecutive non-byte-aligned `UIntN` and `ReservedBits(width, value)`
   fields when the group contains at least one visible field and at least one
   reserved field, every visible field is a big-endian sub-byte `UIntN`, and
@@ -600,10 +602,12 @@ execution reference.
   values around the declared reserved value in declaration order and reports
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
   A supported prefix group with `ReservedBits(width, value)` followed by two
-  visible `UIntN` fields whose widths complete one byte writes the declared
-  reserved value first, then the two visible values in declaration order, and
-  reports `codec.encode_value_unrepresentable` at the out-of-range visible
-  field. The same shared-storage encode rule also covers consecutive
+  visible `UIntN` fields whose widths complete one byte or a two-byte
+  big-endian storage unit with reserved width nine through fourteen writes
+  the declared reserved value first, then the two visible values in
+  declaration order, and reports `codec.encode_value_unrepresentable` at the
+  out-of-range visible field. The same shared-storage encode rule also covers
+  consecutive
   non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
   group contains at least one visible field and at least one reserved field,
   every visible field is a big-endian sub-byte `UIntN`, and the declared
