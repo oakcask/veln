@@ -47,7 +47,8 @@ compiler-known calls.
   handler tasks over ordinary event, state, adapter context, routing metadata,
   and two additional ordinary metadata values using `task::spawn_with6`,
   plus a seven-argument variant with one more ordinary metadata value using
-  `task::spawn_with7`,
+  `task::spawn_with7`, and an eight-argument variant with one additional
+  ordinary metadata value using `task::spawn_with8`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, and ordered write projection; they
   add no new effect label or compiler-known routing call. The owned-lifecycle

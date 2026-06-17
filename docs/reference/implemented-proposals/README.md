@@ -78,6 +78,8 @@ behavior.
   [network-stream-task-spawn-with6.md](network-stream-task-spawn-with6.md).
 - Network stream task spawn with7:
   [network-stream-task-spawn-with7.md](network-stream-task-spawn-with7.md).
+- Network stream task spawn with8:
+  [network-stream-task-spawn-with8.md](network-stream-task-spawn-with8.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 
