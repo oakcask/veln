@@ -4672,6 +4672,69 @@ fn codec_derive_decode_resolves_as_schema_decode_step_boundary() {
 }
 
 #[test]
+fn codec_derive_decode_resolves_middle_reserved_schema_decode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MiddleReservedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  high: UInt3\n",
+            "  gap: ReservedBits(2, 1)\n",
+            "  low: UInt3\n",
+            "end\n",
+            "\n",
+            "codec MiddleReservedCodec for MiddleReservedHeader decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
+            "  MiddleReservedCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "MiddleReservedHeader"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "MiddleReservedHeader"
+    ));
+}
+
+#[test]
 fn codec_derive_decode_resolves_nested_dispatch_schema_decode_step_boundary() {
     let source = SourceFile::new(
         "main.veln",

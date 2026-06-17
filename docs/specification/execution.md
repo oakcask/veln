@@ -805,9 +805,10 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
-  repeat-backed schemas, same-module or public imported nested dispatch
-  payload schemas, and multiple decoded-field selected schema mappings already
-  accepted by `byte_decode_step_<schema>`. The call accepts a bounded
+  supported middle reserved-bit layouts, repeat-backed schemas, same-module or
+  public imported nested dispatch payload schemas, and multiple decoded-field
+  selected schema mappings already accepted by `byte_decode_step_<schema>`.
+  The call accepts a bounded
   `ByteView` and explicit base `ByteOffset` and returns the same
   `DecodeStep<T>` value as
   `byte_decode_step_<schema>`, including mapped record values,
