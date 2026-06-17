@@ -1051,6 +1051,12 @@ case pins that adapter-owned routing must declare the existing `net` and
 new routing effect, while the spawned handler that receives only ordinary
 event, state, adapter context, routing metadata, and two additional ordinary
 metadata values stays free of `net` and `time`.
+The
+`../../examples/specification/run/socket-stream-adapter-routing-spawn7/` and
+`../../examples/specification/check/socket-stream-adapter-routing-spawn7-effects/`
+cases extend that task boundary to seven ordinary source values with
+`task::spawn_with7` while preserving the same socket ownership and effect
+boundary.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-clean-end/` covers the
