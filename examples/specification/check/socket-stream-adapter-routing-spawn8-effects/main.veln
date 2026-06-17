@@ -1,0 +1,76 @@
+# Eight-argument socket-to-handler task routing must declare effects.
+type StreamEvent
+	Request {stream_id: Int, payload: ByteChunk}
+	PeerClosed {stream_id: Int}
+end
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	match event
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, state.marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + 1, marker: payload } }
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn handle_stream_event_with_context(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }, metadata: { metadata_offset : Int, metadata_marker : ByteChunk }, audit: { audit_offset : Int, audit_marker : ByteChunk }, trace: { trace_offset : Int, trace_marker : ByteChunk }, shard: { shard_offset : Int, shard_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	match event
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, shard.shard_marker), list_cons(SendBytes(stream_id, trace.trace_marker), list_cons(SendBytes(stream_id, audit.audit_marker), list_cons(SendBytes(stream_id, metadata.metadata_marker), list_cons(SendBytes(stream_id, routing.route_marker), list_cons(SendBytes(stream_id, context.adapter_marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil())))))))), next_state: { request_count: state.request_count + context.adapter_id + routing.stream_offset + metadata.metadata_offset + audit.audit_offset + trace.trace_offset + shard.shard_offset, marker: payload } }
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn spawned_stream_handler(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }, metadata: { metadata_offset : Int, metadata_marker : ByteChunk }, audit: { audit_offset : Int, audit_marker : ByteChunk }, trace: { trace_offset : Int, trace_marker : ByteChunk }, shard: { shard_offset : Int, shard_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	handle_stream_event_with_context(event, state, context, routing, metadata, audit, trace, shard)
+end
+
+fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
+	let first_incoming: ByteChunk = net::read_chunk(stream)
+	let second_incoming: ByteChunk = net::read_chunk(stream)
+	let route = channel::bounded<StreamEvent>(1)
+	let _ = channel::send(route.tx, Request(stream_id, first_incoming))
+	let first_event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(stream_id)
+	end
+	let first_result = handle_stream_event(first_event, state)
+	let _ = channel::send(route.tx, Request(stream_id, second_incoming))
+	let second_event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(stream_id)
+	end
+	handle_stream_event(second_event, first_result.next_state)
+end
+
+pub fn handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	handle_stream_event(event, state)
+end
+
+pub fn task_handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }, context: { adapter_id : Int, deadline : Deadline, adapter_marker : ByteChunk }, routing: { stream_offset : Int, route_marker : ByteChunk }, metadata: { metadata_offset : Int, metadata_marker : ByteChunk }, audit: { audit_offset : Int, audit_marker : ByteChunk }, trace: { trace_offset : Int, trace_marker : ByteChunk }, shard: { shard_offset : Int, shard_marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	let worker = task::spawn_with8<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, event, state, context, routing, metadata, audit, trace, shard)
+	match task::join(worker)
+		Ok(value) => value
+		Err(_) => { actions: list_nil(), next_state: state }
+	end
+end
+
+pub fn adapter_missing_concurrency(stream: NetStream, state: { request_count : Int, marker : ByteChunk }, deadline: Deadline) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
+	let marker: ByteChunk = byte_chunk([])
+	let context = { adapter_id: 1, deadline: deadline, adapter_marker: marker }
+	let routing = { stream_offset: 1, route_marker: marker }
+	let metadata = { metadata_offset: 1, metadata_marker: marker }
+	let audit = { audit_offset: 1, audit_marker: marker }
+	let trace = { trace_offset: 1, trace_marker: marker }
+	let shard = { shard_offset: 1, shard_marker: marker }
+	let worker = task::spawn_with8<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler, Request(11, marker), state, context, routing, metadata, audit, trace, shard)
+	let _ = task::join(worker)
+	route_socket_events(stream, 7, state)
+end
+
+pub fn adapter_missing_net(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	route_socket_events(stream, 7, state)
+end

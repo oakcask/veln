@@ -575,12 +575,14 @@ freezing all five ordinary source values at the task boundary.
 `task::spawn_with6` starts a six-argument callable on a JVM thread after
 freezing all six ordinary source values at the task boundary.
 `task::spawn_with7` starts a seven-argument callable on a JVM thread after
-freezing all seven ordinary source values at the task boundary. All task spawn
-helpers freeze the returned value before it crosses back through the task
-handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
-completion or `Err(JoinError)` on interruption, cancellation, or runtime
-failure. `task::cancel` requests cooperative cancellation by interrupting the
-task.
+freezing all seven ordinary source values at the task boundary.
+`task::spawn_with8` starts an eight-argument callable on a JVM thread after
+freezing all eight ordinary source values at the task boundary. All task
+spawn helpers freeze the returned value before it crosses back through the
+task handle. `task::join` waits for that task and returns `Ok(value)` on
+ordinary completion or `Err(JoinError)` on interruption, cancellation, or
+runtime failure. `task::cancel` requests cooperative cancellation by
+interrupting the task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
@@ -682,7 +684,8 @@ context values plus one routing metadata value and two additional ordinary
 metadata values directly through `task::spawn_with6` instead of bundling them
 into one adapter record first. The seven-argument stream-task case extends the
 same boundary with one more ordinary metadata value through
-`task::spawn_with7`.
+`task::spawn_with7`, and the eight-argument stream-task case extends it with
+one additional ordinary metadata value through `task::spawn_with8`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
