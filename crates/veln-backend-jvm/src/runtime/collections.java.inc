@@ -4594,7 +4594,7 @@
         long diagnosticBaseOffset = byteOffsetLong(baseOffset);
         Object decoded = byteDecodeBinarySchemaWithBase(view, schema, diagnosticBaseOffset);
         if (isErr(decoded)) {
-            return invalidDecodeStep("schema.decode_failed", baseOffset, schema.name);
+            return invalidDecodeStepFromSchemaDecodeError(decoded, baseOffset, schema.name);
         }
         long consumedWidth = schemaConsumedWidth(view, schema, diagnosticBaseOffset);
         return adt(
@@ -4963,6 +4963,22 @@
                     new Object[] { id, baseOffset, fieldPath }
                 )
             }
+        );
+    }
+
+    private static Object invalidDecodeStepFromSchemaDecodeError(
+        Object decoded,
+        Object baseOffset,
+        String schemaName
+    ) {
+        ByteDiagnostic diagnostic = byteDiagnosticForMessage(resultValue(decoded));
+        if (diagnostic == null) {
+            return invalidDecodeStep("schema.decode_failed", baseOffset, schemaName);
+        }
+        return invalidDecodeStep(
+            diagnostic.id,
+            byteOffsetObject(diagnostic.byteOffset),
+            byteDiagnosticFieldPathDisplay(diagnostic)
         );
     }
 

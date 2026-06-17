@@ -1191,6 +1191,10 @@ against the built `veln` binary.
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the
   codec item name while preserving mapped record fields and no-consumption
   outcomes.
+- `run/derived-codec-middle-reserved-decode-boundary/`: the same `derive
+  decode` boundary observes generated decode-step helper output for a
+  supported middle reserved-bit layout, including readiness and reserved-bit
+  mismatch outcomes.
 - `run/codec-needmore-parser-state/`: caller-owned parser state drops exactly
   the consumed prefix and advances the explicit base offset after `Decoded`,
   decodes again over the retained suffix, and keeps pending bytes plus base

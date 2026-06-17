@@ -105,6 +105,13 @@
     private static final ThreadLocal<java.util.Map<String, ProtocolDiagnostic>> protocolDiagnostics =
         ThreadLocal.withInitial(java.util.HashMap::new);
 
+    private static ByteDiagnostic byteDiagnosticForMessage(Object message) {
+        if (!(message instanceof String)) {
+            return null;
+        }
+        return byteDiagnostics.get().get(asString(message));
+    }
+
     private static void registerHttp2ProtocolClosedWithPendingDiagnostic(
         String message,
         long byteOffset,
@@ -987,6 +994,18 @@
         String out = "";
         for (ByteDiagnosticFieldPathSegment segment : fieldPath) {
             out = out + "\t" + segment.kind + "\t" + hex(segment.name);
+        }
+        return out;
+    }
+
+    private static String byteDiagnosticFieldPathDisplay(ByteDiagnostic diagnostic) {
+        String out = "";
+        for (ByteDiagnosticFieldPathSegment segment : diagnostic.fieldPath) {
+            if (out.isEmpty()) {
+                out = segment.name;
+            } else {
+                out = out + "." + segment.name;
+            }
         }
         return out;
     }

@@ -99,8 +99,9 @@ compare it with `../specification/` before changing behavior.
   mapped decode value boundary, encode function return and mapped value
   parameter boundaries, derived codec mapping value boundary checks,
   source-visible decode and encode result vocabulary, generated binary schema
-  decode-step helper slice for implemented exact-width, repeat-backed, and
-  same-module and public imported nested dispatch payload boundaries,
+  decode-step helper slice for implemented exact-width, middle reserved,
+  repeat-backed, and same-module and public imported nested dispatch payload
+  boundaries,
   hand-written codec decode consumed-count validation, hand-written codec
   encode and decode execution boundaries including caller-owned parser-state
   retention around `Decoded` and `NeedMore`, source-visible partial encode

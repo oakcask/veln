@@ -30,11 +30,11 @@ items preserve explicit `decode` and `encode` directions plus `derive` and
 `with` body clauses. The implemented execution slice covers hand-written
 decode calls, hand-written encode calls, derived decode calls for schemas that
 are already eligible for the generated exact-width binary schema decode-step
-helper, and derived encode calls for schemas that are already eligible for the
-generated binary schema encode helper, including the checked non-HTTP
-composite helper shape, selected structural mapping encode slice, and
-caller-owned parser-state retention around `Decoded` and `NeedMore` in
-`../specification/execution.md`.
+helper, including supported middle reserved layouts, and derived encode calls
+for schemas that are already eligible for the generated binary schema encode
+helper, including the checked non-HTTP composite helper shape, selected
+structural mapping encode slice, and caller-owned parser-state retention
+around `Decoded` and `NeedMore` in `../specification/execution.md`.
 
 Define codec support for:
 
@@ -220,8 +220,9 @@ implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
 decode-step slice, including same-module nested dispatch payload helper
-schemas, public imported nested dispatch payload helper schemas, and
-repeat-backed schemas. The implemented derived encode execution slice exposes
+schemas, public imported nested dispatch payload helper schemas,
+repeat-backed schemas, and supported middle reserved layouts. The implemented
+derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated
 `byte_encode_<schema>` behavior when the schema is in the currently
 implemented binary schema encode helper slice, including direct structural

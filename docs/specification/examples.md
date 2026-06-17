@@ -128,6 +128,12 @@ decode-step slice: a codec item call observes the generated helper's
 `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
 item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
+`../../examples/specification/run/derived-codec-middle-reserved-decode-boundary/`
+covers the same derived codec call boundary for a middle reserved-bit binary
+layout. It checks successful decode, short-input readiness, and a
+reserved-bit mismatch whose `DecodeError` preserves the reserved field path
+and byte offset.
+The executable specification case
 `../../examples/specification/run/codec-needmore-parser-state/` covers
 caller-owned parser state around the codec boundary. It checks that `Decoded`
 advances the retained suffix and explicit base offset by the consumed count,
