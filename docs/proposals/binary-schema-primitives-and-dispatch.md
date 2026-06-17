@@ -484,9 +484,9 @@ three-byte, and four-byte packed reserved suffix slice, and the
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
 storage unit, and one-byte and selected two-byte reserved prefix groups
-followed by two visible `UIntN` fields, and consecutive non-byte-aligned `UIntN` and
-`ReservedBits(width, value)` groups that complete one byte or one two-byte,
-three-byte, or four-byte big-endian storage unit are implemented under
+followed by two visible `UIntN` fields, and consecutive non-byte-aligned
+`UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
+two-byte, three-byte, or four-byte big-endian storage unit are implemented under
 `../specification/execution.md`. Remaining proposal work is limited to
 non-byte-aligned shapes outside those layouts and any later opt-in mapping
 exposure.
