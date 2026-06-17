@@ -108,8 +108,8 @@ This proposal remains open for:
   construction, ADT constructor construction, single pure same-module or
   imported public representation conversion hook expression slice, field
   selection from record-shaped structural mapping expressions, decoded-field
-  integer mapping arithmetic, and decoded-field integer equality mapping
-  selection
+  integer mapping arithmetic, and decoded-field integer equality or inequality
+  mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition surfaces beyond codec
@@ -447,7 +447,8 @@ Remaining:
   reference, record construction, ADT constructor construction, one pure
   same-module or imported public converter call, field selection from
   record-shaped structural mapping expressions, decoded-field integer
-  arithmetic, and decoded-field integer equality selection slices.
+  arithmetic, and decoded-field integer equality or inequality selection
+  slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

@@ -485,6 +485,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
+  `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
   `examples/specification/run/binary-schema-mapped-field-selection-decode/`,
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`,
   and
