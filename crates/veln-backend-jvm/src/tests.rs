@@ -260,6 +260,44 @@ public final class RuntimePathHarness {
 }
 "#;
 
+const RUNTIME_CHANNEL_SELECT_MANY_TIMEOUT_RESULT_HARNESS: &str = r#"
+public final class RuntimeChannelSelectManyTimeoutResultHarness {
+    public static void main(String[] args) {
+        Object first = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object second = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object third = VelnRuntime.channelBounded(Long.valueOf(1));
+        VelnRuntime.channelSend(VelnRuntime.recordField(second, "tx"), Long.valueOf(21));
+        VelnRuntime.channelSend(VelnRuntime.recordField(third, "tx"), Long.valueOf(34));
+        Object readyReceivers = VelnRuntime.listCons(
+            VelnRuntime.recordField(first, "rx"),
+            VelnRuntime.listCons(
+                VelnRuntime.recordField(second, "rx"),
+                VelnRuntime.listCons(VelnRuntime.recordField(third, "rx"), VelnRuntime.listNil())
+            )
+        );
+        System.out.println(VelnRuntime.channelSelectManyTimeoutResult(readyReceivers, Long.valueOf(10)));
+
+        Object timeoutFirst = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object timeoutSecond = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object timeoutReceivers = VelnRuntime.listCons(
+            VelnRuntime.recordField(timeoutFirst, "rx"),
+            VelnRuntime.listCons(VelnRuntime.recordField(timeoutSecond, "rx"), VelnRuntime.listNil())
+        );
+        System.out.println(VelnRuntime.channelSelectManyTimeoutResult(timeoutReceivers, Long.valueOf(0)));
+
+        Object interruptFirst = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object interruptSecond = VelnRuntime.channelBounded(Long.valueOf(1));
+        Object interruptReceivers = VelnRuntime.listCons(
+            VelnRuntime.recordField(interruptFirst, "rx"),
+            VelnRuntime.listCons(VelnRuntime.recordField(interruptSecond, "rx"), VelnRuntime.listNil())
+        );
+        Thread.currentThread().interrupt();
+        System.out.println(VelnRuntime.channelSelectManyTimeoutResult(interruptReceivers, Long.valueOf(10000)));
+        Thread.interrupted();
+    }
+}
+"#;
+
 #[test]
 fn bytecode_backend_emits_classfiles_without_java_sources() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -1036,6 +1074,57 @@ fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_availabl
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "Ok(true)\nOk(true)\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_reports_receiver_list_timeout_result_outcomes_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-channel-select-many-timeout-result");
+    write_jvm_program(&root, &program);
+    fs::write(
+        root.join("RuntimeChannelSelectManyTimeoutResultHarness.java"),
+        RUNTIME_CHANNEL_SELECT_MANY_TIMEOUT_RESULT_HARNESS,
+    )
+    .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimeChannelSelectManyTimeoutResultHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimeChannelSelectManyTimeoutResultHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Ok(Some({index=1, value=21}))\nOk(None)\nErr(interrupted)\n"
     );
 }
 
