@@ -1023,11 +1023,17 @@ execution reference.
   connection and stream credit. Payloads larger than the peer-advertised
   maximum frame size are emitted in one immutable output chunk containing
   multiple DATA frames, each no larger than that maximum, with `END_STREAM`
-  only on the final DATA frame when requested. Accepted DATA consumes outbound
-  connection and stream credit by the full payload length after all split
-  frames encode. Over-window DATA intents are rejected before output bytes or
-  credit changes. Accepted outbound DATA with `END_STREAM` records local
-  closed-stream state; later outbound DATA, outbound HEADERS, and
+  only on the final DATA frame when requested. PADDED DATA send-intents encode
+  the PADDED flag, one pad-length byte per emitted frame, application bytes,
+  and requested zero padding bytes; frame-size splitting and outbound credit
+  checks count the full encoded DATA payload for each frame, including the
+  pad-length byte and padding. Padding that cannot fit in the selected frame
+  payload is rejected before output bytes or credit changes. Accepted DATA
+  consumes outbound connection and stream credit by the full encoded DATA
+  payload length after all split frames encode. Over-window DATA intents are
+  rejected before output bytes or credit changes. Accepted outbound DATA with
+  `END_STREAM` records local closed-stream state; later outbound DATA,
+  outbound HEADERS, and
   stream-level outbound `WINDOW_UPDATE` for that stream follow the existing
   closed stream-state rejection boundary.
   Outbound `WINDOW_UPDATE` send-intents accept connection-level and

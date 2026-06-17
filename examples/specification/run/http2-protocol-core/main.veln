@@ -1097,6 +1097,56 @@ fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, peer_settings
 	end
 end
 
+fn send_padded_data(stream_id: Int, payload: ByteChunk, padding_length: Int, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
+	match padding_length < 0
+		true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, InvalidDataPadding(0, stream_id, padding_length, 0, "open-stream", "outbound_data_padding", empty_byte_preview()?)))
+		false => match padding_length > 255
+			true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, InvalidDataPadding(0, stream_id, padding_length, 255, "open-stream", "outbound_data_padding", empty_byte_preview()?)))
+			false => send_nonnegative_padded_data(stream_id, payload, application_length, padding_length, end_stream, max_frame_size, receive_credit)
+		end
+	end
+end
+
+fn empty_byte_preview() -> Result<ByteView, String>
+	byte_view(byte_chunk([]), byte_offset(0)?, byte_count(0)?)
+end
+
+fn send_nonnegative_padded_data(stream_id: Int, payload: ByteChunk, application_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+	match application_length > 0
+		true => match max_frame_size < padding_length + 2
+			true => Ok(OutboundDataRejected(stream_id, padding_length + 2, end_stream, FrameSizeExceeded(0, padding_length + 2, ReceiveLimit(max_frame_size, LocalConfiguration), 0, stream_id)))
+			false => send_valid_padded_data(stream_id, payload, application_length, padding_length, end_stream, max_frame_size, receive_credit)
+		end
+		false => match max_frame_size < padding_length + 1
+			true => Ok(OutboundDataRejected(stream_id, padding_length + 1, end_stream, FrameSizeExceeded(0, padding_length + 1, ReceiveLimit(max_frame_size, LocalConfiguration), 0, stream_id)))
+			false => send_valid_padded_data(stream_id, payload, application_length, padding_length, end_stream, max_frame_size, receive_credit)
+		end
+	end
+end
+
+fn send_valid_padded_data(stream_id: Int, payload: ByteChunk, application_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+	let max_application_frame_payload: Int = max_padded_application_frame_payload(max_frame_size, padding_length)
+	let encoded_length: Int = padded_data_encoded_length(application_length, padding_length, max_application_frame_payload)
+	consume_outbound_padded_data_window(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, receive_credit)
+end
+
+fn max_padded_application_frame_payload(max_frame_size: Int, padding_length: Int) -> Int
+	max_frame_size - padding_length - 1
+end
+
+fn padded_data_encoded_length(application_length: Int, padding_length: Int, max_application_frame_payload: Int) -> Int
+	padded_data_encoded_length_remaining(application_length, padding_length, max_application_frame_payload, 0)
+end
+
+fn padded_data_encoded_length_remaining(remaining_length: Int, padding_length: Int, max_application_frame_payload: Int, total: Int) -> Int
+	match remaining_length > max_application_frame_payload
+		true => padded_data_encoded_length_remaining(remaining_length - max_application_frame_payload, padding_length, max_application_frame_payload, total + max_application_frame_payload + padding_length + 1)
+		false => total + remaining_length + padding_length + 1
+	end
+end
+
 fn send_settings_ack() -> Result<ByteChunk, EncodeError>
 	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
 end
@@ -1543,6 +1593,30 @@ fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int,
 	end
 end
 
+fn consume_outbound_padded_data_window(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+	match receive_credit
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match encoded_length > connection_window
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window")))
+			false => match stream_id == open_stream_id
+				false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+				true => match encoded_length > stream_window
+					true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window")))
+					false => encode_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, connection_window, stream_window)
+				end
+			end
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+		end
+	end
+end
+
 fn encode_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
 	match length > max_frame_size
 		true => encode_split_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
@@ -1596,11 +1670,85 @@ fn encode_final_data_frame(stream_id: Int, length: Int, end_stream: Bool, final_
 	end
 end
 
+fn encode_padded_data_intent(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let max_application_frame_payload: Int = max_padded_application_frame_payload(max_frame_size, padding_length)
+	match application_length > max_application_frame_payload
+		true => encode_split_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, max_application_frame_payload, connection_window, stream_window)
+		false => encode_single_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, application_length + padding_length + 1, connection_window, stream_window)
+	end
+end
+
+fn encode_single_padded_data_intent(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, frame_payload_length: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: frame_payload_length, kind: 0, flags: padded_data_flags(end_stream), stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_single_padded_data_payload(stream_id, payload, encoded_length, padding_length, end_stream, connection_window, stream_window, header)
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
+	end
+end
+
+fn encode_single_padded_data_payload(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, connection_window: Int, stream_window: Int, header: ByteChunk) -> Result<OutboundDataDecision, String>
+	Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_receive_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length), byte_append(header, padded_data_payload(padding_length, payload)?)))
+end
+
+fn encode_split_padded_data_intent(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, max_application_frame_payload: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	let chunk_count: ByteCount = byte_count(max_application_frame_payload)?
+	let first_payload: ByteChunk = byte_take(payload, chunk_count)?
+	let remaining: ByteChunk = byte_drop(payload, chunk_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 0, flags: 8, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_remaining_padded_data_frames(stream_id, encoded_length, padding_length, end_stream, max_frame_size, max_application_frame_payload, connection_window, stream_window, remaining, byte_append(header, padded_data_payload(padding_length, first_payload)?))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
+	end
+end
+
+fn encode_remaining_padded_data_frames(stream_id: Int, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, max_application_frame_payload: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	match remaining_length > max_application_frame_payload
+		true => encode_nonfinal_padded_data_frame(stream_id, encoded_length, padding_length, end_stream, max_frame_size, max_application_frame_payload, connection_window, stream_window, remaining, encoded)
+		false => encode_final_padded_data_frame(stream_id, encoded_length, padding_length, end_stream, remaining_length, connection_window, stream_window, remaining, encoded)
+	end
+end
+
+fn encode_nonfinal_padded_data_frame(stream_id: Int, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, max_application_frame_payload: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let chunk_count: ByteCount = byte_count(max_application_frame_payload)?
+	let payload: ByteChunk = byte_take(remaining, chunk_count)?
+	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 0, flags: 8, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_remaining_padded_data_frames(stream_id, encoded_length, padding_length, end_stream, max_frame_size, max_application_frame_payload, connection_window, stream_window, next_remaining, byte_append(byte_append(encoded, header), padded_data_payload(padding_length, payload)?))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
+	end
+end
+
+fn encode_final_padded_data_frame(stream_id: Int, encoded_length: Int, padding_length: Int, end_stream: Bool, final_application_length: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: final_application_length + padding_length + 1, kind: 0, flags: padded_data_flags(end_stream), stream_id: stream_id})
+	match encoded_header
+		Ok(header) => Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_receive_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length), byte_append(byte_append(encoded, header), padded_data_payload(padding_length, remaining)?)))
+		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
+	end
+end
+
+fn padded_data_payload(padding_length: Int, application_payload: ByteChunk) -> Result<ByteChunk, String>
+	Ok(byte_append(byte_write_u8_be(padding_length)?, byte_append(application_payload, zero_padding_bytes(padding_length)?)))
+end
+
+fn zero_padding_bytes(length: Int) -> Result<ByteChunk, String>
+	match length == 0
+		true => Ok(byte_chunk([]))
+		false => Ok(byte_append(byte_write_u8_be(0)?, zero_padding_bytes(length - 1)?))
+	end
+end
+
 fn data_flags(end_stream: Bool) -> Int
 	match end_stream
 		true => 1
 		false => 0
 	end
+end
+
+fn padded_data_flags(end_stream: Bool) -> Int
+	data_flags(end_stream) + 8
 end
 
 fn data_sent_receive_credit(stream_id: Int, end_stream: Bool, connection_window: Int, stream_window: Int) -> OutboundReceiveCredit
@@ -4133,7 +4281,11 @@ fn print_outbound_data(label: String, decision: OutboundDataDecision) -> () effe
 end
 
 fn print_outbound_data_chunk(label: String, decision: OutboundDataDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	emit_encoded_header(label, outbound_data_chunk(decision), expected_hex)
+	match decision
+		OutboundDataAccepted(_, _, _, _, _) => emit_encoded_header(label, outbound_data_chunk(decision), expected_hex)
+		OutboundDataRejected(_, _, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+		OutboundDataEncodeFailed(_, _, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+	end
 end
 
 fn print_outbound_window_update(label: String, decision: OutboundWindowUpdateDecision) -> () effects [stdio]
@@ -4715,6 +4867,18 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_data_frame_size: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, small_peer_max_frame_size_settings(1), outbound_initial)?
 	print_outbound_data("outbound-data-frame-size", outbound_data_frame_size)
 	let ignored_split_data_chunk: () = print_outbound_data_chunk("http2-data-split", outbound_data_frame_size, "0000010000000000010100000100000000000102")?
+	let outbound_padded_data_accepted: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("aabb")?, 2, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(20, 1, 20))?
+	print_outbound_data("outbound-padded-data-accepted", outbound_padded_data_accepted)
+	let ignored_padded_data_chunk: () = print_outbound_data_chunk("http2-data-padded", outbound_padded_data_accepted, "00000500080000000102aabb0000")?
+	let outbound_padded_data_split: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("aabbcc")?, 1, false, small_peer_max_frame_size_settings(4), outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_data("outbound-padded-data-split", outbound_padded_data_split)
+	let ignored_padded_data_split_chunk: () = print_outbound_data_chunk("http2-data-padded-split", outbound_padded_data_split, "00000400080000000101aabb0000000300080000000101cc00")?
+	let outbound_padded_data_connection_window: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("0102")?, 2, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(4, 1, 20))?
+	print_outbound_data("outbound-padded-data-connection-window", outbound_padded_data_connection_window)
+	let ignored_padded_data_connection_window_chunk: () = print_outbound_data_chunk("http2-data-padded-connection-window", outbound_padded_data_connection_window, "")?
+	let outbound_padded_data_frame_size: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("01")?, 2, false, small_peer_max_frame_size_settings(3), outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_data("outbound-padded-data-frame-size", outbound_padded_data_frame_size)
+	let ignored_padded_data_frame_size_chunk: () = print_outbound_data_chunk("http2-data-padded-frame-size", outbound_padded_data_frame_size, "")?
 	let outbound_data_split_end_stream: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aabbcc")?, true, small_peer_max_frame_size_settings(2), outbound_receive_credit_with_open_stream(10, 1, 20))?
 	print_outbound_data("outbound-data-split-end-stream", outbound_data_split_end_stream)
 	let ignored_split_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-split-end-stream", outbound_data_split_end_stream, "000002000000000001aabb000001000100000001cc")?
@@ -4725,6 +4889,11 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_data_end_stream: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aa")?, true, outbound_peer_settings, outbound_receive_credit_with_open_stream(10, 1, 20))?
 	print_outbound_data("outbound-data-end-stream", outbound_data_end_stream)
 	let ignored_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-end-stream", outbound_data_end_stream, "000001000100000001aa")?
+	let outbound_padded_data_end_stream: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("aa")?, 1, true, outbound_peer_settings, outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_data("outbound-padded-data-end-stream", outbound_padded_data_end_stream)
+	let ignored_padded_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-padded-end-stream", outbound_padded_data_end_stream, "00000300090000000101aa00")?
+	let outbound_padded_data_then_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("bb")?, false, outbound_peer_settings, outbound_data_receive_credit(outbound_padded_data_end_stream))?
+	print_outbound_data("outbound-padded-data-end-stream-then-data", outbound_padded_data_then_data)
 	let outbound_data_then_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("bb")?, false, outbound_peer_settings, outbound_data_receive_credit(outbound_data_end_stream))?
 	print_outbound_data("outbound-data-end-stream-then-data", outbound_data_then_data)
 	let outbound_data_then_headers: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("82")?, false, outbound_peer_settings, outbound_data_receive_credit(outbound_data_end_stream))?
