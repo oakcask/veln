@@ -45,7 +45,8 @@ requiring the full command reference on the first read.
   unknown tags, dispatch length mismatches, and dispatch tag/payload
   mismatches, hand-written codec `EncodeStep::Invalid(EncodeError(...))`
   entry results, source-visible
-  `DecodeStep::Invalid(DecodeError(...))` entry results,
+  `DecodeStep::Invalid(DecodeError(...))` and
+  `DecodeStep::NeedMore(...)` entry results,
   HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
@@ -68,6 +69,10 @@ requiring the full command reference on the first read.
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
   path plus the source-visible `DecodeError` value in related notes.
+  `DecodeStep::NeedMore(...)` entry diagnostics report
+  `codec.incomplete_input` at the closed-input byte boundary and put
+  readiness, requested count when present, and the source-visible
+  `DecodeStep` value in related notes.
   Transport runtime
   failures from descriptor-backed
   receive/send calls, fixture-backed socket listen/accept/read/write calls,

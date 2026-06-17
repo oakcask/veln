@@ -202,6 +202,15 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             byte_offset,
         ));
     }
+    if id == "codec.incomplete_input" && is_decode_need_more_result_failure(failure) {
+        return Some(decode_need_more_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        ));
+    }
 
     let mut diagnostic = match id.as_str() {
         "codec.incomplete_input" => {
@@ -389,6 +398,12 @@ fn is_decode_error_result_failure(failure: &TestFailure) -> bool {
         .is_some_and(|value| value.starts_with("DecodeError("))
 }
 
+fn is_decode_need_more_result_failure(failure: &TestFailure) -> bool {
+    result_failure_value(failure)
+        .as_deref()
+        .is_some_and(|value| value.starts_with("NeedMore("))
+}
+
 fn decode_error_result_failure_diagnostic(
     failure: &TestFailure,
     byte_diagnostic: &JsonValue,
@@ -419,6 +434,38 @@ fn decode_error_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn decode_need_more_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let readiness = json_string(byte_entries, "readiness").unwrap_or_else(|| "unknown".to_string());
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("incomplete input at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    diagnostic.related.push(note_json(format!(
+        "Decode readiness is `{readiness}` because input is closed."
+    )));
+    if let Some(needed_count) = json_number(byte_entries, "needed_count") {
+        diagnostic.related.push(note_json(format!(
+            "Decoder needs at least {needed_count} buffered byte(s) before retrying."
+        )));
+    }
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeStep value: {value}.")));
     }
     diagnostic
 }
@@ -1431,6 +1478,49 @@ mod tests {
         assert_eq!(
             diagnostic.related[1].to_json(),
             "{\"message\":\"DecodeError value: DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_decode_need_more_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.incomplete_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(3)),
+                ]),
+            ),
+            ("field_path", JsonValue::array([])),
+            ("readiness", JsonValue::string("need_bytes")),
+            ("needed_count", JsonValue::Number(3)),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "NeedMore(NeedBytes(ByteCount(3)))".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.incomplete_input");
+        assert_eq!(diagnostic.message, "incomplete input at byte offset 3");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(
+            diagnostic.related[0].to_json(),
+            "{\"message\":\"Decode readiness is `need_bytes` because input is closed.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Decoder needs at least 3 buffered byte(s) before retrying.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"DecodeStep value: NeedMore(NeedBytes(ByteCount(3))).\"}"
         );
     }
 

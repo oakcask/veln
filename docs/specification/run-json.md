@@ -183,8 +183,21 @@ When a `veln run` entry returns
   derived from the source-visible field path
 - `field_path_display`: the source-visible field path string
 
-`DecodeStep::Decoded(...)` and `DecodeStep::NeedMore(...)` entry results do
-not populate `error` or `details.byte_diagnostic`.
+`DecodeStep::NeedMore(NeedBytes(count))` entry results are reported as
+closed-input codec incomplete-input failures. `details.byte_diagnostic`
+includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "codec.incomplete_input"`
+- `byte_offset`: the requested buffered byte count as a `ByteOffset`
+- `field_path`: an empty list because source-visible `NeedMore` carries no
+  schema field path
+- `readiness: "need_bytes"`
+- `needed_count`: the source-visible `ByteCount`
+
+`DecodeStep::NeedMore(NeedEnd)` uses the same diagnostic id and readiness
+field without `needed_count`. `DecodeStep::Decoded(...)` entry results do not
+populate `error` or `details.byte_diagnostic`.
 
 When the result value is a binary schema closed dispatch unknown tag failure,
 `details.byte_diagnostic` includes:

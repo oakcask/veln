@@ -121,6 +121,13 @@ command-facing projection when a `veln run` entry returns
 `Invalid(DecodeError(...))`: human output reports the failed decode fact at
 the contained byte offset with related field-path and source-visible value
 notes, and `run --json` attaches `details.byte_diagnostic`.
+The executable specification cases
+`../../examples/specification/run/codec-decode-need-more-human/` and
+`../../examples/specification/run/codec-decode-need-more-json/` cover
+command-facing projection when a `veln run` entry returns
+`NeedMore(NeedBytes(...))` at a closed-input reporting boundary: human output
+reports `codec.incomplete_input` with readiness and requested-byte context in
+related notes, and `run --json` attaches `details.byte_diagnostic`.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

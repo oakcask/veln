@@ -245,8 +245,11 @@ path in related notes.
 When a `veln run` entry returns
 `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, human mode
 reports the failed decode fact at the contained byte offset and puts field
-path plus the source-visible `DecodeError` value in related notes. `Decoded`
-and `NeedMore` entry values remain ordinary successful values.
+path plus the source-visible `DecodeError` value in related notes. When an
+entry returns `DecodeStep::NeedMore(readiness)`, human mode reports
+`codec.incomplete_input` at the closed-input byte boundary and puts readiness,
+requested count when present, and the source-visible `DecodeStep` value in
+related notes. `Decoded` entry values remain ordinary successful values.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

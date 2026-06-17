@@ -134,7 +134,8 @@ compare it with `../specification/` before changing behavior.
   length mismatch, and dispatch mismatch failures, command-facing projection
   for `EncodeStep::Invalid(EncodeError(...))` entry results,
   command-facing projection for
-  `DecodeStep::Invalid(DecodeError(...))` entry results, generated binary
+  `DecodeStep::Invalid(DecodeError(...))` and `DecodeStep::NeedMore(...)`
+  entry results, generated binary
   schema decode integer range failures, generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures.

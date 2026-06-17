@@ -77,8 +77,13 @@ as specified under `../specification/run-json.md`,
 checked by
 `../../examples/specification/run/codec-decode-invalid-step-json/` and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
-Successful `Decoded(...)` and `NeedMore(...)` entry values remain ordinary
-values. Hand-written
+Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
+implemented as `codec.incomplete_input` at the closed-input reporting
+boundary, with readiness and requested byte count details in `run --json` and
+focused human diagnostics checked by
+`../../examples/specification/run/codec-decode-need-more-json/` and
+`../../examples/specification/run/codec-decode-need-more-human/`.
+Successful `Decoded(...)` entry values remain ordinary values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
@@ -356,8 +361,9 @@ to stable human and JSON diagnostics.
 The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
-failures, command-facing `DecodeStep::Invalid(DecodeError(...))` entry
-projection, plus HTTP/2 protocol-state projections for frame-size peer-limit,
+failures, command-facing `DecodeStep::Invalid(DecodeError(...))` and
+`DecodeStep::NeedMore(...)` entry projections, plus HTTP/2 protocol-state
+projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
