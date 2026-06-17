@@ -577,9 +577,11 @@ freezing all six ordinary source values at the task boundary.
 `task::spawn_with7` starts a seven-argument callable on a JVM thread after
 freezing all seven ordinary source values at the task boundary.
 `task::spawn_with8` starts an eight-argument callable on a JVM thread after
-freezing all eight ordinary source values at the task boundary. All task
-spawn helpers freeze the returned value before it crosses back through the
-task handle. `task::join` waits for that task and returns `Ok(value)` on
+freezing all eight ordinary source values at the task boundary.
+`task::spawn_with9` starts a nine-argument callable on a JVM thread after
+freezing all nine ordinary source values at the task boundary. All task spawn
+helpers freeze the returned value before it crosses back through the task
+handle. `task::join` waits for that task and returns `Ok(value)` on
 ordinary completion or `Err(JoinError)` on interruption, cancellation, or
 runtime failure. `task::cancel` requests cooperative cancellation by
 interrupting the task.
@@ -685,7 +687,9 @@ metadata values directly through `task::spawn_with6` instead of bundling them
 into one adapter record first. The seven-argument stream-task case extends the
 same boundary with one more ordinary metadata value through
 `task::spawn_with7`, and the eight-argument stream-task case extends it with
-one additional ordinary metadata value through `task::spawn_with8`.
+one additional ordinary metadata value through `task::spawn_with8`. The
+nine-argument stream-task case extends it with one additional ordinary
+metadata value through `task::spawn_with9`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
@@ -696,6 +700,8 @@ functions. The checked examples are
 `examples/specification/check/socket-stream-adapter-routing-spawn7-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn8/`,
 `examples/specification/check/socket-stream-adapter-routing-spawn8-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn9/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn9-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
