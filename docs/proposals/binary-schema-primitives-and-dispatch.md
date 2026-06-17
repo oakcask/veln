@@ -105,13 +105,15 @@ payload failures with the nested schema field path and absolute byte offset.
 Public imported nested binary schema payloads named through written `use`
 paths are accepted by those same dispatch decode helper slices and decode to
 the imported schema's record shape. A same-module recursive closed-dispatch
-payload decode slice is implemented for the length-bounded
+payload decode and encode slice is implemented for the length-bounded
 `Dispatch(tag_field, length_field, ...)` form when selected mappings cover
 every dispatch case, all mappings resolve to one record shape, and at least
-one case is non-recursive; recursive failures keep the outer dispatch field
-segment before nested schema field segments. Imported private, missing,
-wrong-kind, non-binary, forward, unbounded recursive, or otherwise ineligible
-payload schemas use the existing `schema.dispatch_payload` diagnostic shape.
+one case is non-recursive; recursive decode failures keep the outer dispatch
+field segment before nested schema field segments, and recursive encode checks
+the encoded payload byte count against the earlier length field. Imported
+private, missing, wrong-kind, non-binary, forward, unbounded recursive, or
+otherwise ineligible payload schemas use the existing
+`schema.dispatch_payload` diagnostic shape.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching
