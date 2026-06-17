@@ -657,6 +657,8 @@ Implemented expressions:
   `task::spawn_with7<Item>(job, first, second, third, fourth, fifth, sixth, seventh)`,
   `task::spawn_with8(job, first, second, third, fourth, fifth, sixth, seventh, eighth)`,
   `task::spawn_with8<Item>(job, first, second, third, fourth, fifth, sixth, seventh, eighth)`,
+  `task::spawn_with9(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)`,
+  `task::spawn_with9<Item>(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)`,
   `task::join(task)`, and `task::cancel(task)`
 - network and time boundary calls: `net::receive_chunk()`,
   `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,
