@@ -345,10 +345,13 @@ execution reference.
 - The narrow binary schema closed dispatch slice decodes
   `Dispatch(tag_field, tag => Payload, ...)` fields after the referenced tag
   field has been decoded by an earlier exact-width field in the same schema.
-  Known dispatch cases consume either the selected exact-width unsigned
-  payload primitive and expose an ordinary `Int` field, or the selected
-  same-module or imported public nested binary schema through the generated
-  schema helper path and expose that schema's decoded record shape. Nested
+  It also decodes `Dispatch(tag_field, length_field, tag => Payload, ...)`
+  when the length field is an earlier visible `Int` field and the selected
+  payload is read from that bounded byte range. Known dispatch cases consume
+  either the selected exact-width unsigned payload primitive and expose an
+  ordinary `Int` field, or the selected same-module or imported public nested
+  binary schema through the generated schema helper path and expose that
+  schema's decoded record shape. Nested
   payload decode failures report the outer dispatch field path, nested schema
   field path, and absolute byte offset from the enclosing input, including
   failures from the nested
@@ -357,11 +360,12 @@ execution reference.
   `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
   field path, decoded tag field, decoded tag value, expected tags, and
   structured byte preview fields. Same-module recursive closed-dispatch
-  payload cases are eligible for decode when selected mappings cover every
-  dispatch case, all mappings resolve to one record shape, and at least one
-  dispatch case is non-recursive. The recursive helper path uses the nested
-  helper's consumed width before continuing with later fields and preserves the
-  same outer dispatch plus nested schema field path on failures. The checked
+  payload cases are eligible only in the length-bounded form when selected
+  mappings cover every dispatch case and all mappings resolve to one record
+  shape, with at least one non-recursive case as the base case. The recursive
+  helper path decodes the nested payload from the bounded dispatch range
+  before continuing with later fields and preserves the same outer dispatch
+  plus nested schema field path on failures. The checked
   examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
@@ -661,8 +665,8 @@ execution reference.
   mappings that cannot reconstruct all schema-local encode fields through
   direct source-field assignments, mapping expressions that cannot be
   projected back to schema-local fields, recursive dispatch payload schemas
-  outside the selected same-module closed-dispatch decode slice, dispatch
-  payload schemas outside the generated helper slice, nested
+  outside the selected same-module length-bounded closed-dispatch decode
+  slice, dispatch payload schemas outside the generated helper slice, nested
   mappings, and derived codec encode
   execution for unsupported schemas.
   The checked examples are

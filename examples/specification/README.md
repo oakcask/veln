@@ -1048,8 +1048,9 @@ against the built `veln` binary.
   case may select a same-module nested binary schema payload and return the
   decoded nested record shape.
 - `run/binary-schema-recursive-closed-dispatch-decode/`: a same-module
-  recursive closed-dispatch payload decodes through selected mappings and the
-  generated schema helper path.
+  recursive closed-dispatch payload decodes through a length-bounded closed
+  dispatch, selected mappings, a non-recursive base case, and the generated
+  schema helper path.
 - `run/binary-schema-dispatch-nested-general-helper-decode/`: closed and
   extension-tolerant nested dispatch known cases decode the selected nested
   payload through the generated schema helper path, preserving fixed-field
@@ -1072,8 +1073,8 @@ against the built `veln` binary.
   closed-dispatch decode slice, forward references, and incompatible payload
   shapes.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
-  closed dispatch remains rejected when no non-recursive base case can stop
-  the self-reference.
+  closed dispatch remains rejected when the self-reference is not
+  length-bounded.
 - `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
   decode helper reads an extension-tolerant dispatch tag, selects a known
   payload case, and returns `SchemaDispatchPayload::Known`.

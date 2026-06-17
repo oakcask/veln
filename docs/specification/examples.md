@@ -849,10 +849,12 @@ record-shaped fields. The general helper passing case proves selected nested
 payload schemas keep fixed-field validation, byte-aligned reserved fields, and
 little-endian primitive reads when reached through closed or extension
 dispatch. The recursive closed-dispatch case pins a same-module recursive
-payload decoded through selected mappings and the generated helper path. The
-nested failure cases pin the outer dispatch field path, nested schema field
-path, and absolute byte offset, including fixed-field mismatch diagnostics
-produced by the nested helper. The unknown-tag failing cases assert
+payload decoded through a length-bounded closed dispatch, selected mappings,
+the generated helper path, and a non-recursive base case. The nested failure
+cases pin the outer dispatch field path, nested schema field path, and
+absolute byte offset, including fixed-field mismatch diagnostics produced by
+the nested helper. The recursive failure case pins that same path prefix for a
+nested length-boundary failure. The unknown-tag failing cases assert
 `schema.dispatch_unknown_tag`, the dispatch byte offset, structured field path,
 decoded tag field and value, expected tag values, structured byte preview
 fields, and focused human related notes.
@@ -867,7 +869,7 @@ extension self references outside the eligible recursive closed-dispatch
 decode slice, forward references, and incompatible payload shapes.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
-has no non-recursive base case.
+is not length-bounded.
 `../../examples/specification/check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`
 pins the remaining `schema.dispatch_payload` rejection when mixed dispatch
 payload shapes use selected mappings keyed by a field other than the dispatch

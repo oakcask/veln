@@ -597,15 +597,18 @@
     private static final class SchemaDispatchSpec {
         final String tagField;
         final String lengthField;
+        final boolean preservesUnknown;
         final SchemaDispatchCaseSpec[] cases;
 
         SchemaDispatchSpec(
             String tagField,
             String lengthField,
+            boolean preservesUnknown,
             SchemaDispatchCaseSpec[] cases
         ) {
             this.tagField = tagField;
             this.lengthField = lengthField;
+            this.preservesUnknown = preservesUnknown;
             this.cases = cases;
         }
     }
@@ -4198,11 +4201,10 @@
                 if (payloadLength < 0L || payloadLength > availablePayload) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "payload length out of bounds at byte offset " + byteOffset;
-                    registerSchemaLengthOutOfBoundsDiagnostic(
+                    registerSchemaLengthOutOfBoundsPathDiagnostic(
                         message,
                         byteOffset,
-                        schema.name,
-                        field.name,
+                        schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                         payloadLength,
                         availablePayload,
                         byteViewPreviewTrace(view, 8)
@@ -4229,11 +4231,10 @@
                     long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "repeat count out of bounds at byte offset " + byteOffset;
-                    registerSchemaLengthOutOfBoundsDiagnostic(
+                    registerSchemaLengthOutOfBoundsPathDiagnostic(
                         message,
                         byteOffset,
-                        schema.name,
-                        field.name,
+                        schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                         repeatCount,
                         availablePayload,
                         byteViewPreviewTrace(view, 8)
@@ -4326,7 +4327,7 @@
                 SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
                 if (dispatchCase == null) {
                     Long tagValue = decoded.get(field.dispatch.tagField);
-                    if (!field.dispatch.lengthField.isEmpty() && tagValue != null) {
+                    if (field.dispatch.preservesUnknown && tagValue != null) {
                         Long payloadLength = decoded.get(field.dispatch.lengthField);
                         if (payloadLength == null) {
                             return err(
@@ -4343,11 +4344,10 @@
                                 diagnosticBaseOffset + relativeOffset + availablePayload;
                             String message = "payload length out of bounds at byte offset "
                                 + byteOffset;
-                            registerSchemaLengthOutOfBoundsDiagnostic(
+                            registerSchemaLengthOutOfBoundsPathDiagnostic(
                                 message,
                                 byteOffset,
-                                schema.name,
-                                field.name,
+                                schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                                 payloadLength.longValue(),
                                 availablePayload,
                                 byteViewPreviewTrace(view, 8)
@@ -4399,11 +4399,10 @@
                             diagnosticBaseOffset + relativeOffset + availablePayload;
                         String message = "payload length out of bounds at byte offset "
                             + byteOffset;
-                        registerSchemaLengthOutOfBoundsDiagnostic(
+                        registerSchemaLengthOutOfBoundsPathDiagnostic(
                             message,
                             byteOffset,
-                            schema.name,
-                            field.name,
+                            schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                             payloadLength.longValue(),
                             availablePayload,
                             byteViewPreviewTrace(view, 8)
@@ -4461,9 +4460,7 @@
                     field.name,
                     dispatchValue instanceof Long ? (Long) dispatchValue : Long.valueOf(0L)
                 );
-                if (field.dispatch.lengthField.isEmpty()) {
-                    values.put(field.name, dispatchValue);
-                } else {
+                if (field.dispatch.preservesUnknown) {
                     values.put(
                         field.name,
                         adt(
@@ -4471,6 +4468,8 @@
                             new Object[] { dispatchValue }
                         )
                     );
+                } else {
+                    values.put(field.name, dispatchValue);
                 }
                 relativeOffset += payloadWidth;
                 continue;
@@ -4812,6 +4811,9 @@
                 pendingPackedReserved = null;
                 SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
                 if (dispatchCase == null) {
+                    if (!field.dispatch.preservesUnknown) {
+                        return relativeOffset;
+                    }
                     Long payloadLength = decoded.get(field.dispatch.lengthField);
                     if (payloadLength == null) {
                         return relativeOffset;
@@ -5852,6 +5854,11 @@
         java.util.List<Object> littleEndianValues =
             caseLittleEndianValues == null ? null : asList(caseLittleEndianValues);
         java.util.List<Object> schemaSpecValues = asList(caseSchemaSpecs);
+        boolean preservesUnknown = !lengthField.isEmpty();
+        if (lengthField.startsWith("closed:")) {
+            preservesUnknown = false;
+            lengthField = lengthField.substring("closed:".length());
+        }
         if (tagValues.isEmpty()
             || tagValues.size() != widthValues.size()
             || (littleEndianValues != null && tagValues.size() != littleEndianValues.size())
@@ -5905,7 +5912,7 @@
                 littleEndian
             );
         }
-        return ok(new SchemaDispatchSpec(tagField, lengthField, cases));
+        return ok(new SchemaDispatchSpec(tagField, lengthField, preservesUnknown, cases));
     }
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
@@ -6117,7 +6124,7 @@
         String schemaName,
         String fieldName
     ) {
-        if (!dispatch.lengthField.isEmpty()) {
+        if (dispatch.preservesUnknown) {
             return schemaWriteExtensionDispatchPayload(fields, dispatch, schemaName, fieldName);
         }
         long tagValue = asLong(fields.get(dispatch.tagField));

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `EndlessNode` cannot reference itself"]
+contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `UnboundedNode` cannot reference itself"]
 
 [stderr]
 format = "empty"
@@ -16,4 +16,4 @@ equals = "error"
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `EndlessNode` cannot reference itself"
+message = "dispatch payload schema `UnboundedNode` cannot reference itself"

@@ -52,6 +52,7 @@ pub struct IrSchemaReservedBits {
 pub struct IrSchemaDecodeDispatch {
     pub tag_field: String,
     pub length_field: Option<String>,
+    pub preserves_unknown: bool,
     pub cases: Vec<IrSchemaDecodeDispatchCase>,
 }
 

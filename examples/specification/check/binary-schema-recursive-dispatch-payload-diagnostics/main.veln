@@ -1,14 +1,20 @@
 type Node
-	Node {kind: Int, child: Option<Node>}
+	Node {kind: Int, value: Int, child: Option<Node>}
 end
 
-schema EndlessNode
+schema UnboundedNode
 	format binary
 
 	kind: UInt8
-	payload: Dispatch(kind, 1 => EndlessNode)
+	payload: Dispatch(kind, 0 => UInt8, 1 => UnboundedNode)
+
+	map to Node when kind == 0
+		kind = kind
+		value = payload
+		child = None
 
 	map to Node when kind == 1
 		kind = kind
-		child = Some(Node(payload.kind, payload.child))
+		value = payload.value
+		child = Some(Node(payload.kind, payload.value, payload.child))
 end

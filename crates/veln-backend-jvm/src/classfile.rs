@@ -1329,14 +1329,21 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         schema: &IrSchemaDecodeSpec,
     ) {
         self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            code.ldc_string(
-                schema.fields[index]
-                    .dispatch
-                    .as_ref()
-                    .and_then(|dispatch| dispatch.length_field.as_deref())
-                    .or(schema.fields[index].length_field.as_deref())
-                    .unwrap_or(""),
-            );
+            let length_field = schema.fields[index]
+                .dispatch
+                .as_ref()
+                .and_then(|dispatch| {
+                    dispatch.length_field.as_ref().map(|length_field| {
+                        if dispatch.preserves_unknown {
+                            length_field.clone()
+                        } else {
+                            format!("closed:{length_field}")
+                        }
+                    })
+                })
+                .or_else(|| schema.fields[index].length_field.clone())
+                .unwrap_or_default();
+            code.ldc_string(&length_field);
         });
         code.invokestatic(
             &self.program.options.runtime_class,

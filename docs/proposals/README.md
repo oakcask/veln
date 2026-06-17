@@ -93,9 +93,10 @@ compare it with `../specification/` before changing behavior.
   with mixed primitive and nested decoded shapes are implemented for selected
   mappings keyed by the dispatch tag field when those mappings cover the
   dispatch cases and resolve to one target record shape. Same-module recursive
-  closed-dispatch payload decode is implemented for selected mappings that
-  cover every case, resolve to one target record shape, and include a
-  non-recursive base case.
+  closed-dispatch payload decode is implemented for the length-bounded
+  `Dispatch(tag_field, length_field, ...)` form when selected mappings cover
+  every case, resolve to one target record shape, and include a non-recursive
+  base case.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

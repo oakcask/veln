@@ -717,6 +717,29 @@
         );
     }
 
+    private static void registerSchemaLengthOutOfBoundsPathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long expectedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.length_out_of_bounds",
+                byteOffset,
+                fieldPath,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("expected_count", expectedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerSchemaIntegerOutOfRangeDiagnostic(
         String message,
         long byteOffset,

@@ -20,12 +20,12 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
-equals = "schema.truncated_field"
+equals = "schema.length_out_of_bounds"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_offset.value"
-equals = 2
+equals = 4
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"RecursiveNode"},{"kind":"field","name":"payload"},{"kind":"schema","name":"RecursiveNode"},{"kind":"field","name":"payload"},{"kind":"schema","name":"RecursiveNode"},{"kind":"field","name":"kind"}]
+equals = [{"kind":"schema","name":"RecursiveNode"},{"kind":"field","name":"payload"},{"kind":"schema","name":"RecursiveNode"},{"kind":"field","name":"payload"}]

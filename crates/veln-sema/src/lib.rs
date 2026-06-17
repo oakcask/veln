@@ -284,6 +284,7 @@ fn schema_decode_spec_inner_after_push(
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,
                 length_field: dispatch.length_field,
+                preserves_unknown: dispatch.preserves_unknown,
                 cases: dispatch
                     .cases
                     .into_iter()
@@ -496,7 +497,7 @@ fn schema_dispatch_field_type(
     {
         return None;
     }
-    if dispatch.length_field.is_some() {
+    if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
         Some(payload_ty)

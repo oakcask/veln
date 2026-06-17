@@ -2656,7 +2656,7 @@ fn check_schema_dispatch_field(
         return None;
     }
     let payload_ty = expected_payload_type?;
-    if dispatch.length_field.is_some() {
+    if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
         Some(payload_ty)
