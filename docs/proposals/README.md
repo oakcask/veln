@@ -202,7 +202,7 @@ compare it with `../specification/` before changing behavior.
   cancellation, deadline-aware listener accept, deadline-aware stream read,
   adapter-owned listener-to-clean-stream-end lifecycle, network task
   two-argument, three-argument, four-argument, five-argument, six-argument,
-  seven-argument, eight-argument, and nine-argument spawn,
+  seven-argument, eight-argument, nine-argument, and ten-argument spawn,
   deadline-aware accepted-stream lifecycle, and receiver-list cancellable
   channel-first routing plus receiver-list timeout-result and cancellable
   timeout-result selection

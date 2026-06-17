@@ -1786,6 +1786,119 @@ fn task_spawn_with9_preserves_expected_item_type() {
 }
 
 #[test]
+fn task_spawn_with10_preserves_arguments_and_explicit_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn combine(left: String, count: Int, enabled: Bool, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String) -> String effects [concurrency]\n",
+            "  region\n",
+            "end\n",
+            "pub fn main(input: String, count: Int, enabled: Bool, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String) -> Result<String, JoinError> effects [concurrency]\n",
+            "  let task = task::spawn_with10<String>(combine, input, count, enabled, marker, suffix, tail, label, trace, shard, region)\n",
+            "  task::join(task)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected task binding");
+    };
+    assert_eq!(expr.ty, CoreType::named("Task", vec![CoreType::string()]));
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected task call");
+    };
+    assert_eq!(args[1].ty, CoreType::string());
+    assert_eq!(args[2].ty, CoreType::int());
+    assert_eq!(args[3].ty, CoreType::bool());
+    assert_eq!(args[4].ty, CoreType::string());
+    assert_eq!(args[5].ty, CoreType::string());
+    assert_eq!(args[6].ty, CoreType::string());
+    assert_eq!(args[7].ty, CoreType::string());
+    assert_eq!(args[8].ty, CoreType::string());
+    assert_eq!(args[9].ty, CoreType::string());
+    assert_eq!(args[10].ty, CoreType::string());
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("expected joined return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::result(CoreType::string(), CoreType::named("JoinError", Vec::new()))
+    );
+    let ir = lowered.ir.expect("task calls should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to IR");
+    assert!(matches!(
+        &main.body[0].kind,
+        IrStmtKind::Let { value, .. }
+            if matches!(
+                &value.kind,
+                IrExprKind::Call {
+                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    args,
+                } if name == "task::spawn_with10" && args.len() == 11
+            )
+    ));
+}
+
+#[test]
+fn task_spawn_with10_preserves_expected_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn combine(left: String, count: Int, enabled: Bool, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String) -> String effects [concurrency]\n",
+            "  left\n",
+            "end\n",
+            "pub fn main(input: String, count: Int, enabled: Bool, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String) -> Task<String> effects [concurrency]\n",
+            "  task::spawn_with10(combine, input, count, enabled, marker, suffix, tail, label, trace, shard, region)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("expected task return");
+    };
+    assert_eq!(expr.ty, CoreType::named("Task", vec![CoreType::string()]));
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected task call");
+    };
+    assert_eq!(args[1].ty, CoreType::string());
+    assert_eq!(args[2].ty, CoreType::int());
+    assert_eq!(args[3].ty, CoreType::bool());
+    assert_eq!(args[4].ty, CoreType::string());
+    assert_eq!(args[5].ty, CoreType::string());
+    assert_eq!(args[6].ty, CoreType::string());
+    assert_eq!(args[7].ty, CoreType::string());
+    assert_eq!(args[8].ty, CoreType::string());
+    assert_eq!(args[9].ty, CoreType::string());
+    assert_eq!(args[10].ty, CoreType::string());
+}
+
+#[test]
 fn declared_concurrency_calls_lower_to_executable_ir() {
     let source = SourceFile::new(
         "main.veln",

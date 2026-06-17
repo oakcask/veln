@@ -50,6 +50,8 @@ compiler-known calls.
   `task::spawn_with7`, and an eight-argument variant with one additional
   ordinary metadata value using `task::spawn_with8`, plus a nine-argument
   variant with one additional ordinary metadata value using `task::spawn_with9`,
+  plus a ten-argument variant with one additional ordinary metadata value using
+  `task::spawn_with10`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, and ordered write projection; they
   add no new effect label or compiler-known routing call. The owned-lifecycle

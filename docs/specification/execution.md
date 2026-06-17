@@ -83,7 +83,8 @@ execution reference.
   boundary to one more ordinary metadata value through `task::spawn_with7`,
   extends it again to one additional ordinary metadata value through
   `task::spawn_with8`, and extends it once more to nine ordinary source
-  values through `task::spawn_with9`,
+  values through `task::spawn_with9`, then to ten ordinary source values
+  through `task::spawn_with10`,
   and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
@@ -95,6 +96,8 @@ execution reference.
   `examples/specification/check/socket-stream-adapter-routing-spawn8-effects/`,
   `examples/specification/run/socket-stream-adapter-routing-spawn9/`,
   `examples/specification/check/socket-stream-adapter-routing-spawn9-effects/`,
+  `examples/specification/run/socket-stream-adapter-routing-spawn10/`,
+  `examples/specification/check/socket-stream-adapter-routing-spawn10-effects/`,
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
