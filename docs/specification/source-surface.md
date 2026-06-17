@@ -175,7 +175,7 @@ dispatch, extension dispatch, bounded repeated primitive or nested schema field,
 length-bounded `ByteView`, and eligible nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
 expressions, recursive dispatch payload schemas outside the selected
-same-module length-bounded closed-dispatch decode slice, dispatch payload
+same-module length-bounded closed-dispatch decode-and-encode slice, dispatch payload
 schemas outside the generated helper slice, arbitrary mapping expressions, and
 mapping selection beyond decoded-field integer equality are not implemented.
 The checked diagnostics case

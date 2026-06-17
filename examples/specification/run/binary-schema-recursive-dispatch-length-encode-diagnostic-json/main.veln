@@ -1,0 +1,30 @@
+type NodePayload
+	Leaf(Int)
+	Branch({length: Int, kind: Int, payload: NodePayload})
+end
+
+type Node
+	Node {length: Int, kind: Int, payload: NodePayload}
+end
+
+schema RecursiveNode
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveNode)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = NodePayload::Leaf(payload)
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = NodePayload::Branch(payload)
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_recursive_node({length: 2, kind: 1, payload: NodePayload::Branch({length: 1, kind: 0, payload: NodePayload::Leaf(42)})})
+end

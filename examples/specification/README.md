@@ -967,6 +967,10 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-nested-encode/`: a generated binary
   schema encode helper selects a closed dispatch same-module nested payload
   schema and writes the nested record fields in schema order.
+- `run/binary-schema-recursive-closed-dispatch-encode/`: a generated binary
+  schema encode helper writes a same-module recursive closed-dispatch payload
+  through a length-bounded selected mapping slice and returns one
+  `ByteChunk`.
 - `run/binary-schema-dispatch-nested-general-helper-encode/`: closed and
   extension-tolerant nested dispatch encode cases write the selected nested
   payload through the generated schema helper path, including byte-aligned
@@ -1035,6 +1039,10 @@ against the built `veln` binary.
 - `run/binary-schema-dispatch-length-encode-diagnostic-human/`: returning the
   same dispatch length mismatch `EncodeError` from human `veln run` emits a
   focused runtime diagnostic with field path and reason notes.
+- `run/binary-schema-recursive-dispatch-length-encode-diagnostic-json/`:
+  length-bounded recursive closed-dispatch encode reports
+  `codec.dispatch_length_mismatch` when the supplied length field does not
+  match the encoded recursive payload byte count.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
   failures report `codec.encode_value_unrepresentable` and keep the nested
   schema field path in structured `EncodeError` output.
@@ -1070,8 +1078,7 @@ against the built `veln` binary.
   boundary, with
   diagnostics for missing names, non-schema names, private imported schemas,
   closed and extension self references outside the eligible recursive
-  closed-dispatch decode slice, forward references, and incompatible payload
-  shapes.
+  closed-dispatch slice, forward references, and incompatible payload shapes.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
   closed dispatch remains rejected when the self-reference is not
   length-bounded.

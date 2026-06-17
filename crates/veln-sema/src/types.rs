@@ -1185,12 +1185,16 @@ fn schema_encode_function_signature_for_schema(
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+        let recursive_closed_dispatch_payload =
+            recursive_closed_dispatch_encode_payload_field(schema, field, &dispatch);
         if !exact_width_field_names.contains(&dispatch.tag_field)
             || dispatch
                 .length_field
                 .as_ref()
                 .is_some_and(|length_field| !exact_width_field_names.contains(length_field))
-            || (dispatch.length_field.is_some() && !dispatch.preserves_unknown)
+            || (dispatch.length_field.is_some()
+                && !dispatch.preserves_unknown
+                && !recursive_closed_dispatch_payload)
         {
             return None;
         }
@@ -1199,8 +1203,18 @@ fn schema_encode_function_signature_for_schema(
             .iter()
             .map(|case| schema_dispatch_case_type(module, schema, case, &mut Vec::new()))
             .collect::<Option<Vec<_>>>()?;
-        let payload_ty = payload_types.pop()?;
-        if payload_types.iter().any(|ty| ty != &payload_ty) {
+        let payload_ty = if recursive_closed_dispatch_payload
+            && selected_mappings_cover_closed_dispatch(schema, &dispatch)
+        {
+            schema_recursive_dispatch_payload_type(module, schema)?
+        } else {
+            let payload_ty = payload_types.pop()?;
+            if payload_types.iter().any(|ty| ty != &payload_ty) {
+                return None;
+            }
+            payload_ty
+        };
+        if !recursive_closed_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
             return None;
         }
         if dispatch.preserves_unknown {
@@ -1226,6 +1240,16 @@ fn schema_encode_function_signature_for_schema(
         effects: Vec::new(),
         node_id: schema.node_id,
         span: schema.span.clone(),
+    })
+}
+
+fn recursive_closed_dispatch_encode_payload_field(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+) -> bool {
+    schema.name.as_deref().is_some_and(|schema_name| {
+        recursive_closed_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
     })
 }
 
@@ -1279,6 +1303,7 @@ fn schema_encode_mapping_value_fields(
             exact_width_field_names,
             mapping,
             &target_fields,
+            false,
         )
         .is_none()
     {
@@ -1298,15 +1323,22 @@ fn schema_encode_selected_mapping_value_fields(
     };
     first.selector.as_ref()?;
     let target_fields = schema_mapping_target_record_fields(module, schema, first)?;
-    let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let (schema_field_types, supported_int_field_names) = schema_encode_mapping_field_types(
+        module,
+        schema,
+        schema_fields,
+        exact_width_field_names,
+        first,
+    )?;
     schema_encode_mapping_source_targets(
         module,
         schema,
         schema_fields,
         &schema_field_types,
-        exact_width_field_names,
+        &supported_int_field_names,
         first,
         &target_fields,
+        true,
     )?;
     for mapping in rest {
         mapping.selector.as_ref()?;
@@ -1314,17 +1346,55 @@ fn schema_encode_selected_mapping_value_fields(
         if candidate_target_fields != target_fields {
             return None;
         }
+        let (schema_field_types, supported_int_field_names) = schema_encode_mapping_field_types(
+            module,
+            schema,
+            schema_fields,
+            exact_width_field_names,
+            mapping,
+        )?;
         schema_encode_mapping_source_targets(
             module,
             schema,
             schema_fields,
             &schema_field_types,
-            exact_width_field_names,
+            &supported_int_field_names,
             mapping,
             &target_fields,
+            true,
         )?;
     }
     Some(target_fields)
+}
+
+fn schema_encode_mapping_field_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
+    mapping: &veln_ast::SchemaMappingClause,
+) -> Option<(BTreeMap<String, Type>, Vec<String>)> {
+    let mut schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let mut supported_int_field_names = exact_width_field_names.to_vec();
+    let selector = mapping.selector.as_ref()?;
+    for field in &schema.fields {
+        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty) else {
+            continue;
+        };
+        if dispatch.preserves_unknown || selector.field != dispatch.tag_field {
+            continue;
+        }
+        let case = dispatch
+            .cases
+            .iter()
+            .find(|case| case.tag == selector.value)?;
+        let case_ty = schema_dispatch_case_type(module, schema, case, &mut Vec::new())?;
+        if case_ty == Type::int() {
+            supported_int_field_names.push(field.name.clone());
+        }
+        schema_field_types.insert(field.name.clone(), case_ty);
+    }
+    Some((schema_field_types, supported_int_field_names))
 }
 
 fn schema_encode_mapping_source_targets(
@@ -1335,6 +1405,7 @@ fn schema_encode_mapping_source_targets(
     exact_width_field_names: &[String],
     mapping: &veln_ast::SchemaMappingClause,
     target_fields: &[(String, Type)],
+    allow_single_payload_variant: bool,
 ) -> Option<BTreeMap<String, String>> {
     let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
     let mut source_to_target = BTreeMap::<String, String>::new();
@@ -1347,6 +1418,7 @@ fn schema_encode_mapping_source_targets(
             exact_width_field_names,
             assignment,
             target_ty,
+            allow_single_payload_variant,
         )?;
         for source in sources {
             if source_to_target
@@ -1373,6 +1445,7 @@ fn schema_encode_mapping_assignment_sources(
     exact_width_field_names: &[String],
     assignment: &veln_ast::SchemaMappingAssignment,
     target_ty: &Type,
+    allow_single_payload_variant: bool,
 ) -> Option<Vec<String>> {
     if let ExprKind::NamePath(segments) = &assignment.expr.kind {
         let [source] = segments.as_slice() else {
@@ -1382,9 +1455,6 @@ fn schema_encode_mapping_assignment_sources(
         return is_assignable(target_ty, source_ty).then(|| vec![source.clone()]);
     }
 
-    if schema.mappings.len() != 1 {
-        return None;
-    }
     let typed = schema_mapping_expr_typed(
         module,
         schema,
@@ -1405,7 +1475,8 @@ fn schema_encode_mapping_assignment_sources(
             }) {
                 return None;
             }
-            if args.len() == 1
+            if !allow_single_payload_variant
+                && args.len() == 1
                 && descriptor.variants.len() != 1
                 && !matches!(args.first(), Some(SchemaDecodeMappingExpr::Record(_)))
             {

@@ -136,8 +136,9 @@ payload fields, extension-tolerant known payloads, and nested helper
 diagnostics. A checked non-HTTP telemetry envelope combines the implemented
 helper vocabulary in one generated decode-and-encode schema. Recursive
 dispatch payload schemas outside the selected same-module length-bounded
-closed-dispatch decode slice, broader unsupported field layouts, and schema
-value mapping beyond the implemented structural slices remain proposal work.
+closed-dispatch decode-and-encode slice, broader unsupported field layouts,
+and schema value mapping beyond the implemented structural slices remain
+proposal work.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
 one byte through the existing `UInt8` representation path, decodes to the
@@ -330,7 +331,7 @@ for:
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
 - recursive dispatch payload schemas outside the selected same-module
-  length-bounded closed-dispatch decode slice and dispatch payload schemas
+  length-bounded closed-dispatch decode-and-encode slice and dispatch payload schemas
   outside the generated helper slice
 
 ## Discussion Result: Dependent Structure Boundary
@@ -460,9 +461,9 @@ when both operands name earlier visible `Int` fields in the same schema.
 an eligible nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module
-length-bounded closed-dispatch decode slice, dispatch payload schemas outside
-the generated helper slice, and mapping beyond the implemented slices remain
-proposal work.
+length-bounded closed-dispatch decode-and-encode slice, dispatch payload
+schemas outside the generated helper slice, and mapping beyond the
+implemented slices remain proposal work.
 A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
 remaining bit is handled as a reserved or fixed schema bit. The 31-bit value

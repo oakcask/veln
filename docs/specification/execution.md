@@ -661,14 +661,18 @@ execution reference.
   the selected target record through direct source-field assignments. The
   helper selects the mapping whose projected selector value matches the clause
   literal, then uses the same generated encode diagnostic shape for selector
-  and projected-field representation failures. This slice excludes selected
-  mappings that cannot reconstruct all schema-local encode fields through
-  direct source-field assignments, mapping expressions that cannot be
-  projected back to schema-local fields, recursive dispatch payload schemas
-  outside the selected same-module length-bounded closed-dispatch decode
-  slice, dispatch payload schemas outside the generated helper slice, nested
-  mappings, and derived codec encode
-  execution for unsupported schemas.
+  and projected-field representation failures. Same-module recursive
+  closed-dispatch payload cases are also eligible in the length-bounded form
+  when selected mappings cover every dispatch case, all mappings resolve to
+  one record shape, and at least one case is non-recursive. The generated
+  encode helper writes the selected recursive payload through the same schema
+  helper path and checks the encoded payload byte count against the earlier
+  length field. This slice excludes selected mappings that cannot reconstruct
+  all schema-local encode fields, mapping expressions that cannot be projected
+  back to schema-local fields, recursive dispatch payload schemas outside that
+  selected same-module length-bounded closed-dispatch slice, dispatch payload
+  schemas outside the generated helper slice, nested mappings, and derived
+  codec encode execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
@@ -744,6 +748,7 @@ execution reference.
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-recursive-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
@@ -767,6 +772,7 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-unknown-tag-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-human/`,
+  `examples/specification/run/binary-schema-recursive-dispatch-length-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-general-helper-roundtrip/`,
