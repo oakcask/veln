@@ -1366,7 +1366,10 @@ against the built `veln` binary.
   PING frame, it constructs one immutable outbound PING ACK chunk
   through the frame-header encode path with the original opaque payload, while
   a received PING ACK remains observable and produces no response chunk. It
-  also constructs outbound PRIORITY chunks for an open stream, checks
+  also constructs outbound DATA chunks for unpadded and PADDED send-intents,
+  including PADDED splitting, over-window rejection, over-frame padding
+  rejection, and PADDED `END_STREAM` local closed-stream rejection of later
+  DATA. It also constructs outbound PRIORITY chunks for an open stream, checks
   replacement-friendly dependency and weight values, rejects missing, closed,
   reset, mismatched, and self-dependent streams before output bytes, and
   preserves frame stream-id and dependency-payload encode failures as codec

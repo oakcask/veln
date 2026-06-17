@@ -1237,10 +1237,15 @@ credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
 larger than the peer-advertised maximum frame size are emitted in one
 immutable output chunk containing multiple DATA frames, each no larger than
-that maximum, then both outbound credits are consumed by the full payload
-length after all frames encode. `END_STREAM` appears only on the final DATA
-frame when requested. DATA intents that exceed the available outbound
-connection credit or the peer-advertised stream credit derived from received
+that maximum, then both outbound credits are consumed by the full encoded
+DATA payload length after all frames encode. `END_STREAM` appears only on the
+final DATA frame when requested. PADDED DATA send-intents encode the PADDED
+flag, one pad-length byte per emitted frame, application bytes, and requested
+zero padding bytes. The peer-advertised maximum frame size and outbound
+connection and stream credit count the pad-length byte and padding as part of
+each encoded DATA payload. Padding that cannot fit in the selected frame
+payload, DATA intents that exceed available outbound connection credit, and
+DATA intents that exceed peer-advertised stream credit derived from received
 `SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
 Accepted DATA with `END_STREAM` records local closed-stream state; later
 outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
