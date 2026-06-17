@@ -1192,6 +1192,29 @@ fn send_local_max_frame_size_setting(value: Int, connection: Http2ConnectionStat
 	end
 end
 
+fn send_local_max_frame_size_and_enable_push_settings(max_frame_size_value: Int, enable_push_value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match enable_push_value < 0
+		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings")))
+		false => match enable_push_value > 1
+			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings")))
+			false => match connection
+				ConnectionState(decode_state, _) => encode_local_settings_batch_intent(max_frame_size_value, enable_push_value, decode_state)
+			end
+		end
+	end
+end
+
+fn encode_local_settings_batch_intent(max_frame_size_value: Int, enable_push_value: Int, decode_state: Http2DecodeState) -> Result<OutboundSettingsDecision, String>
+	let max_frame_size_payload: ByteChunk = byte_append(byte_write_u16_be(5)?, byte_write_u32_be(max_frame_size_value)?)
+	let enable_push_payload: ByteChunk = byte_append(byte_write_u16_be(2)?, byte_write_u32_be(enable_push_value)?)
+	let payload: ByteChunk = byte_append(max_frame_size_payload, enable_push_payload)
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 12, kind: 4, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundSettingsAccepted(5, max_frame_size_value, ConnectionState(decode_state, OutstandingLocalSettings(5, 2)), byte_append(header, payload)))
+		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
+	end
+end
+
 fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState) -> Result<OutboundSettingsDecision, String>
 	let payload: ByteChunk = byte_append(byte_write_u16_be(5)?, byte_write_u32_be(value)?)
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
@@ -5366,6 +5389,17 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let local_settings_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_sent))?
 	print_step("local-settings-ack", connection_step_decode_step(local_settings_ack))
 	print_outstanding_settings("local-settings-ack", connection_step_state(local_settings_ack))
+	let local_settings_batch_sent: OutboundSettingsDecision = send_local_max_frame_size_and_enable_push_settings(32768, 1, connection_state(frame_state()))?
+	print_outbound_settings("local-settings-batch-sent", local_settings_batch_sent)
+	let ignored_local_settings_batch_chunk: () = emit_encoded_header("http2-local-settings-batch", outbound_settings_chunk(local_settings_batch_sent), "00000c040000000000000500008000000200000001")?
+	print_outstanding_settings("local-settings-batch-sent", outbound_settings_connection(local_settings_batch_sent))
+	let local_settings_batch_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_batch_sent))?
+	print_step("local-settings-batch-ack", connection_step_decode_step(local_settings_batch_ack))
+	print_outstanding_settings("local-settings-batch-ack", connection_step_state(local_settings_batch_ack))
+	let local_settings_batch_range: OutboundSettingsDecision = send_local_max_frame_size_and_enable_push_settings(32768, 2, connection_state(frame_state()))?
+	print_outbound_settings("local-settings-batch-range", local_settings_batch_range)
+	let ignored_local_settings_batch_range_chunk: () = print_empty_output_chunks("http2-local-settings-batch-range")?
+	print_settings_failure("local-settings-batch-range", Failed(frame_state(), outbound_settings_failure(local_settings_batch_range)))
 	let local_header_table_size_settings_sent: OutboundSettingsDecision = send_local_header_table_size_setting(4096, connection_state(frame_state()))?
 	print_outbound_settings("local-header-table-size-settings-sent", local_header_table_size_settings_sent)
 	let ignored_local_header_table_size_settings_chunk: () = emit_encoded_header("http2-local-header-table-size-settings", outbound_settings_chunk(local_header_table_size_settings_sent), "000006040000000000000100001000")?

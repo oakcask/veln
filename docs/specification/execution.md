@@ -1123,18 +1123,21 @@ execution reference.
   stream id `0`. That send intent only constructs the output chunk; it does
   not update peer-advertised SETTINGS state or local receive-limit state.
 - The same example also covers the narrow local SETTINGS send-intent and ACK
-  tracking slice. Ordinary source constructs exactly one SETTINGS item for
+  tracking slice. Ordinary source constructs one SETTINGS item for
   `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
   `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
-  `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`, emits the
-  frame-header-plus-item output
-  chunk with the selected item identifier and four-byte unsigned value, and
-  records one outstanding local SETTINGS batch in connection state with that
-  identifier and item count. Local `SETTINGS_ENABLE_PUSH` accepts values `0`
-  and `1`; other values are rejected before bytes are emitted with the
-  SETTINGS value range failure shape. A valid received SETTINGS ACK clears
-  that outstanding state. A valid received SETTINGS ACK when no local SETTINGS
-  batch is outstanding fails as
+  `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`, and also
+  covers a two-item local SETTINGS batch. Accepted local SETTINGS intents emit
+  one frame-header-plus-payload output chunk with length `6 * item_count`,
+  kind `4`, flags `0`, stream id `0`, and the selected setting identifier and
+  four-byte unsigned value pairs in order. The connection records one
+  outstanding local SETTINGS batch with the selected item count. Local
+  `SETTINGS_ENABLE_PUSH` accepts values `0` and `1`; other values are
+  rejected before bytes are emitted with the SETTINGS value range failure
+  shape, including when the invalid value appears in a batch. A valid received
+  SETTINGS ACK clears that outstanding state, including a multi-item batch.
+  A valid received SETTINGS ACK when no local SETTINGS batch is outstanding
+  fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
   provenance in related context.
 - The same HTTP/2 protocol-core example also covers the narrow outbound PING
