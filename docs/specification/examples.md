@@ -1458,6 +1458,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-priority-dependency-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
