@@ -1,0 +1,19 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `UnboundedNode` cannot reference itself"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `UnboundedNode` cannot reference itself"

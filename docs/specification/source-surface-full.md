@@ -120,23 +120,28 @@ record shape; and a repeated `ByteView(length_field)` field decodes and
 encodes as `List<ByteView>`. Missing, forward, or non-`Int` repeat count
 references report `schema.repeat_reference`; missing, forward, or non-`Int`
 byte-view length references report `schema.byte_view_reference`. Binary schema
-fields also accept the closed dispatch
-type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
-type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
-the referenced fields were decoded earlier in the same schema and case
-payloads are implemented exact-width unsigned primitives or eligible nested
-binary schema payloads. Nested payload schema names must resolve to earlier
+fields also accept the closed dispatch types
+`Dispatch(tag_field, tag => Payload, ...)` and
+`Dispatch(tag_field, length_field, tag => Payload, ...)`, and the
+extension-tolerant type
+`ExtensionDispatch(tag_field, length_field, tag => Payload, ...)`, when the
+referenced fields were decoded earlier in the same schema and case payloads
+are implemented exact-width unsigned primitives or eligible nested binary
+schema payloads. Nested payload schema names must resolve to earlier
 same-module binary schema items or public imported binary schemas named
 through written `use` paths, and the named schemas must themselves be
 eligible for the generated binary schema helper path. The tag and length
-references must resolve to visible `Int` fields.
+references must resolve to visible `Int` fields. Same-module recursive closed
+dispatch payload schemas are accepted only in the length-bounded `Dispatch`
+form when selected mappings cover every dispatch case and resolve to one
+record shape, with at least one non-recursive case as the base case.
 Exact-width primitive names used outside `format binary` schema field type
 positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
-recursive, outside the generated helper slice, or incompatible report
+unbounded recursive, outside the generated helper slice, or incompatible report
 `schema.dispatch_payload`. The checked
 field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;

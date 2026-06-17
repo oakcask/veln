@@ -3,12 +3,14 @@ use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaMappingConverterInput,
     SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    extension_dispatch_schema_primitive, flag_schema_primitive, repeat_schema_primitive,
+    extension_dispatch_schema_primitive, flag_schema_primitive,
+    recursive_closed_dispatch_payload_is_eligible, repeat_schema_primitive,
     schema_decode_record_type, schema_decode_step_function_name, schema_decode_value_type,
     schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
     schema_length_expression_references, schema_mapping_source_field_types,
     schema_payload_name_last_segment, schema_payload_name_path,
-    selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
+    schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
+    supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -2529,31 +2531,69 @@ fn check_schema_dispatch_field(
         let payload_ty = match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
-                resolve_schema_dispatch_payload_schema(
-                    module,
-                    schema,
-                    field,
-                    case.tag,
-                    schema_name,
-                    diagnostics,
-                )
-                .and_then(|payload_schema| {
-                    schema_decode_value_type(module, payload_schema).or_else(|| {
+                if schema.name.as_deref() == Some(schema_name.as_str()) {
+                    if !recursive_closed_dispatch_payload_is_eligible(
+                        schema,
+                        field,
+                        dispatch,
+                        schema_name,
+                    ) {
                         diagnostics.push(schema_dispatch_payload_diagnostic(
                             schema,
                             field,
                             case.tag,
                             schema_name,
-                            "incompatible_payload_schema",
+                            "self_payload_schema",
                             format!(
-                                "dispatch payload schema `{}` is not a supported decoded binary schema",
-                                schema_payload_name_last_segment(schema_name)
+                                "dispatch payload schema `{schema_name}` cannot reference itself"
                             ),
                             [],
                         ));
                         None
+                    } else {
+                        schema_recursive_dispatch_payload_type(module, schema).or_else(|| {
+                            diagnostics.push(schema_dispatch_payload_diagnostic(
+                                schema,
+                                field,
+                                case.tag,
+                                schema_name,
+                                "incompatible_payload_schema",
+                                format!(
+                                    "dispatch payload schema `{}` is not a supported decoded binary schema",
+                                    schema_payload_name_last_segment(schema_name)
+                                ),
+                                [],
+                            ));
+                            None
+                        })
+                    }
+                } else {
+                    resolve_schema_dispatch_payload_schema(
+                        module,
+                        schema,
+                        field,
+                        case.tag,
+                        schema_name,
+                        diagnostics,
+                    )
+                    .and_then(|payload_schema| {
+                        schema_decode_value_type(module, payload_schema).or_else(|| {
+                            diagnostics.push(schema_dispatch_payload_diagnostic(
+                                schema,
+                                field,
+                                case.tag,
+                                schema_name,
+                                "incompatible_payload_schema",
+                                format!(
+                                    "dispatch payload schema `{}` is not a supported decoded binary schema",
+                                    schema_payload_name_last_segment(schema_name)
+                                ),
+                                [],
+                            ));
+                            None
+                        })
                     })
-                })
+                }
             }
         };
         let Some(payload_ty) = payload_ty else {
@@ -2581,8 +2621,13 @@ fn check_schema_dispatch_field(
             let payload_ty = match &case.payload {
                 SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
                 SchemaDispatchCasePayload::Schema { schema_name } => {
-                    schema_dispatch_payload_schema(module, schema, schema_name)
-                        .and_then(|payload_schema| schema_decode_value_type(module, payload_schema))
+                    if schema.name.as_deref() == Some(schema_name.as_str()) {
+                        schema_recursive_dispatch_payload_type(module, schema)
+                    } else {
+                        schema_dispatch_payload_schema(module, schema, schema_name).and_then(
+                            |payload_schema| schema_decode_value_type(module, payload_schema),
+                        )
+                    }
                 }
             }?;
             (&payload_ty != expected).then_some((case, payload_ty))
@@ -2611,7 +2656,7 @@ fn check_schema_dispatch_field(
         return None;
     }
     let payload_ty = expected_payload_type?;
-    if dispatch.length_field.is_some() {
+    if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
         Some(payload_ty)

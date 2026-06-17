@@ -628,15 +628,30 @@
         long actualValue,
         String nearbyContext
     ) {
+        registerSchemaFixedFieldMismatchPathDiagnostic(
+            message,
+            byteOffset,
+            schemaFieldPath(schemaName, fieldName),
+            expectedValue,
+            actualValue,
+            nearbyContext
+        );
+    }
+
+    private static void registerSchemaFixedFieldMismatchPathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long expectedValue,
+        long actualValue,
+        String nearbyContext
+    ) {
         byteDiagnostics.get().put(
             message,
             new ByteDiagnostic(
                 "schema.fixed_field_mismatch",
                 byteOffset,
-                java.util.Arrays.asList(
-                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
-                    new ByteDiagnosticFieldPathSegment("field", fieldName)
-                ),
+                fieldPath,
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("expected_value", expectedValue),
                     DiagnosticDetail.number("actual_value", actualValue),
@@ -693,6 +708,29 @@
                     new ByteDiagnosticFieldPathSegment("schema", schemaName),
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("expected_count", expectedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
+    private static void registerSchemaLengthOutOfBoundsPathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long expectedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.length_out_of_bounds",
+                byteOffset,
+                fieldPath,
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("expected_count", expectedCount),
                     DiagnosticDetail.number("available_count", availableCount),
