@@ -22,7 +22,7 @@ compare it with `../specification/` before changing behavior.
   constructor construction mapping expressions, pure same-module and imported
   public representation conversion hooks whose arguments may be schema-local
   fields or structural mapping expressions, field selection from record-shaped
-  structural mapping expressions, decoded-field integer mapping arithmetic,
+  structural mapping expressions, decoded-field and integer-literal mapping arithmetic,
   decoded-field integer equality and inequality mapping selection, focused
   mapping selection diagnostics, and the generated-helper schema validation
   diagnostic boundary,

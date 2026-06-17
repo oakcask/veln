@@ -3740,8 +3740,8 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
             "  checksum: UInt8\n",
             "\n",
             "  map to Header\n",
-            "    body_length = (length - padding) + checksum\n",
-            "    scaled_length = (length + padding) * checksum\n",
+            "    body_length = (length - 9) + checksum\n",
+            "    scaled_length = (length + padding) * 2\n",
             "end\n",
             "\n",
             "pub fn main(view: ByteView) -> Result<{body_length: Int, scaled_length: Int}, String>\n",
@@ -3784,7 +3784,7 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
                     )
                     && matches!(
                         right.as_ref(),
-                        veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "padding"
+                        veln_ir::IrSchemaDecodeMappingExpr::Literal(9)
                     )
             )
             && matches!(
@@ -3818,10 +3818,7 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
                         veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "padding"
                     )
             )
-            && matches!(
-                right.as_ref(),
-                veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "checksum"
-            )
+            && matches!(right.as_ref(), veln_ir::IrSchemaDecodeMappingExpr::Literal(2))
     ));
 }
 

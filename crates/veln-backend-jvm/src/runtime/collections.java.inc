@@ -5961,6 +5961,9 @@
         if (tag.equals("field")) {
             return decoded.get(asString(spec.get(1)));
         }
+        if (tag.equals("literal")) {
+            return Long.valueOf(asLong(spec.get(1)));
+        }
         if (tag.equals("field_access")) {
             return recordField(schemaMappingExprValue(decoded, spec.get(1)), asString(spec.get(2)));
         }

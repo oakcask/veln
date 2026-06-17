@@ -1,5 +1,5 @@
 type Header
-	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, bad_operand: Int, unsupported_operand: Int, unsupported_call: Int, unsupported_operator: Int}
+	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, bad_operand: Int, literal_operand_bad_type: Int, unsupported_call: Int, unsupported_operator: Int}
 end
 
 type FrameKind
@@ -22,7 +22,7 @@ schema HeaderWire
 		bad_arity = FrameKind(kind, length)
 		bad_type = FrameKind({value: kind})
 		bad_operand = length * payload
-		unsupported_operand = length + 1
+		literal_operand_bad_type = payload + 1
 		unsupported_call = convert(length) + kind
 		unsupported_operator = kind / length
 end

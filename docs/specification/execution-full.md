@@ -206,7 +206,7 @@ generated helper constructs the target record field names from decoded schema
 fields, record construction expressions, and ADT constructor construction
 expressions after all field-local `where` predicates pass. A mapping
 assignment may also use `+`, `-`, and `*` over decoded schema-local `Int`
-fields and nested supported mapping arithmetic expressions. A mapping
+fields, integer literals, and nested supported mapping arithmetic expressions. A mapping
 assignment may also call one pure same-module converter function or one
 imported public pure converter function through a written `use` path or alias
 with either one decoded schema-local field argument or one already implemented

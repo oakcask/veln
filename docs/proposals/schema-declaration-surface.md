@@ -93,8 +93,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   schema-local field or structural mapping expression into a target field, or
   select a visible field from a record-shaped structural mapping expression,
   plus `+`, `-`, and `*` integer arithmetic over decoded schema-local `Int`
-  fields and nested supported mapping arithmetic expressions into an `Int` target
-  field
+  fields, integer literals, and nested supported mapping arithmetic expressions
+  into an `Int` target field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -153,14 +153,14 @@ public pure converter function call through a written `use` path or alias from
 a schema-local field or structural mapping expression into a target field, and
 field selection from record-shaped structural mapping expressions. An `Int`
 target field may also use `+`, `-`, and `*` over decoded schema-local `Int`
-fields and nested supported mapping arithmetic expressions.
+fields, integer literals, and nested supported mapping arithmetic expressions.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
 construction, a single same-module pure converter call, and a single imported
 public pure converter call through a written `use` path or alias, and field
 selection from record-shaped structural mapping expressions, plus
-decoded-field integer mapping arithmetic for `Int` target fields. Converter
+decoded-field and integer-literal mapping arithmetic for `Int` target fields. Converter
 arguments may be schema-local field references or structural mapping
 expressions made from schema-local fields, records, ADT constructors, and
 nested combinations of those forms, including supported integer arithmetic
@@ -419,7 +419,7 @@ Implemented:
   representation converter call, and imported public pure converter call
   assignment expressions through a written `use` path or alias, field
   selection from record-shaped structural mapping expressions, and
-  decoded-field integer `+`, `-`, and `*` mapping arithmetic. Converter arguments
+  decoded-field and integer-literal `+`, `-`, and `*` mapping arithmetic. Converter arguments
   may be schema-local field references or structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal` or

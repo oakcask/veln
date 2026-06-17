@@ -238,6 +238,8 @@ against the built `veln` binary.
 - `check/schema-mapping-selection-diagnostics/`: binary schema diagnostics for
   missing, duplicate, overlapping, and unsupported structural mapping
   selection.
+- `check/schema-mapping-arithmetic-literals/`: schema mapping arithmetic
+  accepts integer literal operands for `Int` target fields.
 - `run/binary-schema-mapping-selection-decode/`: generated binary schema
   decode selects one structural mapping from an already decoded field value.
 - `run/binary-schema-mapping-selection-not-equal-decode/`: generated binary
@@ -248,8 +250,8 @@ against the built `veln` binary.
   binary schema decode accepts a closed dispatch whose primitive and nested
   payload cases are wrapped by selected mappings into one target record shape.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
-  decode computes an `Int` target field with supported decoded-field `+`,
-  `-`, and `*` mapping arithmetic.
+  decode computes `Int` target fields with supported decoded-field and
+  integer-literal `+`, `-`, and `*` mapping arithmetic.
 - `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
   mapping expressions reject missing selected fields and non-record selection
   targets.
