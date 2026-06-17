@@ -1,0 +1,6 @@
+# Flag64le helper functions report range failures through human command output.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag64le = flag64le_set(Flag64le(0), -1)?
+	Ok(())
+end

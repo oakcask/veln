@@ -49,19 +49,22 @@ name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`,
 `UInt64le`, and `ReservedBits(width, value)` are accepted as schema
-primitives. `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` are
+primitives. `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
+`Flag64be`, and `Flag64le` are
 accepted as opt-in visible flag bitset fields; they decode and encode through
 source-visible `Flag8(bits: Int)`, `Flag16be(bits: Int)`,
-`Flag16le(bits: Int)`, `Flag32be(bits: Int)`, and `Flag32le(bits: Int)` value
+`Flag16le(bits: Int)`, `Flag32be(bits: Int)`, `Flag32le(bits: Int)`,
+`Flag64be(bits: Int)`, and `Flag64le(bits: Int)` value
 types instead of the raw `Int` used by `UInt8`, `UInt16be`, `UInt16le`,
-`UInt32be`, and `UInt32le`.
+`UInt32be`, `UInt32le`, `UInt64be`, and `UInt64le`.
 Source-visible checked helpers read and set `Flag8` bit indexes `0` through
 `7`, `Flag16be` and `Flag16le` bit indexes `0` through `15`, and `Flag32be`
-and `Flag32le` bit indexes `0` through `31`; indexes outside each helper's
-range return `Result` failures. Source-visible raw-bit helpers expose the
-wrapped integer bits and construct `Flag8`, `Flag16be`, `Flag16le`,
-`Flag32be`, or `Flag32le` values only when the supplied integer is inside the
-corresponding one-byte, two-byte, or four-byte range.
+and `Flag32le` bit indexes `0` through `31`, and `Flag64be` and `Flag64le`
+bit indexes `0` through `63`; indexes outside each helper's range return
+`Result` failures. Source-visible raw-bit helpers expose the wrapped integer
+bits and construct `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
+`Flag64be`, or `Flag64le` values only when the supplied integer is inside the
+corresponding one-byte, two-byte, four-byte, or eight-byte range.
 `ReservedBits` arguments must be literal
 non-negative integers. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
@@ -141,6 +144,7 @@ assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
 `Flag16be` fields as `Flag16be`, `Flag16le` fields as `Flag16le`,
 `Flag32be` fields as `Flag32be`, `Flag32le` fields as `Flag32le`,
+`Flag64be` fields as `Flag64be`, `Flag64le` fields as `Flag64le`,
 length-bounded
 `ByteView(length_field)` or `ByteView(left_length - right_length)` payload
 fields as `ByteView`, bounded
@@ -157,7 +161,8 @@ selectors report `schema.mapping_selection_required`,
 `schema.mapping_selection_unsupported`. The predicate, primitive, dispatch,
 and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
-primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`, supported reserved-bit, closed
+primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
+`Flag64be`, `Flag64le`, supported reserved-bit, closed
 dispatch, extension dispatch, bounded repeated primitive or nested schema field,
 length-bounded `ByteView`, and eligible nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
@@ -180,7 +185,8 @@ The checked diagnostics case
 pins imported converter visibility and missing written import-path diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
-one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` bitset fields, supported
+one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
+`Flag64be`, and `Flag64le` bitset fields, supported
 byte-aligned `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
@@ -212,7 +218,8 @@ nested binary schema payloads, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 one structural `map to Target` clause can make that helper accept the mapping
 target record shape when every visible encode field, including `Flag8`,
-`Flag16be`, `Flag16le`, `Flag32be`, and `Flag32le` fields, is assigned from a
+`Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`, `Flag64be`, and `Flag64le`
+fields, is assigned from a
 projectable schema-local field reference. Multiple selected
 `map to Target when field == literal` clauses can make the helper accept that
 same target record shape when all selected mappings resolve to it and every

@@ -1445,6 +1445,107 @@
         return ok(Long.valueOf(1L << bitIndex));
     }
 
+    public static Object flag64beIsSet(Object flags, Object index) {
+        Object maskResult = flag64BitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long bitIndex = asLong(index);
+        long bits = flag64beBits(flags);
+        if (bitIndex == 63) {
+            return ok(Boolean.valueOf(bits < 0));
+        }
+        long mask = asLong(resultValue(maskResult));
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag64beSet(Object flags, Object index) {
+        Object maskResult = flag64BitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long bitIndex = asLong(index);
+        if (bitIndex == 63) {
+            return err(flag64BitsError("flag64be"));
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag64beBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag64beObject(bits + mask));
+    }
+
+    public static Object flag64beRawBits(Object flags) {
+        return Long.valueOf(flag64beBits(flags));
+    }
+
+    public static Object flag64beFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0) {
+            return err(flag64BitsError("flag64be"));
+        }
+        return ok(flag64beObject(bits));
+    }
+
+    public static Object flag64leIsSet(Object flags, Object index) {
+        Object maskResult = flag64BitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long bitIndex = asLong(index);
+        long bits = flag64leBits(flags);
+        if (bitIndex == 63) {
+            return ok(Boolean.valueOf(bits < 0));
+        }
+        long mask = asLong(resultValue(maskResult));
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag64leSet(Object flags, Object index) {
+        Object maskResult = flag64BitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long bitIndex = asLong(index);
+        if (bitIndex == 63) {
+            return err(flag64BitsError("flag64le"));
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag64leBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag64leObject(bits + mask));
+    }
+
+    public static Object flag64leRawBits(Object flags) {
+        return Long.valueOf(flag64leBits(flags));
+    }
+
+    public static Object flag64leFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0) {
+            return err(flag64BitsError("flag64le"));
+        }
+        return ok(flag64leObject(bits));
+    }
+
+    private static Object flag64BitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 63) {
+            return err("flag bit index must be between 0 and 63");
+        }
+        if (bitIndex == 63) {
+            return ok(Long.valueOf(Long.MIN_VALUE));
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
+    private static String flag64BitsError(String name) {
+        return name + " bits must be between 0 and 18446744073709551615";
+    }
+
     public static Object byteChunk(Object bytes) {
         return byteChunkObject(asList(bytes));
     }
@@ -6482,6 +6583,22 @@
 
     private static long flag32leBits(Object value) {
         return schemaFlagBits(value, "Flag32le");
+    }
+
+    private static Object flag64beObject(long bits) {
+        return flagObject("Flag64be", bits);
+    }
+
+    private static long flag64beBits(Object value) {
+        return schemaFlagBits(value, "Flag64be");
+    }
+
+    private static Object flag64leObject(long bits) {
+        return flagObject("Flag64le", bits);
+    }
+
+    private static long flag64leBits(Object value) {
+        return schemaFlagBits(value, "Flag64le");
     }
 
     private static Object flagObject(String flagType, long bits) {

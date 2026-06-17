@@ -1,0 +1,6 @@
+# Flag64be helper functions report range failures through human command output.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag64be = flag64be_set(Flag64be(0), -1)?
+	Ok(())
+end
