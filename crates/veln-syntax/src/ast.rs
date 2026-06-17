@@ -141,16 +141,9 @@ pub struct SchemaMappingClause {
 
 #[derive(Clone, Debug)]
 pub struct SchemaMappingSelector {
-    pub field: String,
-    pub op: SchemaMappingSelectorOp,
-    pub value: i64,
+    pub text: String,
+    pub expr: Expr,
     pub span: SourceSpan,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SchemaMappingSelectorOp {
-    Equal,
-    NotEqual,
 }
 
 #[derive(Clone, Debug)]

@@ -210,6 +210,10 @@ fields, integer literals, and nested supported mapping arithmetic expressions. A
 assignment may also call one pure same-module converter function or one
 imported public pure converter function through a written `use` path or alias
 with either one decoded schema-local field argument or one already implemented
+structural mapping expression. Multiple selected mappings may use narrow
+boolean selector expressions over decoded schema-local `Int` fields, integer
+literals, `==`, `!=`, `and`, `or`, and `not` when the selector clauses do not
+overlap and all branches resolve to one target record shape.
 structural mapping expression made from decoded schema fields, records, ADT
 constructors, integer arithmetic mapping expressions, and nested combinations
 of those forms before assigning the returned value to the target field. A

@@ -1717,7 +1717,7 @@ fn generated_schema_mappings_report_selection_diagnostics() {
         .unwrap_or_else(|| panic!("{diagnostics:#?}"));
     assert_eq!(
         diagnostic.message,
-        "schema mapping selector `kind` == 1 is duplicated"
+        "schema mapping selector `kind == 1` is duplicated"
     );
     let details = diagnostic.details.to_json();
     assert!(details.contains("\"schema\":\"HeaderWire\""), "{details}");

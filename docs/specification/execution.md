@@ -436,12 +436,14 @@ execution reference.
   non-HTTP schema and checks successful decode followed by encode.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause, or multiple structural mapping clauses selected by
-  `when field == literal` or `when field != literal`, and each target resolves
-  to the same decoded record shape whose mapped expressions match the target
-  field types, the helper returns the selected mapped ordinary record shape
-  instead of the schema-local field shape. Mapping selection reads the already
-  decoded `Int` selector field after field-local validation succeeds; selector
-  clauses must not overlap for any concrete selector value, so at most one
+  `when field == literal`, `when field != literal`, or boolean selector
+  expressions built from decoded schema-local `Int` fields, integer literals,
+  `==`, `!=`, `and`, `or`, and `not`, and each target resolves to the same
+  decoded record shape whose mapped expressions match the target field types,
+  the helper returns the selected mapped ordinary record shape instead of the
+  schema-local field shape. Mapping selection reads the already decoded `Int`
+  selector fields after field-local validation succeeds; selector clauses must
+  not overlap for any concrete assignment of those fields, so at most one
   mapping is selected. Mapping assignment
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules, or

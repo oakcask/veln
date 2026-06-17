@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.mapping_selection_unsupported\"", "schema mapping selector expression `kind + 1 == 2` is not supported", "\"id\":\"schema.mapping_selection\"", "schema mapping selector field `missing` is not declared", "schema mapping selector field `flags` is not a decoded Int field", "\"id\":\"schema.mapping_selection_ambiguous\"", "schema mapping selector `kind == 1 and flags == 2` overlaps `kind == 1 and flags != 0`", "\"selector_expression\":\"kind == 1 and flags == 2\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

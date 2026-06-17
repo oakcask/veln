@@ -470,6 +470,9 @@ and returns the computed `Int` target fields.
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`
 pins inequality mapping selection by the same decoded field value.
+`../../examples/specification/run/binary-schema-boolean-selected-mapping-decode/`
+pins boolean mapping selection with `and`, `or`, and `not` over decoded
+schema-local `Int` fields.
 `../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
 pins mapping assignment field selection from a decoded nested record value.
 `../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`
@@ -480,6 +483,9 @@ pins missing selected fields and selection from non-record mapping values.
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins JSON diagnostics for missing, duplicate, overlapping, and unsupported
 mapping selection.
+`../../examples/specification/check/schema-mapping-boolean-selector-diagnostics/`
+pins JSON diagnostics for unsupported boolean selector expressions, unknown
+selector fields, non-`Int` selector fields, and boolean-selector overlap.
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, constructor payload type, non-`Int` arithmetic operand, and unsupported

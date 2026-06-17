@@ -7,8 +7,7 @@ use veln_syntax::{
     FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
     PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
     PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
-    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl,
-    SchemaMappingSelectorOp as SyntaxSchemaMappingSelectorOp, SyntaxItem, SyntaxTree,
+    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
     TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
@@ -287,16 +286,8 @@ impl AstBuilder {
                     selector: mapping.selector.as_ref().map(|selector| {
                         crate::SchemaMappingSelector {
                             node_id: self.alloc(),
-                            field: selector.field.clone(),
-                            op: match selector.op {
-                                SyntaxSchemaMappingSelectorOp::Equal => {
-                                    crate::SchemaMappingSelectorOp::Equal
-                                }
-                                SyntaxSchemaMappingSelectorOp::NotEqual => {
-                                    crate::SchemaMappingSelectorOp::NotEqual
-                                }
-                            },
-                            value: selector.value,
+                            text: selector.text.clone(),
+                            expr: self.lower_expr(&selector.expr),
                             span: selector.span.clone(),
                         }
                     }),

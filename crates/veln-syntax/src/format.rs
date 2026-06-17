@@ -1,8 +1,8 @@
 use crate::{
     BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
     FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaMappingClause,
-    SchemaMappingSelectorOp, SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl,
-    TypeVariantDecl, TypeVariantFieldDelimiter, Visibility,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantFieldDelimiter, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -184,13 +184,7 @@ fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &Sc
     let selector = mapping
         .selector
         .as_ref()
-        .map(|selector| {
-            let op = match selector.op {
-                SchemaMappingSelectorOp::Equal => "==",
-                SchemaMappingSelectorOp::NotEqual => "!=",
-            };
-            format!(" when {} {} {}", selector.field, op, selector.value)
-        })
+        .map(|selector| format!(" when {}", format_expr_at_indent(&selector.expr, 1)))
         .unwrap_or_default();
     push_source_line(
         out,

@@ -315,13 +315,32 @@ fn schema_decode_spec_inner_after_push(
             .unwrap_or_default()
             .into_iter()
             .map(|mapping| IrSchemaDecodeMapping {
-                selector: mapping
-                    .selector
-                    .map(|selector| IrSchemaDecodeMappingSelector {
-                        field: selector.field,
-                        op: selector.op,
-                        value: selector.value,
-                    }),
+                selector: mapping.selector.map(|selector| {
+                    let simple =
+                        selector
+                            .predicate
+                            .as_simple_comparison()
+                            .map(|(field, op, value)| {
+                                (
+                                    field.to_string(),
+                                    match op {
+                                        types::SchemaMappingSelectorComparison::Equal => "==",
+                                        types::SchemaMappingSelectorComparison::NotEqual => "!=",
+                                    }
+                                    .to_string(),
+                                    value,
+                                )
+                            });
+                    IrSchemaDecodeMappingSelector {
+                        text: selector.text,
+                        field: simple.as_ref().map(|(field, _, _)| field.clone()),
+                        operator: simple
+                            .as_ref()
+                            .map(|(_, op, _)| op.clone())
+                            .unwrap_or_default(),
+                        value: simple.map(|(_, _, value)| value).unwrap_or_default(),
+                    }
+                }),
                 fields: mapping
                     .fields
                     .into_iter()

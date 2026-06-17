@@ -2,11 +2,13 @@ use super::*;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaMappingConverterInput,
-    SchemaRepeatPayload, byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    SchemaMappingSelectorComparison, SchemaMappingSelectorPredicate, SchemaRepeatPayload,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive,
     recursive_dispatch_payload_is_eligible, repeat_schema_primitive, schema_decode_record_type,
     schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
     schema_encode_function_name, schema_encode_value_type, schema_length_expression_references,
+    schema_mapping_selector_predicate, schema_mapping_selectors_overlap,
     schema_mapping_source_field_types, schema_payload_name_last_segment, schema_payload_name_path,
     schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
     supported_encode_reserved_bits,
@@ -3140,8 +3142,11 @@ fn schema_mapping_selection_diagnostics(
     }
 
     let mut diagnostics = Vec::new();
-    let mut selector_field = None::<String>;
-    let mut seen_selectors = Vec::<(&veln_ast::SchemaMappingSelector, SourceSpan)>::new();
+    let mut seen_selectors = Vec::<(
+        &veln_ast::SchemaMappingSelector,
+        SchemaMappingSelectorPredicate,
+        SourceSpan,
+    )>::new();
     let mut target_fields = None::<Vec<(String, Type)>>;
     for mapping in &schema.mappings {
         let Some(selector) = &mapping.selector else {
@@ -3150,32 +3155,57 @@ fn schema_mapping_selection_diagnostics(
             ));
             continue;
         };
-        if schema_fields.get(&selector.field) != Some(&Type::int()) {
-            diagnostics.push(schema_mapping_selection_field_diagnostic(
+        let Ok(predicate) = schema_mapping_selector_predicate(selector) else {
+            diagnostics.push(schema_mapping_selection_unsupported_diagnostic(
                 schema, mapping, selector,
             ));
-        }
-        if let Some(first_field) = &selector_field {
-            if first_field != &selector.field {
-                diagnostics.push(schema_mapping_selection_field_mismatch_diagnostic(
+            continue;
+        };
+        let mut selector_fields = BTreeSet::<String>::new();
+        predicate.collect_fields(&mut selector_fields);
+        let mut selector_valid = true;
+        for selector_field in selector_fields {
+            if !schema
+                .fields
+                .iter()
+                .any(|field| field.name == selector_field)
+            {
+                selector_valid = false;
+                diagnostics.push(schema_mapping_selection_unknown_field_diagnostic(
                     schema,
                     mapping,
                     selector,
-                    first_field,
+                    &selector_field,
+                ));
+            } else if schema_fields.get(&selector_field) != Some(&Type::int()) {
+                selector_valid = false;
+                diagnostics.push(schema_mapping_selection_field_diagnostic(
+                    schema,
+                    mapping,
+                    selector,
+                    &selector_field,
                 ));
             }
-        } else {
-            selector_field = Some(selector.field.clone());
         }
-        if let Some((previous, first_span)) = seen_selectors
-            .iter()
-            .find(|(previous, _)| schema_mapping_selectors_overlap(previous, selector))
+        if !selector_valid {
+            continue;
+        }
+        if let Some((previous, previous_predicate, first_span)) =
+            seen_selectors.iter().find(|(_, previous_predicate, _)| {
+                schema_mapping_selectors_overlap(previous_predicate, &predicate)
+            })
         {
             diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
-                schema, mapping, selector, previous, first_span,
+                schema,
+                mapping,
+                selector,
+                &predicate,
+                previous,
+                previous_predicate,
+                first_span,
             ));
         }
-        seen_selectors.push((selector, selector.span.clone()));
+        seen_selectors.push((selector, predicate, selector.span.clone()));
         if let Some(fields) = schema_mapping_target_record_fields(module, schema, mapping) {
             if let Some(first_fields) = &target_fields {
                 if first_fields != &fields {
@@ -3212,6 +3242,7 @@ fn schema_mapping_selection_field_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
     selector: &veln_ast::SchemaMappingSelector,
+    selector_field: &str,
 ) -> Diagnostic {
     Diagnostic::new(
         "schema.mapping_selection",
@@ -3219,7 +3250,7 @@ fn schema_mapping_selection_field_diagnostic(
         DiagnosticKind::Type,
         format!(
             "schema mapping selector field `{}` is not a decoded Int field",
-            selector.field
+            selector_field
         ),
         Some(selector.span.clone()),
         schema_mapping_details(
@@ -3228,32 +3259,77 @@ fn schema_mapping_selection_field_diagnostic(
             mapping,
             [
                 ("reason", JsonValue::string("selector_field")),
-                ("selector_field", JsonValue::string(selector.field.clone())),
+                (
+                    "selector_field",
+                    JsonValue::string(selector_field.to_string()),
+                ),
+                (
+                    "selector_expression",
+                    JsonValue::string(selector.text.clone()),
+                ),
             ],
         ),
     )
 }
 
-fn schema_mapping_selection_field_mismatch_diagnostic(
+fn schema_mapping_selection_unknown_field_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
     selector: &veln_ast::SchemaMappingSelector,
-    first_field: &str,
+    selector_field: &str,
 ) -> Diagnostic {
     Diagnostic::new(
-        "schema.mapping_selection_unsupported",
+        "schema.mapping_selection",
         Severity::Error,
         DiagnosticKind::Type,
-        "schema mapping selection must use one decoded field",
+        format!("schema mapping selector field `{selector_field}` is not declared"),
         Some(selector.span.clone()),
         schema_mapping_details(
             selector.node_id.display("schema-mapping-selector"),
             schema,
             mapping,
             [
-                ("reason", JsonValue::string("selector_field_mismatch")),
-                ("selector_field", JsonValue::string(selector.field.clone())),
-                ("expected_selector_field", JsonValue::string(first_field)),
+                ("reason", JsonValue::string("unknown_selector_field")),
+                (
+                    "selector_field",
+                    JsonValue::string(selector_field.to_string()),
+                ),
+                (
+                    "selector_expression",
+                    JsonValue::string(selector.text.clone()),
+                ),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_selection_unsupported_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &veln_ast::SchemaMappingSelector,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_selection_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping selector expression `{}` is not supported",
+            selector.text
+        ),
+        Some(selector.span.clone()),
+        schema_mapping_details(
+            selector.node_id.display("schema-mapping-selector"),
+            schema,
+            mapping,
+            [
+                (
+                    "reason",
+                    JsonValue::string("unsupported_selector_expression"),
+                ),
+                (
+                    "selector_expression",
+                    JsonValue::string(selector.text.clone()),
+                ),
             ],
         ),
     )
@@ -3263,28 +3339,53 @@ fn schema_mapping_selection_ambiguous_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
     selector: &veln_ast::SchemaMappingSelector,
+    predicate: &SchemaMappingSelectorPredicate,
     previous: &veln_ast::SchemaMappingSelector,
+    previous_predicate: &SchemaMappingSelectorPredicate,
     first_span: &SourceSpan,
 ) -> Diagnostic {
-    let duplicate = selector.op == veln_ast::SchemaMappingSelectorOp::Equal
-        && previous.op == veln_ast::SchemaMappingSelectorOp::Equal
-        && selector.value == previous.value;
+    let duplicate = selector.text == previous.text;
     let message = if duplicate {
-        format!(
-            "schema mapping selector `{}` == {} is duplicated",
-            selector.field, selector.value
-        )
+        format!("schema mapping selector `{}` is duplicated", selector.text)
     } else {
         format!(
-            "schema mapping selector `{}` {} {} overlaps `{}` {} {}",
-            selector.field,
-            schema_mapping_selector_op_text(selector.op),
-            selector.value,
-            previous.field,
-            schema_mapping_selector_op_text(previous.op),
-            previous.value
+            "schema mapping selector `{}` overlaps `{}`",
+            selector.text, previous.text
         )
     };
+    let mut details = vec![
+        (
+            "reason",
+            JsonValue::string(if duplicate {
+                "duplicate_selector"
+            } else {
+                "overlapping_selector"
+            }),
+        ),
+        (
+            "selector_expression",
+            JsonValue::string(selector.text.clone()),
+        ),
+    ];
+    if let Some((field, op, value)) = predicate.as_simple_comparison() {
+        details.push(("selector_field", JsonValue::string(field.to_string())));
+        details.push((
+            "selector_operator",
+            JsonValue::string(schema_mapping_selector_op_text(op)),
+        ));
+        details.push(("selector_value", JsonValue::Number(value)));
+    }
+    if let Some((field, op, value)) = previous_predicate.as_simple_comparison() {
+        details.push((
+            "previous_selector_field",
+            JsonValue::string(field.to_string()),
+        ));
+        details.push((
+            "previous_selector_operator",
+            JsonValue::string(schema_mapping_selector_op_text(op)),
+        ));
+        details.push(("previous_selector_value", JsonValue::Number(value)));
+    }
     let mut diagnostic = Diagnostic::new(
         "schema.mapping_selection_ambiguous",
         Severity::Error,
@@ -3295,22 +3396,7 @@ fn schema_mapping_selection_ambiguous_diagnostic(
             selector.node_id.display("schema-mapping-selector"),
             schema,
             mapping,
-            [
-                (
-                    "reason",
-                    JsonValue::string(if duplicate {
-                        "duplicate_selector"
-                    } else {
-                        "overlapping_selector"
-                    }),
-                ),
-                ("selector_field", JsonValue::string(selector.field.clone())),
-                (
-                    "selector_operator",
-                    JsonValue::string(schema_mapping_selector_op_text(selector.op)),
-                ),
-                ("selector_value", JsonValue::Number(selector.value)),
-            ],
+            details,
         ),
     );
     diagnostic.related.push(JsonValue::object([
@@ -3323,32 +3409,10 @@ fn schema_mapping_selection_ambiguous_diagnostic(
     diagnostic
 }
 
-fn schema_mapping_selectors_overlap(
-    left: &veln_ast::SchemaMappingSelector,
-    right: &veln_ast::SchemaMappingSelector,
-) -> bool {
-    if left.field != right.field {
-        return false;
-    }
-    match (left.op, right.op) {
-        (veln_ast::SchemaMappingSelectorOp::Equal, veln_ast::SchemaMappingSelectorOp::Equal) => {
-            left.value == right.value
-        }
-        (veln_ast::SchemaMappingSelectorOp::Equal, veln_ast::SchemaMappingSelectorOp::NotEqual)
-        | (veln_ast::SchemaMappingSelectorOp::NotEqual, veln_ast::SchemaMappingSelectorOp::Equal) => {
-            left.value != right.value
-        }
-        (
-            veln_ast::SchemaMappingSelectorOp::NotEqual,
-            veln_ast::SchemaMappingSelectorOp::NotEqual,
-        ) => true,
-    }
-}
-
-fn schema_mapping_selector_op_text(op: veln_ast::SchemaMappingSelectorOp) -> &'static str {
+fn schema_mapping_selector_op_text(op: SchemaMappingSelectorComparison) -> &'static str {
     match op {
-        veln_ast::SchemaMappingSelectorOp::Equal => "==",
-        veln_ast::SchemaMappingSelectorOp::NotEqual => "!=",
+        SchemaMappingSelectorComparison::Equal => "==",
+        SchemaMappingSelectorComparison::NotEqual => "!=",
     }
 }
 
@@ -3930,11 +3994,11 @@ fn schema_mapping_missing_target_diagnostic(
     )
 }
 
-fn schema_mapping_details<const N: usize>(
+fn schema_mapping_details(
     node_id: String,
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
-    extra: [(&'static str, JsonValue); N],
+    extra: impl IntoIterator<Item = (&'static str, JsonValue)>,
 ) -> JsonValue {
     let mut fields = vec![
         ("phase", JsonValue::string("schema")),

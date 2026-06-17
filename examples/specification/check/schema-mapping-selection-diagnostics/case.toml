@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_selection_required\"", "schema mapping clause needs a selector", "\"id\":\"schema.mapping_selection_ambiguous\"", "schema mapping selector `kind` == 1 is duplicated", "schema mapping selector `kind` == 2 overlaps `kind` != 1", "\"selector_operator\":\"==\"", "\"id\":\"schema.mapping_selection_unsupported\"", "schema mapping selection must use one decoded field", "schema mapping selection targets must decode to the same record shape"]
+contains = ["\"id\":\"schema.mapping_selection_required\"", "schema mapping clause needs a selector", "\"id\":\"schema.mapping_selection_ambiguous\"", "schema mapping selector `kind == 1` is duplicated", "schema mapping selector `kind == 2` overlaps `kind != 1`", "schema mapping selector `other_kind == 2` overlaps `kind == 1`", "\"selector_operator\":\"==\"", "\"id\":\"schema.mapping_selection_unsupported\"", "schema mapping selection targets must decode to the same record shape"]
 
 [stderr]
 format = "empty"

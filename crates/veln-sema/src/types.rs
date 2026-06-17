@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
-    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
+    FunctionKind, NodeId, Pattern, PatternKind, PrefixOp, PublicAliasKind, SchemaDecl, SchemaField,
     SchemaMappingClause, SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
@@ -1068,10 +1068,20 @@ pub(crate) fn selected_mappings_cover_dispatch_cases(
         let Some(selector) = &mapping.selector else {
             return false;
         };
-        if selector.field != dispatch.tag_field
-            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
-            || !case_tags.contains(&selector.value)
-            || !selector_tags.insert(selector.value)
+        let Some((field, SchemaMappingSelectorComparison::Equal, value)) =
+            schema_mapping_selector_predicate(selector)
+                .ok()
+                .and_then(|predicate| {
+                    predicate
+                        .as_simple_comparison()
+                        .map(|(field, op, value)| (field.to_string(), op, value))
+                })
+        else {
+            return false;
+        };
+        if field != dispatch.tag_field
+            || !case_tags.contains(&value)
+            || !selector_tags.insert(value)
         {
             return false;
         }
@@ -1403,8 +1413,20 @@ fn schema_encode_mapping_field_types(
         else {
             continue;
         };
-        if selector.field != dispatch.tag_field
-            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
+        let selector_case =
+            schema_mapping_selector_predicate(selector)
+                .ok()
+                .and_then(|predicate| {
+                    predicate
+                        .as_simple_comparison()
+                        .map(|(field, op, value)| (field.to_string(), op, value))
+                });
+        let Some((selector_field, SchemaMappingSelectorComparison::Equal, selector_value)) =
+            selector_case
+        else {
+            continue;
+        };
+        if selector_field != dispatch.tag_field
             || (dispatch.preserves_unknown
                 && !recursive_dispatch_payload_is_eligible(
                     schema,
@@ -1418,7 +1440,7 @@ fn schema_encode_mapping_field_types(
         let case = dispatch
             .cases
             .iter()
-            .find(|case| case.tag == selector.value)?;
+            .find(|case| case.tag == selector_value)?;
         let case_ty = schema_dispatch_case_type(module, schema, case, &mut Vec::new())?;
         if case_ty == Type::int() {
             supported_int_field_names.push(field.name.clone());
@@ -1654,9 +1676,195 @@ pub(crate) struct SchemaDecodeMapping {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDecodeMappingSelector {
-    pub(crate) field: String,
-    pub(crate) op: veln_ast::SchemaMappingSelectorOp,
-    pub(crate) value: i64,
+    pub(crate) text: String,
+    pub(crate) predicate: SchemaMappingSelectorPredicate,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaMappingSelectorPredicate {
+    Comparison {
+        field: String,
+        op: SchemaMappingSelectorComparison,
+        value: i64,
+    },
+    And(Box<Self>, Box<Self>),
+    Or(Box<Self>, Box<Self>),
+    Not(Box<Self>),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaMappingSelectorComparison {
+    Equal,
+    NotEqual,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaMappingSelectorError {
+    Unsupported,
+}
+
+impl SchemaMappingSelectorPredicate {
+    pub(crate) fn collect_fields(&self, fields: &mut BTreeSet<String>) {
+        match self {
+            Self::Comparison { field, .. } => {
+                fields.insert(field.clone());
+            }
+            Self::And(left, right) | Self::Or(left, right) => {
+                left.collect_fields(fields);
+                right.collect_fields(fields);
+            }
+            Self::Not(expr) => expr.collect_fields(fields),
+        }
+    }
+
+    pub(crate) fn as_simple_comparison(
+        &self,
+    ) -> Option<(&str, SchemaMappingSelectorComparison, i64)> {
+        match self {
+            Self::Comparison { field, op, value } => Some((field, *op, *value)),
+            _ => None,
+        }
+    }
+
+    fn collect_literals(&self, literals: &mut BTreeMap<String, BTreeSet<i64>>) {
+        match self {
+            Self::Comparison { field, value, .. } => {
+                literals.entry(field.clone()).or_default().insert(*value);
+            }
+            Self::And(left, right) | Self::Or(left, right) => {
+                left.collect_literals(literals);
+                right.collect_literals(literals);
+            }
+            Self::Not(expr) => expr.collect_literals(literals),
+        }
+    }
+
+    fn eval(&self, assignment: &BTreeMap<String, i64>) -> bool {
+        match self {
+            Self::Comparison { field, op, value } => {
+                let candidate = assignment.get(field).copied().unwrap_or_default();
+                match op {
+                    SchemaMappingSelectorComparison::Equal => candidate == *value,
+                    SchemaMappingSelectorComparison::NotEqual => candidate != *value,
+                }
+            }
+            Self::And(left, right) => left.eval(assignment) && right.eval(assignment),
+            Self::Or(left, right) => left.eval(assignment) || right.eval(assignment),
+            Self::Not(expr) => !expr.eval(assignment),
+        }
+    }
+}
+
+pub(crate) fn schema_mapping_selector_predicate(
+    selector: &veln_ast::SchemaMappingSelector,
+) -> Result<SchemaMappingSelectorPredicate, SchemaMappingSelectorError> {
+    schema_mapping_selector_expr_predicate(&selector.expr)
+}
+
+pub(crate) fn schema_mapping_selectors_overlap(
+    left: &SchemaMappingSelectorPredicate,
+    right: &SchemaMappingSelectorPredicate,
+) -> bool {
+    let mut literals = BTreeMap::<String, BTreeSet<i64>>::new();
+    left.collect_literals(&mut literals);
+    right.collect_literals(&mut literals);
+    let fields = literals
+        .into_iter()
+        .map(|(field, values)| {
+            let mut candidates = values.into_iter().collect::<Vec<_>>();
+            let other = schema_mapping_selector_other_value(&candidates);
+            candidates.push(other);
+            (field, candidates)
+        })
+        .collect::<Vec<_>>();
+    schema_mapping_selectors_overlap_inner(left, right, &fields, 0, &mut BTreeMap::new())
+}
+
+fn schema_mapping_selectors_overlap_inner(
+    left: &SchemaMappingSelectorPredicate,
+    right: &SchemaMappingSelectorPredicate,
+    fields: &[(String, Vec<i64>)],
+    index: usize,
+    assignment: &mut BTreeMap<String, i64>,
+) -> bool {
+    if index == fields.len() {
+        return left.eval(assignment) && right.eval(assignment);
+    }
+    let (field, values) = &fields[index];
+    for value in values {
+        assignment.insert(field.clone(), *value);
+        if schema_mapping_selectors_overlap_inner(left, right, fields, index + 1, assignment) {
+            return true;
+        }
+    }
+    assignment.remove(field);
+    false
+}
+
+fn schema_mapping_selector_other_value(values: &[i64]) -> i64 {
+    let mut candidate = 0;
+    while values.contains(&candidate) {
+        candidate += 1;
+    }
+    candidate
+}
+
+fn schema_mapping_selector_expr_predicate(
+    expr: &Expr,
+) -> Result<SchemaMappingSelectorPredicate, SchemaMappingSelectorError> {
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => match op {
+            BinaryOp::And => Ok(SchemaMappingSelectorPredicate::And(
+                Box::new(schema_mapping_selector_expr_predicate(left)?),
+                Box::new(schema_mapping_selector_expr_predicate(right)?),
+            )),
+            BinaryOp::Or => Ok(SchemaMappingSelectorPredicate::Or(
+                Box::new(schema_mapping_selector_expr_predicate(left)?),
+                Box::new(schema_mapping_selector_expr_predicate(right)?),
+            )),
+            BinaryOp::Equal | BinaryOp::NotEqual => {
+                let Some((field, value)) = schema_mapping_selector_comparison_operands(left, right)
+                else {
+                    return Err(SchemaMappingSelectorError::Unsupported);
+                };
+                Ok(SchemaMappingSelectorPredicate::Comparison {
+                    field,
+                    op: if *op == BinaryOp::Equal {
+                        SchemaMappingSelectorComparison::Equal
+                    } else {
+                        SchemaMappingSelectorComparison::NotEqual
+                    },
+                    value,
+                })
+            }
+            _ => Err(SchemaMappingSelectorError::Unsupported),
+        },
+        ExprKind::Prefix {
+            op: PrefixOp::Not,
+            expr,
+        } => Ok(SchemaMappingSelectorPredicate::Not(Box::new(
+            schema_mapping_selector_expr_predicate(expr)?,
+        ))),
+        _ => Err(SchemaMappingSelectorError::Unsupported),
+    }
+}
+
+fn schema_mapping_selector_comparison_operands(left: &Expr, right: &Expr) -> Option<(String, i64)> {
+    schema_mapping_selector_field(left).zip(schema_mapping_selector_int_literal(right))
+}
+
+fn schema_mapping_selector_field(expr: &Expr) -> Option<String> {
+    match &expr.kind {
+        ExprKind::NamePath(segments) if segments.len() == 1 => Some(segments[0].clone()),
+        _ => None,
+    }
+}
+
+fn schema_mapping_selector_int_literal(expr: &Expr) -> Option<i64> {
+    match &expr.kind {
+        ExprKind::IntLiteral(value) => value.parse().ok(),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1866,14 +2074,12 @@ fn schema_decode_mappings_from_decoded_fields(
         .map(|mapping| {
             let fields =
                 schema_decode_mapping_fields_for_mapping(module, schema, decoded_fields, mapping)?;
-            let selector = mapping
-                .selector
-                .as_ref()
-                .map(|selector| SchemaDecodeMappingSelector {
-                    field: selector.field.clone(),
-                    op: selector.op,
-                    value: selector.value,
-                });
+            let selector = mapping.selector.as_ref().and_then(|selector| {
+                Some(SchemaDecodeMappingSelector {
+                    text: selector.text.clone(),
+                    predicate: schema_mapping_selector_predicate(selector).ok()?,
+                })
+            });
             Some(SchemaDecodeMapping { selector, fields })
         })
         .collect()
@@ -1931,8 +2137,20 @@ pub(crate) fn schema_mapping_source_field_types(
         else {
             continue;
         };
-        if dispatch.tag_field != selector.field
-            || selector.op != veln_ast::SchemaMappingSelectorOp::Equal
+        let selector_case =
+            schema_mapping_selector_predicate(selector)
+                .ok()
+                .and_then(|predicate| {
+                    predicate
+                        .as_simple_comparison()
+                        .map(|(field, op, value)| (field.to_string(), op, value))
+                });
+        let Some((selector_field, SchemaMappingSelectorComparison::Equal, selector_value)) =
+            selector_case
+        else {
+            continue;
+        };
+        if dispatch.tag_field != selector_field
             || !selected_mappings_cover_dispatch_cases(schema, &dispatch)
         {
             continue;
@@ -1940,7 +2158,7 @@ pub(crate) fn schema_mapping_source_field_types(
         let case = dispatch
             .cases
             .iter()
-            .find(|case| case.tag == selector.value)?;
+            .find(|case| case.tag == selector_value)?;
         let ty = schema_dispatch_case_type(module, schema, case, &mut Vec::new())?;
         fields.insert(field.name.clone(), ty);
     }

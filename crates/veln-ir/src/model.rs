@@ -1,4 +1,4 @@
-use veln_ast::{BinaryOp, ContractKind, NodeId, PrefixOp, SchemaMappingSelectorOp, Visibility};
+use veln_ast::{BinaryOp, ContractKind, NodeId, PrefixOp, Visibility};
 use veln_core::{ContractObligationStatus, CoreType};
 use veln_source::SourceSpan;
 
@@ -80,8 +80,9 @@ pub struct IrSchemaDecodeMapping {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IrSchemaDecodeMappingSelector {
-    pub field: String,
-    pub op: SchemaMappingSelectorOp,
+    pub text: String,
+    pub field: Option<String>,
+    pub operator: String,
     pub value: i64,
 }
 
