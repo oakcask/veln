@@ -814,6 +814,7 @@ execution reference.
   `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
+  `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
