@@ -894,11 +894,16 @@ execution reference.
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` is
   projected to a focused human runtime diagnostic and
   `details.byte_diagnostic` JSON using the contained diagnostic id, byte
-  offset, and field path. A returned `DecodeStep::NeedMore(readiness)` is
-  projected at the closed-input reporting boundary as
+  offset, and field path, including the `codec.consumed_count_invalid` result
+  produced by the hand-written codec boundary when a decoded consumed count is
+  outside the supplied `ByteView`. A returned
+  `DecodeStep::NeedMore(readiness)` is projected at the closed-input
+  reporting boundary as
   `codec.incomplete_input`, with readiness and requested byte count details
   from the source-visible `DecodeReadiness` value. `Decoded` remains an
   ordinary successful entry value. The checked examples are
+  `examples/specification/run/codec-decode-consumed-count-invalid-human/`,
+  `examples/specification/run/codec-decode-consumed-count-invalid-json/`,
   `examples/specification/run/codec-decode-invalid-step-human/`,
   `examples/specification/run/codec-decode-invalid-step-json/`,
   `examples/specification/run/codec-decode-need-more-human/`, and

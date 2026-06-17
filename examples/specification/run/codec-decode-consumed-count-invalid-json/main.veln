@@ -1,0 +1,33 @@
+# Hand-written codec consumed-count failures populate byte_diagnostic JSON.
+
+type Packet
+	Packet {length: Int, kind: Int}
+end
+
+schema PacketWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to Packet
+		length = wire_length
+		kind = wire_kind
+end
+
+fn decode_oversized(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	match byte_count(4)
+		Ok(count) => Decoded({length: 1, kind: 1}, count)
+		Err(message) => Invalid(DecodeError(message, base, "OversizedPacketCodec"))
+	end
+end
+
+codec OversizedPacketCodec for PacketWire decode
+	decode with decode_oversized
+end
+
+pub fn main() -> DecodeStep<{length: Int, kind: Int}>
+	let bytes: ByteChunk = byte_chunk_from_hex("000703")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	OversizedPacketCodec(view, byte_offset(9)?)
+end

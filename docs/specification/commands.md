@@ -68,7 +68,10 @@ requiring the full command reference on the first read.
   details, and source-visible `EncodeError` value in related notes.
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
-  path plus the source-visible `DecodeError` value in related notes.
+  path plus the source-visible `DecodeError` value in related notes. A
+  hand-written codec boundary that projects an oversized decoded consumed
+  count as `codec.consumed_count_invalid` uses this shape and is not reported
+  as retryable readiness.
   `DecodeStep::NeedMore(...)` entry diagnostics report
   `codec.incomplete_input` at the closed-input byte boundary and put
   readiness, requested count when present, and the source-visible
