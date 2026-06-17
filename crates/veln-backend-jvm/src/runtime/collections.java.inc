@@ -616,6 +616,7 @@
         final long maxValue;
         final boolean littleEndian;
         final BinarySchemaSpec payloadSchema;
+        final String payloadSchemaName;
 
         SchemaDispatchCaseSpec(long tag, int width) {
             this(tag, width, false);
@@ -626,6 +627,7 @@
             this.width = width;
             this.littleEndian = littleEndian;
             this.payloadSchema = null;
+            this.payloadSchemaName = "";
             long value = 0L;
             for (int index = 0; index < width; index += 1) {
                 value = (value << 8) | 0xffL;
@@ -639,11 +641,34 @@
             this.maxValue = 0L;
             this.littleEndian = false;
             this.payloadSchema = payloadSchema;
+            this.payloadSchemaName = "";
         }
 
-        long width() {
+        SchemaDispatchCaseSpec(long tag, String payloadSchemaName) {
+            this.tag = tag;
+            this.width = 0;
+            this.maxValue = 0L;
+            this.littleEndian = false;
+            this.payloadSchema = null;
+            this.payloadSchemaName = payloadSchemaName;
+        }
+
+        BinarySchemaSpec payloadSchema(BinarySchemaSpec currentSchema) {
+            if (payloadSchema != null) {
+                return payloadSchema;
+            }
+            if (payloadSchemaName.equals(currentSchema.name)) {
+                return currentSchema;
+            }
+            return null;
+        }
+
+        long width(BinarySchemaSpec currentSchema) {
             if (payloadSchema != null) {
                 return schemaTotalWidth(payloadSchema);
+            }
+            if (payloadSchemaName.equals(currentSchema.name)) {
+                return 0L;
             }
             return width;
         }
@@ -3883,16 +3908,16 @@
         BinarySchemaSpec schema,
         long relativeOffset,
         Object view,
-        long diagnosticBaseOffset
+        long diagnosticBaseOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPathPrefix
     ) {
         if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "fixed field mismatch at byte offset " + byteOffset;
-            registerSchemaFixedFieldMismatchDiagnostic(
+            registerSchemaFixedFieldMismatchPathDiagnostic(
                 message,
                 byteOffset,
-                schema.name,
-                field.name,
+                schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                 field.fixedValue.longValue(),
                 fieldValue,
                 byteViewPreviewTrace(view, 8)
@@ -4021,7 +4046,8 @@
                         schema,
                         relativeOffset,
                         view,
-                        diagnosticBaseOffset
+                        diagnosticBaseOffset,
+                        fieldPathPrefix
                     );
                     if (isErr(store)) {
                         return store;
@@ -4058,7 +4084,8 @@
                     schema,
                     relativeOffset,
                     view,
-                    diagnosticBaseOffset
+                    diagnosticBaseOffset,
+                    fieldPathPrefix
                 );
                 if (isErr(firstStore)) {
                     return firstStore;
@@ -4071,7 +4098,8 @@
                     schema,
                     relativeOffset,
                     view,
-                    diagnosticBaseOffset
+                    diagnosticBaseOffset,
+                    fieldPathPrefix
                 );
                 if (isErr(secondStore)) {
                     return secondStore;
@@ -4107,7 +4135,8 @@
                     schema,
                     relativeOffset,
                     view,
-                    diagnosticBaseOffset
+                    diagnosticBaseOffset,
+                    fieldPathPrefix
                 );
                 if (isErr(leftStore)) {
                     return leftStore;
@@ -4120,7 +4149,8 @@
                     schema,
                     relativeOffset,
                     view,
-                    diagnosticBaseOffset
+                    diagnosticBaseOffset,
+                    fieldPathPrefix
                 );
                 if (isErr(rightStore)) {
                     return rightStore;
@@ -4349,7 +4379,8 @@
                     );
                     return err(message);
                 }
-                long payloadWidth = dispatchCase.width();
+                BinarySchemaSpec dispatchPayloadSchema = dispatchCase.payloadSchema(schema);
+                long payloadWidth = dispatchPayloadSchema == null ? dispatchCase.width : 0L;
                 boolean lengthBoundedPayload = !field.dispatch.lengthField.isEmpty();
                 if (lengthBoundedPayload) {
                     Long payloadLength = decoded.get(field.dispatch.lengthField);
@@ -4382,19 +4413,26 @@
                     payloadWidth = payloadLength.longValue();
                 }
                 Object dispatchValue;
-                if (dispatchCase.payloadSchema != null) {
+                if (dispatchPayloadSchema != null) {
                     long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
-                    long payloadViewCount = Math.min(payloadWidth, availablePayload);
+                    long payloadViewCount = lengthBoundedPayload
+                        ? Math.min(payloadWidth, availablePayload)
+                        : availablePayload;
                     Object payloadView = byteViewDerivedObject(view, relativeOffset, payloadViewCount);
-                    Object nestedRead = byteDecodeBinarySchemaWithBase(
+                    Object nestedRead = byteDecodeBinarySchemaAtPath(
                         payloadView,
-                        dispatchCase.payloadSchema,
-                        diagnosticBaseOffset + relativeOffset
+                        dispatchPayloadSchema,
+                        diagnosticBaseOffset + relativeOffset,
+                        schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name)
                     );
                     if (isErr(nestedRead)) {
                         return nestedRead;
                     }
-                    dispatchValue = unwrapOk(nestedRead);
+                    java.util.Map<Object, Object> nestedValue = asMap(unwrapOk(nestedRead));
+                    dispatchValue = nestedValue.get("value");
+                    if (!lengthBoundedPayload) {
+                        payloadWidth = asLong(nestedValue.get("consumed"));
+                    }
                 } else {
                     Object readView = view;
                     long readBaseOffset = diagnosticBaseOffset;
@@ -4490,11 +4528,10 @@
             if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "fixed field mismatch at byte offset " + byteOffset;
-                registerSchemaFixedFieldMismatchDiagnostic(
+                registerSchemaFixedFieldMismatchPathDiagnostic(
                     message,
                     byteOffset,
-                    schema.name,
-                    field.name,
+                    schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
                     field.fixedValue.longValue(),
                     fieldValue,
                     byteViewPreviewTrace(view, 8)
@@ -4782,13 +4819,28 @@
                     relativeOffset += payloadLength.longValue();
                     continue;
                 }
-                long payloadWidth = dispatchCase.width();
+                BinarySchemaSpec dispatchPayloadSchema = dispatchCase.payloadSchema(schema);
+                long payloadWidth = dispatchPayloadSchema == null ? dispatchCase.width : 0L;
                 if (!field.dispatch.lengthField.isEmpty()) {
                     Long payloadLength = decoded.get(field.dispatch.lengthField);
                     if (payloadLength == null) {
                         return relativeOffset;
                     }
                     payloadWidth = payloadLength.longValue();
+                } else if (dispatchPayloadSchema != null) {
+                    Object payloadView = byteViewDerivedObject(
+                        view,
+                        relativeOffset,
+                        Math.max(0L, byteViewCountLong(view) - relativeOffset)
+                    );
+                    payloadWidth = schemaConsumedWidth(
+                        payloadView,
+                        dispatchPayloadSchema,
+                        diagnosticBaseOffset + relativeOffset
+                    );
+                    if (payloadWidth <= 0L) {
+                        return relativeOffset;
+                    }
                 }
                 decoded.put(field.name, Long.valueOf(0L));
                 relativeOffset += payloadWidth;
@@ -4913,7 +4965,7 @@
                 }
             } else {
                 pendingPackedReserved = null;
-                total += schemaDispatchMaxWidth(field.dispatch);
+                total += schemaDispatchMaxWidth(schema, field.dispatch);
             }
         }
         return total;
@@ -4935,10 +4987,13 @@
         return null;
     }
 
-    private static long schemaDispatchMaxWidth(SchemaDispatchSpec dispatch) {
+    private static long schemaDispatchMaxWidth(
+        BinarySchemaSpec schema,
+        SchemaDispatchSpec dispatch
+    ) {
         long width = 0L;
         for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
-            width = Math.max(width, dispatchCase.width());
+            width = Math.max(width, dispatchCase.width(schema));
         }
         return width;
     }
@@ -5821,6 +5876,13 @@
                 cases[index] = new SchemaDispatchCaseSpec(
                     asLong(tagValues.get(index)),
                     (BinarySchemaSpec) unwrapOk(payloadSchema)
+                );
+                continue;
+            }
+            if (schemaSpec instanceof String && asString(schemaSpec).equals(schemaName)) {
+                cases[index] = new SchemaDispatchCaseSpec(
+                    asLong(tagValues.get(index)),
+                    schemaName
                 );
                 continue;
             }

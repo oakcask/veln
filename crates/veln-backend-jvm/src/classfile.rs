@@ -1418,6 +1418,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             this.emit_object_array(code, cases.len(), |this, code, case_index| {
                 if let Some(payload_schema) = cases[case_index].payload_schema.as_ref() {
                     this.emit_schema_metadata(code, payload_schema);
+                } else if let Some(payload_schema_name) =
+                    cases[case_index].payload_schema_name.as_ref()
+                {
+                    code.ldc_string(payload_schema_name);
                 } else {
                     code.ldc_string("");
                 }

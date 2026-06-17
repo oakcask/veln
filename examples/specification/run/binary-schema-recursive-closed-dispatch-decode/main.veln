@@ -1,0 +1,33 @@
+# Recursive closed-dispatch payloads decode through the generated helper path.
+use stdio
+
+type Node
+	Node {kind: Int, value: Int, child: Option<Node>}
+end
+
+schema RecursiveNode
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 0 => UInt8, 1 => RecursiveNode)
+
+	map to Node when kind == 0
+		kind = kind
+		value = payload
+		child = None
+
+	map to Node when kind == 1
+		kind = kind
+		value = payload.value
+		child = Some(Node(payload.kind, payload.value, payload.child))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("01002a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let node: {kind: Int, value: Int, child: Option<Node>} = byte_decode_recursive_node(view)?
+	stdio::print(int_to_string(node.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(node.value))
+	Ok(())
+end

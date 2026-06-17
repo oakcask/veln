@@ -38,9 +38,10 @@ use crate::types::{
     Type, TypeEnvironment, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     exact_width_schema_primitive, exact_width_schema_primitive_little_endian,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    flag_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
-    schema_decode_function_name, schema_decode_mapping_fields, schema_decode_mappings,
-    schema_decode_value_type, schema_dispatch_payload_schema, schema_length_expression_references,
+    flag_schema_primitive, recursive_closed_dispatch_payload_is_eligible, repeat_schema_primitive,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
+    schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_length_expression_references, schema_recursive_dispatch_payload_type,
     selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
 };
 
@@ -269,7 +270,7 @@ fn schema_decode_spec_inner_after_push(
         {
             return None;
         }
-        let field_ty = schema_dispatch_field_type(module, schema, &dispatch)?;
+        let field_ty = schema_dispatch_field_type(module, schema, field, &dispatch)?;
         decoded_field_types.insert(field.name.clone(), field_ty);
         fields.push(IrSchemaDecodeField {
             name: field.name.clone(),
@@ -388,6 +389,15 @@ fn ir_schema_dispatch_case(
     let payload_schema = match case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => None,
         SchemaDispatchCasePayload::Schema { schema_name } => {
+            if schema.name.as_deref() == Some(schema_name.as_str()) {
+                return Some(IrSchemaDecodeDispatchCase {
+                    tag: case.tag,
+                    width,
+                    little_endian,
+                    payload_schema: None,
+                    payload_schema_name: Some(schema_name),
+                });
+            }
             let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
             Some(Box::new(schema_decode_spec_inner(
                 module,
@@ -401,6 +411,7 @@ fn ir_schema_dispatch_case(
         width,
         little_endian,
         payload_schema,
+        payload_schema_name: None,
     })
 }
 
@@ -455,6 +466,7 @@ fn ir_schema_repeat(
 fn schema_dispatch_field_type(
     module: &SurfaceModule,
     schema: &veln_ast::SchemaDecl,
+    field: &veln_ast::SchemaField,
     dispatch: &SchemaDispatchSpec,
 ) -> Option<Type> {
     let mut payload_types = dispatch
@@ -463,8 +475,18 @@ fn schema_dispatch_field_type(
         .map(|case| match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
-                let payload_schema = schema_dispatch_payload_schema(module, schema, schema_name)?;
-                schema_decode_value_type(module, payload_schema)
+                if recursive_closed_dispatch_payload_is_eligible(
+                    schema,
+                    field,
+                    dispatch,
+                    schema_name,
+                ) {
+                    schema_recursive_dispatch_payload_type(module, schema)
+                } else {
+                    let payload_schema =
+                        schema_dispatch_payload_schema(module, schema, schema_name)?;
+                    schema_decode_value_type(module, payload_schema)
+                }
             }
         })
         .collect::<Option<Vec<_>>>()?;

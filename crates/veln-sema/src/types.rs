@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
-    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause,
-    SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
+    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
+    SchemaMappingClause, SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -896,6 +896,9 @@ fn schema_dispatch_case_type(
     match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
         SchemaDispatchCasePayload::Schema { schema_name } => {
+            if schema.name.as_deref() == Some(schema_name.as_str()) {
+                return schema_recursive_dispatch_payload_type(module, schema);
+            }
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
             schema_decode_value_type_inner(module, nested, stack)
         }
@@ -927,6 +930,47 @@ fn schema_decode_value_type_inner(
     let mapped_fields = schema_decode_mapping_record_fields(module, schema, &fields)
         .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
     Some(Type::Record(mapped_fields))
+}
+
+pub(crate) fn schema_recursive_dispatch_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Type> {
+    let [first_mapping, rest @ ..] = schema.mappings.as_slice() else {
+        return None;
+    };
+    let target_fields = schema_mapping_target_record_fields(module, schema, first_mapping)?;
+    for mapping in rest {
+        mapping.selector.as_ref()?;
+        if schema_mapping_target_record_fields(module, schema, mapping)? != target_fields {
+            return None;
+        }
+    }
+    Some(Type::Record(target_fields))
+}
+
+pub(crate) fn recursive_closed_dispatch_payload_is_eligible(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    schema_name: &str,
+) -> bool {
+    schema.name.as_deref() == Some(schema_name)
+        && dispatch.length_field.is_none()
+        && schema.mappings.len() == dispatch.cases.len()
+        && selected_mappings_cover_closed_dispatch(schema, dispatch)
+        && schema
+            .fields
+            .iter()
+            .position(|candidate| candidate.node_id == field.node_id)
+            .is_some_and(|index| index > 0)
+        && dispatch.cases.iter().any(|case| {
+            !matches!(
+                &case.payload,
+                SchemaDispatchCasePayload::Schema { schema_name }
+                    if schema.name.as_deref() == Some(schema_name.as_str())
+            )
+        })
 }
 
 pub(crate) fn same_module_schema<'a>(

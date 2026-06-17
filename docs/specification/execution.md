@@ -349,20 +349,29 @@ execution reference.
   payload primitive and expose an ordinary `Int` field, or the selected
   same-module or imported public nested binary schema through the generated
   schema helper path and expose that schema's decoded record shape. Nested
-  payload decode failures report the nested schema field path and absolute
-  byte offset from the enclosing input, including failures from the nested
+  payload decode failures report the outer dispatch field path, nested schema
+  field path, and absolute byte offset from the enclosing input, including
+  failures from the nested
   helper's fixed-field, reserved-bit, endian, mapping, and primitive decoding
   behavior. Unknown tags in the closed dispatch report
   `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
   field path, decoded tag field, decoded tag value, expected tags, and
-  structured byte preview fields. The checked examples are
+  structured byte preview fields. Same-module recursive closed-dispatch
+  payload cases are eligible for decode when selected mappings cover every
+  dispatch case, all mappings resolve to one record shape, and at least one
+  dispatch case is non-recursive. The recursive helper path uses the nested
+  helper's consumed width before continuing with later fields and preserves the
+  same outer dispatch plus nested schema field path on failures. The checked
+  examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
+  `examples/specification/run/binary-schema-recursive-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
+  `examples/specification/run/binary-schema-recursive-dispatch-failure-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
   `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
@@ -651,8 +660,9 @@ execution reference.
   and projected-field representation failures. This slice excludes selected
   mappings that cannot reconstruct all schema-local encode fields through
   direct source-field assignments, mapping expressions that cannot be
-  projected back to schema-local fields, recursive dispatch payload schemas,
-  dispatch payload schemas outside the generated helper slice, nested
+  projected back to schema-local fields, recursive dispatch payload schemas
+  outside the selected same-module closed-dispatch decode slice, dispatch
+  payload schemas outside the generated helper slice, nested
   mappings, and derived codec encode
   execution for unsupported schemas.
   The checked examples are

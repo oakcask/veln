@@ -1,0 +1,14 @@
+type Node
+	Node {kind: Int, child: Option<Node>}
+end
+
+schema EndlessNode
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => EndlessNode)
+
+	map to Node when kind == 1
+		kind = kind
+		child = Some(Node(payload.kind, payload.child))
+end

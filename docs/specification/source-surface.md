@@ -86,8 +86,11 @@ of the implemented exact-width unsigned binary primitives or an eligible
 nested binary schema payload. Nested payload schema names must resolve to an
 earlier same-module binary schema item or a public imported binary schema
 named through a written `use` path, and the named schema must itself be
-eligible for the generated binary schema helper path. The extension-tolerant
-field type
+eligible for the generated binary schema helper path. A same-module closed
+dispatch case may name the enclosing schema recursively only when selected
+`map to Target when tag_field == literal` clauses cover every case, all
+clauses resolve to one record shape, and at least one case is non-recursive so
+the recursive helper path has a base case. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
@@ -103,9 +106,10 @@ Dispatch reference diagnostics report `schema.dispatch_reference` when the tag
 or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
-imported schema, names a non-binary schema, refers forward or recursively, or
-uses a schema outside the generated helper slice, or decodes to an
-incompatible payload shape. Closed dispatch cases with mixed primitive and
+imported schema, names a non-binary schema, refers forward, uses an
+ineligible recursive form, uses a schema outside the generated helper slice,
+or decodes to an incompatible payload shape. Closed dispatch cases with mixed
+primitive and
 nested payload shapes are accepted only at an eligible selected mapping
 boundary where every `map to Target when tag_field == literal` selector uses
 the dispatch tag field, covers a distinct dispatch case, and type-checks that
@@ -152,7 +156,8 @@ fields as `ByteView`, bounded
 including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
 closed nested dispatch payload fields as the nested schema record shape, and
 closed mixed dispatch payload fields as the selected case payload shape within
-the matching selector branch, and extension dispatch payload fields as
+the matching selector branch, closed recursive dispatch payload fields as the
+selected mapping target record shape, and extension dispatch payload fields as
 `SchemaDispatchPayload<T>`. Multiple selected mappings must
 all use the same decoded `Int` selector field, distinct selector literal
 values, and the same decoded record shape. Missing, duplicate, and unsupported
@@ -166,9 +171,10 @@ primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
 dispatch, extension dispatch, bounded repeated primitive or nested schema field,
 length-bounded `ByteView`, and eligible nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
-expressions, recursive dispatch payload schemas, dispatch payload schemas
-outside the generated helper slice, arbitrary mapping expressions, and mapping
-selection beyond decoded-field integer equality are not implemented.
+expressions, recursive dispatch payload schemas outside the selected
+same-module closed-dispatch decode slice, dispatch payload schemas outside the
+generated helper slice, arbitrary mapping expressions, and mapping selection
+beyond decoded-field integer equality are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the mapping selection boundary. The checked diagnostics case

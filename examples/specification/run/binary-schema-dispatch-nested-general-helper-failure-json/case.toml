@@ -32,7 +32,7 @@ equals = 1
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"SettingsPayload"},{"kind":"field","name":"version"}]
+equals = [{"kind":"schema","name":"ClosedNestedPacket"},{"kind":"field","name":"payload"},{"kind":"schema","name":"SettingsPayload"},{"kind":"field","name":"version"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_value"
