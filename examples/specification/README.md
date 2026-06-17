@@ -248,8 +248,8 @@ against the built `veln` binary.
   binary schema decode accepts a closed dispatch whose primitive and nested
   payload cases are wrapped by selected mappings into one target record shape.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
-  decode computes an `Int` target field with supported decoded-field `+`,
-  `-`, and `*` mapping arithmetic.
+  decode computes `Int` target fields with supported decoded-field and
+  integer-literal `+`, `-`, and `*` mapping arithmetic.
 - `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
   mapping expressions reject missing selected fields and non-record selection
   targets.

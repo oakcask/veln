@@ -1592,7 +1592,9 @@ fn schema_encode_mapping_expr_sources(
             }
             Some(sources)
         }
-        SchemaDecodeMappingExpr::Converter { .. } | SchemaDecodeMappingExpr::Binary { .. } => None,
+        SchemaDecodeMappingExpr::Literal(_)
+        | SchemaDecodeMappingExpr::Converter { .. }
+        | SchemaDecodeMappingExpr::Binary { .. } => None,
     }
 }
 
@@ -1660,6 +1662,7 @@ pub(crate) struct SchemaDecodeMappingSelector {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SchemaDecodeMappingExpr {
     Field(String),
+    Literal(i64),
     FieldAccess {
         base: Box<SchemaDecodeMappingExpr>,
         field: String,
@@ -2355,6 +2358,18 @@ fn schema_mapping_arithmetic_operand(
                 expr: SchemaDecodeMappingExpr::Field(name.clone()),
             })
         }
+        ExprKind::IntLiteral(value) => {
+            let Some(value) = parse_schema_mapping_integer(value) else {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(operand),
+                    span: operand.span.clone(),
+                }));
+            };
+            Ok(SchemaMappingTypedExpr {
+                ty: Type::int(),
+                expr: SchemaDecodeMappingExpr::Literal(value),
+            })
+        }
         ExprKind::Binary { op, left, right } => {
             schema_mapping_binary_expr(context, operand, *op, left, right, allow_converter_calls)
                 .map_err(|error| match *error {
@@ -2372,6 +2387,13 @@ fn schema_mapping_arithmetic_operand(
             span: whole_expr.span.clone(),
         })),
     }
+}
+
+fn parse_schema_mapping_integer(text: &str) -> Option<i64> {
+    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<i64>().ok()
 }
 
 enum SchemaMappingConverterLookup<'a> {
@@ -2581,6 +2603,7 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
             }
             Type::Unknown
         }
+        ExprKind::IntLiteral(_) => Type::int(),
         ExprKind::Record(fields) => schema_mapping_record_actual_type(context, fields),
         ExprKind::FieldAccess { base, field, .. } => schema_mapping_expr_actual_type(context, base)
             .record_field(field)

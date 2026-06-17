@@ -38,5 +38,5 @@ schema HeaderWire
 		bad_return = to_text(kind)
 		impure = noisy(kind)
 		bad_structural_input = from_text({value: kind})
-		unsupported = convert(kind + 1)
+		unsupported = convert(kind / 1)
 end

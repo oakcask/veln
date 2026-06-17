@@ -88,6 +88,7 @@ pub struct IrSchemaDecodeMappingSelector {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrSchemaDecodeMappingExpr {
     Field(String),
+    Literal(i64),
     FieldAccess {
         base: Box<IrSchemaDecodeMappingExpr>,
         field: String,

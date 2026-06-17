@@ -1628,6 +1628,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
+            IrSchemaDecodeMappingExpr::Literal(value) => {
+                self.emit_object_array(code, 2, |_, code, index| match index {
+                    0 => code.ldc_string("literal"),
+                    1 => {
+                        code.ldc_long(*value);
+                        code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+                    }
+                    _ => unreachable!(),
+                });
+            }
             IrSchemaDecodeMappingExpr::FieldAccess { base, field } => {
                 self.emit_object_array(code, 3, |this, code, index| match index {
                     0 => code.ldc_string("field_access"),
