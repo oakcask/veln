@@ -104,24 +104,24 @@ known cases, keeps extension-tolerant unknown tags opaque, and reports nested
 payload failures with the nested schema field path and absolute byte offset.
 Public imported nested binary schema payloads named through written `use`
 paths are accepted by those same dispatch decode helper slices and decode to
-the imported schema's record shape. A same-module recursive closed-dispatch
-payload decode and encode slice is implemented for the length-bounded
-`Dispatch(tag_field, length_field, ...)` form when selected mappings cover
-every dispatch case, all mappings resolve to one record shape, and at least
-one case is non-recursive; recursive decode failures keep the outer dispatch
-field segment before nested schema field segments, and recursive encode checks
-the encoded payload byte count against the earlier length field. Imported
-private, missing, wrong-kind, non-binary, forward, unbounded recursive, or
-otherwise ineligible payload schemas use the existing
+the imported schema's record shape. Same-module recursive closed-dispatch and
+extension-dispatch payload decode and encode slices are implemented for the
+length-bounded forms when selected mappings cover every known case, all
+mappings resolve to one record shape, and at least one case is non-recursive;
+recursive decode failures keep the outer dispatch field segment before nested
+schema field segments, recursive encode checks the encoded payload byte count
+against the earlier length field, and extension-dispatch unknown tags preserve
+bounded raw payload bytes. Imported private, missing, wrong-kind, non-binary,
+forward, unbounded recursive, or otherwise ineligible payload schemas use the existing
 `schema.dispatch_payload` diagnostic shape.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching
 selector literal, each selected branch type-checks `payload` against that
 case's payload shape, and all selected mappings resolve to one target record
-shape. Selectors outside the dispatch tag field, extension dispatch, and
-uncovered mixed cases remain rejected through the existing dispatch payload or
-mapping selection diagnostics.
+shape. Selectors outside the dispatch tag field and uncovered mixed cases
+remain rejected through the existing dispatch payload or mapping selection
+diagnostics.
 The same-module and imported public nested payload encode slice implements known
 `Dispatch(..., tag => SchemaName, ...)` and
 `ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
@@ -134,13 +134,13 @@ field path. Those nested dispatch payload decode and encode slices route
 selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
-payload fields, extension-tolerant known payloads, and nested helper
-diagnostics. A checked non-HTTP telemetry envelope combines the implemented
-helper vocabulary in one generated decode-and-encode schema. Recursive
-dispatch payload schemas outside the selected same-module length-bounded
-closed-dispatch decode-and-encode slice, broader unsupported field layouts,
-and schema value mapping beyond the implemented structural slices remain
-proposal work.
+payload fields, extension-tolerant known payloads, recursive extension known
+payloads, unknown payload preservation, and nested helper diagnostics. A
+checked non-HTTP telemetry envelope combines the implemented helper vocabulary
+in one generated decode-and-encode schema. Recursive dispatch payload schemas
+outside the selected same-module length-bounded decode-and-encode slice,
+broader unsupported field layouts, and schema value mapping beyond the
+implemented structural slices remain proposal work.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
 one byte through the existing `UInt8` representation path, decodes to the
@@ -333,7 +333,7 @@ for:
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
 - recursive dispatch payload schemas outside the selected same-module
-  length-bounded closed-dispatch decode-and-encode slice and dispatch payload schemas
+  length-bounded dispatch decode-and-encode slice and dispatch payload schemas
   outside the generated helper slice
 
 ## Discussion Result: Dependent Structure Boundary
@@ -463,7 +463,7 @@ when both operands name earlier visible `Int` fields in the same schema.
 an eligible nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module
-length-bounded closed-dispatch decode-and-encode slice, dispatch payload
+length-bounded dispatch decode-and-encode slice, dispatch payload
 schemas outside the generated helper slice, and mapping beyond the
 implemented slices remain proposal work.
 A `UInt31be` field
@@ -619,6 +619,6 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- Broader unsupported field layouts, recursive or otherwise ineligible
-  dispatch payload schemas, and schema value mapping beyond the implemented
-  structural slices remain proposal work.
+- Broader unsupported field layouts, imported recursive or otherwise
+  ineligible dispatch payload schemas, and schema value mapping beyond the
+  implemented structural slices remain proposal work.

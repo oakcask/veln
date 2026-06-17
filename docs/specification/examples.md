@@ -782,6 +782,9 @@ pins same-module nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-recursive-closed-dispatch-encode/`
 pins same-module recursive payload encode for a length-bounded closed dispatch
 case whose selected mappings cover every dispatch tag.
+`../../examples/specification/run/binary-schema-recursive-extension-dispatch-encode/`
+pins same-module recursive known payload encode for a length-bounded extension
+dispatch case while preserving the explicit length check.
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`
 pins closed and extension-tolerant nested payload encode through the generated
 schema helper path, including byte-aligned reserved fields and little-endian
@@ -796,6 +799,9 @@ payload case.
 `../../examples/specification/run/binary-schema-recursive-dispatch-length-encode-diagnostic-json/`
 asserts `codec.dispatch_length_mismatch` when recursive closed-dispatch encode
 produces a payload byte count that differs from the supplied length field.
+`../../examples/specification/run/binary-schema-recursive-extension-dispatch-length-encode-diagnostic-json/`
+asserts the same length mismatch diagnostic for a recursive extension-dispatch
+known payload.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-encode/`
 pins the extension-tolerant dispatch encode helper slice. The passing cases
@@ -856,7 +862,9 @@ payload schemas keep fixed-field validation, byte-aligned reserved fields, and
 little-endian primitive reads when reached through closed or extension
 dispatch. The recursive closed-dispatch case pins a same-module recursive
 payload decoded through a length-bounded closed dispatch, selected mappings,
-the generated helper path, and a non-recursive base case. The nested failure
+the generated helper path, and a non-recursive base case. The recursive
+extension-dispatch case pins the same known-payload helper path while unknown
+tags preserve bounded raw payload bytes. The nested failure
 cases pin the outer dispatch field path, nested schema field path, and
 absolute byte offset, including fixed-field mismatch diagnostics produced by
 the nested helper. The recursive failure case pins that same path prefix for a
@@ -870,9 +878,9 @@ through a `derive decode` codec boundary, including the returned
 `DecodeStep` consumed count.
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
-missing names, non-schema names, private imported schemas, closed and
-extension self references outside the eligible recursive closed-dispatch
-slice, forward references, and incompatible payload shapes.
+missing names, non-schema names, private imported schemas, self references
+outside the eligible recursive length-bounded dispatch slice, forward
+references, and incompatible payload shapes.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
 is not length-bounded.
@@ -885,6 +893,7 @@ tag.
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-recursive-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-unknown/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-unknown/`,
@@ -892,8 +901,9 @@ and
 `../../examples/specification/run/binary-schema-extension-dispatch-length-human/`
 pin the narrow extension-tolerant dispatch slice. The known case decodes the
 selected exact-width, same-module nested, or public imported nested schema
-payload into `SchemaDispatchPayload::Known`. The unknown cases preserve the
-decoded tag and a bounded raw `ByteView` without reporting
+payload into `SchemaDispatchPayload::Known`. The recursive case decodes known
+recursive payloads through the same helper path. The unknown cases preserve
+the decoded tag and a bounded raw `ByteView` without reporting
 `schema.dispatch_unknown_tag`. The malformed structural case still reports
 `schema.length_out_of_bounds` when the decoded length cannot be sliced from
 closed input.

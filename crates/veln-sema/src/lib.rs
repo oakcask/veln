@@ -38,7 +38,7 @@ use crate::types::{
     Type, TypeEnvironment, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     exact_width_schema_primitive, exact_width_schema_primitive_little_endian,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    flag_schema_primitive, recursive_closed_dispatch_payload_is_eligible, repeat_schema_primitive,
+    flag_schema_primitive, recursive_dispatch_payload_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
     schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
     schema_length_expression_references, schema_recursive_dispatch_payload_type,
@@ -476,12 +476,7 @@ fn schema_dispatch_field_type(
         .map(|case| match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
-                if recursive_closed_dispatch_payload_is_eligible(
-                    schema,
-                    field,
-                    dispatch,
-                    schema_name,
-                ) {
+                if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name) {
                     schema_recursive_dispatch_payload_type(module, schema)
                 } else {
                     let payload_schema =
@@ -492,11 +487,25 @@ fn schema_dispatch_field_type(
         })
         .collect::<Option<Vec<_>>>()?;
     let payload_ty = payload_types.pop()?;
-    if payload_types.iter().any(|ty| ty != &payload_ty)
-        && !selected_mappings_cover_closed_dispatch(schema, dispatch)
-    {
-        return None;
-    }
+    let recursive_payload = dispatch.cases.iter().any(|case| {
+        matches!(
+            &case.payload,
+            SchemaDispatchCasePayload::Schema { schema_name }
+                if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
+        )
+    });
+    let payload_ty =
+        if recursive_payload && selected_mappings_cover_closed_dispatch(schema, dispatch) {
+            schema_recursive_dispatch_payload_type(module, schema)?
+        } else if recursive_payload {
+            schema_recursive_dispatch_payload_type(module, schema)?
+        } else if payload_types.iter().any(|ty| ty != &payload_ty)
+            && !selected_mappings_cover_closed_dispatch(schema, dispatch)
+        {
+            return None;
+        } else {
+            payload_ty
+        };
     if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
