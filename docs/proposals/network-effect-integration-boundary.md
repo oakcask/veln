@@ -49,8 +49,8 @@ slices, and narrow deadline and cancellation slices, for:
   nine-route, receiver-list timeout, receiver-list timeout-result selection,
   and receiver-list cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
-  three-argument, four-argument, and five-argument spawned handler task shapes
-  over ordinary source values
+  three-argument, four-argument, five-argument, and six-argument spawned
+  handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -162,6 +162,8 @@ The four-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
 The five-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with5.md`.
+The six-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with6.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -221,11 +223,10 @@ timeout, and timeout-result channel-first stream routing slices, including the
 `channel::select_many_timeout_result`, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
-The four-argument and five-argument argument-carrying stream-task slices are
-recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
-The five-argument completion evidence is recorded in
-`../reference/implemented-proposals/network-stream-task-spawn-with5.md`.
+The argument-carrying stream-task slices are recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with4.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with5.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with6.md`.
 
 ## Discussion Result: Transport Error Boundary
 
