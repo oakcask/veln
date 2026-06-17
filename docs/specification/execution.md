@@ -83,6 +83,7 @@ execution reference.
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
   `examples/specification/run/socket-stream-adapter-routing/`,
+  `examples/specification/check/socket-stream-adapter-routing-effects/`,
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
