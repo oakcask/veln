@@ -622,6 +622,42 @@ pin checked `Flag32le` helper behavior for successful raw-bit extraction,
 raw-bit construction, bit reads, and bit sets plus JSON raw-bit range and
 human invalid-index runtime result failures.
 
+`../../examples/specification/run/binary-schema-flag64be-decode/`,
+`../../examples/specification/run/binary-schema-flag64be-encode/`,
+`../../examples/specification/run/binary-schema-flag64be-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag64be-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag64be-encode-out-of-range/`
+pin the eight-byte big-endian visible flag bitset slice. The cases prove
+source-visible `Flag64be(bits)` decode, big-endian encode, direct structural
+mapping in both directions, and the ordinary encode value-representation
+failure shape for values outside the eight-byte range.
+`../../examples/specification/run/binary-schema-flag64be-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag64be-from-bits-out-of-range-json/`,
+`../../examples/specification/run/binary-schema-flag64be-bit-index-json/`, and
+`../../examples/specification/run/binary-schema-flag64be-bit-index-human/`
+pin checked `Flag64be` helper behavior for successful raw-bit extraction,
+raw-bit construction, bit reads including bit index `63`, and bit sets plus
+JSON raw-bit range and human invalid-index runtime result failures.
+
+`../../examples/specification/run/binary-schema-flag64le-decode/`,
+`../../examples/specification/run/binary-schema-flag64le-encode/`,
+`../../examples/specification/run/binary-schema-flag64le-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag64le-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag64le-encode-out-of-range/`
+pin the eight-byte little-endian visible flag bitset slice. The cases prove
+source-visible `Flag64le(bits)` decode, little-endian encode, direct
+structural mapping in both directions, and the ordinary encode
+value-representation failure shape for values outside the eight-byte range.
+`../../examples/specification/run/binary-schema-flag64le-bit-helpers/`,
+`../../examples/specification/run/binary-schema-flag64le-from-bits-out-of-range-json/`,
+`../../examples/specification/run/binary-schema-flag64le-bit-index-json/`, and
+`../../examples/specification/run/binary-schema-flag64le-bit-index-human/`
+pin checked `Flag64le` helper behavior for successful raw-bit extraction,
+raw-bit construction, bit reads including bit index `63`, and bit sets plus
+JSON raw-bit range and human invalid-index runtime result failures.
+
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
 The case checks complete lowercase hex output for an HTTP/2-style stream

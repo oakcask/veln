@@ -1,0 +1,6 @@
+# Flag64le raw-bit construction rejects values outside the eight-byte range.
+
+pub fn main() -> Result<(), String>
+	let ignored: Flag64le = flag64le_from_bits(-1)?
+	Ok(())
+end

@@ -555,6 +555,14 @@ flag32le_is_set(flags: Flag32le, index: Int) -> Result<Bool, String>
 flag32le_set(flags: Flag32le, index: Int) -> Result<Flag32le, String>
 flag32le_bits(flags: Flag32le) -> Int
 flag32le_from_bits(bits: Int) -> Result<Flag32le, String>
+flag64be_is_set(flags: Flag64be, index: Int) -> Result<Bool, String>
+flag64be_set(flags: Flag64be, index: Int) -> Result<Flag64be, String>
+flag64be_bits(flags: Flag64be) -> Int
+flag64be_from_bits(bits: Int) -> Result<Flag64be, String>
+flag64le_is_set(flags: Flag64le, index: Int) -> Result<Bool, String>
+flag64le_set(flags: Flag64le, index: Int) -> Result<Flag64le, String>
+flag64le_bits(flags: Flag64le) -> Int
+flag64le_from_bits(bits: Int) -> Result<Flag64le, String>
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
@@ -682,14 +690,18 @@ read and set `Flag16be` bit indexes `0` through `15`; `flag16le_is_set` and
 `flag16le_set` read and set `Flag16le` bit indexes `0` through `15`;
 `flag32be_is_set` and `flag32be_set` read and set `Flag32be` bit indexes `0`
 through `31`; `flag32le_is_set` and `flag32le_set` read and set `Flag32le`
-bit indexes `0` through `31`. Each
+bit indexes `0` through `31`; `flag64be_is_set` and `flag64be_set` read and
+set `Flag64be` bit indexes `0` through `63`; `flag64le_is_set` and
+`flag64le_set` read and set `Flag64le` bit indexes `0` through `63`. Each
 checked flag helper returns `Err(String)` for indexes outside its supported
 range instead of masking or wrapping. `flag8_bits`, `flag16be_bits`,
-`flag16le_bits`, `flag32be_bits`, and `flag32le_bits` expose the wrapped integer bits.
+`flag16le_bits`, `flag32be_bits`, `flag32le_bits`, `flag64be_bits`, and
+`flag64le_bits` expose the wrapped integer bits.
 `flag8_from_bits`, `flag16be_from_bits`, `flag16le_from_bits`, and
-`flag32be_from_bits`, and `flag32le_from_bits` return `Err(String)` for integers outside the one-byte,
-two-byte, or four-byte flag range before an invalid flag value reaches
-generated schema encode helpers.
+`flag32be_from_bits`, `flag32le_from_bits`, `flag64be_from_bits`, and
+`flag64le_from_bits` return `Err(String)` for integers outside the one-byte,
+two-byte, four-byte, or eight-byte flag range before an invalid flag value
+reaches generated schema encode helpers.
 `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
 chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk

@@ -570,6 +570,42 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "Flag64be".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag64be".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag64be(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag64be".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "Flag64le".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag64le".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag64le(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag64le".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "StreamInput".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
@@ -1016,6 +1052,8 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
                 | "Flag16le"
                 | "Flag32be"
                 | "Flag32le"
+                | "Flag64be"
+                | "Flag64le"
                 | "DecodeError"
                 | "DecodeReadiness"
                 | "DecodeStep"

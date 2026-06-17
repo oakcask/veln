@@ -22,6 +22,14 @@ pub type Flag32le
 	Flag32le(bits: Int)
 end
 
+pub type Flag64be
+	Flag64be(bits: Int)
+end
+
+pub type Flag64le
+	Flag64le(bits: Int)
+end
+
 pub fn flag8_is_set(flags: Flag8, index: Int) -> Result<Bool, String>
 	prelude_builtin::flag8_is_set(flags, index)
 end
@@ -100,6 +108,38 @@ end
 
 pub fn flag32le_from_bits(bits: Int) -> Result<Flag32le, String>
 	prelude_builtin::flag32le_from_bits(bits)
+end
+
+pub fn flag64be_is_set(flags: Flag64be, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag64be_is_set(flags, index)
+end
+
+pub fn flag64be_set(flags: Flag64be, index: Int) -> Result<Flag64be, String>
+	prelude_builtin::flag64be_set(flags, index)
+end
+
+pub fn flag64be_bits(flags: Flag64be) -> Int
+	prelude_builtin::flag64be_bits(flags)
+end
+
+pub fn flag64be_from_bits(bits: Int) -> Result<Flag64be, String>
+	prelude_builtin::flag64be_from_bits(bits)
+end
+
+pub fn flag64le_is_set(flags: Flag64le, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag64le_is_set(flags, index)
+end
+
+pub fn flag64le_set(flags: Flag64le, index: Int) -> Result<Flag64le, String>
+	prelude_builtin::flag64le_set(flags, index)
+end
+
+pub fn flag64le_bits(flags: Flag64le) -> Int
+	prelude_builtin::flag64le_bits(flags)
+end
+
+pub fn flag64le_from_bits(bits: Int) -> Result<Flag64le, String>
+	prelude_builtin::flag64le_from_bits(bits)
 end
 
 pub type ByteChunk

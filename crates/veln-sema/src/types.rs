@@ -1469,6 +1469,7 @@ fn is_type_flag_bitset(ty: &Type) -> bool {
             if matches!(
                 name.as_str(),
                 "Flag8" | "Flag16be" | "Flag16le" | "Flag32be" | "Flag32le"
+                    | "Flag64be" | "Flag64le"
             )
                 && args.is_empty()
     )
@@ -2835,6 +2836,7 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         "UInt8" | "Flag8" => Some(1),
         "Flag16be" | "Flag16le" => Some(2),
         "Flag32be" | "Flag32le" => Some(4),
+        "Flag64be" | "Flag64le" => Some(8),
         "UInt16be" | "UInt16le" => Some(2),
         "UInt24be" | "UInt24le" => Some(3),
         "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
@@ -2846,7 +2848,14 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
 pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
     matches!(
         ty.trim(),
-        "UInt16le" | "Flag16le" | "UInt24le" | "UInt31le" | "UInt32le" | "Flag32le" | "UInt64le"
+        "UInt16le"
+            | "Flag16le"
+            | "UInt24le"
+            | "UInt31le"
+            | "UInt32le"
+            | "Flag32le"
+            | "UInt64le"
+            | "Flag64le"
     )
 }
 
@@ -2857,6 +2866,8 @@ pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
         "Flag16le" => Some("Flag16le"),
         "Flag32be" => Some("Flag32be"),
         "Flag32le" => Some("Flag32le"),
+        "Flag64be" => Some("Flag64be"),
+        "Flag64le" => Some("Flag64le"),
         _ => None,
     }
 }
@@ -2873,6 +2884,7 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "UInt8" | "Flag8" => Some(8),
         "Flag16be" | "Flag16le" => Some(16),
         "Flag32be" | "Flag32le" => Some(32),
+        "Flag64be" | "Flag64le" => Some(64),
         "UInt16be" | "UInt16le" => Some(16),
         "UInt24be" | "UInt24le" => Some(24),
         "UInt31be" | "UInt31le" => Some(31),
@@ -2894,6 +2906,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt8" | "Flag8" => Some(0xff),
         "Flag16be" | "Flag16le" => Some(0xffff),
         "Flag32be" | "Flag32le" => Some(0xffffffff),
+        "Flag64be" | "Flag64le" => Some(i64::MAX),
         "UInt16be" | "UInt16le" => Some(0xffff),
         "UInt24be" | "UInt24le" => Some(0xffffff),
         "UInt31be" | "UInt31le" => Some(0x7fffffff),

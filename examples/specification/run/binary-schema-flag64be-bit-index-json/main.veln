@@ -1,0 +1,6 @@
+# Flag64be helper functions reject indexes outside the eight-byte bit range.
+
+pub fn main() -> Result<(), String>
+	let ignored: Bool = flag64be_is_set(Flag64be(0), 64)?
+	Ok(())
+end
