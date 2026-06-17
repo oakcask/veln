@@ -1311,18 +1311,19 @@ Accepted DATA with `END_STREAM` records local closed-stream state; later
 outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
 that stream use the same closed stream-state rejection boundary. Generated
 DATA frame-header representation failures remain codec encode errors.
-The local SETTINGS send-intent slice emits exactly one SETTINGS item per
-intent for `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
+The local SETTINGS send-intent slice emits supported local SETTINGS items for
+`SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
-`SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE`. Each accepted
-intent emits a
-frame-header-plus-item chunk with length `6`, kind `4`, flags `0`, stream id
-`0`, the selected setting identifier, and the selected four-byte unsigned
-value, then records one outstanding local SETTINGS batch. Local
-`SETTINGS_ENABLE_PUSH` values outside `0..1` are rejected before bytes are
-emitted with the SETTINGS range failure shape. A valid SETTINGS ACK clears
-that outstanding state, and an ACK with no outstanding local SETTINGS stays on
-the typed unexpected-ACK failure path.
+`SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`. Accepted
+single-item and two-item batch intents emit one frame-header-plus-payload
+chunk with length `6 * item_count`, kind `4`, flags `0`, stream id `0`, and
+the selected setting identifier and four-byte unsigned value pairs in order,
+then record one outstanding local SETTINGS batch with the selected item
+count. Local `SETTINGS_ENABLE_PUSH` values outside `0..1` are rejected before
+bytes are emitted with the SETTINGS range failure shape, including when the
+invalid value appears in a batch. A valid SETTINGS ACK clears that outstanding
+state, including a multi-item batch, and an ACK with no outstanding local
+SETTINGS stays on the typed unexpected-ACK failure path.
 The outbound PING ACK send-intent slice accepts a valid inbound non-ACK PING,
 emits one frame-header plus opaque-payload output chunk with length `8`, kind
 `6`, ACK flag `1`, and stream id `0`, and preserves the original eight-byte
