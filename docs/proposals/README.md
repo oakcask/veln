@@ -138,7 +138,8 @@ compare it with `../specification/` before changing behavior.
   entry results, generated binary
   schema decode integer range failures, generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
-  output, plus hand-written codec decode consumed-count failures.
+  output, plus hand-written codec decode consumed-count failures and their
+  command-facing projection.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface

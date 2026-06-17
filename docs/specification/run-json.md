@@ -183,6 +183,13 @@ When a `veln run` entry returns
   derived from the source-visible field path
 - `field_path_display`: the source-visible field path string
 
+The checked `codec.consumed_count_invalid` command-facing slice comes from a
+hand-written `decode with` codec boundary whose returned `Decoded` consumed
+count is outside the supplied `ByteView`. It uses the same
+`DecodeStep::Invalid(DecodeError(...))` JSON shape and does not set
+`readiness`, because the supplied bytes already prove the consumed-count fact
+false.
+
 `DecodeStep::NeedMore(NeedBytes(count))` entry results are reported as
 closed-input codec incomplete-input failures. `details.byte_diagnostic`
 includes:

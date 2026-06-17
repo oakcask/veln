@@ -115,6 +115,13 @@ hand-written codec decode boundary: a codec item call passes `ByteView` and
 consumed count to `codec.consumed_count_invalid` while the schema mapping pins
 the accepted value type.
 The executable specification cases
+`../../examples/specification/run/codec-decode-consumed-count-invalid-human/`
+and
+`../../examples/specification/run/codec-decode-consumed-count-invalid-json/`
+cover command-facing projection of the hand-written codec boundary's stable
+`codec.consumed_count_invalid` decode failure without treating it as retryable
+readiness.
+The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-step-human/` and
 `../../examples/specification/run/codec-decode-invalid-step-json/` cover
 command-facing projection when a `veln run` entry returns

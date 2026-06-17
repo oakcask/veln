@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.consumed_count_invalid]: decode error at byte offset 9", "note: Field path: schema `OversizedPacketCodec`.", "note: DecodeError value: DecodeError(codec.consumed_count_invalid, ByteOffset(9), OversizedPacketCodec)."]

@@ -87,7 +87,14 @@ Successful `Decoded(...)` entry values remain ordinary values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
-`../../examples/specification/run/codec-decode-boundary/`. Generated
+`../../examples/specification/run/codec-decode-boundary/`. The command-facing
+projection for that codec-owned consumed-count failure is specified under
+`../specification/run-json.md`, `../specification/commands.md`, and
+`../specification/execution.md` and checked by
+`../../examples/specification/run/codec-decode-consumed-count-invalid-json/`
+and
+`../../examples/specification/run/codec-decode-consumed-count-invalid-human/`.
+Generated
 exact-width binary schema decode helpers report
 `schema.integer_out_of_range` when a structurally decoded integer exceeds the
 schema-owned external integer range; the current behavior is specified under
@@ -390,5 +397,6 @@ The implemented protocol-state diagnostic projection slice covers:
   stable diagnostic assertions.
 
 The proposal remains open for broader schema and codec diagnostics that are not
-specified as current behavior under `../specification/`, including codec
-diagnostic ids outside the implemented `EncodeError` command-facing slice.
+specified as current behavior under `../specification/`, including additional
+codec diagnostic ids outside the implemented `EncodeError` and
+`codec.consumed_count_invalid` command-facing slices.
