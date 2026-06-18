@@ -137,11 +137,83 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let if_unmodified_since_block: ByteChunk = byte_chunk_from_hex("aa")?
 	let if_unmodified_since: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_unmodified_since_block, if_unmodified_since_state, 47)
 	print_transition("if-unmodified-since", if_unmodified_since)
-	let literal_state: HpackFixtureState = next_state_or(if_unmodified_since, if_unmodified_since_state)
+	let last_modified_state: HpackFixtureState = next_state_or(if_unmodified_since, if_unmodified_since_state)
+	let last_modified_block: ByteChunk = byte_chunk_from_hex("ab")?
+	let last_modified: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(last_modified_block, last_modified_state, 48)
+	print_transition("last-modified", last_modified)
+	let link_state: HpackFixtureState = next_state_or(last_modified, last_modified_state)
+	let link_block: ByteChunk = byte_chunk_from_hex("ac")?
+	let link: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(link_block, link_state, 49)
+	print_transition("link", link)
+	let location_state: HpackFixtureState = next_state_or(link, link_state)
+	let location_block: ByteChunk = byte_chunk_from_hex("ad")?
+	let location: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(location_block, location_state, 50)
+	print_transition("location", location)
+	let max_forwards_state: HpackFixtureState = next_state_or(location, location_state)
+	let max_forwards_block: ByteChunk = byte_chunk_from_hex("ae")?
+	let max_forwards: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(max_forwards_block, max_forwards_state, 51)
+	print_transition("max-forwards", max_forwards)
+	let proxy_authenticate_state: HpackFixtureState = next_state_or(max_forwards, max_forwards_state)
+	let proxy_authenticate_block: ByteChunk = byte_chunk_from_hex("af")?
+	let proxy_authenticate: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(proxy_authenticate_block, proxy_authenticate_state, 52)
+	print_transition("proxy-authenticate", proxy_authenticate)
+	let proxy_authorization_state: HpackFixtureState = next_state_or(proxy_authenticate, proxy_authenticate_state)
+	let proxy_authorization_block: ByteChunk = byte_chunk_from_hex("b0")?
+	let proxy_authorization: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(proxy_authorization_block, proxy_authorization_state, 53)
+	print_transition("proxy-authorization", proxy_authorization)
+	let range_state: HpackFixtureState = next_state_or(proxy_authorization, proxy_authorization_state)
+	let range_block: ByteChunk = byte_chunk_from_hex("b1")?
+	let range: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(range_block, range_state, 54)
+	print_transition("range", range)
+	let referer_state: HpackFixtureState = next_state_or(range, range_state)
+	let referer_block: ByteChunk = byte_chunk_from_hex("b2")?
+	let referer: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(referer_block, referer_state, 55)
+	print_transition("referer", referer)
+	let refresh_state: HpackFixtureState = next_state_or(referer, referer_state)
+	let refresh_block: ByteChunk = byte_chunk_from_hex("b3")?
+	let refresh: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(refresh_block, refresh_state, 56)
+	print_transition("refresh", refresh)
+	let retry_after_state: HpackFixtureState = next_state_or(refresh, refresh_state)
+	let retry_after_block: ByteChunk = byte_chunk_from_hex("b4")?
+	let retry_after: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(retry_after_block, retry_after_state, 57)
+	print_transition("retry-after", retry_after)
+	let server_state: HpackFixtureState = next_state_or(retry_after, retry_after_state)
+	let server_block: ByteChunk = byte_chunk_from_hex("b5")?
+	let server: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(server_block, server_state, 58)
+	print_transition("server", server)
+	let set_cookie_state: HpackFixtureState = next_state_or(server, server_state)
+	let set_cookie_block: ByteChunk = byte_chunk_from_hex("b6")?
+	let set_cookie: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(set_cookie_block, set_cookie_state, 59)
+	print_transition("set-cookie", set_cookie)
+	let strict_transport_security_state: HpackFixtureState = next_state_or(set_cookie, set_cookie_state)
+	let strict_transport_security_block: ByteChunk = byte_chunk_from_hex("b7")?
+	let strict_transport_security: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(strict_transport_security_block, strict_transport_security_state, 60)
+	print_transition("strict-transport-security", strict_transport_security)
+	let transfer_encoding_state: HpackFixtureState = next_state_or(strict_transport_security, strict_transport_security_state)
+	let transfer_encoding_block: ByteChunk = byte_chunk_from_hex("b8")?
+	let transfer_encoding: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(transfer_encoding_block, transfer_encoding_state, 61)
+	print_transition("transfer-encoding", transfer_encoding)
+	let user_agent_state: HpackFixtureState = next_state_or(transfer_encoding, transfer_encoding_state)
+	let user_agent_block: ByteChunk = byte_chunk_from_hex("b9")?
+	let user_agent: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(user_agent_block, user_agent_state, 62)
+	print_transition("user-agent", user_agent)
+	let vary_state: HpackFixtureState = next_state_or(user_agent, user_agent_state)
+	let vary_block: ByteChunk = byte_chunk_from_hex("ba")?
+	let vary: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(vary_block, vary_state, 63)
+	print_transition("vary", vary)
+	let via_state: HpackFixtureState = next_state_or(vary, vary_state)
+	let via_block: ByteChunk = byte_chunk_from_hex("bb")?
+	let via: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(via_block, via_state, 64)
+	print_transition("via", via)
+	let www_authenticate_state: HpackFixtureState = next_state_or(via, via_state)
+	let www_authenticate_block: ByteChunk = byte_chunk_from_hex("bc")?
+	let www_authenticate: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(www_authenticate_block, www_authenticate_state, 65)
+	print_transition("www-authenticate", www_authenticate)
+	let literal_state: HpackFixtureState = next_state_or(www_authenticate, www_authenticate_state)
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
-	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 48))
+	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 66))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
-	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 49))
+	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 67))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

@@ -300,12 +300,17 @@ bytes plus the static indexed `accept-charset:`,
 `accept-encoding: gzip, deflate`, `accept-language:`, `accept-ranges:`,
 `accept:`, `access-control-allow-origin:`, `age:`, `allow:`,
 `authorization:`, `cache-control:`, `content-disposition:`,
-`content-encoding:`, `content-language:`, `content-length:`,
-`content-location:`, `content-range:`, `content-type:`, `cookie:`, `date:`,
-`etag:`, `expect:`, `from:`, `host:`, `if-match:`, `if-modified-since:`,
-`if-none-match:`, `if-range:`, and `if-unmodified-since:` header bytes, plus
-no-Huffman literal-without-indexing fixtures whose first byte names a
-supported static-table header name for `:method`, `:path`, or `:scheme` and
+	`content-encoding:`, `content-language:`, `content-length:`,
+	`content-location:`, `content-range:`, `content-type:`, `cookie:`, `date:`,
+	`etag:`, `expect:`, `from:`, `host:`, `if-match:`, `if-modified-since:`,
+	`if-none-match:`, `if-range:`, `if-unmodified-since:`, `last-modified:`,
+	`link:`, `location:`, `max-forwards:`, `proxy-authenticate:`,
+	`proxy-authorization:`, `range:`, `referer:`, `refresh:`, `retry-after:`,
+	`server:`, `set-cookie:`, `strict-transport-security:`,
+	`transfer-encoding:`, `user-agent:`, `vary:`, `via:`, and
+	`www-authenticate:` header bytes, plus no-Huffman literal-without-indexing
+	fixtures whose first byte names a
+	supported static-table header name for `:method`, `:path`, or `:scheme` and
 whose short raw value is `PUT`, `/target`, or `https`, in completed HEADERS
 or final CONTINUATION frames, returns ordinary header-list data through the
 same accessors as the deterministic fixture-label blocks, advances immutable
@@ -571,12 +576,19 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 `authorization:`, `0x98` `cache-control:`, `0x99`
 `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
 `content-language:`, `0x9c` `content-length:`, `0x9d`
-`content-location:`, `0x9e` `content-range:`, `0x9f`
-`content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
-`0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
-`if-match:`, `0xa7` `if-modified-since:`, `0xa8` `if-none-match:`,
-`0xa9` `if-range:`, and `0xaa` `if-unmodified-since:`
-bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
+	`content-location:`, `0x9e` `content-range:`, `0x9f`
+	`content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
+	`0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
+	`if-match:`, `0xa7` `if-modified-since:`, `0xa8` `if-none-match:`,
+	`0xa9` `if-range:`, `0xaa` `if-unmodified-since:`, `0xab`
+	`last-modified:`, `0xac` `link:`, `0xad` `location:`, `0xae`
+	`max-forwards:`, `0xaf` `proxy-authenticate:`, `0xb0`
+	`proxy-authorization:`, `0xb1` `range:`, `0xb2` `referer:`, `0xb3`
+	`refresh:`, `0xb4` `retry-after:`, `0xb5` `server:`, `0xb6`
+	`set-cookie:`, `0xb7` `strict-transport-security:`, `0xb8`
+	`transfer-encoding:`, `0xb9` `user-agent:`, `0xba` `vary:`, `0xbb`
+	`via:`, and `0xbc` `www-authenticate:`
+	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
 names a supported static-table header name for `:method`, `:path`, or
 `:scheme` and whose short raw value is `PUT`, `/target`, or `https`.
 Unsupported fixture blocks project through

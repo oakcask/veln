@@ -168,12 +168,19 @@ compare it with `../specification/` before changing behavior.
   `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
   `content-language:`, `0x9c` `content-length:`, `0x9d`
   `content-location:`, `0x9e` `content-range:`, `0x9f`
-  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2`
-  `etag:`, `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`,
-  `0xa6` `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
-  `if-none-match:`, `0xa9` `if-range:`, and `0xaa`
-  `if-unmodified-since:` bytes, plus no-Huffman literal-without-indexing
-  fixtures whose first byte names a supported static-table header name for
+	  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2`
+	  `etag:`, `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`,
+	  `0xa6` `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
+	  `if-none-match:`, `0xa9` `if-range:`, `0xaa`
+	  `if-unmodified-since:`, `0xab` `last-modified:`, `0xac` `link:`,
+	  `0xad` `location:`, `0xae` `max-forwards:`, `0xaf`
+	  `proxy-authenticate:`, `0xb0` `proxy-authorization:`, `0xb1`
+	  `range:`, `0xb2` `referer:`, `0xb3` `refresh:`, `0xb4`
+	  `retry-after:`, `0xb5` `server:`, `0xb6` `set-cookie:`, `0xb7`
+	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
+	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
+	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
+	  fixtures whose first byte names a supported static-table header name for
   `:method`, `:path`, or `:scheme` and whose short raw value is `PUT`,
   `/target`, or `https`,
   unknown extension-frame preservation slice, PING/GOAWAY
