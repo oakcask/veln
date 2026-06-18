@@ -177,6 +177,8 @@ The ten-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with10.md`.
 The eleven-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with11.md`.
+The twelve-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with12.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -244,8 +246,9 @@ The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with7.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with8.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with9.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with10.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with11.md`.
+`../reference/implemented-proposals/network-stream-task-spawn-with10.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with11.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with12.md`.
 
 ## Discussion Result: Transport Error Boundary
 
