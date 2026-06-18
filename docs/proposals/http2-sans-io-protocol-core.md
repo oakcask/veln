@@ -319,11 +319,10 @@ literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
 indexed representation without prior state stays unsupported. The fixture also
-accepts exactly one dynamic table-size update byte, `0x3e`, returns a next
-immutable HPACK state whose table size is `30`, carries that state through
-completed HEADERS and final CONTINUATION paths before later header blocks are
-decoded, and leaves table-size-update-like `0x3f` unsupported. Unsupported
-HPACK bytes remain on
+accepts dynamic table-size update bytes `0x3e` and `0x3f`, returns next
+immutable HPACK states whose table sizes are `30` and `31`, and carries those
+states through completed HEADERS and final CONTINUATION paths before later
+header blocks are decoded. Unsupported HPACK bytes remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -603,9 +602,9 @@ names a supported static-table header name for `:authority`, `:method`,
 `/target`, or `https`, plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
-carried by the HTTP/2 decode state, plus one explicit `0x3e` table-size update
-fixture that changes the immutable HPACK state table size to `30` through both
-completed HEADERS and final CONTINUATION paths.
+carried by the HTTP/2 decode state, plus explicit `0x3e` and `0x3f`
+table-size update fixtures that change the immutable HPACK state table size to
+`30` and `31` through both completed HEADERS and final CONTINUATION paths.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after

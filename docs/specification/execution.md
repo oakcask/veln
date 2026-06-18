@@ -1156,12 +1156,12 @@ execution reference.
   immutable fixture state stored on the HTTP/2 decode state and a later
   `0xbe` indexed representation reads that entry, returns ordinary
   header-list data plus the next immutable fixture state. It also accepts
-  exactly one dynamic table-size
-  update fixture, `0x3e`, which returns a next immutable fixture state with
-  table size `30` from either a completed HEADERS block or a final
-  CONTINUATION block before a later header block is decoded, and projects
-  unsupported fixture input, including malformed literal-without-indexing
-  variants and table-size-update-like `0x3f`, through
+  the dynamic table-size
+  update fixtures `0x3e` and `0x3f`, which return next immutable fixture
+  states with table sizes `30` and `31` from either a completed HEADERS block
+  or a final CONTINUATION block before a later header block is decoded, and
+  projects unsupported fixture input, including malformed
+  literal-without-indexing variants, through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
   HTTP/2 core still owns the local
