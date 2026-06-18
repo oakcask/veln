@@ -73,6 +73,10 @@ fn literal_without_indexing_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
+fn literal_without_indexing_path_empty_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", ""), HpackHeader(":fixture", "literal-without-indexing"), 2)
+end
+
 fn literal_without_indexing_authority_example_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":authority", "example.com"), HpackHeader(":fixture", "literal-without-indexing"), 13)
 end
@@ -103,6 +107,10 @@ end
 
 fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(literal_without_indexing_path_target_headers(), next_state(state)))
+end
+
+fn decoded_literal_without_indexing_path_empty_huffman(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_without_indexing_path_empty_huffman_headers(), next_state(state)))
 end
 
 fn decoded_literal_without_indexing_authority_example(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -137,6 +145,10 @@ fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int,
 		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
 		false => false
 	end
+end
+
+fn is_literal_without_indexing_path_empty_huffman(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
+	first_byte == 4 and observed_size == 2 and byte_at_or_missing(block, 1) == 128
 end
 
 fn is_literal_without_indexing_authority_example(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
@@ -223,7 +235,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		end
 		4 => match is_literal_without_indexing_path_target(block, observed_size, first_byte)
 			true => decoded_literal_without_indexing_path_target(state)
-			false => unsupported(block, offset)
+			false => match is_literal_without_indexing_path_empty_huffman(block, observed_size, first_byte)
+				true => decoded_literal_without_indexing_path_empty_huffman(state)
+				false => unsupported(block, offset)
+			end
 		end
 		17 => match observed_size == 8
 			true => decoded("header-list-accepted", 8, state)
