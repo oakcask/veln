@@ -62,7 +62,7 @@ compare it with `../specification/` before changing behavior.
   and encode,
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode,
-  one-byte and selected two-byte non-byte-aligned reserved prefix groups
+  one-byte and selected two-byte reserved prefix groups
   followed by two visible `UIntN` fields, and consecutive non-byte-aligned
   `UIntN` and
   `ReservedBits(width, value)` groups that complete one byte or one

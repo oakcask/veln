@@ -730,6 +730,14 @@ encode preserve the two visible `UIntN` fields in declaration order, omit the
 reserved prefix from values, report visible-field range failures on either
 visible field path, and keep `schema.reserved_bits_mismatch` on the reserved
 field path when the high reserved bits differ.
+`../../examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`
+pin the byte-aligned reserved prefix variant of the same two-byte shape:
+`ReservedBits(8, value)` occupies the high byte, two visible sub-byte `UIntN`
+fields complete the low byte, the reserved field stays representation-only,
+and mismatch and visible range failures keep the same structured diagnostics.
 `../../examples/specification/run/binary-schema-split-reserved-decode-encode/`
 pins a shared storage byte containing multiple non-byte-aligned
 `ReservedBits(width, value)` fields: decode omits both reserved fields while
@@ -808,6 +816,10 @@ case
 `../../examples/specification/run/binary-schema-prefix-reserved-two-byte-group-decode-encode/`
 uses the same encode rule for a shared two-byte big-endian storage unit and
 checks both visible field paths for range failures.
+`../../examples/specification/run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`
+pins the byte-aligned reserved prefix companion case, keeping the
+`codec.encode_value_unrepresentable` field path on the out-of-range visible
+field.
 `../../examples/specification/run/binary-schema-split-reserved-decode-encode/`
 also pins split reserved-bit encode: the helper writes multiple declared
 reserved values in one shared storage byte with adjacent visible `UIntN`

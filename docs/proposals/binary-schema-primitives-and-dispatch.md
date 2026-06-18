@@ -52,7 +52,7 @@ Generated schema
 helpers also consume and encode one-byte and selected two-byte big-endian
 reserved prefix groups where `ReservedBits(width, value)` is followed by two
 visible `UIntN` fields and all three widths complete the storage unit. The
-two-byte slice covers reserved widths nine through fourteen. The helpers
+two-byte slice covers reserved widths eight through fourteen. The helpers
 validate or emit the high reserved bits, decode or encode the two visible
 fields from high to low, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,

@@ -1631,6 +1631,65 @@ fn generated_schema_helpers_accept_prefix_reserved_visible_group_bits() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_two_byte_prefix_reserved_byte_group_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  marker: ReservedBits(8, 171)\n",
+            "  high: UInt3\n",
+            "  low: UInt5\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{high: Int, low: Int}, String>\n",
+            "  byte_decode_byte_prefix_reserved_group_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_byte_prefix_reserved_group_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "two-byte prefix reserved byte group bits should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("marker", 0, 0, Some((8, 171))),
+            ("high", 1, 7, None),
+            ("low", 1, 31, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_split_reserved_bit_groups() {
     let source = SourceFile::new(
         "main.veln",

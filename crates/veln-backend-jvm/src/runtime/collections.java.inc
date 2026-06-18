@@ -578,18 +578,27 @@
         SchemaFieldSpec second = fields[index + 2];
         if (reserved == null
             || !reserved.isReserved()
-            || reservedByteWidth(reserved.reservedBitWidth) > 0
             || !supportedReservedBits(reserved.reservedBitWidth, reserved.reservedValue)) {
             return 0;
         }
         int firstBitWidth = bitPackedVisibleBitWidth(first);
         int secondBitWidth = bitPackedVisibleBitWidth(second);
         int totalBitWidth = reserved.reservedBitWidth + firstBitWidth + secondBitWidth;
-        return firstBitWidth > 0
-            && secondBitWidth > 0
-            && reserved.reservedBitWidth % 8 != 0
-            && (reserved.reservedBitWidth + firstBitWidth) % 8 != 0
-            && totalBitWidth == 8
+        if (firstBitWidth <= 0 || secondBitWidth <= 0) {
+            return 0;
+        }
+        boolean supportedOneByteGroup =
+            reservedByteWidth(reserved.reservedBitWidth) == 0
+                && reserved.reservedBitWidth % 8 != 0
+                && (reserved.reservedBitWidth + firstBitWidth) % 8 != 0
+                && totalBitWidth == 8;
+        boolean supportedTwoByteByteAlignedPrefix =
+            reserved.reservedBitWidth == 8
+                && firstBitWidth % 8 != 0
+                && secondBitWidth % 8 != 0
+                && firstBitWidth + secondBitWidth == 8
+                && totalBitWidth == 16;
+        return (supportedOneByteGroup || supportedTwoByteByteAlignedPrefix)
             ? totalBitWidth / 8
             : 0;
     }

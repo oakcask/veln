@@ -148,7 +148,7 @@ and widths twenty-five through thirty-one may be followed by the visible
 `UIntN` primitive whose width completes the same four-byte big-endian storage
 unit. A supported prefix group may also place `ReservedBits(width, value)`
 before two visible `UIntN` fields when all three widths complete one byte or
-a two-byte big-endian storage unit with reserved width nine through fourteen.
+a two-byte big-endian storage unit with reserved width eight through fourteen.
 The helper validates the high reserved bits, decodes the following visible
 bits from their declared high-to-low positions as ordinary `Int` values,
 omits the reserved field from decoded records and mapping source values, and
