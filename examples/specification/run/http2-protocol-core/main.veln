@@ -4914,8 +4914,26 @@ fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-after-table-size-continuation", after_continuation_update)
 	print_hpack_transition_from_state("hpack-after-table-size-continuation", after_continuation_update, step_state(continuation_done))
 	print_hpack_state("hpack-after-table-size-continuation", step_state(after_continuation_update))
-	let malformed_table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000013f")?), state)?
-	print_failure("hpack-table-size-update-malformed", malformed_table_size_update)
+	let table_size_update_31: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010105000000013f")?), state)?
+	print_step("hpack-table-size-update-31", table_size_update_31)
+	let ignored_table_size_update_31: () = emit_header_block("http2-hpack-table-size-update-31", table_size_update_31, "3f")?
+	print_hpack_transition("hpack-table-size-update-31", table_size_update_31)
+	print_hpack_state("hpack-table-size-update-31", step_state(table_size_update_31))
+	let after_table_size_update_31: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000982")?), hpack_carry_only_state(step_state(table_size_update_31)))?
+	print_step("hpack-after-table-size-update-31", after_table_size_update_31)
+	print_hpack_transition_from_state("hpack-after-table-size-update-31", after_table_size_update_31, step_state(table_size_update_31))
+	print_hpack_state("hpack-after-table-size-update-31", step_state(after_table_size_update_31))
+	let continuation_31_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000001010000000b")?), state)?
+	print_step("hpack-table-size-continuation-31-start", continuation_31_start)
+	let continuation_31_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000b3f")?), step_state(continuation_31_start))?
+	print_step("hpack-table-size-continuation-31-done", continuation_31_done)
+	let ignored_continuation_31_update: () = emit_header_block("http2-hpack-table-size-continuation-31", continuation_31_done, "3f")?
+	print_hpack_transition("hpack-table-size-continuation-31-done", continuation_31_done)
+	print_hpack_state("hpack-table-size-continuation-31-done", step_state(continuation_31_done))
+	let after_continuation_31_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000d82")?), hpack_carry_only_state(step_state(continuation_31_done)))?
+	print_step("hpack-after-table-size-continuation-31", after_continuation_31_update)
+	print_hpack_transition_from_state("hpack-after-table-size-continuation-31", after_continuation_31_update, step_state(continuation_31_done))
+	print_hpack_state("hpack-after-table-size-continuation-31", step_state(after_continuation_31_update))
 	Ok(())
 end
 

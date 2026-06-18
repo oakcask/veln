@@ -156,8 +156,8 @@ fn decoded_dynamic_indexed_header(state: HpackFixtureState, block: ByteChunk, of
 	end
 end
 
-fn decoded_table_size_update(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, 30)))
+fn decoded_table_size_update(state: HpackFixtureState, table_size: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, table_size)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -318,7 +318,11 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		true => decoded("empty", 0, state)
 		false => match first_byte
 			62 => match observed_size == 1
-				true => decoded_table_size_update(state)
+				true => decoded_table_size_update(state, 30)
+				false => unsupported(block, offset)
+			end
+			63 => match observed_size == 1
+				true => decoded_table_size_update(state, 31)
 				false => unsupported(block, offset)
 			end
 			17 => match observed_size == 8
