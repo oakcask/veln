@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "u40-read 4328719365 4328719365\nu48-read 1108152157446 1108152157446\noutput_chunk_list u40-big count 1\noutput_chunk u40-big index 0 hex \"0102030405\" count 5\noutput_chunk_list u40-little count 1\noutput_chunk u40-little index 0 hex \"0504030201\" count 5\noutput_chunk_list u48-big count 1\noutput_chunk u48-big index 0 hex \"010203040506\" count 6\noutput_chunk_list u48-little count 1\noutput_chunk u48-little index 0 hex \"060504030201\" count 6\nbyte_write_u40_be value must be between 0 and 1099511627775\nbyte_write_u48_le value must be between 0 and 281474976710655\nbyte read requires 5 bytes but view has 4\nbyte read requires 6 bytes but view has 5\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "u40-big"
+chunks = ["0102030405"]
+
+[[output_chunk_list]]
+name = "u40-little"
+chunks = ["0504030201"]
+
+[[output_chunk_list]]
+name = "u48-big"
+chunks = ["010203040506"]
+
+[[output_chunk_list]]
+name = "u48-little"
+chunks = ["060504030201"]

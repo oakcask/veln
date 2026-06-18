@@ -675,22 +675,30 @@ byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
 byte_read_u32_be(view: ByteView) -> Result<Int, String>
+byte_read_u40_be(view: ByteView) -> Result<Int, String>
+byte_read_u48_be(view: ByteView) -> Result<Int, String>
 byte_read_u64_be(view: ByteView) -> Result<Int, String>
 byte_read_u16_le(view: ByteView) -> Result<Int, String>
 byte_read_u24_le(view: ByteView) -> Result<Int, String>
 byte_read_u31_le(view: ByteView) -> Result<Int, String>
 byte_read_u32_le(view: ByteView) -> Result<Int, String>
+byte_read_u40_le(view: ByteView) -> Result<Int, String>
+byte_read_u48_le(view: ByteView) -> Result<Int, String>
 byte_read_u64_le(view: ByteView) -> Result<Int, String>
 byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u31_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u40_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u48_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u64_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u31_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u40_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u48_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u64_le(value: Int) -> Result<ByteChunk, String>
 byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
@@ -942,14 +950,16 @@ The implemented standard symbol table has this current pure-helper split:
   `http2_peer_limit_concurrent_streams_exceeded`,
   `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
-  `byte_read_u64_be`,
+  `byte_read_u40_be`, `byte_read_u48_be`, `byte_read_u64_be`,
   `byte_read_u16_le`, `byte_read_u24_le`, `byte_read_u31_le`,
-  `byte_read_u32_le`, `byte_read_u64_le`, `byte_write_u8_be`,
+  `byte_read_u32_le`, `byte_read_u40_le`, `byte_read_u48_le`,
+  `byte_read_u64_le`, `byte_write_u8_be`,
   `byte_write_u16_be`, `byte_write_u24_be`, `byte_write_u31_be`,
-  `byte_write_u32_be`, `byte_write_u64_be`, `byte_write_u16_le`,
-  `byte_write_u24_le`, `byte_write_u31_le`, `byte_write_u32_le`,
-  `byte_write_u64_le`, `byte_count`, `byte_count_to_int`, `byte_offset`,
-  `byte_offset_to_int`,
+  `byte_write_u32_be`, `byte_write_u40_be`, `byte_write_u48_be`,
+  `byte_write_u64_be`, `byte_write_u16_le`, `byte_write_u24_le`,
+  `byte_write_u31_le`, `byte_write_u32_le`, `byte_write_u40_le`,
+  `byte_write_u48_le`, `byte_write_u64_le`, `byte_count`,
+  `byte_count_to_int`, `byte_offset`, `byte_offset_to_int`,
   `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`,
   `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
   `list_nil`, `list_cons`, `list_is_empty`, `list_fold`, `list_reverse`,

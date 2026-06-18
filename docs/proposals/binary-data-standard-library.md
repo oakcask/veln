@@ -27,10 +27,11 @@ immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
 for construction, length, append, bounded take, bounded drop, bounded views,
 bounded view count, bounded view take/drop/slice, outgoing `List<ByteChunk>`
 construction and append, view-to-chunk materialization, fixed-width unsigned
-big-endian reads and writes for 8-bit, 16-bit, 24-bit, 31-bit, 32-bit, and
-64-bit source-visible `Int` values, fixed-width unsigned little-endian reads
-and writes for 16-bit, 24-bit, 31-bit, 32-bit, and 64-bit source-visible
-`Int` values, source-visible pending input and outgoing immutable chunk
+big-endian reads and writes for 8-bit, 16-bit, 24-bit, 31-bit, 32-bit, 40-bit,
+48-bit, and 64-bit source-visible `Int` values, fixed-width unsigned
+little-endian reads and writes for 16-bit, 24-bit, 31-bit, 32-bit, 40-bit,
+48-bit, and 64-bit source-visible `Int` values, source-visible pending input
+and outgoing immutable chunk
 collection for protocol examples, `ByteView` freeze preservation across task
 and channel boundaries, source-visible `ByteView` range failure diagnostics
 with bounded byte previews, checked byte write conversion diagnostics with

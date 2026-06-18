@@ -293,12 +293,19 @@ against the built `veln` binary.
 - `run/binary-byteview-u64-helpers/`: ordinary prelude `u64` byte helpers read
   and write source-visible `Int` values in big-endian and little-endian byte
   order.
+- `run/binary-byteview-u40-u48-helpers/`: ordinary prelude `u40` and `u48`
+  byte helpers read and write source-visible `Int` values in big-endian and
+  little-endian byte order, and report short input plus unrepresentable write
+  failures.
 - `run/binary-byteview-u64-truncated-json/`: ordinary prelude `u64` byte reads
   use the shared byte truncation diagnostic shape.
 - `run/binary-byteview-u64-write-failure-human/`: ordinary prelude `u64` byte
   writes report source-visible unsigned `Int` boundary failures through
   focused human diagnostics.
 - `run/binary-byteview-u64-write-failure-json/`: ordinary prelude `u64` byte
+  writes report structured little-endian write boundary details through
+  `run --json`.
+- `run/binary-byteview-u48-write-failure-json/`: ordinary prelude `u48` byte
   writes report structured little-endian write boundary details through
   `run --json`.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create

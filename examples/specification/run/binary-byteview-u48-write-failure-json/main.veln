@@ -1,0 +1,5 @@
+# ByteView u48 write conversion overflow propagates structured run JSON details.
+pub fn main() -> Result<(), String>
+	let ignored: ByteChunk = byte_write_u48_le(281474976710656)?
+	Ok(())
+end
