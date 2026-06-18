@@ -211,9 +211,18 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("www-authenticate", www_authenticate)
 	let literal_state: HpackFixtureState = next_state_or(www_authenticate, www_authenticate_state)
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
-	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 66))
+	let literal_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_path_block, literal_state, 66)
+	print_transition("literal-path", literal_path)
+	let literal_indexed_state: HpackFixtureState = next_state_or(literal_path, literal_state)
+	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
+	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 67)
+	print_transition("literal-indexed-path", literal_indexed_path)
+	let dynamic_state: HpackFixtureState = next_state_or(literal_indexed_path, literal_indexed_state)
+	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
+	print_transition("dynamic-indexed-path", decode_header_block(dynamic_indexed_block, dynamic_state, 68))
+	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 69))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
-	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 67))
+	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 70))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

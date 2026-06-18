@@ -1238,9 +1238,10 @@ against the built `veln` binary.
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
   names a supported static-table header name for `:method`, `:path`, or
   `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, then
-  returns ordinary header-list data and the next immutable fixture state while
-  malformed literal-without-indexing input remains on the unsupported fixture
-  failure path.
+  returns ordinary header-list data and the next immutable fixture state. It
+  also inserts one `:path: /target` literal-with-indexing entry, decodes a
+  later dynamic indexed reference to that entry, and keeps a dynamic indexed
+  reference without prior state on the unsupported fixture failure path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
@@ -1409,8 +1410,10 @@ against the built `veln` binary.
 	  `www-authenticate:`
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
   names a supported static-table header name for `:method`, `:path`, or
-  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, through
-  the imported fixture codec,
+  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, plus
+  one source-level dynamic table receive case that carries the immutable HPACK
+  state from a literal-with-indexing insertion to a later dynamic indexed
+  reference, through the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind

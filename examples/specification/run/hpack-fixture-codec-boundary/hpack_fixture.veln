@@ -1,5 +1,10 @@
+pub type HpackDynamicEntry
+	NoDynamicEntry
+	DynamicEntry(name: String, value: String)
+end
+
 pub type HpackFixtureState
-	HpackFixtureState(table_size: Int, decode_count: Int)
+	HpackFixtureState(table_size: Int, decode_count: Int, dynamic_entry: HpackDynamicEntry)
 end
 
 pub type HpackHeader
@@ -19,7 +24,7 @@ pub type HpackFixtureFailure
 end
 
 pub fn initial_state() -> HpackFixtureState
-	HpackFixtureState(4096, 0)
+	HpackFixtureState(4096, 0, NoDynamicEntry)
 end
 
 fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
@@ -36,7 +41,13 @@ end
 
 fn next_state(state: HpackFixtureState) -> HpackFixtureState
 	match state
-		HpackFixtureState(table_size, decode_count) => HpackFixtureState(table_size, decode_count + 1)
+		HpackFixtureState(table_size, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, dynamic_entry)
+	end
+end
+
+fn state_with_dynamic_entry(state: HpackFixtureState, name: String, value: String) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, decode_count, _) => HpackFixtureState(table_size, decode_count + 1, DynamicEntry(name, value))
 	end
 end
 
@@ -56,6 +67,14 @@ fn literal_without_indexing_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
+fn literal_with_indexing_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+fn dynamic_indexed_header(name: String, value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "dynamic-indexed"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -72,12 +91,30 @@ fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Res
 	Ok(HpackDecodeTransition(literal_without_indexing_path_target_headers(), next_state(state)))
 end
 
+fn decoded_literal_with_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_with_indexing_path_target_headers(), state_with_dynamic_entry(state, ":path", "/target")))
+end
+
+fn decoded_dynamic_indexed_header(state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match state
+		HpackFixtureState(_, _, NoDynamicEntry) => unsupported(block, offset)
+		HpackFixtureState(_, _, DynamicEntry(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
+	end
+end
+
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
 end
 
 fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
 	match first_byte == 4 and observed_size == 9
+		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
+		false => false
+	end
+end
+
+fn is_literal_with_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
+	match first_byte == 68 and observed_size == 9
 		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
 		false => false
 	end
@@ -140,6 +177,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			true => decoded_literal_without_indexing_path_target(state)
 			false => unsupported(block, offset)
 		end
+		68 => match is_literal_with_indexing_path_target(block, observed_size, first_byte)
+			true => decoded_literal_with_indexing_path_target(state)
+			false => unsupported(block, offset)
+		end
+		190 => match observed_size == 1
+			true => decoded_dynamic_indexed_header(state, block, offset)
+			false => unsupported(block, offset)
+		end
 		16 => match observed_size == 3
 			true => decoded("single-headers", 8, state)
 			false => unsupported(block, offset)
@@ -191,7 +236,7 @@ end
 
 pub fn state_decode_count(state: HpackFixtureState) -> Int
 	match state
-		HpackFixtureState(_, decode_count) => decode_count
+		HpackFixtureState(_, decode_count, _) => decode_count
 	end
 end
 
