@@ -3795,7 +3795,11 @@ fn supported_prefix_reserved_group(
         && total_bit_width == 8;
     let supported_two_byte_group = total_bit_width == 16;
     let supported_three_byte_group = (17..=23).contains(&bit_width) && total_bit_width == 24;
-    (supported_one_byte_group || supported_two_byte_group || supported_three_byte_group)
+    let supported_four_byte_group = (25..=31).contains(&bit_width) && total_bit_width == 32;
+    (supported_one_byte_group
+        || supported_two_byte_group
+        || supported_three_byte_group
+        || supported_four_byte_group)
         && expected_value < (1_i64 << bit_width)
 }
 

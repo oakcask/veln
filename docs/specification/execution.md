@@ -379,12 +379,15 @@ execution reference.
   reserved field, and advances by the shared storage width. A supported
   prefix group may also place `ReservedBits(width, value)` before two visible
   sub-byte or byte-width `UIntN` fields when all three widths complete one
-  byte, a two-byte big-endian storage unit, or a three-byte big-endian
-  storage unit. In the two-byte form, reserved prefix widths one through
+  byte, a two-byte big-endian storage unit, a three-byte big-endian
+  storage unit, or a four-byte big-endian storage unit. In the two-byte form,
+  reserved prefix widths one through
   fourteen are accepted when the two visible fields complete the remaining
   bits in declaration order; in the three-byte form, reserved prefix widths
   seventeen through twenty-three are accepted when the two visible fields
-  complete the remaining bits in declaration order. That
+  complete the remaining bits in declaration order; in the four-byte form,
+  reserved prefix widths twenty-five through thirty-one are accepted when the
+  two visible fields complete the remaining bits in declaration order. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
   advances by the shared storage width. The same shared-storage rule also
@@ -703,12 +706,15 @@ execution reference.
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
   A supported prefix group with `ReservedBits(width, value)` followed by two
   visible sub-byte or byte-width `UIntN` fields whose widths complete one
-  byte, a two-byte big-endian storage unit, or a three-byte big-endian
-  storage unit writes the declared reserved value first, then the two visible
-  values in declaration order. The two-byte encode form accepts reserved
+  byte, a two-byte big-endian storage unit, a three-byte big-endian
+  storage unit, or a four-byte big-endian storage unit writes the declared
+  reserved value first, then the two visible values in declaration order. The
+  two-byte encode form accepts reserved
   prefix widths one through fourteen when the visible fields complete the
   remaining bits, the three-byte encode form accepts reserved prefix widths
   seventeen through twenty-three when the visible fields complete the
+  remaining bits, the four-byte encode form accepts reserved prefix widths
+  twenty-five through thirty-one when the visible fields complete the
   remaining bits,
   and reports `codec.encode_value_unrepresentable` at the
   out-of-range visible field. The same shared-storage encode rule also covers
@@ -892,6 +898,11 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`,
   `examples/specification/run/binary-schema-prefix-reserved-three-byte-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-three-byte-group-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-decode-encode/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`,
   `examples/specification/run/binary-schema-split-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,

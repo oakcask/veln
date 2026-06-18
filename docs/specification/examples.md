@@ -794,6 +794,20 @@ encode preserve the visible fields in declaration order, omit the reserved
 prefix from values, report visible-field range failures on either visible
 field path, and keep `schema.reserved_bits_mismatch` on the reserved field
 path when the high reserved bits differ.
+`../../examples/specification/run/binary-schema-prefix-reserved-four-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-four-byte-group-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`
+pin the four-byte big-endian reserved prefix group with a twenty-five-bit
+reserved prefix followed by two visible sub-byte `UIntN` fields: decode and
+encode preserve the visible fields in declaration order, omit the reserved
+prefix from values, report visible-field range failures on each visible field
+path, and keep `schema.reserved_bits_mismatch` on the reserved field path
+when the high reserved bits differ. The truncated case keeps
+`schema.truncated_field` on the reserved field path when the shared storage
+unit is incomplete.
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
 and

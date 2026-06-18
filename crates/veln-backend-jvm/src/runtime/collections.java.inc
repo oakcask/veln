@@ -600,7 +600,14 @@
             reserved.reservedBitWidth >= 17
                 && reserved.reservedBitWidth <= 23
                 && totalBitWidth == 24;
-        return (supportedOneByteGroup || supportedTwoByteGroup || supportedThreeByteGroup)
+        boolean supportedFourByteGroup =
+            reserved.reservedBitWidth >= 25
+                && reserved.reservedBitWidth <= 31
+                && totalBitWidth == 32;
+        return (supportedOneByteGroup
+                || supportedTwoByteGroup
+                || supportedThreeByteGroup
+                || supportedFourByteGroup)
             ? totalBitWidth / 8
             : 0;
     }
