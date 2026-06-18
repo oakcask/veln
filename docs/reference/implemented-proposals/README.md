@@ -98,6 +98,8 @@ behavior.
   [network-stream-task-spawn-with16.md](network-stream-task-spawn-with16.md).
 - Network stream task spawn with17:
   [network-stream-task-spawn-with17.md](network-stream-task-spawn-with17.md).
+- Network stream task spawn with18:
+  [network-stream-task-spawn-with18.md](network-stream-task-spawn-with18.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 
