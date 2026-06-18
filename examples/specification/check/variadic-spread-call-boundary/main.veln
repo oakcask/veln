@@ -1,4 +1,4 @@
-# Spread-style call arguments are outside the proposed first variadic slice.
+# Spread-style call arguments are outside current variadic call syntax.
 fn collect(values: List<String>) -> Int
 	0
 end

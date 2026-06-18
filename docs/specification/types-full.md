@@ -14,8 +14,8 @@ Implemented type annotations:
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
 - records: `{name: Type, ...}`
-- function types: `fn(T, ...) -> U` or `fn(T, ...U) -> V` with optional
-  `effects [name, ...]`
+- function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
+  with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 

@@ -340,8 +340,9 @@ against the built `veln` binary.
   the derived helper eligibility primary message at the codec implementation
   clause and reports schema/helper context as related notes.
 - `doc/generated-markdown/`: generated documentation from package and tool
-  metadata, module identity, imports, public functions, contracts, doctest
-  fences, hidden doctest setup, and ADR-lite records.
+  metadata, module identity, imports, public functions including variadic
+  parameter spelling, contracts, doctest fences, hidden doctest setup, and
+  ADR-lite records.
 - `doc/schema-references/`: generated documentation accepts same-module public
   and private schema references plus imported public schema and schema-alias
   references.

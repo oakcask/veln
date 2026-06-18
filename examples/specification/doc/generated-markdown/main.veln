@@ -23,3 +23,8 @@ pub fn double(value: Int) -> Int
 	ensure result >= value
 	value + value
 end
+
+## Collects labeled values.
+pub fn collect(label: String, values: ...String) -> List<String>
+	values
+end
