@@ -117,7 +117,8 @@ Representative command-facing HTTP/2 examples route
 `http2.protocol.invalid_frame_kind`,
 `http2.protocol.invalid_priority_dependency`, and
 `http2.peer_limit.frame_size_exceeded` through that function while preserving
-the same human diagnostics and `details.protocol_diagnostic` JSON shape. The
+the same human diagnostics and `details.protocol_diagnostic` JSON shape,
+including the PRIORITY self-dependency payload byte preview. The
 remaining proposal work covers broader schema and codec diagnostics plus
 unconverted HTTP/2 diagnostic fixtures beyond these implemented slices.
 

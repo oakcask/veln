@@ -727,6 +727,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Frame kind {frame_kind} on {stream_ref} {stream_id} declared itself as dependency stream {dependency_stream_id}."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -2895,6 +2896,7 @@ mod tests {
             ("stream_id", JsonValue::Number(1)),
             ("stream_ref", JsonValue::string("stream")),
             ("dependency_stream_id", JsonValue::Number(1)),
+            ("byte_preview", byte_preview("000000010f")),
             ("active_state", JsonValue::string("stream-control")),
             (
                 "rule_provenance",
@@ -2916,15 +2918,20 @@ mod tests {
             diagnostic.message,
             "invalid PRIORITY dependency at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
                 .contains("declared itself as dependency stream 1")
         );
-        assert!(diagnostic.related[1].to_json().contains("stream-control"));
+        assert!(diagnostic.related[2].to_json().contains("stream-control"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 00 01 0f (showing 5 of 5 byte(s), complete)")
+        );
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_priority_dependency")
         );

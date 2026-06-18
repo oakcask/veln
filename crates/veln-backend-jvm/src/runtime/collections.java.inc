@@ -3150,7 +3150,8 @@
         Object streamId,
         Object dependencyStreamId,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long stream = asLong(streamId);
@@ -3164,7 +3165,8 @@
             stream,
             dependency,
             state,
-            provenance
+            provenance,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }
