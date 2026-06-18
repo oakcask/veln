@@ -211,7 +211,7 @@ compare it with `../specification/` before changing behavior.
   adapter-owned listener-to-clean-stream-end lifecycle, network task
   two-argument, three-argument, four-argument, five-argument, six-argument,
   seven-argument, eight-argument, nine-argument, ten-argument,
-  eleven-argument, and twelve-argument spawn,
+  eleven-argument, twelve-argument, and thirteen-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, and receiver-list cancellable channel-first routing plus
   receiver-list timeout-result and cancellable timeout-result selection

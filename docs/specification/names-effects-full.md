@@ -443,6 +443,8 @@ task::spawn_with11(job: fn(A, B, C, D, E, F, G, H, I, J, K) -> T effects [concur
 task::spawn_with11<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K) -> Task<T> effects [concurrency]
 task::spawn_with12(job: fn(A, B, C, D, E, F, G, H, I, J, K, L) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L) -> Task<T> effects [concurrency]
 task::spawn_with12<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L) -> Task<T> effects [concurrency]
+task::spawn_with13(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M) -> Task<T> effects [concurrency]
+task::spawn_with13<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -471,6 +473,8 @@ values and the same optional return-type argument shape.
 source values and the same optional return-type argument shape.
 `task::spawn_with12` starts a twelve-argument callable with twelve ordinary
 source values and the same optional return-type argument shape.
+`task::spawn_with13` starts a thirteen-argument callable with thirteen
+ordinary source values and the same optional return-type argument shape.
 Arguments are frozen before crossing into the task, and the result value is
 frozen before it crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
