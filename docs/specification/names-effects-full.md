@@ -821,10 +821,11 @@ from the expected fixed byte for the supplied schema and field names. The
 for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
 ordinary `Int` values, and reports schema truncation with field-path byte
 diagnostic details. Generated binary schema helpers also accept `UInt16le`,
-`UInt24le`, `UInt31le`, `UInt32le`, `UInt48le`, and `UInt64le` as
-little-endian unsigned fields. `UInt48be` uses the matching six-byte
-big-endian representation, and `UInt64be` uses the matching eight-byte
-big-endian representation. Those
+`UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le`
+as little-endian unsigned fields. `UInt40be` uses the matching five-byte
+big-endian representation, `UInt48be` uses the matching six-byte big-endian
+representation, and `UInt64be` uses the matching eight-byte big-endian
+representation. Those
 fields decode to ordinary `Int` when representable and encode with the same
 representability boundaries as their matching unsigned widths.
 Source `format binary` schema declarations whose fields

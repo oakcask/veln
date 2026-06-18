@@ -232,9 +232,10 @@ against the built `veln` binary.
   `ReservedBits(width, value)` primitive fields, and field-local `where`
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
-- `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`, and
-  `UInt32le` are accepted as `format binary` schema field primitives on
-  private and public schema declarations.
+- `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`,
+  `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, and `UInt48le` are accepted
+  as `format binary` schema field primitives on private and public schema
+  declarations.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
@@ -749,6 +750,18 @@ against the built `veln` binary.
 - `run/binary-schema-u31le-integer-out-of-range-human/`: generated schema
   decode helpers report the same `UInt31le` integer range failure through
   human `run` output with byte preview and field-path notes.
+- `run/binary-schema-u40-widths-decode/`: generated schema decode helpers read
+  `UInt40be` and `UInt40le` as five-byte unsigned primitive fields,
+  preserving their declared byte order and structural mapping for
+  source-visible `Int` values.
+- `run/binary-schema-u40-widths-encode/`: generated schema encode helpers
+  write `UInt40be` and `UInt40le` fields in big-endian and little-endian byte
+  order.
+- `run/binary-schema-u40-widths-truncated-json/`: schema decode truncation for
+  a `UInt40le` field reports the shared `schema.truncated_field` JSON shape.
+- `run/binary-schema-u40-widths-encode-out-of-range/`: generated schema encode
+  helpers reject `UInt40be` and `UInt40le` values outside the unsigned 40-bit
+  range with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-u48-widths-decode/`: generated schema decode helpers read
   `UInt48be` and `UInt48le` as six-byte unsigned primitive fields, preserving
   their declared byte order and structural mapping for source-visible `Int`

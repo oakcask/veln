@@ -104,9 +104,9 @@ predicate after the type text, such as `padding_length: UInt8 where
 padding_length <= length`. Binary schema fields also accept exact-width
 unsigned primitive names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
 `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`,
-`UInt48be`, `UInt48le`, `UInt64be`, and `UInt64le`; those names
-are schema-local representation vocabulary, not ordinary source types or
-values.
+`UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt64be`, and `UInt64le`;
+those names are schema-local representation vocabulary, not ordinary source
+types or values.
 Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as

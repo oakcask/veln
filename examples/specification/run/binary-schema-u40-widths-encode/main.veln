@@ -1,0 +1,40 @@
+# Binary schema UInt40be and UInt40le primitives encode ordinary Int fields.
+use stdio
+
+schema UInt40Widths
+	format binary
+
+	big_value: UInt40be
+	little_value: UInt40le
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	emit_output_chunk_list_header("u40-widths", 1)
+	emit_output_chunk("u40-widths", 0, bytes, "01020304050504030201")
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint40_widths({big_value: 4328719365, little_value: 4328719365})
+	match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end

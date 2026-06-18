@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.exact_width_primitive\"", "\"primitive\":\"UInt16be\"", "\"primitive\":\"UInt16le\"", "\"primitive\":\"UInt5\"", "\"primitive\":\"UInt8\"", "\"primitive\":\"UInt24be\"", "\"primitive\":\"UInt24le\"", "\"primitive\":\"UInt31be\"", "\"primitive\":\"UInt31le\"", "\"primitive\":\"UInt32be\"", "\"primitive\":\"UInt32le\"", "\"primitive\":\"UInt48be\"", "\"primitive\":\"UInt48le\"", "\"primitive\":\"UInt64be\"", "\"primitive\":\"UInt64le\"", "\"reason\":\"parameter_type\"", "\"reason\":\"return_type\"", "\"reason\":\"value_position\""]
+contains = ["\"id\":\"schema.exact_width_primitive\"", "\"primitive\":\"UInt16be\"", "\"primitive\":\"UInt16le\"", "\"primitive\":\"UInt5\"", "\"primitive\":\"UInt8\"", "\"primitive\":\"UInt24be\"", "\"primitive\":\"UInt24le\"", "\"primitive\":\"UInt31be\"", "\"primitive\":\"UInt31le\"", "\"primitive\":\"UInt32be\"", "\"primitive\":\"UInt32le\"", "\"primitive\":\"UInt40be\"", "\"primitive\":\"UInt40le\"", "\"primitive\":\"UInt48be\"", "\"primitive\":\"UInt48le\"", "\"primitive\":\"UInt64be\"", "\"primitive\":\"UInt64le\"", "\"reason\":\"parameter_type\"", "\"reason\":\"return_type\"", "\"reason\":\"value_position\""]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 14
+equals = 16
 
 [[diagnostics]]
 id = "schema.exact_width_primitive"
@@ -87,6 +87,18 @@ id = "schema.exact_width_primitive"
 severity = "error"
 kind = "type"
 message = "binary schema primitive `UInt32le` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.exact_width_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `UInt40be` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.exact_width_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `UInt40le` can only be used in a `format binary` schema field"
 
 [[diagnostics]]
 id = "schema.exact_width_primitive"

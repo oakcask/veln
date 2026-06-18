@@ -266,6 +266,8 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
             "  little_stream_id: UInt31le\n",
             "  checksum: UInt32be\n",
             "  little_checksum: UInt32le\n",
+            "  trace_id: UInt40be\n",
+            "  little_trace_id: UInt40le\n",
             "  extended_checksum: UInt48be\n",
             "  little_extended_checksum: UInt48le\n",
             "  massive_checksum: UInt64be\n",
@@ -278,10 +280,11 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 14);
+    assert_eq!(diagnostics.len(), 16);
     for primitive in [
         "UInt16be", "UInt16le", "UInt24be", "UInt24le", "UInt5", "UInt8", "UInt31be", "UInt31le",
-        "UInt32be", "UInt32le", "UInt48be", "UInt48le", "UInt64be", "UInt64le",
+        "UInt32be", "UInt32le", "UInt40be", "UInt40le", "UInt48be", "UInt48le", "UInt64be",
+        "UInt64le",
     ] {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.exact_width_primitive"
@@ -302,7 +305,7 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn ordinary_types(value: UInt16be, little: UInt16le, little_length: UInt24le, little_stream: UInt31le, extended: UInt48be, massive: UInt64be, tiny: UInt5, another: UInt8) -> {short: UInt24be, wide: UInt32be, little_wide: UInt32le, little_extended: UInt48le, little_massive: UInt64le}\n",
+            "fn ordinary_types(value: UInt16be, little: UInt16le, little_length: UInt24le, little_stream: UInt31le, trace: UInt40be, extended: UInt48be, massive: UInt64be, tiny: UInt5, another: UInt8) -> {short: UInt24be, wide: UInt32be, little_wide: UInt32le, little_trace: UInt40le, little_extended: UInt48le, little_massive: UInt64le}\n",
             "  UInt31be\n",
             "end\n",
         ),
@@ -312,12 +315,13 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 14);
+    assert_eq!(diagnostics.len(), 16);
     for (primitive, reason) in [
         ("UInt16be", "parameter_type"),
         ("UInt16le", "parameter_type"),
         ("UInt24le", "parameter_type"),
         ("UInt31le", "parameter_type"),
+        ("UInt40be", "parameter_type"),
         ("UInt48be", "parameter_type"),
         ("UInt64be", "parameter_type"),
         ("UInt5", "parameter_type"),
@@ -325,6 +329,7 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
         ("UInt24be", "return_type"),
         ("UInt32be", "return_type"),
         ("UInt32le", "return_type"),
+        ("UInt40le", "return_type"),
         ("UInt48le", "return_type"),
         ("UInt64le", "return_type"),
         ("UInt31be", "value_position"),
