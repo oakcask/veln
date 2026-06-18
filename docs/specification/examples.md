@@ -1484,10 +1484,11 @@ while the older `:path: /target` entry remains addressable when the table has
 room; `0xbe` decodes the newest entry and `0xbf` decodes the older retained
 entry. Completed HEADERS and final CONTINUATION paths both carry that HPACK
 state before later header blocks are decoded. The fixture also accepts dynamic
-table-size update bytes `0x3e` and `0x3f`, exposes the resulting table sizes
-`30` and `31` through the fixture-state accessor, and the HTTP/2 example
-covers both completed HEADERS blocks and final CONTINUATION blocks carrying
-those updated immutable states into later header block decodes. Reducing the
+table-size update bytes `0x3e`, `0x3f`, and `0x3f 0x01`, exposes the
+resulting table sizes `30`, `31`, and `32` through the fixture-state
+accessor, and the HTTP/2 example covers both completed HEADERS blocks and
+final CONTINUATION blocks carrying those updated immutable states into later
+header block decodes. Reducing the
 fixture table size below the supported entries evicts them, leaving later
 dynamic indexed representations on the unsupported fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list

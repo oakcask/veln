@@ -212,6 +212,13 @@ fn decoded_table_size_update(state: HpackFixtureState, table_size: Int) -> Resul
 	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, table_size)))
 end
 
+fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 2 and byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
+		true => decoded_table_size_update(state, 31 + byte_at_or_missing(block, 1))
+		false => unsupported(block, offset)
+	end
+end
+
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
 end
@@ -382,7 +389,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			63 => match observed_size == 1
 				true => decoded_table_size_update(state, 31)
-				false => unsupported(block, offset)
+				false => decode_saturated_table_size_update(block, observed_size, state, offset)
 			end
 			17 => match observed_size == 8
 				true => decoded("header-list-accepted", 8, state)

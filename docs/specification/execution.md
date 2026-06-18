@@ -1170,9 +1170,11 @@ execution reference.
   older entry. Completed HEADERS and final CONTINUATION paths both carry that
   HPACK state before later header blocks are decoded. It also accepts
   the dynamic table-size
-  update fixtures `0x3e` and `0x3f`, which return next immutable fixture
-  states with table sizes `30` and `31` from either a completed HEADERS block
-  or a final CONTINUATION block before a later header block is decoded. When
+  update fixtures `0x3e`, `0x3f`, and `0x3f` followed by one non-continuing
+  HPACK integer continuation byte. Those fixtures return next immutable
+  fixture states with table sizes `30`, `31`, or the saturated prefix value
+  plus that continuation byte from either a completed HEADERS block or a final
+  CONTINUATION block before a later header block is decoded. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy drops those entries and a later dynamic indexed
   representation stays on the unsupported fixture path. Unsupported fixture
