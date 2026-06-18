@@ -244,8 +244,9 @@ or emit a human diagnostic. The projection function accepts the protocol error
 plus `Http2DiagnosticContext`, then routes each supported failure shape to the
 stable helper that owns the diagnostic id, primary message, related notes, and
 structured details. The HTTP/2 protocol-core executable example and the
-converted command-facing frame-size and invalid-frame-kind examples check this
-boundary for both `http2.peer_limit.*` and `http2.protocol.*` failures.
+converted command-facing frame-size, invalid-frame-kind, and priority
+self-dependency examples check this boundary for both `http2.peer_limit.*`
+and `http2.protocol.*` failures.
 Accepted HTTP/2 send-intents, including outbound HEADERS output split across
 HEADERS and CONTINUATION frames, remain ordinary program stdout in the
 aggregate protocol-core run case; they do not populate `error` or

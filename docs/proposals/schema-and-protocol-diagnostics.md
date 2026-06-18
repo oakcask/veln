@@ -113,8 +113,9 @@ checked by
 The implemented HTTP/2 projection boundary now also includes an ordinary
 source-level `Http2DiagnosticContext` and top-level
 `http2_protocol_diagnostic` function in the protocol-core executable example.
-Representative command-facing HTTP/2 examples route both
-`http2.protocol.invalid_frame_kind` and
+Representative command-facing HTTP/2 examples route
+`http2.protocol.invalid_frame_kind`,
+`http2.protocol.invalid_priority_dependency`, and
 `http2.peer_limit.frame_size_exceeded` through that function while preserving
 the same human diagnostics and `details.protocol_diagnostic` JSON shape. The
 remaining proposal work covers broader schema and codec diagnostics plus
