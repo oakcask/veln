@@ -77,8 +77,8 @@ compiler-known calls.
   effects.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
-  five-route, six-route, seven-route, eight-route, and nine-route examples
-  use `channel::select_many_priority` on a non-empty
+  five-route, six-route, seven-route, eight-route, nine-route, and ten-route
+  examples use `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`, and the timeout selection example uses
   `channel::select_many_timeout` and
   `channel::select_many_timeout_result` to preserve receiver-list priority
