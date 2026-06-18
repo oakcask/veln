@@ -439,6 +439,8 @@ task::spawn_with9(job: fn(A, B, C, D, E, F, G, H, I) -> T effects [concurrency],
 task::spawn_with9<T>(job: fn(A, B, C, D, E, F, G, H, I) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I) -> Task<T> effects [concurrency]
 task::spawn_with10(job: fn(A, B, C, D, E, F, G, H, I, J) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J) -> Task<T> effects [concurrency]
 task::spawn_with10<T>(job: fn(A, B, C, D, E, F, G, H, I, J) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J) -> Task<T> effects [concurrency]
+task::spawn_with11(job: fn(A, B, C, D, E, F, G, H, I, J, K) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K) -> Task<T> effects [concurrency]
+task::spawn_with11<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -463,6 +465,8 @@ source values and the same optional return-type argument shape.
 values and the same optional return-type argument shape.
 `task::spawn_with10` starts a ten-argument callable with ten ordinary source
 values and the same optional return-type argument shape.
+`task::spawn_with11` starts an eleven-argument callable with eleven ordinary
+source values and the same optional return-type argument shape.
 Arguments are frozen before crossing into the task, and the result value is
 frozen before it crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
