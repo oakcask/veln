@@ -105,9 +105,41 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let etag_block: ByteChunk = byte_chunk_from_hex("a2")?
 	let etag: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(etag_block, etag_state, 39)
 	print_transition("etag", etag)
-	let literal_state: HpackFixtureState = next_state_or(etag, etag_state)
+	let expect_state: HpackFixtureState = next_state_or(etag, etag_state)
+	let expect_block: ByteChunk = byte_chunk_from_hex("a3")?
+	let expect_header: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(expect_block, expect_state, 40)
+	print_transition("expect", expect_header)
+	let from_state: HpackFixtureState = next_state_or(expect_header, expect_state)
+	let from_block: ByteChunk = byte_chunk_from_hex("a4")?
+	let from_header: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(from_block, from_state, 41)
+	print_transition("from", from_header)
+	let host_state: HpackFixtureState = next_state_or(from_header, from_state)
+	let host_block: ByteChunk = byte_chunk_from_hex("a5")?
+	let host: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(host_block, host_state, 42)
+	print_transition("host", host)
+	let if_match_state: HpackFixtureState = next_state_or(host, host_state)
+	let if_match_block: ByteChunk = byte_chunk_from_hex("a6")?
+	let if_match: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_match_block, if_match_state, 43)
+	print_transition("if-match", if_match)
+	let if_modified_since_state: HpackFixtureState = next_state_or(if_match, if_match_state)
+	let if_modified_since_block: ByteChunk = byte_chunk_from_hex("a7")?
+	let if_modified_since: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_modified_since_block, if_modified_since_state, 44)
+	print_transition("if-modified-since", if_modified_since)
+	let if_none_match_state: HpackFixtureState = next_state_or(if_modified_since, if_modified_since_state)
+	let if_none_match_block: ByteChunk = byte_chunk_from_hex("a8")?
+	let if_none_match: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_none_match_block, if_none_match_state, 45)
+	print_transition("if-none-match", if_none_match)
+	let if_range_state: HpackFixtureState = next_state_or(if_none_match, if_none_match_state)
+	let if_range_block: ByteChunk = byte_chunk_from_hex("a9")?
+	let if_range: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_range_block, if_range_state, 46)
+	print_transition("if-range", if_range)
+	let if_unmodified_since_state: HpackFixtureState = next_state_or(if_range, if_range_state)
+	let if_unmodified_since_block: ByteChunk = byte_chunk_from_hex("aa")?
+	let if_unmodified_since: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(if_unmodified_since_block, if_unmodified_since_state, 47)
+	print_transition("if-unmodified-since", if_unmodified_since)
+	let literal_state: HpackFixtureState = next_state_or(if_unmodified_since, if_unmodified_since_state)
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
-	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 40))
+	print_transition("literal-path", decode_header_block(literal_path_block, literal_state, 48))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 49))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
