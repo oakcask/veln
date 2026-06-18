@@ -1,0 +1,53 @@
+type ClosedPayload
+	ClosedLeaf(Int)
+	ClosedBranch({length: Int, kind: Int, payload: ClosedPayload})
+end
+
+type ClosedNode
+	ClosedNode {length: Int, kind: Int, payload: ClosedPayload}
+end
+
+pub schema RecursiveClosedPayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveClosedPayload)
+
+	map to ClosedNode when kind == 0
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedLeaf(payload)
+
+	map to ClosedNode when kind == 1
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedBranch(payload)
+end
+
+type ExtensionPayload
+	ExtensionLeaf(Int)
+	ExtensionBranch({length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>})
+end
+
+type ExtensionNode
+	ExtensionNode {length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>}
+end
+
+pub schema RecursiveExtensionPayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionPayload)
+
+	map to ExtensionNode when kind == 0
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionLeaf(payload))
+
+	map to ExtensionNode when kind == 1
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionBranch(payload))
+end

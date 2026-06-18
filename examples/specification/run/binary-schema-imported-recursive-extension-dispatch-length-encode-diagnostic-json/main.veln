@@ -1,0 +1,32 @@
+use wire
+
+type ExtensionPayload
+	ExtensionLeaf(Int)
+	ExtensionBranch({length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>})
+end
+
+type ExtensionNode
+	ExtensionNode {length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>}
+end
+
+schema ImportedRecursiveExtensionPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveExtensionPayload)
+
+	map to ExtensionNode when kind == 0
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionLeaf(payload))
+
+	map to ExtensionNode when kind == 1
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionBranch(payload))
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_imported_recursive_extension_packet({length: 2, kind: 1, payload: Known(ExtensionPayload::ExtensionBranch({length: 1, kind: 0, payload: Known(ExtensionPayload::ExtensionLeaf(42))}))})
+end

@@ -93,8 +93,9 @@ unsigned binary primitives or an eligible nested binary schema payload.
 Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
-schema helper path. A same-module closed or extension-tolerant dispatch case
-may name the enclosing schema recursively only in the length-bounded form,
+schema helper path. A same-module recursive dispatch case may name the
+enclosing schema recursively, and a public imported recursive payload schema
+may be named through a written `use` path, only in the length-bounded form
 when selected `map to Target when tag_field == literal` clauses cover every
 case and all clauses resolve to one record shape, with at least one
 non-recursive case as the base case. The extension-tolerant field type
@@ -191,10 +192,10 @@ dispatch, extension dispatch, bounded repeated primitive or nested schema field,
 length-bounded `ByteView`, and eligible nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
 expressions, recursive dispatch payload schemas outside the selected
-same-module length-bounded dispatch decode-and-encode slice, dispatch payload
-schemas outside the generated helper slice, arbitrary mapping expressions, and
-mapping selection beyond this narrow decoded-field boolean selector slice are
-not implemented.
+same-module or public imported length-bounded dispatch decode-and-encode
+slice, dispatch payload schemas outside the generated helper slice, arbitrary
+mapping expressions, and mapping selection beyond this narrow decoded-field
+boolean selector slice are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the equality and inequality mapping selection boundary. The checked
