@@ -3448,6 +3448,14 @@
         return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_be", false);
     }
 
+    public static Object byteReadU40Be(Object view) {
+        return byteReadUnsigned(view, 5, 0xffffffffffL, "byte_read_u40_be", false);
+    }
+
+    public static Object byteReadU48Be(Object view) {
+        return byteReadUnsigned(view, 6, 0xffffffffffffL, "byte_read_u48_be", false);
+    }
+
     public static Object byteReadU64Be(Object view) {
         return byteReadUnsigned(view, 8, Long.MAX_VALUE, "byte_read_u64_be", false);
     }
@@ -3466,6 +3474,14 @@
 
     public static Object byteReadU32Le(Object view) {
         return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_le", true);
+    }
+
+    public static Object byteReadU40Le(Object view) {
+        return byteReadUnsigned(view, 5, 0xffffffffffL, "byte_read_u40_le", true);
+    }
+
+    public static Object byteReadU48Le(Object view) {
+        return byteReadUnsigned(view, 6, 0xffffffffffffL, "byte_read_u48_le", true);
     }
 
     public static Object byteReadU64Le(Object view) {
@@ -6427,6 +6443,14 @@
         return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_be", false);
     }
 
+    public static Object byteWriteU40Be(Object value) {
+        return byteWriteUnsigned(value, 5, 0xffffffffffL, "byte_write_u40_be", false);
+    }
+
+    public static Object byteWriteU48Be(Object value) {
+        return byteWriteUnsigned(value, 6, 0xffffffffffffL, "byte_write_u48_be", false);
+    }
+
     public static Object byteWriteU64Be(Object value) {
         return byteWriteUnsigned(value, 8, Long.MAX_VALUE, "byte_write_u64_be", false);
     }
@@ -6445,6 +6469,14 @@
 
     public static Object byteWriteU32Le(Object value) {
         return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_le", true);
+    }
+
+    public static Object byteWriteU40Le(Object value) {
+        return byteWriteUnsigned(value, 5, 0xffffffffffL, "byte_write_u40_le", true);
+    }
+
+    public static Object byteWriteU48Le(Object value) {
+        return byteWriteUnsigned(value, 6, 0xffffffffffffL, "byte_write_u48_le", true);
     }
 
     public static Object byteWriteU64Le(Object value) {

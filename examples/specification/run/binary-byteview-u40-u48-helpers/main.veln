@@ -1,0 +1,71 @@
+# ByteView u40 and u48 helpers read and write source-visible Int values.
+use stdio
+
+fn int_result_text(result: Result<Int, String>) -> String
+	match result
+		Ok(value) => int_to_string(value)
+		Err(error) => error
+	end
+end
+
+fn chunk_result_text(result: Result<ByteChunk, String>) -> String
+	match result
+		Ok(chunk) => int_to_string(byte_count_to_int(byte_chunk_count(chunk)))
+		Err(error) => error
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_written(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let chunk: ByteChunk = byte_chunk_from_hex("01020304050504030201010203040506060504030201")?
+	let zero_offset: ByteOffset = byte_offset(0)?
+	let five: ByteCount = byte_count(5)?
+	let six: ByteCount = byte_count(6)?
+	let big40_view: ByteView = byte_view(chunk, zero_offset, five)?
+	let little40_view: ByteView = byte_view(chunk, byte_offset(5)?, five)?
+	let big48_view: ByteView = byte_view(chunk, byte_offset(10)?, six)?
+	let little48_view: ByteView = byte_view(chunk, byte_offset(16)?, six)?
+	let value40: Int = byte_read_u40_be(big40_view)?
+	let little_value40: Int = byte_read_u40_le(little40_view)?
+	let value48: Int = byte_read_u48_be(big48_view)?
+	let little_value48: Int = byte_read_u48_le(little48_view)?
+	stdio::print("u40-read ")
+	stdio::print(int_to_string(value40))
+	stdio::print(" ")
+	stdio::println(int_to_string(little_value40))
+	stdio::print("u48-read ")
+	stdio::print(int_to_string(value48))
+	stdio::print(" ")
+	stdio::println(int_to_string(little_value48))
+	emit_written("u40-big", byte_write_u40_be(value40)?, "0102030405")
+	emit_written("u40-little", byte_write_u40_le(value40)?, "0504030201")
+	emit_written("u48-big", byte_write_u48_be(value48)?, "010203040506")
+	emit_written("u48-little", byte_write_u48_le(value48)?, "060504030201")
+	stdio::println(chunk_result_text(byte_write_u40_be(1099511627776)))
+	stdio::println(chunk_result_text(byte_write_u48_le(281474976710656)))
+	stdio::println(int_result_text(byte_read_u40_be(byte_view(chunk, zero_offset, byte_count(4)?)?)))
+	stdio::println(int_result_text(byte_read_u48_le(byte_view(chunk, zero_offset, five)?)))
+	Ok(())
+end

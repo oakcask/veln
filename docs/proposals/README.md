@@ -42,7 +42,8 @@ compare it with `../specification/` before changing behavior.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
-  big-endian and little-endian read/write, bounded view buffer helper,
+  big-endian and little-endian read/write through the current source-visible
+  helper width set, bounded view buffer helper,
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
   input and outgoing immutable chunk collection for protocol examples,
   byte-view freeze preservation across task and channel boundaries,

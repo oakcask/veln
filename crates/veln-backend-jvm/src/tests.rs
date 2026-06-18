@@ -139,6 +139,20 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
         System.out.println(VelnRuntime.byteReadU32Be(maxU32View));
+        Object maxU40 = ((VelnRuntime.Result) VelnRuntime.byteWriteU40Be(Long.valueOf(1099511627775L))).value();
+        Object maxU40View = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU40,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(5))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU40Be(maxU40View));
+        Object maxU48 = ((VelnRuntime.Result) VelnRuntime.byteWriteU48Be(Long.valueOf(281474976710655L))).value();
+        Object maxU48View = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU48,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(6))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU48Be(maxU48View));
         Object maxU31Le = ((VelnRuntime.Result) VelnRuntime.byteWriteU31Le(Long.valueOf(2147483647))).value();
         Object maxU31LeView = ((VelnRuntime.Result) VelnRuntime.byteView(
             maxU31Le,
@@ -153,6 +167,20 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
         System.out.println(VelnRuntime.byteReadU32Le(maxU32LeView));
+        Object maxU40Le = ((VelnRuntime.Result) VelnRuntime.byteWriteU40Le(Long.valueOf(1099511627775L))).value();
+        Object maxU40LeView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU40Le,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(5))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU40Le(maxU40LeView));
+        Object maxU48Le = ((VelnRuntime.Result) VelnRuntime.byteWriteU48Le(Long.valueOf(281474976710655L))).value();
+        Object maxU48LeView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU48Le,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(6))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU48Le(maxU48LeView));
         Object maxU64 = ((VelnRuntime.Result) VelnRuntime.byteWriteU64Be(Long.MAX_VALUE)).value();
         Object maxU64View = ((VelnRuntime.Result) VelnRuntime.byteView(
             maxU64,
@@ -1344,8 +1372,12 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
             "Ok(16909311)\n",
             "Ok(2147483647)\n",
             "Ok(4294967295)\n",
+            "Ok(1099511627775)\n",
+            "Ok(281474976710655)\n",
             "Ok(2147483647)\n",
             "Ok(4294967295)\n",
+            "Ok(1099511627775)\n",
+            "Ok(281474976710655)\n",
             "Ok(9223372036854775807)\n",
             "Ok(9223372036854775807)\n",
             "Ok(ByteChunk([Byte(52), Byte(18)]))\n",
@@ -2495,22 +2527,30 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),
         ("byte_read_u32_be", "byteReadU32Be"),
+        ("byte_read_u40_be", "byteReadU40Be"),
+        ("byte_read_u48_be", "byteReadU48Be"),
         ("byte_read_u64_be", "byteReadU64Be"),
         ("byte_read_u16_le", "byteReadU16Le"),
         ("byte_read_u24_le", "byteReadU24Le"),
         ("byte_read_u31_le", "byteReadU31Le"),
         ("byte_read_u32_le", "byteReadU32Le"),
+        ("byte_read_u40_le", "byteReadU40Le"),
+        ("byte_read_u48_le", "byteReadU48Le"),
         ("byte_read_u64_le", "byteReadU64Le"),
         ("byte_write_u8_be", "byteWriteU8Be"),
         ("byte_write_u16_be", "byteWriteU16Be"),
         ("byte_write_u24_be", "byteWriteU24Be"),
         ("byte_write_u31_be", "byteWriteU31Be"),
         ("byte_write_u32_be", "byteWriteU32Be"),
+        ("byte_write_u40_be", "byteWriteU40Be"),
+        ("byte_write_u48_be", "byteWriteU48Be"),
         ("byte_write_u64_be", "byteWriteU64Be"),
         ("byte_write_u16_le", "byteWriteU16Le"),
         ("byte_write_u24_le", "byteWriteU24Le"),
         ("byte_write_u31_le", "byteWriteU31Le"),
         ("byte_write_u32_le", "byteWriteU32Le"),
+        ("byte_write_u40_le", "byteWriteU40Le"),
+        ("byte_write_u48_le", "byteWriteU48Le"),
         ("byte_write_u64_le", "byteWriteU64Le"),
         ("byte_count", "byteCount"),
         ("byte_count_to_int", "byteCountToInt"),
