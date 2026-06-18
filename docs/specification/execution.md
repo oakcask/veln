@@ -367,7 +367,7 @@ execution reference.
   reserved field, and advances by the shared storage width. A supported
   prefix group may also place `ReservedBits(width, value)` before two visible
   `UIntN` fields when all three widths complete one byte or a two-byte
-  big-endian storage unit with reserved width eight through fourteen. That
+  big-endian storage unit. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
   advances by the shared storage width. The same shared-storage rule also
@@ -684,7 +684,7 @@ execution reference.
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
   A supported prefix group with `ReservedBits(width, value)` followed by two
   visible `UIntN` fields whose widths complete one byte or a two-byte
-  big-endian storage unit with reserved width eight through fourteen writes
+  big-endian storage unit writes
   the declared reserved value first, then the two visible values in
   declaration order, and reports `codec.encode_value_unrepresentable` at the
   out-of-range visible field. The same shared-storage encode rule also covers
