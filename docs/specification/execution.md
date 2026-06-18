@@ -900,6 +900,7 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-three-byte-group-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`,
   `examples/specification/run/binary-schema-split-reserved-decode-encode/`,

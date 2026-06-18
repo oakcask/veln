@@ -560,6 +560,10 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for the four-byte
   reserved prefix group with stable field path, byte offset, bit width,
   expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`:
+  generated schema decode helpers report `schema.truncated_field` at the
+  reserved field path when the four-byte reserved prefix group has only three
+  available bytes.
 - `run/binary-schema-prefix-reserved-two-byte-group-json/`: generated schema
   decode helpers report `schema.reserved_bits_mismatch` for the two-byte
   reserved prefix group with stable field path, byte offset, bit width,
