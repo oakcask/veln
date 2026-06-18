@@ -1848,6 +1848,10 @@ against the built `veln` binary.
   boundary passes a fourteenth ordinary metadata value through
   `task::spawn_with14`, preserving the existing `concurrency` effect and
   socket-free handler shape.
+- `run/socket-stream-adapter-routing-spawn15/`: the same stream-adapter task
+  boundary passes a fifteenth ordinary metadata value through
+  `task::spawn_with15`, preserving the existing `concurrency` effect and
+  socket-free handler shape.
 - `run/socket-stream-adapter-clean-end/`: adapter-owned source reads multiple
   socket chunks with `net::read_chunk_or_end`, observes clean end as `None`,
   translates it into `StreamInput.End`, routes stream inputs through a
@@ -1946,6 +1950,10 @@ against the built `veln` binary.
   fourteen-argument stream-task boundary has the same effect requirements when
   a handler receives one additional ordinary metadata value through
   `task::spawn_with14`.
+- `check/socket-stream-adapter-routing-spawn15-effects/`: the
+  fifteen-argument stream-task boundary has the same effect requirements when
+  a handler receives one additional ordinary metadata value through
+  `task::spawn_with15`.
 - `check/socket-stream-adapter-owned-lifecycle-effects/`: the accepted-stream
   lifecycle shape must declare `net` and `concurrency`, while the handler
   boundary remains free of transport effects.

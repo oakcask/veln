@@ -268,6 +268,29 @@
             this.thread = new Thread(this.future);
             this.thread.start();
         }
+
+        private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg) {
+            Object frozenFirstArg = freezeBoundaryValue(firstArg);
+            Object frozenSecondArg = freezeBoundaryValue(secondArg);
+            Object frozenThirdArg = freezeBoundaryValue(thirdArg);
+            Object frozenFourthArg = freezeBoundaryValue(fourthArg);
+            Object frozenFifthArg = freezeBoundaryValue(fifthArg);
+            Object frozenSixthArg = freezeBoundaryValue(sixthArg);
+            Object frozenSeventhArg = freezeBoundaryValue(seventhArg);
+            Object frozenEighthArg = freezeBoundaryValue(eighthArg);
+            Object frozenNinthArg = freezeBoundaryValue(ninthArg);
+            Object frozenTenthArg = freezeBoundaryValue(tenthArg);
+            Object frozenEleventhArg = freezeBoundaryValue(eleventhArg);
+            Object frozenTwelfthArg = freezeBoundaryValue(twelfthArg);
+            Object frozenThirteenthArg = freezeBoundaryValue(thirteenthArg);
+            Object frozenFourteenthArg = freezeBoundaryValue(fourteenthArg);
+            Object frozenFifteenthArg = freezeBoundaryValue(fifteenthArg);
+            this.future = new java.util.concurrent.FutureTask<Object>(
+                () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg))
+            );
+            this.thread = new Thread(this.future);
+            this.thread.start();
+        }
     }
     public static Object channelBounded(Object capacity) {
         Channel channel = new Channel(asLong(capacity));
@@ -639,6 +662,10 @@
 
     public static Object taskSpawnWith14(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg) {
         return new Task((Fn) fn, firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg);
+    }
+
+    public static Object taskSpawnWith15(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg) {
+        return new Task((Fn) fn, firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg);
     }
 
     public static Object taskJoin(Object task) {

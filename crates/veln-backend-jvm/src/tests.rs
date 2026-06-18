@@ -2003,6 +2003,51 @@ fn bytecode_backend_runs_fourteen_argument_task_function_values_when_java_is_ava
 }
 
 #[test]
+fn bytecode_backend_runs_fifteen_argument_task_function_values_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn combine(left: String, count: Int, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String, zone: String, site: String, rack: String, aisle: String, shelf: String, bin: String) -> {left: String, count: Int, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String, zone: String, site: String, rack: String, aisle: String, shelf: String, bin: String} effects [concurrency]\n",
+        "  { left: left, count: count, marker: marker, suffix: suffix, tail: tail, label: label, trace: trace, shard: shard, region: region, zone: zone, site: site, rack: rack, aisle: aisle, shelf: shelf, bin: bin }\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let task = task::spawn_with15(combine, \"hello\", 42, \"done\", \"extra\", \"tail\", \"label\", \"trace\", \"shard\", \"region\", \"zone\", \"site\", \"rack\", \"aisle\", \"shelf\", \"bin\")\n",
+        "  let value: {left: String, count: Int, marker: String, suffix: String, tail: String, label: String, trace: String, shard: String, region: String, zone: String, site: String, rack: String, aisle: String, shelf: String, bin: String} = task::join(task)?\n",
+        "  stdio::println(value.left)\n",
+        "  stdio::println(int_to_string(value.count))\n",
+        "  stdio::println(value.marker)\n",
+        "  stdio::println(value.suffix)\n",
+        "  stdio::println(value.tail)\n",
+        "  stdio::println(value.label)\n",
+        "  stdio::println(value.trace)\n",
+        "  stdio::println(value.shard)\n",
+        "  stdio::println(value.region)\n",
+        "  stdio::println(value.zone)\n",
+        "  stdio::println(value.site)\n",
+        "  stdio::println(value.rack)\n",
+        "  stdio::println(value.aisle)\n",
+        "  stdio::println(value.shelf)\n",
+        "  stdio::println(value.bin)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-task-arg15", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n42\ndone\nextra\ntail\nlabel\ntrace\nshard\nregion\nzone\nsite\nrack\naisle\nshelf\nbin\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Int) -> output: Int\n",
@@ -2358,6 +2403,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::spawn_with12", "taskSpawnWith12"),
         ("task::spawn_with13", "taskSpawnWith13"),
         ("task::spawn_with14", "taskSpawnWith14"),
+        ("task::spawn_with15", "taskSpawnWith15"),
         ("task::join", "taskJoin"),
         ("task::cancel", "taskCancel"),
     ] {
