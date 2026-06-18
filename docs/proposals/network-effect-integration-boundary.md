@@ -50,7 +50,7 @@ slices, and narrow deadline and cancellation slices, for:
   receiver-list seven-route, receiver-list eight-route, receiver-list
   nine-route, receiver-list ten-route, receiver-list eleven-route,
   receiver-list twelve-route, receiver-list thirteen-route,
-  receiver-list fourteen-route,
+  receiver-list fourteen-route, receiver-list fifteen-route,
   receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, and receiver-list cancellable channel-first fixture
@@ -260,6 +260,7 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The receiver-list five-route, six-route, seven-route, eight-route, nine-route,
 ten-route, eleven-route, twelve-route, thirteen-route, fourteen-route,
+fifteen-route,
 timeout, timeout-result, and cancellable timeout-result
 channel-first stream routing slices, including the
 `channel::select_many_priority` and
@@ -382,7 +383,7 @@ or the pure protocol core.
   receiver-list seven-route, receiver-list eight-route, receiver-list
   nine-route, receiver-list ten-route, receiver-list eleven-route,
   receiver-list twelve-route, receiver-list thirteen-route,
-  receiver-list fourteen-route,
+  receiver-list fourteen-route, receiver-list fifteen-route,
   receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, and receiver-list cancellable channel-first stream
