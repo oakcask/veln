@@ -1173,15 +1173,19 @@ execution reference.
   older entry. Completed HEADERS and final CONTINUATION paths both carry that
   HPACK state before later header blocks are decoded. It also accepts
   dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
-  continuations such as `0x3f 0x01`, and multi-byte HPACK integer
-  continuations such as `0x3f 0x80 0x01` and `0x3f 0x81 0x01`. Those
+  continuations such as `0x3f 0x01`, and the fixture-boundary slice of
+  general multi-byte HPACK integer continuations with the table-size update
+  prefix, such as `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
+  `0x3f 0x82 0x02`. Those
   fixtures return next immutable fixture states with checked table sizes
-  `30`, `31`, `32`, `159`, and `160` from either a completed HEADERS block
-  or a final CONTINUATION block before a later header block is decoded. When
+  `30`, `31`, `32`, `159`, `160`, and `289` from either a completed HEADERS
+  block or a final CONTINUATION block before a later header block is decoded.
+  This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy drops those entries and a later dynamic indexed
   representation stays on the unsupported fixture path. Unsupported fixture
-  input, including malformed non-terminating table-size updates, malformed
+  input, including malformed non-terminating table-size updates, table-size
+  updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, and unsupported Huffman variants, projects through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
