@@ -1756,9 +1756,9 @@ fn generated_schema_helpers_accept_three_byte_prefix_reserved_group_bits() {
             "schema ThreeBytePrefixReservedGroupHeader\n",
             "  format binary\n",
             "\n",
-            "  prefix: ReservedBits(9, 341)\n",
-            "  high: UInt8\n",
-            "  low: UInt7\n",
+            "  prefix: ReservedBits(17, 87381)\n",
+            "  high: UInt4\n",
+            "  low: UInt3\n",
             "end\n",
             "\n",
             "pub fn read_header(view: ByteView) -> Result<{high: Int, low: Int}, String>\n",
@@ -1800,9 +1800,9 @@ fn generated_schema_helpers_accept_three_byte_prefix_reserved_group_bits() {
             })
             .collect::<Vec<_>>(),
         vec![
-            ("prefix", 0, 0, Some((9, 341))),
-            ("high", 1, 255, None),
-            ("low", 1, 127, None),
+            ("prefix", 0, 0, Some((17, 87381))),
+            ("high", 1, 15, None),
+            ("low", 1, 7, None),
         ]
     );
 }
@@ -1815,17 +1815,17 @@ fn generated_schema_helpers_reject_malformed_three_byte_prefix_reserved_group_bi
             "schema TooWideThreeBytePrefixReservedGroupHeader\n",
             "  format binary\n",
             "\n",
-            "  prefix: ReservedBits(9, 341)\n",
-            "  high: UInt8\n",
+            "  prefix: ReservedBits(17, 87381)\n",
+            "  high: UInt4\n",
             "  low: UInt8\n",
             "end\n",
             "\n",
             "schema TooNarrowThreeBytePrefixReservedGroupHeader\n",
             "  format binary\n",
             "\n",
-            "  prefix: ReservedBits(9, 341)\n",
-            "  high: UInt8\n",
-            "  low: UInt6\n",
+            "  prefix: ReservedBits(17, 87381)\n",
+            "  high: UInt4\n",
+            "  low: UInt2\n",
             "end\n",
             "\n",
             "schema TooWideVisibleThreeBytePrefixReservedGroupHeader\n",
@@ -5374,6 +5374,106 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
             target: IrCallTarget::SchemaEncodeStep(name),
             ..
         } if name == "TwoBytePrefixReservedGroupHeader"
+    ));
+}
+
+#[test]
+fn codec_derive_resolves_three_byte_prefix_reserved_group_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(17, 87381)\n",
+            "  high: UInt4\n",
+            "  low: UInt3\n",
+            "end\n",
+            "\n",
+            "codec ThreeBytePrefixReservedCodec for ThreeBytePrefixReservedGroupHeader decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
+            "  ThreeBytePrefixReservedCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
+            "  ThreeBytePrefixReservedCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let read_header = core
+        .functions
+        .iter()
+        .find(|function| function.name == "read_header")
+        .expect("read_header should be lowered");
+    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "ThreeBytePrefixReservedGroupHeader"
+    ));
+
+    let write_header = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write_header")
+        .expect("write_header should be lowered");
+    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "ThreeBytePrefixReservedGroupHeader"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let read_header = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "read_header")
+        .expect("read_header should be in IR");
+    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "ThreeBytePrefixReservedGroupHeader"
+    ));
+
+    let write_header = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "write_header")
+        .expect("write_header should be in IR");
+    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "ThreeBytePrefixReservedGroupHeader"
     ));
 }
 

@@ -1,13 +1,13 @@
 schema ThreeBytePrefixReservedGroupHeader
 	format binary
 
-	prefix: ReservedBits(9, 341)
-	high: UInt8
-	low: UInt7
+	prefix: ReservedBits(17, 87381)
+	high: UInt4
+	low: UInt3
 end
 
 pub fn main() -> Result<{high: Int, low: Int}, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("abd5aa")?
+	let bytes: ByteChunk = byte_chunk_from_hex("aaab55")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
 	byte_decode_three_byte_prefix_reserved_group_header(view)
 end

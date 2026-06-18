@@ -36,15 +36,15 @@ equals = [{"kind":"schema","name":"ThreeBytePrefixReservedGroupHeader"},{"kind":
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.bit_width"
-equals = 9
+equals = 17
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_value"
-equals = 341
+equals = 87381
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.actual_value"
-equals = 343
+equals = 87382
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.encoding"
@@ -52,7 +52,7 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "abd5aa"
+equals = "aaab55"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"

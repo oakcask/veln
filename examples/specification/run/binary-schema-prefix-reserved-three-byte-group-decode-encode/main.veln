@@ -3,9 +3,9 @@ use stdio
 schema ThreeBytePrefixReservedGroupHeader
 	format binary
 
-	prefix: ReservedBits(9, 341)
-	high: UInt8
-	low: UInt7
+	prefix: ReservedBits(17, 87381)
+	high: UInt4
+	low: UInt3
 end
 
 fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
@@ -62,19 +62,19 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("aad5aa")?
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaad5")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
 	let decoded: {high: Int, low: Int} = byte_decode_three_byte_prefix_reserved_group_header(view)?
 	stdio::println(int_to_string(decoded.high))
 	stdio::println(int_to_string(decoded.low))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 171, low: 42})
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 10, low: 5})
 	let ignored: () = emit_encoded(encoded)?
 
-	let rejected_high: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 256, low: 42})
+	let rejected_high: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 16, low: 5})
 	emit_encode_error(rejected_high)
 
-	let rejected_low: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 171, low: 128})
+	let rejected_low: Result<ByteChunk, EncodeError> = byte_encode_three_byte_prefix_reserved_group_header({high: 10, low: 8})
 	emit_encode_error(rejected_low)
 	Ok(())
 end
