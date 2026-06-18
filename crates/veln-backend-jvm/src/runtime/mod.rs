@@ -184,6 +184,7 @@ runtime_method_table!(concurrency_method, "channelRecv", {
     "task::spawn_with13" => "taskSpawnWith13",
     "task::spawn_with14" => "taskSpawnWith14",
     "task::spawn_with15" => "taskSpawnWith15",
+    "task::spawn_with16" => "taskSpawnWith16",
     "task::join" => "taskJoin",
     "task::cancel" => "taskCancel",
 });
