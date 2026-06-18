@@ -11,7 +11,11 @@ schema Http2FrameHeaderWire
 end
 
 type Http2ProtocolFailure
-	InvalidFrameKind(Int, Int, Int, Int, String, String)
+	InvalidFrameKind(Int, Int, Int, Int)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
 end
 
 type Http2Step
@@ -41,21 +45,34 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int) -> Result<
 		true => Ok(FrameOk(kind))
 		false => match kind == 1
 			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1)))
 		end
 	end
 end
 
-fn project_failure(failure: Http2ProtocolFailure) -> Result<(), String>
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance)
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let step: Http2Step = receive(byte_chunk_from_hex("000000000000000001")?)?
+	let context: Http2DiagnosticContext = DiagnosticContext("idle-stream", "idle_streams_require_headers")
 	match step
-		Failed(failure) => project_failure(failure)
+		Failed(failure) => http2_protocol_diagnostic(failure, context)
 		FrameOk(_) => Ok(())
 		Waiting => Ok(())
 	end

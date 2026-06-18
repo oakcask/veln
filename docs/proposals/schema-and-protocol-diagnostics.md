@@ -119,9 +119,12 @@ Representative command-facing HTTP/2 examples route
 `http2.peer_limit.frame_size_exceeded`, and
 `http2.peer_limit.header_list_size_exceeded` through that function while
 preserving the same human diagnostics and `details.protocol_diagnostic` JSON
-shape, including the PRIORITY self-dependency payload byte preview. The
-remaining proposal work covers broader schema and codec diagnostics plus
-unconverted HTTP/2 diagnostic fixtures beyond these implemented slices.
+shape, including the PRIORITY self-dependency payload byte preview. Focused
+HTTP/2 protocol examples for stream-id domains, post-GOAWAY stream rejection,
+fixed payload lengths, invalid DATA padding, SETTINGS ACK state, preface
+failures, continuation ordering, and remaining invalid frame-kind slices also
+route through that projection boundary. The remaining proposal work covers
+broader schema and codec diagnostics beyond these implemented slices.
 
 ## Problem
 

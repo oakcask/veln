@@ -11,7 +11,11 @@ schema Http2FrameHeaderWire
 end
 
 type Http2ProtocolFailure
-	InvalidStreamId(Int, Int, Int, String, String, String, String)
+	InvalidStreamId(Int, Int, Int, String, String)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
 end
 
 type Http2Step
@@ -39,23 +43,36 @@ end
 fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> Result<Http2Step, String>
 	match kind == 1
 		true => match stream_id == 0
-			true => Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams")))
+			true => Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server")))
 			false => Ok(FrameOk(kind))
 		end
 		false => Ok(FrameOk(kind))
 	end
 end
 
-fn project_failure(failure: Http2ProtocolFailure) -> Result<(), String>
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance)
+		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let step: Http2Step = receive(byte_chunk_from_hex("000000010400000000")?)?
+	let context: Http2DiagnosticContext = DiagnosticContext("stream-id-domain", "server_receives_client_initiated_streams")
 	match step
-		Failed(failure) => project_failure(failure)
+		Failed(failure) => http2_protocol_diagnostic(failure, context)
 		FrameOk(_) => Ok(())
 		Waiting => Ok(())
 	end

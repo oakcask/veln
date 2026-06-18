@@ -1,15 +1,26 @@
 # HTTP/2 protocol-state failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	ClosedWithPending(Int, Int, String)
+	ClosedWithPending(Int, Int)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String)
+end
+
+fn context_active_continuation(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_continuation) => active_continuation
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		ClosedWithPending(offset, pending_count, active_continuation) => http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
+		ClosedWithPending(offset, pending_count) => http2_protocol_closed_with_pending(offset, pending_count, context_active_continuation(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(ClosedWithPending(0, 4, "none"))
+	let context: Http2DiagnosticContext = DiagnosticContext("none")
+	http2_protocol_diagnostic(ClosedWithPending(0, 4), context)
 end
