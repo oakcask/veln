@@ -1449,7 +1449,16 @@ against the built `veln` binary.
   also constructs outbound DATA chunks for unpadded and PADDED send-intents,
   including PADDED splitting, over-window rejection, over-frame padding
   rejection, and PADDED `END_STREAM` local closed-stream rejection of later
-  DATA. It also constructs outbound PRIORITY chunks for an open stream, checks
+  DATA. The same checked case records local outbound DATA `END_STREAM` as
+  half-closed-local for inbound processing. Later inbound DATA on that stream
+  continues to consume connection and stream receive-window credit, PADDED
+  DATA continues to expose only application bytes, invalid padding and
+  stream-window failures report the half-closed-local active state,
+  connection-window failures remain connection-flow-control failures, and
+  inbound DATA with peer `END_STREAM` moves the stream to closed-by-peer.
+  Outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE`
+  remain rejected after the local `END_STREAM`. It also constructs outbound
+  PRIORITY chunks for an open stream, checks
   replacement-friendly dependency and weight values, rejects missing, closed,
   reset, mismatched, and self-dependent streams before output bytes, and
   preserves frame stream-id and dependency-payload encode failures as codec
