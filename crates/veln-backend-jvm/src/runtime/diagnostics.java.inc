@@ -891,6 +891,32 @@
         );
     }
 
+    private static void registerSchemaMappingDivisionByZeroDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String targetField,
+        String nearbyContext
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("target_field", targetField));
+        details.add(DiagnosticDetail.string("operator", "/"));
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.mapping_division_by_zero",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", targetField)
+                ),
+                details
+            )
+        );
+    }
+
     private static void registerSchemaValueValidationFailedDiagnostic(
         String message,
         String schemaName,

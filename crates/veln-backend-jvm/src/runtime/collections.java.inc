@@ -4641,7 +4641,12 @@
             }
         }
 
-        Object decodedRecord = schemaDecodedRecord(schema, values);
+        Object decodedRecord = schemaDecodedRecord(
+            schema,
+            values,
+            diagnosticBaseOffset + relativeOffset,
+            byteViewPreviewTrace(view, 8)
+        );
         if (isErr(decodedRecord)) {
             return decodedRecord;
         }
@@ -5082,7 +5087,9 @@
 
     private static Object schemaDecodedRecord(
         BinarySchemaSpec schema,
-        java.util.LinkedHashMap<String, Object> decoded
+        java.util.LinkedHashMap<String, Object> decoded,
+        long byteOffset,
+        String nearbyContext
     ) {
         if (schema.mapping.length > 0) {
             SchemaMappingSpec mapping = selectedSchemaMapping(schema, decoded);
@@ -5102,7 +5109,19 @@
                 schemaMappingDecodedValues(schema, decoded, mapping);
             for (SchemaMappingFieldSpec field : mapping.fields) {
                 entries.add(field.target);
-                entries.add(schemaMappingExprValue(mappingDecoded, field.expr));
+                try {
+                    entries.add(schemaMappingExprValue(mappingDecoded, field.expr));
+                } catch (ArithmeticException failure) {
+                    String message = "schema mapping division by zero at byte offset " + byteOffset;
+                    registerSchemaMappingDivisionByZeroDiagnostic(
+                        message,
+                        byteOffset,
+                        schema.name,
+                        field.target,
+                        nearbyContext
+                    );
+                    return err(message);
+                }
             }
             return record(entries.toArray(new Object[entries.size()]));
         }
@@ -6047,6 +6066,9 @@
             }
             if (op.equals("*")) {
                 return multiply(left, right);
+            }
+            if (op.equals("/")) {
+                return divide(left, right);
             }
             throw new IllegalStateException("unsupported schema mapping binary operator");
         }

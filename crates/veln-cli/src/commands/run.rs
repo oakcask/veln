@@ -355,6 +355,23 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
+        "schema.mapping_division_by_zero" => {
+            let target_field = json_string(byte_entries, "target_field")?;
+            let operator = json_string(byte_entries, "operator")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("schema mapping division by zero at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Mapping target field `{target_field}` evaluated `{operator}` with divisor 0."
+            )));
+            push_byte_preview_note(&mut diagnostic, byte_entries);
+            diagnostic
+        }
         "schema.dispatch_unknown_tag" => {
             let tag_field = json_string(byte_entries, "tag_field")?;
             let decoded_tag_value = json_number(byte_entries, "decoded_tag_value")?;
@@ -1947,6 +1964,68 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("schema `SchemaLevelValidationSample`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_mapping_division_by_zero_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.mapping_division_by_zero")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(2)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("PacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("quotient")),
+                    ]),
+                ]),
+            ),
+            ("target_field", JsonValue::string("quotient")),
+            ("operator", JsonValue::string("/")),
+            ("byte_preview", byte_preview("0c00")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "schema mapping division by zero at byte offset 2".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.mapping_division_by_zero");
+        assert_eq!(
+            diagnostic.message,
+            "schema mapping division by zero at byte offset 2"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("target field `quotient`")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("0c 00 (showing 2 of 2 byte(s), complete)")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `PacketWire` / field `quotient`")
         );
     }
 
