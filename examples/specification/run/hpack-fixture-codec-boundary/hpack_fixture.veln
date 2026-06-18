@@ -188,14 +188,30 @@ fn decoded_table_size_update(state: HpackFixtureState, table_size: Int) -> Resul
 	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, table_size)))
 end
 
-fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match observed_size == 2 and byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
-		true => decoded_table_size_update(state, 31 + byte_at_or_missing(block, 1))
-		false => match observed_size == 3 and byte_at_or_missing(block, 1) == 129 and byte_at_or_missing(block, 2) == 1
-			true => decoded_table_size_update(state, 160)
+fn low_seven_bits(byte: Int) -> Int
+	byte - (byte / 128) * 128
+end
+
+fn decode_table_size_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let next_value: Int = value + low_seven_bits(current) * multiplier
+	match current < 128
+		true => match index + 1 == observed_size
+			true => decoded_table_size_update(state, next_value)
 			false => unsupported(block, offset)
 		end
+		false => decode_table_size_integer_tail(block, observed_size, index + 1, multiplier * 128, next_value, state, offset)
 	end
+end
+
+fn decode_table_size_integer_tail(block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match index < observed_size
+		false => unsupported(block, offset)
+		true => decode_table_size_integer_tail_byte(byte_at_or_missing(block, index), block, observed_size, index, multiplier, value, state, offset)
+	end
+end
+
+fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	decode_table_size_integer_tail(block, observed_size, 1, 1, 31, state, offset)
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>

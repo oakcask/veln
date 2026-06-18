@@ -28,21 +28,25 @@ completed HEADERS and final CONTINUATION paths before decoding later dynamic
 indexed blocks.
 
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
-`0x3f`, `0x3f 0x01`, and the explicit multi-continuation fixture
-`0x3f 0x81 0x01`, returning immutable fixture states with table sizes `30`,
-`31`, `32`, and `160`. The HTTP/2 protocol-core example carries those updated
-states through completed HEADERS and final CONTINUATION paths before later
-header blocks are decoded.
+`0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
+HPACK integer continuations with the table-size update prefix, including
+`0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, returning
+immutable fixture states with table sizes `30`, `31`, `32`, `159`, `160`,
+and `289`. The HTTP/2 protocol-core example carries those updated states
+through completed HEADERS and final CONTINUATION paths before later header
+blocks are decoded. Malformed non-terminating table-size updates and
+table-size updates with trailing bytes after a complete integer remain on the
+unsupported fixture path.
 
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   literal-with-indexing insertion, newest and older dynamic indexed reads,
   missing dynamic state, the reduced-table-size eviction failure path, and the
-  explicit table-size update fixtures.
+  fixture-boundary table-size update slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
-  CONTINUATION paths, including the explicit table-size update fixtures.
+  CONTINUATION paths, including the fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

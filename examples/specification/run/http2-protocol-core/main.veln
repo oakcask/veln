@@ -5027,6 +5027,42 @@ fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-after-table-size-continuation-160", after_continuation_160_update)
 	print_hpack_transition_from_state("hpack-after-table-size-continuation-160", after_continuation_160_update, step_state(continuation_160_done))
 	print_hpack_state("hpack-after-table-size-continuation-160", step_state(after_continuation_160_update))
+	let table_size_update_general: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000001f3f8001")?), state)?
+	print_step("hpack-table-size-update-general", table_size_update_general)
+	let ignored_table_size_update_general: () = emit_header_block("http2-hpack-table-size-update-general", table_size_update_general, "3f8001")?
+	print_hpack_transition("hpack-table-size-update-general", table_size_update_general)
+	print_hpack_state("hpack-table-size-update-general", step_state(table_size_update_general))
+	let continuation_general_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000021")?), state)?
+	print_step("hpack-table-size-continuation-general-start", continuation_general_start)
+	let continuation_general_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030904000000213f8001")?), step_state(continuation_general_start))?
+	print_step("hpack-table-size-continuation-general-done", continuation_general_done)
+	let ignored_continuation_general_update: () = emit_header_block("http2-hpack-table-size-continuation-general", continuation_general_done, "3f8001")?
+	print_hpack_transition("hpack-table-size-continuation-general-done", continuation_general_done)
+	print_hpack_state("hpack-table-size-continuation-general-done", step_state(continuation_general_done))
+	let table_size_update_general_wide: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030105000000233f8202")?), state)?
+	print_step("hpack-table-size-update-general-wide", table_size_update_general_wide)
+	let ignored_table_size_update_general_wide: () = emit_header_block("http2-hpack-table-size-update-general-wide", table_size_update_general_wide, "3f8202")?
+	print_hpack_transition("hpack-table-size-update-general-wide", table_size_update_general_wide)
+	print_hpack_state("hpack-table-size-update-general-wide", step_state(table_size_update_general_wide))
+	let continuation_general_wide_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000025")?), state)?
+	print_step("hpack-table-size-continuation-general-wide-start", continuation_general_wide_start)
+	let continuation_general_wide_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030904000000253f8202")?), step_state(continuation_general_wide_start))?
+	print_step("hpack-table-size-continuation-general-wide-done", continuation_general_wide_done)
+	let ignored_continuation_general_wide_update: () = emit_header_block("http2-hpack-table-size-continuation-general-wide", continuation_general_wide_done, "3f8202")?
+	print_hpack_transition("hpack-table-size-continuation-general-wide-done", continuation_general_wide_done)
+	print_hpack_state("hpack-table-size-continuation-general-wide-done", step_state(continuation_general_wide_done))
+	let table_size_update_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020105000000273f80")?), state)?
+	print_failure("hpack-table-size-update-malformed", table_size_update_malformed)
+	let continuation_malformed_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000029")?), state)?
+	print_step("hpack-table-size-continuation-malformed-start", continuation_malformed_start)
+	let continuation_malformed_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000293f80")?), step_state(continuation_malformed_start))?
+	print_failure("hpack-table-size-continuation-malformed", continuation_malformed_done)
+	let table_size_update_unsupported_extra: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000002b3f0200")?), state)?
+	print_failure("hpack-table-size-update-unsupported-extra", table_size_update_unsupported_extra)
+	let continuation_unsupported_extra_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000001010000002d")?), state)?
+	print_step("hpack-table-size-continuation-unsupported-extra-start", continuation_unsupported_extra_start)
+	let continuation_unsupported_extra_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000002d3f0200")?), step_state(continuation_unsupported_extra_start))?
+	print_failure("hpack-table-size-continuation-unsupported-extra", continuation_unsupported_extra_done)
 	Ok(())
 end
 
