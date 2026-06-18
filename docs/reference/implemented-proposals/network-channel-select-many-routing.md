@@ -14,6 +14,8 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-eight-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-nine-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-ten-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable/`
@@ -28,14 +30,16 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-ten-route-effects/`
+and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
 
 ## Outcome
 
-The completed route-count slices add checked five-, six-, seven-, eight-, and
-nine-route evidence for the narrow
+The completed route-count slices add checked five-, six-, seven-, eight-,
+nine-, and ten-route evidence for the narrow
 `channel::select_many_priority(receivers)` standard-library boundary over a
 non-empty `List<Receiver<T>>`. It returns
 `Option<{index: Int, value: T}>`, where `index` is the zero-based receiver
