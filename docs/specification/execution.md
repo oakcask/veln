@@ -84,7 +84,8 @@ execution reference.
   extends it again to one additional ordinary metadata value through
   `task::spawn_with8`, and extends it once more to nine ordinary source
   values through `task::spawn_with9`, then to ten ordinary source values
-  through `task::spawn_with10`,
+  through `task::spawn_with10`, and then to eleven ordinary source values
+  through `task::spawn_with11`,
   and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
   of socket handles and `net` calls. The checked examples are
