@@ -69,7 +69,12 @@ requiring the full command reference on the first read.
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
   path plus the source-visible `DecodeError` value in related notes. A
-  hand-written codec boundary that projects an oversized decoded consumed
+  source-visible `ByteView` range failure reports
+  `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
+  requested count, available count, and bounded nearby byte preview in related
+  notes. Checked byte write conversion failures remain ordinary runtime
+  `Err(...)` values unless a later source-visible value diagnostic is added.
+  A hand-written codec boundary that projects an oversized decoded consumed
   count as `codec.consumed_count_invalid` uses this shape and is not reported
   as retryable readiness.
   `DecodeStep::NeedMore(...)` entry diagnostics report

@@ -51,6 +51,18 @@ truncation, `details.byte_diagnostic` includes:
 - `available_count`: the byte count available in the view
 - `readiness: "need_bytes"`
 
+When the result value is a source-visible `ByteView` range failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "codec.byte_range_out_of_bounds"`
+- `byte_offset`: the requested `ByteOffset`
+- `field_path`: an empty list because no schema owns the range
+- `requested_count`: the requested `ByteCount`
+- `available_count`: the byte count available from the requested offset
+- `byte_preview`: a structured bounded byte preview object for the available
+  bytes at that offset
+
 When the result value is a schema fixed-field mismatch,
 `details.byte_diagnostic` includes:
 

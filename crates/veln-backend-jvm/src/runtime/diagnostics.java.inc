@@ -578,6 +578,28 @@
         );
     }
 
+    private static void registerCodecByteRangeOutOfBoundsDiagnostic(
+        String message,
+        long byteOffset,
+        long requestedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "codec.byte_range_out_of_bounds",
+                byteOffset,
+                java.util.Collections.emptyList(),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("requested_count", requestedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerSchemaTruncatedFieldDiagnostic(
         String message,
         long byteOffset,

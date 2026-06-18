@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["Err(byte view range exceeds chunk length)"]
+contains = ["error[codec.byte_range_out_of_bounds]: byte range out of bounds at byte offset 2", "note: Byte range requested 2 byte(s); 1 byte(s) were available from the offset.", "note: Nearby bytes: 02 (showing 1 of 1 byte(s), complete)."]

@@ -1774,7 +1774,16 @@
             return err("byte view offset exceeds chunk length");
         }
         if (requestedCount > bytes.size() - requestedOffset) {
-            return err("byte view range exceeds chunk length");
+            String message = "byte view range exceeds chunk length";
+            long availableCount = Math.max(0L, bytes.size() - requestedOffset);
+            registerCodecByteRangeOutOfBoundsDiagnostic(
+                message,
+                requestedOffset,
+                requestedCount,
+                availableCount,
+                byteRangePreviewTrace(bytes, requestedOffset, availableCount, 8)
+            );
+            return err(message);
         }
         return ok(byteViewObject(chunk, requestedOffset, requestedCount));
     }
@@ -1825,7 +1834,21 @@
         }
         long available = byteViewCountLong(view);
         if (requestedOffset > available || requestedCount > available - requestedOffset) {
-            return err("byte view range exceeds view length");
+            String message = "byte view range exceeds view length";
+            long availableCount = Math.max(0L, available - requestedOffset);
+            registerCodecByteRangeOutOfBoundsDiagnostic(
+                message,
+                byteViewOffset(view) + requestedOffset,
+                requestedCount,
+                availableCount,
+                byteRangePreviewTrace(
+                    byteViewBytes(view),
+                    byteViewStorageOffset(view) + requestedOffset,
+                    availableCount,
+                    8
+                )
+            );
+            return err(message);
         }
         return ok(byteViewDerivedObject(view, requestedOffset, requestedCount));
     }
@@ -6257,6 +6280,34 @@
             + count
             + ":"
             + Boolean.toString(count > previewCount);
+    }
+
+    private static String byteRangePreviewTrace(
+        java.util.List<Object> bytes,
+        long offset,
+        long count,
+        int maxPreviewBytes
+    ) {
+        if (offset < 0 || count < 0 || offset > bytes.size()) {
+            return ":0:0:false";
+        }
+        long boundedCount = Math.min(count, bytes.size() - offset);
+        long previewCount = Math.min(boundedCount, Math.max(0, maxPreviewBytes));
+        long end = offset + previewCount;
+        StringBuilder out = new StringBuilder((int) (previewCount * 2));
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (long index = offset; index < end; index += 1) {
+            int value = (int) byteValueLong(bytes.get((int) index));
+            out.append(digits[value >>> 4]);
+            out.append(digits[value & 0x0f]);
+        }
+        return hex(out.toString())
+            + ":"
+            + previewCount
+            + ":"
+            + boundedCount
+            + ":"
+            + Boolean.toString(boundedCount > previewCount);
     }
 
     private static Object byteViewBoundsError(Object view) {

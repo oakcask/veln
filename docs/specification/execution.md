@@ -23,6 +23,10 @@ execution reference.
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
   big-endian and little-endian fixed-width unsigned read truncation, schema
   fixed-field mismatches, bounded view slicing, and conversion overflow.
+  Source-visible `ByteView` range failures expose command-facing
+  `codec.byte_range_out_of_bounds` diagnostics with requested offset, requested
+  count, available count, and bounded byte preview. Checked byte write
+  conversion overflow remains an ordinary value conversion `Err(...)`.
   Outgoing chunk-list helpers return ordinary immutable `List<ByteChunk>`
   values. Standard `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` values execute as

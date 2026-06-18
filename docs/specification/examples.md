@@ -89,9 +89,12 @@ runtime `Result` propagation shape for ByteView read truncation, ByteView range
 failure, and unsigned write conversion overflow in JSON and human command
 output. The read-truncation JSON and human cases pin the
 `codec.incomplete_input` byte diagnostic details and missing-byte human
-projection. The named-fixture truncation case pins the same JSON diagnostic
-shape while proving that valid fixture bytes fail as codec truncation, not as
-fixture text validation.
+projection. The range JSON and human cases pin
+`codec.byte_range_out_of_bounds` byte diagnostic details, including requested
+count, available count, and bounded nearby-byte preview context. The
+named-fixture truncation case pins the same JSON diagnostic shape while
+proving that valid fixture bytes fail as codec truncation, not as fixture text
+validation.
 
 ## Codec Decode Step Vocabulary
 
