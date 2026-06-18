@@ -5523,6 +5523,7 @@ fn print_hpack_static_indexed_case(state: Http2DecodeState, label: String, outpu
 end
 
 fn print_extended_hpack_static_indexed_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let ignored_hpack_static_indexed_authority: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-authority", "http2-hpack-static-indexed-authority", "00000101040000000181", "81")?
 	let ignored_hpack_static_indexed_last_modified: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-last-modified", "http2-hpack-static-indexed-last-modified", "000001010400000001ab", "ab")?
 	let ignored_hpack_static_indexed_link: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-link", "http2-hpack-static-indexed-link", "000001010400000001ac", "ac")?
 	let ignored_hpack_static_indexed_location: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-location", "http2-hpack-static-indexed-location", "000001010400000001ad", "ad")?

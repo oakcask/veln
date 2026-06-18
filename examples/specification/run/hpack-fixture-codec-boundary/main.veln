@@ -58,10 +58,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(second_block, second_state, 18)
 	print_transition("second", second)
 	let third_state: HpackFixtureState = next_state_or(second, second_state)
+	let authority_block: ByteChunk = byte_chunk_from_hex("81")?
+	let authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(authority_block, third_state, 25)
+	print_transition("authority", authority)
+	let authority_state: HpackFixtureState = next_state_or(authority, third_state)
 	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
-	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, third_state, 26)
+	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, authority_state, 26)
 	print_transition("method-post", method_post)
-	let accept_charset_state: HpackFixtureState = next_state_or(method_post, third_state)
+	let accept_charset_state: HpackFixtureState = next_state_or(method_post, authority_state)
 	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
 	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
 	print_transition("accept-charset", accept_charset)

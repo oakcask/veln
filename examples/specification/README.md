@@ -1279,8 +1279,9 @@ against the built `veln` binary.
   projects `codec.incomplete_input` through focused human diagnostics and
   `run --json` `details.byte_diagnostic`.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
-  deterministic header-block byte fixtures and the static indexed `0x83`
-  `:method: POST`, `0x8f` `accept-charset:`, `0x90`
+  deterministic header-block byte fixtures and the static indexed `0x81`
+  `:authority` with an empty value, `0x83` `:method: POST`, `0x8f`
+  `accept-charset:`, `0x90`
   `accept-encoding: gzip, deflate`, `0x91` `accept-language:`, `0x99`
   `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
   `content-language:`, `0x9c` `content-length:`, `0x9d`
@@ -1467,8 +1468,9 @@ against the built `veln` binary.
   header block with preserved payload bytes across multiple non-final
   CONTINUATION frames, single-frame HEADERS completion when `END_HEADERS` is
   combined with `END_STREAM`, completed HEADERS blocks that carry the HPACK
-  static indexed `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84`
-  `:path: /`, `0x85` `:path: /index.html`, `0x86` `:scheme: http`, and
+  static indexed `0x81` `:authority` with an empty value, `0x82`
+  `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
+  `:path: /index.html`, `0x86` `:scheme: http`, and
   `0x87` `:scheme: https`, plus `0x88` `:status: 200`, `0x89`
   `:status: 204`, `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c`
   `:status: 400`, `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`

@@ -112,6 +112,10 @@ fn static_indexed_header(name: String, value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
+fn static_indexed_authority_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":authority", ""), HpackHeader(":fixture", "static-indexed"), 1)
+end
+
 fn literal_without_indexing_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
@@ -146,6 +150,10 @@ end
 
 fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_header(name, value), next_state(state)))
+end
+
+fn decoded_static_indexed_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_authority_headers(), next_state(state)))
 end
 
 fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -254,6 +262,7 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 	match observed_size == 1
 		false => unsupported(block, offset)
 		true => match first_byte
+			129 => decoded_static_indexed_authority(state)
 			131 => decoded_static_indexed_method_post(state)
 			143 => decoded_static_indexed_header("accept-charset", "", state)
 			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
