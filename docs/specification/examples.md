@@ -517,6 +517,12 @@ evaluates supported `+`, `-`, `*`, and `/` expressions after field-local
 validation and returns the computed `Int` target fields. The
 `../../examples/specification/run/binary-schema-mapping-division-by-zero-json/`
 case pins the division-by-zero diagnostic shape.
+`../../examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`
+pin converter arguments built from structural mapping expressions: a
+same-module pure converter receives an ADT constructor expression, and an
+imported public pure converter receives a record expression.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`

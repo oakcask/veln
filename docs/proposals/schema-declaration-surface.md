@@ -421,8 +421,9 @@ Implemented:
   representation converter call, and imported public pure converter call
   assignment expressions through a written `use` path or alias, field
   selection from record-shaped structural mapping expressions, and
-  decoded-field and integer-literal `+`, `-`, `*`, and `/` mapping arithmetic. Converter arguments
-  may be schema-local field references or structural mapping expressions.
+  decoded-field and integer-literal `+`, `-`, `*`, and `/` mapping
+  arithmetic. Converter arguments may be schema-local field references or
+  structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=
   literal`, or narrow decoded-field boolean selector expressions, when
@@ -447,7 +448,8 @@ Remaining:
 
 - Runtime schema value mapping beyond the implemented schema-local field
   reference, record construction, ADT constructor construction, one pure
-  same-module or imported public converter call, field selection from
+  same-module or imported public converter call whose argument may be a
+  schema-local field or structural mapping expression, field selection from
   record-shaped structural mapping expressions, decoded-field integer
   arithmetic, and narrow decoded-field integer boolean selection slices.
 - General schema decode can synthesize executable bindings for fields outside
