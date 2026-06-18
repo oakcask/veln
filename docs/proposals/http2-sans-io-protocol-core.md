@@ -327,13 +327,14 @@ both completed HEADERS and final CONTINUATION paths, decodes the newest entry
 through `0xbe`, decodes the older retained entry through `0xbf`, and keeps
 dynamic entries evicted by a reduced fixture table size on the unsupported
 fixture path. The fixture also
-accepts dynamic table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, and the
-explicit multi-continuation fixture `0x3f 0x81 0x01`, returns next immutable
-HPACK states whose table sizes are `30`, `31`, `32`, and `160`, and carries
-those states through completed HEADERS and final CONTINUATION paths before
-later header blocks are decoded. Unsupported HPACK bytes, including general
-table-size update encodings outside those explicit fixtures and unsupported
-Huffman variants, remain on
+accepts dynamic table-size update bytes `0x3e`, `0x3f`, one-byte
+continuations such as `0x3f 0x01`, and multi-byte HPACK integer
+continuations such as `0x3f 0x80 0x01` and `0x3f 0x81 0x01`, returns next
+immutable HPACK states whose checked table sizes include `30`, `31`, `32`,
+`159`, and `160`, and carries those states through completed HEADERS and
+final CONTINUATION paths before later header blocks are decoded. Unsupported
+HPACK bytes, including malformed non-terminating table-size updates and
+unsupported Huffman variants, remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -620,9 +621,9 @@ retaining the older `:path: /target` entry when the bounded fixture table has
 room, dynamic indexed coverage for both `0xbe` newest-entry and `0xbf`
 older-entry ordering, unsupported fixture coverage after a table-size
 reduction evicts those entries, plus explicit `0x3e`, `0x3f`, `0x3f 0x01`,
-and `0x3f 0x81 0x01` table-size update fixtures that change the immutable
-HPACK state table size to `30`, `31`, `32`, and `160` through both completed
-HEADERS and final CONTINUATION paths.
+`0x3f 0x80 0x01`, and `0x3f 0x81 0x01` table-size update fixtures that
+change the immutable HPACK state table size to `30`, `31`, `32`, `159`, and
+`160` through both completed HEADERS and final CONTINUATION paths.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
@@ -638,8 +639,8 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
-  policy, general table-size update decoding beyond the checked explicit
-  fixture boundary, full Huffman decoding, and production header validation
-  remain later work beyond the implemented fixture boundary.
+  policy, table-size policy beyond fixture-boundary HPACK integer updates,
+  full Huffman decoding, and production header validation remain later work
+  beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

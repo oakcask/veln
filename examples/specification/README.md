@@ -1274,9 +1274,11 @@ against the built `veln` binary.
   retained entry through `0xbf`, and keeps both missing dynamic state and
   dynamic entries evicted by a reduced fixture table size on the unsupported
   fixture failure path. It accepts dynamic table-size update fixtures `0x3e`,
-  `0x3f`, `0x3f 0x01`, and the explicit multi-continuation fixture
-  `0x3f 0x81 0x01`, exposing fixture table sizes `30`, `31`, `32`, and
-  `160`.
+  `0x3f`, one-byte HPACK integer continuations such as `0x3f 0x01`, and
+  multi-byte HPACK integer continuations such as `0x3f 0x80 0x01` and
+  `0x3f 0x81 0x01`, exposing checked fixture table sizes `30`, `31`, `32`,
+  `159`, and `160`, while malformed non-terminating table-size updates stay
+  on the unsupported fixture path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
@@ -1453,10 +1455,11 @@ against the built `veln` binary.
   reference, replace the single-entry fixture table with a later `:method: PUT`
   literal-with-indexing entry, reject the evicted older entry path, carry the
   replacement state through completed HEADERS and final CONTINUATION paths
-  through the imported fixture codec, accept dynamic table-size update fixture
-  bytes `0x3e`, `0x3f`, `0x3f 0x01`, and `0x3f 0x81 0x01`, and carry the
-  resulting immutable HPACK state through completed HEADERS and final
-  CONTINUATION paths before later header blocks are decoded,
+  through the imported fixture codec, accept dynamic table-size update bytes
+  `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x80 0x01`, and
+  `0x3f 0x81 0x01`, reject malformed non-terminating table-size updates, and
+  carry the resulting immutable HPACK state through completed HEADERS and
+  final CONTINUATION paths before later header blocks are decoded,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind
