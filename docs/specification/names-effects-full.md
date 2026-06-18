@@ -293,8 +293,8 @@ and deadline calls listed here.
 The channel-first stream routing examples route ordinary `StreamInput` values
 through two, three, four, receiver-list five-route, receiver-list six-route,
 receiver-list seven-route, receiver-list eight-route, receiver-list
-nine-route, receiver-list ten-route, and receiver-list timeout typed channel
-routes,
+nine-route, receiver-list ten-route, receiver-list eleven-route, and
+receiver-list timeout typed channel routes,
 select a ready route with existing channel selection, and then invoke a plain
 handler with explicit per-stream state. The receiver-list priority routes use
 `channel::select_many_priority` on a non-empty
