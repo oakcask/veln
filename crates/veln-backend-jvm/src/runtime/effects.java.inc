@@ -390,6 +390,22 @@
         return UNIT;
     }
 
+    public static Object netCloseStream(Object stream) {
+        if (forced("VELN_NET_CLOSE_FAILED")) {
+            throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        try {
+            writeNetEvent("close " + value.id);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport close failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return UNIT;
+    }
+
     public static Object processArgs() {
         return processArgs;
     }

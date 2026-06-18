@@ -1043,6 +1043,8 @@ pins that deadline-aware accept requires both `net` and `time`, and
 pins that deadline-aware read requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
+`../../examples/specification/check/socket-stream-close-effects/` case pins
+that explicit stream close requires the `net` effect. The
 `../../examples/specification/run/transport-socket-read-failure-human/`,
 `../../examples/specification/run/transport-socket-read-failure-json/`,
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
@@ -1221,6 +1223,15 @@ case pins that missing either adapter effect is rejected while the handler
 boundary remains transport-free.
 
 The executable specification case
+`../../examples/specification/run/socket-stream-adapter-close-lifecycle/`
+covers explicit adapter-owned stream close after clean stream end. The adapter
+reads chunks until `net::read_chunk_or_end` returns `None`, routes ordinary
+stream input values through a channel, applies handler-produced `SendBytes`
+actions as ordered `net::write_chunk` calls, and then calls
+`net::close_stream`. The fixture event log pins the close event after the final
+write while the pure handler remains free of socket handles and `net` calls.
+
+The executable specification case
 `../../examples/specification/run/socket-stream-adapter-deadline-lifecycle/`
 covers the deadline-aware accepted-stream ownership boundary. The adapter
 accepts a stream with `net::accept_until`, reads chunks with
@@ -1242,6 +1253,14 @@ response action, and projects only `SendBytes` actions back to ordered
 `../../examples/specification/check/socket-stream-adapter-cancellable-lifecycle-effects/`
 case pins the composed `net`, `time`, and `concurrency` effect boundary while
 the handler stays free of transport effects.
+
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`
+covers cancellation cleanup followed by explicit stream close. The adapter
+turns `WaitCancelled` into an ordinary cleanup response action, applies only
+`SendBytes` actions to `net::write_chunk`, and then calls
+`net::close_stream`. The run still passes and records a close event rather than
+treating cancellation as a runtime failure.
 
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing/` and

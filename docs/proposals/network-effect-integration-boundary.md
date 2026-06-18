@@ -32,7 +32,8 @@ slices, and narrow deadline and cancellation slices, for:
   optional accept, deadline-aware optional accept, optional stream-read,
   deadline-aware optional stream-read, ordered write lifecycle slice, and
   checked adapter-owned listener-to-clean-stream-end, deadline-aware
-  accepted-stream lifecycle, and cancellable accepted-stream lifecycle slices
+  accepted-stream lifecycle, cancellable accepted-stream lifecycle, and
+  explicit stream close lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle, and
   cancellable lifecycle fixtures
@@ -75,13 +76,15 @@ handle types are returned by `net::listen(address)` and
 without a runtime failure, `net::read_chunk(stream)` reads one `ByteChunk`,
 `net::read_chunk_or_end(stream)` returns `Option<ByteChunk>` so adapter-owned
 source can observe clean stream end without a runtime failure, and
-`net::write_chunk(stream, bytes)` writes one `ByteChunk`. These calls use the
-existing coarse `net` effect label and are fixture-backed runtime boundaries.
+`net::write_chunk(stream, bytes)` writes one `ByteChunk`.
+`net::close_stream(stream)` records adapter-owned stream cleanup. These calls
+use the existing coarse `net` effect label and are fixture-backed runtime
+boundaries.
 
 The remaining transport surface should keep the existing coarse `net` effect
-label. Listen, accept, read, and write operations should be distinguished by
-standard-library function names, typed values, and diagnostics rather than by
-separate effect labels.
+label. Listen, accept, read, write, and close operations should be
+distinguished by standard-library function names, typed values, and
+diagnostics rather than by separate effect labels.
 
 This preserves the current effect-label source surface and avoids requiring the
 HTTP/2 design driver to decide a full network permission taxonomy from the
@@ -252,6 +255,16 @@ ordinary cleanup response action, and projects only ordered `SendBytes`
 response actions to `net::write_chunk`. The adapter declares the existing
 `net`, `time`, and `concurrency` effects; the handler receives no `NetStream`
 handle and performs no transport, time, or concurrency calls.
+
+Implemented stream close lifecycle slice: executable specification cases call
+`net::close_stream` from adapter-owned code after clean stream end or
+cancellation cleanup. Clean-end cleanup reads until
+`net::read_chunk_or_end` returns `None`, writes final ordered `SendBytes`
+actions through `net::write_chunk`, and then records a fixture close event.
+Cancellation cleanup turns `WaitCancelled` into an ordinary cleanup response
+action, applies ordered writes, and then records the same close event without
+treating cancellation as a runtime failure. The handler receives no
+`NetStream` handle and performs no transport, time, or concurrency calls.
 
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in

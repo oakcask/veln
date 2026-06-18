@@ -1759,6 +1759,8 @@ against the built `veln` binary.
   directly infers both `net` and `time` for public effect checking.
 - `check/transport-socket-clean-end-effects/`: optional clean-end stream read
   directly infers the `net` effect for public effect checking.
+- `check/socket-stream-close-effects/`: explicit stream close directly infers
+  the `net` effect for public effect checking.
 - `run/transport-deadline/`: relative deadline creation and waiting succeed
   through descriptor-backed `time` calls.
 - `check/transport-deadline-effects/`: deadline creation and waiting infer
@@ -1915,6 +1917,9 @@ against the built `veln` binary.
   through a channel, invokes a pure handler, and projects `SendBytes` response
   actions to ordered `net::write_chunk` calls while keeping the same coarse
   `net` and `concurrency` effects.
+- `run/socket-stream-adapter-close-lifecycle/`: one adapter path reads until
+  clean stream end, applies ordered `SendBytes` writes, then records explicit
+  stream close through `net::close_stream`.
 - `run/socket-stream-adapter-deadline-lifecycle/`: one adapter function owns
   an accepted stream, reads deadline-aware chunks with `net::read_chunk_until`
   until a read attempt returns `None` for deadline expiry, routes ordinary
@@ -1925,6 +1930,9 @@ against the built `veln` binary.
   ordinary `StreamInput` through a channel, turns `WaitCancelled` into a
   cleanup response action, and projects only `SendBytes` actions to ordered
   `net::write_chunk` calls.
+- `run/socket-stream-adapter-cancel-close-lifecycle/`: one adapter function
+  turns `WaitCancelled` into cleanup, applies ordered writes, and then records
+  explicit stream close without treating cancellation as a runtime failure.
 - `run/channel-first-stream-routing/`: adapter-owned source routes ordinary
   `StreamInput` values through two typed channel routes, selects between them
   with existing channel selection, and then invokes a pure stream handler with
