@@ -168,6 +168,14 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			160 => decoded_static_indexed_header("cookie", "", state)
 			161 => decoded_static_indexed_header("date", "", state)
 			162 => decoded_static_indexed_header("etag", "", state)
+			163 => decoded_static_indexed_header("expect", "", state)
+			164 => decoded_static_indexed_header("from", "", state)
+			165 => decoded_static_indexed_header("host", "", state)
+			166 => decoded_static_indexed_header("if-match", "", state)
+			167 => decoded_static_indexed_header("if-modified-since", "", state)
+			168 => decoded_static_indexed_header("if-none-match", "", state)
+			169 => decoded_static_indexed_header("if-range", "", state)
+			170 => decoded_static_indexed_header("if-unmodified-since", "", state)
 			_ => unsupported(block, offset)
 		end
 	end
@@ -196,7 +204,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			170 => match observed_size == 9
 				true => decoded("continuation", 9, state)
-				false => unsupported(block, offset)
+				false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
 			end
 			_ => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
 		end

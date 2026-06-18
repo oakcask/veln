@@ -1085,7 +1085,10 @@ execution reference.
   `content-encoding:`, `0x9b` `content-language:`, `0x9c`
   `content-length:`, `0x9d` `content-location:`, `0x9e`
   `content-range:`, `0x9f` `content-type:`, `0xa0` `cookie:`, `0xa1`
-  `date:`, and `0xa2` `etag:` bytes, plus the no-Huffman
+  `date:`, `0xa2` `etag:`, `0xa3` `expect:`, `0xa4` `from:`,
+  `0xa5` `host:`, `0xa6` `if-match:`, `0xa7` `if-modified-since:`,
+  `0xa8` `if-none-match:`, `0xa9` `if-range:`, and `0xaa`
+  `if-unmodified-since:` bytes, plus the no-Huffman
   literal-without-indexing fixture `04 07 2f 74 61 72 67 65 74` for
   `:path: /target`,
   returns
