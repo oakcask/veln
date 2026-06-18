@@ -52,8 +52,8 @@ slices, and narrow deadline and cancellation slices, for:
   cancellable channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, four-argument, five-argument, six-argument, seven-argument,
-  eight-argument, nine-argument, ten-argument, and eleven-argument spawned
-  handler task shapes over ordinary source values
+  eight-argument, nine-argument, ten-argument, eleven-argument, and
+  twelve-argument spawned handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
