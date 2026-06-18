@@ -1201,9 +1201,10 @@ against the built `veln` binary.
   `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
   `if-none-match:`, `0xa9` `if-range:`, and `0xaa`
   `if-unmodified-since:`
-  bytes, plus the no-Huffman literal-without-indexing
-  `04 07 2f 74 61 72 67 65 74` header block for `:path: /target`, then returns
-  ordinary header-list data and the next immutable fixture state while
+  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
+  names a supported static-table header name for `:method`, `:path`, or
+  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, then
+  returns ordinary header-list data and the next immutable fixture state while
   malformed literal-without-indexing input remains on the unsupported fixture
   failure path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
@@ -1365,9 +1366,10 @@ against the built `veln` binary.
   `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
   `if-none-match:`, `0xa9` `if-range:`, and `0xaa`
   `if-unmodified-since:`
-  bytes, plus the no-Huffman
-  literal-without-indexing `04 07 2f 74 61 72 67 65 74` header block for
-  `:path: /target`, through the imported fixture codec,
+  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
+  names a supported static-table header name for `:method`, `:path`, or
+  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, through
+  the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind
