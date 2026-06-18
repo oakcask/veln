@@ -1,0 +1,8 @@
+# ByteView range failures propagate as a JSON runtime Result failure.
+pub fn main() -> Result<(), String>
+	let chunk: ByteChunk = byte_chunk_from_hex("000102")?
+	let offset: ByteOffset = byte_offset(2)?
+	let count: ByteCount = byte_count(2)?
+	let ignored: ByteView = byte_view(chunk, offset, count)?
+	Ok(())
+end

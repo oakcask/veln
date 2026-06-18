@@ -429,8 +429,14 @@ against the built `veln` binary.
   propagates through human `run` stderr as a `codec.incomplete_input`
   diagnostic with the missing byte offset and related readiness and byte count
   context.
-- `run/binary-byteview-range-failure-human/`: ByteView range failures propagate
-  stable error text through human `run` stderr.
+- `run/binary-byteview-range-failure-json/`: ByteView range failures propagate
+  as runtime `Result` failures through `run --json` with
+  `codec.byte_range_out_of_bounds` byte diagnostic details, including byte
+  offset, requested count, available count, and a structured byte preview.
+- `run/binary-byteview-range-failure-human/`: ByteView range failures
+  propagate through human `run` stderr as a
+  `codec.byte_range_out_of_bounds` diagnostic with requested range and
+  bounded nearby-byte context.
 - `run/binary-byteview-write-failure-human/`: unsigned big-endian write
   overflow propagates stable error text through human `run` stderr.
 - `run/binary-schema-frame-header-decode/`: the implemented binary schema

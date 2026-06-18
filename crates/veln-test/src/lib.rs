@@ -3915,6 +3915,40 @@ mod tests {
     }
 
     #[test]
+    fn byte_diagnostic_v2_result_trace_keeps_range_details() {
+        let trace = concat!(
+            "result\t",
+            "6279746520766965772072616e67652065786365656473206368756e6b206c656e677468",
+            "\tbyte_diagnostic_v2\tcodec.byte_range_out_of_bounds\t2",
+            "\t0",
+            "\t3\trequested_count\tnumber\t2",
+            "\tavailable_count\tnumber\t1",
+            "\tbyte_preview\tbyte_preview_v2\t3032:1:1:false\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"byte view range exceeds chunk length\",",
+                "\"byte_diagnostic\":{\"kind\":\"byte_diagnostic\",",
+                "\"id\":\"codec.byte_range_out_of_bounds\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":2},",
+                "\"field_path\":[],",
+                "\"requested_count\":2,",
+                "\"available_count\":1,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"02\",",
+                "\"preview_byte_count\":1,",
+                "\"total_byte_count\":1,",
+                "\"truncated\":false}}}"
+            )
+        );
+    }
+
+    #[test]
     fn value_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

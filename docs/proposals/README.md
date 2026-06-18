@@ -44,7 +44,8 @@ compare it with `../specification/` before changing behavior.
   big-endian and little-endian read/write, bounded view buffer helper,
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
   input and outgoing immutable chunk collection for protocol examples,
-  byte-view freeze preservation across task and channel boundaries, and schema
+  byte-view freeze preservation across task and channel boundaries,
+  source-visible `ByteView` range diagnostics with byte previews, and schema
   byte-preview diagnostic slices plus HTTP/2 client preface and PRIORITY
   self-dependency protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):

@@ -226,6 +226,12 @@ value, actual value, bounded nearby byte preview, and field path in related
 notes. The byte preview is rendered as lowercase hex byte pairs grouped with
 spaces and includes the shown byte count, total diagnostic byte count, and
 whether the preview was truncated.
+When a source-visible `ByteView` range operation returns
+`codec.byte_range_out_of_bounds`, human mode reports the failed range fact at
+the requested byte offset and puts requested count, available count, and
+bounded nearby byte preview in related notes. Checked byte write conversion
+failures remain ordinary runtime `Err(...)` values and do not attach a byte
+diagnostic.
 When binary schema frame decode returns `schema.length_out_of_bounds`, human
 mode reports the failed payload boundary at the first missing byte offset and
 puts expected payload count, available payload count, bounded nearby byte

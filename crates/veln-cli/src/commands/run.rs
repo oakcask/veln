@@ -233,6 +233,23 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             )));
             diagnostic
         }
+        "codec.byte_range_out_of_bounds" => {
+            let requested_count = json_number(byte_entries, "requested_count")?;
+            let available_count = json_number(byte_entries, "available_count")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("byte range out of bounds at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Byte range requested {requested_count} byte(s); {available_count} byte(s) were available from the offset."
+            )));
+            push_byte_preview_note(&mut diagnostic, byte_entries);
+            diagnostic
+        }
         "schema.fixed_field_mismatch" => {
             let expected_value = json_number(byte_entries, "expected_value")?;
             let actual_value = json_number(byte_entries, "actual_value")?;
@@ -1443,6 +1460,51 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `DemoPacket` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_range_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.byte_range_out_of_bounds")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(2)),
+                ]),
+            ),
+            ("field_path", JsonValue::array([])),
+            ("requested_count", JsonValue::Number(2)),
+            ("available_count", JsonValue::Number(1)),
+            ("byte_preview", byte_preview_with_counts("02", 1, false)),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "byte view range exceeds chunk length".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.byte_range_out_of_bounds");
+        assert_eq!(
+            diagnostic.message,
+            "byte range out of bounds at byte offset 2"
+        );
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("requested 2 byte(s); 1 byte(s) were available")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("02 (showing 1 of 1 byte(s), complete)")
         );
     }
 
