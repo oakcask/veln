@@ -312,9 +312,12 @@ bytes plus the static indexed `accept-charset:`,
 	`www-authenticate:` header bytes, plus no-Huffman literal-without-indexing
 	fixtures whose first byte names a supported static-table header name for
 `:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
-`example.com`, `PUT`, `/target`, or `https`, plus one Huffman-flagged
-zero-length `:path` literal fixture `0x04 0x80`, in completed HEADERS or
-final CONTINUATION frames, returns ordinary header-list data through the same
+`example.com`, `PUT`, `/target`, or `https`, plus Huffman-flagged fixture
+bytes for zero-length `:path` as `0x04 0x80` and literal-without-indexing
+`:authority: www.example.com` as
+`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
+in completed HEADERS or final CONTINUATION frames, returns ordinary
+header-list data through the same
 accessors as the deterministic fixture-label blocks, advances immutable
 fixture state, and also covers one dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
@@ -615,8 +618,11 @@ value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
 	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
 names a supported static-table header name for `:authority`, `:method`,
 `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
-`/target`, or `https`, plus one Huffman-flagged zero-length `:path` literal
-fixture `0x04 0x80`, plus one literal-with-indexing `:path: /target`
+`/target`, or `https`, plus Huffman-flagged fixture bytes for zero-length
+`:path` as `0x04 0x80` and literal-without-indexing
+`:authority: www.example.com` as
+`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
+plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
 carried by the HTTP/2 decode state, a later literal-with-indexing

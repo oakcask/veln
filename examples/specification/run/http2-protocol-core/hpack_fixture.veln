@@ -299,6 +299,10 @@ fn is_literal_without_indexing_path_empty_huffman(first_byte: Int, observed_size
 	first_byte == 4 and observed_size == 2 and byte_at_or_missing(block, 1) == 128
 end
 
+fn is_literal_without_indexing_authority_www_example_com_huffman(first_byte: Int, observed_size: Int, block: ByteChunk) -> Bool
+	first_byte == 1 and observed_size == 14 and byte_at_or_missing(block, 1) == 140 and byte_at_or_missing(block, 2) == 241 and byte_at_or_missing(block, 3) == 227 and byte_at_or_missing(block, 4) == 194 and byte_at_or_missing(block, 5) == 229 and byte_at_or_missing(block, 6) == 242 and byte_at_or_missing(block, 7) == 58 and byte_at_or_missing(block, 8) == 107 and byte_at_or_missing(block, 9) == 160 and byte_at_or_missing(block, 10) == 171 and byte_at_or_missing(block, 11) == 144 and byte_at_or_missing(block, 12) == 244 and byte_at_or_missing(block, 13) == 255
+end
+
 fn supported_literal_value(block: ByteChunk, value_count: Int) -> Bool
 	is_literal_value_example_com(block, value_count) or is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
 end
@@ -320,9 +324,12 @@ fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: 
 	let value_count: Int = byte_at_or_missing(block, 1)
 	match is_literal_without_indexing_path_empty_huffman(first_byte, observed_size, block)
 		true => decoded_literal_without_indexing(":path", "", observed_size, state)
-		false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
-			true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
-			false => unsupported(block, offset)
+		false => match is_literal_without_indexing_authority_www_example_com_huffman(first_byte, observed_size, block)
+			true => decoded_literal_without_indexing(":authority", "www.example.com", 13, state)
+			false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
+				true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
+				false => unsupported(block, offset)
+			end
 		end
 	end
 end
