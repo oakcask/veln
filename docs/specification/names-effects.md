@@ -121,11 +121,12 @@ compiler-known calls.
   schema-local visible fields already supported by the generated encode
   helper, or whose single payload is a record expression over those fields.
   Generated encode helpers return `Result<ByteChunk, EncodeError>`.
-  `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, and `UInt64le` fields use
-  little-endian byte order in generated decode and encode helpers.
+  `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt48le`, and `UInt64le`
+  fields use little-endian byte order in generated decode and encode helpers.
   Source-visible byte helpers also expose checked `u64` big-endian and little-endian reads and
   writes through ordinary `Int` values; eight-byte values above the
-  source-visible `Int` maximum fail instead of wrapping. `UInt64be` uses the
+  source-visible `Int` maximum fail instead of wrapping. `UInt48be` uses the
+  matching six-byte big-endian representation, and `UInt64be` uses the
   matching eight-byte big-endian representation.
   HTTP/2 frame-header decoding is provided by generated schema helpers such
   as `byte_decode_http2_frame_header_wire`; bounded payload frame decoding and

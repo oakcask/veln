@@ -673,6 +673,16 @@ against the built `veln` binary.
 - `run/binary-schema-u31le-integer-out-of-range-human/`: generated schema
   decode helpers report the same `UInt31le` integer range failure through
   human `run` output with byte preview and field-path notes.
+- `run/binary-schema-u48-widths-decode/`: generated schema decode helpers read
+  `UInt48be` and `UInt48le` as six-byte unsigned primitive fields, preserving
+  their declared byte order and structural mapping for source-visible `Int`
+  values.
+- `run/binary-schema-u48-widths-encode/`: generated schema encode helpers
+  write `UInt48be` and `UInt48le` fields in big-endian and little-endian byte
+  order.
+- `run/binary-schema-u48-widths-encode-out-of-range/`: generated schema encode
+  helpers reject `UInt48be` and `UInt48le` values outside the unsigned 48-bit
+  range with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-u64-widths-decode/`: generated schema decode helpers read
   `UInt64be` and `UInt64le` as eight-byte unsigned primitive fields, preserving
   their declared byte order for source-visible `Int` values.

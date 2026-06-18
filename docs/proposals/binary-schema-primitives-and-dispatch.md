@@ -10,8 +10,9 @@ The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt1` through `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`,
-`UInt32be`, `UInt32le`, `UInt64be`, and `UInt64le` are also implemented there
-for `format binary` schema field type positions only. The generated
+`UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`, `UInt64be`, and `UInt64le`
+are also implemented there for `format binary` schema field type positions
+only. The generated
 `Http2FrameHeaderWire` helper slice is implemented under
 `../specification/execution.md`: it consumes `UInt24be`, `UInt8`, `UInt8`,
 `ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`, returns ordinary
@@ -82,8 +83,9 @@ same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
 `schema.length_out_of_bounds` when closed input cannot provide that payload
 range. The generated helper slice also implements `UInt16le`, `UInt24le`,
-`UInt31le`, `UInt32le`, and `UInt64le` as little-endian unsigned primitives
-for schema decode and encode helpers, implements `UInt64be` as the matching
+`UInt31le`, `UInt32le`, `UInt48le`, and `UInt64le` as little-endian unsigned
+primitives for schema decode and encode helpers, implements `UInt48be` as the
+matching big-endian six-byte primitive and `UInt64be` as the matching
 big-endian eight-byte primitive, returns ordinary `Int` values when the
 decoded value is representable as source-visible `Int`, preserves structural
 decode mappings, and reports width-specific encode range failures. The narrow closed
@@ -296,7 +298,8 @@ external representation facts, not internal Veln type declarations.
 
 Define remaining binary schema support beyond the implemented
 `Http2FrameHeaderWire` generated helper, little-endian primitive widths
-through `UInt64le`, the `UInt64be` big-endian primitive, payload-boundary,
+through `UInt64le`, the `UInt48be` and `UInt64be` big-endian primitives,
+payload-boundary,
 closed-dispatch, extension-dispatch, same-module nested dispatch payload,
 imported nested dispatch payload decode, mixed closed dispatch selected
 mapping decode, and imported nested dispatch payload encode slices
@@ -370,10 +373,10 @@ mapping rule. This keeps schema declarations responsible for byte layout while
 keeping ordinary Veln values responsible for protocol meaning.
 
 The implemented narrow executable slices already make `UInt1` through
-`UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and `UInt64be`
-consume fixed-width unsigned big-endian fields, and `UInt16le`, `UInt24le`,
-`UInt31le`, `UInt32le`, and `UInt64le` consume fixed-width unsigned
-little-endian fields,
+`UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, `UInt48be`, and
+`UInt64be` consume fixed-width unsigned big-endian fields, and `UInt16le`,
+`UInt24le`, `UInt31le`, `UInt32le`, `UInt48le`, and `UInt64le` consume
+fixed-width unsigned little-endian fields,
 then return ordinary `Int` values for representable visible fields.
 The implemented exact-width primitive encode helper slice emits those visible
 ordinary `Int` fields in their declared byte order as `ByteChunk` output and
@@ -461,8 +464,8 @@ The implemented bounded repeated helper slice consumes and emits
 visible `Int` field, and `Repeat(left_count - right_count, Payload)` fields
 when both operands name earlier visible `Int` fields in the same schema.
 `Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
-`UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or
-an eligible nested binary schema payload.
+`UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`,
+`UInt64be`, `UInt64le`, or an eligible nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module
 length-bounded dispatch decode-and-encode slice, dispatch payload
