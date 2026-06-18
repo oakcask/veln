@@ -156,9 +156,9 @@ compare it with `../specification/` before changing behavior.
   rejection slices recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary, including full HPACK compression, broader dynamic-table
-  behavior, eviction policy, broader table-size update decoding, Huffman
-  decoding, and production header validation.
+  fixture boundary, including full HPACK compression, broader multi-entry
+  dynamic-table behavior, full eviction policy, broader table-size update
+  decoding, Huffman decoding, and production header validation.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

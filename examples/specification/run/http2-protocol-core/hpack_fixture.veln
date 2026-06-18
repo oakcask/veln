@@ -336,6 +336,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+			66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			190 => match observed_size == 1
 				true => decoded_dynamic_indexed_header(state, block, offset)
