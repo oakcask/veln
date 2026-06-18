@@ -1164,16 +1164,19 @@ execution reference.
   into the returned immutable fixture state stored on the HTTP/2 decode state
   and a later `0xbe` indexed representation reads that entry, returns ordinary
   header-list data plus the next immutable fixture state. A later
-  literal-with-indexing `:method: PUT` fixture replaces that single dynamic
-  entry; `0xbe` then reads the latest entry, while the older entry fixture
-  path remains unsupported after eviction. Completed HEADERS and final
-  CONTINUATION paths both carry the replacement HPACK state before later
-  header blocks are decoded. It also accepts
+  literal-with-indexing `:method: PUT` fixture becomes the newest dynamic
+  entry while retaining the older `:path: /target` entry when the bounded
+  fixture table has room; `0xbe` reads the newest entry and `0xbf` reads the
+  older entry. Completed HEADERS and final CONTINUATION paths both carry that
+  HPACK state before later header blocks are decoded. It also accepts
   the dynamic table-size
   update fixtures `0x3e` and `0x3f`, which return next immutable fixture
   states with table sizes `30` and `31` from either a completed HEADERS block
-  or a final CONTINUATION block before a later header block is decoded, and
-  projects unsupported fixture input, including malformed
+  or a final CONTINUATION block before a later header block is decoded. When
+  reducing the table size below the supported fixture entries, the bounded
+  eviction policy drops those entries and a later dynamic indexed
+  representation stays on the unsupported fixture path. Unsupported fixture
+  input, including malformed
   literal-without-indexing and unsupported Huffman variants, through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the

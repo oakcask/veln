@@ -106,7 +106,7 @@ behavior.
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 - HTTP/2 HPACK authority literal fixture:
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
-- HTTP/2 HPACK dynamic table eviction fixture:
+- HTTP/2 HPACK dynamic table fixture:
   [http2-hpack-dynamic-table-eviction-fixture.md](http2-hpack-dynamic-table-eviction-fixture.md).
 - HTTP/2 HPACK Huffman fixture:
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).

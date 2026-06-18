@@ -4889,8 +4889,17 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-stateful-dynamic-indexed-method-put", dynamic_method)
 	let ignored_dynamic_method: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-method-put", dynamic_method, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-method-put", dynamic_method, method_state)
-	let evicted_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000007bf")?), method_state)?
-	print_failure("hpack-stateful-evicted-path", evicted_path)
+	let older_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000007bf")?), method_state)?
+	print_step("hpack-stateful-dynamic-indexed-older-path", older_path)
+	let ignored_older_path: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-older-path", older_path, "bf")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-older-path", older_path, method_state)
+	let reduced_table_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000093e")?), method_state)?
+	print_step("hpack-stateful-table-size-eviction", reduced_table_size)
+	let ignored_reduced_table_size: () = emit_header_block("http2-hpack-stateful-table-size-eviction", reduced_table_size, "3e")?
+	print_hpack_transition_from_state("hpack-stateful-table-size-eviction", reduced_table_size, method_state)
+	print_hpack_state("hpack-stateful-table-size-eviction", step_state(reduced_table_size))
+	let evicted_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000bbe")?), hpack_carry_only_state(step_state(reduced_table_size)))?
+	print_failure("hpack-stateful-after-table-size-eviction", evicted_newest)
 	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000094203")?), hpack_carry_only_state(step_state(after_path)))?
 	print_step("hpack-continuation-replacement-start", continuation_start)
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000009505554")?), step_state(continuation_start))?
@@ -4901,8 +4910,10 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	let after_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000bbe")?), continuation_state)?
 	print_step("hpack-after-continuation-replacement", after_continuation)
 	print_hpack_transition_from_state("hpack-after-continuation-replacement", after_continuation, continuation_state)
-	let continuation_evicted_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000dbf")?), continuation_state)?
-	print_failure("hpack-continuation-evicted-path", continuation_evicted_path)
+	let continuation_older_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000dbf")?), continuation_state)?
+	print_step("hpack-continuation-older-path", continuation_older_path)
+	let ignored_continuation_older_path: () = emit_header_block("http2-hpack-continuation-older-path", continuation_older_path, "bf")?
+	print_hpack_transition_from_state("hpack-continuation-older-path", continuation_older_path, continuation_state)
 	Ok(())
 end
 
@@ -4922,7 +4933,14 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let replaced_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-literal-indexed-method-put", replacement_block, third_state, 10)
 	let ignored_replaced_dynamic_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-method-put", referenced_block, replaced_state, 15)
 	let evicted_block: ByteChunk = byte_chunk_from_hex("bf")?
-	let ignored_evicted_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-evicted-path", evicted_block, replaced_state, 16)
+	emit_output_chunk_list_header("http2-hpack-dynamic-indexed-older-path", 1)
+	let ignored_older_block: () = emit_output_chunk("http2-hpack-dynamic-indexed-older-path", 0, evicted_block, "bf")?
+	let ignored_older_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-older-path", evicted_block, replaced_state, 16)
+	let reduced_block: ByteChunk = byte_chunk_from_hex("3e")?
+	emit_output_chunk_list_header("http2-hpack-dynamic-table-size-eviction", 1)
+	let ignored_reduced_block: () = emit_output_chunk("http2-hpack-dynamic-table-size-eviction", 0, reduced_block, "3e")?
+	let reduced_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-table-size-eviction", reduced_block, replaced_state, 17)
+	let ignored_evicted_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-after-size-eviction", referenced_block, reduced_state, 18)
 	let ignored_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-missing", referenced_block, hpack_fixture::initial_state(), 10)
 	Ok(())
 end

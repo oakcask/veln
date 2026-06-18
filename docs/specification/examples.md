@@ -1479,15 +1479,17 @@ incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header
 field decodes through that carried state, and the same indexed byte without a
 dynamic entry stays unsupported. A later literal incremental-indexing
-`:method: PUT` block replaces the single-entry fixture dynamic table, a
-later `0xbe` indexed header field decodes that latest entry, and the older
-entry fixture path remains unsupported after replacement. Completed HEADERS
-and final CONTINUATION paths both carry the replacement HPACK state before
-later header blocks are decoded. The fixture also accepts dynamic table-size
-update bytes `0x3e` and `0x3f`, exposes the resulting table sizes
+`:method: PUT` block becomes the newest bounded fixture dynamic-table entry
+while the older `:path: /target` entry remains addressable when the table has
+room; `0xbe` decodes the newest entry and `0xbf` decodes the older retained
+entry. Completed HEADERS and final CONTINUATION paths both carry that HPACK
+state before later header blocks are decoded. The fixture also accepts dynamic
+table-size update bytes `0x3e` and `0x3f`, exposes the resulting table sizes
 `30` and `31` through the fixture-state accessor, and the HTTP/2 example
 covers both completed HEADERS blocks and final CONTINUATION blocks carrying
-those updated immutable states into later header block decodes. The fixture
+those updated immutable states into later header block decodes. Reducing the
+fixture table size below the supported entries evicts them, leaving later
+dynamic indexed representations on the unsupported fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed

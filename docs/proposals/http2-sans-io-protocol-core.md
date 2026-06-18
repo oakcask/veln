@@ -320,10 +320,13 @@ literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
 indexed representation without prior state stays unsupported. A later
-literal-with-indexing `:method: PUT` block replaces the single dynamic entry,
-carries through both completed HEADERS and final CONTINUATION paths, decodes
-as the latest `0xbe` entry, and keeps the evicted older-entry fixture path
-unsupported. The fixture also
+literal-with-indexing `:method: PUT` block is inserted as the newest bounded
+fixture dynamic-table entry while the older `:path: /target` entry remains
+addressable when the table has room. The fixture carries that state through
+both completed HEADERS and final CONTINUATION paths, decodes the newest entry
+through `0xbe`, decodes the older retained entry through `0xbf`, and keeps
+dynamic entries evicted by a reduced fixture table size on the unsupported
+fixture path. The fixture also
 accepts dynamic table-size update bytes `0x3e` and `0x3f`, returns next
 immutable HPACK states whose table sizes are `30` and `31`, and carries those
 states through completed HEADERS and final CONTINUATION paths before later
@@ -609,10 +612,12 @@ names a supported static-table header name for `:authority`, `:method`,
 fixture `0x04 0x80`, plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
-carried by the HTTP/2 decode state, a later literal-with-indexing `:method: PUT`
-replacement that becomes the latest dynamic indexed entry, unsupported
-fixture coverage for the evicted older-entry path, plus explicit `0x3e` and
-`0x3f`
+carried by the HTTP/2 decode state, a later literal-with-indexing
+`:method: PUT` insertion that becomes the newest dynamic indexed entry while
+retaining the older `:path: /target` entry when the bounded fixture table has
+room, dynamic indexed coverage for both `0xbe` newest-entry and `0xbf`
+older-entry ordering, unsupported fixture coverage after a table-size
+reduction evicts those entries, plus explicit `0x3e` and `0x3f`
 table-size update fixtures that change the immutable HPACK state table size to
 `30` and `31` through both completed HEADERS and final CONTINUATION paths.
 Unsupported fixture blocks project through
@@ -629,9 +634,9 @@ full HPACK behavior.
 - A pure decode state transition handles chunk arrival and end-of-stream.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
-- Full HPACK compression, broader multi-entry dynamic table behavior, full
-  eviction policy, broader table-size update decoding, full Huffman decoding,
-  and production header validation remain later work beyond the implemented
+- Full HPACK compression, unbounded dynamic table behavior, general eviction
+  policy, broader table-size update decoding, full Huffman decoding, and
+  production header validation remain later work beyond the implemented
   fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

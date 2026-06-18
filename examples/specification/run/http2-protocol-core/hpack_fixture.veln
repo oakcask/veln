@@ -1,6 +1,7 @@
 pub type HpackDynamicEntry
 	NoDynamicEntry
 	DynamicEntry(name: String, value: String)
+	DynamicEntryPair(new_name: String, new_value: String, older_name: String, older_value: String)
 end
 
 pub type HpackFixtureState
@@ -45,15 +46,57 @@ fn next_state(state: HpackFixtureState) -> HpackFixtureState
 	end
 end
 
+fn dynamic_entry_size(name: String, value: String) -> Int
+	match name == ":path" and value == "/target"
+		true => 44
+		false => 42
+	end
+end
+
+fn bounded_dynamic_entry(table_size: Int, name: String, value: String, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	let entry_size: Int = dynamic_entry_size(name, value)
+	match entry_size > table_size
+		true => NoDynamicEntry
+		false => match dynamic_entry
+			NoDynamicEntry => DynamicEntry(name, value)
+			DynamicEntry(older_name, older_value) => match entry_size + dynamic_entry_size(older_name, older_value) <= table_size
+				true => DynamicEntryPair(name, value, older_name, older_value)
+				false => DynamicEntry(name, value)
+			end
+			DynamicEntryPair(previous_name, previous_value, _, _) => match entry_size + dynamic_entry_size(previous_name, previous_value) <= table_size
+				true => DynamicEntryPair(name, value, previous_name, previous_value)
+				false => DynamicEntry(name, value)
+			end
+		end
+	end
+end
+
+fn evict_for_table_size(table_size: Int, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	match dynamic_entry
+		NoDynamicEntry => NoDynamicEntry
+		DynamicEntry(name, value) => match dynamic_entry_size(name, value) <= table_size
+			true => DynamicEntry(name, value)
+			false => NoDynamicEntry
+		end
+		DynamicEntryPair(new_name, new_value, older_name, older_value) => match dynamic_entry_size(new_name, new_value) <= table_size
+			false => NoDynamicEntry
+			true => match dynamic_entry_size(new_name, new_value) + dynamic_entry_size(older_name, older_value) <= table_size
+				true => DynamicEntryPair(new_name, new_value, older_name, older_value)
+				false => DynamicEntry(new_name, new_value)
+			end
+		end
+	end
+end
+
 fn state_with_dynamic_entry(state: HpackFixtureState, name: String, value: String) -> HpackFixtureState
 	match state
-		HpackFixtureState(table_size, decode_count, _) => HpackFixtureState(table_size, decode_count + 1, DynamicEntry(name, value))
+		HpackFixtureState(table_size, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, bounded_dynamic_entry(table_size, name, value, dynamic_entry))
 	end
 end
 
 fn state_with_table_size(state: HpackFixtureState, table_size: Int) -> HpackFixtureState
 	match state
-		HpackFixtureState(_, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, dynamic_entry)
+		HpackFixtureState(_, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, evict_for_table_size(table_size, dynamic_entry))
 	end
 end
 
@@ -149,10 +192,19 @@ fn decoded_literal_with_indexing(name: String, value: String, wire_size: Int, st
 	Ok(HpackDecodeTransition(literal_with_indexing_headers(name, value, wire_size), state_with_dynamic_entry(state, name, value)))
 end
 
-fn decoded_dynamic_indexed_header(state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+fn decoded_dynamic_indexed_newest_header(state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match state
 		HpackFixtureState(_, _, NoDynamicEntry) => unsupported(block, offset)
 		HpackFixtureState(_, _, DynamicEntry(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
+		HpackFixtureState(_, _, DynamicEntryPair(name, value, _, _)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
+	end
+end
+
+fn decoded_dynamic_indexed_older_header(state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match state
+		HpackFixtureState(_, _, NoDynamicEntry) => unsupported(block, offset)
+		HpackFixtureState(_, _, DynamicEntry(_, _)) => unsupported(block, offset)
+		HpackFixtureState(_, _, DynamicEntryPair(_, _, name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
 	end
 end
 
@@ -346,7 +398,11 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			190 => match observed_size == 1
-				true => decoded_dynamic_indexed_header(state, block, offset)
+				true => decoded_dynamic_indexed_newest_header(state, block, offset)
+				false => unsupported(block, offset)
+			end
+			191 => match observed_size == 1
+				true => decoded_dynamic_indexed_older_header(state, block, offset)
 				false => unsupported(block, offset)
 			end
 			16 => match observed_size == 3

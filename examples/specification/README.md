@@ -1260,11 +1260,12 @@ against the built `veln` binary.
   fixture `0x04 0x80`, then returns ordinary header-list data and the next
   immutable fixture state. It
   also inserts one `:path: /target` literal-with-indexing entry, decodes a
-  later dynamic indexed reference to that entry, replaces the single-entry
-  fixture dynamic table with a later `:method: PUT`
-  literal-with-indexing entry, decodes the latest entry through the dynamic
-  indexed fixture path, and keeps both a missing dynamic entry and an evicted
-  older dynamic entry on the unsupported fixture failure path.
+  later dynamic indexed reference to that entry, inserts a later
+  `:method: PUT` literal-with-indexing entry as the newest bounded fixture
+  table entry, decodes the newest entry through `0xbe`, decodes the older
+  retained entry through `0xbf`, and keeps both missing dynamic state and
+  dynamic entries evicted by a reduced fixture table size on the unsupported
+  fixture failure path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
