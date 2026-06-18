@@ -204,6 +204,9 @@ as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
   representation, dispatch, and mapping failures
 - `reason`: the source-visible encode failure reason for representation,
   dispatch, and mapping failures
+- `expected_count`, `actual_count`, `length_expression`, `byte_offset`, and
+  `byte_preview` for generated length-bounded `ByteView` encode count
+  mismatches
 - `predicate`, `field_value`, `supplied_values`, and supplied schema-local
   `Int` values keyed by field name for encode-time `schema.validation_failed`
 

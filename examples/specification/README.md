@@ -960,6 +960,12 @@ against the built `veln` binary.
 - `run/binary-schema-byteview-encode-length-mismatch/`: length-bounded
   `ByteView` encode rejects a view whose count does not match the earlier
   length field.
+- `run/binary-schema-byteview-encode-diagnostic-json/`: length-bounded
+  `ByteView` encode mismatch projects schema field path, expected and actual
+  counts, length expression, byte offset, and byte preview through run JSON.
+- `run/binary-schema-byteview-encode-diagnostic-human/`: the same
+  length-bounded `ByteView` encode mismatch projects focused human
+  diagnostics with related count, offset, and preview notes.
 - `run/binary-schema-byteview-subtract-decode/`: generated schema decode
   helpers compute a `ByteView(length - padding_length)` payload count from
   earlier decoded fields.

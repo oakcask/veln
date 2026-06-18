@@ -1139,6 +1139,20 @@ fn encode_result_failure_diagnostic(
     diagnostic
         .related
         .push(note_json(format!("Encode failure reason: {reason}.")));
+    if let (Some(expected_count), Some(actual_count)) = (
+        json_number(value_entries, "expected_count"),
+        json_number(value_entries, "actual_count"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected {expected_count} byte(s); supplied ByteView has {actual_count} byte(s)."
+        )));
+    }
+    if let Some(byte_offset) = json_number(value_entries, "byte_offset") {
+        diagnostic.related.push(note_json(format!(
+            "Supplied ByteView starts at byte offset {byte_offset}."
+        )));
+    }
+    push_byte_preview_note(&mut diagnostic, value_entries);
     if let Some(value) = result_failure_value(failure) {
         diagnostic
             .related
@@ -2331,6 +2345,78 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("4 byte(s) with `big_endian` byte order")
+        );
+    }
+
+    #[test]
+    fn value_result_failure_diagnostic_projects_byte_view_encode_context() {
+        let value_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("value_diagnostic")),
+            (
+                "id",
+                JsonValue::string("codec.encode_value_unrepresentable"),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("PacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("PacketWire.payload"),
+            ),
+            (
+                "reason",
+                JsonValue::string("byte view count 3 does not match length field `length` value 2"),
+            ),
+            ("expected_count", JsonValue::Number(2)),
+            ("actual_count", JsonValue::Number(3)),
+            ("length_expression", JsonValue::string("length")),
+            ("byte_offset", JsonValue::Number(0)),
+            ("byte_preview", byte_preview_with_counts("aabbcc", 3, false)),
+        ]);
+        let failure = TestFailure {
+            kind: "result".to_string(),
+            message: "runtime result failure: Err(EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2))".to_string(),
+            details: JsonValue::object([
+                ("kind", JsonValue::string("result")),
+                ("phase", JsonValue::string("runtime")),
+                (
+                    "value",
+                    JsonValue::string("EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)"),
+                ),
+                ("value_diagnostic", value_diagnostic),
+            ]),
+        };
+
+        let diagnostic =
+            value_result_failure_diagnostic(&failure).expect("value diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.encode_value_unrepresentable");
+        assert_eq!(diagnostic.message, "encode value is unrepresentable");
+        assert_eq!(diagnostic.related.len(), 6);
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("Expected 2 byte(s); supplied ByteView has 3 byte(s)")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("Supplied ByteView starts at byte offset 0")
+        );
+        assert!(
+            diagnostic.related[4]
+                .to_json()
+                .contains("aa bb cc (showing 3 of 3 byte(s), complete)")
         );
     }
 

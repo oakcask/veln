@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.encode_value_unrepresentable]: encode value is unrepresentable", "note: Field path: schema `PacketWire` / field `payload`.", "note: Encode failure reason: byte view count 3 does not match length field `length` value 2.", "note: Expected 2 byte(s); supplied ByteView has 3 byte(s).", "note: Supplied ByteView starts at byte offset 0.", "note: Nearby bytes: aa bb cc (showing 3 of 3 byte(s), complete).", "note: Result value: EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)."]

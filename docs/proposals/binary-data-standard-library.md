@@ -34,7 +34,9 @@ and writes for 16-bit, 24-bit, 31-bit, 32-bit, and 64-bit source-visible
 collection for protocol examples, `ByteView` freeze preservation across task
 and channel boundaries, source-visible `ByteView` range failure diagnostics
 with bounded byte previews, checked byte write conversion diagnostics with
-helper name, supplied value, accepted range, width, and byte order, and
+helper name, supplied value, accepted range, width, and byte order,
+schema-facing length-bounded `ByteView` encode conversion diagnostics with
+schema field path and byte-view count mismatch reason, and
 structured byte previews for the implemented schema-owned byte diagnostics and
 HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
 invalid frame-kind and PRIORITY self-dependency protocol-owned byte
@@ -138,7 +140,8 @@ bounded by default.
 - Specification pages describe the later binary-buffer behavior and any
   schema-facing conversion boundaries not covered by the current byte helpers,
   source-visible `ByteView` range diagnostics, checked byte write conversion
-  diagnostics, and schema-owned byte diagnostic previews.
+  diagnostics, schema-owned byte diagnostic previews, and command-facing
+  length-bounded `ByteView` encode conversion diagnostics.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
   slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
   slice, and HTTP/2 PRIORITY self-dependency slice cover protocol-owned byte

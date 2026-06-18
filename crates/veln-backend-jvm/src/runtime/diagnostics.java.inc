@@ -1001,6 +1001,9 @@
         if (!isAdtNamed(value, "EncodeError::EncodeError")) {
             return;
         }
+        if (valueDiagnostics.get().containsKey(message)) {
+            return;
+        }
         Adt error = asAdt(value, "EncodeError::EncodeError");
         String id = asString(error.payloads[0]);
         if (!isCommandEncodeDiagnosticId(id)) {
@@ -1014,6 +1017,32 @@
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
         valueDiagnostics.get().put(
             message,
+            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
+        );
+    }
+
+    private static void registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+        Object error,
+        Object view,
+        long expectedCount,
+        long actualCount,
+        String lengthExpression
+    ) {
+        Adt encodeError = asAdt(error, "EncodeError::EncodeError");
+        String id = asString(encodeError.payloads[0]);
+        String fieldPath = asString(encodeError.payloads[1]);
+        String reason = asString(encodeError.payloads[2]);
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("reason", reason));
+        details.add(DiagnosticDetail.string("field_path_display", fieldPath));
+        details.add(DiagnosticDetail.number("expected_count", expectedCount));
+        details.add(DiagnosticDetail.number("actual_count", actualCount));
+        details.add(DiagnosticDetail.string("length_expression", lengthExpression));
+        details.add(DiagnosticDetail.number("byte_offset", byteViewOffset(view)));
+        details.add(DiagnosticDetail.bytePreview("byte_preview", byteViewPreviewTrace(view, 8)));
+        valueDiagnostics.get().put(
+            format(error),
             new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
         );
     }

@@ -688,6 +688,8 @@ fn value_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> O
         let json_value = match value_kind {
             "number" => JsonValue::Number(value.parse::<i64>().ok()?),
             "string" => JsonValue::string(decode_hex_text(value)?),
+            "byte_preview" => byte_preview_value(value)?,
+            "byte_preview_v2" => byte_preview_v2_value(value)?,
             _ => return None,
         };
         entries.push((key, json_value));
@@ -3979,6 +3981,48 @@ mod tests {
                 "\"supplied_values\":\"length=5, padding_length=6\",",
                 "\"length\":5,",
                 "\"padding_length\":6}}"
+            )
+        );
+    }
+
+    #[test]
+    fn value_diagnostic_result_trace_decodes_byte_preview_details() {
+        let trace = concat!(
+            "result\t",
+            "456e636f64654572726f7228636f6465632e656e636f64655f76616c75655f756e726570726573656e7461626c652c205061636b6574576972652e7061796c6f61642c2062797465207669657720636f756e74203320646f6573206e6f74206d61746368206c656e677468206669656c6420606c656e677468602076616c7565203229",
+            "\tvalue_diagnostic\tcodec.encode_value_unrepresentable",
+            "\t2\tschema\t5061636b657457697265\tfield\t7061796c6f6164",
+            "\t7\treason\tstring\t62797465207669657720636f756e74203320646f6573206e6f74206d61746368206c656e677468206669656c6420606c656e677468602076616c75652032",
+            "\tfield_path_display\tstring\t5061636b6574576972652e7061796c6f6164",
+            "\texpected_count\tnumber\t2",
+            "\tactual_count\tnumber\t3",
+            "\tlength_expression\tstring\t6c656e677468",
+            "\tbyte_offset\tnumber\t0",
+            "\tbyte_preview\tbyte_preview_v2\t616162626363:3:3:false\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)\",",
+                "\"value_diagnostic\":{\"kind\":\"value_diagnostic\",",
+                "\"id\":\"codec.encode_value_unrepresentable\",",
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"PacketWire\"},",
+                "{\"kind\":\"field\",\"name\":\"payload\"}],",
+                "\"reason\":\"byte view count 3 does not match length field `length` value 2\",",
+                "\"field_path_display\":\"PacketWire.payload\",",
+                "\"expected_count\":2,",
+                "\"actual_count\":3,",
+                "\"length_expression\":\"length\",",
+                "\"byte_offset\":0,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"aabbcc\",",
+                "\"preview_byte_count\":3,",
+                "\"total_byte_count\":3,",
+                "\"truncated\":false}}}"
             )
         );
     }
