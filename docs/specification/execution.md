@@ -86,7 +86,8 @@ execution reference.
   values through `task::spawn_with9`, then to ten ordinary source values
   through `task::spawn_with10`, then to eleven ordinary source values
   through `task::spawn_with11`, and then to twelve ordinary source values
-  through `task::spawn_with12`,
+  through `task::spawn_with12`, and then to thirteen ordinary source values
+  through `task::spawn_with13`,
   and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. A cancellable lifecycle
   case reads from an accepted stream with `net::read_chunk`, routes the
