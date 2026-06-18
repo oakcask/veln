@@ -316,9 +316,10 @@ or final CONTINUATION frames, returns ordinary header-list data through the
 same accessors as the deterministic fixture-label blocks, advances immutable
 fixture state, and also covers one dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
-immutable HPACK state, a later `0xbe` indexed representation decodes through
-that carried state, and the same indexed representation without prior state
-stays unsupported. Unsupported HPACK bytes remain on
+immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
+indexed representation decodes through that carried state, and the same
+indexed representation without prior state stays unsupported. Unsupported
+HPACK bytes remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -596,8 +597,8 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 names a supported static-table header name for `:method`, `:path`, or
 `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, plus
 one literal-with-indexing `:path: /target` insertion and one later dynamic
-indexed reference to that inserted entry through the returned immutable HPACK
-state.
+indexed reference to that inserted entry through the immutable HPACK state
+carried by the HTTP/2 decode state.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after

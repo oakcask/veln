@@ -1415,10 +1415,11 @@ or `:scheme` and whose short raw value is `PUT`, `/target`, or `https` in
 completed HEADERS or final CONTINUATION frames. The source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
-state, a later `0xbe` indexed header field decodes through that state, and
-the same indexed byte without a dynamic entry stays unsupported. The fixture
-exposes the decoded header name and value through ordinary header-list
-accessors, advances the immutable fixture state, and keeps unsupported HPACK input on
+state that the HTTP/2 decode state carries, a later `0xbe` indexed header
+field decodes through that carried state, and the same indexed byte without a
+dynamic entry stays unsupported. The fixture exposes the decoded header name
+and value through ordinary header-list accessors, advances the immutable
+fixture state, and keeps unsupported HPACK input on
 `hpack.fixture.unsupported_header_block`, including malformed
 literal-without-indexing variants.
 The outbound DATA send-intent slice keeps outbound connection and stream

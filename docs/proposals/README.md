@@ -186,7 +186,8 @@ compare it with `../specification/` before changing behavior.
   `:method`, `:path`, or `:scheme` and whose short raw value is `PUT`,
   `/target`, or `https`, plus the narrow dynamic-table receive slice that
   inserts `:path: /target` through a literal-with-indexing block and decodes a
-  later dynamic indexed reference through the returned immutable HPACK state,
+  later dynamic indexed reference through the immutable HPACK state carried by
+  the HTTP/2 decode state,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   PADDED DATA receive handling with invalid-padding diagnostics,
