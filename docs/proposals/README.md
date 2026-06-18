@@ -182,7 +182,7 @@ compare it with `../specification/` before changing behavior.
   eighteen-argument and nineteen-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
-  fifteen-route channel-first routing, receiver-list cancellable
+  sixteen-route channel-first routing, receiver-list cancellable
   channel-first routing,
   timeout-result selection, and cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under

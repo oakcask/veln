@@ -46,7 +46,7 @@ slices, and narrow deadline and cancellation slices, for:
   cancellable timeout-result selection, socket/channel routing, and
   deadline-aware and cancellable lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, four-route, receiver-list five-route through fifteen-route,
+  three-route, four-route, receiver-list five-route through sixteen-route,
   receiver-list timeout, receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, and receiver-list
   cancellable channel-first fixture shapes
@@ -255,7 +255,7 @@ implemented in
 The explicit stream close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-close-boundary.md`.
 
-The receiver-list five-route through fifteen-route, timeout,
+The receiver-list five-route through sixteen-route, timeout,
 timeout-result, and cancellable timeout-result channel-first stream routing
 slices, including the
 `channel::select_many_priority` and
@@ -374,7 +374,7 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, receiver-list five-route through fifteen-route,
+  three-route, four-route, receiver-list five-route through sixteen-route,
   receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, and receiver-list cancellable channel-first stream

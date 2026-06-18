@@ -26,6 +26,8 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-fourteen-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-fifteen-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-sixteen-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable/`
@@ -52,6 +54,8 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-fifteen-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`
+and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
@@ -59,7 +63,7 @@ and
 ## Outcome
 
 The completed route-count slices add checked five-, six-, seven-, eight-,
-nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, and fifteen-route
+nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, fifteen-, and sixteen-route
 evidence for the narrow
 `channel::select_many_priority(receivers)` standard-library boundary over a
 non-empty `List<Receiver<T>>`. It returns
