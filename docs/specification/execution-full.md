@@ -636,9 +636,11 @@ freezing all sixteen ordinary source values at the task boundary.
 `task::spawn_with17` starts a seventeen-argument callable on a JVM thread
 after freezing all seventeen ordinary source values at the task boundary.
 `task::spawn_with18` starts an eighteen-argument callable on a JVM thread
-after freezing all eighteen ordinary source values at the task boundary. All
-task spawn helpers freeze the returned value before it crosses back through
-the task handle. `task::join` waits for that task and returns `Ok(value)` on
+after freezing all eighteen ordinary source values at the task boundary.
+`task::spawn_with19` starts a nineteen-argument callable on a JVM thread after
+freezing all nineteen ordinary source values at the task boundary. All task
+spawn helpers freeze the returned value before it crosses back through the
+task handle. `task::join` waits for that task and returns `Ok(value)` on
 ordinary completion or `Err(JoinError)` on interruption, cancellation, or
 runtime failure. `task::cancel` requests cooperative cancellation by
 interrupting the task.
@@ -765,7 +767,9 @@ case extends it with one additional ordinary metadata value through
 `task::spawn_with16`. The seventeen-argument stream-task case extends it with
 one additional ordinary metadata value through `task::spawn_with17`. The
 eighteen-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with18`.
+metadata value through `task::spawn_with18`. The nineteen-argument stream-task
+case extends it with one additional ordinary metadata value through
+`task::spawn_with19`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
@@ -791,6 +795,14 @@ checked examples are
 `examples/specification/check/socket-stream-adapter-routing-spawn14-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn15/`,
 `examples/specification/check/socket-stream-adapter-routing-spawn15-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn16/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn16-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn17/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn17-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn18/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn18-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn19/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn19-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,

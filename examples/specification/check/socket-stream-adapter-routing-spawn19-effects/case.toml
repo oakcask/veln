@@ -1,0 +1,38 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `concurrency`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 61
+column = 1
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `net`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 85
+column = 1
