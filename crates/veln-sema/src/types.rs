@@ -3786,12 +3786,17 @@ fn supported_prefix_reserved_group(
     else {
         return false;
     };
+    if first_bit_width > 8 || second_bit_width > 8 {
+        return false;
+    }
     let total_bit_width = bit_width + i64::from(first_bit_width) + i64::from(second_bit_width);
     let supported_one_byte_group = bit_width % 8 != 0
         && (bit_width + i64::from(first_bit_width)) % 8 != 0
         && total_bit_width == 8;
     let supported_two_byte_group = total_bit_width == 16;
-    (supported_one_byte_group || supported_two_byte_group) && expected_value < (1_i64 << bit_width)
+    let supported_three_byte_group = (17..=23).contains(&bit_width) && total_bit_width == 24;
+    (supported_one_byte_group || supported_two_byte_group || supported_three_byte_group)
+        && expected_value < (1_i64 << bit_width)
 }
 
 fn supported_packed_reserved_prefix(

@@ -541,6 +541,16 @@ against the built `veln` binary.
   prefix group whose reserved width is the minimum one-bit prefix, omit the
   reserved field from mapped values, preserve `UInt7` and `UInt8` visible
   fields, and reject out-of-range values for either visible field.
+- `run/binary-schema-prefix-reserved-three-byte-group-decode-encode/`:
+  generated schema helpers decode and encode a three-byte big-endian reserved
+  prefix group where `ReservedBits(17, value)` is followed by two visible
+  sub-byte `UIntN` fields, omit the reserved field from the value record,
+  preserve both visible fields in declaration order, and reject out-of-range
+  values for either visible field.
+- `run/binary-schema-prefix-reserved-three-byte-group-json/`: generated
+  schema decode helpers report `schema.reserved_bits_mismatch` for the
+  three-byte reserved prefix group with stable field path, byte offset, bit
+  width, expected value, actual value, and byte preview details.
 - `run/binary-schema-prefix-reserved-two-byte-group-json/`: generated schema
   decode helpers report `schema.reserved_bits_mismatch` for the two-byte
   reserved prefix group with stable field path, byte offset, bit width,
@@ -1053,6 +1063,11 @@ against the built `veln` binary.
   storage unit through a projectable mapped record and report
   `codec.encode_value_unrepresentable` against either out-of-range visible
   field.
+- `run/binary-schema-prefix-reserved-three-byte-group-decode-encode/`:
+  generated schema encode helpers write a declared seventeen-bit reserved
+  prefix before two visible `UIntN` fields in one shared three-byte big-endian
+  storage unit and report `codec.encode_value_unrepresentable` against either
+  visible field when the source value is outside its bit range.
 - `run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`:
   generated schema encode helpers write a declared `ReservedBits(8, value)`
   prefix before two visible `UIntN` fields in one shared two-byte big-endian

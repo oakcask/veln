@@ -584,7 +584,10 @@
         int firstBitWidth = bitPackedVisibleBitWidth(first);
         int secondBitWidth = bitPackedVisibleBitWidth(second);
         int totalBitWidth = reserved.reservedBitWidth + firstBitWidth + secondBitWidth;
-        if (firstBitWidth <= 0 || secondBitWidth <= 0) {
+        if (firstBitWidth <= 0
+            || secondBitWidth <= 0
+            || firstBitWidth > 8
+            || secondBitWidth > 8) {
             return 0;
         }
         boolean supportedOneByteGroup =
@@ -593,7 +596,11 @@
                 && (reserved.reservedBitWidth + firstBitWidth) % 8 != 0
                 && totalBitWidth == 8;
         boolean supportedTwoByteGroup = totalBitWidth == 16;
-        return (supportedOneByteGroup || supportedTwoByteGroup)
+        boolean supportedThreeByteGroup =
+            reserved.reservedBitWidth >= 17
+                && reserved.reservedBitWidth <= 23
+                && totalBitWidth == 24;
+        return (supportedOneByteGroup || supportedTwoByteGroup || supportedThreeByteGroup)
             ? totalBitWidth / 8
             : 0;
     }
