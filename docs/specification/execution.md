@@ -239,15 +239,18 @@ execution reference.
   path, expected count, available count, readiness, and structured byte
   preview fields.
 - Generated binary schema decode helpers also support `UInt16le`, `UInt24le`,
-  `UInt31le`, `UInt32le`, `UInt48le`, and `UInt64le` as little-endian
-  unsigned primitives.
-  `UInt48be` is accepted as the matching big-endian six-byte primitive, and
-  `UInt64be` is accepted as the matching big-endian eight-byte primitive.
+  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le` as
+  little-endian unsigned primitives.
+  `UInt40be` is accepted as the matching big-endian five-byte primitive,
+  `UInt48be` as the matching big-endian six-byte primitive, and `UInt64be`
+  as the matching big-endian eight-byte primitive.
   These forms decode to ordinary `Int` fields for values representable as
   source-visible `Int`, preserve structural `map to` runtime mappings, and
   use the same truncation diagnostic shape as the other exact-width
   primitives.
   The checked examples are
+  `examples/specification/run/binary-schema-u40-widths-decode/`,
+  `examples/specification/run/binary-schema-u40-widths-truncated-json/`,
   `examples/specification/run/binary-schema-u48-widths-decode/`,
   `examples/specification/run/binary-schema-u64-widths-decode/` and
   `examples/specification/run/binary-schema-u64-widths-truncated-json/`.
@@ -268,9 +271,10 @@ execution reference.
   decoded record fields are source-visible `Flag8(bits)`, `Flag16be(bits)`,
   `Flag16le(bits)`, `Flag32be(bits)`, `Flag32le(bits)`, `Flag64be(bits)`,
   and `Flag64le(bits)` values rather than raw `Int` values. Existing `UInt8`,
-  `UInt16be`, `UInt16le`, `UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`,
-  `UInt64be`, and `UInt64le` declarations continue to decode as ordinary
-  `Int` fields. Pure prelude helpers inspect or set `Flag8` bit indexes `0`
+  `UInt16be`, `UInt16le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,
+  `UInt48be`, `UInt48le`, `UInt64be`, and `UInt64le` declarations continue
+  to decode as ordinary `Int` fields. Pure prelude helpers inspect or set
+  `Flag8` bit indexes `0`
   through `7`, `Flag16be` and `Flag16le` bit indexes `0` through `15`,
   `Flag32be` and `Flag32le` bit
   indexes `0` through `31`, and `Flag64be` and `Flag64le` bit indexes `0`
@@ -319,8 +323,9 @@ execution reference.
   `Repeat(count_field, Payload)` fields when `count_field` is an earlier
   visible exact-width unsigned field decoded as `Int` and `Payload` is
   `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-  `UInt31le`, `UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`, `UInt64be`,
-  `UInt64le`, an eligible nested binary schema payload, or
+  `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`,
+  `UInt48le`, `UInt64be`, `UInt64le`, an eligible nested binary schema
+  payload, or
   `ByteView(length_field)` when
   `length_field` is another earlier visible exact-width unsigned field decoded
   as `Int`.
@@ -774,12 +779,12 @@ execution reference.
   The helper writes fields in declaration order into one immutable
   `ByteChunk`, using each primitive's declared byte order, and returns
   `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, `UInt31le`,
-  `UInt32le`, `UInt48le`, and `UInt64le` emit little-endian bytes and use the
-  same representability boundaries as their matching unsigned widths.
-  `UInt48be` emits big-endian six-byte values, and `UInt64be` emits
-  big-endian eight-byte values. Standalone visible `UInt1` through `UInt7`
-  fields emit one byte with the value in the declared low bits. Values outside
-  the primitive range return
+  `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le` emit little-endian bytes
+  and use the same representability boundaries as their matching unsigned
+  widths. `UInt40be` emits big-endian five-byte values, `UInt48be` emits
+  big-endian six-byte values, and `UInt64be` emits big-endian eight-byte
+  values. Standalone visible `UInt1` through `UInt7` fields emit one byte with
+  the value in the declared low bits. Values outside the primitive range return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` and `UInt31le` use the 31-bit maximum even though they occupy four

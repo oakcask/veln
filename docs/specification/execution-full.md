@@ -121,9 +121,10 @@ The `SchemaWidthSample` primitive decode helper consumes one `UInt16be` field
 followed by one `UInt32be` field from a `ByteView`. Both fields produce
 ordinary `Int` values in the decoded record. Generated binary schema decode
 helpers also support `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`,
-`UInt48le`, and `UInt64le` as little-endian unsigned primitives. `UInt48be`
-is implemented as the matching six-byte big-endian primitive, and `UInt64be`
-and `UInt64le` are implemented as eight-byte schema primitives and decode to
+`UInt40le`, `UInt48le`, and `UInt64le` as little-endian unsigned primitives.
+`UInt40be` is implemented as the matching five-byte big-endian primitive,
+`UInt48be` as the matching six-byte big-endian primitive, and `UInt64be` and
+`UInt64le` are implemented as eight-byte schema primitives and decode to
 ordinary `Int` values when the decoded value is representable as
 source-visible `Int`. The helper preserves structural
 `map to` runtime mappings. Truncation reports the same `schema.truncated_field`
@@ -429,10 +430,11 @@ payload variant disagreements report `codec.dispatch_mismatch`.
 The helper writes fields in declaration order into one immutable `ByteChunk`,
 using each primitive's declared byte order, and returns
 `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, `UInt31le`,
-`UInt32le`, `UInt48le`, and `UInt64le` emit little-endian bytes and use the
-same representability boundaries as their matching unsigned widths.
-`UInt48be` emits big-endian six-byte values, and `UInt64be` emits big-endian
-eight-byte values. Standalone visible `UInt1` through `UInt7` fields
+`UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le` emit little-endian bytes
+and use the same representability boundaries as their matching unsigned
+widths. `UInt40be` emits big-endian five-byte values, `UInt48be` emits
+big-endian six-byte values, and `UInt64be` emits big-endian eight-byte values.
+Standalone visible `UInt1` through `UInt7` fields
 emit one byte with the value in the declared low bits. Values outside the
 primitive range return
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
