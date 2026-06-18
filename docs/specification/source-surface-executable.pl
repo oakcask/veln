@@ -414,7 +414,14 @@ schema_mapping_assignment -->
     ident,
     tok(equal),
     expr,
+    schema_mapping_inverse_opt,
     nl.
+
+schema_mapping_inverse_opt -->
+    ident_text("inverse"),
+    member_path,
+    !.
+schema_mapping_inverse_opt --> [].
 
 codec_decl -->
     visibility,

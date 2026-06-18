@@ -874,6 +874,12 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-field-selection-encode/`: generated schema encode
   helpers project a mapped target field selected from a record-shaped mapping
   expression back to one schema-local field.
+- `run/binary-schema-mapped-converter-encode/`: generated schema encode
+  helpers project a mapped target field through an explicitly named
+  same-module inverse converter and write the recovered schema-local field.
+- `run/binary-schema-mapped-converter-encode-mismatch/`: converter-backed
+  mapped encode rejects a target value whose inverse projection does not
+  round-trip through the mapped converter boundary.
 - `run/binary-schema-sub-byte-encode/`: generated schema encode helpers write
   standalone `UInt1` through `UInt7` visible fields as one byte each with the
   value in the declared low bits and keep derived encode codec boundaries
@@ -1386,6 +1392,9 @@ against the built `veln` binary.
 - `run/derived-codec-mapped-encode-boundary/`: the same `derive encode`
   boundary accepts the direct structural mapping target record and projects
   one encoded output chunk.
+- `run/derived-codec-mapped-converter-encode-boundary/`: the same `derive
+  encode` boundary remains eligible for a converter-backed mapped schema when
+  the mapping assignment names an explicit same-module inverse converter.
 - `run/derived-codec-selected-mapping-encode-boundary/`: the same `derive
   encode` boundary accepts a selected structural mapping target record,
   encodes both selected mapping cases, and projects helper representation

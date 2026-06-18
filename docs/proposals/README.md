@@ -28,7 +28,8 @@ compare it with `../specification/` before changing behavior.
   selection, focused mapping selection diagnostics, and the generated-helper schema validation
   diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, plus
-  projectable structural mapped schema encode helper, generated encode-time
+  projectable structural mapped schema encode helper including explicitly
+  named same-module converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
   support, derived selected-mapping encode boundary support, and codec decode
   boundaries over multiple decoded-field selected mappings that resolve to one

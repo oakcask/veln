@@ -198,12 +198,17 @@ fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &Sc
         ),
     );
     for assignment in &mapping.assignments {
+        let inverse = assignment
+            .inverse_converter
+            .as_ref()
+            .map(|inverse| format!(" inverse {}", inverse.name))
+            .unwrap_or_default();
         push_source_line(
             out,
             comments,
             assignment.span.start.line,
             2,
-            format!("{} = {}", assignment.target, assignment.source),
+            format!("{} = {}{}", assignment.target, assignment.source, inverse),
         );
     }
 }

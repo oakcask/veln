@@ -4190,7 +4190,7 @@ fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions()
         .expect("kind mapping should be emitted");
     assert!(matches!(
         &kind.expr,
-        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg }
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg, .. }
             if function == "next_kind"
                 && matches!(
                     arg.as_ref(),
@@ -4245,7 +4245,7 @@ fn generated_schema_decode_helpers_keep_structural_converter_arguments() {
         .expect("kind mapping should be emitted");
     assert!(matches!(
         &kind.expr,
-        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg }
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, arg, .. }
             if function == "next_kind"
                 && matches!(
                     arg.as_ref(),

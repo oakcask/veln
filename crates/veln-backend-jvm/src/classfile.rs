@@ -1774,11 +1774,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
-            IrSchemaDecodeMappingExpr::Converter { function, arg } => {
-                self.emit_object_array(code, 3, |this, code, index| match index {
+            IrSchemaDecodeMappingExpr::Converter {
+                function,
+                inverse_function,
+                arg,
+            } => {
+                let spec_len = if inverse_function.is_some() { 4 } else { 3 };
+                self.emit_object_array(code, spec_len, |this, code, index| match index {
                     0 => code.ldc_string("converter"),
                     1 => this.emit_function_value(code, function),
+                    2 if spec_len == 4 => {
+                        this.emit_function_value(
+                            code,
+                            inverse_function
+                                .as_ref()
+                                .expect("converter inverse should exist"),
+                        );
+                    }
                     2 => this.emit_schema_mapping_expr_spec(code, arg),
+                    3 => this.emit_schema_mapping_expr_spec(code, arg),
                     _ => unreachable!(),
                 });
             }
