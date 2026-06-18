@@ -368,8 +368,10 @@ or the pure protocol core.
   receiver-list cancellable timeout-result selection, and receiver-list
   cancellable channel-first stream routing, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, one-argument,
-  two-argument, three-argument, four-argument, and five-argument spawned
-  handler task, and adapter-level cancellable stream routing slices;
+  two-argument, three-argument, four-argument, five-argument, six-argument,
+  seven-argument, eight-argument, nine-argument, ten-argument,
+  eleven-argument, twelve-argument, thirteen-argument, and fourteen-argument
+  spawned handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
