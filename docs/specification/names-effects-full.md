@@ -453,6 +453,8 @@ task::spawn_with16(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) -> T 
 task::spawn_with16<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P) -> Task<T> effects [concurrency]
 task::spawn_with17(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q) -> Task<T> effects [concurrency]
 task::spawn_with17<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q) -> Task<T> effects [concurrency]
+task::spawn_with18(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R) -> Task<T> effects [concurrency]
+task::spawn_with18<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -490,6 +492,8 @@ source values and the same optional return-type argument shape.
 `task::spawn_with16` starts a sixteen-argument callable with sixteen ordinary
 source values and the same optional return-type argument shape.
 `task::spawn_with17` starts a seventeen-argument callable with seventeen
+ordinary source values and the same optional return-type argument shape.
+`task::spawn_with18` starts an eighteen-argument callable with eighteen
 ordinary source values and the same optional return-type argument shape.
 Arguments are frozen before crossing into the task, and the result value is
 frozen before it crosses back through the task handle.
