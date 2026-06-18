@@ -1,0 +1,13 @@
+schema BytePrefixReservedGroupHeader
+	format binary
+
+	marker: ReservedBits(8, 171)
+	high: UInt3
+	low: UInt5
+end
+
+pub fn main() -> Result<{high: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("acb1")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	byte_decode_byte_prefix_reserved_group_header(view)
+end

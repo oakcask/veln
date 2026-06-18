@@ -3651,9 +3651,15 @@ fn supported_prefix_reserved_group(
         return false;
     };
     let total_bit_width = bit_width + i64::from(first_bit_width) + i64::from(second_bit_width);
-    bit_width % 8 != 0
+    let supported_one_byte_group = bit_width % 8 != 0
         && (bit_width + i64::from(first_bit_width)) % 8 != 0
-        && total_bit_width == 8
+        && total_bit_width == 8;
+    let supported_two_byte_byte_aligned_prefix = bit_width == 8
+        && first_bit_width % 8 != 0
+        && second_bit_width % 8 != 0
+        && i64::from(first_bit_width) + i64::from(second_bit_width) == 8
+        && total_bit_width == 16;
+    (supported_one_byte_group || supported_two_byte_byte_aligned_prefix)
         && expected_value < (1_i64 << bit_width)
 }
 

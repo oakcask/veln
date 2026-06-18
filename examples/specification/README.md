@@ -505,6 +505,19 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for the two-byte
   reserved prefix group with stable field path, byte offset, bit width,
   expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-byte-group-decode-encode/`: generated
+  schema helpers decode and encode a two-byte big-endian group whose high byte
+  is `ReservedBits(8, value)` and whose low byte is split across two visible
+  `UIntN` fields, omit the reserved field from the value record, and preserve
+  both visible fields.
+- `run/binary-schema-prefix-reserved-byte-group-json/`: generated schema
+  decode helpers report `schema.reserved_bits_mismatch` for the
+  `ReservedBits(8, value)` two-byte prefix group with stable field path, byte
+  offset, bit width, expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`:
+  generated schema encode helpers report `codec.encode_value_unrepresentable`
+  against an out-of-range visible field in the `ReservedBits(8, value)`
+  two-byte prefix group.
 - `run/binary-schema-split-reserved-decode-encode/`: generated schema helpers
   decode and encode one shared non-byte-aligned storage byte containing more
   than one `ReservedBits(width, value)` field, omit both reserved fields from
@@ -982,6 +995,11 @@ against the built `veln` binary.
   visible `UIntN` fields in one shared two-byte big-endian storage unit and
   report `codec.encode_value_unrepresentable` against either visible field
   when the source value is outside its bit range.
+- `run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`:
+  generated schema encode helpers write a declared `ReservedBits(8, value)`
+  prefix before two visible `UIntN` fields in one shared two-byte big-endian
+  storage unit and report `codec.encode_value_unrepresentable` against an
+  out-of-range visible field.
 - `run/binary-schema-split-reserved-decode-encode/`: generated schema encode
   helpers write multiple declared non-byte-aligned reserved fields in one
   shared storage byte with adjacent visible `UIntN` fields and report
