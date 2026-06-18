@@ -302,11 +302,12 @@ bytes plus the static indexed `accept-charset:`,
 `content-location:`, `content-range:`, `content-type:`, `cookie:`, `date:`,
 `etag:`, `expect:`, `from:`, `host:`, `if-match:`, `if-modified-since:`,
 `if-none-match:`, `if-range:`, and `if-unmodified-since:` header bytes, plus
-the no-Huffman literal-without-indexing
-`04 07 2f 74 61 72 67 65 74` header block for `:path: /target`, in completed
-HEADERS frames, returns ordinary header-list data through the same accessors
-as the deterministic fixture-label blocks, advances immutable fixture state,
-and keeps unsupported HPACK bytes on
+no-Huffman literal-without-indexing fixtures whose first byte names a
+supported static-table header name for `:method`, `:path`, or `:scheme` and
+whose short raw value is `PUT`, `/target`, or `https`, in completed HEADERS
+or final CONTINUATION frames, returns ordinary header-list data through the
+same accessors as the deterministic fixture-label blocks, advances immutable
+fixture state, and keeps unsupported HPACK bytes on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -559,8 +560,9 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
 `if-match:`, `0xa7` `if-modified-since:`, `0xa8` `if-none-match:`,
 `0xa9` `if-range:`, and `0xaa` `if-unmodified-since:`
-bytes, plus the no-Huffman literal-without-indexing
-`04 07 2f 74 61 72 67 65 74` header block for `:path: /target`.
+bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
+names a supported static-table header name for `:method`, `:path`, or
+`:scheme` and whose short raw value is `PUT`, `/target`, or `https`.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after

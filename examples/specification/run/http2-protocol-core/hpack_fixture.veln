@@ -76,8 +76,8 @@ fn static_indexed_header(name: String, value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
-fn literal_without_indexing_path_target_headers() -> HpackHeaderList
-	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
+fn literal_without_indexing_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), wire_size)
 end
 
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -116,18 +116,68 @@ fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtur
 	Ok(HpackDecodeTransition(static_indexed_header(name, value), next_state(state)))
 end
 
-fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	Ok(HpackDecodeTransition(literal_without_indexing_path_target_headers(), next_state(state)))
+fn decoded_literal_without_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_without_indexing_headers(name, value, wire_size), next_state(state)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
 end
 
-fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
-	match first_byte == 4 and observed_size == 9
-		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
+fn supported_literal_static_name(index: Int) -> Bool
+	index == 2 or index == 4 or index == 6
+end
+
+fn literal_static_name(index: Int) -> String
+	match index == 2
+		true => ":method"
+		false => match index == 4
+			true => ":path"
+			false => ":scheme"
+		end
+	end
+end
+
+fn is_literal_value_put(block: ByteChunk, value_count: Int) -> Bool
+	match value_count == 3
+		true => byte_at_or_missing(block, 2) == 80 and byte_at_or_missing(block, 3) == 85 and byte_at_or_missing(block, 4) == 84
 		false => false
+	end
+end
+
+fn is_literal_value_path_target(block: ByteChunk, value_count: Int) -> Bool
+	match value_count == 7
+		true => byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
+		false => false
+	end
+end
+
+fn is_literal_value_https(block: ByteChunk, value_count: Int) -> Bool
+	match value_count == 5
+		true => byte_at_or_missing(block, 2) == 104 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 116 and byte_at_or_missing(block, 5) == 112 and byte_at_or_missing(block, 6) == 115
+		false => false
+	end
+end
+
+fn supported_literal_value(block: ByteChunk, value_count: Int) -> Bool
+	is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
+end
+
+fn literal_value(block: ByteChunk, value_count: Int) -> String
+	match is_literal_value_put(block, value_count)
+		true => "PUT"
+		false => match is_literal_value_path_target(block, value_count)
+			true => "/target"
+			false => "https"
+		end
+	end
+end
+
+fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let value_count: Int = byte_at_or_missing(block, 1)
+	match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
+		true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
+		false => unsupported(block, offset)
 	end
 end
 
@@ -187,10 +237,9 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 	match observed_size == 0
 		true => decoded("empty", 0, state)
 		false => match first_byte
-			4 => match is_literal_without_indexing_path_target(block, observed_size, first_byte)
-				true => decoded_literal_without_indexing_path_target(state)
-				false => unsupported(block, offset)
-			end
+			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+			6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			16 => match observed_size == 3
 				true => decoded("single-headers", 8, state)
 				false => unsupported(block, offset)

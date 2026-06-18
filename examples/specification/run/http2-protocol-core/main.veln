@@ -5185,6 +5185,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-literal-path-target", hpack_literal_path_target)
 	let ignored_hpack_literal_path_target: () = emit_header_block("http2-hpack-literal-path-target", hpack_literal_path_target, "04072f746172676574")?
 	print_hpack_transition("hpack-literal-path-target", hpack_literal_path_target)
+	let hpack_literal_method_put: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010203505554")?), state)?
+	print_step("hpack-literal-method-put", hpack_literal_method_put)
+	let ignored_hpack_literal_method_put: () = emit_header_block("http2-hpack-literal-method-put", hpack_literal_method_put, "0203505554")?
+	print_hpack_transition("hpack-literal-method-put", hpack_literal_method_put)
 	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?
 	print_step("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
 	let ignored_hpack_static_indexed_path_index: () = emit_header_block("http2-hpack-static-indexed-path-index", hpack_static_indexed_path_index, "85")?
@@ -5344,6 +5348,8 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_peer_settings("header-list-size", step_state(header_list_too_large))
 	let hpack_fixture_bad: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000017f")?), state)?
 	print_failure("hpack-fixture", hpack_fixture_bad)
+	let hpack_literal_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010480")?), state)?
+	print_failure("hpack-literal-huffman", hpack_literal_huffman)
 	Ok(())
 end
 
