@@ -669,6 +669,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Frame kind {actual_kind} on {stream_ref} {stream_id} did not match expected frame kind {expected_kind}."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -2883,6 +2884,10 @@ mod tests {
             ("stream_id", JsonValue::Number(0)),
             ("stream_ref", JsonValue::string("connection")),
             ("expected_frame_kind", JsonValue::Number(4)),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000000000000", 9, true),
+            ),
             ("active_state", JsonValue::string("connection-control")),
             (
                 "rule_provenance",
@@ -2901,7 +2906,7 @@ mod tests {
 
         assert_eq!(diagnostic.id, "http2.protocol.invalid_frame_kind");
         assert_eq!(diagnostic.message, "invalid frame kind at byte offset 0");
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -2915,10 +2920,15 @@ mod tests {
         assert!(
             diagnostic.related[1]
                 .to_json()
-                .contains("connection-control")
+                .contains("00 00 00 00 00 00 00 00")
         );
         assert!(
             diagnostic.related[2]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("connection_frames_require_settings")
         );
@@ -3297,6 +3307,10 @@ mod tests {
             ("stream_id", JsonValue::Number(1)),
             ("stream_ref", JsonValue::string("stream")),
             ("expected_frame_kind", JsonValue::Number(1)),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000000000000", 9, true),
+            ),
             ("active_state", JsonValue::string("idle-stream")),
             (
                 "rule_provenance",
@@ -3315,7 +3329,7 @@ mod tests {
 
         assert_eq!(diagnostic.id, "http2.protocol.invalid_frame_kind");
         assert_eq!(diagnostic.message, "invalid frame kind at byte offset 0");
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3326,9 +3340,14 @@ mod tests {
                 .to_json()
                 .contains("expected frame kind 1")
         );
-        assert!(diagnostic.related[1].to_json().contains("idle-stream"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 00 00 00 00 00 00")
+        );
+        assert!(diagnostic.related[2].to_json().contains("idle-stream"));
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("idle_streams_require_headers")
         );

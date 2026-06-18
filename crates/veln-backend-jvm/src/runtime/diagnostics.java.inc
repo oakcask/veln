@@ -215,7 +215,8 @@
         long streamId,
         long expectedKind,
         String activeState,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -227,6 +228,7 @@
                     DiagnosticDetail.number("stream_id", streamId),
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                     DiagnosticDetail.number("expected_frame_kind", expectedKind),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", activeState),
                     DiagnosticDetail.string("rule_provenance", ruleProvenance)
                 )

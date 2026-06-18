@@ -40,7 +40,7 @@ equals = "ByteOffset"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.actual_frame_kind"
-equals = 5
+equals = 0
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.stream_id"
@@ -60,7 +60,7 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "0000040504000000"
+equals = "0000000001000000"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
@@ -76,8 +76,8 @@ equals = true
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
-equals = "server-receive"
+equals = "closed-by-peer-stream"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
-equals = "server_receives_no_push_promise"
+equals = "closed_by_peer_rejects_later_frames"

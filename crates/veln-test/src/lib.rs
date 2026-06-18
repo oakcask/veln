@@ -4210,10 +4210,11 @@ mod tests {
             "result\t",
             "485454502f3220696e76616c6964206672616d65206b696e642061742062797465206f66667365742030",
             "\tprotocol_diagnostic\thttp2.protocol.invalid_frame_kind\t0",
-            "\t6\tactual_frame_kind\tnumber\t0",
+            "\t7\tactual_frame_kind\tnumber\t0",
             "\tstream_id\tnumber\t0",
             "\tstream_ref\tstring\t636f6e6e656374696f6e",
             "\texpected_frame_kind\tnumber\t4",
+            "\tbyte_preview\tbyte_preview_v2\t30303030303030303030303030303030:8:9:true",
             "\tactive_state\tstring\t636f6e6e656374696f6e2d636f6e74726f6c",
             "\trule_provenance\tstring\t636f6e6e656374696f6e5f6672616d65735f726571756972655f73657474696e6773\n",
         );
@@ -4233,6 +4234,11 @@ mod tests {
                 "\"stream_id\":0,",
                 "\"stream_ref\":\"connection\",",
                 "\"expected_frame_kind\":4,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"0000000000000000\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true},",
                 "\"active_state\":\"connection-control\",",
                 "\"rule_provenance\":\"connection_frames_require_settings\"}}"
             )
@@ -4362,10 +4368,11 @@ mod tests {
             "result\t",
             "485454502f3220696e76616c6964206672616d65206b696e642061742062797465206f66667365742030",
             "\tprotocol_diagnostic\thttp2.protocol.invalid_frame_kind\t0",
-            "\t6\tactual_frame_kind\tnumber\t0",
+            "\t7\tactual_frame_kind\tnumber\t0",
             "\tstream_id\tnumber\t1",
             "\tstream_ref\tstring\t73747265616d",
             "\texpected_frame_kind\tnumber\t1",
+            "\tbyte_preview\tbyte_preview_v2\t30303030303030303030303030303030:8:9:true",
             "\tactive_state\tstring\t69646c652d73747265616d",
             "\trule_provenance\tstring\t69646c655f73747265616d735f726571756972655f68656164657273\n",
         );
@@ -4385,6 +4392,11 @@ mod tests {
                 "\"stream_id\":1,",
                 "\"stream_ref\":\"stream\",",
                 "\"expected_frame_kind\":1,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"0000000000000000\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true},",
                 "\"active_state\":\"idle-stream\",",
                 "\"rule_provenance\":\"idle_streams_require_headers\"}}"
             )

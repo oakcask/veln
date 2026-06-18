@@ -1648,6 +1648,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-stream-state-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-push-promise-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/case.toml`,
@@ -1664,10 +1665,10 @@ expected payload length including SETTINGS ACK length zero and `RST_STREAM`
 length four, unexpected SETTINGS ACK state, flow-control window credit,
 expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-structured bounded preface and invalid-payload byte preview fields,
-concurrent-stream attempted and allowed counts, required stream id domain,
-endpoint role, PRIORITY dependency stream id, structured bounded PRIORITY
-payload byte preview fields, and rule provenance. The
+structured bounded preface, invalid-frame-kind, and invalid-payload byte
+preview fields, concurrent-stream attempted and allowed counts, required
+stream id domain, endpoint role, PRIORITY dependency stream id, structured
+bounded PRIORITY payload byte preview fields, and rule provenance. The
 focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the

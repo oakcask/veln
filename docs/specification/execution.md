@@ -1076,9 +1076,10 @@ execution reference.
   zero-length SETTINGS ACK frames with no outstanding local SETTINGS state,
   wrong-length SETTINGS ACK payloads with bounded inspected-payload previews,
   stream id domain failures including HEADERS and CONTINUATION on the
-  connection stream, invalid stream-state frame kinds, wrong-length
-  PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads with bounded
-  inspected-payload previews, accepted PING ACK distinction,
+  connection stream, invalid stream-state frame kinds with bounded inspected
+  frame-header previews, wrong-length PING, PRIORITY, GOAWAY, and
+  `RST_STREAM` payloads with bounded inspected-payload previews, accepted PING
+  ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority
   facts by a later accepted PRIORITY frame for the same stream, PRIORITY
