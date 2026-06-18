@@ -104,6 +104,8 @@ behavior.
   [network-stream-task-spawn-with18.md](network-stream-task-spawn-with18.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
+- HTTP/2 HPACK authority static indexed fixture:
+  [http2-hpack-authority-static-indexed-fixture.md](http2-hpack-authority-static-indexed-fixture.md).
 - HTTP/2 HPACK authority literal fixture:
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
 - HTTP/2 HPACK dynamic table fixture:

@@ -1484,9 +1484,10 @@ SETTINGS ACK clears outstanding local SETTINGS state; an ACK with no
 outstanding local SETTINGS is a typed protocol failure. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
-The same HPACK fixture boundary accepts the static indexed `0x82`
-`:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
-`:path: /index.html`, `0x86` `:scheme: http`, `0x87` `:scheme: https`,
+The same HPACK fixture boundary accepts the static indexed `0x81`
+`:authority` with an empty value, `0x82` `:method: GET`, `0x83`
+`:method: POST`, `0x84` `:path: /`, `0x85` `:path: /index.html`, `0x86`
+`:scheme: http`, `0x87` `:scheme: https`,
 `0x88` `:status: 200`, `0x89` `:status: 204`, `0x8a` `:status: 206`,
 `0x8b` `:status: 304`, `0x8c` `:status: 400`, `0x8d` `:status: 404`, and
 `0x8e` `:status: 500`, plus `0x8f` `accept-charset:`,

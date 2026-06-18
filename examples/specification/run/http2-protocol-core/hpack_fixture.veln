@@ -108,6 +108,10 @@ fn static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
 
+fn static_indexed_authority_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":authority", ""), HpackHeader(":fixture", "static-indexed"), 1)
+end
+
 fn static_indexed_method_post_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
 end
@@ -154,6 +158,10 @@ end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_method_get_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_authority_headers(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_post(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -332,6 +340,7 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 	match observed_size == 1
 		false => unsupported(block, offset)
 		true => match first_byte
+			129 => decoded_static_indexed_authority(state)
 			130 => decoded_static_indexed_method_get(state)
 			131 => decoded_static_indexed_method_post(state)
 			132 => decoded_static_indexed_path_root(state)
