@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::Function;
 use veln_ast::FunctionKind;
-use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
+use veln_backend_jvm::{EntryArgScalar, EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::Project;
 use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
@@ -91,18 +91,38 @@ fn validate_entry_args(
     entry: &str,
     entry_args: &[String],
 ) -> Result<Option<Vec<EntryArgType>>, String> {
-    if entry_function.params.len() != entry_args.len() {
+    let fixed_param_count = entry_function
+        .params
+        .iter()
+        .filter(|param| !param.is_variadic)
+        .count();
+    let variadic_param = entry_function.params.iter().find(|param| param.is_variadic);
+    let wrong_count = if variadic_param.is_some() {
+        entry_args.len() < fixed_param_count
+    } else {
+        entry_args.len() != fixed_param_count
+    };
+    if wrong_count {
+        let expects = if variadic_param.is_some() {
+            format!("at least {fixed_param_count}")
+        } else {
+            fixed_param_count.to_string()
+        };
         eprintln!(
-            "veln: run entry `{entry}` expects {} argument(s), got {}",
-            entry_function.params.len(),
+            "veln: run entry `{entry}` expects {expects} argument(s), got {}",
             entry_args.len()
         );
         eprintln!("veln: note: pass entry arguments after `--`");
         return Ok(None);
     }
     let mut entry_arg_types = Vec::new();
-    for (param, raw_arg) in entry_function.params.iter().zip(entry_args.iter()) {
-        let Some(arg_type) = param.ty.as_deref().and_then(entry_arg_type) else {
+    for (param, raw_arg) in entry_function
+        .params
+        .iter()
+        .filter(|param| !param.is_variadic)
+        .zip(entry_args.iter())
+    {
+        let Some(arg_type) = param.ty.as_deref().and_then(entry_arg_scalar) else {
             eprintln!(
                 "veln: run entry parameter `{}` cannot be supplied from a command-line argument",
                 param.name
@@ -116,7 +136,30 @@ fn validate_entry_args(
             eprintln!("{message}");
             return Ok(None);
         }
-        entry_arg_types.push(arg_type);
+        entry_arg_types.push(entry_arg_type_from_scalar(arg_type));
+    }
+    if let Some(param) = variadic_param {
+        let Some(element_type) = param.ty.as_deref().and_then(entry_arg_scalar) else {
+            eprintln!(
+                "veln: run entry parameter `{}` cannot be supplied from command-line arguments",
+                param.name
+            );
+            eprintln!(
+                "veln: note: supported entry argument types are String, Int, Float, and Bool"
+            );
+            return Ok(None);
+        };
+        let tail = &entry_args[fixed_param_count..];
+        for raw_arg in tail {
+            if let Err(message) = validate_entry_arg(element_type, &param.name, raw_arg) {
+                eprintln!("{message}");
+                return Ok(None);
+            }
+        }
+        entry_arg_types.push(EntryArgType::VariadicList {
+            element: element_type,
+            count: tail.len(),
+        });
     }
     Ok(Some(entry_arg_types))
 }
@@ -1362,27 +1405,36 @@ impl RunJsonError {
     }
 }
 
-fn entry_arg_type(ty: &str) -> Option<EntryArgType> {
+fn entry_arg_scalar(ty: &str) -> Option<EntryArgScalar> {
     match ty {
-        "String" => Some(EntryArgType::String),
-        "Int" => Some(EntryArgType::Int),
-        "Float" => Some(EntryArgType::Float),
-        "Bool" => Some(EntryArgType::Bool),
+        "String" => Some(EntryArgScalar::String),
+        "Int" => Some(EntryArgScalar::Int),
+        "Float" => Some(EntryArgScalar::Float),
+        "Bool" => Some(EntryArgScalar::Bool),
         _ => None,
     }
 }
 
-fn validate_entry_arg(ty: EntryArgType, param_name: &str, raw_arg: &str) -> Result<(), String> {
+fn entry_arg_type_from_scalar(ty: EntryArgScalar) -> EntryArgType {
     match ty {
-        EntryArgType::String => Ok(()),
-        EntryArgType::Int => raw_arg.parse::<i64>().map(|_| ()).map_err(|_| {
+        EntryArgScalar::String => EntryArgType::String,
+        EntryArgScalar::Int => EntryArgType::Int,
+        EntryArgScalar::Float => EntryArgType::Float,
+        EntryArgScalar::Bool => EntryArgType::Bool,
+    }
+}
+
+fn validate_entry_arg(ty: EntryArgScalar, param_name: &str, raw_arg: &str) -> Result<(), String> {
+    match ty {
+        EntryArgScalar::String => Ok(()),
+        EntryArgScalar::Int => raw_arg.parse::<i64>().map(|_| ()).map_err(|_| {
             format!("veln: invalid Int argument for parameter `{param_name}`: `{raw_arg}`")
         }),
-        EntryArgType::Float => raw_arg.parse::<f64>().map(|_| ()).map_err(|_| {
+        EntryArgScalar::Float => raw_arg.parse::<f64>().map(|_| ()).map_err(|_| {
             format!("veln: invalid Float argument for parameter `{param_name}`: `{raw_arg}`")
         }),
-        EntryArgType::Bool if raw_arg == "true" || raw_arg == "false" => Ok(()),
-        EntryArgType::Bool => Err(format!(
+        EntryArgScalar::Bool if raw_arg == "true" || raw_arg == "false" => Ok(()),
+        EntryArgScalar::Bool => Err(format!(
             "veln: invalid Bool argument for parameter `{param_name}`: `{raw_arg}`"
         )),
     }

@@ -1,0 +1,8 @@
+# Spread-style call arguments are outside the proposed first variadic slice.
+fn collect(values: List<String>) -> Int
+	0
+end
+
+fn call_with_spread(values: List<String>) -> Int
+	collect(...values)
+end

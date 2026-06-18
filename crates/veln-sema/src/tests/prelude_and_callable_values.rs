@@ -6380,6 +6380,7 @@ fn lowers_function_declarations_as_callable_values() {
         args[1].ty,
         CoreType::Function {
             params: vec![CoreType::int()],
+            variadic: None,
             return_type: Box::new(CoreType::string()),
             effects: Vec::new()
         }
@@ -6433,6 +6434,7 @@ fn lowers_function_return_types_with_effects() {
         factory.return_type,
         CoreType::Function {
             params: vec![CoreType::string()],
+            variadic: None,
             return_type: Box::new(CoreType::unit()),
             effects: vec!["stdio".to_string()],
         }

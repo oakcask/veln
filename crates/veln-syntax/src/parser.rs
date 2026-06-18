@@ -1262,7 +1262,11 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
             let name = self.expect_ident("function_parameters", "parameter name");
+            let mut is_variadic = false;
             let ty = self.eat(TokenKind::Colon).map(|_| {
+                if self.eat_variadic_marker() {
+                    is_variadic = true;
+                }
                 self.collect_type_until(
                     "function_parameters",
                     &[TokenKind::Comma, TokenKind::RParen, TokenKind::Eof],
@@ -1272,6 +1276,7 @@ impl<'a> Parser<'a> {
             params.push(Param {
                 name: name.unwrap_or_default(),
                 ty,
+                is_variadic,
                 span: self.source.span(start.cover(end)),
             });
             if self.eat(TokenKind::Comma).is_none() {
@@ -1279,6 +1284,20 @@ impl<'a> Parser<'a> {
             }
         }
         params
+    }
+
+    fn eat_variadic_marker(&mut self) -> bool {
+        if self.at(TokenKind::Dot)
+            && self.peek_at(TokenKind::Dot)
+            && self.peek_kind(2) == Some(TokenKind::Dot)
+        {
+            self.bump();
+            self.bump();
+            self.bump();
+            true
+        } else {
+            false
+        }
     }
 
     fn parse_effect_list(&mut self) -> Vec<String> {

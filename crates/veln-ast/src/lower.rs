@@ -374,6 +374,7 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: param.name.clone(),
                     ty: param.ty.clone(),
+                    is_variadic: param.is_variadic,
                     span: param.span.clone(),
                 })
                 .collect(),

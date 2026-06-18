@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["call expects at least 1 argument(s), but got 0"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "core.call_arity_mismatch"
+severity = "error"
+kind = "type"
+message = "call expects at least 1 argument(s), but got 0"
+
+[diagnostics.span]
+file = "main.veln"
+line = 7
+column = 2

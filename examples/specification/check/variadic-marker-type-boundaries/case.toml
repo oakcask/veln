@@ -1,0 +1,39 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"actual_type\":\"... String\"", "\"actual_type\":\"List<...String>\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `List<...String>`: expected type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 3
+column = 25
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `... String`: expected type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 8
+column = 2

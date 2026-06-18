@@ -1,4 +1,5 @@
 use super::*;
+use veln_core::CoreExpr;
 
 #[test]
 fn match_exhaustiveness_reports_missing_result_case() {
@@ -110,6 +111,112 @@ fn accepts_float_numeric_operators() {
             ..
         } if name == "float_less"
     ));
+}
+
+#[test]
+fn variadic_parameter_lowers_body_binding_to_list() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn collect(values: ...Int) -> List<Int>\n",
+            "  values\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let collect = core
+        .functions
+        .iter()
+        .find(|function| function.name == "collect")
+        .expect("collect should be lowered");
+    assert_eq!(
+        collect.params[0].ty,
+        CoreType::named("List", vec![CoreType::int()])
+    );
+}
+
+#[test]
+fn variadic_call_lowers_tail_arguments_to_list() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn collect(prefix: String, values: ...Int) -> List<Int>\n",
+            "  values\n",
+            "end\n",
+            "pub fn main() -> List<Int>\n",
+            "  collect(\"ok\", 1, 2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert_eq!(args.len(), 2);
+    assert_eq!(core_list_len(&args[1]), 2);
+}
+
+#[test]
+fn variadic_pipeline_lowers_shifted_tail_arguments_to_list() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn collect(values: ...String) -> List<String>\n",
+            "  values\n",
+            "end\n",
+            "pub fn main() -> List<String>\n",
+            "  \"red\" |> collect(\"green\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert_eq!(args.len(), 1);
+    assert_eq!(core_list_len(&args[0]), 2);
+}
+
+fn core_list_len(expr: &CoreExpr) -> usize {
+    match &expr.kind {
+        CoreExprKind::ListNil => 0,
+        CoreExprKind::ListCons { tail, .. } => 1 + core_list_len(tail),
+        other => panic!("expected list expression, got {other:?}"),
+    }
 }
 
 #[test]

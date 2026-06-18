@@ -7,7 +7,8 @@ full type reference.
 
 - Type annotations include primitives, descriptor-backed `Option`, `Result`,
   `List`, source-declared ADTs, built-in containers, records, function types,
-  named type paths, and optional result bindings. Type constructor arguments
+  named type paths, and optional result bindings. Function type parameter
+  lists may use a final variadic `...T` element. Type constructor arguments
   use angle brackets; parenthesized type constructor arguments are rejected in
   source type positions.
 - Local inference is monomorphic and flow-sensitive within one function body.
@@ -24,7 +25,8 @@ full type reference.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
-  checks records by required fields. `Path` is distinct from `String`; the
+  checks records by required fields. Function compatibility preserves
+  fixed-arity versus variadic shape. `Path` is distinct from `String`; the
   runtime path representation is not source-visible.
 - Operators use the implemented `Bool`, `Int`, and `Float` rules.
 

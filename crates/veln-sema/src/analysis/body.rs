@@ -349,6 +349,12 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn check_function_annotations(&mut self) {
+        let variadic_count = self
+            .function
+            .params
+            .iter()
+            .filter(|param| param.is_variadic)
+            .count();
         for param in &self.function.params {
             let ty = param.ty.as_deref().and_then(|annotation| {
                 self.parse_annotation(
@@ -359,6 +365,46 @@ impl<'a> FunctionChecker<'a> {
                     "Parameter type declared here.",
                 )
             });
+            if param.is_variadic {
+                if param.ty.as_deref().is_none_or(str::is_empty) {
+                    self.push_variadic_parameter_diagnostic(
+                        param.node_id,
+                        param.span.clone(),
+                        "type.variadic_parameter_type",
+                        format!(
+                            "variadic parameter `{}` is missing an element type",
+                            param.name
+                        ),
+                        "element_type",
+                    );
+                }
+                if self
+                    .function
+                    .params
+                    .last()
+                    .is_some_and(|last| last.node_id != param.node_id)
+                {
+                    self.push_variadic_parameter_diagnostic(
+                        param.node_id,
+                        param.span.clone(),
+                        "type.variadic_parameter_position",
+                        format!(
+                            "variadic parameter `{}` must be the final parameter",
+                            param.name
+                        ),
+                        "final_parameter",
+                    );
+                }
+                if variadic_count > 1 {
+                    self.push_variadic_parameter_diagnostic(
+                        param.node_id,
+                        param.span.clone(),
+                        "type.variadic_parameter_duplicate",
+                        "function parameter list has more than one variadic parameter".to_string(),
+                        "single_variadic_parameter",
+                    );
+                }
+            }
             if !self.declare_local_name(
                 &param.name,
                 param.node_id.display("param"),
@@ -369,7 +415,13 @@ impl<'a> FunctionChecker<'a> {
             }
             self.bindings.push(Binding {
                 name: param.name.clone(),
-                ty: ty.map_or(Type::Unknown, |expected| expected.ty),
+                ty: ty.map_or(Type::Unknown, |expected| {
+                    if param.is_variadic {
+                        Type::named("List", vec![expected.ty])
+                    } else {
+                        expected.ty
+                    }
+                }),
             });
         }
 
@@ -420,6 +472,30 @@ impl<'a> FunctionChecker<'a> {
             ]));
             self.diagnostics.push(diagnostic);
         }
+    }
+
+    fn push_variadic_parameter_diagnostic(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        id: &'static str,
+        message: String,
+        expected: &'static str,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            id,
+            Severity::Error,
+            DiagnosticKind::Type,
+            message,
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(node_id.display("param"))),
+                ("expected", JsonValue::string(expected)),
+                ("actual", JsonValue::string("variadic_parameter")),
+                ("constraint", JsonValue::string("function_parameter_shape")),
+            ]),
+        ));
     }
 
     pub(super) fn declare_local_name(
@@ -1258,7 +1334,7 @@ impl<'a> FunctionChecker<'a> {
             return Some(Type::Unknown);
         }
 
-        let (params, return_type, origin) = self.call_signature(
+        let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
             args.first()
@@ -1276,8 +1352,20 @@ impl<'a> FunctionChecker<'a> {
                 symbol: origin.symbol.clone(),
             });
         }
+        self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
+        Some(return_type)
+    }
+
+    fn check_call_arguments(
+        &mut self,
+        args: &[Expr],
+        params: &[Type],
+        variadic: Option<&Type>,
+        origin: &CallOrigin,
+    ) {
         for (index, arg) in args.iter().enumerate() {
-            let Some(param_type) = params.get(index) else {
+            let param_type = params.get(index).or(variadic);
+            let Some(param_type) = param_type else {
                 self.infer_expr(arg, None);
                 continue;
             };
@@ -1291,7 +1379,6 @@ impl<'a> FunctionChecker<'a> {
             let actual = self.infer_expr(arg, Some(&expected));
             self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
         }
-        Some(return_type)
     }
 
     pub(super) fn infer_prelude_call(
@@ -1448,7 +1535,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&Type>,
         handle_type: Option<&Type>,
         arg_count: Option<usize>,
-    ) -> Option<(Vec<Type>, Type, CallOrigin)> {
+    ) -> Option<(Vec<Type>, Option<Type>, Type, CallOrigin)> {
         let bindings = self
             .bindings
             .iter()
@@ -1466,7 +1553,12 @@ impl<'a> FunctionChecker<'a> {
             self.environment,
             self.function.module_name.as_deref(),
         )?;
-        Some((signature.params, signature.return_type, signature.origin))
+        Some((
+            signature.params,
+            signature.variadic,
+            signature.return_type,
+            signature.origin,
+        ))
     }
 
     fn bare_call_is_ambiguous(&self, callee: &Expr) -> bool {
@@ -2307,7 +2399,7 @@ impl<'a> FunctionChecker<'a> {
             },
             ExprKind::Call { callee, .. } => self
                 .call_signature(callee, None, None, None)
-                .map(|(_, return_type, _)| return_type),
+                .map(|(_, _, return_type, _)| return_type),
             _ => None,
         }
     }

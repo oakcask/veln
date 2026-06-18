@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.field_access\"", "\"parser_context\":\"expression_line\"", "\"unexpected\":{\"kind\":\".\",\"text\":\".\"}"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "parse.field_access"
+severity = "error"
+kind = "parse"
+message = "field access is missing a field name"
+
+[diagnostics.span]
+file = "main.veln"
+line = 7
+column = 12

@@ -1,0 +1,4 @@
+# Variadic entry argument elements must be command-line convertible.
+pub fn main(values: ...List<String>) -> () effects [stdio]
+	()
+end

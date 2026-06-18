@@ -243,6 +243,7 @@ pub struct Param {
     pub node_id: NodeId,
     pub name: String,
     pub ty: Option<String>,
+    pub is_variadic: bool,
     pub span: SourceSpan,
 }
 

@@ -24,8 +24,9 @@ mod java;
 mod runtime;
 
 pub use api::{
-    EntryArgType, JvmBackendOptions, JvmClassFile, JvmProgram, generate_classfiles_with_entry,
-    generate_classfiles_with_entry_arg_types, generate_classfiles_with_entry_arg_types_options,
+    EntryArgScalar, EntryArgType, JvmBackendOptions, JvmClassFile, JvmProgram,
+    generate_classfiles_with_entry, generate_classfiles_with_entry_arg_types,
+    generate_classfiles_with_entry_arg_types_options,
 };
 
 #[cfg(test)]

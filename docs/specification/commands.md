@@ -34,8 +34,9 @@ requiring the full command reference on the first read.
   contracts, doctest fences, and ADR-lite records. Use
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
-- `run`: entry resolution, argument conversion, static gates, direct JVM
-  classfile execution without an ordinary Java source compiler requirement,
+- `run`: entry resolution, fixed and variadic entry argument conversion,
+  static gates, direct JVM classfile execution without an ordinary Java source
+  compiler requirement,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,

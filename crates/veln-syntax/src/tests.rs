@@ -36,6 +36,26 @@ fn parses_minimal_public_function() {
 }
 
 #[test]
+fn parses_and_formats_variadic_parameter_marker() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn collect(prefix: String, values: ...String) -> String\n  prefix\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert!(!function.params[0].is_variadic);
+    assert!(function.params[1].is_variadic);
+    assert_eq!(function.params[1].ty.as_deref(), Some("String"));
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn collect(prefix: String, values: ...String) -> String\n\tprefix\nend\n"
+    );
+}
+
+#[test]
 fn parses_public_member_aliases() {
     let source = SourceFile::new(
         "api.veln",

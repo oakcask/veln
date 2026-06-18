@@ -1,10 +1,10 @@
 # Function Variadic Arguments
 
-Status: proposed
+Status: implemented
 
 This proposal defines source-level variadic function parameters for ordinary
-functions and function values. It is not current language behavior until the
-matching specification page and executable examples state it.
+functions and function values. Current behavior is specified under
+`../../specification/` and checked by executable specification examples.
 
 ## Problem
 
