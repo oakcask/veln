@@ -1749,6 +1749,130 @@ fn generated_schema_helpers_accept_min_width_two_byte_prefix_reserved_group_bits
 }
 
 #[test]
+fn generated_schema_helpers_accept_three_byte_prefix_reserved_group_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(9, 341)\n",
+            "  high: UInt8\n",
+            "  low: UInt7\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{high: Int, low: Int}, String>\n",
+            "  byte_decode_three_byte_prefix_reserved_group_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_three_byte_prefix_reserved_group_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "three-byte prefix reserved group bits should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("prefix", 0, 0, Some((9, 341))),
+            ("high", 1, 255, None),
+            ("low", 1, 127, None),
+        ]
+    );
+}
+
+#[test]
+fn generated_schema_helpers_reject_malformed_three_byte_prefix_reserved_group_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema TooWideThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(9, 341)\n",
+            "  high: UInt8\n",
+            "  low: UInt8\n",
+            "end\n",
+            "\n",
+            "schema TooNarrowThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(9, 341)\n",
+            "  high: UInt8\n",
+            "  low: UInt6\n",
+            "end\n",
+            "\n",
+            "schema TooWideVisibleThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(1, 1)\n",
+            "  high: UInt16be\n",
+            "  low: UInt7\n",
+            "end\n",
+            "\n",
+            "schema LittleEndianThreeBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(1, 1)\n",
+            "  high: UInt16le\n",
+            "  low: UInt7\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let unsupported_shapes = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "schema.reserved_bits_encode"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"unsupported_encode_shape\"")
+        })
+        .count();
+    assert_eq!(
+        unsupported_shapes, 4,
+        "malformed three-byte prefix reserved group bits should be rejected: {:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "malformed three-byte prefix reserved group bits should not emit typed IR"
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_split_reserved_bit_groups() {
     let source = SourceFile::new(
         "main.veln",

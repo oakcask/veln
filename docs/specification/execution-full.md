@@ -147,10 +147,13 @@ primitive whose width completes the same three-byte big-endian storage unit,
 and widths twenty-five through thirty-one may be followed by the visible
 `UIntN` primitive whose width completes the same four-byte big-endian storage
 unit. A supported prefix group may also place `ReservedBits(width, value)`
-before two visible `UIntN` fields when all three widths complete one byte or
-a two-byte big-endian storage unit. In the two-byte form, reserved prefix
-widths one through fourteen are accepted when the two visible fields complete
-the remaining bits in declaration order.
+before two visible sub-byte or byte-width `UIntN` fields when all three widths
+complete one byte, a two-byte big-endian storage unit, or a three-byte
+big-endian storage unit. In the two-byte form, reserved prefix widths one
+through fourteen are accepted when the two visible fields complete the
+remaining bits in declaration order; in the three-byte form, non-byte-aligned
+reserved prefix widths are accepted when the two visible fields complete the
+remaining bits in declaration order.
 The helper validates the high reserved bits, decodes the following visible
 bits from their declared high-to-low positions as ordinary `Int` values,
 omits the reserved field from decoded records and mapping source values, and
@@ -442,12 +445,15 @@ whose width completes the same one-byte, two-byte, three-byte, or four-byte
 big-endian storage unit is also representation-only: the helper emits the
 high reserved bits from the declared value and the low visible bits from the
 encoder input record. A supported prefix group with
-`ReservedBits(width, value)` followed by two visible `UIntN` fields whose
-widths complete one byte or a two-byte big-endian storage unit writes the
-declared reserved value first, then the two visible values in declaration
-order. The two-byte encode form accepts reserved prefix widths one through
-fourteen when the visible fields complete the remaining bits, and reports
-`codec.encode_value_unrepresentable` at the out-of-range visible field. A
+`ReservedBits(width, value)` followed by two visible sub-byte or byte-width
+`UIntN` fields whose widths complete one byte, a two-byte big-endian storage
+unit, or a three-byte big-endian storage unit writes the declared reserved
+value first, then the two visible values in declaration order. The two-byte
+encode form accepts reserved prefix widths one through fourteen when the
+visible fields complete the remaining bits, the three-byte encode form
+accepts non-byte-aligned reserved prefix widths when the visible fields
+complete the remaining bits, and reports `codec.encode_value_unrepresentable`
+at the out-of-range visible field. A
 visible `UIntN` field followed by a
 `ReservedBits(width, value)` suffix that completes the same one-byte,
 two-byte, three-byte, or four-byte big-endian storage unit is
