@@ -1499,12 +1499,13 @@ expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface and invalid-payload byte preview fields,
 concurrent-stream attempted and allowed counts, required stream id domain,
-endpoint role, PRIORITY dependency stream id, and rule provenance. The
+endpoint role, PRIORITY dependency stream id, structured bounded PRIORITY
+payload byte preview fields, and rule provenance. The
 focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the
 general schema helper path as well as the larger protocol-core fixture. The
-preface human cases also check nearby-byte notes rendered as
+preface and PRIORITY dependency human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
 projection, and the flow-control command fixtures cover stream

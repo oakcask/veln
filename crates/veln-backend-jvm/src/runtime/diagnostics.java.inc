@@ -349,7 +349,8 @@
         long streamId,
         long dependencyStreamId,
         String activeState,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -361,6 +362,7 @@
                     DiagnosticDetail.number("stream_id", streamId),
                     DiagnosticDetail.string("stream_ref", "stream"),
                     DiagnosticDetail.number("dependency_stream_id", dependencyStreamId),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", activeState),
                     DiagnosticDetail.string("rule_provenance", ruleProvenance)
                 )

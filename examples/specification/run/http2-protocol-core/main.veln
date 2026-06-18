@@ -170,7 +170,7 @@ type Http2ProtocolFailure
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidDataPadding(Int, Int, Int, Int, String, String, ByteView)
 	UnexpectedSettingsAck(Int, String, String)
-	InvalidPriorityDependency(Int, Int, Int, String, String)
+	InvalidPriorityDependency(Int, Int, Int, String, String, ByteView)
 	StreamAfterGoaway(Int, Int, Int, String, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
 	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
@@ -610,7 +610,7 @@ fn validate_priority_dependency_payload(offset: Int, payload: ByteChunk, stream_
 	let payload_view: ByteView = byte_view(payload, byte_offset(0)?, byte_count(5)?)?
 	let dependency_stream_id: Int = priority_dependency_stream_id(payload_view)?
 	match dependency_stream_id == stream_id
-		true => Ok(PriorityDependencyFailed(InvalidPriorityDependency(offset, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency")))
+		true => Ok(PriorityDependencyFailed(InvalidPriorityDependency(offset, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency", payload_view)))
 		false => Ok(PriorityDependencyOk)
 	end
 end
@@ -1425,7 +1425,7 @@ end
 
 fn validate_outbound_priority_dependency(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPriorityDecision, String>
 	match stream_id == dependency_stream_id
-		true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidPriorityDependency(0, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency")))
+		true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidPriorityDependency(0, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency", empty_byte_preview()?)))
 		false => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
 	end
 end
@@ -2708,7 +2708,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _) => failure_rule_provenance(error)
-		InvalidPriorityDependency(_, _, _, _, _) => failure_rule_provenance(error)
+		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3178,7 +3178,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _) => failure_rule_provenance(error)
-		InvalidPriorityDependency(_, _, _, _, _) => failure_rule_provenance(error)
+		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3463,7 +3463,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "http2.protocol.invalid_data_padding"
 		UnexpectedSettingsAck(_, _, _) => "http2.protocol.unexpected_settings_ack"
-		InvalidPriorityDependency(_, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(_, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
@@ -3485,7 +3485,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(offset, _, _, _, _, _, _, _) => offset
 		InvalidDataPadding(offset, _, _, _, _, _, _) => offset
 		UnexpectedSettingsAck(offset, _, _) => offset
-		InvalidPriorityDependency(offset, _, _, _, _) => offset
+		InvalidPriorityDependency(offset, _, _, _, _, _) => offset
 		StreamAfterGoaway(offset, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
 		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
@@ -3507,7 +3507,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3529,7 +3529,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 4
-		InvalidPriorityDependency(_, _, _, _, _) => 2
+		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
 		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
@@ -3551,7 +3551,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _, _) => actual_stream
 		InvalidDataPadding(_, actual_stream, _, _, _, _, _) => actual_stream
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, stream_id, _, _, _) => stream_id
+		InvalidPriorityDependency(_, stream_id, _, _, _, _) => stream_id
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
 		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
@@ -3573,7 +3573,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
+		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3595,7 +3595,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 4
-		InvalidPriorityDependency(_, _, _, _, _) => 2
+		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3617,7 +3617,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3639,7 +3639,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3661,7 +3661,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
 		InvalidDataPadding(_, _, pad_length, _, _, _, _) => pad_length
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
 		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
@@ -3683,7 +3683,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
 		InvalidDataPadding(_, _, _, remaining_payload_length, _, _, _) => remaining_payload_length
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
+		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
@@ -3705,7 +3705,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, active_state, _, _) => active_state
 		InvalidDataPadding(_, _, _, _, active_state, _, _) => active_state
 		UnexpectedSettingsAck(_, active_state, _) => active_state
-		InvalidPriorityDependency(_, _, _, active_state, _) => active_state
+		InvalidPriorityDependency(_, _, _, active_state, _, _) => active_state
 		StreamAfterGoaway(_, _, _, shutdown_state, _, _) => shutdown_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
@@ -3727,7 +3727,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		InvalidDataPadding(_, _, _, _, _, rule_provenance, _) => rule_provenance
 		UnexpectedSettingsAck(_, _, rule_provenance) => rule_provenance
-		InvalidPriorityDependency(_, _, _, _, rule_provenance) => rule_provenance
+		InvalidPriorityDependency(_, _, _, _, rule_provenance, _) => rule_provenance
 		StreamAfterGoaway(_, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
@@ -3749,7 +3749,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
-		InvalidPriorityDependency(_, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -3771,7 +3771,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3793,7 +3793,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
-		InvalidPriorityDependency(_, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -3815,7 +3815,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3837,7 +3837,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3859,7 +3859,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -3881,7 +3881,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
-		InvalidPriorityDependency(_, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -3964,7 +3964,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance)
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 		UnexpectedSettingsAck(offset, active_state, rule_provenance) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
-		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance)
+		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => http2_peer_limit_frame_size_exceeded(offset, observed_length, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit))
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance)
@@ -3987,7 +3987,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
-		InvalidPriorityDependency(_, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -4009,7 +4009,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
-		InvalidPriorityDependency(_, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, endpoint_role, _) => endpoint_role
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -4032,7 +4032,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
-		InvalidPriorityDependency(_, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0

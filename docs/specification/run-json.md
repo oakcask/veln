@@ -351,7 +351,8 @@ outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 and `rule_provenance`. A PRIORITY frame whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
-`dependency_stream_id`, `active_state`, and `rule_provenance`.
+`dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
+structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with

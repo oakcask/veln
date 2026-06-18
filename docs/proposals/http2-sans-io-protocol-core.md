@@ -523,7 +523,8 @@ retargeting stream state. PRIORITY on stream id zero uses the existing stream
 id domain failure, wrong-length PRIORITY payloads use
 `http2.protocol.invalid_payload_length`, and PRIORITY self-dependency uses
 `http2.protocol.invalid_priority_dependency` in ordinary output, human
-diagnostics, and JSON `protocol_diagnostic` details.
+diagnostics, and JSON `protocol_diagnostic` details with a bounded preview of
+the inspected PRIORITY payload bytes.
 The implemented slice also recognizes `PUSH_PROMISE` as a known HTTP/2 frame
 kind before unknown extension-frame fallback. In the server-side receive core,
 `PUSH_PROMISE` on a nonzero client-initiated stream is rejected through the

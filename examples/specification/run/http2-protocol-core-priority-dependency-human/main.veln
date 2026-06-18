@@ -1,7 +1,7 @@
 # HTTP/2 PRIORITY self-dependency failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidPriorityDependency(Int, Int, Int)
+	InvalidPriorityDependency(Int, Int, Int, ByteView)
 end
 
 type Http2DiagnosticContext
@@ -22,11 +22,13 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidPriorityDependency(offset, stream_id, dependency_stream_id) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, context_active_state(context), context_rule_provenance(context))
+		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, preview) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let context: Http2DiagnosticContext = DiagnosticContext("stream-control", "rfc9113_priority_dependency")
-	http2_protocol_diagnostic(InvalidPriorityDependency(0, 1, 1), context)
+	let bytes: ByteChunk = byte_chunk_from_hex("000000010f")?
+	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	http2_protocol_diagnostic(InvalidPriorityDependency(0, 1, 1, preview), context)
 end

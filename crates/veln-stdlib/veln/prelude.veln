@@ -340,8 +340,8 @@ pub fn http2_protocol_unexpected_settings_ack(offset: Int, active_state: String,
 	prelude_builtin::http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
 end
 
-pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String) -> Result<(), String>
-	prelude_builtin::http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance)
+pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
 end
 
 pub fn http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
