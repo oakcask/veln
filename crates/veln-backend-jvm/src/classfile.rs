@@ -9,7 +9,7 @@ use veln_ir::{
     IrSchemaDecodeMappingExpr, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 
-use crate::api::{EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
+use crate::api::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
 use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
 use crate::runtime::{
     binary_method, concurrency_method, prelude_method, standard_library_method, stdio_method,
@@ -155,32 +155,86 @@ impl<'a> ClassfileEmitter<'a> {
         code: &mut MethodCode,
         entry_arg_types: &[EntryArgType],
     ) {
-        for (index, ty) in entry_arg_types.iter().enumerate() {
-            code.aload(0);
-            code.push_i32(index as i32);
-            code.op(0x32);
-            self.emit_entry_argument_conversion(code, ty);
+        let mut raw_index = 0usize;
+        for ty in entry_arg_types {
+            match ty {
+                EntryArgType::String => {
+                    self.emit_entry_scalar_argument(code, raw_index, EntryArgScalar::String);
+                    raw_index += 1;
+                }
+                EntryArgType::Int => {
+                    self.emit_entry_scalar_argument(code, raw_index, EntryArgScalar::Int);
+                    raw_index += 1;
+                }
+                EntryArgType::Float => {
+                    self.emit_entry_scalar_argument(code, raw_index, EntryArgScalar::Float);
+                    raw_index += 1;
+                }
+                EntryArgType::Bool => {
+                    self.emit_entry_scalar_argument(code, raw_index, EntryArgScalar::Bool);
+                    raw_index += 1;
+                }
+                EntryArgType::VariadicList { element, count } => {
+                    self.emit_entry_variadic_list(code, raw_index, *element, *count);
+                    raw_index += count;
+                }
+            }
         }
     }
 
-    fn emit_entry_argument_conversion(&self, code: &mut MethodCode, ty: &EntryArgType) {
+    fn emit_entry_scalar_argument(
+        &self,
+        code: &mut MethodCode,
+        raw_index: usize,
+        ty: EntryArgScalar,
+    ) {
+        code.aload(0);
+        code.push_i32(raw_index as i32);
+        code.op(0x32);
+        self.emit_entry_argument_conversion(code, ty);
+    }
+
+    fn emit_entry_argument_conversion(&self, code: &mut MethodCode, ty: EntryArgScalar) {
         match ty {
-            EntryArgType::String => {}
-            EntryArgType::Int => {
+            EntryArgScalar::String => {}
+            EntryArgScalar::Int => {
                 code.invokestatic("java/lang/Long", "parseLong", "(Ljava/lang/String;)J");
                 code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
             }
-            EntryArgType::Float => {
+            EntryArgScalar::Float => {
                 code.invokestatic("java/lang/Double", "parseDouble", "(Ljava/lang/String;)D");
                 code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
             }
-            EntryArgType::Bool => {
+            EntryArgScalar::Bool => {
                 code.invokestatic(
                     "java/lang/Boolean",
                     "valueOf",
                     "(Ljava/lang/String;)Ljava/lang/Boolean;",
                 );
             }
+        }
+    }
+
+    fn emit_entry_variadic_list(
+        &self,
+        code: &mut MethodCode,
+        raw_start: usize,
+        element: EntryArgScalar,
+        count: usize,
+    ) {
+        code.invokestatic(
+            &self.options.runtime_class,
+            "listNil",
+            "()Ljava/lang/Object;",
+        );
+        for index in (0..count).rev() {
+            self.emit_entry_scalar_argument(code, raw_start + index, element);
+            code.op(0x5f);
+            code.invokestatic(
+                &self.options.runtime_class,
+                "listCons",
+                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            );
         }
     }
 

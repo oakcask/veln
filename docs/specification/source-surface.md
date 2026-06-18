@@ -18,9 +18,12 @@ smallest section to read before opening the full grammar notes.
   visible hash comments inside doctests, and negative examples:
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
-  pipelines, standard channel and task calls including `task::spawn_with18`,
-  and method-call diagnostics:
+  pipelines, ordinary and variadic calls, standard channel and task calls
+  including `task::spawn_with18`, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
+- Function declaration parameters may use the final-only variadic spelling
+  `name: ...T`; ordinary type positions reject `...T`:
+  [source-surface-full.md#grammar](source-surface-full.md#grammar).
 - Contract predicate grammar:
   [source-surface-full.md](source-surface-full.md#contract-predicates).
 

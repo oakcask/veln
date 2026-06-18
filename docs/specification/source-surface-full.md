@@ -48,7 +48,8 @@ TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
 TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
-Param         ::= Name (":" TypeText)?
+Param         ::= Name (":" VariadicMarker? TypeText)?
+VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
@@ -88,6 +89,11 @@ uppercase. `BindingName` is an unqualified identifier whose first character is
 not uppercase. `TypeText` is collected from source and parsed by the semantic
 type parser. Contract predicates parse through a narrower predicate production
 before semantic contract validation.
+
+A function declaration parameter may be variadic by writing `name: ...T`.
+Only the final parameter may be variadic, and a function may have at most one
+variadic parameter. The marker belongs to parameter syntax; ordinary local,
+field, record, and type argument annotations reject `...T`.
 
 Schema declarations are top-level source module items. `schema Name` is
 private to its source module, and `pub schema Name` records public schema
@@ -486,8 +492,11 @@ reference as a reference to the same source module. `use` alias-qualified
 references keep the imported module identity. Bare local bindings, parameters,
 and match-pattern bindings shadow same-named function declarations for this
 reachability rule. Calls through a function-typed local binding or parameter
-conservatively include visible function declarations with the same argument
-count when surface reachability cannot prove one concrete declaration target.
+conservatively include visible function declarations with the same function
+shape when surface reachability cannot prove one concrete declaration target.
+Fixed-arity callables use the exact argument count. Variadic callables use the
+same fixed parameter count and variadic element type, and a written call with
+fewer than the fixed parameter count does not add variadic function targets.
 
 A public member alias publishes an existing function, source ADT member, or
 schema member through the declaring module's public path without introducing a

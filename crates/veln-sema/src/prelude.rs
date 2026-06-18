@@ -548,6 +548,7 @@ fn prelude_vec_callback_signature(
                 Type::vec(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
                 },
@@ -559,6 +560,7 @@ fn prelude_vec_callback_signature(
                 Type::vec(vec_item.clone()),
                 Type::Function {
                     params: vec![vec_item.clone()],
+                    variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
                 },
@@ -571,6 +573,7 @@ fn prelude_vec_callback_signature(
                 expected.direct.clone(),
                 Type::Function {
                     params: vec![expected.direct.clone(), Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
                 },
@@ -626,6 +629,7 @@ fn prelude_list_callback_signature(
                 adt::list_type(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(list_item.clone()),
                     effects: Vec::new(),
                 },
@@ -637,6 +641,7 @@ fn prelude_list_callback_signature(
                 adt::list_type(list_item.clone()),
                 Type::Function {
                     params: vec![list_item.clone()],
+                    variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
                 },
@@ -649,6 +654,7 @@ fn prelude_list_callback_signature(
                 expected.direct.clone(),
                 Type::Function {
                     params: vec![expected.direct.clone(), Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
                 },
@@ -715,6 +721,7 @@ fn prelude_option_signature(
                 adt::option_type(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
                 },
@@ -726,6 +733,7 @@ fn prelude_option_signature(
                 adt::option_type(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(adt::option_type(option_item.clone())),
                     effects: Vec::new(),
                 },
@@ -755,6 +763,7 @@ fn prelude_result_signature(
                 adt::result_type(Type::Unknown, result_error.clone()),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
                 },
@@ -766,6 +775,7 @@ fn prelude_result_signature(
                 adt::result_type(result_value.clone(), Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
                 },
@@ -777,6 +787,7 @@ fn prelude_result_signature(
                 adt::result_type(Type::Unknown, result_error.clone()),
                 Type::Function {
                     params: vec![Type::Unknown],
+                    variadic: None,
                     return_type: Box::new(adt::result_type(
                         result_value.clone(),
                         result_error.clone(),
@@ -808,6 +819,7 @@ fn vec_try_map_signature(
     callback_params.push(Type::Unknown);
     params.push(Type::Function {
         params: callback_params,
+        variadic: None,
         return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
         effects: Vec::new(),
     });
@@ -827,6 +839,7 @@ fn list_try_map_signature(result_value: &Type, result_error: Type) -> (Vec<Type>
             adt::list_type(Type::Unknown),
             Type::Function {
                 params: vec![Type::Unknown],
+                variadic: None,
                 return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
                 effects: Vec::new(),
             },
@@ -883,6 +896,7 @@ fn core_vec_try_map_signature(
     callback_params.push(CoreType::Unknown);
     params.push(CoreType::Function {
         params: callback_params,
+        variadic: None,
         return_type: Box::new(adt::core_result_type(
             mapped_item.clone(),
             result_error.clone(),
@@ -1458,6 +1472,7 @@ fn core_prelude_vec_callback_signature(
                 CoreType::vec(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
                 },
@@ -1469,6 +1484,7 @@ fn core_prelude_vec_callback_signature(
                 CoreType::vec(vec_item.clone()),
                 CoreType::Function {
                     params: vec![vec_item.clone()],
+                    variadic: None,
                     return_type: Box::new(CoreType::bool()),
                     effects: Vec::new(),
                 },
@@ -1481,6 +1497,7 @@ fn core_prelude_vec_callback_signature(
                 expected.direct.clone(),
                 CoreType::Function {
                     params: vec![expected.direct.clone(), CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
                 },
@@ -1542,6 +1559,7 @@ fn core_prelude_list_callback_signature(
                 adt::core_list_type(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(list_item.clone()),
                     effects: Vec::new(),
                 },
@@ -1553,6 +1571,7 @@ fn core_prelude_list_callback_signature(
                 adt::core_list_type(list_item.clone()),
                 CoreType::Function {
                     params: vec![list_item.clone()],
+                    variadic: None,
                     return_type: Box::new(CoreType::bool()),
                     effects: Vec::new(),
                 },
@@ -1565,6 +1584,7 @@ fn core_prelude_list_callback_signature(
                 expected.direct.clone(),
                 CoreType::Function {
                     params: vec![expected.direct.clone(), CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
                 },
@@ -1631,6 +1651,7 @@ fn core_prelude_option_signature(
                 adt::core_option_type(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
                 },
@@ -1642,6 +1663,7 @@ fn core_prelude_option_signature(
                 adt::core_option_type(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(adt::core_option_type(option_item.clone())),
                     effects: Vec::new(),
                 },
@@ -1671,6 +1693,7 @@ fn core_prelude_result_signature(
                 adt::core_result_type(CoreType::Unknown, result_error.clone()),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
                 },
@@ -1682,6 +1705,7 @@ fn core_prelude_result_signature(
                 adt::core_result_type(result_value.clone(), CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
                 },
@@ -1693,6 +1717,7 @@ fn core_prelude_result_signature(
                 adt::core_result_type(CoreType::Unknown, result_error.clone()),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
+                    variadic: None,
                     return_type: Box::new(adt::core_result_type(
                         result_value.clone(),
                         result_error.clone(),
@@ -1718,6 +1743,7 @@ fn core_list_try_map_signature(
             adt::core_list_type(CoreType::Unknown),
             CoreType::Function {
                 params: vec![CoreType::Unknown],
+                variadic: None,
                 return_type: Box::new(adt::core_result_type(
                     mapped_item.clone(),
                     result_error.clone(),

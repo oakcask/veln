@@ -117,7 +117,8 @@ grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVaria
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
-grammar_line(160, "Param         ::= Name (\":\" TypeText)?").
+grammar_line(160, "Param         ::= Name (\":\" VariadicMarker? TypeText)?").
+grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
 grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").

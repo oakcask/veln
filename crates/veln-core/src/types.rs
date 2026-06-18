@@ -8,6 +8,7 @@ pub enum CoreType {
     Record(Vec<(String, CoreType)>),
     Function {
         params: Vec<CoreType>,
+        variadic: Option<Box<CoreType>>,
         return_type: Box<CoreType>,
         effects: Vec<String>,
     },
@@ -261,6 +262,7 @@ mod tests {
         assert_eq!(
             CoreType::Function {
                 params: vec![CoreType::int()],
+                variadic: None,
                 return_type: Box::new(CoreType::bool()),
                 effects: vec!["io".to_string()],
             }

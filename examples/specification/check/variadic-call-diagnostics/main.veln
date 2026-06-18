@@ -1,0 +1,8 @@
+# Variadic calls still require all fixed parameters.
+fn collect(prefix: String, values: ...String) -> List<String>
+	values
+end
+
+fn missing_fixed() -> List<String>
+	collect()
+end

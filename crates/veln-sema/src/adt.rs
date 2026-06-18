@@ -952,6 +952,7 @@ fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
         ),
         Type::Function {
             params: fn_params,
+            variadic,
             return_type,
             effects,
         } => Type::Function {
@@ -959,6 +960,7 @@ fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
                 .into_iter()
                 .map(|ty| type_parameters_to_placeholders(ty, params))
                 .collect(),
+            variadic: variadic.map(|ty| Box::new(type_parameters_to_placeholders(*ty, params))),
             return_type: Box::new(type_parameters_to_placeholders(*return_type, params)),
             effects,
         },
@@ -1242,6 +1244,7 @@ fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
         ),
         Type::Function {
             params,
+            variadic,
             return_type,
             effects,
         } => Type::Function {
@@ -1249,6 +1252,9 @@ fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
                 .iter()
                 .map(|ty| substitute_type_parameters(ty, args))
                 .collect(),
+            variadic: variadic
+                .as_deref()
+                .map(|ty| Box::new(substitute_type_parameters(ty, args))),
             return_type: Box::new(substitute_type_parameters(return_type, args)),
             effects: effects.clone(),
         },
@@ -1282,6 +1288,7 @@ fn substitute_core_type_parameters(template: &CoreType, args: &[CoreType]) -> Co
         ),
         CoreType::Function {
             params,
+            variadic,
             return_type,
             effects,
         } => CoreType::Function {
@@ -1289,6 +1296,9 @@ fn substitute_core_type_parameters(template: &CoreType, args: &[CoreType]) -> Co
                 .iter()
                 .map(|ty| substitute_core_type_parameters(ty, args))
                 .collect(),
+            variadic: variadic
+                .as_deref()
+                .map(|ty| Box::new(substitute_core_type_parameters(ty, args))),
             return_type: Box::new(substitute_core_type_parameters(return_type, args)),
             effects: effects.clone(),
         },
@@ -1311,10 +1321,12 @@ fn core_type_template(ty: &Type) -> CoreType {
         ),
         Type::Function {
             params,
+            variadic,
             return_type,
             effects,
         } => CoreType::Function {
             params: params.iter().map(core_type_template).collect(),
+            variadic: variadic.as_deref().map(core_type_template).map(Box::new),
             return_type: Box::new(core_type_template(return_type)),
             effects: effects.clone(),
         },

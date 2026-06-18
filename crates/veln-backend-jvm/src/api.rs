@@ -34,6 +34,18 @@ pub enum EntryArgType {
     Int,
     Float,
     Bool,
+    VariadicList {
+        element: EntryArgScalar,
+        count: usize,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EntryArgScalar {
+    String,
+    Int,
+    Float,
+    Bool,
 }
 
 impl Default for JvmBackendOptions {

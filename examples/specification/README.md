@@ -95,6 +95,19 @@ against the built `veln` binary.
   arguments, missing newlines, and malformed let patterns.
 - `check/type-delimiter-diagnostics/`: legacy type delimiters report ordinary
   parse or type diagnostics without delimiter replacement candidates.
+- `check/variadic-function-arguments/`: variadic declaration parameters,
+  variadic function types, ordinary calls, pipeline calls, and function-value
+  assignment compatibility.
+- `check/variadic-function-diagnostics/`: variadic parameter placement,
+  duplicate variadic parameters, missing element types, invalid ordinary type
+  annotation marker positions, wrong tail argument element types, and
+  variadic/fixed callable assignment mismatch.
+- `check/variadic-call-diagnostics/`: variadic calls still require all fixed
+  arguments.
+- `check/variadic-marker-type-boundaries/`: variadic markers remain rejected in
+  ordinary type argument and local annotation positions.
+- `check/variadic-spread-call-boundary/`: spread-shaped call arguments remain
+  rejected by the current expression parser.
 - `check/predicate-pattern-diagnostics/`: unsupported contract and `satisfy`
   predicate syntax, malformed `satisfy` suffixes, refutable `let` patterns,
   and invalid `satisfy` candidate bindings.
@@ -327,8 +340,9 @@ against the built `veln` binary.
   the derived helper eligibility primary message at the codec implementation
   clause and reports schema/helper context as related notes.
 - `doc/generated-markdown/`: generated documentation from package and tool
-  metadata, module identity, imports, public functions, contracts, doctest
-  fences, hidden doctest setup, and ADR-lite records.
+  metadata, module identity, imports, public functions including variadic
+  parameter spelling, contracts, doctest fences, hidden doctest setup, and
+  ADR-lite records.
 - `doc/schema-references/`: generated documentation accepts same-module public
   and private schema references plus imported public schema and schema-alias
   references.
@@ -375,6 +389,10 @@ against the built `veln` binary.
 - `run/prelude-containers/`: vec, dictionary, list, option, result, and string
   prelude helper value semantics, including non-mutating container updates,
   source-order vec and list traversal, and empty-container checks.
+- `run/variadic-entry-arguments/`: command entry functions gather extra
+  command-line arguments into a variadic `List<T>` binding.
+- `run/variadic-entry-argument-diagnostics/`: variadic entry argument element
+  types must be command-line convertible.
 - `run/byte-fixture-hex/`: compact ASCII hex fixture text, whitespace between
   byte pairs, and decoded `ByteChunk` values.
 - `run/byte-fixture-hex-invalid/`: invalid compact hex fixture characters,

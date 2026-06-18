@@ -224,6 +224,7 @@ pub enum Visibility {
 pub struct Param {
     pub name: String,
     pub ty: Option<String>,
+    pub is_variadic: bool,
     pub span: SourceSpan,
 }
 

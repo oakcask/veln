@@ -1,0 +1,72 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.variadic_parameter_position\"", "\"id\":\"type.variadic_parameter_duplicate\"", "\"id\":\"type.variadic_parameter_type\"", "\"actual_type\":\"... String\"", "\"actual_type\":\"List<...String>\"", "expected `String`, but found `Int`", "expected `fn(String, ...String) -> List<String>`, but found `fn(String, List<String>) -> List<String>`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 10
+
+[[diagnostics]]
+id = "type.variadic_parameter_position"
+severity = "error"
+kind = "type"
+message = "variadic parameter `values` must be the final parameter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 2
+column = 18
+
+[[diagnostics]]
+id = "type.variadic_parameter_type"
+severity = "error"
+kind = "type"
+message = "variadic parameter `values` is missing an element type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 22
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `... String`: expected type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 19
+column = 2
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `String`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 25
+column = 16
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(String, ...String) -> List<String>`, but found `fn(String, List<String>) -> List<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 33
+column = 56

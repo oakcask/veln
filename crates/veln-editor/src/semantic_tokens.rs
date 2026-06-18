@@ -950,6 +950,45 @@ mod tests {
     }
 
     #[test]
+    fn collector_classifies_variadic_parameter_names_like_parameters() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn collect(values: ...String) -> String\n",
+                "  values\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(
+            tokens.contains(&(
+                "values".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(
+            tokens.contains(&(
+                "values".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "String".to_string(),
+            SemanticTokenType::Type,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
     fn collector_classifies_schema_declarations_and_format_clauses() {
         let source = SourceFile::new(
             "schema.veln",

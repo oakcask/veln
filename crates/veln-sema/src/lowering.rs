@@ -88,7 +88,10 @@ impl<'a> CoreLowerer<'a> {
             .params
             .iter()
             .map(|param| {
-                let ty = core_type(&parse_type_or_unknown(param.ty.as_deref()));
+                let mut ty = core_type(&parse_type_or_unknown(param.ty.as_deref()));
+                if param.is_variadic {
+                    ty = CoreType::named("List", vec![ty]);
+                }
                 self.bindings.push(CoreBinding {
                     name: param.name.clone(),
                     ty: ty.clone(),
@@ -865,7 +868,7 @@ impl<'a> CoreLowerer<'a> {
         signature: Option<(Vec<CoreType>, CoreType)>,
     ) -> CoreExpr {
         if let Some((params, _)) = &signature {
-            self.validate_call_arity(expr, args.len(), params.len());
+            self.validate_call_arity(expr, args.len(), params.len(), false);
         }
         let lowered_args = self.lower_args_with_params(
             args,
@@ -892,14 +895,17 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let signature = self.core_call_signature(callee, expected, Some(args.len()));
         if let Some(signature) = &signature {
-            self.validate_call_arity(expr, args.len(), signature.params.len());
+            self.validate_call_arity(
+                expr,
+                args.len(),
+                signature.params.len(),
+                signature.variadic.is_some(),
+            );
         }
-        let lowered_args = self.lower_args_with_params(
-            args,
-            signature
-                .as_ref()
-                .map(|signature| signature.params.as_slice()),
-        );
+        let lowered_args = match &signature {
+            Some(signature) => self.lower_args_with_signature(args, signature),
+            None => self.lower_args_with_params(args, None),
+        };
         let (target, return_type) = signature.map_or_else(
             || {
                 let symbol = callee_symbol(callee).unwrap_or_else(|| "<unknown>".to_string());
@@ -918,14 +924,25 @@ impl<'a> CoreLowerer<'a> {
         )
     }
 
-    fn validate_call_arity(&mut self, expr: &Expr, actual: usize, expected: usize) {
-        if actual == expected {
+    fn validate_call_arity(
+        &mut self,
+        expr: &Expr,
+        actual: usize,
+        expected: usize,
+        has_variadic: bool,
+    ) {
+        if (!has_variadic && actual == expected) || (has_variadic && actual >= expected) {
             return;
         }
+        let message = if has_variadic {
+            format!("call expects at least {expected} argument(s), but got {actual}")
+        } else {
+            format!("call expects {expected} argument(s), but got {actual}")
+        };
         self.unsupported_expression(
             expr,
             "call_arity_mismatch",
-            format!("call expects {expected} argument(s), but got {actual}"),
+            message,
             Some(JsonValue::object([
                 (
                     "expected_argument_count",
@@ -948,6 +965,59 @@ impl<'a> CoreLowerer<'a> {
                 self.lower_expr(arg, expected)
             })
             .collect()
+    }
+
+    fn lower_args_with_signature(
+        &mut self,
+        args: &[Expr],
+        signature: &CoreCallSignature,
+    ) -> Vec<CoreExpr> {
+        let Some(variadic) = &signature.variadic else {
+            return self.lower_args_with_params(args, Some(&signature.params));
+        };
+        let fixed_count = signature.params.len();
+        let mut lowered = args
+            .iter()
+            .take(fixed_count)
+            .enumerate()
+            .map(|(index, arg)| self.lower_expr(arg, signature.params.get(index)))
+            .collect::<Vec<_>>();
+        let tail_items = args
+            .iter()
+            .skip(fixed_count)
+            .map(|arg| self.lower_expr(arg, Some(variadic)))
+            .collect::<Vec<_>>();
+        let list_ty = CoreType::named("List", vec![variadic.clone()]);
+        lowered.push(self.core_list_from_items(list_ty, tail_items, args.get(fixed_count)));
+        lowered
+    }
+
+    fn core_list_from_items(
+        &self,
+        list_ty: CoreType,
+        items: Vec<CoreExpr>,
+        first_tail_arg: Option<&Expr>,
+    ) -> CoreExpr {
+        let span =
+            first_tail_arg.map_or_else(|| self.function.span.clone(), |arg| arg.span.clone());
+        let mut list = CoreExpr {
+            node_id: first_tail_arg.map_or(self.function.node_id, |arg| arg.node_id),
+            ty: list_ty.clone(),
+            kind: CoreExprKind::ListNil,
+            span: span.clone(),
+        };
+        for item in items.into_iter().rev() {
+            list = CoreExpr {
+                node_id: item.node_id,
+                ty: list_ty.clone(),
+                kind: CoreExprKind::ListCons {
+                    head: Box::new(item),
+                    tail: Box::new(list),
+                },
+                span: span.clone(),
+            };
+        }
+        list
     }
 
     fn lower_adt_constructor(
@@ -1387,14 +1457,15 @@ fn render_core_type(ty: &CoreType) -> String {
         }
         CoreType::Function {
             params,
+            variadic,
             return_type,
             effects,
         } => {
-            let params = params
-                .iter()
-                .map(render_core_type)
-                .collect::<Vec<_>>()
-                .join(", ");
+            let mut rendered_params = params.iter().map(render_core_type).collect::<Vec<_>>();
+            if let Some(variadic) = variadic {
+                rendered_params.push(format!("...{}", render_core_type(variadic)));
+            }
+            let params = rendered_params.join(", ");
             let effects = if effects.is_empty() {
                 String::new()
             } else {

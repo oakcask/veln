@@ -1,0 +1,13 @@
+# Variadic run entry arguments are gathered into a List.
+fn increment_count(count: Int, value: String) -> Int
+	count + 1
+end
+
+fn count(values: List<String>) -> Int
+	list_fold(values, 0, increment_count)
+end
+
+pub fn main(label: String, values: ...String) -> () effects [stdio]
+	stdio::println(label)
+	stdio::println(int_to_string(count(values)))
+end

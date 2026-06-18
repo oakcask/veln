@@ -994,10 +994,26 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
         target_name: name,
         target_module_name: function.module_name.clone(),
         visibility: function.visibility,
-        arity: function.params.len(),
+        shape: function_shape(function),
         bare_importable: true,
         requires_public_import: false,
     })
+}
+
+fn function_shape(function: &Function) -> FunctionShape {
+    let mut fixed_arity = 0usize;
+    let mut variadic = None;
+    for param in &function.params {
+        if param.is_variadic {
+            variadic = param.ty.clone();
+        } else {
+            fixed_arity += 1;
+        }
+    }
+    FunctionShape {
+        fixed_arity,
+        variadic,
+    }
 }
 
 fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
@@ -1028,7 +1044,7 @@ fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
                             target_name: function_name.clone(),
                             target_module_name: target.module_name.clone(),
                             visibility: codec.visibility,
-                            arity: target.params.len(),
+                            shape: function_shape(target),
                             bare_importable: false,
                             requires_public_import: true,
                         })
@@ -1119,9 +1135,15 @@ struct FunctionTarget {
     target_name: String,
     target_module_name: Option<String>,
     visibility: Visibility,
-    arity: usize,
+    shape: FunctionShape,
     bare_importable: bool,
     requires_public_import: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct FunctionShape {
+    fixed_arity: usize,
+    variadic: Option<String>,
 }
 
 fn function_alias_targets(
@@ -1146,7 +1168,7 @@ fn function_alias_targets(
                 target_name: target.target_name.clone(),
                 target_module_name: target.target_module_name.clone(),
                 visibility: Visibility::Public,
-                arity: target.arity,
+                shape: target.shape.clone(),
                 bare_importable: true,
                 requires_public_import: false,
             })
@@ -1179,7 +1201,7 @@ fn target_for_alias_path<'a>(
 #[derive(Clone, Debug)]
 struct LocalBinding {
     name: String,
-    function_arity: Option<usize>,
+    function_shape: Option<FunctionShape>,
 }
 
 fn direct_function_callees(
@@ -1195,7 +1217,7 @@ fn direct_function_callees(
         .iter()
         .map(|param| LocalBinding {
             name: param.name.clone(),
-            function_arity: param.ty.as_deref().and_then(function_type_arity),
+            function_shape: param.ty.as_deref().and_then(function_type_shape),
         })
         .collect::<Vec<_>>();
     for contract in &function.contracts {
@@ -1224,7 +1246,7 @@ fn direct_function_callees(
                 );
                 collect_pattern_bindings(
                     pattern,
-                    annotation.as_deref().and_then(function_type_arity),
+                    annotation.as_deref().and_then(function_type_shape),
                     &mut local_bindings,
                 );
             }
@@ -1517,6 +1539,7 @@ fn collect_function_callees(
                 uses,
                 function_targets,
                 local_bindings,
+                None,
                 callees,
             );
         }
@@ -1538,17 +1561,19 @@ fn collect_function_callees(
                     uses,
                     function_targets,
                     local_bindings,
+                    Some(args.len()),
+                    callees,
+                );
+            } else {
+                collect_function_callees(
+                    callee,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
                     callees,
                 );
             }
-            collect_function_callees(
-                callee,
-                current_module,
-                uses,
-                function_targets,
-                local_bindings,
-                callees,
-            );
             for arg in args {
                 collect_function_callees(
                     arg,
@@ -1684,13 +1709,13 @@ fn collect_function_callees(
 
 fn collect_pattern_bindings(
     pattern: &Pattern,
-    function_arity: Option<usize>,
+    function_shape: Option<FunctionShape>,
     bindings: &mut Vec<LocalBinding>,
 ) {
     match &pattern.kind {
         PatternKind::Binding(name) => bindings.push(LocalBinding {
             name: name.clone(),
-            function_arity,
+            function_shape,
         }),
         PatternKind::Record(fields) => {
             for field in fields {
@@ -1720,14 +1745,19 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
 }
 
 fn collect_opaque_function_value_callees(
-    arity: usize,
+    shape: &FunctionShape,
+    arg_count: Option<usize>,
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
 ) {
+    if shape.variadic.is_some() && arg_count.is_some_and(|arg_count| arg_count < shape.fixed_arity)
+    {
+        return;
+    }
     for target in function_targets.iter().filter(|target| {
-        target.arity == arity && target_visible_from_current_module(target, current_module, uses)
+        target.shape == *shape && target_visible_from_current_module(target, current_module, uses)
     }) {
         push_reachable(
             callees,
@@ -1758,27 +1788,43 @@ fn target_visible_from_current_module(
     })
 }
 
-fn function_type_arity(annotation: &str) -> Option<usize> {
+fn function_type_shape(annotation: &str) -> Option<FunctionShape> {
     let params = annotation.trim().strip_prefix("fn")?.trim_start();
     let params = params.strip_prefix('(')?;
     let mut depth = 0usize;
     let mut split_at = None;
     for (index, ch) in params.char_indices() {
         match ch {
-            '(' | '[' | '{' => depth += 1,
+            '(' | '[' | '{' | '<' => depth += 1,
             ')' if depth == 0 => {
                 split_at = Some(index);
                 break;
             }
-            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
             _ => {}
         }
     }
     let params = &params[..split_at?].trim();
     if params.is_empty() {
-        return Some(0);
+        return Some(FunctionShape {
+            fixed_arity: 0,
+            variadic: None,
+        });
     }
-    Some(split_top_level_commas(params).len())
+    let mut parts = split_top_level_commas(params);
+    let variadic = parts.last().and_then(|last| {
+        last.strip_prefix("...")
+            .map(str::trim)
+            .filter(|element| !element.is_empty())
+            .map(str::to_string)
+    });
+    if variadic.is_some() {
+        parts.pop();
+    }
+    Some(FunctionShape {
+        fixed_arity: parts.len(),
+        variadic,
+    })
 }
 
 fn schema_decode_function_name(schema_name: &str) -> String {
@@ -1818,8 +1864,8 @@ fn split_top_level_commas(text: &str) -> Vec<&str> {
     let mut depth = 0usize;
     for (index, ch) in text.char_indices() {
         match ch {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
             ',' if depth == 0 => {
                 parts.push(text[start..index].trim());
                 start = index + 1;
@@ -1837,6 +1883,7 @@ fn collect_function_name_reference(
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     local_bindings: &[LocalBinding],
+    arg_count: Option<usize>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     if let [name] = segments
@@ -1845,9 +1892,10 @@ fn collect_function_name_reference(
             .rev()
             .find(|binding| binding.name == *name)
     {
-        if let Some(arity) = binding.function_arity {
+        if let Some(shape) = &binding.function_shape {
             collect_opaque_function_value_callees(
-                arity,
+                shape,
+                arg_count,
                 current_module,
                 uses,
                 function_targets,
@@ -2027,6 +2075,59 @@ mod tests {
                 (FunctionKind::Function, Some("stringify")),
             ]
         );
+    }
+
+    #[test]
+    fn test_entry_reaches_same_shape_variadic_function_value_targets() {
+        let module = lower(concat!(
+            "test foo(callback: fn(String, ...String) -> String) -> ()\n",
+            "  callback(\"prefix\", \"a\", \"b\")\n",
+            "  ()\n",
+            "end\n",
+            "fn join(prefix: String, values: ...String) -> String\n",
+            "  prefix\n",
+            "end\n",
+            "fn fixed(prefix: String, value: String) -> String\n",
+            "  prefix\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Test, Some("foo")),
+                (FunctionKind::Function, Some("join")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_entry_does_not_reach_variadic_function_value_targets_for_too_few_args() {
+        let module = lower(concat!(
+            "test foo(callback: fn(String, ...String) -> String) -> ()\n",
+            "  callback()\n",
+            "  ()\n",
+            "end\n",
+            "fn join(prefix: String, values: ...String) -> String\n",
+            "  prefix\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(functions, vec![(FunctionKind::Test, Some("foo"))]);
     }
 
     #[test]

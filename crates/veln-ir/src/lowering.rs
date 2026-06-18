@@ -543,6 +543,7 @@ mod tests {
         let input_arg = &mapper_args[0];
         let mapper_type = CoreType::Function {
             params: vec![CoreType::int()],
+            variadic: None,
             return_type: Box::new(CoreType::int()),
             effects: Vec::new(),
         };

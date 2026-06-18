@@ -385,6 +385,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         signature.push_str(&param.name);
         if let Some(ty) = &param.ty {
             signature.push_str(": ");
+            if param.is_variadic {
+                signature.push_str("...");
+            }
             signature.push_str(&canonical_type_text(ty));
         }
     }

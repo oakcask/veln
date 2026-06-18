@@ -197,11 +197,16 @@ blockers.
 
 The entry must be a discovered function. Arguments after `--` are entry
 arguments, not source inputs. Entry parameters may be declared as `String`,
-`Int`, `Float`, or `Bool`. `String` arguments are passed through unchanged.
+`Int`, `Float`, or `Bool`. A final variadic entry parameter may use those same
+element types, and extra command-line arguments are converted to that element
+type and gathered into the entry binding as `List<T>`. `String` arguments are
+passed through unchanged.
 `Int` arguments parse as decimal signed integers, `Float` arguments parse as
 JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
-or `false`. The reachable program is semantically checked, lowered to checked
-core, then typed IR, then JVM classfile artifacts. Ordinary execution does not
+or `false`. Non-variadic entries keep exact argument count behavior; variadic
+entries require at least the fixed parameter count. The reachable program is
+semantically checked, lowered to checked core, then typed IR, then JVM
+classfile artifacts. Ordinary execution does not
 write generated Java source or invoke a Java source compiler. Reachability
 follows imported qualified calls by resolving the alias from selected-file `use`
 declarations to the imported source module. Semantic

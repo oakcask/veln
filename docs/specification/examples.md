@@ -33,6 +33,28 @@ The example uses these implemented language features together:
 - a separate partial-program variant with a constrained typed hole
 - canonical `#` source comments on example-authored notes
 
+## Variadic Functions
+
+The executable specification case
+`../../examples/specification/check/variadic-function-arguments/` covers
+source-level variadic declaration parameters, variadic function types, ordinary
+calls, pipeline calls, and function-value assignment compatibility.
+
+The sibling check cases
+`../../examples/specification/check/variadic-function-diagnostics/`,
+`../../examples/specification/check/variadic-call-diagnostics/`,
+`../../examples/specification/check/variadic-marker-type-boundaries/`, and
+`../../examples/specification/check/variadic-spread-call-boundary/` pin
+placement diagnostics, missing element types, ordinary type-position marker
+rejection, missing fixed arguments, wrong variadic tail element types,
+variadic/fixed callable mismatch, and the current no-spread-call boundary.
+
+The executable run cases
+`../../examples/specification/run/variadic-entry-arguments/` and
+`../../examples/specification/run/variadic-entry-argument-diagnostics/` cover
+command-line conversion for fixed plus variadic entry arguments and rejection
+of unsupported variadic entry element types.
+
 ## Binary Fixture Records
 
 The executable specification case

@@ -29,6 +29,7 @@ pub(crate) struct CoreBinding<'a> {
 
 pub(crate) struct TypeCallSignature {
     pub(crate) params: Vec<Type>,
+    pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
     pub(crate) origin: CallOrigin,
 }
@@ -36,6 +37,7 @@ pub(crate) struct TypeCallSignature {
 pub(crate) struct CoreCallSignature {
     pub(crate) target: CoreCallTarget,
     pub(crate) params: Vec<CoreType>,
+    pub(crate) variadic: Option<CoreType>,
     pub(crate) return_type: CoreType,
 }
 
@@ -134,6 +136,7 @@ fn type_effect_call_signature(
     if let Some(origin) = stdio_signature(segments, callee) {
         return Some(TypeCallSignature {
             params: vec![Type::string()],
+            variadic: None,
             return_type: Type::unit(),
             origin,
         });
@@ -142,6 +145,7 @@ fn type_effect_call_signature(
         let (params, return_type) = concurrency_signature(segments, expected, handle_type, None)?;
         return Some(TypeCallSignature {
             params,
+            variadic: None,
             return_type,
             origin,
         });
@@ -150,6 +154,7 @@ fn type_effect_call_signature(
         let (params, return_type) = standard_library_signature(segments)?;
         return Some(TypeCallSignature {
             params,
+            variadic: None,
             return_type,
             origin,
         });
@@ -171,6 +176,7 @@ fn type_applied_call_signature(
         concurrency_signature(segments, expected, handle_type, explicit_item.as_ref())?;
     Some(TypeCallSignature {
         params,
+        variadic: None,
         return_type,
         origin,
     })
@@ -187,12 +193,13 @@ fn type_binding_call_signature(
     let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name) else {
         return BindingCallSignature::Missing;
     };
-    let Some((params, return_type)) = binding.ty.function_parts() else {
+    let Some((params, variadic, return_type)) = binding.ty.callable_parts() else {
         return BindingCallSignature::ShadowedNonCallable;
     };
     let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
     BindingCallSignature::Resolved(TypeCallSignature {
         params: params.to_vec(),
+        variadic: variadic.cloned(),
         return_type: return_type.clone(),
         origin: CallOrigin {
             node_id: callee.node_id,
@@ -216,6 +223,7 @@ fn core_name_path_call_signature(
         return Some(CoreCallSignature {
             target: CoreCallTarget::StdioBuiltin(segments.join("::")),
             params: vec![CoreType::string()],
+            variadic: None,
             return_type: CoreType::unit(),
         });
     }
@@ -224,6 +232,7 @@ fn core_name_path_call_signature(
         return Some(CoreCallSignature {
             target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
             params,
+            variadic: None,
             return_type,
         });
     }
@@ -232,6 +241,7 @@ fn core_name_path_call_signature(
         return Some(CoreCallSignature {
             target: CoreCallTarget::StandardLibraryBuiltin(segments.join("::")),
             params,
+            variadic: None,
             return_type,
         });
     }
@@ -269,6 +279,7 @@ fn core_binding_call_signature(
     };
     let CoreType::Function {
         params,
+        variadic,
         return_type,
         ..
     } = binding.ty
@@ -278,6 +289,7 @@ fn core_binding_call_signature(
     BindingCallSignature::Resolved(CoreCallSignature {
         target: CoreCallTarget::Value(name.clone()),
         params: params.clone(),
+        variadic: variadic.as_deref().cloned(),
         return_type: return_type.as_ref().clone(),
     })
 }
@@ -292,6 +304,7 @@ fn core_function_call_signature(
         return Some(CoreCallSignature {
             target: core_target_from_signature_name(&function.target_name),
             params: function.params.iter().map(core_type).collect(),
+            variadic: function.variadic.as_ref().map(core_type),
             return_type: core_type(&function.return_type),
         });
     }
@@ -301,6 +314,7 @@ fn core_function_call_signature(
         return Some(CoreCallSignature {
             target,
             params,
+            variadic: None,
             return_type,
         });
     }
@@ -313,6 +327,7 @@ fn core_call_signature_from_parts(
     CoreCallSignature {
         target,
         params,
+        variadic: None,
         return_type,
     }
 }
@@ -343,6 +358,7 @@ fn function_type_call_signature(
     let function = function?;
     Some(TypeCallSignature {
         params: function.params.clone(),
+        variadic: function.variadic.clone(),
         return_type: function.return_type.clone(),
         origin: CallOrigin {
             node_id: function.node_id,
@@ -387,6 +403,7 @@ fn codec_type_call_signature(
     let codec = select_codec_type_call(codecs, expected)?;
     Some(TypeCallSignature {
         params: codec.params.clone(),
+        variadic: None,
         return_type: codec.return_type.clone(),
         origin: CallOrigin {
             node_id: codec.node_id,
@@ -413,6 +430,7 @@ fn core_codec_call_signature(
     Some(CoreCallSignature {
         target: core_codec_call_target(codec),
         params: codec.params.iter().map(core_type).collect(),
+        variadic: None,
         return_type: core_type(&codec.return_type),
     })
 }
@@ -498,11 +516,13 @@ fn core_type_is_assignable(expected: &CoreType, actual: &CoreType) -> bool {
         (
             CoreType::Function {
                 params: expected_params,
+                variadic: expected_variadic,
                 return_type: expected_return,
                 effects: expected_effects,
             },
             CoreType::Function {
                 params: actual_params,
+                variadic: actual_variadic,
                 return_type: actual_return,
                 effects: actual_effects,
             },
@@ -512,6 +532,11 @@ fn core_type_is_assignable(expected: &CoreType, actual: &CoreType) -> bool {
                     .iter()
                     .zip(actual_params)
                     .all(|(expected, actual)| core_type_is_assignable(expected, actual))
+                && match (expected_variadic, actual_variadic) {
+                    (Some(expected), Some(actual)) => core_type_is_assignable(expected, actual),
+                    (None, None) => true,
+                    _ => false,
+                }
                 && core_type_is_assignable(expected_return, actual_return)
                 && actual_effects
                     .iter()

@@ -1,0 +1,10 @@
+# The variadic marker is only valid in function parameter syntax and
+# function type parameter syntax.
+fn type_argument_marker(values: List<...String>) -> Int
+	0
+end
+
+fn local_annotation_marker() -> Int
+	let values: ...String = []
+	0
+end

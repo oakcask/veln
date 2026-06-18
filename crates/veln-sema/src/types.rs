@@ -25,6 +25,7 @@ pub(crate) struct FunctionSignature {
     pub(crate) module_name: Option<String>,
     pub(crate) visibility: Visibility,
     pub(crate) params: Vec<Type>,
+    pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
     pub(crate) effects: Vec<String>,
     pub(crate) node_id: NodeId,
@@ -142,6 +143,7 @@ pub(crate) enum Type {
     Record(Vec<(String, Type)>),
     Function {
         params: Vec<Type>,
+        variadic: Option<Box<Type>>,
         return_type: Box<Type>,
         effects: Vec<String>,
     },
@@ -191,6 +193,21 @@ impl Type {
     pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {
         Self::Function {
             params,
+            variadic: None,
+            return_type: Box::new(return_type),
+            effects,
+        }
+    }
+
+    pub(crate) fn variadic_function(
+        params: Vec<Type>,
+        variadic: Type,
+        return_type: Type,
+        effects: Vec<String>,
+    ) -> Self {
+        Self::Function {
+            params,
+            variadic: Some(Box::new(variadic)),
             return_type: Box::new(return_type),
             effects,
         }
@@ -215,14 +232,15 @@ impl Type {
             }
             Self::Function {
                 params,
+                variadic,
                 return_type,
                 effects,
             } => {
-                let params = params
-                    .iter()
-                    .map(Type::render)
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let mut rendered_params = params.iter().map(Type::render).collect::<Vec<_>>();
+                if let Some(variadic) = variadic {
+                    rendered_params.push(format!("...{}", variadic.render()));
+                }
+                let params = rendered_params.join(", ");
                 let effects = if effects.is_empty() {
                     String::new()
                 } else {
@@ -262,9 +280,22 @@ impl Type {
         match self {
             Self::Function {
                 params,
+                variadic,
                 return_type,
                 ..
-            } => Some((params, return_type)),
+            } if variadic.is_none() => Some((params, return_type)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn callable_parts(&self) -> Option<(&[Type], Option<&Type>, &Type)> {
+        match self {
+            Self::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => Some((params, variadic.as_deref(), return_type)),
             _ => None,
         }
     }
@@ -422,11 +453,7 @@ fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(|function| {
             let name = function.name.clone()?;
-            let params = function
-                .params
-                .iter()
-                .map(|param| parse_type_or_unknown(param.ty.as_deref()))
-                .collect();
+            let (params, variadic) = function_signature_params(function);
             let return_type = parse_type_or_unknown(function.return_type.as_deref());
             Some(FunctionSignature {
                 target_name: name.clone(),
@@ -434,6 +461,7 @@ fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature
                 module_name: function.module_name.clone(),
                 visibility: function.visibility,
                 params,
+                variadic,
                 return_type,
                 effects: function.effects.clone().unwrap_or_default(),
                 node_id: function.node_id,
@@ -441,6 +469,29 @@ fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature
             })
         })
         .collect()
+}
+
+fn function_signature_params(function: &veln_ast::Function) -> (Vec<Type>, Option<Type>) {
+    let mut params = Vec::new();
+    let mut variadic = None;
+    for param in &function.params {
+        let ty = parse_type_or_unknown(param.ty.as_deref());
+        if param.is_variadic {
+            variadic = Some(ty);
+        } else {
+            params.push(ty);
+        }
+    }
+    (params, variadic)
+}
+
+pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
+    let ty = parse_type_or_unknown(param.ty.as_deref());
+    if param.is_variadic {
+        Type::named("List", vec![ty])
+    } else {
+        ty
+    }
 }
 
 fn codec_call_signatures(
@@ -733,6 +784,7 @@ fn schema_decode_function_signatures_for_schema(
             module_name: schema.module_name.clone(),
             visibility: schema.visibility,
             params: vec![byte_view.clone()],
+            variadic: None,
             return_type: result,
             effects: Vec::new(),
             node_id: schema.node_id,
@@ -744,6 +796,7 @@ fn schema_decode_function_signatures_for_schema(
             module_name: schema.module_name.clone(),
             visibility: schema.visibility,
             params: vec![byte_view, byte_offset],
+            variadic: None,
             return_type: step,
             effects: Vec::new(),
             node_id: schema.node_id,
@@ -1144,6 +1197,7 @@ fn schema_validate_function_signature_for_schema(
         module_name: schema.module_name.clone(),
         visibility: schema.visibility,
         params: vec![decoded_type.clone()],
+        variadic: None,
         return_type: Type::named("Result", vec![decoded_type, Type::string()]),
         effects: Vec::new(),
         node_id: schema.node_id,
@@ -1262,6 +1316,7 @@ fn schema_encode_function_signature_for_schema(
         module_name: schema.module_name.clone(),
         visibility: schema.visibility,
         params: vec![Type::Record(value_fields)],
+        variadic: None,
         return_type: Type::named("Result", vec![byte_chunk, encode_error]),
         effects: Vec::new(),
         node_id: schema.node_id,
@@ -3896,11 +3951,19 @@ fn snake_case_identifier(name: &str) -> String {
 
 impl FunctionSignature {
     pub(crate) fn ty(&self) -> Type {
-        Type::function(
-            self.params.clone(),
-            self.return_type.clone(),
-            self.effects.clone(),
-        )
+        match &self.variadic {
+            Some(variadic) => Type::variadic_function(
+                self.params.clone(),
+                variadic.clone(),
+                self.return_type.clone(),
+                self.effects.clone(),
+            ),
+            None => Type::function(
+                self.params.clone(),
+                self.return_type.clone(),
+                self.effects.clone(),
+            ),
+        }
     }
 }
 
@@ -3926,6 +3989,7 @@ fn function_alias_signatures(
                 module_name: alias.module_name.clone(),
                 visibility: Visibility::Public,
                 params: target.params.clone(),
+                variadic: target.variadic.clone(),
                 return_type: target.return_type.clone(),
                 effects: target.effects.clone(),
                 node_id: alias.node_id,
@@ -3988,7 +4052,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                 .iter()
                 .map(|param| Binding {
                     name: param.name.clone(),
-                    ty: parse_type_or_unknown(param.ty.as_deref()),
+                    ty: function_body_param_type(param),
                 })
                 .collect::<Vec<_>>();
             let mut inferred = effects_by_name.get(name).cloned().unwrap_or_default();
@@ -4349,11 +4413,13 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
         (
             Type::Function {
                 params: expected_params,
+                variadic: expected_variadic,
                 return_type: expected_return,
                 effects: expected_effects,
             },
             Type::Function {
                 params: actual_params,
+                variadic: actual_variadic,
                 return_type: actual_return,
                 effects: actual_effects,
             },
@@ -4363,6 +4429,11 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                     .iter()
                     .zip(actual_params)
                     .all(|(expected, actual)| is_assignable(expected, actual))
+                && match (expected_variadic, actual_variadic) {
+                    (Some(expected), Some(actual)) => is_assignable(expected, actual),
+                    (None, None) => true,
+                    _ => false,
+                }
                 && is_assignable(expected_return, actual_return)
                 && effects_are_assignable(expected_effects, actual_effects)
         }
@@ -4395,10 +4466,12 @@ pub(crate) fn core_type(ty: &Type) -> CoreType {
         ),
         Type::Function {
             params,
+            variadic,
             return_type,
             effects,
         } => CoreType::Function {
             params: params.iter().map(core_type).collect(),
+            variadic: variadic.as_deref().map(core_type).map(Box::new),
             return_type: Box::new(core_type(return_type)),
             effects: effects.clone(),
         },
@@ -4488,7 +4561,7 @@ impl<'a> TypeParser<'a> {
 
     fn parse_function_type(&mut self) -> Result<Type, String> {
         self.expect('(')?;
-        let params = self.parse_type_list(')')?;
+        let (params, variadic) = self.parse_function_param_type_list()?;
         self.expect(')')?;
         self.skip_ws();
         if !self.eat_str("->") {
@@ -4515,9 +4588,48 @@ impl<'a> TypeParser<'a> {
         };
         Ok(Type::Function {
             params,
+            variadic: variadic.map(Box::new),
             return_type: Box::new(return_type),
             effects,
         })
+    }
+
+    fn parse_function_param_type_list(&mut self) -> Result<(Vec<Type>, Option<Type>), String> {
+        let mut params = Vec::new();
+        let mut variadic = None;
+        self.skip_ws();
+        while !self.at_end() && !self.at(')') {
+            let is_variadic = self.eat_str("...");
+            let ty = if is_variadic {
+                self.parse_type()
+                    .map_err(|_| "expected type after variadic marker".to_string())?
+            } else {
+                self.parse_type()?
+            };
+            self.skip_ws();
+            let has_more = self.eat(',');
+            if is_variadic {
+                if variadic.is_some() {
+                    return Err("function type has more than one variadic parameter".to_string());
+                }
+                if has_more {
+                    return Err(
+                        "variadic function type parameter must be the final parameter".to_string(),
+                    );
+                }
+                variadic = Some(ty);
+            } else {
+                params.push(ty);
+            }
+            self.skip_ws();
+            if !has_more {
+                break;
+            }
+            if self.at(')') {
+                break;
+            }
+        }
+        Ok((params, variadic))
     }
 
     fn parse_type_list(&mut self, end: char) -> Result<Vec<Type>, String> {
@@ -4687,11 +4799,13 @@ mod tests {
         ]);
         let pure_function = Type::Function {
             params: vec![Type::int(), Type::float()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: Vec::new(),
         };
         let effectful_function = Type::Function {
             params: vec![record.clone()],
+            variadic: None,
             return_type: Box::new(Type::result(
                 Type::unit(),
                 Type::named("AppError", Vec::new()),
@@ -4711,6 +4825,7 @@ mod tests {
     fn exposes_type_parts_and_core_type_shape() {
         let function = Type::Function {
             params: vec![Type::vec(Type::int())],
+            variadic: None,
             return_type: Box::new(Type::Record(vec![("ok".to_string(), Type::bool())])),
             effects: vec!["stdio".to_string()],
         };
@@ -4728,6 +4843,7 @@ mod tests {
             core_type(&function),
             CoreType::Function {
                 params: vec![CoreType::vec(CoreType::int())],
+                variadic: None,
                 return_type: Box::new(CoreType::Record(vec![("ok".to_string(), CoreType::bool())])),
                 effects: vec!["stdio".to_string()],
             }
@@ -4754,26 +4870,31 @@ mod tests {
         let wrong_record = Type::Record(vec![("name".to_string(), Type::int())]);
         let expected_pure_function = Type::Function {
             params: vec![Type::int()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: Vec::new(),
         };
         let actual_effectful_function = Type::Function {
             params: vec![Type::int()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: vec!["stdio".to_string()],
         };
         let expected_effectful_function = Type::Function {
             params: vec![Type::int()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: vec!["stdio".to_string()],
         };
         let actual_pure_function = Type::Function {
             params: vec![Type::int()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: Vec::new(),
         };
         let wrong_function = Type::Function {
             params: vec![Type::int(), Type::int()],
+            variadic: None,
             return_type: Box::new(Type::bool()),
             effects: Vec::new(),
         };
@@ -4813,6 +4934,7 @@ mod tests {
                     Type::vec(Type::int()),
                     Type::named("platform::Request", Vec::new()),
                 ],
+                variadic: None,
                 return_type: Box::new(Type::result(
                     Type::dict(Type::string(), Type::int()),
                     Type::named("AppError", Vec::new())
@@ -4853,10 +4975,51 @@ mod tests {
                         ],
                     ),
                 ],
+                variadic: None,
                 return_type: Box::new(Type::dict(Type::string(), Type::int())),
                 effects: Vec::new(),
             })
         );
+    }
+
+    #[test]
+    fn parses_variadic_function_type_annotations() {
+        assert_eq!(
+            parse_type_annotation("fn(String, ...String) -> ()"),
+            Ok(Type::Function {
+                params: vec![Type::string()],
+                variadic: Some(Box::new(Type::string())),
+                return_type: Box::new(Type::unit()),
+                effects: Vec::new(),
+            })
+        );
+        assert_eq!(
+            parse_type_annotation("...String"),
+            Err("expected type".to_string())
+        );
+        assert_eq!(
+            parse_type_annotation("fn(...String, String) -> ()"),
+            Err("variadic function type parameter must be the final parameter".to_string())
+        );
+    }
+
+    #[test]
+    fn variadic_and_fixed_function_types_are_not_assignable() {
+        let variadic = Type::Function {
+            params: vec![Type::string()],
+            variadic: Some(Box::new(Type::string())),
+            return_type: Box::new(Type::unit()),
+            effects: Vec::new(),
+        };
+        let fixed = Type::Function {
+            params: vec![Type::string(), Type::string()],
+            variadic: None,
+            return_type: Box::new(Type::unit()),
+            effects: Vec::new(),
+        };
+
+        assert!(!is_assignable(&variadic, &fixed));
+        assert!(!is_assignable(&fixed, &variadic));
     }
 
     #[test]

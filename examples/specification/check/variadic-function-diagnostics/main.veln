@@ -1,0 +1,35 @@
+# Variadic parameter shape errors are reported at declarations.
+fn rest_not_last(values: ...String, suffix: String) -> String
+	suffix
+end
+
+fn duplicate_rest(left: ...String, right: ...String) -> String
+	""
+end
+
+fn missing_rest_type(values: ...) -> String
+	""
+end
+
+fn collect(prefix: String, values: ...String) -> List<String>
+	values
+end
+
+fn invalid_marker_positions() -> Int
+	let local: ...String = "bad"
+	let boxed: List<...String> = []
+	0
+end
+
+fn wrong_tail_type() -> List<String>
+	collect("ok", 1)
+end
+
+fn fixed_callback(prefix: String, values: List<String>) -> List<String>
+	values
+end
+
+fn variadic_assignment_mismatch() -> List<String>
+	let callback: fn(String, ...String) -> List<String> = fixed_callback
+	callback("ok")
+end

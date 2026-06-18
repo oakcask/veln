@@ -14,7 +14,8 @@ Implemented type annotations:
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
 - records: `{name: Type, ...}`
-- function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
+- function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
+  with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
@@ -55,6 +56,12 @@ In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,
 `-> fn(String) -> () effects [stdio] effects []` returns a callback that may
 perform `stdio` while the factory declaration itself is pure.
+
+A function type parameter may be variadic by writing `...T` as the final
+parameter type. The marker is not an ordinary type constructor and is rejected
+outside function declaration parameter syntax and function type parameter
+syntax. Inside a function body, a variadic declaration parameter is bound as
+`List<T>`.
 
 Record type field lists may include a trailing comma, as in
 `{name: String, count: Int,}`.
@@ -137,8 +144,11 @@ record and be assignable. Named types with the same constructor are compatible
 when their arguments are pairwise assignable, so `Vec<unknown>` accepts
 `Vec<Int>`. `Path` and `String` are distinct named types at assignment
 boundaries; the runtime path representation is not source-visible.
-Function assignment checks parameter count, parameter types, return type, and
-effects. The actual callable's effects must all be present in the expected
+Function assignment checks fixed parameter count, parameter types, variadic
+shape, return type, and effects. Variadic and fixed-arity function types are
+not assignment-compatible with each other. Two variadic function types are
+compatible only when the fixed parameters and variadic element types are
+assignable. The actual callable's effects must all be present in the expected
 function type's effect list, so a pure callable can satisfy an effectful
 function type but a `stdio` callable cannot satisfy a pure function type.
 

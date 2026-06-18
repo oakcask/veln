@@ -1,0 +1,21 @@
+# Variadic functions accept fixed arguments plus a homogeneous tail.
+fn collect(prefix: String, values: ...String) -> List<String>
+	values
+end
+
+fn call_callback(callback: fn(String, ...String) -> List<String>) -> List<String>
+	callback("cb", "one", "two")
+end
+
+fn direct_call() -> List<String>
+	collect("direct", "one", "two")
+end
+
+fn pipeline_call() -> List<String>
+	"pipe" |> collect("one", "two")
+end
+
+fn function_value_assignment() -> List<String>
+	let callback: fn(String, ...String) -> List<String> = collect
+	call_callback(callback)
+end
