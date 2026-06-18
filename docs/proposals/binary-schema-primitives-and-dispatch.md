@@ -53,8 +53,9 @@ three-byte big-endian reserved prefix groups where `ReservedBits(width,
 value)` is followed by two visible sub-byte or byte-width `UIntN` fields and
 all three widths complete the storage unit. The two-byte form includes
 reserved prefix widths one through fourteen when the visible fields complete
-the remaining bits, and the three-byte form includes non-byte-aligned
-reserved prefix widths when the visible fields complete the remaining bits.
+the remaining bits, and the three-byte form includes reserved prefix widths
+seventeen through twenty-three when the visible fields complete the remaining
+bits.
 The helpers
 validate or emit the high reserved bits, decode or
 encode the two visible
@@ -321,8 +322,8 @@ for:
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
   or four-byte big-endian storage unit, one-byte, two-byte, and three-byte
   reserved prefix groups followed by two visible `UIntN` fields, including
-  two-byte reserved prefix widths one through fourteen and three-byte
-  non-byte-aligned reserved prefix widths, and
+  two-byte reserved prefix widths one through fourteen and three-byte reserved
+  prefix widths seventeen through twenty-three, and
   consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
   one two-byte, three-byte, or four-byte big-endian storage unit
@@ -494,8 +495,8 @@ three-byte, and four-byte packed reserved suffix slice, and the
 complete one byte or one two-byte, three-byte, or four-byte big-endian
 storage unit, and one-byte, two-byte, and three-byte reserved prefix groups
 followed by two visible `UIntN` fields, including two-byte reserved prefix
-widths one through fourteen and three-byte non-byte-aligned reserved prefix
-widths, and consecutive non-byte-aligned
+widths one through fourteen and three-byte reserved prefix widths seventeen
+through twenty-three, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
 two-byte, three-byte, or four-byte big-endian storage unit are implemented under
 `../specification/execution.md`. Remaining proposal work is limited to

@@ -379,9 +379,9 @@ execution reference.
   byte, a two-byte big-endian storage unit, or a three-byte big-endian
   storage unit. In the two-byte form, reserved prefix widths one through
   fourteen are accepted when the two visible fields complete the remaining
-  bits in declaration order; in the three-byte form, non-byte-aligned
-  reserved prefix widths are accepted when the two visible fields complete
-  the remaining bits in declaration order. That
+  bits in declaration order; in the three-byte form, reserved prefix widths
+  seventeen through twenty-three are accepted when the two visible fields
+  complete the remaining bits in declaration order. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
   advances by the shared storage width. The same shared-storage rule also
@@ -704,8 +704,9 @@ execution reference.
   storage unit writes the declared reserved value first, then the two visible
   values in declaration order. The two-byte encode form accepts reserved
   prefix widths one through fourteen when the visible fields complete the
-  remaining bits, the three-byte encode form accepts non-byte-aligned reserved
-  prefix widths when the visible fields complete the remaining bits,
+  remaining bits, the three-byte encode form accepts reserved prefix widths
+  seventeen through twenty-three when the visible fields complete the
+  remaining bits,
   and reports `codec.encode_value_unrepresentable` at the
   out-of-range visible field. The same shared-storage encode rule also covers
   consecutive

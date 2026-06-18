@@ -597,7 +597,8 @@
                 && totalBitWidth == 8;
         boolean supportedTwoByteGroup = totalBitWidth == 16;
         boolean supportedThreeByteGroup =
-            reservedByteWidth(reserved.reservedBitWidth) == 0
+            reserved.reservedBitWidth >= 17
+                && reserved.reservedBitWidth <= 23
                 && totalBitWidth == 24;
         return (supportedOneByteGroup || supportedTwoByteGroup || supportedThreeByteGroup)
             ? totalBitWidth / 8
