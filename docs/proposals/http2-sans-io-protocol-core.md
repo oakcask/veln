@@ -318,7 +318,11 @@ fixture state, and also covers one dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
-indexed representation without prior state stays unsupported. The fixture also
+indexed representation without prior state stays unsupported. A later
+literal-with-indexing `:method: PUT` block replaces the single dynamic entry,
+carries through both completed HEADERS and final CONTINUATION paths, decodes
+as the latest `0xbe` entry, and keeps the evicted older-entry fixture path
+unsupported. The fixture also
 accepts dynamic table-size update bytes `0x3e` and `0x3f`, returns next
 immutable HPACK states whose table sizes are `30` and `31`, and carries those
 states through completed HEADERS and final CONTINUATION paths before later
@@ -602,7 +606,10 @@ names a supported static-table header name for `:authority`, `:method`,
 `/target`, or `https`, plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
-carried by the HTTP/2 decode state, plus explicit `0x3e` and `0x3f`
+carried by the HTTP/2 decode state, a later literal-with-indexing `:method: PUT`
+replacement that becomes the latest dynamic indexed entry, unsupported
+fixture coverage for the evicted older-entry path, plus explicit `0x3e` and
+`0x3f`
 table-size update fixtures that change the immutable HPACK state table size to
 `30` and `31` through both completed HEADERS and final CONTINUATION paths.
 Unsupported fixture blocks project through
@@ -619,8 +626,9 @@ full HPACK behavior.
 - A pure decode state transition handles chunk arrival and end-of-stream.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
-- Full HPACK compression, broader dynamic table behavior, eviction policy,
-  broader table-size update decoding, Huffman decoding, and production header
-  validation remain later work beyond the implemented fixture boundary.
+- Full HPACK compression, broader multi-entry dynamic table behavior, full
+  eviction policy, broader table-size update decoding, Huffman decoding, and
+  production header validation remain later work beyond the implemented
+  fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

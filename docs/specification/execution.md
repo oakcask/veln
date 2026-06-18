@@ -1155,7 +1155,12 @@ execution reference.
   slice where `0x44 0x07 "/target"` inserts `:path: /target` into the returned
   immutable fixture state stored on the HTTP/2 decode state and a later
   `0xbe` indexed representation reads that entry, returns ordinary
-  header-list data plus the next immutable fixture state. It also accepts
+  header-list data plus the next immutable fixture state. A later
+  literal-with-indexing `:method: PUT` fixture replaces that single dynamic
+  entry; `0xbe` then reads the latest entry, while the older entry fixture
+  path remains unsupported after eviction. Completed HEADERS and final
+  CONTINUATION paths both carry the replacement HPACK state before later
+  header blocks are decoded. It also accepts
   the dynamic table-size
   update fixtures `0x3e` and `0x3f`, which return next immutable fixture
   states with table sizes `30` and `31` from either a completed HEADERS block

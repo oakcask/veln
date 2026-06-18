@@ -81,6 +81,10 @@ fn literal_with_indexing_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
 end
 
+fn literal_with_indexing_method_put_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "PUT"), HpackHeader(":fixture", "literal-with-indexing"), 5)
+end
+
 fn dynamic_indexed_header(name: String, value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "dynamic-indexed"), 9)
 end
@@ -107,6 +111,10 @@ end
 
 fn decoded_literal_with_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(literal_with_indexing_path_target_headers(), state_with_dynamic_entry(state, ":path", "/target")))
+end
+
+fn decoded_literal_with_indexing_method_put(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_with_indexing_method_put_headers(), state_with_dynamic_entry(state, ":method", "PUT")))
 end
 
 fn decoded_dynamic_indexed_header(state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -141,6 +149,13 @@ end
 fn is_literal_with_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
 	match first_byte == 68 and observed_size == 9
 		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
+		false => false
+	end
+end
+
+fn is_literal_with_indexing_method_put(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
+	match first_byte == 66 and observed_size == 5
+		true => byte_at_or_missing(block, 1) == 3 and byte_at_or_missing(block, 2) == 80 and byte_at_or_missing(block, 3) == 85 and byte_at_or_missing(block, 4) == 84
 		false => false
 	end
 end
@@ -219,6 +234,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		end
 		1 => match is_literal_without_indexing_authority_example(block, observed_size, first_byte)
 			true => decoded_literal_without_indexing_authority_example(state)
+			false => unsupported(block, offset)
+		end
+		66 => match is_literal_with_indexing_method_put(block, observed_size, first_byte)
+			true => decoded_literal_with_indexing_method_put(state)
 			false => unsupported(block, offset)
 		end
 		68 => match is_literal_with_indexing_path_target(block, observed_size, first_byte)
