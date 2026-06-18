@@ -1263,6 +1263,8 @@ and
 and
 `../../examples/specification/run/channel-first-stream-routing-eleven-route/`
 and
+`../../examples/specification/run/channel-first-stream-routing-twelve-route/`
+and
 `../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`
@@ -1294,6 +1296,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-ten-route-effects/`
 and
 `../../examples/specification/check/channel-first-stream-routing-eleven-route-effects/`
+and
+`../../examples/specification/check/channel-first-stream-routing-twelve-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
 and
