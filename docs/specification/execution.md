@@ -135,6 +135,8 @@ execution reference.
   `examples/specification/check/socket-stream-adapter-routing-spawn17-effects/`,
   `examples/specification/run/socket-stream-adapter-routing-spawn18/`,
   `examples/specification/check/socket-stream-adapter-routing-spawn18-effects/`,
+  `examples/specification/run/socket-stream-adapter-routing-spawn19/`,
+  `examples/specification/check/socket-stream-adapter-routing-spawn19-effects/`,
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
