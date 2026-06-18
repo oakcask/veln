@@ -66,7 +66,8 @@ compare it with `../specification/` before changing behavior.
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode,
   one-byte and two-byte reserved prefix groups
-  followed by two visible `UIntN` fields, and consecutive non-byte-aligned
+  followed by two visible `UIntN` fields, including two-byte reserved prefix
+  widths one through fourteen, and consecutive non-byte-aligned
   `UIntN` and
   `ReservedBits(width, value)` groups that complete one byte or one
   two-byte, three-byte, or four-byte big-endian storage unit,

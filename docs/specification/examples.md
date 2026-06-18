@@ -774,6 +774,11 @@ encode preserve the two visible `UIntN` fields in declaration order, omit the
 reserved prefix from values, report visible-field range failures on either
 visible field path, and keep `schema.reserved_bits_mismatch` on the reserved
 field path when the high reserved bits differ.
+`../../examples/specification/run/binary-schema-prefix-reserved-low-width-two-byte-group-decode-encode/`
+pins the minimum reserved-width boundary for that two-byte form: a one-bit
+reserved prefix followed by `UInt7` and `UInt8` decodes and encodes through
+the shared big-endian storage unit, omits the reserved prefix from mapped
+values, and keeps visible-field range failures on either visible field path.
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
 and

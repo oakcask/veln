@@ -51,7 +51,9 @@ truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode one-byte and two-byte
 big-endian reserved prefix groups where `ReservedBits(width, value)` is
 followed by two visible `UIntN` fields and all three widths complete the
-storage unit. The helpers validate or emit the high reserved bits, decode or
+storage unit. The two-byte form includes reserved prefix widths one through
+fourteen when the visible fields complete the remaining bits. The helpers
+validate or emit the high reserved bits, decode or
 encode the two visible
 fields from high to low, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,
@@ -315,7 +317,8 @@ for:
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
   or four-byte big-endian storage unit, one-byte and two-byte
-  reserved prefix groups followed by two visible `UIntN` fields, and
+  reserved prefix groups followed by two visible `UIntN` fields, including
+  two-byte reserved prefix widths one through fourteen, and
   consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
   one two-byte, three-byte, or four-byte big-endian storage unit
@@ -486,7 +489,8 @@ three-byte, and four-byte packed reserved suffix slice, and the
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
 storage unit, and one-byte and two-byte reserved prefix groups
-followed by two visible `UIntN` fields, and consecutive non-byte-aligned
+followed by two visible `UIntN` fields, including two-byte reserved prefix
+widths one through fourteen, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
 two-byte, three-byte, or four-byte big-endian storage unit are implemented under
 `../specification/execution.md`. Remaining proposal work is limited to

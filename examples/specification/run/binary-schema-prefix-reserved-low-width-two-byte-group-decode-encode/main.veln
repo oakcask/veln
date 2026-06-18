@@ -7,9 +7,9 @@ end
 schema LowWidthPrefixReservedTwoByteHeader
 	format binary
 
-	prefix: ReservedBits(7, 85)
-	high: UInt4
-	low: UInt5
+	prefix: ReservedBits(1, 1)
+	high: UInt7
+	low: UInt8
 
 	map to LowWidthPrefixHeader
 		target_high = high
@@ -70,16 +70,19 @@ fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [std
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("ab51")?
+	let bytes: ByteChunk = byte_chunk_from_hex("d5ab")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
 	let decoded: {target_high: Int, target_low: Int} = byte_decode_low_width_prefix_reserved_two_byte_header(view)?
 	stdio::println(int_to_string(decoded.target_high))
 	stdio::println(int_to_string(decoded.target_low))
 
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_low_width_prefix_reserved_two_byte_header({target_high: 10, target_low: 17})
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_low_width_prefix_reserved_two_byte_header({target_high: 85, target_low: 171})
 	let ignored: () = emit_encoded(encoded)?
 
-	let rejected: Result<ByteChunk, EncodeError> = byte_encode_low_width_prefix_reserved_two_byte_header({target_high: 16, target_low: 17})
-	emit_encode_error(rejected)
+	let rejected_high: Result<ByteChunk, EncodeError> = byte_encode_low_width_prefix_reserved_two_byte_header({target_high: 128, target_low: 171})
+	emit_encode_error(rejected_high)
+
+	let rejected_low: Result<ByteChunk, EncodeError> = byte_encode_low_width_prefix_reserved_two_byte_header({target_high: 85, target_low: 256})
+	emit_encode_error(rejected_low)
 	Ok(())
 end
