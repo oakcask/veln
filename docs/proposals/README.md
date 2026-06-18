@@ -9,6 +9,9 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
+- [Function Variadic Arguments](function-variadic-arguments.md): add
+  source-level variadic parameters for ordinary functions and function values,
+  with fixed-arity checks preserved before a homogeneous gathered tail.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
