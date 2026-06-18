@@ -1279,9 +1279,11 @@ execution reference.
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, and unsupported Huffman variants, projects through
-  `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
-  from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
-  HTTP/2 core still owns the local
+  `hpack.fixture.unsupported_header_block` with the unsupported header-block
+  byte offset, observed size, observed first byte, expected fixture, codec
+  module, and bounded header-block byte preview. That diagnostic path is
+  distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;
+  the HTTP/2 core still owns the local
   `http2.peer_limit.header_list_size_exceeded` receive-limit boundary after
   fixture decoding.
 - The same example keeps outbound DATA send-intent flow control separate from

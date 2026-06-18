@@ -996,6 +996,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Expected {expected_fixture}.")));
@@ -2952,6 +2953,53 @@ mod tests {
                 .contains("accepted range is 16384..16777215")
         );
         assert!(diagnostic.related[1].to_json().contains("peer_settings"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_preview_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.unsupported_header_block"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(27)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(1)),
+            ("observed_first_byte", JsonValue::Number(255)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture header block"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("ff")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture unsupported header block at byte offset 27".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.unsupported_header_block");
+        assert_eq!(
+            diagnostic.message,
+            "unsupported HPACK fixture header block at byte offset 27"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("ff (showing 1 of 1 byte(s), complete)")
+        );
     }
 
     #[test]

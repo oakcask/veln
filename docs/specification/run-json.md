@@ -398,6 +398,10 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
+The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
+and records `byte_offset.value`, `observed_header_block_size`,
+`observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
+structured bounded `byte_preview` for the unsupported header-block bytes.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with

@@ -542,7 +542,8 @@
         long observedSize,
         long observedFirstByte,
         String expectedFixture,
-        String codecModule
+        String codecModule,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -553,7 +554,8 @@
                     DiagnosticDetail.number("observed_header_block_size", observedSize),
                     DiagnosticDetail.number("observed_first_byte", observedFirstByte),
                     DiagnosticDetail.string("expected_fixture", expectedFixture),
-                    DiagnosticDetail.string("codec_module", codecModule)
+                    DiagnosticDetail.string("codec_module", codecModule),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );

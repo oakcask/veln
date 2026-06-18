@@ -50,7 +50,8 @@ compare it with `../specification/` before changing behavior.
   source-visible `ByteView` range diagnostics with byte previews, checked byte
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
-  protocol byte previews.
+  protocol byte previews, plus the HPACK fixture unsupported-header-block
+  protocol byte preview.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and

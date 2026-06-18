@@ -41,7 +41,8 @@ schema field path and byte-view count mismatch reason, and
 structured byte previews for the implemented schema-owned byte diagnostics and
 HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
 invalid frame-kind and PRIORITY self-dependency protocol-owned byte
-diagnostics. Current behavior belongs to the specification pages, not this
+diagnostics, and the HPACK fixture unsupported-header-block protocol-facing
+diagnostic. Current behavior belongs to the specification pages, not this
 proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
@@ -146,7 +147,8 @@ bounded by default.
   length-bounded `ByteView` encode conversion diagnostics.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
   slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
-  slice, and HTTP/2 PRIORITY self-dependency slice cover protocol-owned byte
-  previews, field paths,
+  slice, HTTP/2 PRIORITY self-dependency slice, and HPACK fixture
+  unsupported-header-block slice cover protocol-owned byte previews,
+  field paths,
   expected and actual counts, and absolute offsets where those diagnostics
   inspect bytes directly.
