@@ -796,7 +796,7 @@ and `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list
-five-route through receiver-list fourteen-route, and receiver-list timeout typed
+five-route through receiver-list fifteen-route, and receiver-list timeout typed
 channel routes
 before handler invocation. Adapter
 code selects the ready route with existing channel selection and requires
@@ -822,6 +822,7 @@ are
 `examples/specification/run/channel-first-stream-routing-twelve-route/`,
 `examples/specification/run/channel-first-stream-routing-thirteen-route/`,
 `examples/specification/run/channel-first-stream-routing-fourteen-route/`,
+`examples/specification/run/channel-first-stream-routing-fifteen-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
@@ -846,6 +847,8 @@ and
 `examples/specification/check/channel-first-stream-routing-thirteen-route-effects/`,
 and
 `examples/specification/check/channel-first-stream-routing-fourteen-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-fifteen-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`, and
 `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
