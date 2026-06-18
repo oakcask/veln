@@ -514,6 +514,7 @@ fn parses_schema_mapping_expression_values() {
             "\t\tkind = Wrap(kind)\n",
             "\t\tcode = {value: kind}.value\n",
             "\t\tbody_length = (length-padding)+checksum\n",
+            "\t\tconverted = next_kind(kind) inverse previous_kind\n",
             "end\n",
         ),
     );
@@ -553,6 +554,14 @@ fn parses_schema_mapping_expression_values() {
         schema.mappings[0].assignments[3].expr.kind,
         ExprKind::Binary { .. }
     ));
+    assert_eq!(schema.mappings[0].assignments[4].source, "next_kind(kind)");
+    assert_eq!(
+        schema.mappings[0].assignments[4]
+            .inverse_converter
+            .as_ref()
+            .map(|inverse| inverse.name.as_str()),
+        Some("previous_kind")
+    );
 }
 
 #[test]

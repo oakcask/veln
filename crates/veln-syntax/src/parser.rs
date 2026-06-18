@@ -9,9 +9,9 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
-    UseDecl, UsePackage, Visibility, lex,
+    SchemaMappingClause, SchemaMappingInverseConverter, SchemaMappingSelector,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -708,7 +708,7 @@ impl<'a> Parser<'a> {
             );
         }
         self.expect(TokenKind::Equal, "schema_mapping", vec!["="]);
-        let expr = if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
+        let (expr, expr_end) = if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
             self.error_current(
                 "parse.schema_mapping_expression",
                 "schema mapping assignment value is missing",
@@ -721,21 +721,93 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Newline) {
                 self.bump();
             }
-            Expr {
-                kind: ExprKind::Missing,
-                span: self.source.span(token.range),
-            }
+            (
+                Expr {
+                    kind: ExprKind::Missing,
+                    span: self.source.span(token.range),
+                },
+                token.range,
+            )
         } else {
-            self.parse_expr_until_newline("schema_mapping").0
+            self.parse_schema_mapping_assignment_expr()
         };
         let source = schema_mapping_expr_source_text(self.source, &expr);
-        let end = TextRange::new(expr.span.start.offset, expr.span.end.offset);
+        let mut end = expr_end;
+        let inverse_converter = if self.at_ident_text("inverse") {
+            let inverse_start = self.bump().range;
+            let name = self.expect_name_path("schema_mapping", "inverse converter");
+            let inverse_end = self.previous().map_or(inverse_start, |token| token.range);
+            Some(SchemaMappingInverseConverter {
+                name: name.unwrap_or_default(),
+                span: self.source.span(inverse_start.cover(inverse_end)),
+            })
+        } else {
+            None
+        };
+        if self.at(TokenKind::Newline) {
+            end = self.bump().range;
+        }
         SchemaMappingAssignment {
             target,
             source,
             expr,
+            inverse_converter,
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn parse_schema_mapping_assignment_expr(&mut self) -> (Expr, TextRange) {
+        let start = self.current().range;
+        let mut end = start;
+        let mut tokens = Vec::new();
+        let mut depth = 0usize;
+        let mut match_depth = 0usize;
+        while !self.at(TokenKind::Eof) {
+            if depth == 0
+                && match_depth == 0
+                && (self.at(TokenKind::Newline)
+                    || (self.at_ident_text("inverse") && !tokens.is_empty()))
+            {
+                break;
+            }
+            let token = self.bump();
+            end = token.range;
+            match token.kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    depth = depth.saturating_sub(1);
+                }
+                TokenKind::Match => match_depth += 1,
+                TokenKind::End if match_depth > 0 => {
+                    match_depth = match_depth.saturating_sub(1);
+                }
+                _ => {}
+            }
+            if token.kind == TokenKind::Invalid {
+                self.diagnostics.push(ParseDiagnostic {
+                    id: "parse.invalid_token",
+                    message: "invalid token in expression".to_string(),
+                    span: Some(self.source.span(token.range)),
+                    parser_context: "schema_mapping",
+                    unexpected: UnexpectedToken {
+                        kind: token.kind.label().to_string(),
+                        text: token.text.clone(),
+                    },
+                    expected: vec!["expression"],
+                    recovery: Recovery {
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some("newline".to_string()),
+                        dropped_token_count: 1,
+                    },
+                    repair_candidates: Vec::new(),
+                });
+            } else {
+                tokens.push(token);
+            }
+        }
+        let (expr, diagnostics) = ExprParser::new(self.source, "schema_mapping", &tokens).parse();
+        self.diagnostics.extend(diagnostics);
+        (expr, start.cover(end))
     }
 
     fn parse_codec_decl(&mut self) -> CodecDecl {

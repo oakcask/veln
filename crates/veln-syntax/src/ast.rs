@@ -151,6 +151,13 @@ pub struct SchemaMappingAssignment {
     pub target: String,
     pub source: String,
     pub expr: Expr,
+    pub inverse_converter: Option<SchemaMappingInverseConverter>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaMappingInverseConverter {
+    pub name: String,
     pub span: SourceSpan,
 }
 

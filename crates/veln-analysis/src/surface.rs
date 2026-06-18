@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path};
 
 use veln_ast::{
-    CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
-    PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
+    CodecDirection, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern,
+    PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
     lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -1365,12 +1365,57 @@ fn collect_schema_mapping_converter_callees_for_call(
             && schema.name.as_ref().is_some_and(|schema_name| {
                 called == &schema_decode_function_name(schema_name)
                     || called == &schema_decode_step_function_name(schema_name)
+                    || called == &schema_encode_function_name(schema_name)
+                    || called == &schema_encode_step_function_name(schema_name)
             })
     }) {
-        for mapping in &schema.mappings {
-            for assignment in &mapping.assignments {
-                collect_schema_mapping_expr_converter_callees(
-                    &assignment.expr,
+        collect_schema_mapping_converter_callees_for_schema(
+            schema,
+            module,
+            function_targets,
+            callees,
+        );
+    }
+    for codec in module.codecs.iter().filter(|codec| {
+        codec.module_name.as_deref() == current_module
+            && codec.name.as_ref() == Some(called)
+            && codec.directions.contains(&CodecDirection::Encode)
+    }) {
+        let Some(schema_name) = &codec.schema else {
+            continue;
+        };
+        for schema in module.schemas.iter().filter(|schema| {
+            schema.module_name.as_deref() == codec.module_name.as_deref()
+                && schema.name.as_ref() == Some(schema_name)
+        }) {
+            collect_schema_mapping_converter_callees_for_schema(
+                schema,
+                module,
+                function_targets,
+                callees,
+            );
+        }
+    }
+}
+
+fn collect_schema_mapping_converter_callees_for_schema(
+    schema: &veln_ast::SchemaDecl,
+    module: &SurfaceModule,
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    for mapping in &schema.mappings {
+        for assignment in &mapping.assignments {
+            collect_schema_mapping_expr_converter_callees(
+                &assignment.expr,
+                schema.module_name.as_deref(),
+                &module.uses,
+                function_targets,
+                callees,
+            );
+            if let Some(inverse) = &assignment.inverse_converter {
+                collect_schema_mapping_converter_name_callee(
+                    &inverse.name,
                     schema.module_name.as_deref(),
                     &module.uses,
                     function_targets,
@@ -1408,6 +1453,33 @@ fn collect_schema_mapping_expr_converter_callees(
         for target in targets {
             push_reachable(callees, target);
         }
+    }
+}
+
+fn collect_schema_mapping_converter_name_callee(
+    name: &str,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+    let targets = match segments.as_slice() {
+        [name] => function_targets
+            .iter()
+            .filter(|target| {
+                target.name == *name && target.module_name.as_deref() == current_module
+            })
+            .map(|target| ReachableFunction {
+                kind: FunctionKind::Function,
+                name: target.target_name.clone(),
+                module_name: target.target_module_name.clone(),
+            })
+            .collect(),
+        _ => resolve_function_reference(&segments, current_module, uses, function_targets),
+    };
+    for target in targets {
+        push_reachable(callees, target);
     }
 }
 
@@ -1833,6 +1905,14 @@ fn schema_decode_function_name(schema_name: &str) -> String {
 
 fn schema_decode_step_function_name(schema_name: &str) -> String {
     format!("byte_decode_step_{}", snake_case_identifier(schema_name))
+}
+
+fn schema_encode_function_name(schema_name: &str) -> String {
+    format!("byte_encode_{}", snake_case_identifier(schema_name))
+}
+
+fn schema_encode_step_function_name(schema_name: &str) -> String {
+    format!("byte_encode_step_{}", snake_case_identifier(schema_name))
 }
 
 fn snake_case_identifier(name: &str) -> String {
@@ -2389,6 +2469,70 @@ mod tests {
             functions,
             vec![
                 (Some("main"), FunctionKind::Function, Some("next_kind")),
+                (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_schema_mapping_encode_inverse_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Header\n",
+                    "  Header {kind: Int}\n",
+                    "end\n",
+                    "\n",
+                    "fn next_kind(kind: Int) -> Int\n",
+                    "  kind + 1\n",
+                    "end\n",
+                    "\n",
+                    "fn previous_kind(kind: Int) -> Int\n",
+                    "  kind - 1\n",
+                    "end\n",
+                    "\n",
+                    "schema HeaderWire\n",
+                    "  format binary\n",
+                    "  wire_kind: UInt8\n",
+                    "\n",
+                    "  map to Header\n",
+                    "    kind = next_kind(wire_kind) inverse previous_kind\n",
+                    "end\n",
+                    "\n",
+                    "codec HeaderCodec for HeaderWire encode\n",
+                    "  derive encode\n",
+                    "end\n",
+                    "\n",
+                    "pub fn main(packet: {kind: Int}) -> Result<ByteChunk, EncodeError>\n",
+                    "  HeaderCodec(packet)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("next_kind")),
+                (Some("main"), FunctionKind::Function, Some("previous_kind")),
                 (Some("main"), FunctionKind::Function, Some("main")),
             ]
         );

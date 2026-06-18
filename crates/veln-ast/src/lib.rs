@@ -11,8 +11,9 @@ pub use model::{
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl,
     SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingSelector, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
+    SchemaMappingClause, SchemaMappingInverseConverter, SchemaMappingSelector,
+    SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
+    Visibility,
 };
 
 #[cfg(test)]

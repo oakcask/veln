@@ -5501,6 +5501,24 @@
             }
             return ok(values);
         }
+        if (spec.size() == 4 && asString(spec.get(0)).equals("converter")) {
+            Object projected = call(spec.get(2), targetValue);
+            Object roundTrip = call(spec.get(1), projected);
+            if (!java.util.Objects.equals(roundTrip, targetValue)) {
+                return err(encodeError(
+                    "codec.encode_mapping_mismatch",
+                    schemaName + "." + targetField,
+                    "inverse converter projection does not round-trip through mapped converter"
+                ));
+            }
+            return schemaEncodeMappingArgValues(
+                projected,
+                spec.get(3),
+                schemaName,
+                targetField,
+                "converter projection"
+            );
+        }
         return err("unsupported schema encode mapping");
     }
 
@@ -6126,7 +6144,7 @@
             return adt(name, payloads);
         }
         if (tag.equals("converter")) {
-            return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(2)));
+            return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(spec.size() == 4 ? 3 : 2)));
         }
         if (tag.equals("binary")) {
             Object left = schemaMappingExprValue(decoded, spec.get(2));

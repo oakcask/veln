@@ -628,18 +628,28 @@ execution reference.
   selected field maps directly to one schema-local visible field, and one
   target field assigned from a direct ADT constructor call whose payload
   arguments use those supported projectable field and record-expression forms
-  already supported by the generated encode helper. Single-payload
+  already supported by the generated encode helper. A target field assigned
+  from one pure same-module converter call is also projectable when the
+  assignment names an explicit same-module pure inverse converter with
+  `inverse name`; the helper calls the inverse, checks that applying the
+  mapped converter to the projected value round-trips to the supplied target
+  field value, then writes the recovered schema-local fields. Single-payload
   constructor wrappers remain limited to the existing single-constructor flag
   and exact-width integer cases unless the payload is that record-expression
   slice. A target value whose ADT constructor does not match the constructor
   expected by the mapping returns
   `Err(EncodeError("codec.encode_mapping_mismatch", field_path, reason))`.
   If the expected constructor payload is not the expected record shape, the
-  same `codec.encode_mapping_mismatch` id is returned. These mapped encode
+  same `codec.encode_mapping_mismatch` id is returned. A converter inverse
+  projection that does not round-trip through the mapped converter also
+  returns `codec.encode_mapping_mismatch` at the mapped target field path.
+  These mapped encode
   paths write bytes through the schema-local fields. The checked examples are
   `examples/specification/run/binary-schema-mapped-record-expression-encode/`
   and
-  `examples/specification/run/binary-schema-mapped-field-selection-encode/`.
+  `examples/specification/run/binary-schema-mapped-field-selection-encode/`,
+  `examples/specification/run/binary-schema-mapped-converter-encode/`, and
+  `examples/specification/run/binary-schema-mapped-converter-encode-mismatch/`.
   A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
@@ -958,6 +968,7 @@ execution reference.
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-budgeted-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-mapped-converter-encode-boundary/`,
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,

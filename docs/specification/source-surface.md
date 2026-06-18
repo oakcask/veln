@@ -147,7 +147,11 @@ argument: either a schema-local field reference or an already implemented
 structural mapping expression made from schema-local fields, records, ADT
 constructors, supported integer arithmetic mapping expressions, and nested
 combinations of those forms. The converter return value is assigned to the
-target field.
+target field. A converter-call mapping assignment may name an explicit
+same-module inverse converter with `inverse name` after the assignment
+expression. The inverse converter surface is only a declared projection
+boundary for generated encode helpers; converter names are not inferred from
+the forward function name.
 Other ordinary calls, bare imported converter names, private imported
 converters, converter calls inside arithmetic operands, effects, runtime
 settings, stream state, and recovery behavior are not mapping expressions.
