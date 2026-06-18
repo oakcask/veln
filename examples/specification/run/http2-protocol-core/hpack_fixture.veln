@@ -250,6 +250,10 @@ fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, H
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
 end
 
+fn unsupported_value(block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
+end
+
 fn supported_literal_static_name(index: Int) -> Bool
 	index == 1 or index == 2 or index == 4 or index == 6
 end
@@ -295,6 +299,25 @@ fn is_literal_value_https(block: ByteChunk, value_count: Int) -> Bool
 	end
 end
 
+fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_count(2)
+		Ok(prefix_count) => match byte_drop(block, prefix_count)
+			Ok(value_suffix) => match byte_count(value_count)
+				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
+					Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
+						Ok(value) => Ok(value)
+						Err(_) => unsupported_value(block, offset)
+					end
+					Err(_) => unsupported_value(block, offset)
+				end
+				Err(_) => unsupported_value(block, offset)
+			end
+			Err(_) => unsupported_value(block, offset)
+		end
+		Err(_) => unsupported_value(block, offset)
+	end
+end
+
 fn is_literal_without_indexing_path_empty_huffman(first_byte: Int, observed_size: Int, block: ByteChunk) -> Bool
 	first_byte == 4 and observed_size == 2 and byte_at_or_missing(block, 1) == 128
 end
@@ -326,8 +349,11 @@ fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: 
 		true => decoded_literal_without_indexing(":path", "", observed_size, state)
 		false => match is_literal_without_indexing_authority_www_example_com_huffman(first_byte, observed_size, block)
 			true => decoded_literal_without_indexing(":authority", "www.example.com", 13, state)
-			false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
-				true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
+			false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count > 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2
+				true => match no_huffman_literal_raw_value(block, value_count, offset)
+					Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, observed_size, state)
+					Err(failure) => Err(failure)
+				end
 				false => unsupported(block, offset)
 			end
 		end

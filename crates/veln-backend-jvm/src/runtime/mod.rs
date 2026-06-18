@@ -62,6 +62,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_chunk_count" => "byteChunkCount",
     "byte_append" => "byteAppend",
     "byte_chunk_from_hex" => "byteChunkFromHex",
+    "byte_chunk_to_visible_ascii_string" => "byteChunkToVisibleAsciiString",
     "byte_take" => "byteTake",
     "byte_drop" => "byteDrop",
     "byte_view" => "byteView",

@@ -1519,9 +1519,12 @@ against the built `veln` binary.
 	  `www-authenticate:`
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
   names a supported static-table header name for `:authority`, `:method`,
-  `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
-  `/target`, or `https`, plus Huffman-flagged fixture bytes for zero-length
-  `:path` as `0x04 0x80` and literal-without-indexing
+  `:path`, or `:scheme`, whose one-byte value length is not Huffman-marked,
+  whose length is within the small fixture bound, and whose raw value bytes
+  are all visible ASCII. The example covers `:authority: abc.test` through
+  completed HEADERS and final CONTINUATION paths and rejects a non-visible raw
+  value byte. Huffman-flagged fixture bytes for zero-length `:path` as
+  `0x04 0x80` and literal-without-indexing
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
   plus source-level dynamic table receive cases that

@@ -1677,6 +1677,19 @@
         return ok(byteChunkObject(bytes));
     }
 
+    public static Object byteChunkToVisibleAsciiString(Object chunk) {
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        StringBuilder out = new StringBuilder();
+        for (Object byteValue : bytes) {
+            long value = byteValueLong(byteValue);
+            if (value < 33L || value > 126L) {
+                return err("byte chunk contains non-visible ASCII byte");
+            }
+            out.append((char) value);
+        }
+        return ok(out.toString());
+    }
+
     private static Object fixtureHexInvalidCharacter(
         String input,
         int textIndex,
