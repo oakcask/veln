@@ -32,7 +32,8 @@ slices, and narrow deadline and cancellation slices, for:
   optional accept, deadline-aware optional accept, optional stream-read,
   deadline-aware optional stream-read, ordered write lifecycle slice, and
   checked adapter-owned listener-to-clean-stream-end, deadline-aware
-  accepted-stream lifecycle, and cancellable accepted-stream lifecycle slices
+  accepted-stream lifecycle, cancellable accepted-stream lifecycle, and
+  explicit stream close lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle, and
   cancellable lifecycle fixtures
@@ -68,20 +69,15 @@ slices, and narrow deadline and cancellation slices, for:
 
 ## Discussion Result: Network Effect Labels
 
-Implemented first socket slices: source-visible `NetListener` and `NetStream`
-handle types are returned by `net::listen(address)` and
-`net::accept(listener)`. `net::accept_or_end(listener)` returns
-`Option<NetStream>` so adapter-owned source can observe clean listener end
-without a runtime failure, `net::read_chunk(stream)` reads one `ByteChunk`,
-`net::read_chunk_or_end(stream)` returns `Option<ByteChunk>` so adapter-owned
-source can observe clean stream end without a runtime failure, and
-`net::write_chunk(stream, bytes)` writes one `ByteChunk`. These calls use the
-existing coarse `net` effect label and are fixture-backed runtime boundaries.
+Implemented first socket slices are specified by
+`../specification/names-effects.md` and `../specification/execution.md`.
+Completed fixture-backed listen, accept, read, write, and close operations use
+the existing coarse `net` effect label and remain runtime boundaries.
 
 The remaining transport surface should keep the existing coarse `net` effect
-label. Listen, accept, read, and write operations should be distinguished by
-standard-library function names, typed values, and diagnostics rather than by
-separate effect labels.
+label. Listen, accept, read, write, and close operations should be
+distinguished by standard-library function names, typed values, and
+diagnostics rather than by separate effect labels.
 
 This preserves the current effect-label source surface and avoids requiring the
 HTTP/2 design driver to decide a full network permission taxonomy from the
@@ -256,6 +252,9 @@ handle and performs no transport, time, or concurrency calls.
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
+
+The explicit stream close lifecycle slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-close-boundary.md`.
 
 The receiver-list five-route, six-route, seven-route, eight-route, nine-route,
 ten-route, eleven-route, twelve-route, timeout, timeout-result, and cancellable

@@ -649,7 +649,8 @@ reports deadline expiry before a chunk is read, the supplied `Deadline` has
 already expired, or the fixture stream reaches clean end before a chunk is
 read, `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream
 read and `None` for clean end of the fixture stream, and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream.
+writes one immutable `ByteChunk` to that stream. `net::close_stream` records a
+fixture-backed close event for an adapter-owned stream and returns `()`.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
@@ -663,10 +664,11 @@ handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
 same deadline and token values and returns `WaitCompleted`,
 `WaitDeadlineExpired`, or `WaitCancelled` as a source-visible
 `CancellableWaitOutcome`.
-Malformed host-fed receive or read bytes, failed outgoing send or write event
-recording, and host-fixture-forced listen, accept, read, write, timeout, or
-deadline expiry, or cancellable-wait cancellation through the runtime-failure
-wait stop the entry as runtime failures. Clean listener end observed through
+Malformed host-fed receive or read bytes, failed outgoing send, write, or
+close event recording, and host-fixture-forced listen, accept, read, write,
+close, timeout, or deadline expiry, or cancellable-wait cancellation through
+the runtime-failure wait stop the entry as runtime failures. Clean listener end
+observed through
 `net::accept_or_end`, accept deadline expiry observed through
 `net::accept_until`, clean stream end observed through `net::read_chunk_or_end`,
 read deadline expiry or clean stream end observed through
@@ -718,7 +720,9 @@ one adapter path. The deadline-aware lifecycle case combines
 `net::accept_until`, repeated `net::read_chunk_until` attempts, channel
 routing, pure handler invocation, and ordered write projection in one accepted
 stream adapter path, with deadline expiry becoming the ordinary stream
-boundary value before handler invocation. The same checked boundary also joins
+boundary value before handler invocation. Close-lifecycle cases call
+`net::close_stream` after ordered writes or cancellation cleanup and record the
+close event at the fixture runtime boundary. The same checked boundary also joins
 a spawned stream-handler task that passes ordinary event, state, and adapter
 context values plus one routing metadata value and two additional ordinary
 metadata values directly through `task::spawn_with6` instead of bundling them
@@ -746,7 +750,8 @@ metadata value through `task::spawn_with18`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
-functions. The checked examples are
+functions. Explicit adapter-owned stream close remains an adapter call. The
+checked examples are
 `examples/specification/run/socket-stream-adapter-routing/`,
 `examples/specification/check/socket-stream-adapter-routing-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn7/`,
@@ -770,7 +775,11 @@ functions. The checked examples are
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
-and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
+`examples/specification/run/socket-stream-adapter-close-lifecycle/`,
+`examples/specification/check/socket-stream-close-effects/`,
+`examples/specification/run/socket-stream-adapter-deadline-lifecycle/`,
+`examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`,
+and `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list

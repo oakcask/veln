@@ -2569,6 +2569,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::read_chunk_until", "netReadChunkUntil"),
         ("net::read_chunk_or_end", "netReadChunkOrEnd"),
         ("net::write_chunk", "netWriteChunk"),
+        ("net::close_stream", "netCloseStream"),
         ("process::args", "processArgs"),
         ("process::env", "processEnv"),
         ("process::cwd", "processCwd"),

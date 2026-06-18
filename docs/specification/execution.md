@@ -46,8 +46,8 @@ execution reference.
   descriptor chunk receive/send, listener creation, accept, optional
   clean-end listener accept, deadline-aware optional listener accept, stream
   read, optional clean-end stream read, deadline-aware optional stream read,
-  stream write, timeout, deadline waits, and cancellable deadline waits
-  execute outside the pure protocol core.
+  stream write, stream close, timeout, deadline waits, and cancellable
+  deadline waits execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -60,14 +60,14 @@ execution reference.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
-  Malformed received or read bytes, failed outgoing send or write event
-  recording, and forced listen, accept, read, write, timeout, deadline, or
-  cancellable-wait cancellation failures through the runtime-failure wait stop
-  the entry as runtime failures rather than schema, codec, or peer protocol
-  diagnostics. `net::accept_until` turns accept deadline expiry into `None`,
-  and `net::read_chunk_until` turns read deadline expiry into `None`, while
-  forced host accept or read failure through those paths remains a runtime
-  failure.
+  Malformed received or read bytes, failed outgoing send, write, or close
+  event recording, and forced listen, accept, read, write, close, timeout,
+  deadline, or cancellable-wait cancellation failures through the
+  runtime-failure wait stop the entry as runtime failures rather than schema,
+  codec, or peer protocol diagnostics. `net::accept_until` turns accept
+  deadline expiry into `None`, and `net::read_chunk_until` turns read deadline
+  expiry into `None`, while forced host accept or read failure through those
+  paths remains a runtime failure.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus
@@ -102,8 +102,10 @@ execution reference.
   case reads from an accepted stream with `net::read_chunk`, routes the
   ordinary `StreamInput` through a channel, turns `WaitCancelled` into a
   cleanup response action, and still writes only `SendBytes` actions to the
-  stream. Handler code remains free of socket handles and `net` calls. The
-  checked examples are
+  stream. Dedicated close-lifecycle cases call `net::close_stream` after
+  ordered writes or cancellation cleanup and record a fixture close event
+  without exposing stream handles to the handler. Handler code remains free of
+  socket handles and `net` calls. The checked examples are
   `examples/specification/run/socket-stream-adapter-routing/`,
   `examples/specification/check/socket-stream-adapter-routing-effects/`,
   `examples/specification/run/socket-stream-adapter-routing-spawn7/`,
@@ -133,14 +135,19 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
+  `examples/specification/run/socket-stream-adapter-close-lifecycle/`,
+  `examples/specification/check/socket-stream-close-effects/`,
   `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`,
   `examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`,
+  `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`,
   and
   `examples/specification/check/socket-stream-adapter-cancellable-lifecycle-effects/`.
   The owned-lifecycle cases cover the listener-to-clean-stream-end ownership
-  and effect boundary, the deadline lifecycle case covers deadline-aware
-  accepted-stream ownership in one adapter function, and the cancellable
-  lifecycle case covers cancellation-to-action routing for an accepted stream.
+  and effect boundary, the close-lifecycle cases cover explicit stream close
+  after clean end or cancellation cleanup, the deadline lifecycle case covers
+  deadline-aware accepted-stream ownership in one adapter function, and the
+  cancellable lifecycle case covers cancellation-to-action routing for an
+  accepted stream.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, receiver-list five-route through
   receiver-list twelve-route, and receiver-list timeout typed channel

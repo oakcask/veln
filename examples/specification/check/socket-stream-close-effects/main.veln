@@ -1,0 +1,4 @@
+# Stream close is a net boundary operation.
+pub fn missing_net(stream: NetStream) -> ()
+	net::close_stream(stream)
+end

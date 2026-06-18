@@ -302,6 +302,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.read_chunk_or_end",
     ),
     runtime_symbol("net", "write_chunk", NET_EFFECTS, "runtime.net.write_chunk"),
+    runtime_symbol(
+        "net",
+        "close_stream",
+        NET_EFFECTS,
+        "runtime.net.close_stream",
+    ),
     runtime_symbol("process", "args", PROCESS_EFFECTS, "runtime.process.args"),
     runtime_symbol("process", "env", PROCESS_EFFECTS, "runtime.process.env"),
     runtime_symbol("process", "cwd", PROCESS_EFFECTS, "runtime.process.cwd"),

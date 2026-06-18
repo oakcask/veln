@@ -197,6 +197,7 @@ net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
+net::close_stream(stream: NetStream) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
@@ -210,10 +211,11 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
-`net::write_chunk` also infer the same coarse `net` effect. Direct calls to
-`net::accept_until` and `net::read_chunk_until` infer both `net` and `time`
-because the adapter-owned accept or read attempt observes a `Deadline`. Direct
-calls to `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
+`net::write_chunk`, and `net::close_stream` also infer the same coarse `net`
+effect. Direct calls to `net::accept_until` and `net::read_chunk_until` infer
+both `net` and `time` because the adapter-owned accept or read attempt
+observes a `Deadline`. Direct calls to `time::timeout_ms`,
+`time::deadline_after_ms`, `time::wait_until`,
 `time::cancel_token`,
 `time::cancel`, `time::is_cancelled`, and
 `time::wait_until_cancellable`,
@@ -237,7 +239,8 @@ the fixture reports deadline expiry before a chunk is read, or the fixture
 stream reaches a clean end before a chunk is read;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream.
+writes one immutable `ByteChunk` to that stream. `net::close_stream` records
+fixture-backed adapter-owned stream cleanup and returns `()`.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;

@@ -207,6 +207,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::read_chunk_until" => "netReadChunkUntil",
         "net::read_chunk_or_end" => "netReadChunkOrEnd",
         "net::write_chunk" => "netWriteChunk",
+        "net::close_stream" => "netCloseStream",
         "process::args" => "processArgs",
         "process::env" => "processEnv",
         "process::cwd" => "processCwd",
