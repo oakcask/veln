@@ -354,8 +354,9 @@ decode functions are not implemented. Generated
 `byte_encode_<schema>` helpers for the exact-width including standalone
 `UInt1` through `UInt7`, supported reserved-bit, closed dispatch, extension
 dispatch, length-bounded `ByteView`, repeated primitive, nested schema, and
-`ByteView(length_field)` payloads, and same-module or imported public nested
-dispatch payload encode slices,
+`ByteView(length_field)` payloads, same-module or imported public nested
+dispatch payload encode slices, and same-module recursive closed and
+extension dispatch payload slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by

@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[json_assert]]
+path = "stdout"
+equals = "closed-decode 3 1 42 consumed 5\nclosed-short need_more 3\nclosed-invalid invalid schema.length_out_of_bounds\noutput_chunk_list derived-recursive-closed count 1\noutput_chunk derived-recursive-closed index 0 hex \"030101002a\" count 5\nextension-decode 3 1 42 consumed 5\nextension-unknown 2 7 7 2 consumed 4\noutput_chunk_list derived-recursive-extension count 1\noutput_chunk derived-recursive-extension index 0 hex \"030101002a\" count 5\n"
+
+[[output_chunk_list]]
+name = "derived-recursive-closed"
+chunks = ["030101002a"]
+
+[[output_chunk_list]]
+name = "derived-recursive-extension"
+chunks = ["030101002a"]

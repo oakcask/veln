@@ -1,0 +1,256 @@
+# Derived codec calls can use recursive dispatch generated helpers.
+use stdio
+
+type ClosedPayload
+	ClosedLeaf(Int)
+	ClosedBranch({ length : Int, kind : Int, payload : ClosedPayload })
+end
+
+type ClosedNode
+	ClosedNode { length: Int, kind: Int, payload: ClosedPayload }
+end
+
+schema RecursiveClosedNode
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveClosedNode)
+
+	map to ClosedNode when kind == 0
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedLeaf(payload)
+	map to ClosedNode when kind == 1
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedBranch(payload)
+end
+
+codec RecursiveClosedCodec for RecursiveClosedNode decode encode
+	derive decode
+	derive encode
+end
+
+type ExtensionPayload
+	ExtensionLeaf(Int)
+	ExtensionBranch({ length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> })
+end
+
+type ExtensionNode
+	ExtensionNode { length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload> }
+end
+
+schema RecursiveExtensionNode
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionNode)
+
+	map to ExtensionNode when kind == 0
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionLeaf(payload))
+	map to ExtensionNode when kind == 1
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionBranch(payload))
+end
+
+codec RecursiveExtensionCodec for RecursiveExtensionNode decode encode
+	derive decode
+	derive encode
+end
+
+fn closed_leaf_value(payload: ClosedPayload) -> Int
+	match payload
+		ClosedLeaf(value) => value
+		ClosedBranch(child) => closed_leaf_value(child.payload)
+	end
+end
+
+fn extension_known_leaf_value(payload: SchemaDispatchPayload<ExtensionPayload>) -> Int
+	match payload
+		Known(value) => extension_leaf_value(value)
+		Unknown(_, _) => -1
+	end
+end
+
+fn extension_leaf_value(payload: ExtensionPayload) -> Int
+	match payload
+		ExtensionLeaf(value) => value
+		ExtensionBranch(child) => extension_known_leaf_value(child.payload)
+	end
+end
+
+fn extension_unknown_tag(payload: SchemaDispatchPayload<ExtensionPayload>) -> Int
+	match payload
+		Known(_) => -1
+		Unknown(tag, _) => tag
+	end
+end
+
+fn extension_unknown_count(payload: SchemaDispatchPayload<ExtensionPayload>) -> Int
+	match payload
+		Known(_) => -1
+		Unknown(_, view) => byte_count_to_int(byte_view_count(view))
+	end
+end
+
+fn closed_step_kind(step: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn closed_readiness_count(step: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn closed_invalid_id(step: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+	end
+end
+
+fn emit_closed_decoded(step: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }>) -> Result<(), String> effects [stdio]
+	match step
+		Decoded(node, consumed) => emit_closed_node(node, consumed)
+		NeedMore(_) => Err("unexpected closed readiness")
+		Invalid(_) => Err("unexpected closed invalid")
+	end
+end
+
+fn emit_closed_node(node: { length : Int, kind : Int, payload : ClosedPayload }, consumed: ByteCount) -> Result<(), String> effects [stdio]
+	stdio::print("closed-decode ")
+	stdio::print(int_to_string(node.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(node.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(closed_leaf_value(node.payload)))
+	stdio::print(" consumed ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+	Ok(())
+end
+
+fn emit_extension_decoded(step: DecodeStep<{ length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }>) -> Result<(), String> effects [stdio]
+	match step
+		Decoded(node, consumed) => emit_extension_node(node, consumed)
+		NeedMore(_) => Err("unexpected extension readiness")
+		Invalid(_) => Err("unexpected extension invalid")
+	end
+end
+
+fn emit_extension_node(node: { length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }, consumed: ByteCount) -> Result<(), String> effects [stdio]
+	stdio::print("extension-decode ")
+	stdio::print(int_to_string(node.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(node.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension_known_leaf_value(node.payload)))
+	stdio::print(" consumed ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+	Ok(())
+end
+
+fn emit_extension_unknown(step: DecodeStep<{ length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }>) -> Result<(), String> effects [stdio]
+	match step
+		Decoded(node, consumed) => emit_extension_unknown_payload(node, consumed)
+		NeedMore(_) => Err("unexpected extension unknown readiness")
+		Invalid(_) => Err("unexpected extension unknown invalid")
+	end
+end
+
+fn emit_extension_unknown_payload(node: { length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }, consumed: ByteCount) -> Result<(), String> effects [stdio]
+	stdio::print("extension-unknown ")
+	stdio::print(int_to_string(node.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(node.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension_unknown_tag(node.payload)))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension_unknown_count(node.payload)))
+	stdio::print(" consumed ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+	Ok(())
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => emit_unexpected_chunk_count(chunks)
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+fn emit_unexpected_chunk_count(chunks: List<ByteChunk>) -> () effects [stdio]
+	stdio::print("unexpected chunk count ")
+	stdio::println(int_to_string(chunk_count(chunks)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let recursive_bytes: ByteChunk = byte_chunk_from_hex("030101002a")?
+	let recursive_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
+	let closed: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }> = RecursiveClosedCodec(recursive_view, byte_offset(23)?)
+	let ignored_closed: () = emit_closed_decoded(closed)?
+	let short_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(1)?)?
+	let short: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }> = RecursiveClosedCodec(short_view, byte_offset(23)?)
+	stdio::print("closed-short ")
+	stdio::print(closed_step_kind(short))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_readiness_count(short)))
+	let malformed_bytes: ByteChunk = byte_chunk_from_hex("040101002a")?
+	let malformed_view: ByteView = byte_view(malformed_bytes, byte_offset(0)?, byte_count(5)?)?
+	let malformed: DecodeStep<{ length : Int, kind : Int, payload : ClosedPayload }> = RecursiveClosedCodec(malformed_view, byte_offset(23)?)
+	stdio::print("closed-invalid ")
+	stdio::print(closed_step_kind(malformed))
+	stdio::print(" ")
+	stdio::println(closed_invalid_id(malformed))
+	let closed_encoded: EncodeStep<()> = RecursiveClosedCodec({ length: 3, kind: 1, payload: ClosedPayload::ClosedBranch({ length: 1, kind: 0, payload: ClosedPayload::ClosedLeaf(42) }) })
+	emit_encoded("derived-recursive-closed", closed_encoded, "030101002a")
+	let extension: DecodeStep<{ length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }> = RecursiveExtensionCodec(recursive_view, byte_offset(41)?)
+	let ignored_extension: () = emit_extension_decoded(extension)?
+	let unknown_bytes: ByteChunk = byte_chunk_from_hex("0207aabb")?
+	let unknown_view: ByteView = byte_view(unknown_bytes, byte_offset(0)?, byte_count(4)?)?
+	let unknown: DecodeStep<{ length : Int, kind : Int, payload : SchemaDispatchPayload<ExtensionPayload> }> = RecursiveExtensionCodec(unknown_view, byte_offset(41)?)
+	let ignored_unknown: () = emit_extension_unknown(unknown)?
+	let extension_encoded: EncodeStep<()> = RecursiveExtensionCodec({ length: 3, kind: 1, payload: Known(ExtensionPayload::ExtensionBranch({ length: 1, kind: 0, payload: Known(ExtensionPayload::ExtensionLeaf(42)) })) })
+	emit_encoded("derived-recursive-extension", extension_encoded, "030101002a")
+	Ok(())
+end

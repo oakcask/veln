@@ -192,6 +192,12 @@ covers the same derived codec call boundary when the generated decode-step
 helper decodes a same-module nested dispatch payload schema whose generated
 helper uses field-local validation, reserved fields, and little-endian reads.
 The executable specification case
+`../../examples/specification/run/derived-codec-recursive-dispatch-boundary/`
+covers the same derived codec call boundary when the generated decode-step
+helper decodes same-module recursive closed and extension dispatch payloads.
+It checks recursive success, short-input `NeedMore`, helper failure
+`Invalid`, and extension unknown-payload preservation through the codec item.
+The executable specification case
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 covers the same derived codec decode boundary over one non-HTTP schema that
 combines `Flag8`, bounded repeat fields, representation-only reserved fields,
@@ -276,6 +282,11 @@ covers the same derived codec call boundary when the generated encode helper
 writes a same-module nested dispatch payload schema whose generated helper
 uses reserved fields and little-endian output, and projects dispatch selection
 failures as `Invalid(EncodeError)`.
+The executable specification case
+`../../examples/specification/run/derived-codec-recursive-dispatch-boundary/`
+covers the same derived codec call boundary when the generated encode helper
+writes same-module recursive closed and extension dispatch payloads through
+the codec item and projects successful helper output to one encoded chunk.
 The executable specification case
 `../../examples/specification/run/binary-schema-general-helper-roundtrip/`
 covers the same derived codec encode boundary over the combined non-HTTP

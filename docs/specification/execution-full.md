@@ -256,6 +256,7 @@ A codec declaration with a valid `derive decode` clause for the same eligible
 generated binary schema decode-step slice exposes the codec item name as an
 executable decode boundary in ordinary source calls, including supported
 middle reserved-bit layouts, same-module nested dispatch payload schemas,
+same-module recursive closed and extension dispatch payload schemas,
 repeat-backed schemas, and multiple decoded-field selected schema mappings
 already accepted by `byte_decode_step_<schema>`. The call accepts the bounded
 `ByteView` and explicit base `ByteOffset` and returns the same
@@ -320,8 +321,9 @@ declaring module; imported calls require a written qualified module path to a
 A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
 executable encode boundary in ordinary source calls, including eligible nested
-dispatch payload schemas, repeat-backed schemas, direct structural mappings,
-and selected structural mappings already accepted by `byte_encode_<schema>`.
+dispatch payload schemas, same-module recursive closed and extension dispatch
+payload schemas, repeat-backed schemas, direct structural mappings, and
+selected structural mappings already accepted by `byte_encode_<schema>`.
 The call accepts the generated helper's schema-local value record or mapped
 target record, invokes the generated schema encode helper, and returns
 `EncodeStep<()>`. Successful helper output is projected from `Ok(ByteChunk)`
@@ -333,7 +335,7 @@ declaring module; imported calls require a written qualified module path to a
 primitive, supported reserved-bit, length-bounded `ByteView`, bounded repeated
 primitive, nested schema, and `ByteView(length_field)` payloads, closed
 dispatch, extension dispatch, implemented direct structural mapping, and
-eligible nested dispatch payload slices remains
+eligible nested and same-module recursive dispatch payload slices remains
 unimplemented. When a
 mapped schema uses a mapping expression shape that cannot be projected back to
 the schema-local encode record, the `derive encode` clause is rejected with
