@@ -165,16 +165,26 @@ fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, H
 end
 
 fn supported_literal_static_name(index: Int) -> Bool
-	index == 2 or index == 4 or index == 6
+	index == 1 or index == 2 or index == 4 or index == 6
 end
 
 fn literal_static_name(index: Int) -> String
-	match index == 2
-		true => ":method"
-		false => match index == 4
-			true => ":path"
-			false => ":scheme"
+	match index == 1
+		true => ":authority"
+		false => match index == 2
+			true => ":method"
+			false => match index == 4
+				true => ":path"
+				false => ":scheme"
+			end
 		end
+	end
+end
+
+fn is_literal_value_example_com(block: ByteChunk, value_count: Int) -> Bool
+	match value_count == 11
+		true => byte_at_or_missing(block, 2) == 101 and byte_at_or_missing(block, 3) == 120 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 109 and byte_at_or_missing(block, 6) == 112 and byte_at_or_missing(block, 7) == 108 and byte_at_or_missing(block, 8) == 101 and byte_at_or_missing(block, 9) == 46 and byte_at_or_missing(block, 10) == 99 and byte_at_or_missing(block, 11) == 111 and byte_at_or_missing(block, 12) == 109
+		false => false
 	end
 end
 
@@ -200,15 +210,18 @@ fn is_literal_value_https(block: ByteChunk, value_count: Int) -> Bool
 end
 
 fn supported_literal_value(block: ByteChunk, value_count: Int) -> Bool
-	is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
+	is_literal_value_example_com(block, value_count) or is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
 end
 
 fn literal_value(block: ByteChunk, value_count: Int) -> String
-	match is_literal_value_put(block, value_count)
-		true => "PUT"
-		false => match is_literal_value_path_target(block, value_count)
-			true => "/target"
-			false => "https"
+	match is_literal_value_example_com(block, value_count)
+		true => "example.com"
+		false => match is_literal_value_put(block, value_count)
+			true => "PUT"
+			false => match is_literal_value_path_target(block, value_count)
+				true => "/target"
+				false => "https"
+			end
 		end
 	end
 end
@@ -308,6 +321,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_table_size_update(state)
 				false => unsupported(block, offset)
 			end
+			17 => match observed_size == 8
+				true => decoded("header-list-accepted", 8, state)
+				false => match observed_size == 14
+					true => decoded("header-list-too-large", 14, state)
+					false => unsupported(block, offset)
+				end
+			end
+			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -319,13 +340,6 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			16 => match observed_size == 3
 				true => decoded("single-headers", 8, state)
 				false => unsupported(block, offset)
-			end
-			1 => match observed_size == 8
-				true => decoded("header-list-accepted", 8, state)
-				false => match observed_size == 10
-					true => decoded("header-list-too-large", 10, state)
-					false => unsupported(block, offset)
-				end
 			end
 			170 => match observed_size == 9
 				true => decoded("continuation", 9, state)

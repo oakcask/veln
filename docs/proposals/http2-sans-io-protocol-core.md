@@ -309,11 +309,11 @@ bytes plus the static indexed `accept-charset:`,
 	`server:`, `set-cookie:`, `strict-transport-security:`,
 	`transfer-encoding:`, `user-agent:`, `vary:`, `via:`, and
 	`www-authenticate:` header bytes, plus no-Huffman literal-without-indexing
-	fixtures whose first byte names a
-	supported static-table header name for `:method`, `:path`, or `:scheme` and
-whose short raw value is `PUT`, `/target`, or `https`, in completed HEADERS
-or final CONTINUATION frames, returns ordinary header-list data through the
-same accessors as the deterministic fixture-label blocks, advances immutable
+	fixtures whose first byte names a supported static-table header name for
+`:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
+`example.com`, `PUT`, `/target`, or `https`, in completed HEADERS or final
+CONTINUATION frames, returns ordinary header-list data through the same
+accessors as the deterministic fixture-label blocks, advances immutable
 fixture state, and also covers one dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
@@ -598,9 +598,10 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 	`transfer-encoding:`, `0xb9` `user-agent:`, `0xba` `vary:`, `0xbb`
 	`via:`, and `0xbc` `www-authenticate:`
 	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
-names a supported static-table header name for `:method`, `:path`, or
-`:scheme` and whose short raw value is `PUT`, `/target`, or `https`, plus
-one literal-with-indexing `:path: /target` insertion and one later dynamic
+names a supported static-table header name for `:authority`, `:method`,
+`:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
+`/target`, or `https`, plus one literal-with-indexing `:path: /target`
+insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
 carried by the HTTP/2 decode state, plus one explicit `0x3e` table-size update
 fixture that changes the immutable HPACK state table size to `30` through both

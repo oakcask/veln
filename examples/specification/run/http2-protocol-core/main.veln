@@ -547,7 +547,7 @@ fn receive_limit_provenance_label(receive_limit: ReceiveLimitEntry) -> String
 end
 
 fn header_list_receive_limit() -> ReceiveLimitEntry
-	ReceiveLimit(9, LocalConfiguration)
+	ReceiveLimit(13, LocalConfiguration)
 end
 
 fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Step, String>
@@ -5398,9 +5398,9 @@ fn print_extended_hpack_static_indexed_cases(state: Http2DecodeState) -> Result<
 end
 
 fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
-	let header_list_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000010102030405060708")?), state)?
+	let header_list_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000011102030405060708")?), state)?
 	print_step("header-list-accepted", header_list_accepted)
-	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "0102030405060708")?
+	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "1102030405060708")?
 	print_hpack_transition("header-list-accepted", header_list_accepted)
 	let hpack_static_indexed_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000182")?), state)?
 	print_step("hpack-static-indexed-method", hpack_static_indexed_method)
@@ -5422,6 +5422,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-literal-method-put", hpack_literal_method_put)
 	let ignored_hpack_literal_method_put: () = emit_header_block("http2-hpack-literal-method-put", hpack_literal_method_put, "0203505554")?
 	print_hpack_transition("hpack-literal-method-put", hpack_literal_method_put)
+	let hpack_literal_authority_example: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d010400000001010b6578616d706c652e636f6d")?), state)?
+	print_step("hpack-literal-authority-example", hpack_literal_authority_example)
+	let ignored_hpack_literal_authority_example: () = emit_header_block("http2-hpack-literal-authority-example", hpack_literal_authority_example, "010b6578616d706c652e636f6d")?
+	print_hpack_transition("hpack-literal-authority-example", hpack_literal_authority_example)
 	let hpack_stateful_literal_indexed_path_target: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000144072f746172676574")?), state)?
 	print_step("hpack-stateful-literal-indexed-path-target", hpack_stateful_literal_indexed_path_target)
 	let ignored_hpack_stateful_literal_indexed_path_target: () = emit_header_block("http2-hpack-stateful-literal-indexed-path-target", hpack_stateful_literal_indexed_path_target, "44072f746172676574")?
@@ -5585,15 +5589,22 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let ignored_hpack_static_indexed_if_unmodified_since: () = emit_header_block("http2-hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since, "aa")?
 	print_hpack_transition("hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since)
 	let ignored_extended_hpack_static_indexed_cases: () = print_extended_hpack_static_indexed_cases(state)?
-	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000010102030405")?), state)?
+	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000011102030405")?), state)?
 	print_step("header-list-start", header_list_start)
-	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005090400000001060708090a")?), step_state(header_list_start))?
+	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009090400000001060708090a0b0c0d0e")?), step_state(header_list_start))?
 	print_failure("header-list-size", header_list_too_large)
 	print_peer_settings("header-list-size", step_state(header_list_too_large))
+	let ignored_hpack_failure_cases: () = print_hpack_failure_cases(state)?
+	Ok(())
+end
+
+fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let hpack_fixture_bad: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000017f")?), state)?
 	print_failure("hpack-fixture", hpack_fixture_bad)
 	let hpack_literal_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010480")?), state)?
 	print_failure("hpack-literal-huffman", hpack_literal_huffman)
+	let hpack_literal_authority_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010100")?), state)?
+	print_failure("hpack-literal-authority-malformed", hpack_literal_authority_malformed)
 	Ok(())
 end
 

@@ -1254,9 +1254,10 @@ against the built `veln` binary.
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
-  names a supported static-table header name for `:method`, `:path`, or
-  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, then
-  returns ordinary header-list data and the next immutable fixture state. It
+  names a supported static-table header name for `:authority`, `:method`,
+  `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
+  `/target`, or `https`, then returns ordinary header-list data and the next
+  immutable fixture state. It
   also inserts one `:path: /target` literal-with-indexing entry, decodes a
   later dynamic indexed reference to that entry, and keeps a dynamic indexed
   reference without prior state on the unsupported fixture failure path.
@@ -1427,9 +1428,10 @@ against the built `veln` binary.
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
-  names a supported static-table header name for `:method`, `:path`, or
-  `:scheme` and whose short raw value is `PUT`, `/target`, or `https`, plus
-  one source-level dynamic table receive case that carries the immutable HPACK
+  names a supported static-table header name for `:authority`, `:method`,
+  `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
+  `/target`, or `https`, plus one source-level dynamic table receive case that
+  carries the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, through the imported fixture codec,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
