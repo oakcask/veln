@@ -442,22 +442,25 @@ execution reference.
   `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
   field path, decoded tag field, decoded tag value, expected tags, and
   structured byte preview fields. Same-module recursive closed-dispatch
-  payload cases are eligible only in the length-bounded form when selected
-  mappings cover every dispatch case and all mappings resolve to one record
-  shape, with at least one non-recursive case as the base case. The recursive
-  helper path decodes the nested payload from the bounded dispatch range
-  before continuing with later fields and preserves the same outer dispatch
-  plus nested schema field path on failures. The checked
+  payload cases and public imported recursive payload schemas named through a
+  written `use` path are eligible only in the length-bounded form when
+  selected mappings cover every dispatch case and all mappings resolve to one
+  record shape, with at least one non-recursive case as the base case. The
+  recursive helper path decodes the nested payload from the bounded dispatch
+  range before continuing with later fields and preserves the same outer
+  dispatch plus nested schema field path on failures. The checked
   examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-recursive-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
   `examples/specification/run/binary-schema-recursive-dispatch-failure-json/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-failure-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
   `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
@@ -482,7 +485,8 @@ execution reference.
   nested binary schema through the generated schema helper path from the
   bounded payload bytes selected by `length_field`, then expose it as
   `SchemaDispatchPayload::Known(value)`.
-  Same-module recursive known payload cases are eligible in the
+  Same-module recursive known payload cases and public imported recursive
+  payload schemas named through a written `use` path are eligible in the
   length-bounded form when selected mappings cover every known case, all
   mappings resolve to one record shape, and at least one known case is
   non-recursive. Recursive known cases decode through the same generated
@@ -500,6 +504,7 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-recursive-extension-dispatch-decode/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
   `examples/specification/run/binary-schema-extension-dispatch-unknown/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-unknown/`,
@@ -707,11 +712,12 @@ execution reference.
   `Unknown(tag, payload)` writes the bounded raw bytes from the `ByteView`
   only when the visible tag value is not a known case and matches the unknown
   payload tag.
-  Same-module recursive known payload cases use the same selected-mapping
-  eligibility as recursive closed dispatch; the generated encode helper
-  projects the selected known value to the recursive payload, writes it through
-  the same schema helper path, and validates the resulting byte count against
-  the explicit length field.
+  Same-module recursive known payload cases and public imported recursive
+  payload schemas named through a written `use` path use the same
+  selected-mapping eligibility as recursive closed dispatch; the generated
+  encode helper projects the selected known value to the recursive payload,
+  writes it through the same schema helper path, and validates the resulting
+  byte count against the explicit length field.
   The supplied length field remains explicit: the helper rejects values whose
   encoded payload byte count differs from the earlier length field with
   `Err(EncodeError("codec.dispatch_length_mismatch", field_path, reason))`.
@@ -765,16 +771,17 @@ execution reference.
   selector value satisfies the clause, then uses the same generated encode
   diagnostic shape for selector and projected-field representation failures.
   Same-module recursive
-  closed-dispatch and extension-dispatch payload cases are also eligible in
-  the length-bounded form when selected mappings cover every dispatch case,
-  all mappings resolve to one record shape, and at least one case is
-  non-recursive. The generated encode helper writes the selected recursive
-  payload through the same schema helper path and checks the encoded payload
-  byte count against the earlier length field. This slice excludes selected
+  closed-dispatch and extension-dispatch payload cases and public imported
+  recursive payload schemas named through a written `use` path are also
+  eligible in the length-bounded form when selected mappings cover every
+  dispatch case, all mappings resolve to one record shape, and at least one
+  case is non-recursive. The generated encode helper writes the selected
+  recursive payload through the same schema helper path and checks the encoded
+  payload byte count against the earlier length field. This slice excludes selected
   mappings that cannot reconstruct
   all schema-local encode fields, mapping expressions that cannot be projected
   back to schema-local fields, recursive dispatch payload schemas outside that
-  selected same-module length-bounded dispatch slice, dispatch payload
+  selected same-module or public imported length-bounded dispatch slice, dispatch payload
   schemas outside the generated helper slice, nested mappings, and derived
   codec encode execution for unsupported schemas.
   The checked examples are
@@ -858,6 +865,7 @@ execution reference.
   `examples/specification/run/binary-schema-recursive-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode/`,
@@ -866,6 +874,7 @@ execution reference.
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`,
   `examples/specification/run/binary-schema-recursive-extension-dispatch-encode/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-encode/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`,
@@ -882,6 +891,8 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-length-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-recursive-dispatch-length-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-recursive-extension-dispatch-length-encode-diagnostic-json/`,
+  `examples/specification/run/binary-schema-imported-recursive-dispatch-length-encode-diagnostic-json/`,
+  `examples/specification/run/binary-schema-imported-recursive-extension-dispatch-length-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-json/`,
   `examples/specification/run/binary-schema-dispatch-mismatch-encode-diagnostic-human/`,
   `examples/specification/run/binary-schema-general-helper-roundtrip/`,

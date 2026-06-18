@@ -99,11 +99,11 @@ compare it with `../specification/` before changing behavior.
   vocabulary in one decode-and-encode schema. Closed dispatch payload cases
   with mixed primitive and nested decoded shapes are implemented for selected
   mappings keyed by the dispatch tag field when those mappings cover the
-  dispatch cases and resolve to one target record shape. Same-module recursive
-  closed-dispatch and extension-dispatch payload decode and encode support is
-  implemented for the length-bounded forms when selected mappings cover every
-  known case, resolve to one target record shape, and include a non-recursive
-  base case.
+  dispatch cases and resolve to one target record shape. Same-module and
+  public imported recursive closed-dispatch and extension-dispatch payload
+  decode and encode support is implemented for the length-bounded forms when
+  selected mappings cover every known case, resolve to one target record
+  shape, and include a non-recursive base case.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

@@ -5,9 +5,10 @@ use crate::types::{
     SchemaMappingSelectorComparison, SchemaMappingSelectorPredicate, SchemaRepeatPayload,
     byte_view_schema_primitive, closed_dispatch_schema_primitive,
     extension_dispatch_schema_primitive, flag_schema_primitive,
-    recursive_dispatch_payload_is_eligible, repeat_schema_primitive, schema_decode_record_type,
-    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_encode_function_name, schema_encode_value_type, schema_length_expression_references,
+    recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
+    repeat_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
+    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
+    schema_encode_value_type, schema_length_expression_references,
     schema_mapping_selector_predicate, schema_mapping_selectors_overlap,
     schema_mapping_source_field_types, schema_payload_name_last_segment, schema_payload_name_path,
     schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
@@ -2612,7 +2613,13 @@ fn check_schema_dispatch_field(
         matches!(
             &case.payload,
             SchemaDispatchCasePayload::Schema { schema_name }
-                if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
+                if recursive_dispatch_payload_case_is_eligible(
+                    module,
+                    schema,
+                    field,
+                    dispatch,
+                    schema_name,
+                )
         )
     });
     if mixed_payload_type

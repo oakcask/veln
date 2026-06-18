@@ -5271,6 +5271,9 @@
             selected = projected;
         }
         if (selected == null) {
+            if (schemaEncodeValueHasUnknownExtensionDispatch(value, schema)) {
+                return ok(value);
+            }
             return err(encodeError(
                 "codec.encode_mapping_mismatch",
                 schema.name,
@@ -5278,6 +5281,30 @@
             ));
         }
         return selected;
+    }
+
+    private static boolean schemaEncodeValueHasUnknownExtensionDispatch(
+        Object value,
+        BinarySchemaSpec schema
+    ) {
+        if (!(value instanceof java.util.Map)) {
+            return false;
+        }
+        java.util.Map<Object, Object> fields = asMap(value);
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.dispatch == null || !field.dispatch.preservesUnknown) {
+                continue;
+            }
+            Object tagValue = fields.get(field.dispatch.tagField);
+            if (!(tagValue instanceof Long)
+                || schemaDispatchCaseForTag(field.dispatch, tagValue) != null) {
+                continue;
+            }
+            if (isAdtNamed(fields.get(field.name), "SchemaDispatchPayload::Unknown")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean schemaEncodeProjectionVariantMismatch(Object projected) {

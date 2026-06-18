@@ -1061,6 +1061,10 @@ against the built `veln` binary.
 - `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
   binary schema encode helper selects a closed dispatch public imported nested
   payload schema and writes the nested record fields in schema order.
+- `run/binary-schema-imported-recursive-dispatch-encode/`: generated binary
+  schema encode helpers write public imported recursive closed and extension
+  dispatch payload schemas through written `use` paths and preserve extension
+  unknown raw payload bytes.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
@@ -1130,6 +1134,14 @@ against the built `veln` binary.
   length-bounded recursive extension-dispatch encode reports
   `codec.dispatch_length_mismatch` when a known recursive payload byte count
   differs from the supplied length field.
+- `run/binary-schema-imported-recursive-dispatch-length-encode-diagnostic-json/`:
+  public imported recursive closed-dispatch encode reports
+  `codec.dispatch_length_mismatch` when the supplied length field does not
+  match the encoded payload byte count.
+- `run/binary-schema-imported-recursive-extension-dispatch-length-encode-diagnostic-json/`:
+  public imported recursive extension-dispatch encode reports
+  `codec.dispatch_length_mismatch` when a known recursive payload byte count
+  differs from the supplied length field.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
   failures report `codec.encode_value_unrepresentable` and keep the nested
   schema field path in structured `EncodeError` output.
@@ -1157,6 +1169,10 @@ against the built `veln` binary.
 - `run/binary-schema-imported-closed-dispatch-nested-decode/`: a closed
   dispatch known case may select a public imported binary schema payload
   through a written `use` path and return the decoded nested record shape.
+- `run/binary-schema-imported-recursive-dispatch-decode/`: public imported
+  recursive closed and extension dispatch payload schemas decode through
+  written `use` paths while extension unknown tags preserve bounded raw
+  payload bytes.
 - `run/binary-schema-closed-dispatch-unknown-json/`: a generated binary schema
   decode helper reports `schema.dispatch_unknown_tag` through `run --json`
   with byte offset, field path, decoded tag field, decoded tag value, expected
@@ -1209,6 +1225,9 @@ against the built `veln` binary.
 - `run/binary-schema-recursive-dispatch-failure-json/`: recursive nested
   dispatch failures keep each outer dispatch field segment before the nested
   schema field path in `run --json`.
+- `run/binary-schema-imported-recursive-dispatch-failure-json/`: imported
+  recursive nested dispatch failures keep the outer dispatch field segment
+  before the nested imported schema field path in `run --json`.
 - `run/binary-schema-extension-dispatch-length-human/`: extension-tolerant
   dispatch still reports a focused `schema.length_out_of_bounds` diagnostic
   when the decoded unknown-payload length exceeds closed input.
