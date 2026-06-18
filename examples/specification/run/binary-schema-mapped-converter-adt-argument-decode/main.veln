@@ -1,0 +1,43 @@
+# Binary schema mapping can pass an ADT constructor expression to a pure same-module converter.
+use stdio
+
+type KindToken
+	KindToken(Int)
+end
+
+type Header
+	Header {kind: Int, length: Int}
+end
+
+fn next_kind(token: KindToken) -> Int
+	match token
+		KindToken(value) => value + 1
+	end
+end
+
+schema HeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8 where wire_kind <= wire_length
+
+	map to Header
+		length = wire_length
+		kind = next_kind(KindToken(wire_kind))
+end
+
+fn emit_header(header: {kind: Int, length: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.length))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("123405")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let header: {kind: Int, length: Int} = byte_decode_header_wire(view)?
+	emit_header(header)
+	Ok(())
+end
