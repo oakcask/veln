@@ -79,9 +79,10 @@ compare it with `../specification/` before changing behavior.
   four-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
-  structural mapping decode, projectable mapped-record encode, and direct ADT
-  constructor mapped encode boundaries for supported schema-local fields plus
-  one record-payload constructor slice,
+  structural mapping decode, projectable mapped-record encode, same-module
+  converter-call mapped encode with an explicitly named inverse converter,
+  and direct ADT constructor mapped encode boundaries for supported
+  schema-local fields plus one record-payload constructor slice,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
