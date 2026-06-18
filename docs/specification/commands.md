@@ -67,6 +67,9 @@ requiring the full command reference on the first read.
   `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
   message on the failed encode fact and put field path, reason or predicate
   details, and source-visible `EncodeError` value in related notes.
+  Length-bounded `ByteView` encode count mismatches also put expected and
+  actual byte counts, byte offset, and bounded nearby byte preview in related
+  notes.
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
   path plus the source-visible `DecodeError` value in related notes. A

@@ -6697,13 +6697,21 @@
             }
             long actualLength = byteViewCountLong(current.head);
             if (actualLength != suppliedLength) {
-                return err(encodeError(
+                Object error = encodeError(
                     "codec.encode_value_unrepresentable",
                     schemaName + "." + field.name + "." + actualCount,
                     "byte view count " + actualLength + " does not match "
                         + schemaLengthDescription(field.repeat.byteViewLengthField)
                         + " value " + suppliedLength
-                ));
+                );
+                registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+                    error,
+                    current.head,
+                    suppliedLength,
+                    actualLength,
+                    field.repeat.byteViewLengthField
+                );
+                return err(error);
             }
             bytes.addAll(byteChunkBytes(byteViewToChunk(current.head)));
             actualCount += 1L;
@@ -6902,13 +6910,21 @@
         Object view = fields.get(field.name);
         long actualLength = byteViewCountLong(view);
         if (actualLength != suppliedLength) {
-            return err(encodeError(
+            Object error = encodeError(
                 "codec.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 "byte view count " + actualLength + " does not match "
                     + schemaLengthDescription(field.lengthField)
                     + " value " + suppliedLength
-            ));
+            );
+            registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+                error,
+                view,
+                suppliedLength,
+                actualLength,
+                field.lengthField
+            );
+            return err(error);
         }
         return ok(byteViewToChunk(view));
     }

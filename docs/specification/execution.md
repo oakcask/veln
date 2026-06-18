@@ -629,7 +629,15 @@ execution reference.
   count differs from the earlier length field or computed length expression,
   the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
-  reason))` without emitting partial output. Bounded
+  reason))` without emitting partial output. Command-facing diagnostics for
+  this schema-facing conversion boundary preserve the schema field path,
+  expected count, actual `ByteView` count, length expression, byte offset,
+  bounded byte preview, and count mismatch reason in human and JSON output.
+  The checked examples are
+  `examples/specification/run/binary-schema-byteview-encode-diagnostic-json/`
+  and
+  `examples/specification/run/binary-schema-byteview-encode-diagnostic-human/`.
+  Bounded
   repeated primitive fields are `List<Int>` record fields, repeated nested
   schema fields are list fields whose element type is the nested schema's
   decoded record shape, and repeated `ByteView(length_field)` fields are

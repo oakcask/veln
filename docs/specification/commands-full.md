@@ -250,6 +250,11 @@ When generated binary schema encode returns encode-time
 `schema.validation_failed`, human mode reports the failed encode validation
 fact and puts predicate text, supplied schema-local `Int` values, field path,
 and the source-visible `EncodeError` value in related notes.
+When generated length-bounded `ByteView` schema encode returns
+`codec.encode_value_unrepresentable` for a count mismatch, human mode reports
+the failed encode fact and puts the field path, mismatch reason, expected byte
+count, actual `ByteView` count, byte offset, bounded nearby byte preview, and
+the source-visible `EncodeError` value in related notes.
 When binary schema decode returns `schema.integer_out_of_range`, human mode
 reports the failed integer range fact at the field byte offset and puts byte
 width, accepted range, actual value, bounded nearby byte preview, and field

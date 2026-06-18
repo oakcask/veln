@@ -1,0 +1,32 @@
+# Binary schema ByteView encode length mismatches project to human diagnostics.
+schema PacketWire
+	format binary
+
+	length: UInt8
+	payload: ByteView(length)
+end
+
+fn fixture_error(message: String) -> EncodeError
+	EncodeError("codec.encode_value_unrepresentable", "PacketWire.payload", message)
+end
+
+fn payload_view() -> Result<ByteView, EncodeError>
+	match byte_chunk_from_hex("aabbcc")
+		Err(message) => Err(fixture_error(message))
+		Ok(bytes) => match byte_offset(0)
+			Err(message) => Err(fixture_error(message))
+			Ok(offset) => match byte_count(3)
+				Err(message) => Err(fixture_error(message))
+				Ok(count) => match byte_view(bytes, offset, count)
+					Err(message) => Err(fixture_error(message))
+					Ok(view) => Ok(view)
+				end
+			end
+		end
+	end
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	let payload: ByteView = payload_view()?
+	byte_encode_packet_wire({length: 2, payload: payload})
+end
