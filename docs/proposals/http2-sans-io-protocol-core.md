@@ -314,7 +314,11 @@ bytes plus the static indexed `accept-charset:`,
 whose short raw value is `PUT`, `/target`, or `https`, in completed HEADERS
 or final CONTINUATION frames, returns ordinary header-list data through the
 same accessors as the deterministic fixture-label blocks, advances immutable
-fixture state, and keeps unsupported HPACK bytes on
+fixture state, and also covers one dynamic-table receive slice: a
+literal-with-indexing `:path: /target` block inserts that entry into the next
+immutable HPACK state, a later `0xbe` indexed representation decodes through
+that carried state, and the same indexed representation without prior state
+stays unsupported. Unsupported HPACK bytes remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -590,7 +594,10 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 	`via:`, and `0xbc` `www-authenticate:`
 	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
 names a supported static-table header name for `:method`, `:path`, or
-`:scheme` and whose short raw value is `PUT`, `/target`, or `https`.
+`:scheme` and whose short raw value is `PUT`, `/target`, or `https`, plus
+one literal-with-indexing `:path: /target` insertion and one later dynamic
+indexed reference to that inserted entry through the returned immutable HPACK
+state.
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
@@ -605,7 +612,8 @@ full HPACK behavior.
 - A pure decode state transition handles chunk arrival and end-of-stream.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
-- Full HPACK compression, dynamic table behavior, and production header
-  validation remain later work beyond the implemented fixture boundary.
+- Full HPACK compression, broader dynamic table behavior, eviction policy,
+  table size updates, Huffman decoding, and production header validation remain
+  later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

@@ -1141,7 +1141,9 @@ execution reference.
 	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
 	  fixtures whose first byte names a supported static-table header name for
   `:method`, `:path`, or `:scheme` and whose short raw value is `PUT`,
-  `/target`, or `https`,
+  `/target`, or `https`, plus the narrow dynamic-table slice where
+  `0x44 0x07 "/target"` inserts `:path: /target` into the returned immutable
+  fixture state and a later `0xbe` indexed representation reads that entry,
   returns
   ordinary header-list data plus the next immutable fixture state, and projects
   unsupported fixture input, including malformed literal-without-indexing

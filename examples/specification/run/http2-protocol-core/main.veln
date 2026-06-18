@@ -4833,6 +4833,37 @@ fn print_hpack_transition(label: String, step: Http2Step) -> () effects [stdio]
 	end
 end
 
+fn hpack_decoded_next_state(label: String, transition: HpackDecodeTransition) -> HpackFixtureState effects [stdio]
+	print_hpack_decoded(label, transition)
+	hpack_fixture::transition_state(transition)
+end
+
+fn hpack_failed_same_state(label: String, failure: HpackFixtureFailure, state: HpackFixtureState) -> HpackFixtureState effects [stdio]
+	print_hpack_failed(label, failure)
+	state
+end
+
+fn print_hpack_boundary_with_state(label: String, block: ByteChunk, state: HpackFixtureState, offset: Int) -> HpackFixtureState effects [stdio]
+	match hpack_fixture::decode_header_block(block, state, offset)
+		Ok(transition) => hpack_decoded_next_state(label, transition)
+		Err(failure) => hpack_failed_same_state(label, failure, state)
+	end
+end
+
+fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
+	let first_state: HpackFixtureState = hpack_fixture::initial_state()
+	let inserted_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
+	emit_output_chunk_list_header("http2-hpack-literal-indexed-path-target", 1)
+	let ignored_inserted_block: () = emit_output_chunk("http2-hpack-literal-indexed-path-target", 0, inserted_block, "44072f746172676574")?
+	let second_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-literal-indexed-path-target", inserted_block, first_state, 0)
+	let referenced_block: ByteChunk = byte_chunk_from_hex("be")?
+	emit_output_chunk_list_header("http2-hpack-dynamic-indexed-path-target", 1)
+	let ignored_referenced_block: () = emit_output_chunk("http2-hpack-dynamic-indexed-path-target", 0, referenced_block, "be")?
+	let ignored_dynamic_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-path-target", referenced_block, second_state, 9)
+	let ignored_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-missing", referenced_block, hpack_fixture::initial_state(), 10)
+	Ok(())
+end
+
 fn unexpected_frame_header_encode_failure() -> Result<(), String> effects [stdio]
 	stdio::println("unexpected frame header encode failure")
 	Ok(())
@@ -5336,6 +5367,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-literal-method-put", hpack_literal_method_put)
 	let ignored_hpack_literal_method_put: () = emit_header_block("http2-hpack-literal-method-put", hpack_literal_method_put, "0203505554")?
 	print_hpack_transition("hpack-literal-method-put", hpack_literal_method_put)
+	let ignored_hpack_dynamic_table_cases: () = print_hpack_dynamic_table_cases()?
 	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?
 	print_step("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
 	let ignored_hpack_static_indexed_path_index: () = emit_header_block("http2-hpack-static-indexed-path-index", hpack_static_indexed_path_index, "85")?
