@@ -245,7 +245,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_indexed_method: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, replaced_state, 75)
 	print_transition("dynamic-indexed-method-put", dynamic_indexed_method)
 	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
-	print_transition("dynamic-indexed-evicted-path", decode_header_block(evicted_indexed_block, next_state_or(dynamic_indexed_method, replaced_state), 76))
+	print_transition("dynamic-indexed-older-path", decode_header_block(evicted_indexed_block, next_state_or(dynamic_indexed_method, replaced_state), 76))
+	let reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3e")?, replaced_state, 77)
+	print_transition("dynamic-table-size-eviction", reduced_table_size)
+	let reduced_state: HpackFixtureState = next_state_or(reduced_table_size, replaced_state)
+	print_state("dynamic-table-size-eviction", reduced_state)
+	print_transition("dynamic-indexed-after-size-eviction", decode_header_block(dynamic_indexed_block, reduced_state, 78))
 	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 70))
 	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
 	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 72)
