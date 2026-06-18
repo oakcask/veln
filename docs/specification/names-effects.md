@@ -52,7 +52,9 @@ compiler-known calls.
   variant with one additional ordinary metadata value using `task::spawn_with9`,
   plus a ten-argument variant with one additional ordinary metadata value using
   `task::spawn_with10`, plus an eleven-argument variant with one additional
-  ordinary metadata value using `task::spawn_with11`,
+  ordinary metadata value using `task::spawn_with11`, plus a twelve-argument
+  variant with one additional ordinary metadata value using
+  `task::spawn_with12`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, and ordered write projection; they
   add no new effect label or compiler-known routing call. The owned-lifecycle
