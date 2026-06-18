@@ -54,7 +54,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let first: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(first_block, initial, 9)
 	print_transition("first", first)
 	let second_state: HpackFixtureState = next_state_or(first, initial)
-	let second_block: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	let second_block: ByteChunk = byte_chunk_from_hex("1102030405060708")?
 	let second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(second_block, second_state, 18)
 	print_transition("second", second)
 	let third_state: HpackFixtureState = next_state_or(second, second_state)
@@ -221,22 +221,28 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
 	let literal_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_path_block, literal_state, 66)
 	print_transition("literal-path", literal_path)
-	let literal_indexed_state: HpackFixtureState = next_state_or(literal_path, literal_state)
+	let literal_authority_state: HpackFixtureState = next_state_or(literal_path, literal_state)
+	let literal_authority_block: ByteChunk = byte_chunk_from_hex("010b6578616d706c652e636f6d")?
+	let literal_authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_authority_block, literal_authority_state, 67)
+	print_transition("literal-authority", literal_authority)
+	let literal_indexed_state: HpackFixtureState = next_state_or(literal_authority, literal_authority_state)
 	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
-	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 67)
+	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 68)
 	print_transition("literal-indexed-path", literal_indexed_path)
 	let dynamic_state: HpackFixtureState = next_state_or(literal_indexed_path, literal_indexed_state)
 	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
-	print_transition("dynamic-indexed-path", decode_header_block(dynamic_indexed_block, dynamic_state, 68))
-	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 69))
+	print_transition("dynamic-indexed-path", decode_header_block(dynamic_indexed_block, dynamic_state, 69))
+	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 70))
 	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
-	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 71)
+	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 72)
 	print_transition("table-size-update", table_size_update)
 	print_state("table-size-update", next_state_or(table_size_update, dynamic_state))
 	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f")?
-	print_transition("malformed-table-size-update", decode_header_block(malformed_table_size_update_block, dynamic_state, 72))
+	print_transition("malformed-table-size-update", decode_header_block(malformed_table_size_update_block, dynamic_state, 73))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
-	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 70))
+	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 71))
+	let malformed_authority_block: ByteChunk = byte_chunk_from_hex("0100")?
+	print_transition("malformed-authority", decode_header_block(malformed_authority_block, literal_state, 74))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
 	print_transition("bad", decode_header_block(bad_block, second_state, 27))
 	Ok(())

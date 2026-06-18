@@ -1450,9 +1450,10 @@ The same HPACK fixture boundary accepts the static indexed `0x82`
 	`transfer-encoding:`, `0xb9` `user-agent:`, `0xba` `vary:`, `0xbb`
 	`via:`, and `0xbc` `www-authenticate:`
 	header-block bytes plus no-Huffman literal-without-indexing fixtures whose
-first byte names a supported static-table header name for `:method`, `:path`,
-or `:scheme` and whose short raw value is `PUT`, `/target`, or `https` in
-completed HEADERS or final CONTINUATION frames. The source-level HPACK
+first byte names a supported static-table header name for `:authority`,
+`:method`, `:path`, or `:scheme` and whose short raw value is `example.com`,
+`PUT`, `/target`, or `https` in completed HEADERS or final CONTINUATION
+frames. The source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header

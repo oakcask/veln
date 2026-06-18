@@ -1150,12 +1150,13 @@ execution reference.
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
 	  fixtures whose first byte names a supported static-table header name for
-  `:method`, `:path`, or `:scheme` and whose short raw value is `PUT`,
-  `/target`, or `https`, plus the narrow dynamic-table slice where
-  `0x44 0x07 "/target"` inserts `:path: /target` into the returned immutable
-  fixture state stored on the HTTP/2 decode state and a later `0xbe` indexed
-  representation reads that entry, returns ordinary header-list data plus the
-  next immutable fixture state. It also accepts exactly one dynamic table-size
+  `:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
+  `example.com`, `PUT`, `/target`, or `https`, plus the narrow dynamic-table
+  slice where `0x44 0x07 "/target"` inserts `:path: /target` into the returned
+  immutable fixture state stored on the HTTP/2 decode state and a later
+  `0xbe` indexed representation reads that entry, returns ordinary
+  header-list data plus the next immutable fixture state. It also accepts
+  exactly one dynamic table-size
   update fixture, `0x3e`, which returns a next immutable fixture state with
   table size `30` from either a completed HEADERS block or a final
   CONTINUATION block before a later header block is decoded, and projects
