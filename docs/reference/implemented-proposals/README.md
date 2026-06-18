@@ -68,6 +68,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
+- Network stream close boundary:
+  [network-stream-close-boundary.md](network-stream-close-boundary.md).
 - Network channel select-many routing:
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
 - Network stream task spawn with4:

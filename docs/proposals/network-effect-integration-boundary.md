@@ -69,17 +69,10 @@ slices, and narrow deadline and cancellation slices, for:
 
 ## Discussion Result: Network Effect Labels
 
-Implemented first socket slices: source-visible `NetListener` and `NetStream`
-handle types are returned by `net::listen(address)` and
-`net::accept(listener)`. `net::accept_or_end(listener)` returns
-`Option<NetStream>` so adapter-owned source can observe clean listener end
-without a runtime failure, `net::read_chunk(stream)` reads one `ByteChunk`,
-`net::read_chunk_or_end(stream)` returns `Option<ByteChunk>` so adapter-owned
-source can observe clean stream end without a runtime failure, and
-`net::write_chunk(stream, bytes)` writes one `ByteChunk`.
-`net::close_stream(stream)` records adapter-owned stream cleanup. These calls
-use the existing coarse `net` effect label and are fixture-backed runtime
-boundaries.
+Implemented first socket slices are specified by
+`../specification/names-effects.md` and `../specification/execution.md`.
+Completed fixture-backed listen, accept, read, write, and close operations use
+the existing coarse `net` effect label and remain runtime boundaries.
 
 The remaining transport surface should keep the existing coarse `net` effect
 label. Listen, accept, read, write, and close operations should be
@@ -256,19 +249,12 @@ response actions to `net::write_chunk`. The adapter declares the existing
 `net`, `time`, and `concurrency` effects; the handler receives no `NetStream`
 handle and performs no transport, time, or concurrency calls.
 
-Implemented stream close lifecycle slice: executable specification cases call
-`net::close_stream` from adapter-owned code after clean stream end or
-cancellation cleanup. Clean-end cleanup reads until
-`net::read_chunk_or_end` returns `None`, writes final ordered `SendBytes`
-actions through `net::write_chunk`, and then records a fixture close event.
-Cancellation cleanup turns `WaitCancelled` into an ordinary cleanup response
-action, applies ordered writes, and then records the same close event without
-treating cancellation as a runtime failure. The handler receives no
-`NetStream` handle and performs no transport, time, or concurrency calls.
-
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
+
+The explicit stream close lifecycle slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-close-boundary.md`.
 
 The receiver-list five-route, six-route, seven-route, eight-route, nine-route,
 ten-route, eleven-route, twelve-route, timeout, timeout-result, and cancellable
