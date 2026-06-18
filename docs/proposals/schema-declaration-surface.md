@@ -92,9 +92,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   imported public pure converter through a written `use` path or alias from a
   schema-local field or structural mapping expression into a target field, or
   select a visible field from a record-shaped structural mapping expression,
-  plus `+`, `-`, and `*` integer arithmetic over decoded schema-local `Int`
-  fields, integer literals, and nested supported mapping arithmetic expressions
-  into an `Int` target field
+  plus `+`, `-`, `*`, and `/` integer arithmetic over decoded schema-local
+  `Int` fields, integer literals, and nested supported mapping arithmetic
+  expressions into an `Int` target field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -153,8 +153,9 @@ module rules, one pure same-module converter function call, and one imported
 public pure converter function call through a written `use` path or alias from
 a schema-local field or structural mapping expression into a target field, and
 field selection from record-shaped structural mapping expressions. An `Int`
-target field may also use `+`, `-`, and `*` over decoded schema-local `Int`
-fields, integer literals, and nested supported mapping arithmetic expressions.
+target field may also use `+`, `-`, `*`, and `/` over decoded schema-local
+`Int` fields, integer literals, and nested supported mapping arithmetic
+expressions.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
@@ -188,7 +189,7 @@ a field-local representation conversion when the schema vocabulary defines one.
 Mapping expressions stay structural in the first surface: field selection,
 record construction, ADT construction, one pure same-module converter call,
 and one imported public pure converter call through a written `use` path or
-alias, plus decoded-field integer `+`, `-`, and `*` mapping arithmetic, are
+alias, plus decoded-field integer `+`, `-`, `*`, and `/` mapping arithmetic, are
 implemented. Arbitrary function calls, bare imported converter
 names, private imported converters, runtime settings, stream state, and
 recovery behavior belong in explicit codec functions rather than in schema
@@ -420,7 +421,7 @@ Implemented:
   representation converter call, and imported public pure converter call
   assignment expressions through a written `use` path or alias, field
   selection from record-shaped structural mapping expressions, and
-  decoded-field and integer-literal `+`, `-`, and `*` mapping arithmetic. Converter arguments
+  decoded-field and integer-literal `+`, `-`, `*`, and `/` mapping arithmetic. Converter arguments
   may be schema-local field references or structural mapping expressions.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=

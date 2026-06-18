@@ -136,7 +136,7 @@ construction resolved through ordinary source module rules, one pure
 same-module converter function call, or one imported public pure converter
 function call through a written `use` path or alias, and field selection from
 an already supported structural mapping expression whose type has the selected
-record field. An `Int` target field may also use `+`, `-`, and `*` expressions
+record field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions
 whose operands are decoded schema-local `Int` fields, integer literals, or
 nested supported integer arithmetic mapping expressions. Converter calls take one
 argument: either a schema-local field reference or an already implemented

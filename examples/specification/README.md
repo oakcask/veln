@@ -251,7 +251,10 @@ against the built `veln` binary.
   payload cases are wrapped by selected mappings into one target record shape.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
   decode computes `Int` target fields with supported decoded-field and
-  integer-literal `+`, `-`, and `*` mapping arithmetic.
+  integer-literal `+`, `-`, `*`, and `/` mapping arithmetic.
+- `run/binary-schema-mapping-division-by-zero-json/`: generated binary schema
+  decode reports `schema.mapping_division_by_zero` when mapping arithmetic
+  divides by zero.
 - `check/schema-mapping-field-selection-diagnostics/`: field-selection schema
   mapping expressions reject missing selected fields and non-record selection
   targets.

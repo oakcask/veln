@@ -2,7 +2,7 @@
 use stdio
 
 type Packet
-	Packet {body_length: Int, padded_length: Int, scaled_length: Int}
+	Packet {body_length: Int, padded_length: Int, scaled_length: Int, quotient: Int}
 end
 
 schema PacketWire
@@ -16,6 +16,7 @@ schema PacketWire
 		body_length = length - 9
 		padded_length = padding + 1
 		scaled_length = (length - padding) * 2
+		quotient = (length - padding) / 2
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
@@ -23,9 +24,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(3)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {body_length: Int, padded_length: Int, scaled_length: Int} = byte_decode_packet_wire(view)?
+	let packet: {body_length: Int, padded_length: Int, scaled_length: Int, quotient: Int} = byte_decode_packet_wire(view)?
 	stdio::println(int_to_string(packet.body_length))
 	stdio::println(int_to_string(packet.padded_length))
 	stdio::println(int_to_string(packet.scaled_length))
+	stdio::println(int_to_string(packet.quotient))
 	Ok(())
 end

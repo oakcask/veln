@@ -137,6 +137,18 @@ validation failure,
   such as `length` and `padding_length`
 - `byte_preview`: a structured bounded byte preview object
 
+When the result value is a binary schema mapping division-by-zero failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.mapping_division_by_zero"`
+- `byte_offset`: the offset after the decoded schema body
+- `field_path`: schema-local path segment objects with `kind` and `name`,
+  ending at the mapping target field
+- `target_field`: the target field whose mapping expression failed
+- `operator: "/"`
+- `byte_preview`: a structured bounded byte preview object
+
 When the result value is a schema value validation failure from
 `validate_<schema>`, `details.value_diagnostic` includes:
 

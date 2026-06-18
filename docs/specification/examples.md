@@ -471,8 +471,10 @@ pin the structural mapping expression slice. The helper constructs nested
 record and ADT target fields from decoded schema-local values.
 `../../examples/specification/run/binary-schema-mapping-arithmetic-decode/`
 pins the decoded-field and integer-literal arithmetic mapping slice. The helper
-evaluates supported `+`, `-`, and `*` expressions after field-local validation
-and returns the computed `Int` target fields.
+evaluates supported `+`, `-`, `*`, and `/` expressions after field-local
+validation and returns the computed `Int` target fields. The
+`../../examples/specification/run/binary-schema-mapping-division-by-zero-json/`
+case pins the division-by-zero diagnostic shape.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`

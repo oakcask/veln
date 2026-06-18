@@ -2521,7 +2521,10 @@ fn schema_mapping_binary_expr(
     right: &Expr,
     allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
-    if !matches!(op, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply) {
+    if !matches!(
+        op,
+        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide
+    ) {
         return Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
@@ -2828,8 +2831,10 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
             .cloned()
             .unwrap_or(Type::Unknown),
         ExprKind::Binary { op, left, right }
-            if matches!(op, BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply)
-                && schema_mapping_expr_actual_type(context, left) == Type::int()
+            if matches!(
+                op,
+                BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide
+            ) && schema_mapping_expr_actual_type(context, left) == Type::int()
                 && schema_mapping_expr_actual_type(context, right) == Type::int() =>
         {
             Type::int()
