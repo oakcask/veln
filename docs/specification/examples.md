@@ -1169,6 +1169,17 @@ response actions back to ordered `net::write_chunk` calls. The matching
 case pins the composed `net`, `time`, and `concurrency` effect boundary while
 the handler stays free of transport effects.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`
+covers the cancellable accepted-stream ownership boundary. The adapter receives
+an accepted stream, reads one chunk with `net::read_chunk`, routes the ordinary
+`StreamInput` through a channel, translates `WaitCancelled` into a cleanup
+response action, and projects only `SendBytes` actions back to ordered
+`net::write_chunk` calls. The matching
+`../../examples/specification/check/socket-stream-adapter-cancellable-lifecycle-effects/`
+case pins the composed `net`, `time`, and `concurrency` effect boundary while
+the handler stays free of transport effects.
+
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing/` and
 `../../examples/specification/run/channel-first-stream-routing-three-route/`

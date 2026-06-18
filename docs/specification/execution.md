@@ -50,9 +50,9 @@ execution reference.
   `CancellableWaitOutcome` values let adapter-owned waits observe completion,
   deadline expiry, or cancellation without stopping the entry. Stream adapter
   examples compose those outcomes with channel-routed `StreamInput` values,
-  receiver-list channel-first selection, and ordinary response actions in
-  fixture output so completed waits, deadline expiry, and cancellation become
-  adapter routing decisions.
+  receiver-list channel-first selection, accepted socket streams, and ordinary
+  response actions in fixture output so completed waits, deadline expiry, and
+  cancellation become adapter routing decisions.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
@@ -88,8 +88,12 @@ execution reference.
   through `task::spawn_with11`, and then to twelve ordinary source values
   through `task::spawn_with12`,
   and translates ordered
-  `SendBytes` actions into `net::write_chunk` calls. Handler code remains free
-  of socket handles and `net` calls. The checked examples are
+  `SendBytes` actions into `net::write_chunk` calls. A cancellable lifecycle
+  case reads from an accepted stream with `net::read_chunk`, routes the
+  ordinary `StreamInput` through a channel, turns `WaitCancelled` into a
+  cleanup response action, and still writes only `SendBytes` actions to the
+  stream. Handler code remains free of socket handles and `net` calls. The
+  checked examples are
   `examples/specification/run/socket-stream-adapter-routing/`,
   `examples/specification/check/socket-stream-adapter-routing-effects/`,
   `examples/specification/run/socket-stream-adapter-routing-spawn7/`,
@@ -107,10 +111,14 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
-  and `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`.
+  `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`,
+  `examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`,
+  and
+  `examples/specification/check/socket-stream-adapter-cancellable-lifecycle-effects/`.
   The owned-lifecycle cases cover the listener-to-clean-stream-end ownership
-  and effect boundary, and the deadline lifecycle case covers deadline-aware
-  accepted-stream ownership in one adapter function.
+  and effect boundary, the deadline lifecycle case covers deadline-aware
+  accepted-stream ownership in one adapter function, and the cancellable
+  lifecycle case covers cancellation-to-action routing for an accepted stream.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, receiver-list five-route, receiver-list
   six-route, receiver-list seven-route, receiver-list eight-route,

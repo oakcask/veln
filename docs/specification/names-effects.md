@@ -31,9 +31,12 @@ compiler-known calls.
   treat completion, deadline expiry, and cancellation as ordinary values.
   Stream adapter routing that combines those outcomes with channel-routed
   `StreamInput` values declares both `time` and `concurrency`; the handler it
-  calls stays free of transport effects. The cancellable channel-first routing
-  case uses receiver-list selection before the wait outcome and keeps the same
-  adapter effect boundary.
+  calls stays free of transport effects. Socket lifecycle routing can combine
+  an accepted `NetStream`, ordinary `net::read_chunk` input, channel routing,
+  and a value-returning cancellable wait under `net`, `time`, and
+  `concurrency` while keeping the handler pure. The cancellable channel-first
+  routing case uses receiver-list selection before the wait outcome and keeps
+  the same adapter effect boundary.
   Malformed receive fixtures, failed send or write recording, forced accept,
   read, or write failures, forced timeout or deadline expiry through
   runtime-failure waits, and forced cancellable-wait cancellation through the
@@ -56,11 +59,13 @@ compiler-known calls.
   variant with one additional ordinary metadata value using
   `task::spawn_with12`,
   deadline-aware accepted stream reads that stop on
-  `net::read_chunk_until` returning `None`, and ordered write projection; they
-  add no new effect label or compiler-known routing call. The owned-lifecycle
-  adapter declares `net` and `concurrency`; the deadline-aware lifecycle
-  adapter declares `net`, `time`, and `concurrency`; the pure handler boundary
-  remains free of transport effects.
+  `net::read_chunk_until` returning `None`, cancellable accepted-stream
+  routing that turns `WaitCancelled` into an ordinary cleanup action, and
+  ordered write projection; they add no new effect label or compiler-known
+  routing call. The owned-lifecycle adapter declares `net` and `concurrency`;
+  the deadline-aware and cancellable lifecycle adapters declare `net`, `time`,
+  and `concurrency`; the pure handler boundary remains free of transport
+  effects.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route, six-route, seven-route, eight-route, and nine-route examples
