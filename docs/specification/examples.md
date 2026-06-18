@@ -1417,11 +1417,15 @@ boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header
 field decodes through that carried state, and the same indexed byte without a
-dynamic entry stays unsupported. The fixture exposes the decoded header name
-and value through ordinary header-list accessors, advances the immutable
+dynamic entry stays unsupported. The fixture also accepts exactly one dynamic
+table-size update byte, `0x3e`, exposes the resulting table size `30` through
+the fixture-state accessor, and the HTTP/2 example covers both a completed
+HEADERS block and a final CONTINUATION block carrying that updated immutable
+state into a later header block decode. The fixture exposes the decoded header
+name and value through ordinary header-list accessors, advances the immutable
 fixture state, and keeps unsupported HPACK input on
 `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing variants.
+literal-without-indexing variants and table-size-update-like `0x3f`.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads

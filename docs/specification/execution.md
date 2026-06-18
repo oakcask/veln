@@ -1145,9 +1145,12 @@ execution reference.
   `0x44 0x07 "/target"` inserts `:path: /target` into the returned immutable
   fixture state stored on the HTTP/2 decode state and a later `0xbe` indexed
   representation reads that entry, returns ordinary header-list data plus the
-  next immutable fixture state, and projects
+  next immutable fixture state. It also accepts exactly one dynamic table-size
+  update fixture, `0x3e`, which returns a next immutable fixture state with
+  table size `30` from either a completed HEADERS block or a final
+  CONTINUATION block before a later header block is decoded, and projects
   unsupported fixture input, including malformed literal-without-indexing
-  variants, through
+  variants and table-size-update-like `0x3f`, through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
   HTTP/2 core still owns the local
