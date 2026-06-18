@@ -47,7 +47,8 @@ compare it with `../specification/` before changing behavior.
   byte-view freeze preservation across task and channel boundaries,
   source-visible `ByteView` range diagnostics with byte previews, checked byte
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
-  HTTP/2 client preface and PRIORITY self-dependency protocol byte previews.
+  HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
+  protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
@@ -128,8 +129,9 @@ compare it with `../specification/` before changing behavior.
   client connection preface failures, frame-size, header-list-size, and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid
-  connection-state and stream-state frame-kind failures, fixed payload-length
-  protocol projections with protocol-owned payload byte previews, the explicit
+  connection-state and stream-state frame-kind failures with protocol-owned
+  frame-header byte previews, fixed payload-length protocol projections with
+  protocol-owned payload byte previews, the explicit
   HTTP/2 invalid DATA padding projection, the HTTP/2 PRIORITY self-dependency
   projection with protocol-owned payload byte preview, the explicit
   HTTP/2 protocol diagnostic projection boundary for focused protocol and

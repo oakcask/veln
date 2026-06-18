@@ -1,4 +1,4 @@
-# HTTP/2 connection-state frame kind failures project structured runtime details.
+# HTTP/2 closed stream-state frame kind failures project structured runtime details.
 
 schema Http2FrameHeaderWire
 	format binary
@@ -37,16 +37,16 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, zero, header_count)?
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
-	validate_connection_frame_kind(0, header.kind, header.stream_id, view)
+	validate_closed_stream_frame_kind(0, header.kind, header.stream_id, view)
 end
 
-fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
+fn validate_closed_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
 	match stream_id == 0
-		true => match kind == 4
+		true => Ok(FrameOk(kind))
+		false => match kind == 1
 			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 4, preview)))
+			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, preview)))
 		end
-		false => Ok(FrameOk(kind))
 	end
 end
 
@@ -69,8 +69,8 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 end
 
 pub fn main() -> Result<(), String>
-	let step: Http2Step = receive(byte_chunk_from_hex("000000000000000000")?)?
-	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "connection_frames_require_settings")
+	let step: Http2Step = receive(byte_chunk_from_hex("000000000100000001")?)?
+	let context: Http2DiagnosticContext = DiagnosticContext("closed-by-peer-stream", "closed_by_peer_rejects_later_frames")
 	match step
 		Failed(failure) => http2_protocol_diagnostic(failure, context)
 		FrameOk(_) => Ok(())

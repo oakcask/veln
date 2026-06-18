@@ -11,7 +11,7 @@ schema Http2FrameHeaderWire
 end
 
 type Http2ProtocolFailure
-	InvalidFrameKind(Int, Int, Int, Int)
+	InvalidFrameKind(Int, Int, Int, Int, ByteView)
 end
 
 type Http2DiagnosticContext
@@ -37,14 +37,14 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, zero, header_count)?
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
-	validate_connection_frame_kind(0, header.kind, header.stream_id)
+	validate_connection_frame_kind(0, header.kind, header.stream_id, view)
 end
 
-fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int) -> Result<Http2Step, String>
+fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
 	match stream_id == 0
 		true => match kind == 4
 			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 4)))
+			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 4, preview)))
 		end
 		false => Ok(FrameOk(kind))
 	end
@@ -64,7 +64,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context))
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 

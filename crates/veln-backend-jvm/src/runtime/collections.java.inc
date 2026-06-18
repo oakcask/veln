@@ -3047,7 +3047,8 @@
         Object streamId,
         Object expectedKind,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long frameKind = asLong(actualKind);
@@ -3063,7 +3064,8 @@
             stream,
             expectedFrameKind,
             state,
-            provenance
+            provenance,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }

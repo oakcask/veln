@@ -5690,7 +5690,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "partial_preface_http2: http2_protocol_partial_preface(0, 6, view), ",
             "invalid_preface_http2: http2_protocol_invalid_preface(4, 42, 43, 4, view), ",
             "continuation_http2: http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\"), ",
-            "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\"), ",
+            "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\", view), ",
             "invalid_stream_http2: http2_protocol_invalid_stream_id(0, 1, 2, \"nonzero client-initiated stream id\", \"server\", \"stream-id-domain\", \"server_receives_client_initiated_streams\"), ",
             "invalid_payload_http2: http2_protocol_invalid_payload_length(0, 6, 0, 7, 8, \"connection-control\", \"rfc9113_ping_payload_length\", view), ",
             "invalid_data_padding_http2: http2_protocol_invalid_data_padding(9, 1, 2, 0, \"open-stream\", \"rfc9113_data_padding\", view), ",

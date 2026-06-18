@@ -37,8 +37,9 @@ with bounded byte previews, checked byte write conversion diagnostics with
 helper name, supplied value, accepted range, width, and byte order, and
 structured byte previews for the implemented schema-owned byte diagnostics and
 HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
-PRIORITY self-dependency protocol-owned byte diagnostics. Current behavior
-belongs to the specification pages, not this proposal.
+invalid frame-kind and PRIORITY self-dependency protocol-owned byte
+diagnostics. Current behavior belongs to the specification pages, not this
+proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -139,7 +140,8 @@ bounded by default.
   source-visible `ByteView` range diagnostics, checked byte write conversion
   diagnostics, and schema-owned byte diagnostic previews.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
-  slices, HTTP/2 client connection preface slice, and HTTP/2 PRIORITY
-  self-dependency slice cover protocol-owned byte previews, field paths,
+  slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
+  slice, and HTTP/2 PRIORITY self-dependency slice cover protocol-owned byte
+  previews, field paths,
   expected and actual counts, and absolute offsets where those diagnostics
   inspect bytes directly.
