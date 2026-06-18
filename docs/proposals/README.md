@@ -150,75 +150,15 @@ compare it with `../specification/` before changing behavior.
   command-facing projection.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
-  ordinary-source decode-state fixture slice, client connection preface
-  validation slice, frame-size peer-limit diagnostic slice with receive-limit
-  provenance, header-list-size peer-limit diagnostic slice with receive-limit
-  provenance, peer-received SETTINGS state for enable push, maximum frame size,
-  maximum concurrent streams, initial window size, header table size, and
-  maximum header list size, unknown SETTINGS identifier handling, SETTINGS
-  value range diagnostic slice, SETTINGS ACK receive and outstanding-local
-  SETTINGS tracking slice, invalid
-  frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
-  preservation slice, HPACK fixture codec boundary slice including the static
-  indexed `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
-  `0x85` `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
-  `:scheme: https`, plus `0x88` `:status: 200`, `0x89` `:status: 204`,
-  `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c` `:status: 400`,
-  `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`
-  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
-  `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
-  `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-  `authorization:`, `0x98` `cache-control:`, `0x99`
-  `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
-  `content-language:`, `0x9c` `content-length:`, `0x9d`
-  `content-location:`, `0x9e` `content-range:`, `0x9f`
-	  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2`
-	  `etag:`, `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`,
-	  `0xa6` `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
-	  `if-none-match:`, `0xa9` `if-range:`, `0xaa`
-	  `if-unmodified-since:`, `0xab` `last-modified:`, `0xac` `link:`,
-	  `0xad` `location:`, `0xae` `max-forwards:`, `0xaf`
-	  `proxy-authenticate:`, `0xb0` `proxy-authorization:`, `0xb1`
-	  `range:`, `0xb2` `referer:`, `0xb3` `refresh:`, `0xb4`
-	  `retry-after:`, `0xb5` `server:`, `0xb6` `set-cookie:`, `0xb7`
-	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
-	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
-	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
-	  fixtures whose first byte names a supported static-table header name for
-  `:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
-  `example.com`, `PUT`, `/target`, or `https`, plus the narrow dynamic-table
-  receive slice that inserts `:path: /target` through a literal-with-indexing
-  block and decodes a later dynamic indexed reference through the immutable
-  HPACK state carried by the HTTP/2 decode state, plus the explicit `0x3e`
-  table-size update fixture carried through completed HEADERS and final
-  CONTINUATION paths,
-  unknown extension-frame preservation slice, PING/GOAWAY
-  receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
-  PADDED DATA receive handling with invalid-padding diagnostics,
-  peer-created stream admission with concurrent-stream receive-limit
-  diagnostics, stream id domain diagnostic slice including HEADERS and
-  CONTINUATION on the connection stream, GOAWAY last-stream-id enforcement
-  for later peer-created HEADERS and local outbound HEADERS send-intents,
-  `RST_STREAM` receive slice,
-  PRIORITY receive slice with dependency facts, tracked open-stream priority
-  state replacement, stream-state failure preservation, and self-dependency
-  diagnostic,
-  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
-  inbound DATA and HEADERS `END_STREAM` closed-by-peer stream lifecycle,
-  peer-sent `PUSH_PROMISE` rejection on the server receive boundary, outbound
-  frame-header encode, outbound SETTINGS ACK send intent, local SETTINGS
-  send intents for `SETTINGS_HEADER_TABLE_SIZE`,
-  `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_ENABLE_PUSH`,
-  `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, and
-  `SETTINGS_MAX_HEADER_LIST_SIZE` including a two-item local SETTINGS batch,
-  outbound PING ACK send intent, outbound DATA send-intent frame-size
-  splitting, PADDED DATA send-intent encoding and splitting, `END_STREAM`
-  local closed-stream state, half-closed-local inbound DATA receive after
-  local `END_STREAM`, and outbound
-  `WINDOW_UPDATE` receive-credit intent,
-  `RST_STREAM` reset send-intent, outbound PRIORITY send-intent, outbound
-  HEADERS send-intent including CONTINUATION splitting, and GOAWAY send-intent
-  slices.
+  ordinary-source receive-state, diagnostics, settings, stream lifecycle,
+  HPACK fixture-boundary, unknown extension-frame, flow-control, send-intent,
+  `RST_STREAM`, PRIORITY, PING, GOAWAY, and server-side `PUSH_PROMISE`
+  rejection slices recorded under `../specification/` and
+  `../reference/implemented-proposals/`. Planned work still includes
+  broader protocol-core behavior and full HPACK behavior beyond the checked
+  fixture boundary, including full HPACK compression, broader dynamic-table
+  behavior, eviction policy, broader table-size update decoding, Huffman
+  decoding, and production header validation.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

@@ -102,6 +102,8 @@ behavior.
   [network-stream-task-spawn-with18.md](network-stream-task-spawn-with18.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
+- HTTP/2 HPACK authority literal fixture:
+  [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
 - Function variadic arguments:
   [function-variadic-arguments.md](function-variadic-arguments.md).
 
