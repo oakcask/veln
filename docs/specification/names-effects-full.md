@@ -447,6 +447,8 @@ task::spawn_with13(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M) -> T effects [
 task::spawn_with13<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M) -> Task<T> effects [concurrency]
 task::spawn_with14(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N) -> Task<T> effects [concurrency]
 task::spawn_with14<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N) -> Task<T> effects [concurrency]
+task::spawn_with15(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O) -> Task<T> effects [concurrency]
+task::spawn_with15<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -479,6 +481,8 @@ source values and the same optional return-type argument shape.
 ordinary source values and the same optional return-type argument shape.
 `task::spawn_with14` starts a fourteen-argument callable with fourteen
 ordinary source values and the same optional return-type argument shape.
+`task::spawn_with15` starts a fifteen-argument callable with fifteen ordinary
+source values and the same optional return-type argument shape.
 Arguments are frozen before crossing into the task, and the result value is
 frozen before it crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns

@@ -18,7 +18,7 @@ smallest section to read before opening the full grammar notes.
   visible hash comments inside doctests, and negative examples:
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
-  pipelines, standard channel and task calls including `task::spawn_with14`,
+  pipelines, standard channel and task calls including `task::spawn_with15`,
   and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
 - Contract predicate grammar:
