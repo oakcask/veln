@@ -5007,6 +5007,26 @@ fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-after-table-size-continuation-32", after_continuation_32_update)
 	print_hpack_transition_from_state("hpack-after-table-size-continuation-32", after_continuation_32_update, step_state(continuation_32_done))
 	print_hpack_state("hpack-after-table-size-continuation-32", step_state(after_continuation_32_update))
+	let table_size_update_160: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030105000000173f8101")?), state)?
+	print_step("hpack-table-size-update-160", table_size_update_160)
+	let ignored_table_size_update_160: () = emit_header_block("http2-hpack-table-size-update-160", table_size_update_160, "3f8101")?
+	print_hpack_transition("hpack-table-size-update-160", table_size_update_160)
+	print_hpack_state("hpack-table-size-update-160", step_state(table_size_update_160))
+	let after_table_size_update_160: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000001982")?), hpack_carry_only_state(step_state(table_size_update_160)))?
+	print_step("hpack-after-table-size-update-160", after_table_size_update_160)
+	print_hpack_transition_from_state("hpack-after-table-size-update-160", after_table_size_update_160, step_state(table_size_update_160))
+	print_hpack_state("hpack-after-table-size-update-160", step_state(after_table_size_update_160))
+	let continuation_160_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000001010000001b")?), state)?
+	print_step("hpack-table-size-continuation-160-start", continuation_160_start)
+	let continuation_160_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000001b3f8101")?), step_state(continuation_160_start))?
+	print_step("hpack-table-size-continuation-160-done", continuation_160_done)
+	let ignored_continuation_160_update: () = emit_header_block("http2-hpack-table-size-continuation-160", continuation_160_done, "3f8101")?
+	print_hpack_transition("hpack-table-size-continuation-160-done", continuation_160_done)
+	print_hpack_state("hpack-table-size-continuation-160-done", step_state(continuation_160_done))
+	let after_continuation_160_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000001d82")?), hpack_carry_only_state(step_state(continuation_160_done)))?
+	print_step("hpack-after-table-size-continuation-160", after_continuation_160_update)
+	print_hpack_transition_from_state("hpack-after-table-size-continuation-160", after_continuation_160_update, step_state(continuation_160_done))
+	print_hpack_state("hpack-after-table-size-continuation-160", step_state(after_continuation_160_update))
 	Ok(())
 end
 

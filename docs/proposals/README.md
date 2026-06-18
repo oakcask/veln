@@ -159,8 +159,8 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression, unbounded dynamic-table
-  behavior, general eviction policy, table-size updates beyond the checked
-  single-continuation fixture boundary, full Huffman decoding, and production
+  behavior, general eviction policy, general table-size update decoding beyond
+  the checked explicit fixture boundary, full Huffman decoding, and production
   header validation.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
