@@ -215,7 +215,10 @@ end
 fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match observed_size == 2 and byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
 		true => decoded_table_size_update(state, 31 + byte_at_or_missing(block, 1))
-		false => unsupported(block, offset)
+		false => match observed_size == 3 and byte_at_or_missing(block, 1) == 129 and byte_at_or_missing(block, 2) == 1
+			true => decoded_table_size_update(state, 160)
+			false => unsupported(block, offset)
+		end
 	end
 end
 

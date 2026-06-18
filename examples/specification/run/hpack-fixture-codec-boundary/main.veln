@@ -264,6 +264,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let table_size_update_32: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_32_block, dynamic_state, 74)
 	print_transition("table-size-update-32", table_size_update_32)
 	print_state("table-size-update-32", next_state_or(table_size_update_32, dynamic_state))
+	let table_size_update_160_block: ByteChunk = byte_chunk_from_hex("3f8101")?
+	let table_size_update_160: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_160_block, dynamic_state, 75)
+	print_transition("table-size-update-160", table_size_update_160)
+	print_state("table-size-update-160", next_state_or(table_size_update_160, dynamic_state))
+	let unsupported_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f8001")?
+	print_transition("table-size-update-general-unsupported", decode_header_block(unsupported_table_size_update_block, dynamic_state, 76))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 71))
 	let malformed_literal_huffman_block: ByteChunk = byte_chunk_from_hex("048100")?
