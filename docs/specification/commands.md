@@ -73,8 +73,10 @@ requiring the full command reference on the first read.
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related
-  notes. Checked byte write conversion failures remain ordinary runtime
-  `Err(...)` values unless a later source-visible value diagnostic is added.
+  notes. Checked byte write conversion failures report
+  `codec.byte_write_value_unrepresentable` and put the helper name, supplied
+  value, accepted range, width, byte order, and source-visible `Err` value in
+  related notes.
   A hand-written codec boundary that projects an oversized decoded consumed
   count as `codec.consumed_count_invalid` uses this shape and is not reported
   as retryable readiness.

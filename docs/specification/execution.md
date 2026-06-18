@@ -26,7 +26,9 @@ execution reference.
   Source-visible `ByteView` range failures expose command-facing
   `codec.byte_range_out_of_bounds` diagnostics with requested offset, requested
   count, available count, and bounded byte preview. Checked byte write
-  conversion overflow remains an ordinary value conversion `Err(...)`.
+  conversion overflow exposes command-facing
+  `codec.byte_write_value_unrepresentable` value diagnostics with helper name,
+  supplied value, accepted range, width, and byte order.
   Outgoing chunk-list helpers return ordinary immutable `List<ByteChunk>`
   values. Standard `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` values execute as

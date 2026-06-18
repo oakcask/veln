@@ -45,9 +45,9 @@ compare it with `../specification/` before changing behavior.
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
   input and outgoing immutable chunk collection for protocol examples,
   byte-view freeze preservation across task and channel boundaries,
-  source-visible `ByteView` range diagnostics with byte previews, and schema
-  byte-preview diagnostic slices plus HTTP/2 client preface and PRIORITY
-  self-dependency protocol byte previews.
+  source-visible `ByteView` range diagnostics with byte previews, checked byte
+  write conversion diagnostics, and schema byte-preview diagnostic slices plus
+  HTTP/2 client preface and PRIORITY self-dependency protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and

@@ -33,11 +33,12 @@ and writes for 16-bit, 24-bit, 31-bit, 32-bit, and 64-bit source-visible
 `Int` values, source-visible pending input and outgoing immutable chunk
 collection for protocol examples, `ByteView` freeze preservation across task
 and channel boundaries, source-visible `ByteView` range failure diagnostics
-with bounded byte previews, and structured byte previews for the implemented
-schema-owned byte diagnostics and HTTP/2 client connection preface
-protocol-owned byte diagnostics, plus HTTP/2 PRIORITY self-dependency
-protocol-owned byte diagnostics. Current behavior belongs to the
-specification pages, not this proposal.
+with bounded byte previews, checked byte write conversion diagnostics with
+helper name, supplied value, accepted range, width, and byte order, and
+structured byte previews for the implemented schema-owned byte diagnostics and
+HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
+PRIORITY self-dependency protocol-owned byte diagnostics. Current behavior
+belongs to the specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -135,8 +136,8 @@ bounded by default.
 
 - Specification pages describe the later binary-buffer behavior and any
   schema-facing conversion boundaries not covered by the current byte helpers,
-  source-visible `ByteView` range diagnostics, and schema-owned byte
-  diagnostic previews.
+  source-visible `ByteView` range diagnostics, checked byte write conversion
+  diagnostics, and schema-owned byte diagnostic previews.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
   slices, HTTP/2 client connection preface slice, and HTTP/2 PRIORITY
   self-dependency slice cover protocol-owned byte previews, field paths,

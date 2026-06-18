@@ -174,6 +174,20 @@ When the result value is a schema value validation failure from
 - supplied decoded `Int` values available to the predicate, keyed by schema
   field name, such as `length` and `padding_length`
 
+When the result value is a checked `byte_write_*` conversion failure,
+`details.value_diagnostic` includes:
+
+- `kind: "value_diagnostic"`
+- `id: "codec.byte_write_value_unrepresentable"`
+- `field_path`: an empty list because source-visible byte write helpers are
+  not owned by a schema field
+- `helper_name`: the source-visible byte write helper name
+- `supplied_value`: the `Int` value supplied to the helper
+- `min_value`: the smallest accepted value
+- `max_value`: the largest accepted value
+- `width`: the write width in bytes
+- `byte_order`: `big_endian` or `little_endian`
+
 When the result value is a generated binary schema encode failure represented
 as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
 `EncodeStep::Invalid(EncodeError(id, field_path, reason))`,

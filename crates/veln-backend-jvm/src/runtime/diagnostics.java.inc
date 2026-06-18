@@ -969,6 +969,32 @@
         );
     }
 
+    private static void registerByteWriteValueDiagnostic(
+        String message,
+        String helperName,
+        long suppliedValue,
+        long minValue,
+        long maxValue,
+        long width,
+        boolean littleEndian
+    ) {
+        valueDiagnostics.get().put(
+            message,
+            new ValueDiagnostic(
+                "codec.byte_write_value_unrepresentable",
+                java.util.Collections.emptyList(),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.string("helper_name", helperName),
+                    DiagnosticDetail.number("supplied_value", suppliedValue),
+                    DiagnosticDetail.number("min_value", minValue),
+                    DiagnosticDetail.number("max_value", maxValue),
+                    DiagnosticDetail.number("width", width),
+                    DiagnosticDetail.string("byte_order", littleEndian ? "little_endian" : "big_endian")
+                )
+            )
+        );
+    }
+
     private static void registerEncodeErrorValueDiagnostic(Object value, String message) {
         if (!isAdtNamed(value, "EncodeError::EncodeError")) {
             return;
