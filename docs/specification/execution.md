@@ -910,8 +910,9 @@ execution reference.
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
   repeat-backed schemas, the implemented direct structural mapping and
-  selected structural mapping slices, and eligible nested dispatch payload
-  schemas already accepted by `byte_encode_<schema>`.
+  selected structural mapping slices, eligible nested dispatch payload
+  schemas, and same-module recursive closed and extension dispatch payload
+  helpers already accepted by `byte_encode_<schema>`.
   The call accepts the generated helper's value record or mapped target
   record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
   helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
@@ -927,8 +928,11 @@ execution reference.
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
+  `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The recursive dispatch boundary case covers same-module recursive closed and
+  extension dispatch payload helpers through `derive encode`.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks both successful `Ok(ByteChunk)` projection and helper
   `Err(EncodeError)` projection.
@@ -954,7 +958,8 @@ execution reference.
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
   supported middle reserved-bit layouts, repeat-backed schemas, same-module or
-  public imported nested dispatch payload schemas, and multiple decoded-field
+  public imported nested dispatch payload schemas, same-module recursive
+  closed and extension dispatch payload helpers, and multiple decoded-field
   selected schema mappings already accepted by `byte_decode_step_<schema>`.
   The call accepts a bounded
   `ByteView` and explicit base `ByteOffset` and returns the same
@@ -967,8 +972,13 @@ execution reference.
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
+  `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The recursive dispatch boundary case covers same-module recursive closed and
+  extension dispatch payload helpers through `derive decode`, including
+  successful recursive decode, short-input `NeedMore`, helper failure
+  `Invalid`, and extension unknown-payload preservation.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
   `Invalid` outcomes through the codec item.

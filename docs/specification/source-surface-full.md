@@ -253,8 +253,8 @@ encode execution beyond those helper slices and schema decode outside the
 narrow generated binary helper slices are not implemented. The narrow
 primitive, field-local validation, mapped-record decode, dispatch decode, and
 primitive, reserved-bit, length-bounded `ByteView`, closed dispatch,
-extension dispatch, and eligible nested dispatch payload encode slices are
-routed from
+extension dispatch, eligible nested dispatch payload encode, and same-module
+recursive dispatch payload slices are routed from
 `execution.md`. Field
 names must be ordinary identifiers; names
 beginning with `_` remain hole tokens and are rejected as schema field names.

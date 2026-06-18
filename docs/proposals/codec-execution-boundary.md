@@ -35,6 +35,9 @@ for schemas that are already eligible for the generated binary schema encode
 helper, including the checked non-HTTP composite helper shape, selected
 structural mapping encode slice, and caller-owned parser-state retention
 around `Decoded` and `NeedMore` in `../specification/execution.md`.
+The eligible derived codec decode and encode execution boundaries now also
+cover same-module recursive closed and extension dispatch payload helpers
+already accepted by the generated helper path.
 
 Define codec support for:
 
@@ -324,7 +327,8 @@ encoder state owns only the remaining encode work.
   derived codec decode execution boundaries, and hand-written plus eligible
   derived codec encode execution boundaries, including budgeted derived encode
   over generated helper output, selected structural mapping encode cases
-  already accepted by the generated helper, and the caller-owned parser-state
+  already accepted by the generated helper, same-module recursive closed and
+  extension dispatch payload helpers, and the caller-owned parser-state
   retention example.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
