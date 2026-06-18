@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["Err(byte_write_u64_le value must be between 0 and 9223372036854775807)"]
+contains = ["error[codec.byte_write_value_unrepresentable]: byte write value is unrepresentable", "note: Byte write helper `byte_write_u64_le` received value -1.", "note: Accepted range is 0..9223372036854775807.", "note: Write width is 8 byte(s) with `little_endian` byte order.", "note: Result value: byte_write_u64_le value must be between 0 and 9223372036854775807."]

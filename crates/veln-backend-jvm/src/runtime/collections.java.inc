@@ -6391,7 +6391,17 @@
     ) {
         long unsigned = asLong(value);
         if (unsigned < 0 || unsigned > maxValue) {
-            return err(name + " value must be between 0 and " + maxValue);
+            String message = name + " value must be between 0 and " + maxValue;
+            registerByteWriteValueDiagnostic(
+                message,
+                name,
+                unsigned,
+                0,
+                maxValue,
+                width,
+                littleEndian
+            );
+            return err(message);
         }
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
         for (int index = width - 1; index >= 0; index -= 1) {

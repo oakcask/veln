@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["Err(byte_write_u31_be value must be between 0 and 2147483647)"]
+contains = ["error[codec.byte_write_value_unrepresentable]: byte write value is unrepresentable", "note: Byte write helper `byte_write_u31_be` received value 2147483648.", "note: Accepted range is 0..2147483647.", "note: Write width is 4 byte(s) with `big_endian` byte order.", "note: Result value: byte_write_u31_be value must be between 0 and 2147483647."]

@@ -295,7 +295,11 @@ against the built `veln` binary.
 - `run/binary-byteview-u64-truncated-json/`: ordinary prelude `u64` byte reads
   use the shared byte truncation diagnostic shape.
 - `run/binary-byteview-u64-write-failure-human/`: ordinary prelude `u64` byte
-  writes reject values outside the source-visible unsigned `Int` boundary.
+  writes report source-visible unsigned `Int` boundary failures through
+  focused human diagnostics.
+- `run/binary-byteview-u64-write-failure-json/`: ordinary prelude `u64` byte
+  writes report structured little-endian write boundary details through
+  `run --json`.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings or ordinary target types for schema mappings.
 - `check/codec-declarations/`: accepted private and public top-level `codec`
@@ -456,7 +460,11 @@ against the built `veln` binary.
   `codec.byte_range_out_of_bounds` diagnostic with requested range and
   bounded nearby-byte context.
 - `run/binary-byteview-write-failure-human/`: unsigned big-endian write
-  overflow propagates stable error text through human `run` stderr.
+  overflow propagates as a focused human diagnostic with helper name, supplied
+  value, accepted range, width, and byte order.
+- `run/binary-byteview-write-failure-json/`: unsigned big-endian write
+  overflow propagates through `run --json` with structured helper name,
+  supplied value, accepted range, width, and byte order details.
 - `run/binary-schema-frame-header-decode/`: the implemented binary schema
   primitive decode slice consumes a frame-header `ByteView`, returns visible
   exact-width fields as ordinary `Int` values, and omits the reserved field

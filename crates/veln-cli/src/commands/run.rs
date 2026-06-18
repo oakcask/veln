@@ -1067,8 +1067,48 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
         "codec.dispatch_mismatch" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
+        "codec.byte_write_value_unrepresentable" => {
+            byte_write_result_failure_diagnostic(failure, value_diagnostic, value_entries)
+        }
         _ => None,
     }
+}
+
+fn byte_write_result_failure_diagnostic(
+    failure: &TestFailure,
+    value_diagnostic: &JsonValue,
+    value_entries: &[(String, JsonValue)],
+) -> Option<Diagnostic> {
+    let id = json_string(value_entries, "id")?;
+    let helper_name = json_string(value_entries, "helper_name")?;
+    let supplied_value = json_number(value_entries, "supplied_value")?;
+    let min_value = json_number(value_entries, "min_value")?;
+    let max_value = json_number(value_entries, "max_value")?;
+    let width = json_number(value_entries, "width")?;
+    let byte_order = json_string(value_entries, "byte_order")?;
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        "byte write value is unrepresentable",
+        None,
+        value_diagnostic.clone(),
+    );
+    diagnostic.related.push(note_json(format!(
+        "Byte write helper `{helper_name}` received value {supplied_value}."
+    )));
+    diagnostic.related.push(note_json(format!(
+        "Accepted range is {min_value}..{max_value}."
+    )));
+    diagnostic.related.push(note_json(format!(
+        "Write width is {width} byte(s) with `{byte_order}` byte order."
+    )));
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("Result value: {value}.")));
+    }
+    Some(diagnostic)
 }
 
 fn encode_result_failure_diagnostic(
@@ -2236,6 +2276,60 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("<empty> (showing 0 of 0 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn value_result_failure_diagnostic_projects_byte_write_context() {
+        let value_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("value_diagnostic")),
+            (
+                "id",
+                JsonValue::string("codec.byte_write_value_unrepresentable"),
+            ),
+            ("field_path", JsonValue::array([])),
+            ("helper_name", JsonValue::string("byte_write_u31_be")),
+            ("supplied_value", JsonValue::Number(2147483648)),
+            ("min_value", JsonValue::Number(0)),
+            ("max_value", JsonValue::Number(2147483647)),
+            ("width", JsonValue::Number(4)),
+            ("byte_order", JsonValue::string("big_endian")),
+        ]);
+        let failure = TestFailure {
+            kind: "result".to_string(),
+            message: "runtime result failure: Err(byte_write_u31_be value must be between 0 and 2147483647)".to_string(),
+            details: JsonValue::object([
+                ("kind", JsonValue::string("result")),
+                ("phase", JsonValue::string("runtime")),
+                (
+                    "value",
+                    JsonValue::string("byte_write_u31_be value must be between 0 and 2147483647"),
+                ),
+                ("value_diagnostic", value_diagnostic),
+            ]),
+        };
+
+        let diagnostic =
+            value_result_failure_diagnostic(&failure).expect("value diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.byte_write_value_unrepresentable");
+        assert_eq!(diagnostic.kind, DiagnosticKind::Runtime);
+        assert_eq!(diagnostic.message, "byte write value is unrepresentable");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("`byte_write_u31_be` received value 2147483648")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("Accepted range is 0..2147483647")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("4 byte(s) with `big_endian` byte order")
         );
     }
 

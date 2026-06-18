@@ -113,7 +113,10 @@ output. The read-truncation JSON and human cases pin the
 `codec.incomplete_input` byte diagnostic details and missing-byte human
 projection. The range JSON and human cases pin
 `codec.byte_range_out_of_bounds` byte diagnostic details, including requested
-count, available count, and bounded nearby-byte preview context. The
+count, available count, and bounded nearby-byte preview context. The write
+overflow JSON and human cases pin
+`codec.byte_write_value_unrepresentable` value diagnostic details, including
+helper name, supplied value, accepted range, width, and byte order. The
 named-fixture truncation case pins the same JSON diagnostic shape while
 proving that valid fixture bytes fail as codec truncation, not as fixture text
 validation.
@@ -330,11 +333,14 @@ source-visible `Int` values. The runtime cases prove big-endian and
 little-endian byte order, the shared `schema.truncated_field` diagnostic
 shape, and generated encode helper range failures.
 `../../examples/specification/run/binary-byteview-u64-helpers/`,
-`../../examples/specification/run/binary-byteview-u64-truncated-json/`, and
-`../../examples/specification/run/binary-byteview-u64-write-failure-human/`
+`../../examples/specification/run/binary-byteview-u64-truncated-json/`,
+`../../examples/specification/run/binary-byteview-u64-write-failure-human/`,
+and
+`../../examples/specification/run/binary-byteview-u64-write-failure-json/`
 cover the ordinary prelude byte-helper `u64` slice. The runtime cases prove
 big-endian and little-endian read byte order, matching write byte order,
-truncated-read diagnostics, and the source-visible `Int` write boundary.
+truncated-read diagnostics, and the source-visible `Int` write boundary
+including little-endian write diagnostic details.
 
 `../../examples/specification/run/binary-schema-integer-out-of-range-json/`
 and

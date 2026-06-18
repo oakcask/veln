@@ -235,8 +235,9 @@ When a source-visible `ByteView` range operation returns
 `codec.byte_range_out_of_bounds`, human mode reports the failed range fact at
 the requested byte offset and puts requested count, available count, and
 bounded nearby byte preview in related notes. Checked byte write conversion
-failures remain ordinary runtime `Err(...)` values and do not attach a byte
-diagnostic.
+failures report `codec.byte_write_value_unrepresentable` and put the helper
+name, supplied value, accepted range, width, byte order, and source-visible
+`Err` value in related notes.
 When binary schema frame decode returns `schema.length_out_of_bounds`, human
 mode reports the failed payload boundary at the first missing byte offset and
 puts expected payload count, available payload count, bounded nearby byte

@@ -1,0 +1,55 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "byte_write_u64_le value must be between 0 and 9223372036854775807"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.id"
+equals = "codec.byte_write_value_unrepresentable"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.field_path"
+equals = []
+
+[[json_assert]]
+path = "error.details.value_diagnostic.helper_name"
+equals = "byte_write_u64_le"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.supplied_value"
+equals = -1
+
+[[json_assert]]
+path = "error.details.value_diagnostic.min_value"
+equals = 0
+
+[[json_assert]]
+path = "error.details.value_diagnostic.max_value"
+equals = 9223372036854775807
+
+[[json_assert]]
+path = "error.details.value_diagnostic.width"
+equals = 8
+
+[[json_assert]]
+path = "error.details.value_diagnostic.byte_order"
+equals = "little_endian"
