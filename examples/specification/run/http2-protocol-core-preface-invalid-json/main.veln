@@ -1,17 +1,28 @@
 # HTTP/2 invalid connection preface failures project structured runtime details.
 
 type Http2ProtocolFailure
-	InvalidPreface(Int, Int, Int, Int, ByteView)
+	InvalidPreface(Int, Int, Int, Int)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(ByteView)
+end
+
+fn context_pending_view(context: Http2DiagnosticContext) -> ByteView
+	match context
+		DiagnosticContext(preview) => preview
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidPreface(offset, expected_byte, actual_byte, matched_count, preview) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, preview)
+		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, context_pending_view(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let bytes: ByteChunk = byte_chunk_from_hex("505249202b")?
 	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	project(InvalidPreface(4, 42, 43, 4, preview))
+	let context: Http2DiagnosticContext = DiagnosticContext(preview)
+	http2_protocol_diagnostic(InvalidPreface(4, 42, 43, 4), context)
 end

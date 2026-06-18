@@ -1,17 +1,34 @@
 # HTTP/2 invalid DATA padding projects structured runtime details.
 
 type Http2ProtocolFailure
-	InvalidDataPadding(Int, Int, Int, Int, String, String, ByteView)
+	InvalidDataPadding(Int, Int, Int, Int, ByteView)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
+		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext("open-stream", "rfc9113_data_padding")
 	let payload: ByteChunk = byte_chunk_from_hex("02")?
 	let preview: ByteView = byte_view(payload, byte_offset(0)?, byte_count(1)?)?
-	project(InvalidDataPadding(9, 1, 2, 0, "open-stream", "rfc9113_data_padding", preview))
+	http2_protocol_diagnostic(InvalidDataPadding(9, 1, 2, 0, preview), context)
 end

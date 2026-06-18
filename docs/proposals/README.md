@@ -132,8 +132,10 @@ compare it with `../specification/` before changing behavior.
   protocol projections with protocol-owned payload byte previews, the explicit
   HTTP/2 invalid DATA padding projection, the HTTP/2 PRIORITY self-dependency
   projection with protocol-owned payload byte preview, the explicit
-  HTTP/2 protocol diagnostic projection boundary for representative protocol
-  and peer-limit failures, post-GOAWAY stream rejection projection, and
+  HTTP/2 protocol diagnostic projection boundary for focused protocol and
+  peer-limit failures, including post-GOAWAY stream rejection, fixed
+  payload-length, invalid DATA padding, SETTINGS ACK state, preface,
+  continuation, and invalid frame-kind fixtures, and
   generated
   binary schema encode value-representation failures, generated `EncodeError`
   command-facing projection for encode value, dispatch unknown tag, dispatch

@@ -1,17 +1,34 @@
 # HTTP/2 GOAWAY payload length failures project to human diagnostics.
 
 type Http2ProtocolFailure
-	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
+	InvalidPayloadLength(Int, Int, Int, Int, Int, ByteView)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "rfc9113_goaway_payload_length")
 	let bytes: ByteChunk = byte_chunk_from_hex("0a0b0c0d0e0f10")?
 	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
-	project(InvalidPayloadLength(0, 7, 0, 7, 8, "connection-control", "rfc9113_goaway_payload_length", preview))
+	http2_protocol_diagnostic(InvalidPayloadLength(0, 7, 0, 7, 8, preview), context)
 end

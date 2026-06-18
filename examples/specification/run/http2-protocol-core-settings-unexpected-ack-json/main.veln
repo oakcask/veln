@@ -1,15 +1,32 @@
 # HTTP/2 SETTINGS ACK state failures project structured runtime details.
 
 type Http2ProtocolFailure
-	UnexpectedSettingsAck(Int, String, String)
+	UnexpectedSettingsAck(Int)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		UnexpectedSettingsAck(offset, active_state, rule_provenance) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
+		UnexpectedSettingsAck(offset) => http2_protocol_unexpected_settings_ack(offset, context_active_state(context), context_rule_provenance(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(UnexpectedSettingsAck(0, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings"))
+	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings")
+	http2_protocol_diagnostic(UnexpectedSettingsAck(0), context)
 end

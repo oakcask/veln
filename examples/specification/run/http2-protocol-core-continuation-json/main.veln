@@ -1,15 +1,26 @@
 # HTTP/2 continuation ordering failures project structured runtime details.
 
 type Http2ProtocolFailure
-	ContinuationExpected(Int, Int, Int, Int, Int, Int, String)
+	ContinuationExpected(Int, Int, Int, Int, Int, Int)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String)
+end
+
+fn context_active_continuation(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_continuation) => active_continuation
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation)
+		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(ContinuationExpected(9, 0, 1, 1, 1, 0, "headers"))
+	let context: Http2DiagnosticContext = DiagnosticContext("headers")
+	http2_protocol_diagnostic(ContinuationExpected(9, 0, 1, 1, 1, 0), context)
 end
