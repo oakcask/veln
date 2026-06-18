@@ -640,6 +640,7 @@ byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
+byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, String>
 byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
@@ -787,6 +788,9 @@ and `fixture.hex.odd_length` for a dangling final nibble. The error text
 includes the decoded byte offset and the high or low nibble position. When the
 error propagates out of `run --json`, the runtime result details expose the
 fixture text span, decoded `ByteOffset`, nibble position, and nearby context.
+`byte_chunk_to_visible_ascii_string(chunk)` returns `Ok(String)` when every
+byte in the chunk is visible ASCII from `0x21` through `0x7e`, preserving byte
+order as characters, and returns `Err(String)` for any byte outside that range.
 `byte_take(chunk, count)` and `byte_drop(chunk, count)` return `Ok(ByteChunk)`
 when `count` is within the chunk length, and `Err(String)` when the count is
 outside that chunk.
@@ -913,8 +917,9 @@ logic and display.
 The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
-  `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`, `byte_take`,
-  `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
+  `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,
+  `byte_chunk_to_visible_ascii_string`, `byte_take`, `byte_drop`, `byte_view`,
+  `byte_view_to_chunk`, `byte_view_count`,
   `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
   `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
   `byte_read_u8_be`,
@@ -984,8 +989,10 @@ host vec size directly. The vec traversal helpers use
 `prelude_builtin::vec_push`; their step helpers are implementation details, and
 this source placement does not expose or stabilize a public vec
 representation. Byte hex fixture decoding and byte slice helpers delegate
-through `prelude_builtin::byte_chunk_from_hex`, `prelude_builtin::byte_take`,
-and `prelude_builtin::byte_drop` because text decoding and bounded slicing
+through `prelude_builtin::byte_chunk_from_hex`,
+`prelude_builtin::byte_chunk_to_visible_ascii_string`,
+`prelude_builtin::byte_take`, and `prelude_builtin::byte_drop` because text
+decoding, visible ASCII conversion, and bounded slicing
 currently cross the runtime container boundary. The `vec_fold` entry is
 declared in the shared `prelude`
 source and delegates to `prelude_builtin::vec_fold`. The list

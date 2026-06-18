@@ -227,6 +227,10 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![Type::string()],
             adt::result_type(byte_chunk.clone(), Type::string()),
         )),
+        "byte_chunk_to_visible_ascii_string" => Some((
+            vec![byte_chunk.clone()],
+            adt::result_type(Type::string(), Type::string()),
+        )),
         "byte_take" | "byte_drop" => Some((
             vec![byte_chunk.clone(), byte_count.clone()],
             adt::result_type(byte_chunk.clone(), Type::string()),
@@ -1136,6 +1140,10 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "byte_chunk_from_hex" => Some((
             vec![CoreType::string()],
             adt::core_result_type(byte_chunk.clone(), CoreType::string()),
+        )),
+        "byte_chunk_to_visible_ascii_string" => Some((
+            vec![byte_chunk.clone()],
+            adt::core_result_type(CoreType::string(), CoreType::string()),
         )),
         "byte_take" | "byte_drop" => Some((
             vec![byte_chunk.clone(), byte_count.clone()],

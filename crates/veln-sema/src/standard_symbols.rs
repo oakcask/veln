@@ -412,6 +412,7 @@ source_prelude_symbol_set! {
     "byte_chunk_count" => veln_stdlib::prelude_source("byte_chunk_count"),
     "byte_append" => veln_stdlib::prelude_source("byte_append"),
     "byte_chunk_from_hex" => veln_stdlib::prelude_source("byte_chunk_from_hex"),
+    "byte_chunk_to_visible_ascii_string" => veln_stdlib::prelude_source("byte_chunk_to_visible_ascii_string"),
     "byte_take" => veln_stdlib::prelude_source("byte_take"),
     "byte_drop" => veln_stdlib::prelude_source("byte_drop"),
     "byte_view" => veln_stdlib::prelude_source("byte_view"),
