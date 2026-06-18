@@ -30,7 +30,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   send-intent slices
 - remaining DATA behavior not covered by the implemented receive-window
   accounting, inbound PADDED DATA handling, inbound `END_STREAM`
-  closed-by-peer lifecycle, and outbound PADDED DATA send-intent slice
+  closed-by-peer lifecycle, outbound PADDED DATA send-intent slice, and
+  half-closed-local inbound DATA receive after local `END_STREAM`
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -39,8 +40,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
   slice, outbound DATA local closed-stream send-intent slice, GOAWAY
-  last-stream-id enforcement for later peer-created HEADERS, and outbound
-  HEADERS send-intent rejection above a received GOAWAY boundary
+  last-stream-id enforcement for later peer-created HEADERS, outbound
+  HEADERS send-intent rejection above a received GOAWAY boundary, and
+  half-closed-local inbound DATA receive after local `END_STREAM`
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented outbound DATA send-intent splitting and PADDED DATA
   send-intent slices, outbound `RST_STREAM` reset send intent, inbound DATA,
@@ -378,8 +380,15 @@ frame payload, are rejected in source-level fixture output before output
 bytes or credit changes. Accepted DATA with `END_STREAM` records local
 closed-stream state so later outbound DATA, outbound HEADERS, and
 stream-level outbound `WINDOW_UPDATE` for that stream use the existing closed
-stream-state rejection boundary. Generated frame-header representation
-failures stay on the `codec.encode_value_unrepresentable` encode-error path.
+stream-state rejection boundary. The receive core records that local
+`END_STREAM` as half-closed-local for inbound processing: later inbound DATA
+on that stream consumes connection and stream receive-window credit, PADDED
+DATA keeps exposing only application bytes, invalid padding and stream-window
+failures report the half-closed-local active state, connection-window failures
+remain connection-flow-control failures, and accepted inbound DATA with peer
+`END_STREAM` transitions the stream to closed-by-peer. Generated frame-header
+representation failures stay on the `codec.encode_value_unrepresentable`
+encode-error path.
 The implemented outbound HEADERS send-intent slice also observes received
 GOAWAY graceful-shutdown state. It accepts an open stream at the recorded
 last-stream-id boundary, rejects an open stream above that boundary with
@@ -431,6 +440,12 @@ closed-by-peer state. Later DATA and stream-level `WINDOW_UPDATE` frames for
 that stream use the existing stream-state
 `http2.protocol.invalid_frame_kind` failure shape with closed-by-peer active
 state and rule provenance.
+After this endpoint sends DATA with `END_STREAM`, the receive core records the
+stream as half-closed-local rather than fully closed. Inbound DATA on that
+stream stays on the receive-window accounting path, including PADDED DATA
+content projection, invalid padding diagnostics, stream-window failures, and
+connection-window failures. Inbound DATA with peer `END_STREAM` moves that
+stream to the closed-by-peer state.
 When accepted inbound HEADERS carries `END_STREAM`, the stream transitions to
 the same closed-by-peer state after the header block completes, HPACK fixture
 decoding succeeds, and the local header-list receive-limit check passes. The

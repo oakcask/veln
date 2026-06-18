@@ -197,7 +197,8 @@ compare it with `../specification/` before changing behavior.
   `SETTINGS_MAX_HEADER_LIST_SIZE` including a two-item local SETTINGS batch,
   outbound PING ACK send intent, outbound DATA send-intent frame-size
   splitting, PADDED DATA send-intent encoding and splitting, `END_STREAM`
-  local closed-stream state, and outbound
+  local closed-stream state, half-closed-local inbound DATA receive after
+  local `END_STREAM`, and outbound
   `WINDOW_UPDATE` receive-credit intent,
   `RST_STREAM` reset send-intent, outbound PRIORITY send-intent, outbound
   HEADERS send-intent including CONTINUATION splitting, and GOAWAY send-intent

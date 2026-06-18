@@ -1363,8 +1363,14 @@ DATA intents that exceed peer-advertised stream credit derived from received
 `SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
 Accepted DATA with `END_STREAM` records local closed-stream state; later
 outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
-that stream use the same closed stream-state rejection boundary. Generated
-DATA frame-header representation failures remain codec encode errors.
+that stream use the same closed stream-state rejection boundary. The receive
+core records that local `END_STREAM` as half-closed-local for inbound
+processing: inbound DATA on that stream still consumes connection and stream
+receive-window credit, PADDED DATA still exposes only application content,
+invalid padding and window-credit failures stay typed to the half-closed-local
+state, and inbound DATA with peer `END_STREAM` moves the stream to the
+closed-by-peer state. Generated DATA frame-header representation failures
+remain codec encode errors.
 The local SETTINGS send-intent slice emits supported local SETTINGS items for
 `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,

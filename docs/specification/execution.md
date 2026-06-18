@@ -1045,11 +1045,16 @@ execution reference.
   a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, moves
   completed inbound HEADERS or CONTINUATION header blocks to the same
   closed-by-peer state when the accepted HEADERS sequence carries
+  `END_STREAM`, records local `END_STREAM` send-intents as
+  half-closed-local for inbound processing, accepts later inbound DATA on that
+  stream with the same receive-window and PADDED DATA validation rules, moves
+  that stream to closed-by-peer when the accepted inbound DATA carries peer
   `END_STREAM`, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, applies
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
   receive-window credit, and keeps wrong-length, idle-stream, zero,
-  closed-by-peer stream, reset-stream, concurrent-stream-limit,
+  half-closed-local stream, closed-by-peer stream, reset-stream,
+  concurrent-stream-limit,
   header-list-size, invalid DATA padding, negative-credit DATA, and overflow
   cases as typed protocol failures.
   Closed-by-peer streams reject later DATA and stream-level `WINDOW_UPDATE`
@@ -1119,10 +1124,11 @@ execution reference.
   consumes outbound connection and stream credit by the full encoded DATA
   payload length after all split frames encode. Over-window DATA intents are
   rejected before output bytes or credit changes. Accepted outbound DATA with
-  `END_STREAM` records local closed-stream state; later outbound DATA,
-  outbound HEADERS, and
-  stream-level outbound `WINDOW_UPDATE` for that stream follow the existing
-  closed stream-state rejection boundary.
+  `END_STREAM` records local closed-stream state for outbound send-intents
+  while the receive core keeps the stream half-closed-local for inbound DATA.
+  Later outbound DATA, outbound HEADERS, and stream-level outbound
+  `WINDOW_UPDATE` for that stream follow the existing closed stream-state
+  rejection boundary.
   Outbound `WINDOW_UPDATE` send-intents accept connection-level and
   currently open stream-level receive-credit increments, emit one immutable
   frame with a four-byte increment payload, reject zero, negative,
