@@ -1265,7 +1265,8 @@ against the built `veln` binary.
   table entry, decodes the newest entry through `0xbe`, decodes the older
   retained entry through `0xbf`, and keeps both missing dynamic state and
   dynamic entries evicted by a reduced fixture table size on the unsupported
-  fixture failure path.
+  fixture failure path. It accepts dynamic table-size update fixtures `0x3e`,
+  `0x3f`, and `0x3f 0x01`, exposing fixture table sizes `30`, `31`, and `32`.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
@@ -1440,9 +1441,12 @@ against the built `veln` binary.
   carry the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, replace the single-entry fixture table with a later `:method: PUT`
-  literal-with-indexing entry, reject the evicted older entry path, and
-  carry the replacement state through completed HEADERS and final
-  CONTINUATION paths through the imported fixture codec,
+  literal-with-indexing entry, reject the evicted older entry path, carry the
+  replacement state through completed HEADERS and final CONTINUATION paths
+  through the imported fixture codec, accept dynamic table-size update fixture
+  bytes `0x3e`, `0x3f`, and `0x3f 0x01`, and carry the resulting immutable
+  HPACK state through completed HEADERS and final CONTINUATION paths before
+  later header blocks are decoded,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind

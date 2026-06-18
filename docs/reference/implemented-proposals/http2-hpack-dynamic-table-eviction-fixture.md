@@ -27,14 +27,22 @@ The HTTP/2 protocol-core example carries the two-entry state through both
 completed HEADERS and final CONTINUATION paths before decoding later dynamic
 indexed blocks.
 
+The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
+`0x3f`, and `0x3f 0x01`, returning immutable fixture states with table sizes
+`30`, `31`, and `32`. The HTTP/2 protocol-core example carries those updated
+states through completed HEADERS and final CONTINUATION paths before later
+header blocks are decoded.
+
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   literal-with-indexing insertion, newest and older dynamic indexed reads,
-  missing dynamic state, and the reduced-table-size eviction failure path.
+  missing dynamic state, the reduced-table-size eviction failure path, and the
+  saturated-prefix table-size update with one continuation byte.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
-  CONTINUATION paths.
+  CONTINUATION paths, including the table-size update with one continuation
+  byte.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.
