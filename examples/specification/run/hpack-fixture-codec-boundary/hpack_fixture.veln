@@ -51,6 +51,12 @@ fn state_with_dynamic_entry(state: HpackFixtureState, name: String, value: Strin
 	end
 end
 
+fn state_with_table_size(state: HpackFixtureState, table_size: Int) -> HpackFixtureState
+	match state
+		HpackFixtureState(_, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, dynamic_entry)
+	end
+end
+
 fn fixture_headers(label: String, wire_size: Int) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":fixture", label), HpackHeader(":status", "ok"), wire_size)
 end
@@ -100,6 +106,10 @@ fn decoded_dynamic_indexed_header(state: HpackFixtureState, block: ByteChunk, of
 		HpackFixtureState(_, _, NoDynamicEntry) => unsupported(block, offset)
 		HpackFixtureState(_, _, DynamicEntry(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
 	end
+end
+
+fn decoded_table_size_update(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, 30)))
 end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -173,6 +183,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = byte_at_or_missing(block, 0)
 	match first_byte
+		62 => match observed_size == 1
+			true => decoded_table_size_update(state)
+			false => unsupported(block, offset)
+		end
 		4 => match is_literal_without_indexing_path_target(block, observed_size, first_byte)
 			true => decoded_literal_without_indexing_path_target(state)
 			false => unsupported(block, offset)
@@ -237,6 +251,12 @@ end
 pub fn state_decode_count(state: HpackFixtureState) -> Int
 	match state
 		HpackFixtureState(_, decode_count, _) => decode_count
+	end
+end
+
+pub fn state_table_size(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(table_size, _, _) => table_size
 	end
 end
 

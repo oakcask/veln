@@ -2560,6 +2560,12 @@ fn state_hpack_fixture_state(state: Http2DecodeState) -> HpackFixtureState
 	end
 end
 
+fn hpack_carry_only_state(state: Http2DecodeState) -> Http2DecodeState
+	match state
+		State(_, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, _)) => State(byte_chunk([]), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow))
+	end
+end
+
 fn connection_decode_state(connection: Http2ConnectionState) -> Http2DecodeState
 	match connection
 		ConnectionState(decode_state, _) => decode_state
@@ -4832,6 +4838,15 @@ fn print_hpack_failed(label: String, failure: HpackFixtureFailure) -> () effects
 	stdio::println(hpack_fixture::hpack_failure_expected_fixture(failure))
 end
 
+fn print_hpack_state(label: String, state: Http2DecodeState) -> () effects [stdio]
+	let hpack_state: HpackFixtureState = state_hpack_fixture_state(state)
+	stdio::print(label)
+	stdio::print(" hpack_state table_size ")
+	stdio::print(int_to_string(hpack_fixture::state_table_size(hpack_state)))
+	stdio::print(" decode_count ")
+	stdio::println(int_to_string(hpack_fixture::state_decode_count(hpack_state)))
+end
+
 fn print_hpack_transition(label: String, step: Http2Step) -> () effects [stdio]
 	match hpack_fixture::decode_header_block(step_completed_header_block(step), hpack_fixture::initial_state(), step_offset(step))
 		Ok(transition) => print_hpack_decoded(label, transition)
@@ -4874,6 +4889,33 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let ignored_referenced_block: () = emit_output_chunk("http2-hpack-dynamic-indexed-path-target", 0, referenced_block, "be")?
 	let ignored_dynamic_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-path-target", referenced_block, second_state, 9)
 	let ignored_state: HpackFixtureState = print_hpack_boundary_with_state("hpack-dynamic-indexed-missing", referenced_block, hpack_fixture::initial_state(), 10)
+	Ok(())
+end
+
+fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010105000000013e")?), state)?
+	print_step("hpack-table-size-update", table_size_update)
+	let ignored_table_size_update: () = emit_header_block("http2-hpack-table-size-update", table_size_update, "3e")?
+	print_hpack_transition("hpack-table-size-update", table_size_update)
+	print_hpack_state("hpack-table-size-update", step_state(table_size_update))
+	let after_table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000382")?), hpack_carry_only_state(step_state(table_size_update)))?
+	print_step("hpack-after-table-size-update", after_table_size_update)
+	let ignored_after_table_size_update: () = emit_header_block("http2-hpack-after-table-size-update", after_table_size_update, "82")?
+	print_hpack_transition_from_state("hpack-after-table-size-update", after_table_size_update, step_state(table_size_update))
+	print_hpack_state("hpack-after-table-size-update", step_state(after_table_size_update))
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000005")?), state)?
+	print_step("hpack-table-size-continuation-start", continuation_start)
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010904000000053e")?), step_state(continuation_start))?
+	print_step("hpack-table-size-continuation-done", continuation_done)
+	let ignored_continuation_update: () = emit_header_block("http2-hpack-table-size-continuation", continuation_done, "3e")?
+	print_hpack_transition("hpack-table-size-continuation-done", continuation_done)
+	print_hpack_state("hpack-table-size-continuation-done", step_state(continuation_done))
+	let after_continuation_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000782")?), hpack_carry_only_state(step_state(continuation_done)))?
+	print_step("hpack-after-table-size-continuation", after_continuation_update)
+	print_hpack_transition_from_state("hpack-after-table-size-continuation", after_continuation_update, step_state(continuation_done))
+	print_hpack_state("hpack-after-table-size-continuation", step_state(after_continuation_update))
+	let malformed_table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000013f")?), state)?
+	print_failure("hpack-table-size-update-malformed", malformed_table_size_update)
 	Ok(())
 end
 
@@ -5389,6 +5431,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let ignored_hpack_stateful_dynamic_indexed_path_target: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, step_state(hpack_stateful_literal_indexed_path_target))
 	let ignored_hpack_dynamic_table_cases: () = print_hpack_dynamic_table_cases()?
+	let ignored_hpack_table_size_cases: () = print_hpack_table_size_cases(state)?
 	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?
 	print_step("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
 	let ignored_hpack_static_indexed_path_index: () = emit_header_block("http2-hpack-static-indexed-path-index", hpack_static_indexed_path_index, "85")?

@@ -26,6 +26,14 @@ fn print_decode_failure(label: String, failure: HpackFixtureFailure) -> () effec
 	stdio::println(failure_expected_fixture(failure))
 end
 
+fn print_state(label: String, state: HpackFixtureState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" state table_size ")
+	stdio::print(int_to_string(state_table_size(state)))
+	stdio::print(" decode_count ")
+	stdio::println(int_to_string(state_decode_count(state)))
+end
+
 fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
 	match result
 		Ok(transition) => print_decoded_transition(label, transition)
@@ -221,6 +229,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
 	print_transition("dynamic-indexed-path", decode_header_block(dynamic_indexed_block, dynamic_state, 68))
 	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 69))
+	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
+	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 71)
+	print_transition("table-size-update", table_size_update)
+	print_state("table-size-update", next_state_or(table_size_update, dynamic_state))
+	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f")?
+	print_transition("malformed-table-size-update", decode_header_block(malformed_table_size_update_block, dynamic_state, 72))
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 70))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?

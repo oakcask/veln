@@ -187,7 +187,8 @@ compare it with `../specification/` before changing behavior.
   `/target`, or `https`, plus the narrow dynamic-table receive slice that
   inserts `:path: /target` through a literal-with-indexing block and decodes a
   later dynamic indexed reference through the immutable HPACK state carried by
-  the HTTP/2 decode state,
+  the HTTP/2 decode state, plus the explicit `0x3e` table-size update fixture
+  carried through completed HEADERS and final CONTINUATION paths,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   PADDED DATA receive handling with invalid-padding diagnostics,
