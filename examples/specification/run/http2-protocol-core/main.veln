@@ -5656,7 +5656,11 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	let hpack_fixture_bad: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000017f")?), state)?
 	print_failure("hpack-fixture", hpack_fixture_bad)
 	let hpack_literal_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010480")?), state)?
-	print_failure("hpack-literal-huffman", hpack_literal_huffman)
+	print_step("hpack-literal-huffman", hpack_literal_huffman)
+	let ignored_hpack_literal_huffman: () = emit_header_block("http2-hpack-literal-huffman", hpack_literal_huffman, "0480")?
+	print_hpack_transition("hpack-literal-huffman", hpack_literal_huffman)
+	let hpack_literal_huffman_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001048100")?), state)?
+	print_failure("hpack-literal-huffman-malformed", hpack_literal_huffman_malformed)
 	let hpack_literal_authority_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010100")?), state)?
 	print_failure("hpack-literal-authority-malformed", hpack_literal_authority_malformed)
 	Ok(())

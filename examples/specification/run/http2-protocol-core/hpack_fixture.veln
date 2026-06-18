@@ -209,6 +209,10 @@ fn is_literal_value_https(block: ByteChunk, value_count: Int) -> Bool
 	end
 end
 
+fn is_literal_without_indexing_path_empty_huffman(first_byte: Int, observed_size: Int, block: ByteChunk) -> Bool
+	first_byte == 4 and observed_size == 2 and byte_at_or_missing(block, 1) == 128
+end
+
 fn supported_literal_value(block: ByteChunk, value_count: Int) -> Bool
 	is_literal_value_example_com(block, value_count) or is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
 end
@@ -228,9 +232,12 @@ end
 
 fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let value_count: Int = byte_at_or_missing(block, 1)
-	match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
-		true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
-		false => unsupported(block, offset)
+	match is_literal_without_indexing_path_empty_huffman(first_byte, observed_size, block)
+		true => decoded_literal_without_indexing(":path", "", observed_size, state)
+		false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
+			true => decoded_literal_without_indexing(literal_static_name(first_byte), literal_value(block, value_count), observed_size, state)
+			false => unsupported(block, offset)
+		end
 	end
 end
 

@@ -1256,7 +1256,8 @@ against the built `veln` binary.
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
   names a supported static-table header name for `:authority`, `:method`,
   `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
-  `/target`, or `https`, then returns ordinary header-list data and the next
+  `/target`, or `https`, plus one Huffman-flagged zero-length `:path` literal
+  fixture `0x04 0x80`, then returns ordinary header-list data and the next
   immutable fixture state. It
   also inserts one `:path: /target` literal-with-indexing entry, decodes a
   later dynamic indexed reference to that entry, replaces the single-entry
@@ -1433,7 +1434,8 @@ against the built `veln` binary.
 	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
   names a supported static-table header name for `:authority`, `:method`,
   `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
-  `/target`, or `https`, plus source-level dynamic table receive cases that
+  `/target`, or `https`, plus one Huffman-flagged zero-length `:path` literal
+  fixture `0x04 0x80`, plus source-level dynamic table receive cases that
   carry the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, replace the single-entry fixture table with a later `:method: PUT`

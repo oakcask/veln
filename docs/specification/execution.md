@@ -1151,10 +1151,11 @@ execution reference.
 	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
 	  fixtures whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
-  `example.com`, `PUT`, `/target`, or `https`, plus the narrow dynamic-table
-  slice where `0x44 0x07 "/target"` inserts `:path: /target` into the returned
-  immutable fixture state stored on the HTTP/2 decode state and a later
-  `0xbe` indexed representation reads that entry, returns ordinary
+  `example.com`, `PUT`, `/target`, or `https`, plus one Huffman-flagged
+  zero-length `:path` literal fixture `0x04 0x80`, plus the narrow
+  dynamic-table slice where `0x44 0x07 "/target"` inserts `:path: /target`
+  into the returned immutable fixture state stored on the HTTP/2 decode state
+  and a later `0xbe` indexed representation reads that entry, returns ordinary
   header-list data plus the next immutable fixture state. A later
   literal-with-indexing `:method: PUT` fixture replaces that single dynamic
   entry; `0xbe` then reads the latest entry, while the older entry fixture
@@ -1166,7 +1167,7 @@ execution reference.
   states with table sizes `30` and `31` from either a completed HEADERS block
   or a final CONTINUATION block before a later header block is decoded, and
   projects unsupported fixture input, including malformed
-  literal-without-indexing variants, through
+  literal-without-indexing and unsupported Huffman variants, through
   `hpack.fixture.unsupported_header_block`. That diagnostic path is distinct
   from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids; the
   HTTP/2 core still owns the local

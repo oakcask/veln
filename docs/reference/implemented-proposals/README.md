@@ -106,6 +106,8 @@ behavior.
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
 - HTTP/2 HPACK dynamic table eviction fixture:
   [http2-hpack-dynamic-table-eviction-fixture.md](http2-hpack-dynamic-table-eviction-fixture.md).
+- HTTP/2 HPACK Huffman fixture:
+  [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
 - Function variadic arguments:
   [function-variadic-arguments.md](function-variadic-arguments.md).
 

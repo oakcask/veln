@@ -1452,7 +1452,8 @@ The same HPACK fixture boundary accepts the static indexed `0x82`
 	header-block bytes plus no-Huffman literal-without-indexing fixtures whose
 first byte names a supported static-table header name for `:authority`,
 `:method`, `:path`, or `:scheme` and whose short raw value is `example.com`,
-`PUT`, `/target`, or `https` in completed HEADERS or final CONTINUATION
+`PUT`, `/target`, or `https`, plus one Huffman-flagged zero-length `:path`
+literal fixture `0x04 0x80`, in completed HEADERS or final CONTINUATION
 frames. The source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
@@ -1471,7 +1472,7 @@ those updated immutable states into later header block decodes. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing variants.
+literal-without-indexing and unsupported Huffman variants.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads

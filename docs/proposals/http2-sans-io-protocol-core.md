@@ -311,8 +311,9 @@ bytes plus the static indexed `accept-charset:`,
 	`www-authenticate:` header bytes, plus no-Huffman literal-without-indexing
 	fixtures whose first byte names a supported static-table header name for
 `:authority`, `:method`, `:path`, or `:scheme` and whose short raw value is
-`example.com`, `PUT`, `/target`, or `https`, in completed HEADERS or final
-CONTINUATION frames, returns ordinary header-list data through the same
+`example.com`, `PUT`, `/target`, or `https`, plus one Huffman-flagged
+zero-length `:path` literal fixture `0x04 0x80`, in completed HEADERS or
+final CONTINUATION frames, returns ordinary header-list data through the same
 accessors as the deterministic fixture-label blocks, advances immutable
 fixture state, and also covers one dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
@@ -326,7 +327,8 @@ unsupported. The fixture also
 accepts dynamic table-size update bytes `0x3e` and `0x3f`, returns next
 immutable HPACK states whose table sizes are `30` and `31`, and carries those
 states through completed HEADERS and final CONTINUATION paths before later
-header blocks are decoded. Unsupported HPACK bytes remain on
+header blocks are decoded. Unsupported HPACK bytes, including unsupported
+Huffman variants, remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -603,7 +605,8 @@ fixture blocks and the static indexed `0x82` `:method: GET`, `0x83`
 	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
 names a supported static-table header name for `:authority`, `:method`,
 `:path`, or `:scheme` and whose short raw value is `example.com`, `PUT`,
-`/target`, or `https`, plus one literal-with-indexing `:path: /target`
+`/target`, or `https`, plus one Huffman-flagged zero-length `:path` literal
+fixture `0x04 0x80`, plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
 carried by the HTTP/2 decode state, a later literal-with-indexing `:method: PUT`
@@ -627,8 +630,8 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, broader multi-entry dynamic table behavior, full
-  eviction policy, broader table-size update decoding, Huffman decoding, and
-  production header validation remain later work beyond the implemented
+  eviction policy, broader table-size update decoding, full Huffman decoding,
+  and production header validation remain later work beyond the implemented
   fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
