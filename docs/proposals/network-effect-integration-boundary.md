@@ -31,19 +31,19 @@ slices, and narrow deadline and cancellation slices, for:
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, deadline-aware optional accept, optional stream-read,
   deadline-aware optional stream-read, ordered write lifecycle slice, and
-  checked adapter-owned listener-to-clean-stream-end and deadline-aware
-  accepted-stream lifecycle slices
+  checked adapter-owned listener-to-clean-stream-end, deadline-aware
+  accepted-stream lifecycle, and cancellable accepted-stream lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  the checked adapter-owned multi-event routing and deadline-aware lifecycle
-  fixtures
+  the checked adapter-owned multi-event routing, deadline-aware lifecycle, and
+  cancellable lifecycle fixtures
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
-  owned-lifecycle, and deadline-aware lifecycle slices
+  owned-lifecycle, deadline-aware lifecycle, and cancellable lifecycle slices
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
   cancellable timeout-result selection, socket/channel routing, and
-  deadline-aware lifecycle slices
+  deadline-aware and cancellable lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route, receiver-list six-route,
   receiver-list seven-route, receiver-list eight-route, receiver-list
@@ -227,6 +227,16 @@ projects only ordered `SendBytes` response actions to `net::write_chunk`.
 The adapter declares the existing `net`, `time`, and `concurrency` effects;
 the handler receives no `NetStream` handle and performs no transport calls.
 
+Implemented cancellable accepted-stream lifecycle slice: an executable
+specification case accepts a stream with `net::accept`, owns that `NetStream`
+in adapter code, reads input through `net::read_chunk`, routes the ordinary
+`StreamInput.Chunk` through an existing channel, observes cancellation through
+`time::wait_until_cancellable_outcome`, translates `WaitCancelled` into an
+ordinary cleanup response action, and projects only ordered `SendBytes`
+response actions to `net::write_chunk`. The adapter declares the existing
+`net`, `time`, and `concurrency` effects; the handler receives no `NetStream`
+handle and performs no transport, time, or concurrency calls.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -349,12 +359,14 @@ or the pure protocol core.
   receiver-list seven-route, receiver-list eight-route, receiver-list
   nine-route, receiver-list timeout, receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, and receiver-list
-  cancellable channel-first stream routing, one-argument,
+  cancellable channel-first stream routing, deadline-aware accepted-stream
+  lifecycle, cancellable accepted-stream lifecycle, one-argument,
   two-argument, three-argument, four-argument, and five-argument spawned
   handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
-  `CancelToken` boundary, and cancellation status-query boundary.
+  `CancelToken` boundary, cancellation status-query boundary, and cancellable
+  wait-outcome boundary.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
