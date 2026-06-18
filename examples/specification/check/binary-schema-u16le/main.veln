@@ -5,6 +5,8 @@ schema LittleEndianField
 	length_value: UInt24le
 	stream_id: UInt31le
 	wide_value: UInt32le
+	extended_value: UInt48be
+	little_extended: UInt48le
 end
 
 pub schema PublicLittleEndianField
@@ -14,4 +16,6 @@ pub schema PublicLittleEndianField
 	length_value: UInt24le
 	stream_id: UInt31le
 	wide_value: UInt32le
+	extended_value: UInt48be
+	little_extended: UInt48le
 end

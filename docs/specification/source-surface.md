@@ -47,8 +47,9 @@ source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
-`UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`,
-`UInt64le`, and `ReservedBits(width, value)` are accepted as schema
+`UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt48be`,
+`UInt48le`, `UInt64be`, `UInt64le`, and `ReservedBits(width, value)` are
+accepted as schema
 primitives. `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
 `Flag64be`, and `Flag64le` are
 accepted as opt-in visible flag bitset fields; they decode and encode through
@@ -56,7 +57,7 @@ source-visible `Flag8(bits: Int)`, `Flag16be(bits: Int)`,
 `Flag16le(bits: Int)`, `Flag32be(bits: Int)`, `Flag32le(bits: Int)`,
 `Flag64be(bits: Int)`, and `Flag64le(bits: Int)` value
 types instead of the raw `Int` used by `UInt8`, `UInt16be`, `UInt16le`,
-`UInt32be`, `UInt32le`, `UInt64be`, and `UInt64le`.
+`UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`, `UInt64be`, and `UInt64le`.
 Source-visible checked helpers read and set `Flag8` bit indexes `0` through
 `7`, `Flag16be` and `Flag16le` bit indexes `0` through `15`, and `Flag32be`
 and `Flag32le` bit indexes `0` through `31`, and `Flag64be` and `Flag64le`
@@ -231,9 +232,10 @@ visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` fields whose operands both name
 earlier visible exact-width unsigned `Int` fields, and whose payload is either
 `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-`UInt31le`, `UInt32be`, `UInt32le`, `UInt64be`, `UInt64le`, or an eligible
-nested binary schema payload, or `ByteView(length_field)` whose length names
-an earlier visible exact-width unsigned `Int` field,
+`UInt31le`, `UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`, `UInt64be`,
+`UInt64le`, or an eligible nested binary schema payload, or
+`ByteView(length_field)` whose length names an earlier visible exact-width
+unsigned `Int` field,
 length-bounded `ByteView(length_field)` payload fields whose length names an
 earlier visible exact-width unsigned `Int` field, or
 `ByteView(left_length - right_length)` payload fields whose operands both name

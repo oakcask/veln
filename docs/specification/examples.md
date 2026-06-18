@@ -288,6 +288,13 @@ and
 `../../examples/specification/run/binary-schema-u31le-integer-out-of-range-human/`
 pin `schema.integer_out_of_range` for a structurally decoded `UInt31le` field
 whose high bit exceeds the 31-bit external range.
+`../../examples/specification/run/binary-schema-u48-widths-decode/`,
+`../../examples/specification/run/binary-schema-u48-widths-encode/`, and
+`../../examples/specification/run/binary-schema-u48-widths-encode-out-of-range/`
+cover the `UInt48be` and `UInt48le` schema primitive slice for
+source-visible `Int` values. The runtime cases prove big-endian and
+little-endian byte order, structural mapping during decode, and generated
+encode helper range failures at the unsigned 48-bit boundary.
 `../../examples/specification/run/binary-schema-u64-widths-decode/`,
 `../../examples/specification/run/binary-schema-u64-widths-encode/`,
 `../../examples/specification/run/binary-schema-u64-widths-truncated-json/`,

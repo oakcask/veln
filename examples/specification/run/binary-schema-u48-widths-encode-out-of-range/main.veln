@@ -1,0 +1,52 @@
+# Binary schema UInt48be and UInt48le encode rejects unrepresentable Int values.
+use stdio
+
+schema UInt48BigWidth
+	format binary
+
+	value: UInt48be
+end
+
+schema UInt48LittleWidth
+	format binary
+
+	value: UInt48le
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let too_large: Result<ByteChunk, EncodeError> = byte_encode_uint48_big_width({value: 281474976710656})
+	match too_large
+		Ok(_) => stdio::println("unexpected UInt48be encode success")
+		Err(error) => emit_error(error)
+	end
+
+	let negative: Result<ByteChunk, EncodeError> = byte_encode_uint48_little_width({value: -1})
+	match negative
+		Ok(_) => stdio::println("unexpected UInt48le encode success")
+		Err(error) => emit_error(error)
+	end
+end
