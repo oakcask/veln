@@ -227,8 +227,8 @@ twenty-four, or thirty-two bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
 supported `ReservedBits(width, value)` plus two visible sub-byte or
-byte-width `UIntN` prefix groups whose widths sum to eight, sixteen, or
-twenty-four bits,
+byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
+twenty-four, or thirty-two bits,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,

@@ -856,7 +856,7 @@ big-endian bytes, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one,
 two, three, or four big-endian bytes, supported
 `ReservedBits(width, value)` plus two visible sub-byte or byte-width `UIntN`
-prefix groups whose widths complete one, two, or three big-endian bytes,
+prefix groups whose widths complete one, two, three, or four big-endian bytes,
 supported consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups whose widths complete one,
 two, three, or four big-endian bytes,

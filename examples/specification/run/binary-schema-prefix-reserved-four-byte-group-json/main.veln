@@ -1,0 +1,13 @@
+schema FourBytePrefixReservedGroupHeader
+	format binary
+
+	prefix: ReservedBits(25, 22369621)
+	high: UInt4
+	low: UInt3
+end
+
+pub fn main() -> Result<{high: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaaab55")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	byte_decode_four_byte_prefix_reserved_group_header(view)
+end
