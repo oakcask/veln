@@ -14,8 +14,8 @@ CONTINUATION header blocks through the imported HPACK fixture module before
 running response-header validation for fixture-marked response header lists.
 
 The validation rejects response header lists that omit `:status`, duplicate
-`:status`, carry request-only `:method`, `:scheme`, or `:path`, or place
-`:status` after a regular header. Failures use the protocol-owned
+`:status`, carry request-only `:authority`, `:method`, `:scheme`, or `:path`,
+or place `:status` after a regular header. Failures use the protocol-owned
 `http2.protocol.invalid_response_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
 
@@ -24,7 +24,7 @@ HPACK fixture diagnostics.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   integrated protocol-core path, including one accepted response fixture, a
   final CONTINUATION path missing `:status`, duplicate `:status`, request-only
-  `:method`, and `:status` after a regular `server` header.
+  `:method` and `:authority`, and `:status` after a regular `server` header.
 - `../../../examples/specification/run/http2-protocol-core-response-headers-json/`
   checks the JSON projection for a missing required pseudo-header.
 - `../../../examples/specification/run/http2-protocol-core-response-headers-human/`

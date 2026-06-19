@@ -649,9 +649,9 @@ Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, and response-only `:status` through
 `http2.protocol.invalid_request_header_list`. Response validation rejects
-missing or duplicate `:status`, request-only `:method`, `:scheme`, or
-`:path`, and response pseudo-headers after regular headers through
-`http2.protocol.invalid_response_header_list`.
+missing or duplicate `:status`, request-only `:authority`, `:method`,
+`:scheme`, or `:path`, and response pseudo-headers after regular headers
+through `http2.protocol.invalid_response_header_list`.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

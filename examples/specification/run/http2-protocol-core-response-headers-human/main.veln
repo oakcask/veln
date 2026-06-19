@@ -28,5 +28,5 @@ end
 
 pub fn main() -> Result<(), String>
 	let context: Http2DiagnosticContext = DiagnosticContext("response-headers", "rfc9113_response_pseudo_headers")
-	http2_protocol_diagnostic(InvalidResponseHeaderList(12, 1, 1, "request_only_pseudo_header", ":method", ":method,:status"), context)
+	http2_protocol_diagnostic(InvalidResponseHeaderList(12, 1, 1, "request_only_pseudo_header", ":authority", ":authority,:status"), context)
 end

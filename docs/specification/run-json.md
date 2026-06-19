@@ -369,8 +369,9 @@ Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
 fields. The checked projections cover a missing required `:status`, duplicate
 `:status`, request-only pseudo-headers, and a response pseudo-header after a
-regular header; the larger protocol-core fixture also checks the integrated
-completed HEADERS and final CONTINUATION paths.
+regular header; the larger protocol-core fixture also checks `:authority` as
+request-only and checks the integrated completed HEADERS and final
+CONTINUATION paths.
 Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record

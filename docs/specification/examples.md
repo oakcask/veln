@@ -1935,8 +1935,9 @@ a final CONTINUATION path missing `:method`, a completed HEADERS path
 containing response-only `:status`, a duplicate `:method`, and a `:method`
 after a regular `host` header, plus an accepted fixture-marked response header
 list, a final CONTINUATION path missing `:status`, duplicate `:status`,
-request-only `:method`, and `:status` after a regular `server` header. The
-focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
+request-only `:method` and `:authority`, and `:status` after a regular
+`server` header. The focused frame-kind, stream-id, and `PUSH_PROMISE`
+projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the
 general schema helper path as well as the larger protocol-core fixture. The
