@@ -1598,6 +1598,16 @@ fn send_headers_with_shutdown(stream_id: Int, header_block: ByteChunk, end_strea
 	end
 end
 
+fn send_headers_from_header_list(stream_id: Int, headers: HpackHeaderList, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersDecision, HpackFixtureFailure>, String>
+	match hpack_fixture::encode_header_list(headers, 0)
+		Ok(header_block) => match send_headers(stream_id, header_block, end_stream, peer_settings, receive_credit)
+			Ok(decision) => Ok(Ok(decision))
+			Err(error) => Err(error)
+		end
+		Err(failure) => Ok(Err(failure))
+	end
+end
+
 fn send_nonzero_headers(stream_id: Int, payload_length: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundHeadersDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidFrameKind(0, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
@@ -1717,6 +1727,16 @@ fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: Byte
 			true => send_nonzero_push_promise(stream_id, promised_stream_id, payload_length, header_block, active_peer_max_frame_size(peer_settings), receive_credit)
 			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
 		end
+	end
+end
+
+fn send_push_promise_from_header_list(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseDecision, HpackFixtureFailure>, String>
+	match hpack_fixture::encode_header_list(headers, 0)
+		Ok(header_block) => match send_push_promise(stream_id, promised_stream_id, header_block, peer_settings, receive_credit)
+			Ok(decision) => Ok(Ok(decision))
+			Err(error) => Err(error)
+		end
+		Err(failure) => Ok(Err(failure))
 	end
 end
 
@@ -5124,6 +5144,38 @@ fn print_outbound_headers(label: String, decision: OutboundHeadersDecision) -> (
 	stdio::println(outbound_headers_encode_detail(decision))
 end
 
+fn print_outbound_hpack_encode_failure(label: String, failure: HpackFixtureFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-hpack-encode failed offset ")
+	stdio::print(int_to_string(hpack_fixture::hpack_failure_offset(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(hpack_fixture::hpack_failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(hpack_fixture::hpack_failure_observed_first_byte(failure)))
+	stdio::print(" expected ")
+	stdio::println(hpack_fixture::hpack_failure_expected_fixture(failure))
+	Ok(())
+end
+
+fn print_outbound_headers_result(label: String, decision: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let ignored: () = print_outbound_headers(label, decision)
+	Ok(())
+end
+
+fn print_outbound_headers_from_list(label: String, result: Result<OutboundHeadersDecision, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(decision) => print_outbound_headers_result(label, decision)
+		Err(failure) => print_outbound_hpack_encode_failure(label, failure)
+	end
+end
+
+fn require_outbound_headers_from_list(result: Result<OutboundHeadersDecision, HpackFixtureFailure>) -> Result<OutboundHeadersDecision, String>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(_) => Err("expected outbound HEADERS HPACK fixture encoding")
+	end
+end
+
 fn print_outbound_headers_chunk(label: String, decision: OutboundHeadersDecision, expected_hex: String) -> Result<(), String> effects [stdio]
 	emit_encoded_header(label, outbound_headers_chunk(decision), expected_hex)
 end
@@ -5156,6 +5208,25 @@ fn print_outbound_push_promise(label: String, decision: OutboundPushPromiseDecis
 	stdio::print(outbound_push_promise_encode_path(decision))
 	stdio::print(" encode_detail ")
 	stdio::println(outbound_push_promise_encode_detail(decision))
+end
+
+fn print_outbound_push_promise_result(label: String, decision: OutboundPushPromiseDecision) -> Result<(), String> effects [stdio]
+	let ignored: () = print_outbound_push_promise(label, decision)
+	Ok(())
+end
+
+fn print_outbound_push_promise_from_list(label: String, result: Result<OutboundPushPromiseDecision, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(decision) => print_outbound_push_promise_result(label, decision)
+		Err(failure) => print_outbound_hpack_encode_failure(label, failure)
+	end
+end
+
+fn require_outbound_push_promise_from_list(result: Result<OutboundPushPromiseDecision, HpackFixtureFailure>) -> Result<OutboundPushPromiseDecision, String>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(_) => Err("expected outbound PUSH_PROMISE HPACK fixture encoding")
+	end
 end
 
 fn print_outbound_push_promise_chunk(label: String, decision: OutboundPushPromiseDecision, expected_hex: String) -> Result<(), String> effects [stdio]
@@ -6075,6 +6146,16 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
 	print_outbound_headers("outbound-headers-accepted", outbound_headers_accepted)
 	let ignored_headers_chunk: () = print_outbound_headers_chunk("http2-headers", outbound_headers_accepted, "000003010400000001828486")?
+	let outbound_headers_hpack_static: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_static_indexed_method_get_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_static_print: () = print_outbound_headers_from_list("outbound-headers-hpack-static-indexed", outbound_headers_hpack_static)?
+	let outbound_headers_hpack_static_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_static)?
+	let ignored_headers_hpack_static_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed", outbound_headers_hpack_static_decision, "00000101040000000182")?
+	let outbound_headers_hpack_literal: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_target_headers(), false, small_peer_max_frame_size_settings(4), outbound_receive_credit)?
+	let ignored_headers_hpack_literal_print: () = print_outbound_headers_from_list("outbound-headers-hpack-literal-continuation", outbound_headers_hpack_literal)?
+	let outbound_headers_hpack_literal_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_literal)?
+	let ignored_headers_hpack_literal_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-literal-continuation", outbound_headers_hpack_literal_decision, "00000401000000000104072f740000040900000000016172676500000109040000000174")?
+	let outbound_headers_hpack_unsupported: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_unsupported_static_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_unsupported_print: () = print_outbound_headers_from_list("outbound-headers-hpack-unsupported", outbound_headers_hpack_unsupported)?
 	let outbound_headers_end_stream: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("87")?, true, empty_peer_settings(), outbound_receive_credit)?
 	print_outbound_headers("outbound-headers-end-stream", outbound_headers_end_stream)
 	let ignored_headers_end_stream_chunk: () = print_outbound_headers_chunk("http2-headers-end-stream", outbound_headers_end_stream, "00000101050000000187")?
@@ -6119,6 +6200,10 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	let outbound_push_promise_accepted: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("8284")?, empty_peer_settings(), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-accepted", outbound_push_promise_accepted)
 	let ignored_push_promise_chunk: () = print_outbound_push_promise_chunk("http2-push-promise", outbound_push_promise_accepted, "000006050400000001000000028284")?
+	let outbound_push_promise_hpack_static: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_static_indexed_status_200_headers(), empty_peer_settings(), outbound_receive_credit)?
+	let ignored_push_promise_hpack_static_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed", outbound_push_promise_hpack_static)?
+	let outbound_push_promise_hpack_static_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static)?
+	let ignored_push_promise_hpack_static_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed", outbound_push_promise_hpack_static_decision, "0000050504000000010000000288")?
 	let outbound_push_promise_continuation: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("828486")?, small_peer_max_frame_size_settings(5), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-continuation", outbound_push_promise_continuation)
 	let ignored_push_promise_continuation_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-continuation", outbound_push_promise_continuation, "00000505000000000100000002820000020904000000018486")?

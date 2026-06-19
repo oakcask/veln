@@ -132,6 +132,8 @@ behavior.
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
+- HTTP/2 outbound HPACK fixture encoder:
+  [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
 - HTTP/2 response header validation:

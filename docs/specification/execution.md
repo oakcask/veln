@@ -1381,6 +1381,17 @@ execution reference.
   Non-visible raw byte values return
   `hpack.fixture.unsupported_header_block` with expected fixture
   `fixture raw string encoding`.
+  The same fixture module exposes a narrow source-visible header-list encoder
+  for outbound fixture use. It accepts the supported static-indexed header
+  lists, raw literal-without-indexing and literal-with-indexing lists for
+  supported static-table names, and the checked request and response
+  pseudo-header fixture lists needed by the outbound HTTP/2 examples. Static
+  indexed `:method: GET` encodes to `0x82`, raw literal `:path: /target`
+  encodes to `0x04 0x07 "/target"`, and unsupported header names return a
+  typed HPACK fixture failure with expected fixture
+  `fixture header list encoding`. These encode failures are fixture codec
+  results and are not projected as HTTP/2 protocol diagnostics by the
+  outbound send-intent helpers.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
@@ -1535,9 +1546,12 @@ execution reference.
   `codec.encode_value_unrepresentable` failures with the generated field path.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
   HEADERS send-intent. Ordinary source accepts an already-encoded opaque
-  header-block chunk for a nonzero currently open stream. When the
-  header-block fits within the peer-advertised maximum frame size, the intent
-  emits one immutable output chunk with a HEADERS frame header kind `1`,
+  header-block chunk for a nonzero currently open stream. It can also build
+  that opaque header-block chunk from fixture-owned ordinary header-list
+  values through the HPACK fixture encoder before entering the same send-intent
+  path. When the header-block fits within the peer-advertised maximum frame
+  size, the intent emits one immutable output chunk with a HEADERS frame header
+  kind `1`,
   `END_HEADERS` set, and an optional `END_STREAM` flag, followed by the
   header-block bytes. When the header-block is larger, the same output chunk
   contains one HEADERS frame followed by as many CONTINUATION frames as needed;
@@ -1557,8 +1571,11 @@ execution reference.
 - The same HTTP/2 protocol-core example also covers the narrow server-side
   outbound `PUSH_PROMISE` send-intent. Ordinary source accepts a nonzero
   currently open client-created associated stream, a nonzero server-initiated
-  promised stream id, and already-encoded opaque header-block bytes. When the
-  four-byte promised stream id plus header block fits within the
+  promised stream id, and already-encoded opaque header-block bytes. It can
+  also use the HPACK fixture encoder to build those header-block bytes from a
+  fixture-owned header list before applying the same stream-id, frame-size,
+  and CONTINUATION rules. When the four-byte promised stream id plus header
+  block fits within the
   peer-advertised maximum frame size, the intent emits one immutable output
   chunk with a `PUSH_PROMISE` frame header kind `5`, `END_HEADERS` set, the
   associated stream id, the generated `UInt31be` promised-stream payload, and
