@@ -335,9 +335,10 @@ execution reference.
   `ByteView(length_field)` when
   `length_field` is another earlier visible exact-width unsigned field decoded
   as `Int`.
-  `Repeat(left_count - right_count, Payload)` uses the
-  difference of two earlier visible exact-width unsigned `Int` fields as the
-  repeat count. A repeated primitive field decodes to `List<Int>`; a repeated
+  `Repeat(left_count - right_count, Payload)` and
+  `Repeat(left_count + right_count, Payload)` use the difference or sum of two
+  earlier visible exact-width unsigned `Int` fields as the repeat count. A
+  repeated primitive field decodes to `List<Int>`; a repeated
   nested schema field decodes to a list of the nested schema's decoded record
   shape; and a repeated `ByteView(length_field)` field decodes to
   `List<ByteView>` with each element preserving its bounded bytes in element
@@ -347,6 +348,7 @@ execution reference.
   read with the usual `schema.truncated_field` details and a schema field path
   that appends an `index` segment before nested schema field segments. The
   checked examples are `examples/specification/run/binary-schema-repeat-decode/`,
+  `examples/specification/run/binary-schema-repeat-add-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-json/`,
@@ -690,7 +692,7 @@ execution reference.
   schema fields are list fields whose element type is the nested schema's
   decoded record shape, and repeated `ByteView(length_field)` fields are
   `List<ByteView>` record fields. They emit exactly the number of elements
-  named by the earlier count field or by the computed difference of two
+  named by the earlier count field or by the computed difference or sum of two
   earlier count operands. A list length mismatch, a primitive element outside
   the selected primitive range, a repeated byte-view element whose bounded
   byte count differs from the earlier length field, or a nested element
@@ -899,9 +901,11 @@ execution reference.
   `examples/specification/run/binary-schema-byteview-subtract-encode/`,
   `examples/specification/run/binary-schema-byteview-subtract-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-repeat-encode/`,
+  `examples/specification/run/binary-schema-repeat-add-encode/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-add-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,

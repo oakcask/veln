@@ -799,6 +799,9 @@ against the built `veln` binary.
   byte preview fields.
 - `run/binary-schema-repeat-decode/`: generated schema decode helpers read a
   bounded `Repeat(count_field, Primitive)` field into a `List<Int>`.
+- `run/binary-schema-repeat-add-decode/`: generated schema decode helpers
+  compute a `Repeat(left_count + right_count, Primitive)` element count from
+  earlier decoded fields.
 - `run/binary-schema-repeat-subtract-decode/`: generated schema decode helpers
   compute a `Repeat(left_count - right_count, Primitive)` element count from
   earlier decoded fields.
@@ -825,9 +828,9 @@ against the built `veln` binary.
   failing element `index`.
 - `check/binary-schema-field-reference-diagnostics/`: binary schema field
   definitions reject missing, forward, and non-`Int` schema-local references
-  in repeat counts, byte-view lengths, dispatch tags, and extension-dispatch
-  tags and lengths, with compatible earlier fields reported as related
-  context.
+  in repeat count fields and count expressions, byte-view lengths, dispatch
+  tags, and extension-dispatch tags and lengths, with compatible earlier fields
+  reported as related context.
 - `check/binary-schema-field-reference-human/`: human `check` diagnostics for
   invalid binary schema field references keep the primary message focused on
   the failed reference and put the compatible earlier field in a note.
@@ -996,6 +999,9 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-encode/`: generated schema encode helpers write a
   bounded `Repeat(count_field, Primitive)` `List<Int>` field after the
   explicit count field.
+- `run/binary-schema-repeat-add-encode/`: generated schema encode helpers
+  write a bounded `Repeat(left_count + right_count, Primitive)` list field
+  after the explicit count operands.
 - `run/binary-schema-repeat-subtract-encode/`: generated schema encode helpers
   write a bounded `Repeat(left_count - right_count, Primitive)` list field
   after the explicit count operands.
@@ -1004,6 +1010,9 @@ against the built `veln` binary.
   `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-repeat-encode-count-mismatch/`: repeated primitive encode
   rejects a `List<Int>` whose length does not match the earlier count field.
+- `run/binary-schema-repeat-add-encode-count-mismatch/`: repeated primitive
+  encode rejects a `List<Int>` whose length does not match the computed count
+  expression.
 - `run/binary-schema-repeat-subtract-encode-count-mismatch/`: repeated
   primitive encode rejects a `List<Int>` whose length does not match the
   computed count expression.

@@ -23,6 +23,29 @@ schema WrongRepeatCount
 	items: Repeat(flags, UInt8)
 end
 
+schema MissingRepeatAddOperand
+	format binary
+
+	available_count: UInt8
+	items: Repeat(available_count + missing_count, UInt8)
+end
+
+schema ForwardRepeatAddOperand
+	format binary
+
+	available_count: UInt8
+	items: Repeat(available_count + later_count, UInt8)
+	later_count: UInt8
+end
+
+schema WrongRepeatAddOperand
+	format binary
+
+	available_count: UInt8
+	flags: Flag8
+	items: Repeat(available_count + flags, UInt8)
+end
+
 schema MissingByteViewLength
 	format binary
 

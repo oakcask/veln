@@ -6808,8 +6808,8 @@
     }
 
     private static String schemaCountDescription(String expression) {
-        String[] operands = schemaLengthExpressionOperands(expression);
-        if (operands != null && operands.length == 1) {
+        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        if (parsed != null && parsed.isField()) {
             return "count field `" + expression + "`";
         }
         return "count expression `" + expression + "`";
@@ -6885,8 +6885,8 @@
         String operandRole,
         String schemaName
     ) {
-        String[] operands = schemaLengthExpressionOperands(expression);
-        if (operands == null) {
+        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        if (parsed == null) {
             return err(
                 "unsupported "
                     + expressionRole
@@ -6897,28 +6897,28 @@
                     + "`"
             );
         }
-        Object left = fields.get(operands[0]);
+        Object left = fields.get(parsed.left);
         if (left == null) {
             return err(
                 "missing "
                     + fieldRole
                     + " `"
-                    + operands[0]
+                    + parsed.left
                     + "` in schema `"
                     + schemaName
                     + "`"
             );
         }
-        if (operands.length == 1) {
+        if (parsed.isField()) {
             return ok(Long.valueOf(asLong(left)));
         }
-        Object right = fields.get(operands[1]);
+        Object right = fields.get(parsed.right);
         if (right == null) {
             return err(
                 "missing "
                     + operandRole
                     + " `"
-                    + operands[1]
+                    + parsed.right
                     + "` in expression `"
                     + expression
                     + "` in schema `"
@@ -6926,25 +6926,70 @@
                     + "`"
             );
         }
-        return ok(Long.valueOf(asLong(left) - asLong(right)));
+        long leftValue = asLong(left);
+        long rightValue = asLong(right);
+        long result = parsed.operator == '+'
+            ? leftValue + rightValue
+            : leftValue - rightValue;
+        return ok(Long.valueOf(result));
     }
 
-    private static String[] schemaLengthExpressionOperands(String expression) {
-        int minus = expression.indexOf('-');
-        if (minus < 0) {
-            String field = expression.trim();
-            return isSchemaLengthExpressionIdentifier(field) ? new String[] { field } : null;
+    private static SchemaFieldExpression schemaFieldExpression(String expression) {
+        String trimmed = expression.trim();
+        if (isSchemaLengthExpressionIdentifier(trimmed)) {
+            return new SchemaFieldExpression(trimmed);
         }
-        if (expression.indexOf('-', minus + 1) >= 0) {
+        int plus = trimmed.indexOf('+');
+        int minus = trimmed.indexOf('-');
+        if (plus >= 0 && minus >= 0) {
             return null;
         }
-        String left = expression.substring(0, minus).trim();
-        String right = expression.substring(minus + 1).trim();
+        if (plus >= 0) {
+            return schemaBinaryFieldExpression(trimmed, plus, '+');
+        }
+        if (minus >= 0) {
+            return schemaBinaryFieldExpression(trimmed, minus, '-');
+        }
+        return null;
+    }
+
+    private static SchemaFieldExpression schemaBinaryFieldExpression(
+        String expression,
+        int operatorIndex,
+        char operator
+    ) {
+        if (expression.indexOf(operator, operatorIndex + 1) >= 0) {
+            return null;
+        }
+        String left = expression.substring(0, operatorIndex).trim();
+        String right = expression.substring(operatorIndex + 1).trim();
         if (!isSchemaLengthExpressionIdentifier(left)
             || !isSchemaLengthExpressionIdentifier(right)) {
             return null;
         }
-        return new String[] { left, right };
+        return new SchemaFieldExpression(left, operator, right);
+    }
+
+    private static final class SchemaFieldExpression {
+        final String left;
+        final char operator;
+        final String right;
+
+        SchemaFieldExpression(String field) {
+            this.left = field;
+            this.operator = '\0';
+            this.right = "";
+        }
+
+        SchemaFieldExpression(String left, char operator, String right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
+        }
+
+        boolean isField() {
+            return right.isEmpty();
+        }
     }
 
     private static boolean isSchemaLengthExpressionIdentifier(String text) {
@@ -7005,8 +7050,8 @@
     }
 
     private static String schemaLengthDescription(String expression) {
-        String[] operands = schemaLengthExpressionOperands(expression);
-        if (operands != null && operands.length == 1) {
+        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        if (parsed != null && parsed.isField()) {
             return "length field `" + expression + "`";
         }
         return "length expression `" + expression + "`";

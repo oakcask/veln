@@ -266,7 +266,9 @@ generated schema encoders.
 The narrow bounded repeated payload slice is implemented as
 `Repeat(count_field, Payload)` and
 `Repeat(left_count - right_count, Payload)` for generated binary schema decode
-and encode helpers. The count field or count operands must be earlier visible
+and encode helpers. `Repeat(left_count + right_count, Payload)` is also
+implemented for generated binary schema decode and encode helpers.
+The count field or count operands must be earlier visible
 `Int` fields in the same schema, and the payload must be one of the
 implemented byte-aligned exact-width unsigned primitives, an eligible nested
 binary schema payload, or `ByteView(length_field)` when the length field is an
@@ -476,12 +478,15 @@ constructors, selected mappings, and other non-direct expressions remains
 outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
-visible `Int` field, and `Repeat(left_count - right_count, Payload)` fields
-when both operands name earlier visible `Int` fields in the same schema.
+visible `Int` field, `Repeat(left_count - right_count, Payload)` fields when
+both operands name earlier visible `Int` fields in the same schema, and
+`Repeat(left_count + right_count, Payload)` fields when both operands name
+earlier visible `Int` fields in the same schema.
 `Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,
 `UInt48be`, `UInt48le`, `UInt64be`, `UInt64le`, or an eligible nested binary
-schema payload.
+schema payload, plus `ByteView(length_field)` when the length field is an
+earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module or public
 imported length-bounded dispatch decode-and-encode slice, dispatch payload

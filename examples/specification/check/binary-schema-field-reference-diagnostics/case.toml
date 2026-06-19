@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 15
+equals = 18
 
 [[diagnostics]]
 id = "schema.repeat_reference"
@@ -33,6 +33,24 @@ id = "schema.repeat_reference"
 severity = "error"
 kind = "name"
 message = "repeat count field `flags` decodes as `Flag8`, not `Int`"
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count operand `missing_count` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count operand `later_count` must be an earlier decoded `Int` field"
+
+[[diagnostics]]
+id = "schema.repeat_reference"
+severity = "error"
+kind = "name"
+message = "repeat count operand `flags` decodes as `Flag8`, not `Int`"
 
 [[diagnostics]]
 id = "schema.byte_view_reference"

@@ -1,0 +1,42 @@
+# Binary schema Repeat addition counts decode primitive lists.
+use stdio
+
+schema CountedValues
+	format binary
+
+	left_count: UInt8
+	right_count: UInt8
+	items: Repeat(left_count + right_count, UInt16be)
+end
+
+fn list_count(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn emit_sample(sample: {left_count: Int, right_count: Int, items: List<Int>}) -> () effects [stdio]
+	stdio::print(int_to_string(sample.left_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample.right_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(sample.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(list_sum(sample.items)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0203000100020003000400ff")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(12)?)?
+	let sample: {left_count: Int, right_count: Int, items: List<Int>} = byte_decode_counted_values(view)?
+	emit_sample(sample)
+	Ok(())
+end

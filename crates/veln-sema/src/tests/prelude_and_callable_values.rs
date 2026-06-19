@@ -3755,6 +3755,106 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
 }
 
 #[test]
+fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedValues\n",
+            "  format binary\n",
+            "\n",
+            "  left_count: UInt8\n",
+            "  right_count: UInt8\n",
+            "  items: Repeat(left_count + right_count, UInt16be)\n",
+            "end\n",
+            "\n",
+            "codec CountedCodec for CountedValues decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}>\n",
+            "  CountedCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn encode_main(packet: {left_count: Int, right_count: Int, items: List<Int>}) -> EncodeStep<()>\n",
+            "  CountedCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let decode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let encode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let decode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be in IR");
+    let IrStmtKind::Return { value } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let encode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be in IR");
+    let IrStmtKind::Return { value } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_return_mapped_record_shape() {
     let source = SourceFile::new(
         "main.veln",
@@ -4466,6 +4566,50 @@ fn generated_schema_decode_helpers_resolve_subtracted_repeat_count_fields() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_added_repeat_count_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  items: Repeat(length + padding_length, UInt16be)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, padding_length: Int, items: List<Int>}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, padding_length: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "items");
+    assert_eq!(
+        schema.fields[2]
+            .repeat
+            .as_ref()
+            .map(|repeat| repeat.count_field.as_str()),
+        Some("length + padding_length")
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_reject_forward_subtracted_byte_view_operands() {
     let source = SourceFile::new(
         "main.veln",
@@ -4525,6 +4669,73 @@ fn generated_schema_decode_helpers_reject_subtracted_repeat_count_operands() {
             "  length: UInt8\n",
             "  flags: Flag8\n",
             "  items: Repeat(length - flags, UInt16be)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count operand `padding_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count operand `padding_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing Repeat count expression should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_added_repeat_count_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length + padding_length, UInt16be)\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length + padding_length, UInt16be)\n",
+            "  padding_length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  flags: Flag8\n",
+            "  items: Repeat(length + flags, UInt16be)\n",
             "end\n",
         ),
     );
