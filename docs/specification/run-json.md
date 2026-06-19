@@ -290,7 +290,9 @@ stream-id, post-GOAWAY, payload-length, DATA-padding, SETTINGS ACK, preface,
 continuation, and priority self-dependency examples check this boundary for
 both `http2.peer_limit.*` and `http2.protocol.*` failures.
 Accepted HTTP/2 send-intents, including outbound HEADERS output split across
-HEADERS and CONTINUATION frames, remain ordinary program stdout in the
+HEADERS and CONTINUATION frames and server-side outbound `PUSH_PROMISE`
+output split across `PUSH_PROMISE` and CONTINUATION frames, remain ordinary
+program stdout in the
 aggregate protocol-core run case; they do not populate `error` or
 `details.protocol_diagnostic`.
 

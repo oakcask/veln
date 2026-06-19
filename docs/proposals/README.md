@@ -168,8 +168,9 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
   HPACK fixture-boundary, unknown extension-frame, flow-control, send-intent,
-  `RST_STREAM`, PRIORITY, PING, GOAWAY, and server-side `PUSH_PROMISE`
-  rejection slices recorded under `../specification/` and
+  `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
+  rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
+  recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression, unbounded dynamic-table

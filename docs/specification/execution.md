@@ -1225,6 +1225,8 @@ execution reference.
   stream-state failures for idle, closed-by-peer, reset, and mismatched
   streams, PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE`
   rejection,
+  server-side outbound `PUSH_PROMISE` send-intents for open
+  client-created streams,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS streams and local outbound
   HEADERS send-intents above a received boundary, and accepted
@@ -1450,6 +1452,24 @@ execution reference.
   before frame splitting or encode checks; HEADERS for an open stream at the
   boundary remain accepted, and stream id zero plus closed stream cases keep
   their narrower existing failures.
+- The same HTTP/2 protocol-core example also covers the narrow server-side
+  outbound `PUSH_PROMISE` send-intent. Ordinary source accepts a nonzero
+  currently open client-created associated stream, a nonzero server-initiated
+  promised stream id, and already-encoded opaque header-block bytes. When the
+  four-byte promised stream id plus header block fits within the
+  peer-advertised maximum frame size, the intent emits one immutable output
+  chunk with a `PUSH_PROMISE` frame header kind `5`, `END_HEADERS` set, the
+  associated stream id, the generated `UInt31be` promised-stream payload, and
+  the header block bytes. Larger payloads use one `PUSH_PROMISE` frame
+  followed by CONTINUATION frames on the associated stream; `END_HEADERS` is
+  set only on the final frame. Associated stream id `0`, missing streams,
+  closed streams, already reset streams, mismatched open streams,
+  server-created associated streams, promised stream id `0`, and
+  representable promised client-initiated stream ids are rejected before
+  accepted output bytes are produced. Promised stream ids outside the
+  generated payload helper's representable range stay as
+  `codec.encode_value_unrepresentable` failures with the generated field
+  path.
 - The same HTTP/2 protocol-core example also covers the outbound GOAWAY
   send-intent. Ordinary source validates the selected last stream id and
   error code through a schema-declared `Http2GoawayPayloadWire` payload record

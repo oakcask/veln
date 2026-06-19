@@ -1750,6 +1750,16 @@ HEADERS at the recorded last-stream-id boundary and rejects a higher open
 stream through the existing `http2.protocol.stream_after_goaway` diagnostic
 before frame splitting or encode checks. Stream id zero and closed stream
 cases keep their narrower existing failures.
+The outbound `PUSH_PROMISE` send-intent slice accepts a currently open
+client-created associated stream, a server-initiated promised stream id, and
+already-encoded opaque header-block bytes. It pins a single-frame
+`PUSH_PROMISE` output and a split output where the first frame carries the
+generated promised-stream payload plus the first header-block fragment and the
+final CONTINUATION frame carries `END_HEADERS`. It rejects stream id `0`,
+missing, closed, reset, mismatched, or server-created associated streams,
+promised stream id `0`, and representable client-initiated promised stream
+ids before accepted bytes are produced, while preserving out-of-range
+promised stream ids as generated payload encode errors.
 The outbound GOAWAY send-intent slice accepts a last stream id and error code,
 emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
@@ -1778,6 +1788,7 @@ frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
 payload, accepted PRIORITY frame-header-plus-priority-payload chunks,
 accepted HEADERS frame-header-plus-header-block chunks with and without
 `END_STREAM`, an accepted post-GOAWAY HEADERS frame at the recorded boundary,
+accepted `PUSH_PROMISE` frame-header-plus-promised-stream-payload chunks,
 an accepted GOAWAY frame plus last-stream-id and error-code payload, and the
 maximum valid `UInt31be` stream id. The source
 output also matches generated helper `codec.encode_value_unrepresentable`
