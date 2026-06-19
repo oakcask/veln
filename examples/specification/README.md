@@ -1460,16 +1460,18 @@ against the built `veln` binary.
 	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
-	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
-  names a supported static-table header name for `:authority`, `:method`,
-  `:path`, `:scheme`, or `:status` and whose short raw value is
-  `example.com`, `PUT`, `/target`, `https`, or a visible ASCII status value,
-  plus Huffman-marked literal-without-indexing fixture values decoded through
-  HPACK static Huffman codes for zero-length `:path`, `:scheme: https`, and
-  `:authority: www.example.com`, then returns ordinary header-list data and
-  the next immutable fixture state while malformed Huffman padding and a
+	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
+  whose first byte names a supported static-table header name for
+  `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
+  fixtures share the HPACK string literal decoder for short visible-ASCII raw
+  values and fixture-supported Huffman values, including zero-length `:path`,
+  `:scheme: https`, `:authority: www.example.com`, and `:method: PUT`; checked
+  output also covers raw literal-with-indexing `:authority`, Huffman
+  literal-with-indexing `:scheme: https`, and raw literal-with-indexing
+  `:status`. Malformed Huffman padding, malformed string length, and a
   malformed `:status` raw literal stay on the unsupported fixture path. It
-  also inserts one `:path: /target` literal-with-indexing entry, decodes a
+  also inserts one `:path: /target`
+  literal-with-indexing entry, decodes a
   later dynamic indexed reference to that entry, inserts a later
   `:method: PUT` literal-with-indexing entry as the newest bounded fixture
   table entry, decodes the newest entry through `0xbe`, decodes the older
@@ -1671,21 +1673,20 @@ against the built `veln` binary.
 	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
-	  bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
-  names a supported static-table header name for `:authority`, `:method`,
-  `:path`, `:scheme`, or `:status`, whose one-byte value length is not
-  Huffman-marked, whose length is within the small fixture bound, and whose
-  raw value bytes are all visible ASCII. The example covers
-  `:authority: abc.test` through completed HEADERS and final CONTINUATION
-  paths, covers a raw `:status` value through completed HEADERS, and rejects
-  both a non-visible raw value byte and a malformed raw `:status` literal.
+	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
+  whose first byte names a supported static-table header name for
+  `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
+  fixtures share the HPACK string literal decoder for short visible-ASCII raw
+  values and fixture-supported Huffman values, including zero-length `:path`,
+  `:scheme: https`, `:authority: www.example.com`, and `:method: PUT`;
+  checked output also covers raw literal-with-indexing `:authority`, Huffman
+  literal-with-indexing `:scheme: https`, and raw literal-with-indexing
+  `:status`. Malformed Huffman padding, malformed string length, non-visible
+  raw bytes, and a malformed raw `:status` literal stay on the unsupported
+  fixture path.
   Response header-list validation remains outside this executable slice beyond
-  decoding the fixture-supported `:status` header-list data.
-  Huffman-marked literal-without-indexing fixture values for
-  zero-length `:path`, `:scheme: https`, and `:authority: www.example.com`
-  decode through HPACK static Huffman codes, while malformed Huffman padding
-  stays on the unsupported fixture path. The source-level dynamic table
-  receive cases
+  decoding the fixture-supported `:status` header-list data. The source-level
+  dynamic table receive cases
   carry the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, replace the single-entry fixture table with a later `:method: PUT`

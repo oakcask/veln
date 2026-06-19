@@ -585,6 +585,23 @@ fn decode_hpack_huffman_literal_value(block: ByteChunk, encoded_count: Int, offs
 	end
 end
 
+fn decode_hpack_string_literal_value(block: ByteChunk, value_count: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	match value_count >= 128 and value_count <= 140
+		true => decode_hpack_huffman_literal_value(block, value_count - 128, offset)
+		false => match value_count > 0 and value_count < 128 and value_count <= 12
+			true => no_huffman_literal_raw_value(block, value_count, offset)
+			false => unsupported_value(block, offset)
+		end
+	end
+end
+
+fn decode_hpack_string_literal_wire_size(value_count: Int, value: String, observed_size: Int) -> Int
+	match value_count >= 128
+		true => hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size)
+		false => observed_size
+	end
+end
+
 fn supported_literal_static_name(index: Int) -> Bool
 	index == 1 or index == 2 or index == 4 or index == 6
 end
@@ -609,34 +626,6 @@ fn literal_static_name(index: Int) -> String
 	end
 end
 
-fn is_literal_value_example_com(block: ByteChunk, value_count: Int) -> Bool
-	match value_count == 11
-		true => byte_at_or_missing(block, 2) == 101 and byte_at_or_missing(block, 3) == 120 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 109 and byte_at_or_missing(block, 6) == 112 and byte_at_or_missing(block, 7) == 108 and byte_at_or_missing(block, 8) == 101 and byte_at_or_missing(block, 9) == 46 and byte_at_or_missing(block, 10) == 99 and byte_at_or_missing(block, 11) == 111 and byte_at_or_missing(block, 12) == 109
-		false => false
-	end
-end
-
-fn is_literal_value_put(block: ByteChunk, value_count: Int) -> Bool
-	match value_count == 3
-		true => byte_at_or_missing(block, 2) == 80 and byte_at_or_missing(block, 3) == 85 and byte_at_or_missing(block, 4) == 84
-		false => false
-	end
-end
-
-fn is_literal_value_path_target(block: ByteChunk, value_count: Int) -> Bool
-	match value_count == 7
-		true => byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
-		false => false
-	end
-end
-
-fn is_literal_value_https(block: ByteChunk, value_count: Int) -> Bool
-	match value_count == 5
-		true => byte_at_or_missing(block, 2) == 104 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 116 and byte_at_or_missing(block, 5) == 112 and byte_at_or_missing(block, 6) == 115
-		false => false
-	end
-end
-
 fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, offset: Int) -> Result<String, HpackFixtureFailure>
 	match byte_count(2)
 		Ok(prefix_count) => match byte_drop(block, prefix_count)
@@ -656,45 +645,25 @@ fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, offset: Int)
 	end
 end
 
-fn supported_literal_value(block: ByteChunk, value_count: Int) -> Bool
-	is_literal_value_example_com(block, value_count) or is_literal_value_put(block, value_count) or is_literal_value_path_target(block, value_count) or is_literal_value_https(block, value_count)
-end
-
-fn literal_value(block: ByteChunk, value_count: Int) -> String
-	match is_literal_value_example_com(block, value_count)
-		true => "example.com"
-		false => match is_literal_value_put(block, value_count)
-			true => "PUT"
-			false => match is_literal_value_path_target(block, value_count)
-				true => "/target"
-				false => "https"
-			end
-		end
-	end
-end
-
 fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let value_count: Int = byte_at_or_missing(block, 1)
-	match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count >= 128 and value_count <= 140 and observed_size == value_count - 128 + 2
-		true => match decode_hpack_huffman_literal_value(block, value_count - 128, offset)
-			Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size), state)
+	match supported_no_huffman_literal_static_name(first_byte) and observed_size >= 2 and observed_size == low_seven_bits(value_count) + 2
+		true => match decode_hpack_string_literal_value(block, value_count, offset)
+			Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, decode_hpack_string_literal_wire_size(value_count, value, observed_size), state)
 			Err(failure) => Err(failure)
 		end
-		false => match supported_no_huffman_literal_static_name(first_byte) and observed_size >= 2 and value_count > 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2
-			true => match no_huffman_literal_raw_value(block, value_count, offset)
-				Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, observed_size, state)
-				Err(failure) => Err(failure)
-			end
-			false => unsupported(block, offset)
-		end
+		false => unsupported(block, offset)
 	end
 end
 
 fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let name_index: Int = first_byte - 64
 	let value_count: Int = byte_at_or_missing(block, 1)
-	match supported_literal_static_name(name_index) and observed_size >= 2 and value_count >= 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2 and supported_literal_value(block, value_count)
-		true => decoded_literal_with_indexing(literal_static_name(name_index), literal_value(block, value_count), observed_size, state)
+	match supported_no_huffman_literal_static_name(name_index) and observed_size >= 2 and observed_size == low_seven_bits(value_count) + 2
+		true => match decode_hpack_string_literal_value(block, value_count, offset)
+			Ok(value) => decoded_literal_with_indexing(literal_static_name(name_index), value, decode_hpack_string_literal_wire_size(value_count, value, observed_size), state)
+			Err(failure) => Err(failure)
+		end
 		false => unsupported(block, offset)
 	end
 end
@@ -814,8 +783,11 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			8 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+			65 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+			70 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+			72 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			190 => match observed_size == 1
 				true => decoded_dynamic_indexed_newest_header(state, block, offset)
 				false => unsupported(block, offset)

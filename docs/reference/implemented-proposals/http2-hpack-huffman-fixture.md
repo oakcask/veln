@@ -9,6 +9,11 @@ checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
 `../../../examples/specification/run/http2-protocol-core/`.
 
+The later
+[HPACK string literal fixture](http2-hpack-string-literal-fixture.md) record
+preserves the slice that routes both raw and Huffman-marked literal values
+through one string literal decoder.
+
 ## Completed Behavior
 
 The imported HPACK fixture boundary accepts narrow Huffman-marked

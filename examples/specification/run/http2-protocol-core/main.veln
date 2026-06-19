@@ -6055,6 +6055,31 @@ fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), Strin
 	Ok(())
 end
 
+fn print_hpack_general_string_literal_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let ignored_hpack_literal_method_put_huffman: () = print_hpack_header_block_case(state, "hpack-literal-method-put-huffman", "http2-hpack-literal-method-put-huffman", "0000050104000000010283d7c37f", "0283d7c37f")?
+	let ignored_hpack_literal_indexed_authority: () = print_hpack_header_block_case(state, "hpack-literal-indexed-authority", "http2-hpack-literal-indexed-authority", "00000a01040000000141086162632e74657374", "41086162632e74657374")?
+	let ignored_hpack_literal_indexed_method_put_huffman: () = print_hpack_header_block_case(state, "hpack-literal-indexed-method-put-huffman", "http2-hpack-literal-indexed-method-put-huffman", "0000050104000000014283d7c37f", "4283d7c37f")?
+	let ignored_hpack_literal_indexed_scheme_https_huffman: () = print_hpack_header_block_case(state, "hpack-literal-indexed-scheme-https-huffman", "http2-hpack-literal-indexed-scheme-https-huffman", "00000601040000000146849d29ad1f", "46849d29ad1f")?
+	let ignored_hpack_literal_indexed_status: () = print_hpack_header_block_case(state, "hpack-literal-indexed-status", "http2-hpack-literal-indexed-status", "0000050104000000014803323031", "4803323031")?
+	Ok(())
+end
+
+fn print_hpack_literal_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let hpack_literal_path_target: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000104072f746172676574")?), state)?
+	print_step("hpack-literal-path-target", hpack_literal_path_target)
+	let ignored_hpack_literal_path_target: () = emit_header_block("http2-hpack-literal-path-target", hpack_literal_path_target, "04072f746172676574")?
+	print_hpack_transition("hpack-literal-path-target", hpack_literal_path_target)
+	let ignored_hpack_no_huffman_raw_cases: () = print_hpack_no_huffman_raw_cases(state)?
+	let hpack_literal_method_put: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010203505554")?), state)?
+	print_step("hpack-literal-method-put", hpack_literal_method_put)
+	let ignored_hpack_literal_method_put: () = emit_header_block("http2-hpack-literal-method-put", hpack_literal_method_put, "0203505554")?
+	print_hpack_transition("hpack-literal-method-put", hpack_literal_method_put)
+	let ignored_hpack_general_string_literal_cases: () = print_hpack_general_string_literal_cases(state)?
+	let ignored_hpack_literal_authority_example: () = print_hpack_header_block_case(state, "hpack-literal-authority-example", "http2-hpack-literal-authority-example", "00000d010400000001010b6578616d706c652e636f6d", "010b6578616d706c652e636f6d")?
+	let ignored_hpack_literal_authority_www_example_huffman: () = print_hpack_header_block_case(state, "hpack-literal-authority-www-example-huffman", "http2-hpack-literal-authority-www-example-huffman", "00000e010400000001018cf1e3c2e5f23a6ba0ab90f4ff", "018cf1e3c2e5f23a6ba0ab90f4ff")?
+	Ok(())
+end
+
 fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let request_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001303132")?), state)?
 	print_step("request-headers-valid", request_headers)
@@ -6091,17 +6116,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-path", hpack_static_indexed_path)
 	let ignored_hpack_static_indexed_path: () = emit_header_block("http2-hpack-static-indexed-path", hpack_static_indexed_path, "84")?
 	print_hpack_transition("hpack-static-indexed-path", hpack_static_indexed_path)
-	let hpack_literal_path_target: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000104072f746172676574")?), state)?
-	print_step("hpack-literal-path-target", hpack_literal_path_target)
-	let ignored_hpack_literal_path_target: () = emit_header_block("http2-hpack-literal-path-target", hpack_literal_path_target, "04072f746172676574")?
-	print_hpack_transition("hpack-literal-path-target", hpack_literal_path_target)
-	let ignored_hpack_no_huffman_raw_cases: () = print_hpack_no_huffman_raw_cases(state)?
-	let hpack_literal_method_put: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010203505554")?), state)?
-	print_step("hpack-literal-method-put", hpack_literal_method_put)
-	let ignored_hpack_literal_method_put: () = emit_header_block("http2-hpack-literal-method-put", hpack_literal_method_put, "0203505554")?
-	print_hpack_transition("hpack-literal-method-put", hpack_literal_method_put)
-	let ignored_hpack_literal_authority_example: () = print_hpack_header_block_case(state, "hpack-literal-authority-example", "http2-hpack-literal-authority-example", "00000d010400000001010b6578616d706c652e636f6d", "010b6578616d706c652e636f6d")?
-	let ignored_hpack_literal_authority_www_example_huffman: () = print_hpack_header_block_case(state, "hpack-literal-authority-www-example-huffman", "http2-hpack-literal-authority-www-example-huffman", "00000e010400000001018cf1e3c2e5f23a6ba0ab90f4ff", "018cf1e3c2e5f23a6ba0ab90f4ff")?
+	let ignored_hpack_literal_cases: () = print_hpack_literal_cases(state)?
 	let hpack_stateful_literal_indexed_path_target: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000144072f746172676574")?), state)?
 	print_step("hpack-stateful-literal-indexed-path-target", hpack_stateful_literal_indexed_path_target)
 	let ignored_hpack_stateful_literal_indexed_path_target: () = emit_header_block("http2-hpack-stateful-literal-indexed-path-target", hpack_stateful_literal_indexed_path_target, "44072f746172676574")?
@@ -6284,6 +6299,8 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_hpack_transition("hpack-literal-huffman", hpack_literal_huffman)
 	let hpack_literal_huffman_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001048100")?), state)?
 	print_failure("hpack-literal-huffman-malformed", hpack_literal_huffman_malformed)
+	let hpack_literal_length_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201040000000104ff")?), state)?
+	print_failure("hpack-literal-length-malformed", hpack_literal_length_malformed)
 	let hpack_literal_scheme_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000106849d29ad1f")?), state)?
 	print_step("hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman)
 	let ignored_hpack_literal_scheme_huffman: () = emit_header_block("http2-hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman, "06849d29ad1f")?
