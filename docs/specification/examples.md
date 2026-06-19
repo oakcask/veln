@@ -1758,9 +1758,11 @@ final CONTINUATION blocks carrying those updated immutable states into later
 header block decodes while malformed non-terminating table-size updates and
 table-size updates with trailing bytes after a complete integer remain
 unsupported. Reducing the fixture table size below the supported entries
-uses fixture-owned entry sizes: table size `42` retains the newest
-`:method: PUT` entry and evicts the older `:path: /target` entry, while table
-size `30` evicts both supported dynamic entries and leaves later dynamic
+uses the accepted header name byte count plus value byte count plus `32` for
+each dynamic entry: table size `42` retains the newest `:method: PUT` entry,
+evicts the older `:path: /target` entry, and also evicts
+`:authority: abc.test`; table size `30` evicts both supported
+`:method: PUT` and `:path: /target` dynamic entries and leaves later dynamic
 indexed representations on the unsupported fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK

@@ -1435,11 +1435,13 @@ execution reference.
   block or a final CONTINUATION block before a later header block is decoded.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
-  eviction policy drops entries by fixture-owned entry sizes: a reduction to
-  `42` keeps the newest supported `:method: PUT` entry while evicting the
-  older `:path: /target` entry, and a reduction to `30` drops both supported
-  entries so later dynamic indexed representations stay on the unsupported
-  fixture path. Unsupported fixture
+  eviction policy measures each accepted dynamic entry as header name byte
+  count plus value byte count plus `32`: a reduction to `42` keeps the newest
+  supported `:method: PUT` entry while evicting the older `:path: /target`
+  entry, the same table size evicts a supported `:authority: abc.test` entry,
+  and a reduction to `30` drops both supported `:method: PUT` and
+  `:path: /target` entries so later dynamic indexed representations stay on
+  the unsupported fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, malformed Huffman padding, Huffman EOS, and

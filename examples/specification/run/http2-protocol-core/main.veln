@@ -5632,6 +5632,23 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	let evicted_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011bf")?), hpack_carry_only_state(step_state(retained_newest)))?
 	print_failure("hpack-stateful-older-after-partial-eviction", evicted_older)
 	let ignored_evicted_older: () = require_hpack_fixture_failure(evicted_older)?
+	let authority_base_state: Http2DecodeState = hpack_carry_only_state(step_state(after_path))
+	let literal_authority: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a01040000001341086162632e74657374")?), authority_base_state)?
+	print_step("hpack-stateful-dynamic-entry-size-authority", literal_authority)
+	let ignored_literal_authority: () = emit_header_block("http2-hpack-stateful-dynamic-entry-size-authority", literal_authority, "41086162632e74657374")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-entry-size-authority", literal_authority, authority_base_state)
+	let ignored_authority_header: () = require_hpack_transition_header(literal_authority, authority_base_state, ":authority", "abc.test")?
+	let authority_state: Http2DecodeState = hpack_carry_only_state(step_state(literal_authority))
+	let authority_reduced_table_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000153f0b")?), authority_state)?
+	print_step("hpack-stateful-dynamic-entry-size-authority-eviction", authority_reduced_table_size)
+	let ignored_authority_reduced_table_size: () = emit_header_block("http2-hpack-stateful-dynamic-entry-size-authority-eviction", authority_reduced_table_size, "3f0b")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-entry-size-authority-eviction", authority_reduced_table_size, authority_state)
+	let authority_reduced_state: Http2DecodeState = hpack_carry_only_state(step_state(authority_reduced_table_size))
+	print_hpack_state("hpack-stateful-dynamic-entry-size-authority-eviction", authority_reduced_state)
+	let ignored_authority_table_size: () = require_hpack_state_table_size(authority_reduced_state, 42)?
+	let authority_after_eviction: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000017be")?), authority_reduced_state)?
+	print_failure("hpack-stateful-dynamic-entry-size-authority-after-eviction", authority_after_eviction)
+	let ignored_authority_after_eviction: () = require_hpack_fixture_failure(authority_after_eviction)?
 	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000094203")?), hpack_carry_only_state(step_state(after_path)))?
 	print_step("hpack-continuation-replacement-start", continuation_start)
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000009505554")?), step_state(continuation_start))?

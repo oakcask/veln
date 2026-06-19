@@ -649,9 +649,10 @@ and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
-policy beyond the checked fixture-owned entry sizes and table-size update
-slice, Huffman encoding, broader dynamic-table string encoding policy, and
-production header validation beyond the fixture request and response checks.
+policy beyond the checked fixture-boundary entry-size calculation and
+table-size update slice, Huffman encoding, broader dynamic-table string
+encoding policy, and production header validation beyond the fixture request
+and response checks.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus

@@ -327,6 +327,17 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let evicted_older: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(evicted_indexed_block, retained_newest_state, 81)
 	print_transition("dynamic-older-after-partial-eviction", evicted_older)
 	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 70))
+	let literal_indexed_authority_block: ByteChunk = byte_chunk_from_hex("41086162632e74657374")?
+	let literal_indexed_authority: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_authority_block, initial, 82)
+	print_transition("dynamic-entry-size-authority", literal_indexed_authority)
+	let authority_entry_state: HpackFixtureState = require_decoded_header(literal_indexed_authority, ":authority", "abc.test")?
+	let authority_reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f0b")?, authority_entry_state, 83)
+	print_transition("dynamic-entry-size-authority-eviction", authority_reduced_table_size)
+	let authority_reduced_state: HpackFixtureState = require_decoded_header(authority_reduced_table_size, ":fixture", "table-size-update")?
+	print_state("dynamic-entry-size-authority-eviction", authority_reduced_state)
+	let authority_after_eviction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, authority_reduced_state, 84)
+	print_transition("dynamic-authority-after-size-eviction", authority_after_eviction)
+	let ignored_authority_after_eviction: () = require_unsupported(authority_after_eviction)?
 	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
 	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 72)
 	print_transition("table-size-update", table_size_update)
