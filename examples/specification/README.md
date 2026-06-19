@@ -1238,6 +1238,10 @@ against the built `veln` binary.
   schema encode helpers write public imported recursive closed and extension
   dispatch payload schemas through written `use` paths and preserve extension
   unknown raw payload bytes.
+- `run/binary-schema-mixed-dispatch-selected-mapping-encode/`: a generated
+  binary schema encode helper projects selected mappings from one target
+  record shape back to mixed primitive and nested closed dispatch payload
+  cases and preserves dispatch-specific encode errors.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
@@ -1528,6 +1532,10 @@ against the built `veln` binary.
   encode` boundary accepts a selected structural mapping target record,
   encodes both selected mapping cases, and projects helper representation
   failures to `Invalid(EncodeError)`.
+- `run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`: the
+  same `derive encode` boundary accepts selected mappings over mixed
+  primitive and nested closed dispatch payload cases and projects their encode
+  errors to `Invalid`.
 - `run/derived-codec-record-payload-mapped-encode-boundary/`: the same
   `derive encode` boundary accepts a mapped target record containing an ADT
   constructor record payload and projects it to one encoded output chunk.

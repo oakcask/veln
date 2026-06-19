@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list derived-mixed-inline count 1\noutput_chunk derived-mixed-inline index 0 hex \"0107\" count 2\noutput_chunk_list derived-mixed-settings count 1\noutput_chunk derived-mixed-settings index 0 hex \"020900ff\" count 4\nderived-nested-error\ncodec.encode_value_unrepresentable\nSettingsPayload.value\nvalue must be between 0 and 65535\nderived-unknown-tag\ncodec.dispatch_unknown_tag\nPacketWire.payload\ntag field `kind` value 7 must be one of 1, 2\nderived-payload-mismatch\ncodec.dispatch_mismatch\nPacketWire.payload\ntag field `kind` value 2 does not match selected payload mapping\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "derived-mixed-inline"
+chunks = ["0107"]
+
+[[output_chunk_list]]
+name = "derived-mixed-settings"
+chunks = ["020900ff"]

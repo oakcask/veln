@@ -1341,10 +1341,14 @@ fn schema_encode_function_signature_for_schema(
             .iter()
             .map(|case| schema_dispatch_case_type(module, schema, case, &mut Vec::new()))
             .collect::<Option<Vec<_>>>()?;
+        let selected_mapping_closed_dispatch =
+            selected_mappings_cover_closed_dispatch(schema, &dispatch);
         let payload_ty = if recursive_dispatch_payload
             && selected_mappings_cover_dispatch_cases(schema, &dispatch)
         {
             schema_recursive_dispatch_payload_type(module, schema)?
+        } else if selected_mapping_closed_dispatch {
+            payload_types.pop()?
         } else {
             let payload_ty = payload_types.pop()?;
             if payload_types.iter().any(|ty| ty != &payload_ty) {
@@ -1352,7 +1356,10 @@ fn schema_encode_function_signature_for_schema(
             }
             payload_ty
         };
-        if !recursive_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
+        if !recursive_dispatch_payload
+            && !selected_mapping_closed_dispatch
+            && payload_types.iter().any(|ty| ty != &payload_ty)
+        {
             return None;
         }
         if dispatch.preserves_unknown {

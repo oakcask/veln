@@ -5579,6 +5579,10 @@
             if (schemaEncodeValueHasUnknownExtensionDispatch(value, schema)) {
                 return ok(value);
             }
+            Object dispatchMismatch = schemaEncodeSelectedClosedDispatchMismatch(value, schema);
+            if (dispatchMismatch != null) {
+                return dispatchMismatch;
+            }
             return err(encodeError(
                 "codec.encode_mapping_mismatch",
                 schema.name,
@@ -5586,6 +5590,102 @@
             ));
         }
         return selected;
+    }
+
+    private static Object schemaEncodeSelectedClosedDispatchMismatch(
+        Object value,
+        BinarySchemaSpec schema
+    ) {
+        if (!(value instanceof java.util.Map)) {
+            return null;
+        }
+        java.util.Map<Object, Object> targetFields = asMap(value);
+        for (SchemaFieldSpec field : schema.fields) {
+            SchemaDispatchSpec dispatch = field.dispatch;
+            if (dispatch == null || dispatch.preservesUnknown) {
+                continue;
+            }
+            if (!schemaSelectedMappingsCoverDispatch(schema.mapping, dispatch)) {
+                continue;
+            }
+            String targetTagField = schemaMappingTargetForSource(schema.mapping, dispatch.tagField);
+            if (targetTagField == null || !targetFields.containsKey(targetTagField)) {
+                continue;
+            }
+            Object tag = targetFields.get(targetTagField);
+            if (!(tag instanceof Long)) {
+                continue;
+            }
+            long tagValue = ((Long) tag).longValue();
+            String fieldPath = schema.name + "." + field.name;
+            if (schemaDispatchCaseForTag(dispatch, tag) == null) {
+                return err(encodeError(
+                    "codec.dispatch_unknown_tag",
+                    fieldPath,
+                    "tag field `"
+                        + dispatch.tagField
+                        + "` value "
+                        + tagValue
+                        + " must be one of "
+                        + schemaDispatchExpectedTags(dispatch)
+                ));
+            }
+            return err(encodeError(
+                "codec.dispatch_mismatch",
+                fieldPath,
+                "tag field `" + dispatch.tagField + "` value " + tagValue
+                    + " does not match selected payload mapping"
+            ));
+        }
+        return null;
+    }
+
+    private static boolean schemaSelectedMappingsCoverDispatch(
+        SchemaMappingSpec[] mappings,
+        SchemaDispatchSpec dispatch
+    ) {
+        if (mappings.length == 0 || mappings.length != dispatch.cases.length) {
+            return false;
+        }
+        java.util.LinkedHashSet<Long> tags = new java.util.LinkedHashSet<Long>();
+        for (SchemaMappingSpec mapping : mappings) {
+            if (!dispatch.tagField.equals(mapping.selectorField)
+                || !mapping.selectorOperator.equals("==")
+                || mapping.selectorValue == null) {
+                return false;
+            }
+            if (schemaDispatchCaseForTag(dispatch, mapping.selectorValue) == null
+                || !tags.add(mapping.selectorValue)) {
+                return false;
+            }
+        }
+        return tags.size() == dispatch.cases.length;
+    }
+
+    private static String schemaMappingTargetForSource(
+        SchemaMappingSpec[] mappings,
+        String source
+    ) {
+        String target = null;
+        for (SchemaMappingSpec mapping : mappings) {
+            String candidate = null;
+            for (SchemaMappingFieldSpec field : mapping.fields) {
+                String fieldSource = schemaMappingDirectSource(field.expr);
+                if (source.equals(fieldSource)) {
+                    candidate = field.target;
+                    break;
+                }
+            }
+            if (candidate == null) {
+                return null;
+            }
+            if (target == null) {
+                target = candidate;
+            } else if (!target.equals(candidate)) {
+                return null;
+            }
+        }
+        return target;
     }
 
     private static boolean schemaEncodeValueHasUnknownExtensionDispatch(

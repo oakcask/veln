@@ -795,6 +795,98 @@ fn generated_schema_encode_helpers_accept_selected_mapped_value_records() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_mixed_dispatch_selected_mapping_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Settings\n",
+            "  Settings {code: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "type PacketPayload\n",
+            "  InlineValue(Int)\n",
+            "  SettingsValue({code: Int, value: Int})\n",
+            "end\n",
+            "\n",
+            "type Packet\n",
+            "  Packet {kind: Int, body: PacketPayload}\n",
+            "end\n",
+            "\n",
+            "schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "\n",
+            "  map to Settings\n",
+            "    code = code\n",
+            "    value = value\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UInt8, 2 => SettingsPayload)\n",
+            "\n",
+            "  map to Packet when kind == 1\n",
+            "    kind = kind\n",
+            "    body = InlineValue(payload)\n",
+            "\n",
+            "  map to Packet when kind == 2\n",
+            "    kind = kind\n",
+            "    body = SettingsValue(payload)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {kind: Int, body: PacketPayload}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet encoder metadata should be emitted");
+    let dispatch = schema.fields[1]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry dispatch metadata");
+    assert_eq!(
+        dispatch
+            .cases
+            .iter()
+            .map(|case| (case.tag, case.width, case.payload_schema.is_some()))
+            .collect::<Vec<_>>(),
+        vec![(1, 1, false), (2, 0, true)]
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_accept_mapped_record_expression_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -3577,6 +3669,83 @@ fn derived_codec_encode_resolves_selected_mapped_schema_encode_step_boundary() {
         &value.kind,
         IrExprKind::Call {
             target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
+fn derived_codec_encode_resolves_mixed_dispatch_selected_mapping_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Settings\n",
+            "  Settings {code: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "type PacketPayload\n",
+            "  InlineValue(Int)\n",
+            "  SettingsValue({code: Int, value: Int})\n",
+            "end\n",
+            "\n",
+            "type Packet\n",
+            "  Packet {kind: Int, body: PacketPayload}\n",
+            "end\n",
+            "\n",
+            "schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "\n",
+            "  map to Settings\n",
+            "    code = code\n",
+            "    value = value\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UInt8, 2 => SettingsPayload)\n",
+            "\n",
+            "  map to Packet when kind == 1\n",
+            "    kind = kind\n",
+            "    body = InlineValue(payload)\n",
+            "\n",
+            "  map to Packet when kind == 2\n",
+            "    kind = kind\n",
+            "    body = SettingsValue(payload)\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {kind: Int, body: PacketPayload}) -> EncodeStep<()>\n",
+            "  PacketCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
             ..
         } if name == "PacketWire"
     ));

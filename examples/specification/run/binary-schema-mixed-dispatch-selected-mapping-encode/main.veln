@@ -1,0 +1,114 @@
+# Selected mappings can project mixed dispatch payloads back to encode fields.
+use stdio
+
+type Settings
+	Settings {code: Int, value: Int}
+end
+
+type PacketPayload
+	InlineValue(Int)
+	SettingsValue({code: Int, value: Int})
+end
+
+type Packet
+	Packet {kind: Int, body: PacketPayload}
+end
+
+schema SettingsPayload
+	format binary
+
+	code: UInt8
+	value: UInt16be
+
+	map to Settings
+		code = code
+		value = value
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UInt8, 2 => SettingsPayload)
+
+	map to Packet when kind == 1
+		kind = kind
+		body = InlineValue(payload)
+
+	map to Packet when kind == 2
+		kind = kind
+		body = SettingsValue(payload)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error_value(label: String, error: EncodeError) -> () effects [stdio]
+	stdio::println(label)
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn emit_error_result(label: String, encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error_value(label, error)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let inline: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 1, body: InlineValue(7)})
+	let settings: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 2, body: SettingsValue({code: 9, value: 255})})
+	emit_encoded("mixed-inline", inline, "0107")
+	emit_encoded("mixed-settings", settings, "020900ff")
+
+	let primitive_error: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 1, body: InlineValue(300)})
+	let nested_error: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 2, body: SettingsValue({code: 9, value: 70000})})
+	let unknown_tag: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 7, body: InlineValue(1)})
+	let payload_mismatch: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({kind: 2, body: InlineValue(1)})
+	emit_error_result("primitive-error", primitive_error)
+	emit_error_result("nested-error", nested_error)
+	emit_error_result("unknown-tag", unknown_tag)
+	emit_error_result("payload-mismatch", payload_mismatch)
+end
