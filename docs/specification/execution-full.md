@@ -683,6 +683,8 @@ after freezing all twenty-five ordinary source values at the task boundary.
 after freezing all twenty-six ordinary source values at the task boundary.
 `task::spawn_with27` starts a twenty-seven-argument callable on a JVM thread
 after freezing all twenty-seven ordinary source values at the task boundary.
+`task::spawn_with28` starts a twenty-eight-argument callable on a JVM thread
+after freezing all twenty-eight ordinary source values at the task boundary.
 All task spawn helpers freeze the returned value before it crosses back through the
 task handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
 completion or `Err(JoinError)` on interruption, cancellation, or runtime
@@ -827,6 +829,8 @@ through `task::spawn_with25`. The twenty-six-argument stream-task case
 extends it with one additional ordinary metadata value through
 `task::spawn_with26`. The twenty-seven-argument stream-task case extends it
 with one additional ordinary metadata value through `task::spawn_with27`.
+The twenty-eight-argument stream-task case extends it with one additional
+ordinary metadata value through `task::spawn_with28`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
