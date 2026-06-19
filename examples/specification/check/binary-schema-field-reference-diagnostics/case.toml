@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 18
+equals = 21
 
 [[diagnostics]]
 id = "schema.repeat_reference"
@@ -58,17 +58,59 @@ severity = "error"
 kind = "name"
 message = "ByteView length operand `missing_length` must be an earlier decoded `Int` field"
 
+[diagnostics.span]
+file = "main.veln"
+line = 53
+
 [[diagnostics]]
 id = "schema.byte_view_reference"
 severity = "error"
 kind = "name"
 message = "ByteView length operand `later_length` must be an earlier decoded `Int` field"
 
+[diagnostics.span]
+file = "main.veln"
+line = 60
+
 [[diagnostics]]
 id = "schema.byte_view_reference"
 severity = "error"
 kind = "name"
 message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 69
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `missing_length` must be an earlier decoded `Int` field"
+
+[diagnostics.span]
+file = "main.veln"
+line = 76
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `later_length` must be an earlier decoded `Int` field"
+
+[diagnostics.span]
+file = "main.veln"
+line = 83
+
+[[diagnostics]]
+id = "schema.byte_view_reference"
+severity = "error"
+kind = "name"
+message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 92
 
 [[diagnostics]]
 id = "schema.dispatch_reference"

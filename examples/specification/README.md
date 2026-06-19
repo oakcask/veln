@@ -1041,6 +1041,17 @@ against the built `veln` binary.
 - `run/binary-schema-byteview-encode-diagnostic-human/`: the same
   length-bounded `ByteView` encode mismatch projects focused human
   diagnostics with related count, offset, and preview notes.
+- `run/binary-schema-byteview-add-decode/`: generated schema decode helpers
+  compute a `ByteView(header_length + body_length)` payload count from
+  earlier decoded fields.
+- `run/binary-schema-byteview-add-truncated-json/`: addition length decode
+  reports `schema.length_out_of_bounds` when the computed length exceeds the
+  remaining bytes.
+- `run/binary-schema-byteview-add-encode/`: derived schema encode accepts a
+  `ByteView(header_length + body_length)` payload whose view count matches the
+  computed length.
+- `run/binary-schema-byteview-add-encode-length-mismatch/`: addition length
+  encode rejects a view whose count does not match the computed length.
 - `run/binary-schema-byteview-subtract-decode/`: generated schema decode
   helpers compute a `ByteView(length - padding_length)` payload count from
   earlier decoded fields.
