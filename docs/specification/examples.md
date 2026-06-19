@@ -1175,7 +1175,10 @@ and
 to pin the source-visible `channel::select_many_timeout_cancellable` boundary:
 ready receiver priority returns `Ok(Some(...))`, timeout returns `Ok(None)`,
 and token cancellation returns `Err(SelectError)` under the existing `time`
-and `concurrency` effects.
+and `concurrency` effects. The two-receiver timeout cancellation case uses
+`../../examples/specification/run/channel-select-timeout-cancellable/` and
+`../../examples/specification/check/channel-select-timeout-cancellable-effects/`
+to pin the matching `channel::select_timeout_cancellable` boundary.
 The main routing case also pins those three wait paths in one fixture output;
 the deadline case pins the global host-forced deadline expiry fixture.
 Together they show that these outcomes become adapter decisions rather than
@@ -1400,6 +1403,8 @@ and
 and
 `../../examples/specification/run/channel-select-many-timeout/`
 and
+`../../examples/specification/run/channel-select-timeout-cancellable/`
+and
 `../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
@@ -1408,7 +1413,10 @@ handler invocation. They use existing typed channels and
 per-stream state. The timeout case also pins ready receiver-list selection,
 `None` when no supplied receiver becomes ready before the timeout, and the
 matching `channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)`
-result boundary. The cancellable timeout cases pin the matching
+result boundary. The two-receiver cancellable timeout case pins
+`channel::select_timeout_cancellable` ready selection, timeout, and
+`Err(SelectError)` cancellation paths. The receiver-list cancellable timeout
+cases pin the matching
 `channel::select_many_timeout_cancellable` `Ok(Some(...))`, `Ok(None)`, and
 `Err(SelectError)` paths with source-visible `CancelToken` observation. The
 matching
@@ -1441,6 +1449,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
+and
+`../../examples/specification/check/channel-select-timeout-cancellable-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`
 and

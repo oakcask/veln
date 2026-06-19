@@ -216,6 +216,7 @@ fn channel_signature(
         | "select_many_timeout_result"
         | "select_many_timeout_cancellable"
         | "select_timeout"
+        | "select_timeout_cancellable"
         | "select_result"
         | "select_priority_result"
         | "select_timeout_result" => select_signature(name, expected, handle_type),
@@ -260,7 +261,11 @@ fn select_signature(
     expected: Option<&Type>,
     handle_type: Option<&Type>,
 ) -> Option<(Vec<Type>, Type)> {
-    let reports_interrupt = name.ends_with("_result") || name == "select_many_timeout_cancellable";
+    let reports_interrupt = name.ends_with("_result")
+        || matches!(
+            name,
+            "select_many_timeout_cancellable" | "select_timeout_cancellable"
+        );
     let item = select_item_type(expected, reports_interrupt)
         .or_else(|| select_receiver_item_type(name, handle_type))
         .unwrap_or(Type::Unknown);
@@ -287,11 +292,15 @@ fn select_signature(
             | "select_many_timeout_result"
             | "select_many_timeout_cancellable"
             | "select_timeout"
+            | "select_timeout_cancellable"
             | "select_timeout_result"
     ) {
         params.push(Type::int());
     }
-    if name == "select_many_timeout_cancellable" {
+    if matches!(
+        name,
+        "select_many_timeout_cancellable" | "select_timeout_cancellable"
+    ) {
         params.push(cancel_token_type());
     }
     let output = adt::option_type(select_output_record(item));
@@ -1713,6 +1722,7 @@ fn core_channel_signature(
         | "select_many_timeout_result"
         | "select_many_timeout_cancellable"
         | "select_timeout"
+        | "select_timeout_cancellable"
         | "select_result"
         | "select_priority_result"
         | "select_timeout_result" => core_select_signature(name, expected, handle_type),
@@ -1757,7 +1767,11 @@ fn core_select_signature(
     expected: Option<&CoreType>,
     handle_type: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
-    let reports_interrupt = name.ends_with("_result") || name == "select_many_timeout_cancellable";
+    let reports_interrupt = name.ends_with("_result")
+        || matches!(
+            name,
+            "select_many_timeout_cancellable" | "select_timeout_cancellable"
+        );
     let item = core_select_item_type(expected, reports_interrupt)
         .or_else(|| core_select_receiver_item_type(name, handle_type))
         .unwrap_or(CoreType::Unknown);
@@ -1784,11 +1798,15 @@ fn core_select_signature(
             | "select_many_timeout_result"
             | "select_many_timeout_cancellable"
             | "select_timeout"
+            | "select_timeout_cancellable"
             | "select_timeout_result"
     ) {
         params.push(CoreType::int());
     }
-    if name == "select_many_timeout_cancellable" {
+    if matches!(
+        name,
+        "select_many_timeout_cancellable" | "select_timeout_cancellable"
+    ) {
         params.push(CoreType::named("CancelToken", Vec::new()));
     }
     let output = adt::core_option_type(core_select_output_record(item));

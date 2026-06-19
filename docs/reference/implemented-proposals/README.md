@@ -72,6 +72,8 @@ behavior.
   [network-stream-close-boundary.md](network-stream-close-boundary.md).
 - Network channel select-many routing:
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
+- Network channel select timeout cancellable:
+  [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
 - Network stream task spawn with4:
   [network-stream-task-spawn-with4.md](network-stream-task-spawn-with4.md).
 - Network stream task spawn with5:

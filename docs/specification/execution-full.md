@@ -606,10 +606,16 @@ before a ready receiver wins.
 return, and rotating tie-breaking behavior. It also returns `None` when no
 value is selected before the non-negative millisecond timeout elapses. A
 negative timeout waits without a timeout, matching `channel::select`.
+`channel::select_timeout_cancellable(left, right, timeout_ms, token)` has the
+same two-receiver order, rotating tie-breaking, timeout behavior, and result
+value shape, and additionally observes the supplied `CancelToken`. It returns
+`Err(SelectError)` when that token is already cancelled or becomes cancelled
+before a ready receiver wins.
 `channel::select_result`, `channel::select_priority_result`,
 `channel::select_many_timeout_result`,
 `channel::select_many_timeout_cancellable`, and
-`channel::select_timeout_result` use the same readiness, tie-breaking,
+`channel::select_timeout_result`, and
+`channel::select_timeout_cancellable` use the same readiness, tie-breaking,
 closed-channel, and timeout rules as their non-result counterparts. They
 return `Ok(Some(selected))` when a receiver produces a value, `Ok(None)` when
 selection closes or times out without a value, and `Err(SelectError)` when
@@ -873,6 +879,9 @@ are
 `examples/specification/run/channel-first-stream-routing-fifteen-route/`,
 `examples/specification/run/channel-first-stream-routing-sixteen-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
+`examples/specification/run/channel-select-timeout-cancellable/`,
+`examples/specification/run/channel-select-many-timeout-cancellable/`,
+`examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
 `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
 `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
@@ -902,6 +911,8 @@ and
 `examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`, and
+`examples/specification/check/channel-select-timeout-cancellable-effects/`, and
+`examples/specification/check/channel-select-many-timeout-cancellable-effects/`, and
 `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 
 Current-process intrinsics are also backend-owned runtime operations.

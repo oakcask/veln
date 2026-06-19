@@ -595,6 +595,24 @@
         return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis), true, false);
     }
 
+    public static Object channelSelectTimeoutCancellable(
+        Object leftReceiver,
+        Object rightReceiver,
+        Object timeoutMillis,
+        Object token
+    ) {
+        Receiver left = (Receiver) leftReceiver;
+        Receiver right = (Receiver) rightReceiver;
+        Receiver[] receivers = new Receiver[] { left, right };
+        return channelSelectReceiversWithTimeout(
+            receivers,
+            asLong(timeoutMillis),
+            asCancelToken(token),
+            true,
+            true
+        );
+    }
+
     public static Object channelSelectResult(Object leftReceiver, Object rightReceiver) {
         return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, true, true);
     }

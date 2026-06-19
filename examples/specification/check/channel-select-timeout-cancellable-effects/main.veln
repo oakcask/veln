@@ -1,0 +1,12 @@
+# Cancellable two-receiver timeout selection requires time and concurrency effects.
+fn route_with_cancellable_select(left: Receiver<StreamInput>, right: Receiver<StreamInput>, token: CancelToken) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [time, concurrency]
+	channel::select_timeout_cancellable(left, right, 25, token)
+end
+
+pub fn adapter_missing_time(left: Receiver<StreamInput>, right: Receiver<StreamInput>, token: CancelToken) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [concurrency]
+	route_with_cancellable_select(left, right, token)
+end
+
+pub fn adapter_missing_concurrency(left: Receiver<StreamInput>, right: Receiver<StreamInput>, token: CancelToken) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [time]
+	route_with_cancellable_select(left, right, token)
+end
