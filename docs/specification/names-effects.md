@@ -110,11 +110,11 @@ compiler-known calls.
 - Source-visible `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` ADTs plus pure byte
   vocabulary helpers for `Byte`, `ByteChunk`, `ByteView`, `ByteCount`,
-  `ByteOffset`, compact hex fixture decoding, visible ASCII conversion from
-  immutable chunks, bounded `ByteView` slicing, outgoing `List<ByteChunk>`
-  construction, fixed-width unsigned big-endian and little-endian reads and
-  writes, fixed U8 field checks, and the narrow schema width-sample decode
-  helper. The implemented pending-input slice
+  `ByteOffset`, compact hex fixture decoding, visible ASCII conversion between
+  strings and immutable chunks, bounded `ByteView` slicing, outgoing
+  `List<ByteChunk>` construction, fixed-width unsigned big-endian and
+  little-endian reads and writes, fixed U8 field checks, and the narrow schema
+  width-sample decode helper. The implemented pending-input slice
   appends incoming `StreamInput.Chunk` bytes into immutable retained
   `ByteChunk` values, bounds retention with `ByteCount`, uses `ByteView`
   prefixes for parsing, tracks absolute `ByteOffset` separately, and collects

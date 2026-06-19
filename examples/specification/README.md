@@ -1475,11 +1475,12 @@ against the built `veln` binary.
   checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. The same fixture module encodes supported raw string literals
-  through `encode_hpack_raw_string_literal`, including a short `PUT` value and
-  the long raw `a` value at the one-continuation length boundary; unsupported
-  values and non-visible raw byte values return the fixture-owned
-  unsupported-header-block failure with expected fixture
-  `fixture raw string encoding`. Malformed Huffman padding,
+  through `encode_hpack_raw_string_literal`, including a short `PUT` value
+  that keeps its bytes, a visible ASCII `bad` value that was not part of the
+  former fixture allowlist, and the long raw `a` value at the
+  one-continuation HPACK integer length boundary; non-visible raw byte values
+  return the fixture-owned unsupported-header-block failure with expected
+  fixture `fixture raw string encoding`. Malformed Huffman padding,
   malformed string length, and a
   malformed `:status` raw literal stay on the unsupported fixture path. It
   also inserts one `:path: /target`

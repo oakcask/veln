@@ -637,10 +637,9 @@ Completed HPACK fixture behavior is current behavior under
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked fixture-owned entry sizes and table-size update
-slice, full HPACK string encoding beyond the checked fixture raw-literal
-helper, general HPACK string-length policy beyond the checked fixture
-continuation, and production header validation beyond the fixture request
-checks. The completed request-header validation slice is
+slice, Huffman encoding, broader dynamic-table string encoding policy, and
+production header validation beyond the fixture request checks. The completed
+request-header validation slice is
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md`: the
 HTTP/2 core validates fixture-marked request header lists after HPACK fixture
@@ -661,9 +660,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  full HPACK string encoding beyond the checked fixture raw-literal helper,
-  general HPACK string-length policy beyond the checked fixture continuation,
-  and production header validation remain later work beyond the implemented
+  Huffman encoding, broader dynamic-table string encoding policy, and
+  production header validation remain later work beyond the implemented
   fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
