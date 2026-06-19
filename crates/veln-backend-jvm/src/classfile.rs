@@ -1777,7 +1777,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrSchemaDecodeMappingExpr::Converter {
                 function,
                 inverse_function,
-                arg,
+                args,
             } => {
                 let spec_len = if inverse_function.is_some() { 4 } else { 3 };
                 self.emit_object_array(code, spec_len, |this, code, index| match index {
@@ -1791,8 +1791,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                                 .expect("converter inverse should exist"),
                         );
                     }
-                    2 => this.emit_schema_mapping_expr_spec(code, arg),
-                    3 => this.emit_schema_mapping_expr_spec(code, arg),
+                    2 => {
+                        this.emit_object_array(code, args.len(), |this, code, arg_index| {
+                            this.emit_schema_mapping_expr_spec(code, &args[arg_index]);
+                        });
+                        code.invokestatic(
+                            &this.program.options.runtime_class,
+                            "list",
+                            "([Ljava/lang/Object;)Ljava/util/List;",
+                        );
+                    }
+                    3 => {
+                        let [arg] = args.as_slice() else {
+                            panic!("converter inverse should have exactly one argument");
+                        };
+                        this.emit_schema_mapping_expr_spec(code, arg);
+                    }
                     _ => unreachable!(),
                 });
             }

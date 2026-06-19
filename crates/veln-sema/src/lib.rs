@@ -383,12 +383,14 @@ fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappin
         SchemaDecodeMappingExpr::Converter {
             function,
             inverse_function,
-            arg,
-            ..
+            args,
         } => IrSchemaDecodeMappingExpr::Converter {
             function,
             inverse_function,
-            arg: Box::new(ir_schema_mapping_expr(*arg)),
+            args: args
+                .into_iter()
+                .map(|arg| ir_schema_mapping_expr(arg.expr))
+                .collect(),
         },
         SchemaDecodeMappingExpr::Binary { op, left, right } => IrSchemaDecodeMappingExpr::Binary {
             op,

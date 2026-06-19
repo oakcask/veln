@@ -1881,10 +1881,14 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         "main.veln",
         concat!(
             "type Header\n",
-            "  Header {bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}\n",
+            "  Header {too_few: Int, too_many: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}\n",
             "end\n",
             "\n",
             "fn two_params(value: Int, extra: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn three_params(value: Int, extra: Int, another: Int) -> Int\n",
             "  value\n",
             "end\n",
             "\n",
@@ -1912,9 +1916,11 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "  format binary\n",
             "\n",
             "  kind: UInt8\n",
+            "  length: UInt8\n",
             "\n",
             "  map to Header\n",
-            "    bad_arity = two_params(kind)\n",
+            "    too_few = two_params(kind)\n",
+            "    too_many = three_params(kind, length)\n",
             "    bad_input = needs_text(kind)\n",
             "    bad_return = to_text(kind)\n",
             "    impure = noisy(kind)\n",
@@ -1932,7 +1938,15 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_converter_arity"
                 && diagnostic.message
-                    == "schema mapping converter `two_params` expects 1 argument(s), but got 2"
+                    == "schema mapping converter `two_params` expects 2 argument(s), but got 1"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_arity"
+                && diagnostic.message
+                    == "schema mapping converter `three_params` expects 2 argument(s), but got 3"
         }),
         "{diagnostics:#?}"
     );

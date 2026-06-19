@@ -579,11 +579,12 @@ execution reference.
   use `+`, `-`, `*`, and `/` over decoded schema-local `Int` fields, integer
   literals, and nested supported mapping arithmetic expressions. Division by
   zero returns `schema.mapping_division_by_zero` at the offset after the
-  decoded schema body with the schema and target-field path. A converter argument is either one
-  decoded schema-local field or an already implemented structural mapping expression
-  made from decoded schema fields, records, ADT constructors, integer
-  arithmetic mapping expressions, and nested combinations of those forms. The
-  returned value is then assigned to the target field.
+  decoded schema body with the schema and target-field path. Converter calls
+  take one or two arguments. Each argument is either one decoded schema-local
+  field or an already implemented structural mapping expression made from
+  decoded schema fields, records, ADT constructors, integer arithmetic mapping
+  expressions, and nested combinations of those forms. The returned value is
+  then assigned to the target field.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone
@@ -620,8 +621,10 @@ execution reference.
   `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`,
+  `examples/specification/run/binary-schema-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`,
+  `examples/specification/run/binary-schema-imported-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
   `examples/specification/run/binary-schema-mapped-field-selection-decode/`,

@@ -1,19 +1,21 @@
 use helpers
 
 type Header
-	Header {missing: Int, private: Int, bare: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int}
+	Header {missing: Int, private: Int, bare: Int, too_few: Int, too_many: Int, bad_input: Int, bad_return: Int, impure: Int}
 end
 
 schema HeaderWire
 	format binary
 
 	kind: UInt8
+	length: UInt8
 
 	map to Header
 		missing = missing_helpers::convert(kind)
 		private = helpers::private_convert(kind)
 		bare = public_convert(kind)
-		bad_arity = helpers::two_params(kind)
+		too_few = helpers::two_params(kind)
+		too_many = helpers::three_params(kind, length)
 		bad_input = helpers::needs_text(kind)
 		bad_return = helpers::to_text(kind)
 		impure = helpers::noisy(kind)
