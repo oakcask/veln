@@ -573,6 +573,10 @@ fn supported_literal_static_name(index: Int) -> Bool
 	index == 1 or index == 2 or index == 4 or index == 6
 end
 
+fn supported_no_huffman_literal_static_name(index: Int) -> Bool
+	supported_literal_static_name(index) or index == 8
+end
+
 fn literal_static_name(index: Int) -> String
 	match index == 1
 		true => ":authority"
@@ -580,7 +584,10 @@ fn literal_static_name(index: Int) -> String
 			true => ":method"
 			false => match index == 4
 				true => ":path"
-				false => ":scheme"
+				false => match index == 6
+					true => ":scheme"
+					false => ":status"
+				end
 			end
 		end
 	end
@@ -657,7 +664,7 @@ fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: 
 			Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size), state)
 			Err(failure) => Err(failure)
 		end
-		false => match supported_literal_static_name(first_byte) and observed_size >= 2 and value_count > 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2
+		false => match supported_no_huffman_literal_static_name(first_byte) and observed_size >= 2 and value_count > 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2
 			true => match no_huffman_literal_raw_value(block, value_count, offset)
 				Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, observed_size, state)
 				Err(failure) => Err(failure)
@@ -782,6 +789,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+			8 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			190 => match observed_size == 1

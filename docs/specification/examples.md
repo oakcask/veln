@@ -1636,11 +1636,15 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	`via:`, and `0xbc` `www-authenticate:`
 	header-block bytes plus no-Huffman literal-without-indexing fixtures whose
 first byte names a supported static-table header name for `:authority`,
-`:method`, `:path`, or `:scheme`, whose one-byte value length is not
-Huffman-marked, whose length is within the small fixture bound, and whose raw
-value bytes are all visible ASCII. The example covers `:authority: abc.test`
-through completed HEADERS and final CONTINUATION paths and rejects a
-non-visible raw value byte. It also decodes narrow Huffman-marked
+`:method`, `:path`, `:scheme`, or `:status`, whose one-byte value length is
+not Huffman-marked, whose length is within the small fixture bound, and whose
+raw value bytes are all visible ASCII. The example covers
+`:authority: abc.test` through completed HEADERS and final CONTINUATION
+paths, covers a raw `:status` value through completed HEADERS, and rejects
+both a non-visible raw value byte and a malformed raw `:status` literal. It
+does not implement response header-list validation beyond decoding the
+fixture-supported `:status` header-list data. It also decodes narrow
+Huffman-marked
 literal-without-indexing values through HPACK static Huffman codes for the
 fixture-supported values `""`, `www.example.com`, `https`, `/target`, and
 `PUT`. Checked HEADERS bytes include zero-length `:path` as `0x04 0x80`,

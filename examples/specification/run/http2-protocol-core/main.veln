@@ -5956,6 +5956,7 @@ end
 
 fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let ignored_hpack_literal_authority_raw: () = print_hpack_header_block_case(state, "hpack-literal-authority-raw", "http2-hpack-literal-authority-raw", "00000a01040000000101086162632e74657374", "01086162632e74657374")?
+	let ignored_hpack_literal_status_raw: () = print_hpack_header_block_case(state, "hpack-literal-status-raw", "http2-hpack-literal-status-raw", "0000050104000000010803323031", "0803323031")?
 	let hpack_literal_authority_raw_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401000000000101086162")?), state)?
 	print_step("hpack-literal-authority-raw-continuation-start", hpack_literal_authority_raw_continuation_start)
 	let hpack_literal_authority_raw_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006090400000001632e74657374")?), step_state(hpack_literal_authority_raw_continuation_start))?
@@ -6200,6 +6201,8 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_failure("hpack-literal-authority-malformed", hpack_literal_authority_malformed)
 	let hpack_literal_non_visible: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010103611f62")?), state)?
 	print_failure("hpack-literal-non-visible", hpack_literal_non_visible)
+	let hpack_literal_status_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000108033230")?), state)?
+	print_failure("hpack-literal-status-malformed", hpack_literal_status_malformed)
 	Ok(())
 end
 

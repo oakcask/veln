@@ -311,11 +311,13 @@ bytes plus the static indexed `accept-charset:`,
 	`transfer-encoding:`, `user-agent:`, `vary:`, `via:`, and
 	`www-authenticate:` header bytes, plus no-Huffman literal-without-indexing
 	fixtures whose first byte names a supported static-table header name for
-`:authority`, `:method`, `:path`, or `:scheme`, whose one-byte value length is
-not Huffman-marked, whose length is within the small fixture bound, and whose
-raw value bytes are all visible ASCII. The executable slice covers a raw
-`:authority` value through completed HEADERS and final CONTINUATION paths and
-rejects a non-visible raw value byte. Huffman-marked
+`:authority`, `:method`, `:path`, `:scheme`, or `:status`, whose one-byte
+value length is not Huffman-marked, whose length is within the small fixture
+bound, and whose raw value bytes are all visible ASCII. The executable slice
+covers a raw `:authority` value through completed HEADERS and final
+CONTINUATION paths, covers a raw `:status` value through completed HEADERS,
+and rejects both a non-visible raw value byte and a malformed raw `:status`
+literal. Huffman-marked
 literal-without-indexing values decode through a narrow HPACK static Huffman
 value decoder for the fixture-supported values `""`, `www.example.com`,
 `https`, `/target`, and `PUT`. Checked bytes include zero-length `:path` as
@@ -640,9 +642,11 @@ value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
 	`via:`, and `0xbc` `www-authenticate:`
 	bytes, plus no-Huffman literal-without-indexing fixtures whose first byte
 names a supported static-table header name for `:authority`, `:method`,
-`:path`, or `:scheme`, whose one-byte value length is not Huffman-marked,
-whose length is within the small fixture bound, and whose raw value bytes are
-all visible ASCII, plus Huffman-marked literal-without-indexing fixture values
+`:path`, `:scheme`, or `:status`, whose one-byte value length is not
+Huffman-marked, whose length is within the small fixture bound, and whose raw
+value bytes are all visible ASCII, including checked success and malformed
+fixture coverage for a raw `:status` literal, plus Huffman-marked
+literal-without-indexing fixture values
 decoded through HPACK static Huffman codes for zero-length `:path`,
 `:scheme: https`, and `:authority: www.example.com`,
 plus one literal-with-indexing `:path: /target`

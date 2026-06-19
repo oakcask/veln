@@ -168,7 +168,8 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
-  HPACK fixture-boundary, unknown extension-frame, flow-control, send-intent,
+  HPACK behavior beyond the checked fixture boundary, unknown extension-frame,
+  flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
   plus the request-side header-list validation slice

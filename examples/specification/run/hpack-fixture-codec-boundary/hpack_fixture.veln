@@ -524,9 +524,42 @@ fn literal_static_name(index: Int) -> String
 			true => ":method"
 			false => match index == 4
 				true => ":path"
-				false => ":scheme"
+				false => match index == 6
+					true => ":scheme"
+					false => ":status"
+				end
 			end
 		end
+	end
+end
+
+fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_count(2)
+		Ok(prefix_count) => match byte_drop(block, prefix_count)
+			Ok(value_suffix) => match byte_count(value_count)
+				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
+					Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
+						Ok(value) => Ok(value)
+						Err(_) => unsupported_value(block, offset)
+					end
+					Err(_) => unsupported_value(block, offset)
+				end
+				Err(_) => unsupported_value(block, offset)
+			end
+			Err(_) => unsupported_value(block, offset)
+		end
+		Err(_) => unsupported_value(block, offset)
+	end
+end
+
+fn decode_literal_without_indexing_raw_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let value_count: Int = byte_at_or_missing(block, 1)
+	match observed_size >= 2 and value_count > 0 and value_count < 128 and value_count <= 12 and observed_size == value_count + 2
+		true => match no_huffman_literal_raw_value(block, value_count, offset)
+			Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, observed_size, state)
+			Err(failure) => Err(failure)
+		end
+		false => unsupported(block, offset)
 	end
 end
 
@@ -654,6 +687,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			false => unsupported(block, offset)
 		end
+		8 => decode_literal_without_indexing_raw_header_block(first_byte, observed_size, state, block, offset)
 		66 => match is_literal_with_indexing_method_put(block, observed_size, first_byte)
 			true => decoded_literal_with_indexing_method_put(state)
 			false => unsupported(block, offset)
