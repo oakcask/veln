@@ -195,7 +195,8 @@ compare it with `../specification/` before changing behavior.
   fifteen-argument, sixteen-argument, seventeen-argument, and
   eighteen-argument, nineteen-argument, twenty-argument, twenty-one-argument,
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, and twenty-seven-argument spawn,
+  twenty-five-argument, twenty-six-argument, twenty-seven-argument, and
+  twenty-eight-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
   nineteen-route channel-first routing, receiver-list cancellable

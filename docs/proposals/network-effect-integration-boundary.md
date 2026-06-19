@@ -59,8 +59,9 @@ slices, and narrow deadline and cancellation slices, for:
   sixteen-argument, seventeen-argument, eighteen-argument, and
   nineteen-argument, twenty-argument, twenty-one-argument,
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, and twenty-seven-argument
-  spawned handler task shapes over ordinary source values
+  twenty-five-argument, twenty-six-argument, twenty-seven-argument, and
+  twenty-eight-argument spawned handler task shapes over ordinary source
+  values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -211,6 +212,8 @@ The twenty-six-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with26.md`.
 The twenty-seven-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with27.md`.
+The twenty-eight-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with28.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -421,8 +424,8 @@ or the pure protocol core.
   fifteen-argument, sixteen-argument, seventeen-argument, and
   eighteen-argument, nineteen-argument, twenty-argument, twenty-one-argument,
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, and twenty-seven-argument
-  spawned handler task, and
+  twenty-five-argument, twenty-six-argument, twenty-seven-argument, and
+  twenty-eight-argument spawned handler task, and
   adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,

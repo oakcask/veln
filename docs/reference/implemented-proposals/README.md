@@ -122,6 +122,8 @@ behavior.
   [network-stream-task-spawn-with26.md](network-stream-task-spawn-with26.md).
 - Network stream task spawn with27:
   [network-stream-task-spawn-with27.md](network-stream-task-spawn-with27.md).
+- Network stream task spawn with28:
+  [network-stream-task-spawn-with28.md](network-stream-task-spawn-with28.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 - HTTP/2 HPACK static indexed fixture:
