@@ -1670,17 +1670,23 @@ fixtures whose first byte names a supported static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
 fixtures share the HPACK string literal decoder for short visible-ASCII raw
 values and Huffman-marked values decoded by the HPACK static Huffman table
-rather than a fixed decoded-value allowlist. The example
+rather than a fixed decoded-value allowlist. The same decoder accepts checked
+one-continuation string-length prefixes for long raw and Huffman-marked values
+through both literal forms. The example
 covers `:authority: abc.test` through completed HEADERS and final
 CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
 `:path: test` through completed HEADERS, Huffman `:method: PUT` through both
 literal-without-indexing and literal-with-indexing, Huffman `:status: 200`
 through completed HEADERS and final CONTINUATION, raw literal-with-indexing
-`:authority`, Huffman literal-with-indexing `:scheme: https`, and raw
-literal-with-indexing `:status`. It rejects non-visible raw bytes, malformed
-string length, malformed Huffman padding, and a malformed raw `:status`
-literal. It does not implement response header-list validation beyond decoding
-the fixture-supported `:status` header-list data. Checked HEADERS bytes
+`:authority`, Huffman literal-with-indexing `:scheme: https`, raw
+literal-with-indexing `:status`, and long raw and Huffman-marked string-length
+continuation fixtures. Completed HEADERS and final CONTINUATION paths reach
+the long-value HPACK boundary before the protocol-core header-list receive
+limit rejects the decoded size. It rejects non-visible raw bytes, malformed
+string length including non-terminating string-length continuations, malformed
+Huffman padding, and a malformed raw `:status` literal. It does not implement
+response header-list validation beyond decoding the fixture-supported
+`:status` header-list data. Checked HEADERS bytes
 include zero-length `:path` as `0x04 0x80`, `:path: test` as
 `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
@@ -1714,8 +1720,9 @@ indexed representations on the unsupported fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing, malformed Huffman padding, Huffman EOS, and Huffman
-strings whose decoded bytes are not visible ASCII. The focused HPACK
+literal-without-indexing, malformed string-length continuations, malformed
+Huffman padding, Huffman EOS, and Huffman strings whose decoded bytes are not
+visible ASCII. The focused HPACK
 fixture-codec JSON and
 human examples assert the unsupported header-block byte preview.
 The outbound DATA send-intent slice keeps outbound connection and stream

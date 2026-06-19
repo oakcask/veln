@@ -1337,6 +1337,12 @@ execution reference.
   decoder: short raw values must be visible ASCII, and Huffman-marked values
   decode by scanning the HPACK static Huffman table into decoded
   visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
+  The same decoder accepts the fixture-boundary string-length integer
+  continuation form for supported literal names: checked raw and
+  Huffman-marked long values use a saturated seven-bit length prefix plus one
+  continuation byte through literal-without-indexing and literal-with-indexing
+  blocks. The long Huffman fixture remains a deterministic fixture case, not
+  general HPACK Huffman streaming support.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
@@ -1350,9 +1356,13 @@ execution reference.
   `0x08 0x82 0x10 0x01`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
-  Malformed Huffman padding, malformed string lengths, non-visible raw bytes,
-  and a malformed raw `:status` literal remain unsupported. This is still a
-  fixture slice, not full HPACK string or compression support. It also
+  The completed HEADERS path checks a valid long raw literal before the local
+  header-list receive limit rejects its decoded size; the final CONTINUATION
+  path checks the same boundary for a valid long Huffman-marked literal.
+  Malformed Huffman padding, malformed string lengths including non-terminating
+  string-length continuations, non-visible raw bytes, and a malformed raw
+  `:status` literal remain unsupported. This is still a fixture slice, not
+  full HPACK string or compression support. It also
   includes the narrow dynamic-table slice where `0x44 0x07 "/target"`
   inserts `:path: /target` into the returned immutable fixture state stored on
   the HTTP/2 decode state

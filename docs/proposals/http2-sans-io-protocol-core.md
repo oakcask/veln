@@ -314,16 +314,23 @@ literal-with-indexing fixtures whose first byte names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
 Those literal fixtures share the HPACK string literal decoder for short
 visible-ASCII raw values and Huffman-marked values decoded by
-the HPACK static Huffman table. The executable slice covers a
+the HPACK static Huffman table. The same fixture decoder accepts one
+continuation byte after a saturated seven-bit string-length prefix for checked
+long raw and Huffman-marked values on supported literal names, through both
+literal-without-indexing and literal-with-indexing forms. The executable slice
+covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` through
 completed HEADERS, Huffman `:method: PUT` through both literal-without-indexing
 and literal-with-indexing, Huffman `:status: 200` through completed HEADERS
 and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
-`:status`. It rejects
-non-visible raw bytes, malformed string length, malformed Huffman padding, and
-a malformed raw `:status` literal. Checked bytes include zero-length `:path`
+`:status`. Completed HEADERS and final CONTINUATION paths reach that long
+string-length fixture boundary before the local header-list receive limit
+rejects the decoded long values. It rejects
+non-visible raw bytes, malformed string length including non-terminating
+string-length continuations, malformed Huffman padding, and a malformed raw
+`:status` literal. Checked bytes include zero-length `:path`
 as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
 `:status: 200` as `0x08 0x82 0x10 0x01`, and
@@ -655,7 +662,8 @@ value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
 whose first byte names a supported static-table header name for `:authority`,
 `:method`, `:path`, `:scheme`, or `:status`, sharing an HPACK string literal
 decoder for short visible-ASCII raw values and Huffman-marked values decoded
-by the HPACK static Huffman table, including zero-length `:path`,
+by the HPACK static Huffman table, including one-continuation string-length
+fixtures for long raw and Huffman-marked values, zero-length `:path`,
 `:path: test`, `:scheme: https`, `:authority: www.example.com`,
 `:method: PUT`, and `:status: 200`, plus checked raw literal-with-indexing
 `:authority`, checked
@@ -702,8 +710,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  multi-byte HPACK string length prefixes, HPACK string encoding, and
-  production header validation remain later work beyond the implemented
-  fixture boundary.
+  HPACK string encoding, general HPACK string-length policy beyond the checked
+  fixture continuation, and production header validation remain later work
+  beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
