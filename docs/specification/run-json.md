@@ -356,6 +356,13 @@ list size exceeds the active local receive policy uses id
 `receive_limit_provenance`, and `rule_provenance`; peer-advertised
 `SETTINGS_MAX_HEADER_LIST_SIZE` remains outbound peer state and is not used as
 the receive-limit provenance for rejecting incoming header blocks. Received
+request header-list validation failures use id
+`http2.protocol.invalid_request_header_list` and record
+`byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
+`failed_header_fact`, `header_name`, `decoded_header_names`,
+`active_state`, and `rule_provenance`. The checked projections cover a
+missing required request pseudo-header and a response-only `:status`
+pseudo-header on an inbound request. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,

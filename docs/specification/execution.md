@@ -1350,7 +1350,12 @@ execution reference.
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;
   the HTTP/2 core still owns the local
   `http2.peer_limit.header_list_size_exceeded` receive-limit boundary after
-  fixture decoding.
+  fixture decoding. Request header-list validation has protocol-owned
+  projection coverage through `http2.protocol.invalid_request_header_list` for
+  a missing required request pseudo-header and for a response-only `:status`
+  pseudo-header on an inbound request. Its primary message names the failed
+  header-list fact; decoded header names, stream id, frame kind, active state,
+  and rule provenance remain structured details or related notes.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

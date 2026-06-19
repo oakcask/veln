@@ -345,6 +345,36 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidRequestHeaderListDiagnostic(
+        String message,
+        long byteOffset,
+        long frameKind,
+        long streamId,
+        String failedHeaderFact,
+        String headerName,
+        String decodedHeaderNames,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_request_header_list",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
+                    DiagnosticDetail.string("header_name", headerName),
+                    DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
         String message,
         long byteOffset,

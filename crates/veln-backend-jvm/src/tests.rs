@@ -2618,6 +2618,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidDataPadding",
         ),
         (
+            "http2_protocol_invalid_request_header_list",
+            "http2ProtocolInvalidRequestHeaderList",
+        ),
+        (
             "http2_protocol_unexpected_settings_ack",
             "http2ProtocolUnexpectedSettingsAck",
         ),
