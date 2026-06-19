@@ -66,6 +66,8 @@ behavior.
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 - Binary fixture helpers:
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
+- Binary schema `UInt56be` and `UInt56le` primitives:
+  [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:

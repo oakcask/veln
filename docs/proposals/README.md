@@ -115,7 +115,9 @@ compare it with `../specification/` before changing behavior.
   public imported recursive closed-dispatch and extension-dispatch payload
   decode and encode support is implemented for the length-bounded forms when
   selected mappings cover every known case, resolve to one target record
-  shape, and include a non-recursive base case.
+  shape, and include a non-recursive base case. The completed `UInt56be` and
+  `UInt56le` exact-width primitive slice is archived under
+  [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

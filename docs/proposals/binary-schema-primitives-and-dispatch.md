@@ -391,6 +391,10 @@ The declaration-time source-surface slice for exact-width unsigned names now
 lives under `../specification/source-surface.md`. Those names belong to the
 binary schema primitive vocabulary as field representation names, not ordinary
 source-visible numeric types.
+The completed `UInt56be` and `UInt56le` generated-helper slice is recorded in
+[Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md);
+current behavior is specified by `../specification/source-surface.md`,
+`../specification/execution.md`, and checked executable examples.
 
 Remaining primitive work is for widths and forms outside the implemented
 exact-width vocabulary. A decoded field should map to `Int` by default, or to
