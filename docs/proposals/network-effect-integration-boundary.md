@@ -313,8 +313,11 @@ The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with21.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with22.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with23.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with24.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with25.md`.
+`../reference/implemented-proposals/network-stream-task-spawn-with24.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with25.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with26.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with27.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with28.md`.
 
 ## Discussion Result: Transport Error Boundary
 
