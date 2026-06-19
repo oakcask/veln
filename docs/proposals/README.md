@@ -196,7 +196,7 @@ compare it with `../specification/` before changing behavior.
   twenty-five-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
-  sixteen-route channel-first routing, receiver-list cancellable
+  seventeen-route channel-first routing, receiver-list cancellable
   channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, and two-receiver cancellable timeout-result selection slices
