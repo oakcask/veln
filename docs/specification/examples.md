@@ -1612,27 +1612,31 @@ closed-input continuation failure projects that context into the stable output.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
-currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length. PADDED DATA consumes receive-window credit for
-the full DATA payload, including the pad-length byte and padding bytes, while
-the exposed DATA content contains only application data bytes. A pad length
-that exceeds the remaining DATA payload is reported as
+tracked open stream receive-window credit. The checked fixture boundary can
+track two open client streams, stream `1` and stream `3`, with independent
+receive-window credit. DATA consumes the shared connection window and the
+targeted stream's own window by payload length. PADDED DATA consumes
+receive-window credit for the full DATA payload, including the pad-length byte
+and padding bytes, while the exposed DATA content contains only application
+data bytes. A pad length that exceeds the remaining DATA payload is reported as
 `http2.protocol.invalid_data_padding`. Accepted DATA with `END_STREAM`, and
 accepted HEADERS sequences with `END_STREAM` after header-block completion,
 move the tracked stream to closed-by-peer state. Later DATA or stream-level
 `WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
 other non-open stream states. `WINDOW_UPDATE` on the connection stream
-increases connection receive-window credit, and `WINDOW_UPDATE` on the open
+increases connection receive-window credit, and `WINDOW_UPDATE` on an open
 stream increases that stream's receive-window credit. A received
 `SETTINGS_INITIAL_WINDOW_SIZE` item applies the delta from the previous active
-peer setting to the currently open stream receive-window credit; the adjusted
-credit can become negative, and DATA remains blocked until `WINDOW_UPDATE`
-restores enough stream credit. Wrong-length `WINDOW_UPDATE` payloads remain
-typed payload-length failures, idle-stream `WINDOW_UPDATE` remains the existing
-stream-state frame-kind failure, and zero or overflowing increments remain
-typed peer-limit failures without changing window state. DATA payloads larger
-than the available stream or connection receive-window credit also remain
-typed peer-limit failures. `RST_STREAM` on the open stream decodes its
+peer setting to each tracked open stream's receive-window credit; adjusted
+credit can become negative, and DATA remains blocked on the targeted stream
+until `WINDOW_UPDATE` restores enough credit for that stream. A flow-control
+rejection on one open stream does not borrow credit from another open stream.
+Wrong-length `WINDOW_UPDATE` payloads remain typed payload-length failures,
+idle-stream `WINDOW_UPDATE` remains the existing stream-state frame-kind
+failure, and zero or overflowing increments remain typed peer-limit failures
+without changing window state. DATA payloads larger than the available targeted
+stream or connection receive-window credit also remain typed peer-limit
+failures. `RST_STREAM` on the open stream decodes its
 four-byte error code into reset state, clears the open stream, and leaves
 later DATA or stream-level `WINDOW_UPDATE` for that reset stream on the
 existing invalid frame-kind path.
