@@ -6268,24 +6268,24 @@ end
 
 fn print_extended_hpack_static_indexed_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let ignored_hpack_static_indexed_authority: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-authority", "http2-hpack-static-indexed-authority", "00000101040000000181", "81")?
-	let ignored_hpack_static_indexed_last_modified: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-last-modified", "http2-hpack-static-indexed-last-modified", "000001010400000001ab", "ab")?
-	let ignored_hpack_static_indexed_link: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-link", "http2-hpack-static-indexed-link", "000001010400000001ac", "ac")?
-	let ignored_hpack_static_indexed_location: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-location", "http2-hpack-static-indexed-location", "000001010400000001ad", "ad")?
-	let ignored_hpack_static_indexed_max_forwards: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-max-forwards", "http2-hpack-static-indexed-max-forwards", "000001010400000001ae", "ae")?
-	let ignored_hpack_static_indexed_proxy_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authenticate", "http2-hpack-static-indexed-proxy-authenticate", "000001010400000001af", "af")?
-	let ignored_hpack_static_indexed_proxy_authorization: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authorization", "http2-hpack-static-indexed-proxy-authorization", "000001010400000001b0", "b0")?
-	let ignored_hpack_static_indexed_range: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-range", "http2-hpack-static-indexed-range", "000001010400000001b1", "b1")?
-	let ignored_hpack_static_indexed_referer: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-referer", "http2-hpack-static-indexed-referer", "000001010400000001b2", "b2")?
-	let ignored_hpack_static_indexed_refresh: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-refresh", "http2-hpack-static-indexed-refresh", "000001010400000001b3", "b3")?
-	let ignored_hpack_static_indexed_retry_after: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-retry-after", "http2-hpack-static-indexed-retry-after", "000001010400000001b4", "b4")?
-	let ignored_hpack_static_indexed_server: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-server", "http2-hpack-static-indexed-server", "000001010400000001b5", "b5")?
-	let ignored_hpack_static_indexed_set_cookie: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-set-cookie", "http2-hpack-static-indexed-set-cookie", "000001010400000001b6", "b6")?
-	let ignored_hpack_static_indexed_strict_transport_security: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-strict-transport-security", "http2-hpack-static-indexed-strict-transport-security", "000001010400000001b7", "b7")?
-	let ignored_hpack_static_indexed_transfer_encoding: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-transfer-encoding", "http2-hpack-static-indexed-transfer-encoding", "000001010400000001b8", "b8")?
-	let ignored_hpack_static_indexed_user_agent: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-user-agent", "http2-hpack-static-indexed-user-agent", "000001010400000001b9", "b9")?
-	let ignored_hpack_static_indexed_vary: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-vary", "http2-hpack-static-indexed-vary", "000001010400000001ba", "ba")?
-	let ignored_hpack_static_indexed_via: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-via", "http2-hpack-static-indexed-via", "000001010400000001bb", "bb")?
-	let ignored_hpack_static_indexed_www_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-www-authenticate", "http2-hpack-static-indexed-www-authenticate", "000001010400000001bc", "bc")?
+	let ignored_hpack_static_indexed_last_modified: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-last-modified", "http2-hpack-static-indexed-last-modified", "000001010400000001ac", "ac")?
+	let ignored_hpack_static_indexed_link: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-link", "http2-hpack-static-indexed-link", "000001010400000001ad", "ad")?
+	let ignored_hpack_static_indexed_location: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-location", "http2-hpack-static-indexed-location", "000001010400000001ae", "ae")?
+	let ignored_hpack_static_indexed_max_forwards: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-max-forwards", "http2-hpack-static-indexed-max-forwards", "000001010400000001af", "af")?
+	let ignored_hpack_static_indexed_proxy_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authenticate", "http2-hpack-static-indexed-proxy-authenticate", "000001010400000001b0", "b0")?
+	let ignored_hpack_static_indexed_proxy_authorization: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authorization", "http2-hpack-static-indexed-proxy-authorization", "000001010400000001b1", "b1")?
+	let ignored_hpack_static_indexed_range: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-range", "http2-hpack-static-indexed-range", "000001010400000001b2", "b2")?
+	let ignored_hpack_static_indexed_referer: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-referer", "http2-hpack-static-indexed-referer", "000001010400000001b3", "b3")?
+	let ignored_hpack_static_indexed_refresh: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-refresh", "http2-hpack-static-indexed-refresh", "000001010400000001b4", "b4")?
+	let ignored_hpack_static_indexed_retry_after: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-retry-after", "http2-hpack-static-indexed-retry-after", "000001010400000001b5", "b5")?
+	let ignored_hpack_static_indexed_server: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-server", "http2-hpack-static-indexed-server", "000001010400000001b6", "b6")?
+	let ignored_hpack_static_indexed_set_cookie: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-set-cookie", "http2-hpack-static-indexed-set-cookie", "000001010400000001b7", "b7")?
+	let ignored_hpack_static_indexed_strict_transport_security: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-strict-transport-security", "http2-hpack-static-indexed-strict-transport-security", "000001010400000001b8", "b8")?
+	let ignored_hpack_static_indexed_transfer_encoding: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-transfer-encoding", "http2-hpack-static-indexed-transfer-encoding", "000001010400000001b9", "b9")?
+	let ignored_hpack_static_indexed_user_agent: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-user-agent", "http2-hpack-static-indexed-user-agent", "000001010400000001ba", "ba")?
+	let ignored_hpack_static_indexed_vary: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-vary", "http2-hpack-static-indexed-vary", "000001010400000001bb", "bb")?
+	let ignored_hpack_static_indexed_via: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-via", "http2-hpack-static-indexed-via", "000001010400000001bc", "bc")?
+	let ignored_hpack_static_indexed_www_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-www-authenticate", "http2-hpack-static-indexed-www-authenticate", "000001010400000001bd", "bd")?
 	Ok(())
 end
 
@@ -6550,33 +6550,37 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-expect", hpack_static_indexed_expect)
 	let ignored_hpack_static_indexed_expect: () = emit_header_block("http2-hpack-static-indexed-expect", hpack_static_indexed_expect, "a3")?
 	print_hpack_transition("hpack-static-indexed-expect", hpack_static_indexed_expect)
-	let hpack_static_indexed_from: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a4")?), state)?
+	let hpack_static_indexed_expires: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a4")?), state)?
+	print_step("hpack-static-indexed-expires", hpack_static_indexed_expires)
+	let ignored_hpack_static_indexed_expires: () = emit_header_block("http2-hpack-static-indexed-expires", hpack_static_indexed_expires, "a4")?
+	print_hpack_transition("hpack-static-indexed-expires", hpack_static_indexed_expires)
+	let hpack_static_indexed_from: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a5")?), state)?
 	print_step("hpack-static-indexed-from", hpack_static_indexed_from)
-	let ignored_hpack_static_indexed_from: () = emit_header_block("http2-hpack-static-indexed-from", hpack_static_indexed_from, "a4")?
+	let ignored_hpack_static_indexed_from: () = emit_header_block("http2-hpack-static-indexed-from", hpack_static_indexed_from, "a5")?
 	print_hpack_transition("hpack-static-indexed-from", hpack_static_indexed_from)
-	let hpack_static_indexed_host: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a5")?), state)?
+	let hpack_static_indexed_host: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a6")?), state)?
 	print_step("hpack-static-indexed-host", hpack_static_indexed_host)
-	let ignored_hpack_static_indexed_host: () = emit_header_block("http2-hpack-static-indexed-host", hpack_static_indexed_host, "a5")?
+	let ignored_hpack_static_indexed_host: () = emit_header_block("http2-hpack-static-indexed-host", hpack_static_indexed_host, "a6")?
 	print_hpack_transition("hpack-static-indexed-host", hpack_static_indexed_host)
-	let hpack_static_indexed_if_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a6")?), state)?
+	let hpack_static_indexed_if_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a7")?), state)?
 	print_step("hpack-static-indexed-if-match", hpack_static_indexed_if_match)
-	let ignored_hpack_static_indexed_if_match: () = emit_header_block("http2-hpack-static-indexed-if-match", hpack_static_indexed_if_match, "a6")?
+	let ignored_hpack_static_indexed_if_match: () = emit_header_block("http2-hpack-static-indexed-if-match", hpack_static_indexed_if_match, "a7")?
 	print_hpack_transition("hpack-static-indexed-if-match", hpack_static_indexed_if_match)
-	let hpack_static_indexed_if_modified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a7")?), state)?
+	let hpack_static_indexed_if_modified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a8")?), state)?
 	print_step("hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since)
-	let ignored_hpack_static_indexed_if_modified_since: () = emit_header_block("http2-hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since, "a7")?
+	let ignored_hpack_static_indexed_if_modified_since: () = emit_header_block("http2-hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since, "a8")?
 	print_hpack_transition("hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since)
-	let hpack_static_indexed_if_none_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a8")?), state)?
+	let hpack_static_indexed_if_none_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a9")?), state)?
 	print_step("hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match)
-	let ignored_hpack_static_indexed_if_none_match: () = emit_header_block("http2-hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match, "a8")?
+	let ignored_hpack_static_indexed_if_none_match: () = emit_header_block("http2-hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match, "a9")?
 	print_hpack_transition("hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match)
-	let hpack_static_indexed_if_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a9")?), state)?
+	let hpack_static_indexed_if_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001aa")?), state)?
 	print_step("hpack-static-indexed-if-range", hpack_static_indexed_if_range)
-	let ignored_hpack_static_indexed_if_range: () = emit_header_block("http2-hpack-static-indexed-if-range", hpack_static_indexed_if_range, "a9")?
+	let ignored_hpack_static_indexed_if_range: () = emit_header_block("http2-hpack-static-indexed-if-range", hpack_static_indexed_if_range, "aa")?
 	print_hpack_transition("hpack-static-indexed-if-range", hpack_static_indexed_if_range)
-	let hpack_static_indexed_if_unmodified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001aa")?), state)?
+	let hpack_static_indexed_if_unmodified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001ab")?), state)?
 	print_step("hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since)
-	let ignored_hpack_static_indexed_if_unmodified_since: () = emit_header_block("http2-hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since, "aa")?
+	let ignored_hpack_static_indexed_if_unmodified_since: () = emit_header_block("http2-hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since, "ab")?
 	print_hpack_transition("hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since)
 	let ignored_extended_hpack_static_indexed_cases: () = print_extended_hpack_static_indexed_cases(state)?
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000011102030405")?), state)?

@@ -305,12 +305,13 @@ bytes plus the static indexed `accept-charset:`,
 `authorization:`, `cache-control:`, `content-disposition:`,
 	`content-encoding:`, `content-language:`, `content-length:`,
 	`content-location:`, `content-range:`, `content-type:`, `cookie:`, `date:`,
-	`etag:`, `expect:`, `from:`, `host:`, `if-match:`, `if-modified-since:`,
-	`if-none-match:`, `if-range:`, `if-unmodified-since:`, `last-modified:`,
-	`link:`, `location:`, `max-forwards:`, `proxy-authenticate:`,
-	`proxy-authorization:`, `range:`, `referer:`, `refresh:`, `retry-after:`,
-	`server:`, `set-cookie:`, `strict-transport-security:`,
-	`transfer-encoding:`, `user-agent:`, `vary:`, `via:`, and
+	`etag:`, `expect:`, `expires:`, `from:`, `host:`, `if-match:`,
+	`if-modified-since:`, `if-none-match:`, `if-range:`,
+	`if-unmodified-since:`, `last-modified:`, `link:`, `location:`,
+	`max-forwards:`, `proxy-authenticate:`, `proxy-authorization:`, `range:`,
+	`referer:`, `refresh:`, `retry-after:`, `server:`, `set-cookie:`,
+	`strict-transport-security:`, `transfer-encoding:`, `user-agent:`,
+	`vary:`, `via:`, and
 	`www-authenticate:` header bytes, plus literal-without-indexing and
 literal-with-indexing fixtures whose first byte names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
@@ -638,6 +639,8 @@ The remaining scope below is still planned work for the full protocol core.
 Completed HPACK fixture behavior is current behavior under
 `../specification/` and the implemented-proposal records under
 `../reference/implemented-proposals/`, including
+`../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`
+and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
