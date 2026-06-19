@@ -3412,13 +3412,15 @@
         Object observedSize,
         Object observedFirstByte,
         Object expectedFixture,
-        Object codecModule
+        Object codecModule,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long size = asLong(observedSize);
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture unsupported header block at byte offset "
             + byteOffset;
         registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
@@ -3427,7 +3429,8 @@
             size,
             firstByte,
             expected,
-            module
+            module,
+            nearbyContext
         );
         return err(message);
     }

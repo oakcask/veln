@@ -1597,7 +1597,9 @@ fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing and unsupported Huffman variants.
+literal-without-indexing and unsupported Huffman variants. The focused HPACK
+fixture-codec JSON and human examples assert the unsupported header-block byte
+preview.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
