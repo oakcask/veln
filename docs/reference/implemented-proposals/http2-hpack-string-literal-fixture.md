@@ -14,8 +14,8 @@ checked executable cases
 The imported HPACK fixture boundary decodes literal header values through one
 HPACK string literal helper for the supported static-table names
 `:authority`, `:method`, `:path`, `:scheme`, and `:status`. The helper accepts
-short visible-ASCII raw string literals and the fixture-supported
-Huffman-marked values `""`, `www.example.com`, `https`, `/target`, and `PUT`.
+short visible-ASCII raw string literals and Huffman-marked values decoded by
+the HPACK static Huffman table.
 
 The shared decoder is used by literal-without-indexing and
 literal-with-indexing header blocks. Literal-with-indexing still returns the
@@ -24,7 +24,8 @@ indexed lookup and fixture table-size eviction keep the same state behavior as
 the earlier dynamic-table slice.
 
 Malformed Huffman padding, malformed string lengths, non-visible raw bytes,
-unsupported names, and unsupported Huffman symbols continue to project through
+unsupported names, Huffman EOS, and Huffman strings whose decoded bytes are not
+visible ASCII continue to project through
 `hpack.fixture.unsupported_header_block`; this slice does not introduce a
 narrower diagnostic.
 
@@ -32,6 +33,7 @@ narrower diagnostic.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   raw and Huffman-marked literal-without-indexing values, Huffman-marked
+  `:path: test`, Huffman-marked `:status: 200`, Huffman-marked
   literal-with-indexing `:method: PUT`, raw literal-with-indexing
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw
   literal-with-indexing `:status`, malformed string length, malformed Huffman

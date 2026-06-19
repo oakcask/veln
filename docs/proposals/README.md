@@ -168,7 +168,7 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
-  full HPACK behavior beyond the checked fixture string-decoder boundary,
+  HPACK behavior beyond the checked fixture string-literal decoder boundary,
   unknown extension-frame, flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
@@ -176,10 +176,11 @@ compare it with `../specification/` before changing behavior.
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture string-decoder boundary, including full HPACK compression,
+  fixture string-literal decoder boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
-  checked fixture-owned entry sizes and table-size update slice, full Huffman
-  decoding, and production header validation beyond the fixture request checks.
+  checked fixture-owned entry sizes and table-size update slice,
+  multi-byte HPACK string length prefixes, HPACK string encoding, and
+  production header validation beyond the fixture request checks.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
