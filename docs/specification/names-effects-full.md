@@ -479,6 +479,8 @@ task::spawn_with24(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R,
 task::spawn_with24<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, U, V, W, X, Y) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R, nineteenth: S, twentieth: U, twenty_first: V, twenty_second: W, twenty_third: X, twenty_fourth: Y) -> Task<T> effects [concurrency]
 task::spawn_with25(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, U, V, W, X, Y, Z) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R, nineteenth: S, twentieth: U, twenty_first: V, twenty_second: W, twenty_third: X, twenty_fourth: Y, twenty_fifth: Z) -> Task<T> effects [concurrency]
 task::spawn_with25<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, U, V, W, X, Y, Z) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R, nineteenth: S, twentieth: U, twenty_first: V, twenty_second: W, twenty_third: X, twenty_fourth: Y, twenty_fifth: Z) -> Task<T> effects [concurrency]
+task::spawn_with26(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, U, V, W, X, Y, Z, AA) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R, nineteenth: S, twentieth: U, twenty_first: V, twenty_second: W, twenty_third: X, twenty_fourth: Y, twenty_fifth: Z, twenty_sixth: AA) -> Task<T> effects [concurrency]
+task::spawn_with26<T>(job: fn(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, U, V, W, X, Y, Z, AA) -> T effects [concurrency], first: A, second: B, third: C, fourth: D, fifth: E, sixth: F, seventh: G, eighth: H, ninth: I, tenth: J, eleventh: K, twelfth: L, thirteenth: M, fourteenth: N, fifteenth: O, sixteenth: P, seventeenth: Q, eighteenth: R, nineteenth: S, twentieth: U, twenty_first: V, twenty_second: W, twenty_third: X, twenty_fourth: Y, twenty_fifth: Z, twenty_sixth: AA) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
@@ -533,6 +535,8 @@ shape.
 `task::spawn_with24` starts a twenty-four-argument callable with twenty-four
 ordinary source values and the same optional return-type argument shape.
 `task::spawn_with25` starts a twenty-five-argument callable with twenty-five
+ordinary source values and the same optional return-type argument shape.
+`task::spawn_with26` starts a twenty-six-argument callable with twenty-six
 ordinary source values and the same optional return-type argument shape.
 Arguments are frozen before crossing into the task, and the result value is
 frozen before it crosses back through the task handle.
