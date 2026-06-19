@@ -2364,14 +2364,7 @@ pub(crate) fn schema_mapping_assignment_expr_typed(
     assignment: &veln_ast::SchemaMappingAssignment,
     expected: &Type,
 ) -> SchemaMappingExprResult {
-    schema_mapping_assignment_expr_typed_inner(
-        module,
-        schema,
-        schema_fields,
-        assignment,
-        expected,
-        true,
-    )
+    schema_mapping_assignment_expr_typed_inner(module, schema, schema_fields, assignment, expected)
 }
 
 fn schema_mapping_assignment_expr_typed_for_codegen(
@@ -2381,14 +2374,7 @@ fn schema_mapping_assignment_expr_typed_for_codegen(
     assignment: &veln_ast::SchemaMappingAssignment,
     expected: &Type,
 ) -> SchemaMappingExprResult {
-    schema_mapping_assignment_expr_typed_inner(
-        module,
-        schema,
-        schema_fields,
-        assignment,
-        expected,
-        false,
-    )
+    schema_mapping_assignment_expr_typed_inner(module, schema, schema_fields, assignment, expected)
 }
 
 fn schema_mapping_assignment_expr_typed_inner(
@@ -2397,7 +2383,6 @@ fn schema_mapping_assignment_expr_typed_inner(
     schema_fields: &BTreeMap<String, Type>,
     assignment: &veln_ast::SchemaMappingAssignment,
     expected: &Type,
-    validate_inverse: bool,
 ) -> SchemaMappingExprResult {
     let registry = AdtRegistry::from_module(module);
     let mut converter_functions = ordinary_function_signatures(module);
@@ -2418,13 +2403,7 @@ fn schema_mapping_assignment_expr_typed_inner(
             span: assignment.expr.span.clone(),
         }));
     }
-    schema_mapping_expr_with_assignment_inverse(
-        &context,
-        typed,
-        assignment,
-        expected,
-        validate_inverse,
-    )
+    schema_mapping_expr_with_assignment_inverse(&context, typed, assignment, expected)
 }
 
 fn schema_mapping_expr_with_assignment_inverse(
@@ -2432,7 +2411,6 @@ fn schema_mapping_expr_with_assignment_inverse(
     typed: SchemaMappingTypedExpr,
     assignment: &veln_ast::SchemaMappingAssignment,
     expected: &Type,
-    validate_inverse: bool,
 ) -> SchemaMappingExprResult {
     let Some(inverse) = &assignment.inverse_converter else {
         return Ok(typed);
@@ -2453,13 +2431,10 @@ fn schema_mapping_expr_with_assignment_inverse(
             span: inverse.span.clone(),
         }));
     };
-    let inverse_function = if validate_inverse {
+    let inverse_function =
         schema_mapping_inverse_converter_function(context, inverse, expected, &arg_ty)?
             .target_name
-            .clone()
-    } else {
-        inverse.name.clone()
-    };
+            .clone();
     Ok(SchemaMappingTypedExpr {
         ty: typed.ty,
         expr: SchemaDecodeMappingExpr::Converter {
@@ -2482,19 +2457,21 @@ fn schema_mapping_inverse_converter_function<'a>(
         .split("::")
         .map(str::to_string)
         .collect::<Vec<_>>();
-    let [name] = segments.as_slice() else {
-        return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
-            name: inverse.name.clone(),
-            span: inverse.span.clone(),
-        }));
-    };
-    let Some(function) = context.converter_functions.iter().find(|function| {
-        function.name == *name && schema_mapping_same_module(function, context.schema)
-    }) else {
-        return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
-            name: inverse.name.clone(),
-            span: inverse.span.clone(),
-        }));
+    let function = match schema_mapping_converter_function(context, &segments) {
+        SchemaMappingConverterLookup::Found(function) => function,
+        SchemaMappingConverterLookup::Private(function) => {
+            return Err(Box::new(SchemaMappingExprError::PrivateConverter {
+                name: inverse.name.clone(),
+                span: inverse.span.clone(),
+                function_span: function.span.clone(),
+            }));
+        }
+        SchemaMappingConverterLookup::Missing => {
+            return Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
+                name: inverse.name.clone(),
+                span: inverse.span.clone(),
+            }));
+        }
     };
     if function.params.len() != 1 {
         return Err(Box::new(SchemaMappingExprError::ConverterArity {

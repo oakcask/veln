@@ -1,0 +1,49 @@
+use stdio
+use helpers
+
+type Header
+	Header {length: Int, kind: Int}
+end
+
+schema HeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to Header
+		length = wire_length
+		kind = helpers::next_kind(wire_kind) inverse helpers::previous_kind
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_header_wire({length: 4660, kind: 11})
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
