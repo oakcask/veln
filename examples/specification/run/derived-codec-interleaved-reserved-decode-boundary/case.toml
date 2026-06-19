@@ -21,4 +21,3 @@ equals = "decoded\n1\n1\n4\n1\nneed_more\nneed_bytes\n1\n0\ninvalid\n0\nschema.r
 [[json_assert]]
 path = "error"
 equals = null
-

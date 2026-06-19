@@ -21,4 +21,3 @@ equals = "1\n1\n4\n172\ncodec.encode_value_unrepresentable\nInterleavedReservedH
 [[json_assert]]
 path = "error"
 equals = null
-
