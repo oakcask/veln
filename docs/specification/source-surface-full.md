@@ -129,8 +129,9 @@ byte-aligned exact-width unsigned primitives or an eligible nested binary
 schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
 both references name earlier visible `Int` fields in the same schema.
 Length-bounded `ByteView(length_field)`,
-`ByteView(left_length - right_length)`, and
-`ByteView(left_length + right_length)` payload fields are accepted when every
+`ByteView(left_length - right_length)`,
+`ByteView(left_length + right_length)`, and
+`ByteView(left_length * right_length)` payload fields are accepted when every
 length operand names an earlier visible `Int` field in the same binary schema.
 A repeated primitive field decodes and encodes as `List<Int>`; a repeated
 nested schema field decodes and encodes as a list of the nested schema's
@@ -281,6 +282,8 @@ fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
 visible exact-width fields,
 `ByteView(left_length + right_length)` fields whose operands both name earlier
+visible exact-width fields, and
+`ByteView(left_length * right_length)` fields whose operands both name earlier
 visible exact-width fields, closed
 dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier

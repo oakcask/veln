@@ -375,8 +375,9 @@ projects back from the selected target record through direct source-field
 assignments. The helper selects the mapping whose projected selector value
 satisfies the clause and then writes the projected schema-local record.
 Length-bounded `ByteView(length_field)`,
-`ByteView(left_length - right_length)`, and
-`ByteView(left_length + right_length)` payload fields are `ByteView` record
+`ByteView(left_length - right_length)`,
+`ByteView(left_length + right_length)`, and
+`ByteView(left_length * right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier
 visible length operand fields are written. Decode computes arithmetic lengths
 from earlier decoded field values and rejects negative or unavailable payload
@@ -392,6 +393,10 @@ examples are
 `examples/specification/run/binary-schema-byteview-add-truncated-json/`,
 `examples/specification/run/binary-schema-byteview-add-encode/`,
 `examples/specification/run/binary-schema-byteview-add-encode-length-mismatch/`,
+`examples/specification/run/binary-schema-byteview-product-decode/`,
+`examples/specification/run/binary-schema-byteview-product-truncated-json/`,
+`examples/specification/run/binary-schema-byteview-product-encode/`,
+`examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`,
 `examples/specification/run/binary-schema-byteview-encode-diagnostic-json/`
 and
 `examples/specification/run/binary-schema-byteview-encode-diagnostic-human/`.

@@ -9,6 +9,7 @@ pub  schema   Http2FrameHeader
   checksum  : UInt32be
   settings:Repeat(length-padding_length,UInt16be)
   payload:ByteView(length-padding_length)
+  product_payload:ByteView(length*padding_length)
 
   map   to   FrameHeader
     priority=priority
@@ -19,4 +20,5 @@ pub  schema   Http2FrameHeader
     body_length=(length-padding_length)+checksum
     settings=settings
     payload=payload
+    product_payload=product_payload
 end

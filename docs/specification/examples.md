@@ -941,6 +941,12 @@ index, view-count mismatch reason, and `derive encode` error projection.
 pin the same boundary for `ByteView(length - padding_length)`, including
 negative computed lengths, payload truncation, direct helper encode mismatch,
 and derived codec encode success.
+`../../examples/specification/run/binary-schema-byteview-product-decode/`,
+`../../examples/specification/run/binary-schema-byteview-product-truncated-json/`,
+`../../examples/specification/run/binary-schema-byteview-product-encode/`, and
+`../../examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`
+pin `ByteView(row_count * column_count)` decode, short-input failure, derived
+codec encode success, and direct helper encode mismatch.
 
 `../../examples/specification/run/binary-schema-repeat-truncated-json/` and
 `../../examples/specification/run/binary-schema-repeat-truncated-human/` pin

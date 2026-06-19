@@ -640,8 +640,9 @@ execution reference.
   `Flag32be` fields as `Flag32be`; `Flag32le` fields as `Flag32le`;
   `Flag64be` fields as `Flag64be`; `Flag64le` fields as `Flag64le`;
   length-bounded
-  `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
-  `ByteView(left_length + right_length)` payload fields as `ByteView`; closed
+  `ByteView(length_field)`, `ByteView(left_length - right_length)`,
+  `ByteView(left_length + right_length)`, and
+  `ByteView(left_length * right_length)` payload fields as `ByteView`; closed
   nested dispatch payload fields as the nested schema record shape; closed
   mixed dispatch payload fields as the
   selected primitive `Int` or nested schema record shape inside the matching
@@ -747,8 +748,9 @@ execution reference.
   `examples/specification/run/binary-schema-nested-mapped-constructor-encode-out-of-range/`.
   A
   length-bounded `ByteView(length_field)`,
-  `ByteView(left_length - right_length)`, or
-  `ByteView(left_length + right_length)` payload field is a `ByteView` record
+  `ByteView(left_length - right_length)`,
+  `ByteView(left_length + right_length)`, or
+  `ByteView(left_length * right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
   visible length operand fields are written. Decode computes arithmetic
   lengths from the earlier decoded field values, rejects negative results as
@@ -1001,6 +1003,10 @@ execution reference.
   `examples/specification/run/binary-schema-byteview-add-truncated-json/`,
   `examples/specification/run/binary-schema-byteview-add-encode/`,
   `examples/specification/run/binary-schema-byteview-add-encode-length-mismatch/`,
+  `examples/specification/run/binary-schema-byteview-product-decode/`,
+  `examples/specification/run/binary-schema-byteview-product-truncated-json/`,
+  `examples/specification/run/binary-schema-byteview-product-encode/`,
+  `examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,
   `examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
   `examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,

@@ -321,8 +321,9 @@ mismatches through `EncodeError`; element failures append an index segment
 before nested schema field path segments or at the repeated byte-view element
 path.
 The generated length-bounded byte payload slice is implemented as
-`ByteView(length_field)`, `ByteView(left_length - right_length)`, and
-`ByteView(left_length + right_length)` for generated binary schema decode and
+`ByteView(length_field)`, `ByteView(left_length - right_length)`,
+`ByteView(left_length + right_length)`, and
+`ByteView(left_length * right_length)` for generated binary schema decode and
 encode helpers. The length operands must be earlier visible `Int` fields in
 the same schema, the encoded value record keeps the length operand fields and
 the `ByteView` payload field, the helper writes the earlier fields normally
@@ -385,8 +386,9 @@ for:
   mapped encode boundaries, including broader frame-specific ADTs beyond the
   implemented record-payload and nested constructor slices
 - general schema-declared length-prefixed payloads beyond the implemented
-  `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
-  `ByteView(left_length + right_length)` decode and encode helper slices
+  `ByteView(length_field)`, `ByteView(left_length - right_length)`,
+  `ByteView(left_length + right_length)`, and
+  `ByteView(left_length * right_length)` decode and encode helper slices
 - field references inside later field definitions beyond implemented bounded
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
   lengths, and their declaration-time missing, forward, and wrong-role

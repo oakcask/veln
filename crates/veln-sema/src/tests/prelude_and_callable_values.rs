@@ -5304,6 +5304,52 @@ fn generated_schema_decode_helpers_resolve_added_byte_view_length_fields() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_product_byte_view_length_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: UInt8\n",
+            "  column_count: UInt8\n",
+            "  payload: ByteView(row_count * column_count)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{row_count: Int, column_count: Int, payload: ByteView}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {row_count: Int, column_count: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(
+        schema.fields[2].length_field.as_deref(),
+        Some("row_count * column_count")
+    );
+}
+
+#[test]
+fn repeat_count_expressions_do_not_accept_product_lengths() {
+    assert!(repeat_schema_primitive("Repeat(row_count * column_count, UInt16be)").is_none());
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_subtracted_repeat_count_fields() {
     let source = SourceFile::new(
         "main.veln",
