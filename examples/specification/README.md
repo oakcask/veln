@@ -1664,6 +1664,8 @@ against the built `veln` binary.
   `:authority: abc.test` through completed HEADERS and final CONTINUATION
   paths, covers a raw `:status` value through completed HEADERS, and rejects
   both a non-visible raw value byte and a malformed raw `:status` literal.
+  Response header-list validation remains outside this executable slice beyond
+  decoding the fixture-supported `:status` header-list data.
   Huffman-marked literal-without-indexing fixture values for
   zero-length `:path`, `:scheme: https`, and `:authority: www.example.com`
   decode through HPACK static Huffman codes, while malformed Huffman padding

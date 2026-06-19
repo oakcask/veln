@@ -1359,6 +1359,8 @@ execution reference.
   `http2.protocol.invalid_request_header_list`. Its primary message names the
   failed header-list fact; decoded header names, stream id, frame kind, active
   state, and rule provenance remain structured details or related notes.
+  Response header-list validation is not implemented beyond decoding the
+  fixture-supported `:status` header-list data.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

@@ -1642,7 +1642,9 @@ raw value bytes are all visible ASCII. The example covers
 `:authority: abc.test` through completed HEADERS and final CONTINUATION
 paths, covers a raw `:status` value through completed HEADERS, and rejects
 both a non-visible raw value byte and a malformed raw `:status` literal. It
-also decodes narrow Huffman-marked
+does not implement response header-list validation beyond decoding the
+fixture-supported `:status` header-list data. It also decodes narrow
+Huffman-marked
 literal-without-indexing values through HPACK static Huffman codes for the
 fixture-supported values `""`, `www.example.com`, `https`, `/target`, and
 `PUT`. Checked HEADERS bytes include zero-length `:path` as `0x04 0x80`,
