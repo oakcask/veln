@@ -233,9 +233,9 @@ against the built `veln` binary.
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
 - `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`,
-  `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, and `UInt48le` are accepted
-  as `format binary` schema field primitives on private and public schema
-  declarations.
+  `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`,
+  and `UInt56le` are accepted as `format binary` schema field primitives on
+  private and public schema declarations.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
@@ -314,8 +314,8 @@ against the built `veln` binary.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
-  when exact-width unsigned primitive names, including `UInt64be` and
-  `UInt64le`, are used as ordinary source types or values.
+  when exact-width unsigned primitive names, including `UInt56be`, `UInt56le`,
+  `UInt64be`, and `UInt64le`, are used as ordinary source types or values.
 - `run/binary-byteview-u64-helpers/`: ordinary prelude `u64` byte helpers read
   and write source-visible `Int` values in big-endian and little-endian byte
   order.
@@ -813,6 +813,18 @@ against the built `veln` binary.
   order.
 - `run/binary-schema-u48-widths-encode-out-of-range/`: generated schema encode
   helpers reject `UInt48be` and `UInt48le` values outside the unsigned 48-bit
+  range with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-u56-widths-decode/`: generated schema decode helpers read
+  `UInt56be` and `UInt56le` as seven-byte unsigned primitive fields,
+  preserving their declared byte order and structural mapping for
+  source-visible `Int` values.
+- `run/binary-schema-u56-widths-encode/`: generated schema encode helpers
+  write `UInt56be` and `UInt56le` fields in big-endian and little-endian byte
+  order.
+- `run/binary-schema-u56-widths-truncated-json/`: schema decode truncation for
+  a `UInt56le` field reports the shared `schema.truncated_field` JSON shape.
+- `run/binary-schema-u56-widths-encode-out-of-range/`: generated schema encode
+  helpers reject `UInt56be` and `UInt56le` values outside the unsigned 56-bit
   range with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-u64-widths-decode/`: generated schema decode helpers read
   `UInt64be` and `UInt64le` as eight-byte unsigned primitive fields, preserving

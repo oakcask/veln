@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "codec.encode_value_unrepresentable\nUInt56BigWidth.value\nvalue must be between 0 and 72057594037927935\ncodec.encode_value_unrepresentable\nUInt56LittleWidth.value\nvalue must be between 0 and 72057594037927935\n"
+
+[[json_assert]]
+path = "error"
+equals = null

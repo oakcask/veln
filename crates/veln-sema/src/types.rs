@@ -3647,6 +3647,7 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
         "UInt40be" | "UInt40le" => Some(5),
         "UInt48be" | "UInt48le" => Some(6),
+        "UInt56be" | "UInt56le" => Some(7),
         "UInt64be" | "UInt64le" => Some(8),
         _ => None,
     }
@@ -3662,6 +3663,7 @@ pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
             | "UInt32le"
             | "UInt40le"
             | "UInt48le"
+            | "UInt56le"
             | "Flag32le"
             | "UInt64le"
             | "Flag64le"
@@ -3700,6 +3702,7 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "UInt32be" | "UInt32le" => Some(32),
         "UInt40be" | "UInt40le" => Some(40),
         "UInt48be" | "UInt48le" => Some(48),
+        "UInt56be" | "UInt56le" => Some(56),
         "UInt64be" | "UInt64le" => Some(64),
         _ => None,
     }
@@ -3724,6 +3727,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt32be" | "UInt32le" => Some(0xffffffff),
         "UInt40be" | "UInt40le" => Some(0xffffffffff),
         "UInt48be" | "UInt48le" => Some(0xffffffffffff),
+        "UInt56be" | "UInt56le" => Some(0xffffffffffffff),
         "UInt64be" | "UInt64le" => Some(i64::MAX),
         _ => None,
     }

@@ -59,10 +59,10 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` declarations, generated `Http2FrameHeaderWire`
   helper decode used by the HTTP/2 protocol-core frame-header path,
   width-sample primitive decode, `UInt16le`, `UInt24le`,
-  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le`
+  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
   little-endian primitive decode and encode, `UInt40be` five-byte,
-  `UInt48be` six-byte, and `UInt64be` eight-byte big-endian primitive decode
-  and encode,
+  `UInt48be` six-byte, `UInt56be` seven-byte, and `UInt64be` eight-byte
+  big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,

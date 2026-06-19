@@ -37,8 +37,8 @@ The implemented first slice covers:
 - named schema fields
 - field type annotations that may name `UInt1` through `UInt8`, `UInt16be`,
   `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`,
-  `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt64be`,
-  `UInt64le`, and
+  `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`,
+  `UInt56le`, `UInt64be`, `UInt64le`, and
   `ReservedBits(width, value)` as binary schema primitives
 - source-surface `ReservedBits(width, value)` declaration checking for literal
   integer arguments in `format binary` schemas

@@ -9,6 +9,8 @@ schema LittleEndianField
 	little_trace_id: UInt40le
 	extended_value: UInt48be
 	little_extended: UInt48le
+	seven_byte_value: UInt56be
+	little_seven_byte: UInt56le
 end
 
 pub schema PublicLittleEndianField
@@ -22,4 +24,6 @@ pub schema PublicLittleEndianField
 	little_trace_id: UInt40le
 	extended_value: UInt48be
 	little_extended: UInt48le
+	seven_byte_value: UInt56be
+	little_seven_byte: UInt56le
 end

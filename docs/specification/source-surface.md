@@ -52,7 +52,8 @@ source module items. The implemented schema body slice requires a single
 name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`,
-`UInt40le`, `UInt48be`, `UInt48le`, `UInt64be`, `UInt64le`, and
+`UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`,
+`UInt64le`, and
 `ReservedBits(width, value)` are accepted as schema primitives. `Flag8`,
 `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
 `Flag64be`, and `Flag64le` are
@@ -62,7 +63,7 @@ source-visible `Flag8(bits: Int)`, `Flag16be(bits: Int)`,
 `Flag64be(bits: Int)`, and `Flag64le(bits: Int)` value
 types instead of the raw `Int` used by `UInt8`, `UInt16be`, `UInt16le`,
 `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`,
-`UInt64be`, and `UInt64le`.
+`UInt56be`, `UInt56le`, `UInt64be`, and `UInt64le`.
 Source-visible checked helpers read and set `Flag8` bit indexes `0` through
 `7`, `Flag16be` and `Flag16le` bit indexes `0` through `15`, and `Flag32be`
 and `Flag32le` bit indexes `0` through `31`, and `Flag64be` and `Flag64le`
@@ -270,8 +271,8 @@ visible exact-width unsigned `Int` field, bounded
 earlier visible exact-width unsigned `Int` fields, and whose payload is either
 `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
 `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`,
-`UInt48le`, `UInt64be`, `UInt64le`, or an eligible nested binary schema
-payload, or
+`UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`, `UInt64le`, or an eligible
+nested binary schema payload, or
 `ByteView(length_field)` whose length names an earlier visible exact-width
 unsigned `Int` field,
 length-bounded `ByteView(length_field)` payload fields whose length names an
