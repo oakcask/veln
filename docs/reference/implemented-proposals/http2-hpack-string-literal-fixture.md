@@ -19,6 +19,11 @@ the HPACK static Huffman table. It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
 long raw values and a deterministic long Huffman-marked value.
+The same fixture module also exposes a raw string-literal encoder for supported
+fixture values. It emits HPACK string literal bytes with the Huffman flag
+cleared, including the same one-continuation length boundary for the long raw
+`a` fixture, and keeps unsupported or non-visible input on the fixture-owned
+unsupported-header-block failure path.
 
 The shared decoder is used by literal-without-indexing and
 literal-with-indexing header blocks. Literal-with-indexing still returns the
@@ -42,8 +47,9 @@ narrower diagnostic.
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw
   literal-with-indexing `:status`, long raw and Huffman-marked string-length
   continuation fixtures through both literal forms, malformed string-length
-  continuation, malformed Huffman padding, and dynamic-table behavior after
-  literal-with-indexing insertions.
+  continuation, malformed Huffman padding, short and long raw string-literal
+  encoding, unsupported and non-visible raw string-literal encoding failures,
+  and dynamic-table behavior after literal-with-indexing insertions.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   string literal cases through completed HEADERS and final CONTINUATION paths.
   Long valid values reach the HPACK boundary and then the local header-list
