@@ -294,7 +294,9 @@ HEADERS and CONTINUATION frames and server-side outbound `PUSH_PROMISE`
 output split across `PUSH_PROMISE` and CONTINUATION frames, remain ordinary
 program stdout in the
 aggregate protocol-core run case; they do not populate `error` or
-`details.protocol_diagnostic`.
+`details.protocol_diagnostic`. The same applies when those send-intents build
+their opaque header-block bytes from fixture header-list values through the
+HPACK fixture encoder.
 
 HTTP/2 protocol-core failures that originate from this source-visible
 projection helper attach `details.protocol_diagnostic`. End-of-stream with a
@@ -430,6 +432,9 @@ The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
 and records `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the unsupported header-block bytes.
+Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
+typed HPACK fixture results in program stdout; they are not converted into
+`details.protocol_diagnostic`.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with

@@ -541,25 +541,30 @@ stream id or dependency payload remain `codec.encode_value_unrepresentable`
 encode errors instead of protocol diagnostics.
 The implemented slice also includes the narrow outbound HEADERS send-intent.
 Ordinary source accepts a nonzero currently open stream and an already-encoded
-opaque header-block `ByteChunk`. Header blocks within the peer-advertised
-maximum frame size encode as one HEADERS frame with kind `1`, `END_HEADERS`,
-optional `END_STREAM`, and the selected stream id. Larger header blocks encode
-as one HEADERS frame followed by CONTINUATION frames on the same stream; every
+opaque header-block `ByteChunk`, or builds that chunk from fixture-owned
+ordinary header-list values through the HPACK fixture encoder before entering
+the same send-intent path. Header blocks within the peer-advertised maximum
+frame size encode as one HEADERS frame with kind `1`, `END_HEADERS`, optional
+`END_STREAM`, and the selected stream id. Larger header blocks encode as one
+HEADERS frame followed by CONTINUATION frames on the same stream; every
 payload chunk respects the peer-advertised maximum frame size, `END_HEADERS`
 is set only on the final frame, and optional `END_STREAM` stays on the first
 HEADERS frame. Accepted `END_STREAM` records local closed-stream state so a
 later stream-level `WINDOW_UPDATE` for that stream uses the same closed
 stream-state rejection boundary. It rejects stream id `0`, missing or non-open
 streams, already closed or reset streams, and generated frame-header
-representation failures before accepted bytes are produced. HPACK remains
-outside the send intent because the header-block bytes are already encoded.
+representation failures before accepted bytes are produced. Unsupported
+fixture header-list values return typed HPACK fixture encode failures instead
+of HTTP/2 protocol diagnostics.
 The implemented slice also includes the narrow server-side outbound
 `PUSH_PROMISE` send-intent. Ordinary source accepts a nonzero currently open
 client-created associated stream, a nonzero server-initiated promised stream
-id, and an already-encoded opaque header-block `ByteChunk`. It encodes frame
-kind `5` on the associated stream, writes the promised stream id through the
-generated `UInt31be` payload helper, then appends the header-block bytes.
-When the promised-id payload plus header-block bytes exceed the
+id, and an already-encoded opaque header-block `ByteChunk`, or builds those
+bytes from a fixture-owned header list through the same HPACK fixture encoder.
+It encodes frame kind `5` on the associated stream, writes the promised stream
+id through the generated `UInt31be` payload helper, then appends the
+header-block bytes. When the promised-id payload plus header-block bytes
+exceed the
 peer-advertised maximum frame size, the output uses one `PUSH_PROMISE` frame
 followed by CONTINUATION frames on the same associated stream, with
 `END_HEADERS` only on the final frame. It rejects stream id `0`, missing,
@@ -660,6 +665,13 @@ pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, and response pseudo-headers after regular headers
 through `http2.protocol.invalid_response_header_list`.
+The completed outbound HPACK fixture encoder slice is current behavior under
+`../specification/` and
+`../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
+It supports fixture-owned static-indexed header lists, raw short literal
+header-list encoding for supported static-table names, the checked request and
+response pseudo-header fixture lists needed by outbound send-intents, and one
+unsupported-header failure path that remains an HPACK fixture result.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.
