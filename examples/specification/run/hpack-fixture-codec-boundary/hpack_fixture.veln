@@ -247,56 +247,41 @@ pub fn hpack_fixture_long_raw_string_value() -> String
 	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 end
 
-fn hpack_fixture_raw_string_value_bytes(value: String, offset: Int) -> Result<Option<ByteChunk>, HpackFixtureFailure>
-	match value == "PUT"
-		true => hpack_fixture_raw_string_hex_value("505554", value, offset)
-		false => match value == "/target"
-			true => hpack_fixture_raw_string_hex_value("2f746172676574", value, offset)
-			false => match value == "abc.test"
-				true => hpack_fixture_raw_string_hex_value("6162632e74657374", value, offset)
-				false => match value == "201"
-					true => hpack_fixture_raw_string_hex_value("323031", value, offset)
-					false => match value == "example.com"
-						true => hpack_fixture_raw_string_hex_value("6578616d706c652e636f6d", value, offset)
-						false => match value == hpack_fixture_long_raw_string_value()
-							true => hpack_fixture_raw_string_hex_value("6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161", value, offset)
-							false => Ok(None)
-						end
-					end
-				end
-			end
-		end
+fn hpack_fixture_raw_string_value_bytes(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => Ok(bytes)
+		Err(_) => unsupported_raw_string_encoding(value, offset)
 	end
 end
 
-fn hpack_fixture_raw_string_hex_value(hex: String, value: String, offset: Int) -> Result<Option<ByteChunk>, HpackFixtureFailure>
-	match byte_chunk_from_hex(hex)
-		Ok(bytes) => Ok(Some(bytes))
-		Err(_) => match unsupported_raw_string_encoding(value, offset)
-			Ok(_) => Ok(None)
+fn hpack_fixture_raw_string_length_prefix(count: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match count < 127
+		true => hpack_fixture_raw_string_length_prefix_byte(count, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte(127, value, offset)
+			Ok(prefix) => match hpack_fixture_raw_string_length_tail(count - 127, value, offset)
+				Ok(tail) => Ok(byte_append(prefix, tail))
+				Err(failure) => Err(failure)
+			end
 			Err(failure) => Err(failure)
 		end
 	end
 end
 
-fn hpack_fixture_raw_string_length_prefix(count: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match count == 3
-		true => hpack_fixture_raw_string_length_prefix_hex("03", value, offset)
-		false => match count == 7
-			true => hpack_fixture_raw_string_length_prefix_hex("07", value, offset)
-			false => match count == 8
-				true => hpack_fixture_raw_string_length_prefix_hex("08", value, offset)
-				false => match count == 11
-					true => hpack_fixture_raw_string_length_prefix_hex("0b", value, offset)
-					false => unsupported_raw_string_encoding(value, offset)
-				end
+fn hpack_fixture_raw_string_length_tail(remaining: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match remaining < 128
+		true => hpack_fixture_raw_string_length_prefix_byte(remaining, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte((remaining - (remaining / 128) * 128) + 128, value, offset)
+			Ok(current) => match hpack_fixture_raw_string_length_tail(remaining / 128, value, offset)
+				Ok(next) => Ok(byte_append(current, next))
+				Err(failure) => Err(failure)
 			end
+			Err(failure) => Err(failure)
 		end
 	end
 end
 
-fn hpack_fixture_raw_string_length_prefix_hex(hex: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match byte_chunk_from_hex(hex)
+fn hpack_fixture_raw_string_length_prefix_byte(value_byte: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_write_u8_be(value_byte)
 		Ok(prefix) => Ok(prefix)
 		Err(_) => unsupported_raw_string_encoding(value, offset)
 	end
@@ -304,20 +289,10 @@ end
 
 pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match hpack_fixture_raw_string_value_bytes(value, offset)
-		Ok(Some(bytes)) => match byte_count_to_int(byte_chunk_count(bytes)) <= 126
-			true => match hpack_fixture_raw_string_length_prefix(byte_count_to_int(byte_chunk_count(bytes)), value, offset)
-				Ok(prefix) => Ok(byte_append(prefix, bytes))
-				Err(_) => unsupported_raw_string_encoding(value, offset)
-			end
-			false => match byte_count_to_int(byte_chunk_count(bytes)) == 128
-				true => match byte_chunk_from_hex("7f01")
-					Ok(prefix) => Ok(byte_append(prefix, bytes))
-					Err(_) => unsupported_raw_string_encoding(value, offset)
-				end
-				false => unsupported_raw_string_encoding(value, offset)
-			end
+		Ok(bytes) => match hpack_fixture_raw_string_length_prefix(byte_count_to_int(byte_chunk_count(bytes)), value, offset)
+			Ok(prefix) => Ok(byte_append(prefix, bytes))
+			Err(failure) => Err(failure)
 		end
-		Ok(None) => unsupported_raw_string_encoding(value, offset)
 		Err(failure) => Err(failure)
 	end
 end

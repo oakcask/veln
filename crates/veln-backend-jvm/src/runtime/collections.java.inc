@@ -1728,6 +1728,19 @@
         return ok(out.toString());
     }
 
+    public static Object byteChunkFromVisibleAsciiString(Object text) {
+        String input = asString(text);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        for (int index = 0; index < input.length(); index += 1) {
+            char value = input.charAt(index);
+            if (value < 33 || value > 126) {
+                return err("string contains non-visible ASCII character");
+            }
+            bytes.add(byteObject(value));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
     private static Object fixtureHexInvalidCharacter(
         String input,
         int textIndex,

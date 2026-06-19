@@ -666,6 +666,7 @@ byte_chunk_count(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
 byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, String>
+byte_chunk_from_visible_ascii_string(text: String) -> Result<ByteChunk, String>
 byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
@@ -825,6 +826,9 @@ fixture text span, decoded `ByteOffset`, nibble position, and nearby context.
 `byte_chunk_to_visible_ascii_string(chunk)` returns `Ok(String)` when every
 byte in the chunk is visible ASCII from `0x21` through `0x7e`, preserving byte
 order as characters, and returns `Err(String)` for any byte outside that range.
+`byte_chunk_from_visible_ascii_string(text)` returns `Ok(ByteChunk)` when every
+character is visible ASCII from `0x21` through `0x7e`, preserving character
+order as bytes, and returns `Err(String)` for any character outside that range.
 `byte_take(chunk, count)` and `byte_drop(chunk, count)` return `Ok(ByteChunk)`
 when `count` is within the chunk length, and `Err(String)` when the count is
 outside that chunk.
@@ -955,8 +959,9 @@ The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,
-  `byte_chunk_to_visible_ascii_string`, `byte_take`, `byte_drop`, `byte_view`,
-  `byte_view_to_chunk`, `byte_view_count`,
+  `byte_chunk_to_visible_ascii_string`,
+  `byte_chunk_from_visible_ascii_string`, `byte_take`, `byte_drop`,
+  `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
   `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
   `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
   `byte_read_u8_be`,

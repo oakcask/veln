@@ -1357,10 +1357,13 @@ execution reference.
   general HPACK Huffman streaming support.
   The same ordinary fixture module exposes
   `encode_hpack_raw_string_literal` for fixture-owned raw string literals:
-  supported visible-ASCII fixture values encode with the HPACK Huffman flag
-  cleared, and the long raw `a` fixture uses the same saturated seven-bit
-  length prefix plus one continuation byte as the checked decoder boundary.
-  Unsupported fixture values and non-visible raw byte values return
+  values accepted by `byte_chunk_from_visible_ascii_string` encode with the
+  HPACK Huffman flag cleared, and the string length uses the HPACK integer
+  prefix rules for raw string literals. The checked output keeps the existing
+  short `PUT` bytes stable, accepts a visible ASCII value that was not part of
+  the former fixture allowlist, and keeps the long raw `a` fixture at the
+  saturated seven-bit length prefix plus one continuation byte boundary.
+  Non-visible raw byte values return
   `hpack.fixture.unsupported_header_block` with expected fixture
   `fixture raw string encoding`.
   The checked example covers `:authority: abc.test` through

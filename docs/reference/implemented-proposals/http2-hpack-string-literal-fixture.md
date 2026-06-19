@@ -19,11 +19,11 @@ the HPACK static Huffman table. It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
 long raw values and a deterministic long Huffman-marked value.
-The same fixture module also exposes a raw string-literal encoder for supported
-fixture values. It emits HPACK string literal bytes with the Huffman flag
-cleared, including the same one-continuation length boundary for the long raw
-`a` fixture, and keeps unsupported or non-visible input on the fixture-owned
-unsupported-header-block failure path.
+The same fixture module also exposes a raw string-literal encoder for values
+accepted by `byte_chunk_from_visible_ascii_string`. It emits HPACK string
+literal bytes with the Huffman flag cleared, including the same
+one-continuation length boundary for the long raw `a` fixture, and keeps
+non-visible input on the fixture-owned unsupported-header-block failure path.
 
 The shared decoder is used by literal-without-indexing and
 literal-with-indexing header blocks. Literal-with-indexing still returns the

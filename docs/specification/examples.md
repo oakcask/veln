@@ -1682,11 +1682,12 @@ values and Huffman-marked values decoded by the HPACK static Huffman table
 rather than a fixed decoded-value allowlist. The same decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
 through both literal forms. The boundary example also checks
-`encode_hpack_raw_string_literal` for a short raw `PUT` literal, a long raw
-`a` literal that uses the same one-continuation length boundary, and an
-unsupported value plus a non-visible raw byte value that remain on the
-fixture-owned unsupported-header-block failure path with expected fixture
-`fixture raw string encoding`. The example
+`encode_hpack_raw_string_literal` for a short raw `PUT` literal that keeps its
+existing bytes, a visible ASCII `bad` literal that was not part of the former
+fixture allowlist, a long raw `a` literal that uses the same
+one-continuation HPACK integer length boundary, and a non-visible raw byte
+value that remains on the fixture-owned unsupported-header-block failure path
+with expected fixture `fixture raw string encoding`. The example
 covers `:authority: abc.test` through completed HEADERS and final
 CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
 `:path: test` through completed HEADERS, Huffman `:method: PUT` through both

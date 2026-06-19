@@ -162,9 +162,10 @@ end
 fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
 	let expected_short_encoding: ByteChunk = byte_chunk_from_hex("03505554")?
 	let _ = print_encoded_literal("encode-raw-short-put", encode_hpack_raw_string_literal("PUT", 95), expected_short_encoding)?
+	let expected_visible_encoding: ByteChunk = byte_chunk_from_hex("03626164")?
+	let _ = print_encoded_literal("encode-raw-visible-bad", encode_hpack_raw_string_literal("bad", 97), expected_visible_encoding)?
 	let expected_long_encoding: ByteChunk = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
 	let _ = print_encoded_literal("encode-raw-long-a", encode_hpack_raw_string_literal(hpack_fixture_long_raw_string_value(), 96), expected_long_encoding)?
-	let _ = print_encode_failure("encode-raw-unsupported", encode_hpack_raw_string_literal("bad", 97))?
 	let _ = print_encode_failure("encode-raw-non-visible", encode_hpack_raw_string_literal("\n", 98))?
 	Ok(())
 end
