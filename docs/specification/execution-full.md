@@ -657,12 +657,14 @@ freezing all nineteen ordinary source values at the task boundary.
 `task::spawn_with20` starts a twenty-argument callable on a JVM thread after
 freezing all twenty ordinary source values at the task boundary.
 `task::spawn_with21` starts a twenty-one-argument callable on a JVM thread
-after freezing all twenty-one ordinary source values at the task boundary. All
-task spawn helpers freeze the returned value before it crosses back through
-the task handle. `task::join` waits for that task and returns `Ok(value)` on
-ordinary completion or `Err(JoinError)` on interruption, cancellation, or
-runtime failure. `task::cancel` requests cooperative cancellation by
-interrupting the task.
+after freezing all twenty-one ordinary source values at the task boundary.
+`task::spawn_with22` starts a twenty-two-argument callable on a JVM thread
+after freezing all twenty-two ordinary source values at the task boundary. All
+task spawn helpers freeze the returned value before it crosses back through the
+task handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
+completion or `Err(JoinError)` on interruption, cancellation, or runtime
+failure. `task::cancel` requests cooperative cancellation by interrupting the
+task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
@@ -791,7 +793,9 @@ case extends it with one additional ordinary metadata value through
 `task::spawn_with19`. The twenty-argument stream-task case extends it with one
 additional ordinary metadata value through `task::spawn_with20`. The
 twenty-one-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with21`.
+metadata value through `task::spawn_with21`. The twenty-two-argument
+stream-task case extends it with one additional ordinary metadata value through
+`task::spawn_with22`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
