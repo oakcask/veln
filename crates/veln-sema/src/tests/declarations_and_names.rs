@@ -1826,10 +1826,6 @@ fn generated_schema_mappings_report_arithmetic_operand_diagnostics() {
             "  Header {bad_operand: Int, unsupported_operand: Int, unsupported_call: Int}\n",
             "end\n",
             "\n",
-            "fn identity(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-            "\n",
             "schema HeaderWire\n",
             "  format binary\n",
             "\n",
@@ -1840,7 +1836,7 @@ fn generated_schema_mappings_report_arithmetic_operand_diagnostics() {
             "  map to Header\n",
             "    bad_operand = length + payload\n",
             "    unsupported_operand = payload + 1\n",
-            "    unsupported_call = identity(length) + kind\n",
+            "    unsupported_call = {value: length} + kind\n",
             "end\n",
         ),
     );
@@ -1869,7 +1865,105 @@ fn generated_schema_mappings_report_arithmetic_operand_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_expression_unsupported"
                 && diagnostic.message
-                    == "schema mapping expression `identity(length) + kind` is not supported"
+                    == "schema mapping expression `{ value: length } + kind` is not supported"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn generated_schema_mappings_report_converter_arithmetic_operand_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {missing: Int, too_few: Int, bad_input: Int, bad_return: Int, impure: Int, unsupported_arg: Int}\n",
+            "end\n",
+            "\n",
+            "fn two_params(value: Int, extra: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn needs_text(value: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\n",
+            "fn to_text(value: Int) -> String\n",
+            "  int_to_string(value)\n",
+            "end\n",
+            "\n",
+            "fn noisy(value: Int) -> Int effects [stdio]\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn convert(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  length: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    missing = missing_converter(kind) + length\n",
+            "    too_few = two_params(kind) + length\n",
+            "    bad_input = needs_text(kind) + length\n",
+            "    bad_return = to_text(kind) + length\n",
+            "    impure = noisy(kind) + length\n",
+            "    unsupported_arg = convert(kind == 1) + length\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter"
+                && diagnostic.message
+                    == "schema mapping converter `missing_converter` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_arity"
+                && diagnostic.message
+                    == "schema mapping converter `two_params` expects 2 argument(s), but got 1"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_input"
+                && diagnostic.message
+                    == "schema mapping converter `needs_text` expects `String`, but source field `kind` decodes as `Int`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_return"
+                && diagnostic.message
+                    == "schema mapping converter `to_text` returns `String`, but target field `bad_return` expects `Int`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_purity"
+                && diagnostic.message == "schema mapping converter `noisy` must be pure"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_expression_unsupported"
+                && diagnostic.message == "schema mapping expression `kind == 1` is not supported"
         }),
         "{diagnostics:#?}"
     );

@@ -531,6 +531,11 @@ expression over decoded schema-local values.
 pins the decoded-field and integer-literal arithmetic mapping slice. The helper
 evaluates supported `+`, `-`, `*`, and `/` expressions after field-local
 validation and returns the computed `Int` target fields. The
+`../../examples/specification/run/binary-schema-mapping-converter-arithmetic-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapping-converter-arithmetic-decode/`
+cases pin same-module and imported public `Int` converter calls as supported
+arithmetic operands. The
 `../../examples/specification/run/binary-schema-mapping-division-by-zero-json/`
 case pins the division-by-zero diagnostic shape.
 `../../examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`
@@ -571,6 +576,11 @@ selector fields, non-`Int` selector fields, and boolean-selector overlap.
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, direct and nested constructor payload type, non-`Int` arithmetic
 operand, and unsupported arithmetic expression diagnostics.
+`../../examples/specification/check/schema-mapping-converter-arithmetic-diagnostics/`
+and
+`../../examples/specification/check/schema-mapping-converter-arithmetic-diagnostics-human/`
+pin JSON and human diagnostics for converter resolution, arity, input, return,
+purity, and unsupported converter arguments from arithmetic operands.
 
 `../../examples/specification/run/binary-schema-primitive-encode/` and
 `../../examples/specification/run/binary-schema-primitive-encode-out-of-range/`

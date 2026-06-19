@@ -2926,6 +2926,38 @@ fn schema_mapping_arithmetic_operand(
                     other => Box::new(other),
                 })
         }
+        ExprKind::Call { callee, args } if allow_converter_calls => {
+            let ExprKind::NamePath(segments) = &callee.kind else {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(whole_expr),
+                    span: whole_expr.span.clone(),
+                }));
+            };
+            match schema_mapping_converter_function(context, segments) {
+                SchemaMappingConverterLookup::Found(function) => schema_mapping_converter_expr(
+                    context, operand, callee, args, function, expected,
+                ),
+                SchemaMappingConverterLookup::Private(function) => {
+                    Err(Box::new(SchemaMappingExprError::PrivateConverter {
+                        name: segments.join("::"),
+                        span: callee.span.clone(),
+                        function_span: function.span.clone(),
+                    }))
+                }
+                SchemaMappingConverterLookup::Missing => {
+                    if !schema_mapping_name_can_be_converter(segments) {
+                        return Err(Box::new(SchemaMappingExprError::Unsupported {
+                            text: schema_mapping_expr_render(whole_expr),
+                            span: whole_expr.span.clone(),
+                        }));
+                    }
+                    Err(Box::new(SchemaMappingExprError::UnresolvedConverter {
+                        name: segments.join("::"),
+                        span: callee.span.clone(),
+                    }))
+                }
+            }
+        }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(whole_expr),
             span: whole_expr.span.clone(),

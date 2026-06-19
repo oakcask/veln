@@ -266,6 +266,12 @@ against the built `veln` binary.
 - `run/binary-schema-mapping-arithmetic-decode/`: generated binary schema
   decode computes `Int` target fields with supported decoded-field and
   integer-literal `+`, `-`, `*`, and `/` mapping arithmetic.
+- `run/binary-schema-mapping-converter-arithmetic-decode/`: generated binary
+  schema decode computes `Int` target fields with same-module converter calls
+  as mapping arithmetic operands.
+- `run/binary-schema-imported-mapping-converter-arithmetic-decode/`: generated
+  binary schema decode computes an `Int` target field with an imported public
+  converter call as a mapping arithmetic operand.
 - `run/binary-schema-mapping-division-by-zero-json/`: generated binary schema
   decode reports `schema.mapping_division_by_zero` when mapping arithmetic
   divides by zero.
@@ -281,6 +287,13 @@ against the built `veln` binary.
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter argument expression
   diagnostics.
+- `check/schema-mapping-converter-arithmetic-diagnostics/`: converter calls
+  used as arithmetic operands report JSON diagnostics for unresolved
+  converter, arity, input type, return type, purity, and unsupported argument
+  expression failures.
+- `check/schema-mapping-converter-arithmetic-diagnostics-human/`: converter
+  calls used as arithmetic operands report the same failures in human check
+  output.
 - `check/schema-imported-mapping-converter-diagnostics/`: imported
   converter-shaped schema mapping assignment values report unresolved paths,
   private converters, missing written import paths, arity, input type, return

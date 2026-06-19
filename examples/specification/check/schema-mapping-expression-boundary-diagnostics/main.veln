@@ -1,5 +1,5 @@
 type Header
-	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, bad_nested_type: FrameKind, bad_operand: Int, literal_operand_bad_type: Int, unsupported_call: Int, unsupported_operator: Int}
+	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, bad_nested_type: FrameKind, bad_operand: Int, literal_operand_bad_type: Int, unsupported_record_operand: Int, unsupported_operator: Int}
 end
 
 type FrameKind
@@ -8,10 +8,6 @@ end
 
 type Payload
 	Payload(Int)
-end
-
-fn convert(value: Int) -> Int
-	value
 end
 
 schema HeaderWire
@@ -28,6 +24,6 @@ schema HeaderWire
 		bad_nested_type = FrameKind(Payload(kind))
 		bad_operand = length * payload
 		literal_operand_bad_type = payload + 1
-		unsupported_call = convert(length) + kind
+		unsupported_record_operand = {value: length} + kind
 		unsupported_operator = kind == length
 end

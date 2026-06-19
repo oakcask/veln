@@ -206,10 +206,10 @@ assignment of referenced selector fields. Missing selectors report
 `schema.mapping_selection_ambiguous`, and unsupported selector
 or target-shape boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
-record slice, arbitrary calls, converter calls inside arithmetic operands,
-value-dependent mapping beyond decoded-field integer arithmetic and equality
-or inequality, and encode-side mapping outside the selected structural slice
-are not implemented.
+record slice, arbitrary calls, non-`Int` converter arithmetic operands,
+value-dependent mapping beyond decoded-field and converter-call integer
+arithmetic and equality or inequality, and encode-side mapping outside the
+selected structural slice are not implemented.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 keeps the mapping-selection boundary executable.
@@ -218,6 +218,12 @@ The executable diagnostics case
 keeps unsupported mapping expression, unresolved constructor, constructor
 arity, direct and nested constructor payload type, non-`Int` arithmetic
 operand, and unsupported arithmetic expression diagnostics executable.
+The executable diagnostics cases
+`../../examples/specification/check/schema-mapping-converter-arithmetic-diagnostics/`
+and
+`../../examples/specification/check/schema-mapping-converter-arithmetic-diagnostics-human/`
+keep converter arithmetic operand resolution, arity, input, return, purity,
+and unsupported argument diagnostics executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 keeps unresolved converter, converter arity, converter input type, converter
