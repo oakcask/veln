@@ -1335,17 +1335,19 @@ execution reference.
   static-table header name for `:authority`, `:method`, `:path`, `:scheme`,
   or `:status`. Those literal fixtures share the same HPACK string literal
   decoder: short raw values must be visible ASCII, and Huffman-marked values
-  decode by scanning fixture-supported HPACK static Huffman symbols into
-  decoded visible-ASCII bytes rather than by matching a fixed decoded-value
-  allowlist. The checked example covers `:authority: abc.test` through
+  decode by scanning the HPACK static Huffman table into decoded
+  visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
+  The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
+  Huffman `:status: 200` through completed HEADERS and final CONTINUATION,
   Huffman `:method: PUT` through both literal-without-indexing and
   literal-with-indexing, raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. Checked bytes also include zero-length `:path` as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
-  `0x06 0x84 0x9d 0x29 0xad 0x1f`, and
+  `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
+  `0x08 0x82 0x10 0x01`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
   Malformed Huffman padding, malformed string lengths, non-visible raw bytes,
@@ -1378,8 +1380,8 @@ execution reference.
   fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, and Huffman symbols or padding outside the
-  fixture-supported static-symbol decoder, projects through
+  literal-without-indexing, malformed Huffman padding, Huffman EOS, and
+  Huffman strings whose decoded bytes are not visible ASCII, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
   module, and bounded header-block byte preview. That diagnostic path is

@@ -75,11 +75,13 @@ end
 fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state: HpackFixtureState) -> Result<(), String> effects [stdio]
 	print_transition("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83))
 	print_transition("literal-path-test-huffman", decode_header_block(byte_chunk_from_hex("048349509f")?, initial, 88))
+	print_transition("literal-status-200-huffman", decode_header_block(byte_chunk_from_hex("08821001")?, initial, 89))
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
 	print_transition("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84))
 	print_transition("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87))
 	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
 	print_transition("malformed-literal-length", decode_header_block(byte_chunk_from_hex("04ff")?, literal_state, 83))
+	print_transition("malformed-status-huffman-padding", decode_header_block(byte_chunk_from_hex("08821000")?, initial, 90))
 	Ok(())
 end
 
