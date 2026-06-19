@@ -1,0 +1,30 @@
+use helpers
+
+type Header
+	Header {bad_second: Int, unsupported_second: Int, nested_converter: Int, imported_bad_second: Int}
+end
+
+fn combine_text(value: Int, extra: String) -> Int
+	value
+end
+
+fn combine(value: Int, extra: Int) -> Int
+	value + extra
+end
+
+fn identity(value: Int) -> Int
+	value
+end
+
+schema HeaderWire
+	format binary
+
+	kind: UInt8
+	length: UInt8
+
+	map to Header
+		bad_second = combine_text(kind, length)
+		unsupported_second = combine(kind, length == 1)
+		nested_converter = combine(kind, identity(length))
+		imported_bad_second = helpers::combine_text(kind, length)
+end

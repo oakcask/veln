@@ -102,7 +102,7 @@ pub enum IrSchemaDecodeMappingExpr {
     Converter {
         function: String,
         inverse_function: Option<String>,
-        arg: Box<IrSchemaDecodeMappingExpr>,
+        args: Vec<IrSchemaDecodeMappingExpr>,
     },
     Binary {
         op: BinaryOp,

@@ -224,17 +224,16 @@ assignment may also use `+`, `-`, `*`, and `/` over decoded schema-local
 `Int` fields, integer literals, and nested supported mapping arithmetic
 expressions. Division by zero returns `schema.mapping_division_by_zero` at
 the offset after the decoded schema body with the schema and target-field
-path. A mapping
-assignment may also call one pure same-module converter function or one
-imported public pure converter function through a written `use` path or alias
-with either one decoded schema-local field argument or one already implemented
-structural mapping expression. Multiple selected mappings may use narrow
-boolean selector expressions over decoded schema-local `Int` fields, integer
-literals, `==`, `!=`, `and`, `or`, and `not` when the selector clauses do not
-overlap and all branches resolve to one target record shape.
-structural mapping expression made from decoded schema fields, records, ADT
-constructors, integer arithmetic mapping expressions, and nested combinations
-of those forms before assigning the returned value to the target field. A
+path. A mapping assignment may also call one pure same-module converter
+function or one imported public pure converter function through a written
+`use` path or alias with one or two arguments. Each argument must be either
+one decoded schema-local field or an already implemented structural mapping
+expression made from decoded schema fields, records, ADT constructors, integer
+arithmetic mapping expressions, and nested combinations of those forms before
+assigning the returned value to the target field. Multiple selected mappings
+may use narrow boolean selector expressions over decoded schema-local `Int`
+fields, integer literals, `==`, `!=`, `and`, `or`, and `not` when the selector
+clauses do not overlap and all branches resolve to one target record shape. A
 mapping assignment may also select a field from an already supported
 structural mapping expression after that source expression is available, when
 the source expression has a record-shaped type with the selected field.

@@ -1,8 +1,12 @@
 type Header
-	Header {missing: Int, bad_arity: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}
+	Header {missing: Int, too_few: Int, too_many: Int, bad_input: Int, bad_return: Int, impure: Int, bad_structural_input: Int, unsupported: Int}
 end
 
 fn two_params(value: Int, extra: Int) -> Int
+	value
+end
+
+fn three_params(value: Int, extra: Int, another: Int) -> Int
 	value
 end
 
@@ -30,10 +34,12 @@ schema HeaderWire
 	format binary
 
 	kind: UInt8
+	length: UInt8
 
 	map to Header
 		missing = missing_converter(kind)
-		bad_arity = two_params(kind)
+		too_few = two_params(kind)
+		too_many = three_params(kind, length)
 		bad_input = needs_text(kind)
 		bad_return = to_text(kind)
 		impure = noisy(kind)

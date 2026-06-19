@@ -6163,7 +6163,15 @@
             return adt(name, payloads);
         }
         if (tag.equals("converter")) {
-            return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(spec.size() == 4 ? 3 : 2)));
+            if (spec.size() == 4) {
+                return call(spec.get(1), schemaMappingExprValue(decoded, spec.get(3)));
+            }
+            java.util.List<Object> args = asList(spec.get(2));
+            Object[] values = new Object[args.size()];
+            for (int index = 0; index < args.size(); index += 1) {
+                values[index] = schemaMappingExprValue(decoded, args.get(index));
+            }
+            return call(spec.get(1), values);
         }
         if (tag.equals("binary")) {
             Object left = schemaMappingExprValue(decoded, spec.get(2));
