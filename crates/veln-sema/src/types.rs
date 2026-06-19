@@ -3865,6 +3865,9 @@ pub(crate) fn supported_encode_reserved_bits(
     if supported_bit_packed_reserved_group(fields, index) {
         return Some((bit_width as u8, expected_value));
     }
+    if supported_byte_interleaved_reserved_group(fields, index, bit_width, expected_value) {
+        return Some((bit_width as u8, expected_value));
+    }
     let previous_previous_field = index
         .checked_sub(2)
         .and_then(|previous| fields.get(previous));
@@ -4072,6 +4075,48 @@ fn supported_middle_reserved_bits(
     previous_bit_width % 8 != 0
         && (i64::from(previous_bit_width) + bit_width) % 8 != 0
         && matches!(total_bit_width, 8 | 16 | 24 | 32)
+        && expected_value < (1_i64 << bit_width)
+}
+
+fn supported_byte_interleaved_reserved_group(
+    fields: &[veln_ast::SchemaField],
+    index: usize,
+    bit_width: i64,
+    expected_value: i64,
+) -> bool {
+    if bit_width <= 0 || bit_width > 7 {
+        return false;
+    }
+    let Some(first_field) = index
+        .checked_sub(1)
+        .and_then(|previous| fields.get(previous))
+    else {
+        return false;
+    };
+    let (Some(byte_field), Some(last_field)) = (fields.get(index + 1), fields.get(index + 2))
+    else {
+        return false;
+    };
+    if [first_field, byte_field, last_field].iter().any(|field| {
+        exact_width_schema_primitive_little_endian(&field.ty)
+            || flag_schema_primitive(&field.ty).is_some()
+    }) {
+        return false;
+    }
+    let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_field.ty) else {
+        return false;
+    };
+    let Some(byte_bit_width) = exact_width_schema_primitive_bit_width(&byte_field.ty) else {
+        return false;
+    };
+    let Some(last_bit_width) = exact_width_schema_primitive_bit_width(&last_field.ty) else {
+        return false;
+    };
+    first_bit_width < 8
+        && byte_bit_width == 8
+        && last_bit_width < 8
+        && i64::from(first_bit_width) + bit_width + 8 + i64::from(last_bit_width) == 16
+        && (i64::from(first_bit_width) + bit_width) % 8 != 0
         && expected_value < (1_i64 << bit_width)
 }
 

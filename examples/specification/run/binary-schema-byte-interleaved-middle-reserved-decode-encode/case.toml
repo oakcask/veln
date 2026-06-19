@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "5\n171\n6\n85\n94\ndecoded\n5\n171\n6\n2\nencoded\noutput_chunk_list byte-interleaved-middle-reserved count 1\noutput_chunk byte-interleaved-middle-reserved index 0 hex \"555e\" count 2\ninvalid\ncodec.encode_value_unrepresentable\nByteInterleavedMiddleReservedHeader.low\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "byte-interleaved-middle-reserved"
+chunks = ["555e"]

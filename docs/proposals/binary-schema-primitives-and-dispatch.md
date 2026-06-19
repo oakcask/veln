@@ -65,6 +65,16 @@ encode the two visible
 fields from high to low, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,
 and `codec.encode_value_unrepresentable` diagnostic shapes.
+Generated schema helpers also consume and encode the narrow two-byte
+byte-interleaved middle layout where one visible sub-byte `UIntN` field is
+followed by one sub-byte `ReservedBits(width, value)` field, one visible
+`UInt8` field, and one final visible sub-byte `UIntN` field whose widths
+complete the same two-byte big-endian storage unit. The helpers
+preserve all visible fields, omit the reserved field from decoded records and
+mapping source values, validate or emit the declared reserved bits at the
+middle field position, include the layout in derived codec eligibility, and
+report the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
 group contains at least one visible field and at least one reserved field and
@@ -512,7 +522,9 @@ storage unit, and one-byte, two-byte, three-byte, and four-byte reserved
 prefix groups followed by two visible `UIntN` fields, including two-byte
 reserved prefix widths one through fourteen, three-byte reserved prefix widths
 seventeen through twenty-three, and four-byte reserved prefix widths
-twenty-five through thirty-one, and consecutive non-byte-aligned
+twenty-five through thirty-one, the narrow two-byte byte-interleaved middle
+layout with a sub-byte visible field, a sub-byte reserved field, `UInt8`, and
+a final sub-byte visible field, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
 two-byte, three-byte, or four-byte big-endian storage unit are implemented under
 `../specification/execution.md`. Remaining proposal work is limited to

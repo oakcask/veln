@@ -1,0 +1,14 @@
+schema ByteInterleavedMiddleReservedHeader
+	format binary
+
+	high: UInt4
+	guard: ReservedBits(1, 0)
+	middle: UInt8
+	low: UInt3
+end
+
+pub fn main() -> Result<{high: Int, middle: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("5d5e")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	byte_decode_byte_interleaved_middle_reserved_header(view)
+end

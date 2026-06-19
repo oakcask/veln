@@ -1176,6 +1176,13 @@ against the built `veln` binary.
   encode helpers write one interleaved declared reserved value in a shared
   storage byte with three visible `UIntN` fields and report
   `codec.encode_value_unrepresentable` against an out-of-range visible field.
+- `run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`:
+  generated schema decode and encode helpers preserve visible fields around a
+  middle reserved field and a following byte-width field in one shared
+  two-byte storage unit, including derived codec eligibility.
+- `run/binary-schema-byte-interleaved-middle-reserved-json/`: generated
+  schema decode helpers report `schema.reserved_bits_mismatch` for that
+  byte-interleaved middle reserved-bit layout.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected

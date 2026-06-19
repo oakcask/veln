@@ -441,6 +441,12 @@ middle reserved-bit slice. The valid case decodes adjacent visible fields
 around a middle reserved field and omits the reserved field from the decoded
 record. The failing case asserts `schema.reserved_bits_mismatch` at the
 middle reserved field path with stable byte offset and bit-value details.
+`../../examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`
+and
+`../../examples/specification/run/binary-schema-byte-interleaved-middle-reserved-json/`
+pin the narrow byte-interleaved middle reserved-bit slice where a visible
+sub-byte field, a reserved field, a visible `UInt8`, and a final visible
+sub-byte field share one two-byte storage unit.
 
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-payload-decode/`,
@@ -782,6 +788,11 @@ visible fields, and visible out-of-range encode values keep the ordinary
 pins `schema.reserved_bits_mismatch` field path, byte offset, bit width,
 expected value, actual value, and byte preview details for the same middle
 layout.
+`../../examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`
+also pins decode, encode, derived codec eligibility, and visible field encode
+diagnostics for the byte-interleaved middle reserved-bit layout. The adjacent
+`../../examples/specification/run/binary-schema-byte-interleaved-middle-reserved-json/`
+case pins the reserved-bit mismatch diagnostic for that layout.
 `../../examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`
 pins a non-byte-aligned reserved prefix followed by two visible `UIntN`
 fields in the same one-byte storage unit: decode omits the
