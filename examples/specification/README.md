@@ -1870,13 +1870,15 @@ against the built `veln` binary.
   peer-limit provenance fields.
 - `run/http2-protocol-core-invalid-stream-id-human/`: a stream frame on
   connection stream id zero reports `http2.protocol.invalid_stream_id` through
-  human `run` stderr with focused stream id domain, endpoint role, state, and
-  provenance notes; the ordinary protocol-core case also covers HEADERS and
-  CONTINUATION on the connection stream.
+  human `run` stderr with focused stream id domain, bounded frame-header byte
+  preview, endpoint role, state, and provenance notes; the ordinary
+  protocol-core case also covers HEADERS and CONTINUATION on the connection
+  stream.
 - `run/http2-protocol-core-invalid-stream-id-json/`: an even client stream id
   reports `http2.protocol.invalid_stream_id` through `run --json` with byte
   offset, frame kind, stream reference, required stream id domain, endpoint
-  role, active state, and rule provenance.
+  role, structured frame-header byte preview, active state, and rule
+  provenance.
 - `run/http2-protocol-core-invalid-frame-kind-human/`: a DATA frame kind on
   the connection stream reports `http2.protocol.invalid_frame_kind` through
   human `run` stderr with a focused primary message and related frame-kind,
@@ -1931,13 +1933,13 @@ against the built `veln` binary.
   provenance.
 - `run/http2-protocol-core-goaway-length-human/`: a wrong-length GOAWAY
   fixed-prefix payload reports `http2.protocol.invalid_payload_length` through
-  human `run` stderr with observed and expected payload length plus protocol
-  state and provenance notes.
+  human `run` stderr with observed and expected payload length, bounded
+  inspected-payload byte preview, protocol state, and provenance notes.
 - `run/http2-protocol-core-goaway-length-json/`: the same GOAWAY
   fixed-prefix payload failure reports
   `http2.protocol.invalid_payload_length` through `run --json` with byte
   offset, frame kind, stream reference, observed and expected payload lengths,
-  active state, and rule provenance.
+  structured byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-stream-after-goaway-human/`: a peer-created
   HEADERS stream greater than a recorded GOAWAY last stream id reports
   `http2.protocol.stream_after_goaway` through human `run` stderr with

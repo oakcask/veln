@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.protocol.invalid_payload_length]: invalid payload length at byte offset 0", "note: Frame kind 7 on connection 0 declared 7 byte(s); expected 8 byte(s).", "note: Active protocol state: connection-control.", "note: Rule provenance: rfc9113_goaway_payload_length."]
+contains = ["error[http2.protocol.invalid_payload_length]: invalid payload length at byte offset 0", "note: Frame kind 7 on connection 0 declared 7 byte(s); expected 8 byte(s).", "note: Nearby bytes: 0a 0b 0c 0d 0e 0f 10 (showing 7 of 7 byte(s), complete).", "note: Active protocol state: connection-control.", "note: Rule provenance: rfc9113_goaway_payload_length."]

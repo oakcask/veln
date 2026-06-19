@@ -261,8 +261,8 @@ primitive after the preface gate, checks the active receive maximum frame size
 after structural header decode, and projects typed protocol failures into
 stable fixture output ids, `protocol_diagnostic` JSON details, and human
 related context. The partial and invalid client connection preface projections
-also include bounded protocol-owned byte previews for the raw bytes inspected
-by the preface check.
+and stream id domain projection include bounded protocol-owned byte previews
+for the raw bytes inspected by the preface or frame-header check.
 It also splits the active receive-limit entry and receive-window credit from
 peer-advertised SETTINGS state. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
@@ -385,9 +385,10 @@ core, SETTINGS, PING, and GOAWAY require stream id zero, while HEADERS, DATA,
 `RST_STREAM`, CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
 client-initiated stream id. Domain failures use
 `http2.protocol.invalid_stream_id` with frame kind, stream id, required
-domain, endpoint role, active state, and rule provenance. Representation
-failures for the generated `UInt31be` helper remain schema or codec failures
-instead of protocol diagnostics.
+domain, endpoint role, active state, rule provenance, and a bounded
+frame-header byte preview. Representation failures for the generated
+`UInt31be` helper remain schema or codec failures instead of protocol
+diagnostics.
 The same executable example now includes the outbound frame-header encode
 slice. Ordinary source builds record-shaped frame descriptions with `length`,
 `kind`, `flags`, and `stream_id`, invokes the generated binary schema encode

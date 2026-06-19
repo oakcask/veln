@@ -392,7 +392,8 @@ The implemented protocol-state diagnostic projection slice covers:
 
 - Protocol-state examples that cover invalid stream id domains and invalid
   frame kind for a connection or stream state, including the idle-stream rule
-  that expects HEADERS before DATA.
+  that expects HEADERS before DATA. Stream id domain projection includes a
+  bounded protocol-owned frame-header byte preview.
 - Post-GOAWAY stream-state examples that reject new peer-created streams above
   the recorded last stream id.
 - Schema and protocol diagnostics that keep the primary message focused on the

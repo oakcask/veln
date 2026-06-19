@@ -697,6 +697,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Frame kind {frame_kind} on {stream_ref} {stream_id} requires {required_domain} for {endpoint_role}."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -3314,6 +3315,10 @@ mod tests {
                 JsonValue::string("nonzero client-initiated stream id"),
             ),
             ("endpoint_role", JsonValue::string("server")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000104000000", 9, true),
+            ),
             ("active_state", JsonValue::string("stream-id-domain")),
             (
                 "rule_provenance",
@@ -3332,7 +3337,7 @@ mod tests {
 
         assert_eq!(diagnostic.id, "http2.protocol.invalid_stream_id");
         assert_eq!(diagnostic.message, "invalid stream id at byte offset 0");
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3343,9 +3348,14 @@ mod tests {
                 .to_json()
                 .contains("nonzero client-initiated stream id")
         );
-        assert!(diagnostic.related[1].to_json().contains("stream-id-domain"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 00 01 04 00 00 00")
+        );
+        assert!(diagnostic.related[2].to_json().contains("stream-id-domain"));
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("server_receives_client_initiated_streams")
         );

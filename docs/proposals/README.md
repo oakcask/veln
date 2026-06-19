@@ -143,7 +143,7 @@ compare it with `../specification/` before changing behavior.
   schema validation details, structured schema byte previews, and the HTTP/2
   client connection preface failures, frame-size, header-list-size, and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
-  failures, invalid
+  failures with protocol-owned frame-header byte previews, invalid
   connection-state and stream-state frame-kind failures with protocol-owned
   frame-header byte previews, fixed payload-length protocol projections with
   protocol-owned payload byte previews, the explicit

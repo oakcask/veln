@@ -3161,7 +3161,8 @@
         Object requiredDomain,
         Object endpointRole,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long kind = asLong(frameKind);
@@ -3179,7 +3180,8 @@
             domain,
             role,
             state,
-            provenance
+            provenance,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }
