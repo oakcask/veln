@@ -1330,26 +1330,29 @@ execution reference.
 	  `retry-after:`, `0xb5` `server:`, `0xb6` `set-cookie:`, `0xb7`
 	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
-	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
-	  fixtures whose first byte names a supported static-table header name for
-  `:authority`, `:method`, `:path`, `:scheme`, or `:status`, whose one-byte
-  value length is not Huffman-marked, whose length is within the small fixture
-  bound, and whose raw value bytes are all visible ASCII. The checked example
+	  `www-authenticate:` bytes, plus literal-without-indexing and
+	  literal-with-indexing fixtures whose first byte names a supported
+  static-table header name for `:authority`, `:method`, `:path`, `:scheme`,
+  or `:status`. Those literal fixtures share the same HPACK string literal
+  decoder: short raw values must be visible ASCII, and Huffman-marked values
+  pass through the fixture-supported HPACK static Huffman values `""`,
+  `www.example.com`, `https`, `/target`, and `PUT`. The checked example
   covers `:authority: abc.test` through completed HEADERS and final
-  CONTINUATION paths, covers a raw `:status` value through completed HEADERS,
-  and rejects both a non-visible raw value byte and a malformed raw `:status`
-  literal. Huffman-marked
-  literal-without-indexing values pass through a narrow HPACK static Huffman
-  value decoder for the fixture-supported values `""`, `www.example.com`,
-  `https`, `/target`, and `PUT`. The checked bytes include zero-length
-  `:path` as `0x04 0x80`, `:scheme: https` as
+  CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
+  `:method: PUT` through both literal-without-indexing and
+  literal-with-indexing, raw literal-with-indexing `:authority`, Huffman
+  literal-with-indexing `:scheme: https`, and raw literal-with-indexing
+  `:status`. Checked bytes also include zero-length `:path` as `0x04 0x80`,
+  `:scheme: https` as
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
-  Malformed Huffman padding remains unsupported. This is still a fixture
-  slice, not a full HPACK string implementation. It also includes the narrow
-  dynamic-table slice where `0x44 0x07 "/target"` inserts `:path: /target`
-  into the returned immutable fixture state stored on the HTTP/2 decode state
+  Malformed Huffman padding, malformed string lengths, non-visible raw bytes,
+  and a malformed raw `:status` literal remain unsupported. This is still a
+  fixture slice, not full HPACK string or compression support. It also
+  includes the narrow dynamic-table slice where `0x44 0x07 "/target"`
+  inserts `:path: /target` into the returned immutable fixture state stored on
+  the HTTP/2 decode state
   and a later `0xbe` indexed representation reads that entry, returns ordinary
   header-list data plus the next immutable fixture state. A later
   literal-with-indexing `:method: PUT` fixture becomes the newest dynamic
@@ -1374,8 +1377,8 @@ execution reference.
   fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, and Huffman symbols or padding outside the narrow
-  fixture decoder, projects through
+  literal-without-indexing, and Huffman symbols or padding outside the
+  fixture-supported string decoder, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
   module, and bounded header-block byte preview. That diagnostic path is

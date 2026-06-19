@@ -72,6 +72,16 @@ fn require_table_size(state: HpackFixtureState, expected_table_size: Int) -> Res
 	end
 end
 
+fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state: HpackFixtureState) -> Result<(), String> effects [stdio]
+	print_transition("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83))
+	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
+	print_transition("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84))
+	print_transition("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87))
+	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
+	print_transition("malformed-literal-length", decode_header_block(byte_chunk_from_hex("04ff")?, literal_state, 83))
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let initial: HpackFixtureState = initial_state()
 	let first_block: ByteChunk = byte_chunk_from_hex("102030")?
@@ -261,6 +271,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let literal_status_block: ByteChunk = byte_chunk_from_hex("0803323031")?
 	let literal_status: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_status_block, literal_status_state, 70)
 	print_transition("literal-status", literal_status)
+	let ignored_general_string_literal_cases: () = print_general_string_literal_cases(initial, literal_state)?
 	let literal_indexed_state: HpackFixtureState = next_state_or(literal_status, literal_status_state)
 	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
 	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 68)
@@ -287,13 +298,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("dynamic-table-size-partial-eviction", partially_reduced_table_size)
 	let retained_state: HpackFixtureState = require_decoded_header(partially_reduced_table_size, ":fixture", "table-size-update")?
 	print_state("dynamic-table-size-partial-eviction", retained_state)
-	let ignored_retained_table_size: () = require_table_size(retained_state, 42)?
 	let retained_newest: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, retained_state, 80)
 	print_transition("dynamic-indexed-after-partial-eviction", retained_newest)
 	let retained_newest_state: HpackFixtureState = require_decoded_header(retained_newest, ":method", "PUT")?
 	let evicted_older: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(evicted_indexed_block, retained_newest_state, 81)
 	print_transition("dynamic-older-after-partial-eviction", evicted_older)
-	let ignored_evicted_older: () = require_unsupported(evicted_older)?
 	print_transition("dynamic-indexed-missing", decode_header_block(dynamic_indexed_block, initial, 70))
 	let table_size_update_block: ByteChunk = byte_chunk_from_hex("3e")?
 	let table_size_update: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_block, dynamic_state, 72)

@@ -18,6 +18,11 @@ whose raw value bytes are all visible ASCII. The decoded header list exposes
 the selected name and raw value as ordinary header-list data, followed by the
 existing `HpackHeader(":fixture", "literal-without-indexing")` marker.
 
+The later
+[HPACK string literal fixture](http2-hpack-string-literal-fixture.md) record
+preserves the slice that shares this raw-value path with Huffman-marked
+literal values and literal-with-indexing header blocks.
+
 The transition advances the immutable `HpackFixtureState` through the same
 path as the other literal-without-indexing fixtures. Unsupported, malformed,
 or non-visible raw literal variants still project through
