@@ -1,0 +1,49 @@
+# Derived binary schema encode accepts ByteView addition lengths.
+use stdio
+
+schema PacketWire
+	format binary
+
+	header_length: UInt8
+	body_length: UInt8
+	payload: ByteView(header_length + body_length)
+end
+
+codec PacketCodec for PacketWire encode
+	derive encode
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_step(step: EncodeStep<()>) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk("byteview-add-packet", chunk, "0203aabbccddee")
+		Encoded(_) => stdio::println("unexpected chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddee")?
+	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(5)?)?
+	let encoded: EncodeStep<()> = PacketCodec({header_length: 2, body_length: 3, payload: payload})
+	emit_step(encoded)
+	Ok(())
+end

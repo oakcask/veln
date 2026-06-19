@@ -3711,12 +3711,7 @@ fn schema_length_binary_expression_operands(text: &str, op: char) -> Option<(&st
 pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr> {
     let text = ty.trim();
     let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
-    match schema_length_expression(inner)? {
-        expr @ ByteViewLengthExpr::Field(_) | expr @ ByteViewLengthExpr::Difference { .. } => {
-            Some(expr)
-        }
-        ByteViewLengthExpr::Sum { .. } => None,
-    }
+    schema_length_expression(inner)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

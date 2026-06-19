@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "byteview-add-packet"
+chunks = ["0203aabbccddee"]

@@ -1,0 +1,29 @@
+# Binary schema ByteView addition lengths decode bounded payload bytes.
+use stdio
+
+schema PacketWire
+	format binary
+
+	header_length: UInt8
+	body_length: UInt8
+	payload: ByteView(header_length + body_length)
+end
+
+fn emit_packet(packet: {header_length: Int, body_length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(int_to_string(packet.header_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.body_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(packet.payload)))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(packet.payload)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0203aabbccddee")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let packet: {header_length: Int, body_length: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	emit_packet(packet)
+	Ok(())
+end

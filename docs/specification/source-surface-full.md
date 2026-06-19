@@ -29,11 +29,11 @@ SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
-CountExpr ::= Name | Name "-" Name
+CountExpr ::= Name | Name ("-" | "+") Name
 SchemaFieldWhere ::= "where" ContractPredicate
 SchemaValidation ::= "validate" ContractPredicate NL
 SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
-SchemaMappingSelector ::= "when" Name "==" IntLiteral
+SchemaMappingSelector ::= "when" Expr
 SchemaMappingAssignment ::= Name "=" Expr NL
 CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
@@ -123,11 +123,15 @@ previously decoded visible `Int` field in the same schema, and
 visible `Int` fields in the same schema. `Payload` is one of the implemented
 byte-aligned exact-width unsigned primitives or an eligible nested binary
 schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
-both references name earlier visible `Int` fields in the same schema. A
-repeated primitive field decodes and encodes as `List<Int>`; a repeated nested
-schema field decodes and encodes as a list of the nested schema's decoded
-record shape; and a repeated `ByteView(length_field)` field decodes and
-encodes as `List<ByteView>`. Missing, forward, or non-`Int` repeat count
+both references name earlier visible `Int` fields in the same schema.
+Length-bounded `ByteView(length_field)`,
+`ByteView(left_length - right_length)`, and
+`ByteView(left_length + right_length)` payload fields are accepted when every
+length operand names an earlier visible `Int` field in the same binary schema.
+A repeated primitive field decodes and encodes as `List<Int>`; a repeated
+nested schema field decodes and encodes as a list of the nested schema's
+decoded record shape; and a repeated `ByteView(length_field)` field decodes
+and encodes as `List<ByteView>`. Missing, forward, or non-`Int` repeat count
 references report `schema.repeat_reference`; missing, forward, or non-`Int`
 byte-view length references report `schema.byte_view_reference`. Binary schema
 fields also accept the closed dispatch types
@@ -249,6 +253,8 @@ earlier visible,
 length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
+visible exact-width fields,
+`ByteView(left_length + right_length)` fields whose operands both name earlier
 visible exact-width fields, closed
 dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
