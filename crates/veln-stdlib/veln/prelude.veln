@@ -380,6 +380,10 @@ pub fn http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, strea
 	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 end
 
+pub fn http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview)
+end
+
 pub fn http2_protocol_invalid_data_padding(offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 	prelude_builtin::http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
 end

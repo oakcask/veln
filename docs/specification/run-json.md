@@ -341,8 +341,17 @@ growth, use id
 `byte_offset.value`, `observed_payload_length`, `allowed_window_credit`,
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
 `rule_provenance`; the checked HTTP/2 examples cover both stream-window and
-connection-window receive credit failures. The ordinary protocol-core example
-also covers zero `WINDOW_UPDATE` increments as peer-limit failures. Invalid
+connection-window receive credit failures.
+Zero received `WINDOW_UPDATE` increments use id
+`http2.protocol.invalid_window_update_increment` and record
+`byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
+`observed_window_increment`, `accepted_min_window_increment`,
+`accepted_max_window_increment`, `active_state`, `rule_provenance`, and a
+structured bounded `byte_preview` for the inspected four-byte increment
+payload. The preview uses the same object shape as other protocol-owned byte
+previews while byte offset, frame identity, stream identity, decoded
+increment, accepted range, active state, and rule provenance remain separate
+fields. Invalid
 PADDED DATA uses id `http2.protocol.invalid_data_padding` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `pad_length`,
 `remaining_payload_length`, `active_state`, `rule_provenance`, and a bounded

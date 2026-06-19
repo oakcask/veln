@@ -734,6 +734,35 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.invalid_window_update_increment" => {
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let observed_increment = json_number(protocol_entries, "observed_window_increment")?;
+            let accepted_min = json_number(protocol_entries, "accepted_min_window_increment")?;
+            let accepted_max = json_number(protocol_entries, "accepted_max_window_increment")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("invalid WINDOW_UPDATE increment at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared WINDOW_UPDATE increment {observed_increment}; accepted range is {accepted_min}..{accepted_max}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.protocol.invalid_data_padding" => {
             let frame_kind = json_number(protocol_entries, "frame_kind")?;
             let stream_id = json_number(protocol_entries, "stream_id")?;
@@ -3538,6 +3567,83 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_ping_payload_length")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_invalid_window_update_increment_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_window_update_increment"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(8)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("observed_window_increment", JsonValue::Number(0)),
+            ("accepted_min_window_increment", JsonValue::Number(1)),
+            (
+                "accepted_max_window_increment",
+                JsonValue::Number(2_147_483_647),
+            ),
+            ("byte_preview", byte_preview("00000000")),
+            ("active_state", JsonValue::string("connection-flow-control")),
+            (
+                "rule_provenance",
+                JsonValue::string("window_update_increment_nonzero"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.protocol.invalid_window_update_increment"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "invalid WINDOW_UPDATE increment at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("WINDOW_UPDATE increment 0")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("accepted range is 1..2147483647")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 00 00 (showing 4 of 4 byte(s), complete)")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("connection-flow-control")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("window_update_increment_nonzero")
         );
     }
 

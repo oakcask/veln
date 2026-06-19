@@ -1,0 +1,36 @@
+# HTTP/2 WINDOW_UPDATE increment failures project structured runtime details.
+
+type Http2ProtocolFailure
+	InvalidWindowUpdateIncrement(Int, Int, Int, Int, Int, ByteView)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+	match failure
+		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, preview) => http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, context_active_state(context), context_rule_provenance(context), preview)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext("connection-flow-control", "window_update_increment_nonzero")
+	let bytes: ByteChunk = byte_chunk_from_hex("00000408000000000000000000")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(13)?)?
+	let frame: {length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView} = byte_decode_http2_frame(view)?
+	let observed_increment: Int = byte_read_u31_be(frame.payload)?
+	http2_protocol_diagnostic(InvalidWindowUpdateIncrement(0, frame.stream_id, observed_increment, 1, 2147483647, frame.payload), context)
+end
