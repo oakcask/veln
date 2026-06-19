@@ -177,16 +177,17 @@ compare it with `../specification/` before changing behavior.
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
   plus the request-side and response-side header-list validation slices and
-  the outbound HPACK fixture header-list encoder slice
+  the outbound HPACK fixture header-list encoder slice, including
+  visible-ASCII Huffman-marked string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
   checked fixture-boundary entry-size calculation and table-size update slice,
-  general HPACK Huffman encoding beyond checked fixture-owned marked literal
-  values, broader dynamic-table string encoding policy, and production header
-  validation beyond the fixture request and response checks.
+  HPACK Huffman behavior beyond visible-ASCII fixture string literal
+  encoding, broader dynamic-table string encoding policy, and production
+  header validation beyond the fixture request and response checks.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

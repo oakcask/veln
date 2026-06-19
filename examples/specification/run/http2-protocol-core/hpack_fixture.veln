@@ -32,6 +32,14 @@ type HpackStringLength
 	HpackStringLength(huffman_marked: Bool, encoded_count: Int, prefix_size: Int)
 end
 
+type HpackHuffmanCode
+	HpackHuffmanCode(code: Int, length: Int)
+end
+
+type HpackHuffmanEncoding
+	HpackHuffmanEncoding(encoded: ByteChunk, current_byte: Int, current_bit_count: Int)
+end
+
 pub fn initial_state() -> HpackFixtureState
 	HpackFixtureState(4096, 0, NoDynamicEntry)
 end
@@ -222,6 +230,14 @@ end
 
 pub fn outbound_literal_path_test_huffman_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 9)
+end
+
+pub fn outbound_literal_authority_abc_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":authority", "abc.test"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 9)
+end
+
+pub fn outbound_literal_path_non_visible_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "\n"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 0)
 end
 
 pub fn outbound_literal_status_200_huffman_headers() -> HpackHeaderList
@@ -466,31 +482,215 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 end
 
 pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == ""
-		true => hpack_fixture_huffman_string_literal_hex("80", value, offset)
-		false => match value == "test"
-			true => hpack_fixture_huffman_string_literal_hex("8349509f", value, offset)
-			false => match value == "https"
-				true => hpack_fixture_huffman_string_literal_hex("849d29ad1f", value, offset)
-				false => match value == "200"
-					true => hpack_fixture_huffman_string_literal_hex("821001", value, offset)
-					false => match value == "PUT"
-						true => hpack_fixture_huffman_string_literal_hex("83d7c37f", value, offset)
-						false => match value == "www.example.com"
-							true => hpack_fixture_huffman_string_literal_hex("8cf1e3c2e5f23a6ba0ab90f4ff", value, offset)
-							false => unsupported_raw_string_encoding(value, offset)
-						end
-					end
-				end
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => match hpack_huffman_encode_visible_ascii_bytes(bytes, value, offset)
+			Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
+				Ok(prefix) => Ok(byte_append(prefix, encoded_value))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+		Err(_) => unsupported_raw_string_encoding(value, offset)
+	end
+end
+
+fn hpack_fixture_huffman_string_length_prefix(count: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match count < 127
+		true => hpack_fixture_raw_string_length_prefix_byte(128 + count, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte(255, value, offset)
+			Ok(prefix) => match hpack_fixture_raw_string_length_tail(count - 127, value, offset)
+				Ok(tail) => Ok(byte_append(prefix, tail))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn hpack_huffman_encode_visible_ascii_bytes(bytes: ByteChunk, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	hpack_huffman_encode_visible_ascii_byte(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)), HpackHuffmanEncoding(byte_chunk([]), 0, 0), value, offset)
+end
+
+fn hpack_huffman_encode_visible_ascii_byte(bytes: ByteChunk, index: Int, byte_count_value: Int, encoding: HpackHuffmanEncoding, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match index == byte_count_value
+		true => hpack_huffman_finish_encoding(encoding, value, offset)
+		false => match hpack_static_huffman_code_for_visible_ascii(byte_at_or_missing(bytes, index))
+			Some(code) => match hpack_huffman_encode_code_bits(code, 0, encoding, value, offset)
+				Ok(next_encoding) => hpack_huffman_encode_visible_ascii_byte(bytes, index + 1, byte_count_value, next_encoding, value, offset)
+				Err(failure) => Err(failure)
+			end
+			None => unsupported_raw_string_encoding(value, offset)
+		end
+	end
+end
+
+fn hpack_huffman_finish_encoding(encoding: HpackHuffmanEncoding, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encoding
+		HpackHuffmanEncoding(encoded, current_byte, current_bit_count) => match current_bit_count == 0
+			true => Ok(encoded)
+			false => match byte_write_u8_be(current_byte * hpack_pow2(8 - current_bit_count) + hpack_pow2(8 - current_bit_count) - 1)
+				Ok(final_byte) => Ok(byte_append(encoded, final_byte))
+				Err(_) => unsupported_raw_string_encoding(value, offset)
 			end
 		end
 	end
 end
 
-fn hpack_fixture_huffman_string_literal_hex(hex: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match byte_chunk_from_hex(hex)
-		Ok(chunk) => Ok(chunk)
-		Err(_) => unsupported_raw_string_encoding(value, offset)
+fn hpack_huffman_encode_code_bits(code: HpackHuffmanCode, bit_index: Int, encoding: HpackHuffmanEncoding, value: String, offset: Int) -> Result<HpackHuffmanEncoding, HpackFixtureFailure>
+	match bit_index == hpack_huffman_code_length(code)
+		true => Ok(encoding)
+		false => match hpack_huffman_append_bit(encoding, hpack_huffman_code_bit(code, bit_index), value, offset)
+			Ok(next_encoding) => hpack_huffman_encode_code_bits(code, bit_index + 1, next_encoding, value, offset)
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn hpack_huffman_append_bit(encoding: HpackHuffmanEncoding, bit: Int, value: String, offset: Int) -> Result<HpackHuffmanEncoding, HpackFixtureFailure>
+	match encoding
+		HpackHuffmanEncoding(encoded, current_byte, current_bit_count) => hpack_huffman_append_bit_fields(encoded, current_byte * 2 + bit, current_bit_count + 1, value, offset)
+	end
+end
+
+fn hpack_huffman_append_bit_fields(encoded: ByteChunk, next_byte: Int, next_bit_count: Int, value: String, offset: Int) -> Result<HpackHuffmanEncoding, HpackFixtureFailure>
+	match next_bit_count == 8
+		true => match byte_write_u8_be(next_byte)
+			Ok(completed_byte) => Ok(HpackHuffmanEncoding(byte_append(encoded, completed_byte), 0, 0))
+			Err(_) => unsupported_huffman_encoding(value, offset)
+		end
+		false => Ok(HpackHuffmanEncoding(encoded, next_byte, next_bit_count))
+	end
+end
+
+fn unsupported_huffman_encoding(value: String, offset: Int) -> Result<HpackHuffmanEncoding, HpackFixtureFailure>
+	match unsupported_raw_string_encoding(value, offset)
+		Ok(_) => Ok(HpackHuffmanEncoding(byte_chunk([]), 0, 0))
+		Err(failure) => Err(failure)
+	end
+end
+
+fn hpack_huffman_code_value(code: HpackHuffmanCode) -> Int
+	match code
+		HpackHuffmanCode(value, _) => value
+	end
+end
+
+fn hpack_huffman_code_length(code: HpackHuffmanCode) -> Int
+	match code
+		HpackHuffmanCode(_, length) => length
+	end
+end
+
+fn hpack_huffman_code_bit(code: HpackHuffmanCode, bit_index: Int) -> Int
+	let divisor: Int = hpack_pow2(hpack_huffman_code_length(code) - bit_index - 1)
+	hpack_huffman_code_value(code) / divisor - (hpack_huffman_code_value(code) / (divisor * 2)) * 2
+end
+
+fn hpack_pow2(value: Int) -> Int
+	match value == 0
+		true => 1
+		false => 2 * hpack_pow2(value - 1)
+	end
+end
+
+fn hpack_static_huffman_code_for_visible_ascii(symbol: Int) -> Option<HpackHuffmanCode>
+	match symbol
+		32 => Some(HpackHuffmanCode(20, 6))
+		33 => Some(HpackHuffmanCode(1016, 10))
+		34 => Some(HpackHuffmanCode(1017, 10))
+		35 => Some(HpackHuffmanCode(4090, 12))
+		36 => Some(HpackHuffmanCode(8185, 13))
+		37 => Some(HpackHuffmanCode(21, 6))
+		38 => Some(HpackHuffmanCode(248, 8))
+		39 => Some(HpackHuffmanCode(2042, 11))
+		40 => Some(HpackHuffmanCode(1018, 10))
+		41 => Some(HpackHuffmanCode(1019, 10))
+		42 => Some(HpackHuffmanCode(249, 8))
+		43 => Some(HpackHuffmanCode(2043, 11))
+		44 => Some(HpackHuffmanCode(250, 8))
+		45 => Some(HpackHuffmanCode(22, 6))
+		46 => Some(HpackHuffmanCode(23, 6))
+		47 => Some(HpackHuffmanCode(24, 6))
+		48 => Some(HpackHuffmanCode(0, 5))
+		49 => Some(HpackHuffmanCode(1, 5))
+		50 => Some(HpackHuffmanCode(2, 5))
+		51 => Some(HpackHuffmanCode(25, 6))
+		52 => Some(HpackHuffmanCode(26, 6))
+		53 => Some(HpackHuffmanCode(27, 6))
+		54 => Some(HpackHuffmanCode(28, 6))
+		55 => Some(HpackHuffmanCode(29, 6))
+		56 => Some(HpackHuffmanCode(30, 6))
+		57 => Some(HpackHuffmanCode(31, 6))
+		58 => Some(HpackHuffmanCode(92, 7))
+		59 => Some(HpackHuffmanCode(251, 8))
+		60 => Some(HpackHuffmanCode(32764, 15))
+		61 => Some(HpackHuffmanCode(32, 6))
+		62 => Some(HpackHuffmanCode(4091, 12))
+		63 => Some(HpackHuffmanCode(1020, 10))
+		64 => Some(HpackHuffmanCode(8186, 13))
+		65 => Some(HpackHuffmanCode(33, 6))
+		66 => Some(HpackHuffmanCode(93, 7))
+		67 => Some(HpackHuffmanCode(94, 7))
+		68 => Some(HpackHuffmanCode(95, 7))
+		69 => Some(HpackHuffmanCode(96, 7))
+		70 => Some(HpackHuffmanCode(97, 7))
+		71 => Some(HpackHuffmanCode(98, 7))
+		72 => Some(HpackHuffmanCode(99, 7))
+		73 => Some(HpackHuffmanCode(100, 7))
+		74 => Some(HpackHuffmanCode(101, 7))
+		75 => Some(HpackHuffmanCode(102, 7))
+		76 => Some(HpackHuffmanCode(103, 7))
+		77 => Some(HpackHuffmanCode(104, 7))
+		78 => Some(HpackHuffmanCode(105, 7))
+		79 => Some(HpackHuffmanCode(106, 7))
+		80 => Some(HpackHuffmanCode(107, 7))
+		81 => Some(HpackHuffmanCode(108, 7))
+		82 => Some(HpackHuffmanCode(109, 7))
+		83 => Some(HpackHuffmanCode(110, 7))
+		84 => Some(HpackHuffmanCode(111, 7))
+		85 => Some(HpackHuffmanCode(112, 7))
+		86 => Some(HpackHuffmanCode(113, 7))
+		87 => Some(HpackHuffmanCode(114, 7))
+		88 => Some(HpackHuffmanCode(252, 8))
+		89 => Some(HpackHuffmanCode(115, 7))
+		90 => Some(HpackHuffmanCode(253, 8))
+		91 => Some(HpackHuffmanCode(8187, 13))
+		92 => Some(HpackHuffmanCode(524272, 19))
+		93 => Some(HpackHuffmanCode(8188, 13))
+		94 => Some(HpackHuffmanCode(16380, 14))
+		95 => Some(HpackHuffmanCode(34, 6))
+		96 => Some(HpackHuffmanCode(32765, 15))
+		97 => Some(HpackHuffmanCode(3, 5))
+		98 => Some(HpackHuffmanCode(35, 6))
+		99 => Some(HpackHuffmanCode(4, 5))
+		100 => Some(HpackHuffmanCode(36, 6))
+		101 => Some(HpackHuffmanCode(5, 5))
+		102 => Some(HpackHuffmanCode(37, 6))
+		103 => Some(HpackHuffmanCode(38, 6))
+		104 => Some(HpackHuffmanCode(39, 6))
+		105 => Some(HpackHuffmanCode(6, 5))
+		106 => Some(HpackHuffmanCode(116, 7))
+		107 => Some(HpackHuffmanCode(117, 7))
+		108 => Some(HpackHuffmanCode(40, 6))
+		109 => Some(HpackHuffmanCode(41, 6))
+		110 => Some(HpackHuffmanCode(42, 6))
+		111 => Some(HpackHuffmanCode(7, 5))
+		112 => Some(HpackHuffmanCode(43, 6))
+		113 => Some(HpackHuffmanCode(118, 7))
+		114 => Some(HpackHuffmanCode(44, 6))
+		115 => Some(HpackHuffmanCode(8, 5))
+		116 => Some(HpackHuffmanCode(9, 5))
+		117 => Some(HpackHuffmanCode(45, 6))
+		118 => Some(HpackHuffmanCode(119, 7))
+		119 => Some(HpackHuffmanCode(120, 7))
+		120 => Some(HpackHuffmanCode(121, 7))
+		121 => Some(HpackHuffmanCode(122, 7))
+		122 => Some(HpackHuffmanCode(123, 7))
+		123 => Some(HpackHuffmanCode(32766, 15))
+		124 => Some(HpackHuffmanCode(2044, 11))
+		125 => Some(HpackHuffmanCode(16381, 14))
+		126 => Some(HpackHuffmanCode(8189, 13))
+		_ => None
 	end
 end
 

@@ -1767,7 +1767,12 @@ fixtures share the HPACK string literal decoder for short visible-ASCII raw
 values and Huffman-marked values decoded by the HPACK static Huffman table
 rather than a fixed decoded-value allowlist. The same decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
-through both literal forms. The boundary example also checks
+through both literal forms. The HTTP/2 protocol-core example uses the same
+static Huffman table to encode visible-ASCII Huffman-marked outbound fixture
+string literals, including a non-allowlist `:authority: abc.test` value whose
+checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, and keeps a
+Huffman-marked non-visible value on the raw string encoding failure path. The
+boundary example also checks
 `encode_hpack_raw_string_literal` for a short raw `PUT` literal that keeps its
 existing bytes, a visible ASCII `bad` literal that was not part of the former
 fixture allowlist, a long raw `a` literal that uses the same
@@ -1899,8 +1904,9 @@ only on the final frame, and optional `END_STREAM` stays on the first HEADERS
 frame. Accepted `END_STREAM` records local closed-stream state. The checked
 case pins one-continuation, multiple-continuation, and `END_STREAM`-plus-final
 `END_HEADERS` split outputs as complete lowercase hex. The same checked case
-pins a fixture-encoded Huffman-marked `:path: test` header block inside an
-outbound HEADERS frame. It rejects stream id `0`, missing streams, closed
+pins fixture-encoded Huffman-marked `:path: test` and
+`:authority: abc.test` header blocks inside outbound HEADERS frames. It
+rejects stream id `0`, missing streams, closed
 streams, already reset streams, mismatched open streams, and generated
 frame-header representation failures before accepted bytes are produced.
 After receiving GOAWAY, the same slice accepts outbound HEADERS at the

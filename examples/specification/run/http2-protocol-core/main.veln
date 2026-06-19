@@ -6175,6 +6175,12 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_huffman_print: () = print_outbound_headers_from_list("outbound-headers-hpack-literal-huffman", outbound_headers_hpack_huffman)?
 	let outbound_headers_hpack_huffman_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_huffman)?
 	let ignored_headers_hpack_huffman_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-literal-huffman", outbound_headers_hpack_huffman_decision, "000005010400000001048349509f")?
+	let outbound_headers_hpack_general_huffman: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_authority_abc_huffman_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_general_huffman_print: () = print_outbound_headers_from_list("outbound-headers-hpack-general-huffman", outbound_headers_hpack_general_huffman)?
+	let outbound_headers_hpack_general_huffman_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_general_huffman)?
+	let ignored_headers_hpack_general_huffman_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-general-huffman", outbound_headers_hpack_general_huffman_decision, "00000801040000000101861c645d25427f")?
+	let outbound_headers_hpack_huffman_non_visible: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_non_visible_huffman_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_huffman_non_visible_print: () = print_outbound_headers_from_list("outbound-headers-hpack-huffman-non-visible", outbound_headers_hpack_huffman_non_visible)?
 	let outbound_headers_hpack_unsupported: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_unsupported_static_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_unsupported_print: () = print_outbound_headers_from_list("outbound-headers-hpack-unsupported", outbound_headers_hpack_unsupported)?
 	let outbound_headers_end_stream: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("87")?, true, empty_peer_settings(), outbound_receive_credit)?

@@ -1417,18 +1417,22 @@ execution reference.
   `fixture raw string encoding`.
   The same fixture module exposes a narrow source-visible header-list encoder
   for outbound fixture use. It accepts the supported static-indexed header
-  lists, raw and selected Huffman-marked literal-without-indexing and
+  lists, raw and visible-ASCII Huffman-marked literal-without-indexing and
   literal-with-indexing lists for supported static-table names, and the
   checked request and response pseudo-header fixture lists needed by the
   outbound HTTP/2 examples. Static indexed `:method: GET` encodes to `0x82`,
   raw literal `:path: /target` encodes to `0x04 0x07 "/target"`,
   Huffman-marked literal `:path: test` encodes to
   `0x04 0x83 0x49 0x50 0x9f`, and Huffman-marked literal `:status: 200`
-  encodes to `0x08 0x82 0x10 0x01`. Unsupported header names return a typed
-  HPACK fixture failure with expected fixture
-  `fixture header list encoding`. These encode failures are fixture codec
-  results and are not projected as HTTP/2 protocol diagnostics by the
-  outbound send-intent helpers.
+  encodes to `0x08 0x82 0x10 0x01`. The same encoder is table-driven for
+  visible ASCII values; the checked non-allowlist `:authority: abc.test`
+  literal encodes to `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f` with the HPACK
+  Huffman flag set and EOS-prefix padding in the final byte. The checked
+  failure path keeps a Huffman-marked non-visible value on the fixture-owned
+  raw string encoding failure, while unsupported header names return a typed
+  HPACK fixture failure with expected fixture `fixture header list encoding`.
+  These encode failures are fixture codec results and are not projected as
+  HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
@@ -1588,7 +1592,8 @@ execution reference.
   header-block chunk for a nonzero currently open stream. It can also build
   that opaque header-block chunk from fixture-owned ordinary header-list
   values through the HPACK fixture encoder before entering the same send-intent
-  path, including the checked Huffman-marked `:path: test` fixture literal.
+  path, including checked Huffman-marked `:path: test` and
+  `:authority: abc.test` fixture literals.
   When the header-block fits within the peer-advertised maximum frame
   size, the intent emits one immutable output chunk with a HEADERS frame header
   kind `1`,
