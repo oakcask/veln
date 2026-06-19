@@ -1239,9 +1239,12 @@ execution reference.
   ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority
-  facts by a later accepted PRIORITY frame for the same stream, PRIORITY
-  stream-state failures for idle, closed-by-peer, reset, and mismatched
-  streams, PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE`
+  facts by a later accepted PRIORITY frame for the same stream, accepted
+  PRIORITY dependency stream id, exclusive flag, and weight facts on an idle
+  client-initiated stream without opening a peer-created stream or changing
+  the concurrent-stream receive count, PRIORITY stream-state failures for
+  closed-by-peer, reset, and mismatched streams, PRIORITY self-dependency
+  failures including the idle-stream case, peer-sent `PUSH_PROMISE`
   rejection,
   server-side outbound `PUSH_PROMISE` send-intents for open
   client-created streams,

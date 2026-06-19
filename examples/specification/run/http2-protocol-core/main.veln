@@ -2141,7 +2141,7 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 				false => match kind == 8
 					true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 					false => match kind == 2
-						true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
+						true => validate_priority_stream_state(offset, kind, stream_id, receive_flow_control)
 						false => match kind == 5
 							true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "server-receive", "server_receives_no_push_promise"))
 							false => match is_unknown_frame_kind(kind)
@@ -2152,6 +2152,28 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 					end
 				end
 			end
+		end
+	end
+end
+
+fn validate_priority_stream_state(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+	match receive_flow_control
+		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => Ok(Decision(NoContinuation, empty_header_block(), false))
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
+			true => Ok(Decision(NoContinuation, empty_header_block(), false))
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		end
+		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
+			true => Ok(Decision(NoContinuation, empty_header_block(), false))
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		end
+		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => match stream_id == closed_stream_id
+			true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames"))
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		end
+		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => match stream_id == reset_stream_id
+			true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames"))
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		end
 	end
 end
@@ -2453,7 +2475,7 @@ fn update_priority_receive_state(pending: ByteChunk, offset: Int, length: Int, s
 	let payload: ByteChunk = frame_payload_chunk(pending, length)?
 	let payload_view: ByteView = byte_view(payload, byte_offset(0)?, byte_count(5)?)?
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, _)) => match stream_id == open_stream_id
 			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)))))
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
@@ -5948,7 +5970,8 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let ignored_priority_replace: () = print_priority_frame("priority-replace", priority_replace)?
 	print_priority_state("priority-replace", step_state(priority_replace))
 	let priority_idle: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
-	print_failure("priority-idle", priority_idle)
+	let ignored_priority_idle: () = print_priority_frame("priority-idle", priority_idle)?
+	print_peer_streams("priority-idle", step_state(priority_idle))
 	let priority_closed_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
 	let priority_closed_state: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(priority_closed_open))?
 	let priority_closed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), step_state(priority_closed_state))?
@@ -5965,6 +5988,8 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	print_failure("priority-length", priority_bad_length)
 	let priority_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001000000010f")?), frame_state())?
 	print_failure("priority-self-dependency", priority_self_dependency)
+	let priority_idle_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000003000000030f")?), frame_state())?
+	print_failure("priority-idle-self-dependency", priority_idle_self_dependency)
 	let ignored_push_promise_cases: () = print_push_promise_cases()?
 	Ok(())
 end
