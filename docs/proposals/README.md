@@ -169,7 +169,7 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
   HPACK behavior beyond the checked fixture string-literal decoder boundary,
-  unknown extension-frame, flow-control, send-intent,
+  unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
   plus the request-side and response-side header-list validation slices

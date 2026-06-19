@@ -1282,12 +1282,15 @@ execution reference.
   fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA, PRIORITY, `RST_STREAM`,
   `PUSH_PROMISE`, CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
-  client-initiated stream id. The receive flow-control state opens an idle
-  peer-created stream on an admitted HEADERS frame, counts the tracked open
-  peer-created stream for the active concurrent-stream receive limit, consumes
-  DATA payload length from connection and stream windows, accepts PADDED DATA
-  by consuming the pad-length byte and padding as receive-window credit while
-  exposing only application data bytes as DATA content, moves the stream to
+  client-initiated stream id. The receive flow-control state opens admitted
+  idle peer-created HEADERS streams and, in the checked fixture boundary,
+  tracks two open client streams with independent receive-window credit for
+  stream `1` and stream `3`. It counts those open peer-created streams for
+  the active concurrent-stream receive limit, consumes DATA payload length
+  from the shared connection window and the targeted stream window, accepts
+  PADDED DATA by consuming the pad-length byte and padding as receive-window
+  credit while exposing only application data bytes as DATA content, moves
+  the stream to
   a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, moves
   completed inbound HEADERS or CONTINUATION header blocks to the same
   closed-by-peer state when the accepted HEADERS sequence carries
@@ -1297,7 +1300,7 @@ execution reference.
   that stream to closed-by-peer when the accepted inbound DATA carries peer
   `END_STREAM`, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, applies
-  received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
+  received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to each tracked open stream's
   receive-window credit, and keeps wrong-length, idle-stream, zero,
   half-closed-local stream, closed-by-peer stream, reset-stream,
   concurrent-stream-limit,
