@@ -160,8 +160,8 @@ compiler-known calls.
   helper, or whose single payload is a record expression over those fields.
   Generated encode helpers return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`,
-  and `UInt64le` fields use little-endian byte order in generated decode and
-  encode helpers.
+  `UInt56le`, and `UInt64le` fields use little-endian byte order in generated
+  decode and encode helpers.
   Source-visible byte helpers also expose checked `u40`, `u48`, and `u64`
   big-endian and little-endian reads and writes through ordinary `Int` values;
   eight-byte values above the source-visible `Int` maximum fail instead of

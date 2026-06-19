@@ -59,10 +59,10 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` declarations, generated `Http2FrameHeaderWire`
   helper decode used by the HTTP/2 protocol-core frame-header path,
   width-sample primitive decode, `UInt16le`, `UInt24le`,
-  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le`
+  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
   little-endian primitive decode and encode, `UInt40be` five-byte,
-  `UInt48be` six-byte, and `UInt64be` eight-byte big-endian primitive decode
-  and encode,
+  `UInt48be` six-byte, `UInt56be` seven-byte, and `UInt64be` eight-byte
+  big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
@@ -115,7 +115,9 @@ compare it with `../specification/` before changing behavior.
   public imported recursive closed-dispatch and extension-dispatch payload
   decode and encode support is implemented for the length-bounded forms when
   selected mappings cover every known case, resolve to one target record
-  shape, and include a non-recursive base case.
+  shape, and include a non-recursive base case. The completed `UInt56be` and
+  `UInt56le` exact-width primitive slice is archived under
+  [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

@@ -11,7 +11,7 @@ implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt1` through `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`,
 `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`,
-`UInt64be`, and `UInt64le`
+`UInt56be`, `UInt56le`, `UInt64be`, and `UInt64le`
 are also implemented there for `format binary` schema field type positions
 only. The generated
 `Http2FrameHeaderWire` helper slice is implemented under
@@ -101,14 +101,15 @@ same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
 `schema.length_out_of_bounds` when closed input cannot provide that payload
 range. The generated helper slice also implements `UInt16le`, `UInt24le`,
-`UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, and `UInt64le` as
-little-endian unsigned primitives for schema decode and encode helpers,
+`UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
+as little-endian unsigned primitives for schema decode and encode helpers,
 implements `UInt40be` as the matching big-endian five-byte primitive,
-`UInt48be` as the matching big-endian six-byte primitive, and `UInt64be` as
-the matching big-endian eight-byte primitive, returns ordinary `Int` values
-when the decoded value is representable as source-visible `Int`, preserves structural
-decode mappings, and reports width-specific encode range failures. The narrow closed
-dispatch slice implements
+`UInt48be` as the matching big-endian six-byte primitive, `UInt56be` as the
+matching big-endian seven-byte primitive, and `UInt64be` as the matching
+big-endian eight-byte primitive, returns ordinary `Int` values when the
+decoded value is representable as source-visible `Int`, preserves structural
+decode mappings, and reports width-specific encode range failures. The narrow
+closed dispatch slice implements
 `Dispatch(tag_field, tag => Primitive, ...)` for generated binary schema
 decode helpers, decodes known case payloads as `Int`, and reports
 `schema.dispatch_unknown_tag` with structured tag and byte context for unknown
@@ -320,8 +321,8 @@ external representation facts, not internal Veln type declarations.
 
 Define remaining binary schema support beyond the implemented
 `Http2FrameHeaderWire` generated helper, little-endian primitive widths
-through `UInt64le`, the `UInt48be` and `UInt64be` big-endian primitives,
-payload-boundary,
+through `UInt64le`, the `UInt48be`, `UInt56be`, and `UInt64be` big-endian
+primitives, payload-boundary,
 closed-dispatch, extension-dispatch, same-module nested dispatch payload,
 imported nested dispatch payload decode, mixed closed dispatch selected
 mapping decode and encode, and imported nested dispatch payload encode slices
@@ -390,6 +391,10 @@ The declaration-time source-surface slice for exact-width unsigned names now
 lives under `../specification/source-surface.md`. Those names belong to the
 binary schema primitive vocabulary as field representation names, not ordinary
 source-visible numeric types.
+The completed `UInt56be` and `UInt56le` generated-helper slice is recorded in
+[Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md);
+current behavior is specified by `../specification/source-surface.md`,
+`../specification/execution.md`, and checked executable examples.
 
 Remaining primitive work is for widths and forms outside the implemented
 exact-width vocabulary. A decoded field should map to `Int` by default, or to
@@ -399,9 +404,10 @@ keeping ordinary Veln values responsible for protocol meaning.
 
 The implemented narrow executable slices already make `UInt1` through
 `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, `UInt40be`,
-`UInt48be`, and `UInt64be` consume fixed-width unsigned big-endian fields,
-and `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`,
-and `UInt64le` consume fixed-width unsigned little-endian fields,
+`UInt48be`, `UInt56be`, and `UInt64be` consume fixed-width unsigned
+big-endian fields, and `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`,
+`UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le` consume fixed-width
+unsigned little-endian fields,
 then return ordinary `Int` values for representable visible fields.
 The implemented exact-width primitive encode helper slice emits those visible
 ordinary `Int` fields in their declared byte order as `ByteChunk` output and
@@ -497,9 +503,9 @@ both operands name earlier visible `Int` fields in the same schema, and
 earlier visible `Int` fields in the same schema.
 `Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,
-`UInt48be`, `UInt48le`, `UInt64be`, `UInt64le`, or an eligible nested binary
-schema payload, plus `ByteView(length_field)` when the length field is an
-earlier visible `Int` field.
+`UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`, `UInt64le`, or an
+eligible nested binary schema payload, plus `ByteView(length_field)` when the
+length field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module or public
 imported length-bounded dispatch decode-and-encode slice, dispatch payload
