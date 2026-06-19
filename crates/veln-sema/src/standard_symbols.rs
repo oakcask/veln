@@ -298,6 +298,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         CONCURRENCY_EFFECTS,
         "runtime.task.spawn_with24",
     ),
+    runtime_symbol(
+        "task",
+        "spawn_with25",
+        CONCURRENCY_EFFECTS,
+        "runtime.task.spawn_with25",
+    ),
     runtime_symbol("task", "join", CONCURRENCY_EFFECTS, "runtime.task.join"),
     runtime_symbol("task", "cancel", CONCURRENCY_EFFECTS, "runtime.task.cancel"),
     runtime_symbol(
