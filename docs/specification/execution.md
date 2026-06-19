@@ -884,6 +884,16 @@ execution reference.
   source-field assignments. The helper selects the mapping whose projected
   selector value satisfies the clause, then uses the same generated encode
   diagnostic shape for selector and projected-field representation failures.
+  Closed dispatch fields whose cases mix primitive and nested schema payload
+  decoded shapes are eligible at the same selected mapping boundary when all
+  selectors use the dispatch tag field, cover each closed case exactly once,
+  and resolve to one target record shape. The generated encode helper
+  projects the selected target value back to the schema-local tag and payload
+  fields for that case, then writes primitive payloads through the selected
+  primitive encode path and nested payloads through the nested schema helper
+  path. Unknown tag values report `codec.dispatch_unknown_tag`; known tags
+  paired with the wrong selected payload mapping report
+  `codec.dispatch_mismatch`.
   Same-module recursive
   closed-dispatch and extension-dispatch payload cases and public imported
   recursive payload schemas named through a written `use` path are also
@@ -1001,6 +1011,7 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-imported-recursive-dispatch-encode/`,
+  `examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode/`,
@@ -1050,6 +1061,7 @@ execution reference.
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-converter-encode-boundary/`,
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
+  `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,

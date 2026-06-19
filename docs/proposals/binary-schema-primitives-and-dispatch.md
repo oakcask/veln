@@ -324,7 +324,7 @@ through `UInt64le`, the `UInt48be` and `UInt64be` big-endian primitives,
 payload-boundary,
 closed-dispatch, extension-dispatch, same-module nested dispatch payload,
 imported nested dispatch payload decode, mixed closed dispatch selected
-mapping decode, and imported nested dispatch payload encode slices
+mapping decode and encode, and imported nested dispatch payload encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the
@@ -486,8 +486,9 @@ record payload whose fields are direct schema-local visible field references
 supported by the generated encode helper. Constructor payload arguments can
 also be nested ADT constructor calls when their leaves stay within those
 projectable forms. General inverse mapping for imported converter calls
-without explicit written import paths, selected mappings, and other
-non-direct expressions remains outside the implemented encode slice.
+without explicit written import paths, selected mappings outside the
+implemented direct-field selected mapping slices, and other non-direct
+expressions remains outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, `Repeat(left_count - right_count, Payload)` fields when

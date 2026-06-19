@@ -296,6 +296,11 @@ projectable schema-local field reference. Multiple selected
 same target record shape when all selected mappings resolve to it and every
 schema-local encode field, including the selector field, projects back from
 the selected target record through direct source-field assignments.
+For closed dispatch fields whose cases mix primitive and nested schema payload
+decoded shapes, selected equality mappings on the dispatch tag field can make
+the helper accept the shared target record when the mappings cover every case
+exactly once and each branch projects the case-local payload shape back to the
+dispatch payload field.
 Projectable expressions for the one-clause form are direct schema-local field
 references, record expressions whose fields are direct schema-local visible
 field references, field selection from such a record expression when the

@@ -996,6 +996,11 @@ schema helper path, including byte-aligned reserved fields and little-endian
 primitive output.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
+`../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-encode/`
+pins direct generated encode over selected mappings that project one target
+record shape back to mixed primitive and nested closed dispatch payload cases,
+including primitive and nested helper range failures, unknown tags, and
+tag/payload mismatches.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
 asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
@@ -1052,6 +1057,10 @@ schema.
 `../../examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`
 pins the same public imported nested payload helper eligibility when reached
 through a `derive encode` codec boundary, including helper error projection to
+`EncodeStep::Invalid`.
+`../../examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`
+pins the same mixed dispatch selected mapping encode boundary through
+`derive encode`, including nested helper and dispatch error projection to
 `EncodeStep::Invalid`.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
