@@ -874,6 +874,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-constructor-expression-decode/`: a generated
   binary schema decode helper constructs an ADT target field from
   schema-local fields before returning the decoded value.
+- `run/binary-schema-nested-mapped-constructor-decode/`: a generated binary
+  schema decode helper constructs an outer ADT constructor whose payload is
+  another supported ADT constructor expression over schema-local fields.
 - `run/binary-schema-mapped-converter-decode/`: a generated binary schema
   decode helper calls a pure same-module converter on a schema-local field
   before returning the decoded value.

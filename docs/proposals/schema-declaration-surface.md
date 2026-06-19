@@ -107,9 +107,9 @@ This proposal remains open for:
   implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
-  construction, ADT constructor construction, pure same-module or imported
-  public representation conversion hooks that take one, two, or three
-  arguments, field
+  construction, ADT constructor construction including nested constructor
+  payload expressions, pure same-module or imported public representation
+  conversion hooks that take one, two, or three arguments, field
   selection from record-shaped structural mapping expressions, decoded-field
   integer mapping arithmetic, and narrow decoded-field integer boolean mapping
   selection
@@ -152,10 +152,11 @@ checks against the target field. Selected mappings must use non-overlapping
 selector clauses and one decoded record shape. The
 implemented expression slice supports schema-local field references, record
 construction, ADT constructor construction resolved through ordinary source
-module rules, one pure same-module converter function call, and one imported
-public pure converter function call through a written `use` path or alias with
-one, two, or three schema-local field or structural mapping expression
-arguments, and
+module rules, including nested constructor payload expressions whose leaves
+stay inside the implemented schema-local expression vocabulary, one pure
+same-module converter function call, and one imported public pure converter
+function call through a written `use` path or alias with one, two, or three
+schema-local field or structural mapping expression arguments, and
 field selection from record-shaped structural mapping expressions. An `Int`
 target field may also use `+`, `-`, `*`, and `/` over decoded schema-local
 `Int` fields, integer literals, and nested supported mapping arithmetic
@@ -163,9 +164,10 @@ expressions.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
-construction, a single same-module pure converter call, and a single imported
-public pure converter call through a written `use` path or alias, and field
-selection from record-shaped structural mapping expressions, plus
+construction including nested constructor payload expressions, a single
+same-module pure converter call, and a single imported public pure converter
+call through a written `use` path or alias, and field selection from
+record-shaped structural mapping expressions, plus
 decoded-field and integer-literal mapping arithmetic for `Int` target fields. Converter
 calls may take one, two, or three arguments. Arguments may be schema-local field
 references or structural mapping expressions made from schema-local fields,
