@@ -108,7 +108,8 @@ execution reference.
   through `task::spawn_with20`, and then to twenty-one ordinary source values
   through `task::spawn_with21`, and then to twenty-two ordinary source values
   through `task::spawn_with22`, and then to twenty-three ordinary source
-  values through `task::spawn_with23`,
+  values through `task::spawn_with23`, and then to twenty-four ordinary
+  source values through `task::spawn_with24`,
   and translates ordered
   `SendBytes` actions into `net::write_chunk` calls. A cancellable lifecycle
   case reads from an accepted stream with `net::read_chunk`, routes the
@@ -154,6 +155,8 @@ execution reference.
   `examples/specification/check/socket-stream-adapter-routing-spawn22-effects/`,
   `examples/specification/run/socket-stream-adapter-routing-spawn23/`,
   `examples/specification/check/socket-stream-adapter-routing-spawn23-effects/`,
+  `examples/specification/run/socket-stream-adapter-routing-spawn24/`,
+  `examples/specification/check/socket-stream-adapter-routing-spawn24-effects/`,
   `examples/specification/run/socket-stream-adapter-clean-end/`,
   `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
   `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
