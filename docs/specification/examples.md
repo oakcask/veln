@@ -1381,6 +1381,12 @@ The
 cases extend that task boundary to twenty-four ordinary source values with
 `task::spawn_with24` while preserving the same socket ownership and effect
 boundary.
+The
+`../../examples/specification/run/socket-stream-adapter-routing-spawn25/` and
+`../../examples/specification/check/socket-stream-adapter-routing-spawn25-effects/`
+cases extend that task boundary to twenty-five ordinary source values with
+`task::spawn_with25` while preserving the same socket ownership and effect
+boundary.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-clean-end/` covers the

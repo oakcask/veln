@@ -19,7 +19,7 @@ smallest section to read before opening the full grammar notes.
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
   pipelines, ordinary and variadic calls, standard channel and task calls
-  including `task::spawn_with24`, and method-call diagnostics:
+  including `task::spawn_with25`, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
 - Function declaration parameters may use the final-only variadic spelling
   `name: ...T`; ordinary type positions reject `...T`:
