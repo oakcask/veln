@@ -94,8 +94,11 @@ compiler-known calls.
   timeout, before invoking a plain handler. Cancellable receiver-list timeout
   selection uses `channel::select_many_timeout_cancellable` with the same
   selected value shape and returns `Err(SelectError)` when its
-  source-visible `CancelToken` wins before a ready receiver. A cancellable
-  channel-first adapter composes receiver-list routes with
+  source-visible `CancelToken` wins before a ready receiver. The two-receiver
+  cancellable timeout helper `channel::select_timeout_cancellable` uses the
+  same selected value shape, left/right indexes, timeout behavior, and token
+  cancellation boundary. A cancellable channel-first adapter composes
+  receiver-list routes with
   `time::wait_until_cancellable_outcome`; these cancellable adapter paths
   declare `time` and `concurrency` while the handler boundary remains free of
   transport effects. Other routing adapters require `concurrency`, and socket

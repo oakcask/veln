@@ -1975,6 +1975,10 @@ against the built `veln` binary.
   timeout selection preserves list priority for ready receivers, returns
   `Ok(None)` for timeout, and returns `Err(SelectError)` for an already
   cancelled token.
+- `run/channel-select-timeout-cancellable/`: two-receiver cancellable timeout
+  selection preserves left/right indexes for ready receivers, returns
+  `Ok(None)` for timeout, and returns `Err(SelectError)` for an already
+  cancelled token.
 - `run/channel-select-many-timeout-cancellable-forced-cancel/`: receiver-list
   cancellable timeout selection returns `Err(SelectError)` when host-forced
   wait cancellation wins before any receiver is ready.
@@ -1989,6 +1993,8 @@ against the built `veln` binary.
 - `check/channel-select-many-timeout-cancellable-effects/`: direct
   cancellable receiver-list timeout selection must declare both `time` and
   `concurrency`.
+- `check/channel-select-timeout-cancellable-effects/`: direct cancellable
+  two-receiver timeout selection must declare both `time` and `concurrency`.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event

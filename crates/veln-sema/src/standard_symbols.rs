@@ -125,6 +125,12 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol(
         "channel",
+        "select_timeout_cancellable",
+        TIME_CONCURRENCY_EFFECTS,
+        "runtime.channel.select_timeout_cancellable",
+    ),
+    runtime_symbol(
+        "channel",
         "select_result",
         CONCURRENCY_EFFECTS,
         "runtime.channel.select_result",

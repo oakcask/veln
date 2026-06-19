@@ -661,6 +661,7 @@ Implemented expressions:
   `channel::select_many_timeout_result(receivers, timeout_ms)`,
   `channel::select_many_timeout_cancellable(receivers, timeout_ms, token)`,
   `channel::select_timeout(left, right, timeout_ms)`,
+  `channel::select_timeout_cancellable(left, right, timeout_ms, token)`,
   `channel::select_result(left, right)`,
   `channel::select_priority_result(left, right)`,
   `channel::select_timeout_result(left, right, timeout_ms)`, and

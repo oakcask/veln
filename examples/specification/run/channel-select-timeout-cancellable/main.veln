@@ -1,0 +1,46 @@
+# Cancellable two-receiver timeout selection keeps receiver indexes and reports token cancellation.
+use stdio
+
+fn result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+	let left_ready_left = channel::bounded<Int>(1)
+	let left_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(left_ready_left.tx, 13)
+	let left_ready_token: CancelToken = time::cancel_token()
+	let left_selected = channel::select_timeout_cancellable(left_ready_left.rx, left_ready_right.rx, 25, left_ready_token)
+
+	let right_ready_left = channel::bounded<Int>(1)
+	let right_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(right_ready_right.tx, 21)
+	let right_ready_token: CancelToken = time::cancel_token()
+	let right_selected = channel::select_timeout_cancellable(right_ready_left.rx, right_ready_right.rx, 25, right_ready_token)
+
+	let timeout_left = channel::bounded<Int>(1)
+	let timeout_right = channel::bounded<Int>(1)
+	let timeout_token: CancelToken = time::cancel_token()
+	let timeout_selected = channel::select_timeout_cancellable(timeout_left.rx, timeout_right.rx, 0, timeout_token)
+
+	let cancelled_left = channel::bounded<Int>(1)
+	let cancelled_right = channel::bounded<Int>(1)
+	let _ = channel::send(cancelled_right.tx, 55)
+	let cancelled_token: CancelToken = time::cancel_token()
+	time::cancel(cancelled_token)
+	let cancelled_selected = channel::select_timeout_cancellable(cancelled_left.rx, cancelled_right.rx, 25, cancelled_token)
+
+	stdio::print("left ")
+	stdio::print(int_to_string(result_score(left_selected)))
+	stdio::print(" right ")
+	stdio::print(int_to_string(result_score(right_selected)))
+	stdio::print(" timeout ")
+	stdio::print(int_to_string(result_score(timeout_selected)))
+	stdio::print(" cancelled ")
+	stdio::println(int_to_string(result_score(cancelled_selected)))
+	Ok(())
+end

@@ -177,6 +177,9 @@ execution reference.
   `channel::select_many_timeout_cancellable` uses the same priority, timeout,
   and selected value shape, and returns `Err(SelectError)` when its
   `CancelToken` is already cancelled or wins during the wait.
+  The two-receiver cancellable timeout helper
+  `channel::select_timeout_cancellable` preserves the left/right receiver
+  index shape, timeout behavior, and token-cancellation result boundary.
   When multiple receivers are ready, the earliest receiver in the supplied
   list wins. The handler remains an ordinary source function over stream input
   and state; adapter code owns channel routing, and socket wrappers around the
@@ -197,6 +200,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-fifteen-route/`,
   `examples/specification/run/channel-first-stream-routing-sixteen-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
+  `examples/specification/run/channel-select-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
   `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
@@ -228,6 +232,7 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`,
   and
   `examples/specification/check/channel-select-many-timeout-effects/`, and
+  `examples/specification/check/channel-select-timeout-cancellable-effects/`, and
   `examples/specification/check/channel-select-many-timeout-cancellable-effects/`, and
   `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 - The generated binary schema helper execution slice decodes the

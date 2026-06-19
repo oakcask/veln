@@ -43,13 +43,15 @@ slices, and narrow deadline and cancellation slices, for:
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
-  cancellable timeout-result selection, socket/channel routing, and
-  deadline-aware and cancellable lifecycle slices
+  cancellable timeout-result selection, two-receiver cancellable
+  timeout-result selection, socket/channel routing, and deadline-aware and
+  cancellable lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list five-route through sixteen-route,
   receiver-list timeout, receiver-list timeout-result selection,
-  receiver-list cancellable timeout-result selection, and receiver-list
-  cancellable channel-first fixture shapes
+  receiver-list cancellable timeout-result selection, two-receiver
+  cancellable timeout-result selection, and receiver-list cancellable
+  channel-first fixture shapes
 - richer per-stream task handling beyond the one-argument, two-argument,
   three-argument, four-argument, five-argument, six-argument, seven-argument,
   eight-argument, nine-argument, ten-argument, eleven-argument,
@@ -271,6 +273,10 @@ slices, including the
 `channel::select_many_timeout_cancellable`, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
 
+The two-receiver cancellable timeout-result selection slice, including
+`channel::select_timeout_cancellable`, is recorded as implemented in
+`../reference/implemented-proposals/network-channel-select-timeout-cancellable.md`.
+
 The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with4.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with5.md`,
@@ -384,8 +390,9 @@ or the pure protocol core.
   three-route, four-route, receiver-list five-route through sixteen-route,
   receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
-  timeout-result selection, and receiver-list cancellable channel-first stream
-  routing, deadline-aware accepted-stream lifecycle, cancellable
+  timeout-result selection, two-receiver cancellable timeout-result selection,
+  and receiver-list cancellable channel-first stream routing, deadline-aware
+  accepted-stream lifecycle, cancellable
   accepted-stream lifecycle, one-argument,
   two-argument, three-argument, four-argument, five-argument, six-argument,
   seven-argument, eight-argument, nine-argument, ten-argument,

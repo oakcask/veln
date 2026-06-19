@@ -349,6 +349,7 @@ channel::select_many_timeout(receivers: List<Receiver<T>>, timeout_ms: Int) -> O
 channel::select_many_timeout_result(receivers: List<Receiver<T>>, timeout_ms: Int) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_many_timeout_cancellable(receivers: List<Receiver<T>>, timeout_ms: Int, token: CancelToken) -> Result<Option<{index: Int, value: T}>, SelectError> effects [time, concurrency]
 channel::select_timeout(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_timeout_cancellable(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int, token: CancelToken) -> Result<Option<{index: Int, value: T}>, SelectError> effects [time, concurrency]
 channel::select_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_priority_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
 channel::select_timeout_result(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
@@ -410,6 +411,13 @@ is already cancelled or becomes cancelled before a ready receiver wins.
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative
 timeouts wait without a timeout.
+`channel::select_timeout_cancellable(left, right, timeout_ms, token)` has the
+same receiver order, rotating tie behavior, timeout behavior, and selected
+result shape as `channel::select_timeout_result`. It returns
+`Ok(Some(selected))` for a selected value, `Ok(None)` when the timeout elapses
+or both receivers close before a value is selected, and `Err(SelectError)`
+when the supplied `CancelToken` is already cancelled or becomes cancelled
+before a ready receiver wins.
 `channel::select_result`, `channel::select_priority_result`, and
 `channel::select_timeout_result` use the same selection rules as their
 non-result counterparts with the same result boundary.

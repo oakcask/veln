@@ -189,7 +189,8 @@ compare it with `../specification/` before changing behavior.
   lifecycle, stream close lifecycle, receiver-list five-route through
   sixteen-route channel-first routing, receiver-list cancellable
   channel-first routing,
-  timeout-result selection, and cancellable timeout-result selection slices
+  timeout-result selection, receiver-list cancellable timeout-result
+  selection, and two-receiver cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.
 
