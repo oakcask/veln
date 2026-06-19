@@ -220,6 +220,14 @@ pub fn outbound_literal_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
+pub fn outbound_literal_path_test_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 9)
+end
+
+pub fn outbound_literal_status_200_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 9)
+end
+
 pub fn outbound_unsupported_static_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("x-test", "ok"), HpackHeader(":fixture", "static-indexed"), 2)
 end
@@ -454,6 +462,35 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 			Err(failure) => Err(failure)
 		end
 		Err(failure) => Err(failure)
+	end
+end
+
+pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match value == ""
+		true => hpack_fixture_huffman_string_literal_hex("80", value, offset)
+		false => match value == "test"
+			true => hpack_fixture_huffman_string_literal_hex("8349509f", value, offset)
+			false => match value == "https"
+				true => hpack_fixture_huffman_string_literal_hex("849d29ad1f", value, offset)
+				false => match value == "200"
+					true => hpack_fixture_huffman_string_literal_hex("821001", value, offset)
+					false => match value == "PUT"
+						true => hpack_fixture_huffman_string_literal_hex("83d7c37f", value, offset)
+						false => match value == "www.example.com"
+							true => hpack_fixture_huffman_string_literal_hex("8cf1e3c2e5f23a6ba0ab90f4ff", value, offset)
+							false => unsupported_raw_string_encoding(value, offset)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn hpack_fixture_huffman_string_literal_hex(hex: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_chunk_from_hex(hex)
+		Ok(chunk) => Ok(chunk)
+		Err(_) => unsupported_raw_string_encoding(value, offset)
 	end
 end
 
@@ -712,6 +749,20 @@ fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset:
 	end
 end
 
+fn encode_huffman_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let index: Int = literal_static_name_index(name)
+	match index < 0
+		true => unsupported_header_list_encoding(headers, offset)
+		false => match byte_write_u8_be(prefix_offset + index)
+			Ok(prefix) => match encode_hpack_huffman_string_literal(value, offset)
+				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
 fn encode_request_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match value == "scheme,path"
 		true => encoded_hex_or_failure("303132", headers, offset)
@@ -737,6 +788,8 @@ pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteC
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), _) => encode_static_indexed_header(name, value, headers, offset)
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), _) => encode_literal_header_with_prefix(name, value, 0, headers, offset)
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), _) => encode_literal_header_with_prefix(name, value, 64, headers, offset)
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing-huffman"), _) => encode_huffman_literal_header_with_prefix(name, value, 0, headers, offset)
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing-huffman"), _) => encode_huffman_literal_header_with_prefix(name, value, 64, headers, offset)
 		HpackHeaderList(_, HpackHeader(":request", marker), _) => encode_request_headers(marker, headers, offset)
 		HpackHeaderList(_, HpackHeader(":response", marker), _) => encode_response_headers(marker, headers, offset)
 		_ => unsupported_header_list_encoding(headers, offset)

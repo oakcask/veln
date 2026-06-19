@@ -14,7 +14,8 @@ The imported HPACK fixture module exposes a source-visible header-list encoder
 for the outbound protocol-core fixtures. It accepts the fixture-owned
 static-indexed header lists already accepted by the decoder, raw
 literal-without-indexing and literal-with-indexing header lists for supported
-static-table names, and the checked request and response pseudo-header fixture
+static-table names, selected Huffman-marked literal header lists for the same
+fixture boundary, and the checked request and response pseudo-header fixture
 lists used by outbound HEADERS and server-side `PUSH_PROMISE` send-intents.
 
 Successful fixture encoding produces the opaque header-block `ByteChunk` that
@@ -34,9 +35,10 @@ outbound send-intent helpers.
 - `../../../examples/specification/run/http2-protocol-core/` checks
   header-list encoding for static indexed `:method: GET` into outbound
   HEADERS, raw literal `:path: /target` into outbound HEADERS split across
-  CONTINUATION frames, static indexed `:status: 200` into server-side
-  `PUSH_PROMISE`, and one unsupported-header encode failure that remains an
-  HPACK fixture result.
+  CONTINUATION frames, Huffman-marked literal `:path: test` into outbound
+  HEADERS, static indexed `:status: 200` and Huffman-marked literal
+  `:status: 200` into server-side `PUSH_PROMISE`, and one unsupported-header
+  encode failure that remains an HPACK fixture result.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.

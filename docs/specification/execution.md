@@ -1392,12 +1392,15 @@ execution reference.
   `fixture raw string encoding`.
   The same fixture module exposes a narrow source-visible header-list encoder
   for outbound fixture use. It accepts the supported static-indexed header
-  lists, raw literal-without-indexing and literal-with-indexing lists for
-  supported static-table names, and the checked request and response
-  pseudo-header fixture lists needed by the outbound HTTP/2 examples. Static
-  indexed `:method: GET` encodes to `0x82`, raw literal `:path: /target`
-  encodes to `0x04 0x07 "/target"`, and unsupported header names return a
-  typed HPACK fixture failure with expected fixture
+  lists, raw and selected Huffman-marked literal-without-indexing and
+  literal-with-indexing lists for supported static-table names, and the
+  checked request and response pseudo-header fixture lists needed by the
+  outbound HTTP/2 examples. Static indexed `:method: GET` encodes to `0x82`,
+  raw literal `:path: /target` encodes to `0x04 0x07 "/target"`,
+  Huffman-marked literal `:path: test` encodes to
+  `0x04 0x83 0x49 0x50 0x9f`, and Huffman-marked literal `:status: 200`
+  encodes to `0x08 0x82 0x10 0x01`. Unsupported header names return a typed
+  HPACK fixture failure with expected fixture
   `fixture header list encoding`. These encode failures are fixture codec
   results and are not projected as HTTP/2 protocol diagnostics by the
   outbound send-intent helpers.
@@ -1560,7 +1563,8 @@ execution reference.
   header-block chunk for a nonzero currently open stream. It can also build
   that opaque header-block chunk from fixture-owned ordinary header-list
   values through the HPACK fixture encoder before entering the same send-intent
-  path. When the header-block fits within the peer-advertised maximum frame
+  path, including the checked Huffman-marked `:path: test` fixture literal.
+  When the header-block fits within the peer-advertised maximum frame
   size, the intent emits one immutable output chunk with a HEADERS frame header
   kind `1`,
   `END_HEADERS` set, and an optional `END_STREAM` flag, followed by the
@@ -1585,8 +1589,9 @@ execution reference.
   promised stream id, and already-encoded opaque header-block bytes. It can
   also use the HPACK fixture encoder to build those header-block bytes from a
   fixture-owned header list before applying the same stream-id, frame-size,
-  and CONTINUATION rules. When the four-byte promised stream id plus header
-  block fits within the
+  and CONTINUATION rules, including the checked Huffman-marked
+  `:status: 200` fixture literal. When the four-byte promised stream id plus
+  header block fits within the
   peer-advertised maximum frame size, the intent emits one immutable output
   chunk with a `PUSH_PROMISE` frame header kind `5`, `END_HEADERS` set, the
   associated stream id, the generated `UInt31be` promised-stream payload, and
