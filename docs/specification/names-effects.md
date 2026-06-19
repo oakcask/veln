@@ -78,7 +78,8 @@ compiler-known calls.
   using `task::spawn_with24`, plus a twenty-five-argument variant with one
   additional ordinary metadata value using `task::spawn_with25`, plus a
   twenty-six-argument variant with one additional ordinary metadata value
-  using `task::spawn_with26`,
+  using `task::spawn_with26`, plus a twenty-seven-argument variant with one
+  additional ordinary metadata value using `task::spawn_with27`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, cancellable accepted-stream
   routing that turns `WaitCancelled` into an ordinary cleanup action, and
