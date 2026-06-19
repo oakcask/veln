@@ -55,5 +55,25 @@ path = "error.details.protocol_diagnostic.accepted_max_value"
 equals = 1
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "000200000002"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.peer_limit_provenance"
 equals = "peer_settings"

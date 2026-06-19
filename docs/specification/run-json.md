@@ -367,7 +367,11 @@ checks the integrated completed HEADERS and final CONTINUATION paths. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,
-`accepted_min_value`, `accepted_max_value`, and `peer_limit_provenance`. The
+`accepted_min_value`, `accepted_max_value`, `peer_limit_provenance`, and a
+structured bounded `byte_preview` for the offending six-byte SETTINGS item.
+The preview uses the same object shape as other protocol-owned byte previews
+while byte offset, setting identity, observed value, accepted range, and
+peer-limit provenance remain separate fields. The
 stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `required_stream_id_domain`, `endpoint_role`, `active_state`, and

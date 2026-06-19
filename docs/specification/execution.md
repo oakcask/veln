@@ -29,6 +29,11 @@ execution reference.
   conversion overflow exposes command-facing
   `codec.byte_write_value_unrepresentable` value diagnostics with helper name,
   supplied value, accepted range, width, and byte order.
+  HTTP/2 SETTINGS value peer-limit diagnostics keep the failed range fact in
+  the primary message, carry byte offset, setting identity, observed value,
+  accepted range, and peer-limit provenance as separate structured fields, and
+  render the offending SETTINGS item `ByteView` as a related bounded byte
+  preview.
   Outgoing chunk-list helpers return ordinary immutable `List<ByteChunk>`
   values. Standard `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` values execute as

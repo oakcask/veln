@@ -7218,7 +7218,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "header_list_http2: http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\"), ",
             "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\"), ",
             "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\"), ",
-            "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\"), ",
+            "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
             "hpack_fixture: hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",

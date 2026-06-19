@@ -42,8 +42,8 @@ structured byte previews for the implemented schema-owned byte diagnostics and
 HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
 invalid frame-kind and PRIORITY self-dependency protocol-owned byte
 diagnostics, and the HPACK fixture unsupported-header-block protocol-facing
-diagnostic. Current behavior belongs to the specification pages, not this
-proposal.
+diagnostic, plus HTTP/2 SETTINGS value range protocol-owned byte diagnostics.
+Current behavior belongs to the specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -148,7 +148,8 @@ bounded by default.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
   slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
   slice, HTTP/2 PRIORITY self-dependency slice, and HPACK fixture
-  unsupported-header-block slice cover protocol-owned byte previews,
+  unsupported-header-block and SETTINGS value range slices cover
+  protocol-owned byte previews,
   field paths,
   expected and actual counts, and absolute offsets where those diagnostics
   inspect bytes directly.
