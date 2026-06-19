@@ -1339,7 +1339,10 @@ execution reference.
   stream with the same receive-window and PADDED DATA validation rules, moves
   that stream to closed-by-peer when the accepted inbound DATA carries peer
   `END_STREAM`, accepts
-  connection-level and open-stream `WINDOW_UPDATE` increments, applies
+  connection-level and open-stream `WINDOW_UPDATE` increments, rejects zero
+  received `WINDOW_UPDATE` increments through
+  `http2.protocol.invalid_window_update_increment` with a bounded preview of
+  the inspected four-byte increment payload, applies
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to each tracked open stream's
   receive-window credit, and keeps wrong-length, idle-stream, zero,
   half-closed-local stream, closed-by-peer stream, reset-stream,

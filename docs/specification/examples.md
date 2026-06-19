@@ -1702,7 +1702,8 @@ until `WINDOW_UPDATE` restores enough credit for that stream. A flow-control
 rejection on one open stream does not borrow credit from another open stream.
 Wrong-length `WINDOW_UPDATE` payloads remain typed payload-length failures,
 idle-stream `WINDOW_UPDATE` remains the existing stream-state frame-kind
-failure, and zero or overflowing increments remain typed peer-limit failures
+failure, zero increments remain typed protocol failures with inspected payload
+byte previews, and overflowing increments remain typed peer-limit failures
 without changing window state. DATA payloads larger than the available targeted
 stream or connection receive-window credit also remain typed peer-limit
 failures. `RST_STREAM` on the open stream decodes its
@@ -1973,6 +1974,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
+`../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
@@ -1991,6 +1993,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
+`../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,

@@ -517,9 +517,11 @@ stream-level `WINDOW_UPDATE` increases the currently open stream's
 receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_payload_length`, idle or unknown stream-targeted
 `WINDOW_UPDATE` remains the existing stream-state
-`http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
-use `http2.peer_limit.flow_control_window_exceeded` without changing receive
-window state.
+`http2.protocol.invalid_frame_kind` shape, zero increments use
+`http2.protocol.invalid_window_update_increment` with an inspected payload
+preview, and overflowing increments use
+`http2.peer_limit.flow_control_window_exceeded` without changing receive window
+state.
 The implemented slice also includes the narrow outbound `RST_STREAM`
 send-intent. Ordinary source accepts a nonzero currently open stream, encodes
 a nine-byte header with length `4`, kind `3`, flags `0`, and the selected

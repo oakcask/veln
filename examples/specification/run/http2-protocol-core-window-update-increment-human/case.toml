@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_window_update_increment]: invalid WINDOW_UPDATE increment at byte offset 0", "note: Frame kind 8 on connection 0 declared WINDOW_UPDATE increment 0; accepted range is 1..2147483647.", "note: Nearby bytes: 00 00 00 00 (showing 4 of 4 byte(s), complete).", "note: Active protocol state: connection-flow-control.", "note: Rule provenance: window_update_increment_nonzero."]

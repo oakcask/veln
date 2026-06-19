@@ -177,6 +177,7 @@ type Http2ProtocolFailure
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
+	InvalidWindowUpdateIncrement(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidDataPadding(Int, Int, Int, Int, String, String, ByteView)
 	InvalidRequestHeaderList(Int, Int, Int, String, String, String)
 	InvalidResponseHeaderList(Int, Int, Int, String, String, String)
@@ -2558,23 +2559,28 @@ end
 
 fn update_window_receive_credit(pending: ByteChunk, offset: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	let increment: Int = window_update_increment(pending)?
+	let preview: ByteView = window_update_payload_view(pending)?
 	match stream_id == 0
-		true => Ok(update_connection_receive_credit(offset, increment, receive_flow_control))
-		false => Ok(update_stream_receive_credit(offset, stream_id, increment, receive_flow_control))
+		true => Ok(update_connection_receive_credit(offset, increment, preview, receive_flow_control))
+		false => Ok(update_stream_receive_credit(offset, stream_id, increment, preview, receive_flow_control))
 	end
 end
 
 fn window_update_increment(pending: ByteChunk) -> Result<Int, String>
-	let payload_offset: ByteOffset = byte_offset(9)?
-	let payload_count: ByteCount = byte_count(4)?
-	let payload: ByteView = byte_view(pending, payload_offset, payload_count)?
+	let payload: ByteView = window_update_payload_view(pending)?
 	byte_read_u31_be(payload)
 end
 
-fn update_connection_receive_credit(offset: Int, increment: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn window_update_payload_view(pending: ByteChunk) -> Result<ByteView, String>
+	let payload_offset: ByteOffset = byte_offset(9)?
+	let payload_count: ByteCount = byte_count(4)?
+	byte_view(pending, payload_offset, payload_count)
+end
+
+fn update_connection_receive_credit(offset: Int, increment: Int, preview: ByteView, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, open_stream) => match increment == 0
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, 1, "connection-flow-control", "window_update_increment_nonzero"))
+			true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, 0, increment, 1, max_receive_flow_control_window(), "connection-flow-control", "window_update_increment_nonzero", preview))
 			false => match increment > max_receive_flow_control_window() - connection_window
 				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window"))
 				false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window + increment, open_stream))
@@ -2583,13 +2589,13 @@ fn update_connection_receive_credit(offset: Int, increment: Int, receive_flow_co
 	end
 end
 
-fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, preview: ByteView, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
 			false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			true => match increment == 0
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, 1, "open-stream", "window_update_increment_nonzero"))
+				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 				false => match increment > max_receive_flow_control_window() - stream_window
 					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window"))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window + increment, priority)))
@@ -2598,7 +2604,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, rec
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match stream_id == first_stream_id
 			true => match increment == 0
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, 1, "open-stream", "window_update_increment_nonzero"))
+				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 				false => match increment > max_receive_flow_control_window() - first_stream_window
 					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - first_stream_window, "open-stream", "stream_receive_window"))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window + increment, first_priority, second_stream_id, second_stream_window, second_priority)))
@@ -2606,7 +2612,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, rec
 			end
 			false => match stream_id == second_stream_id
 				true => match increment == 0
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, 1, "open-stream", "window_update_increment_nonzero"))
+					true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 					false => match increment > max_receive_flow_control_window() - second_stream_window
 						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - second_stream_window, "open-stream", "stream_receive_window"))
 						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window + increment, second_priority)))
@@ -3184,6 +3190,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3656,6 +3663,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
@@ -4055,6 +4063,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 			InvalidStreamId(_, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
+			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_window_update_increment"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "http2.protocol.invalid_data_padding"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "http2.protocol.invalid_request_header_list"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "http2.protocol.invalid_response_header_list"
@@ -4079,6 +4088,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidStreamId(offset, _, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _, _) => offset
+		InvalidWindowUpdateIncrement(offset, _, _, _, _, _, _, _) => offset
 		InvalidDataPadding(offset, _, _, _, _, _, _) => offset
 		InvalidRequestHeaderList(offset, _, _, _, _, _) => offset
 		InvalidResponseHeaderList(offset, _, _, _, _, _) => offset
@@ -4103,6 +4113,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4127,6 +4138,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 8
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidResponseHeaderList(_, actual_kind, _, _, _, _) => actual_kind
@@ -4151,6 +4163,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidStreamId(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _, _) => actual_stream
+		InvalidWindowUpdateIncrement(_, actual_stream, _, _, _, _, _, _) => actual_stream
 		InvalidDataPadding(_, actual_stream, _, _, _, _, _) => actual_stream
 		InvalidRequestHeaderList(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidResponseHeaderList(_, _, actual_stream, _, _, _) => actual_stream
@@ -4175,6 +4188,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4199,6 +4213,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 8
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidResponseHeaderList(_, actual_kind, _, _, _, _) => actual_kind
@@ -4223,6 +4238,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4247,6 +4263,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 			InvalidStreamId(_, _, _, _, _, _, _) => 0
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 			InvalidDataPadding(_, _, _, _, _, _, _) => 0
 			InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 			InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4271,6 +4288,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
+		InvalidWindowUpdateIncrement(_, _, observed_increment, _, _, _, _, _) => observed_increment
 		InvalidDataPadding(_, _, pad_length, _, _, _, _) => pad_length
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4295,6 +4313,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
+		InvalidWindowUpdateIncrement(_, _, _, accepted_min_increment, _, _, _, _) => accepted_min_increment
 		InvalidDataPadding(_, _, _, remaining_payload_length, _, _, _) => remaining_payload_length
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4319,6 +4338,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidStreamId(_, _, _, _, _, active_state, _) => active_state
 			InvalidPayloadLength(_, _, _, _, _, active_state, _, _) => active_state
+			InvalidWindowUpdateIncrement(_, _, _, _, _, active_state, _, _) => active_state
 			InvalidDataPadding(_, _, _, _, active_state, _, _) => active_state
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "request-headers"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "response-headers"
@@ -4343,6 +4363,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidStreamId(_, _, _, _, _, _, rule_provenance) => rule_provenance
 			InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+			InvalidWindowUpdateIncrement(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidDataPadding(_, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "rfc9113_request_pseudo_headers"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "rfc9113_response_pseudo_headers"
@@ -4367,6 +4388,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
@@ -4391,6 +4413,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4415,6 +4438,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
@@ -4439,6 +4463,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, observed_increment, _, _, _, _, _) => observed_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4463,6 +4488,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, accepted_min_increment, _, _, _, _) => accepted_min_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4487,6 +4513,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, accepted_max_increment, _, _, _) => accepted_max_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
@@ -4511,6 +4538,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
@@ -4621,6 +4649,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?)
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?)
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview)
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, "request-headers", "rfc9113_request_pseudo_headers")
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, "response-headers", "rfc9113_response_pseudo_headers")
 			UnexpectedSettingsAck(offset, active_state, rule_provenance) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
@@ -4645,6 +4674,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 			InvalidStreamId(_, _, _, required_domain, _, _, _) => required_domain
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
+			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "request pseudo-header list"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "response pseudo-header list"
@@ -4669,6 +4699,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 			InvalidStreamId(_, _, _, _, endpoint_role, _, _) => endpoint_role
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
+			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "none"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "server"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "server"
@@ -4694,6 +4725,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
+		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0

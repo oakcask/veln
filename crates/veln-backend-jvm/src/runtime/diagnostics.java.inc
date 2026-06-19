@@ -296,6 +296,37 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(
+        String message,
+        long byteOffset,
+        long streamId,
+        long observedIncrement,
+        long acceptedMinIncrement,
+        long acceptedMaxIncrement,
+        String activeState,
+        String ruleProvenance,
+        String nearbyContext
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_window_update_increment",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", 8),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number("observed_window_increment", observedIncrement),
+                    DiagnosticDetail.number("accepted_min_window_increment", acceptedMinIncrement),
+                    DiagnosticDetail.number("accepted_max_window_increment", acceptedMaxIncrement),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolInvalidDataPaddingDiagnostic(
         String message,
         long byteOffset,

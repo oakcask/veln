@@ -3317,6 +3317,38 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidWindowUpdateIncrement(
+        Object offset,
+        Object streamId,
+        Object observedIncrement,
+        Object acceptedMinIncrement,
+        Object acceptedMaxIncrement,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long stream = asLong(streamId);
+        long observed = asLong(observedIncrement);
+        long acceptedMin = asLong(acceptedMinIncrement);
+        long acceptedMax = asLong(acceptedMaxIncrement);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid WINDOW_UPDATE increment at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(
+            message,
+            byteOffset,
+            stream,
+            observed,
+            acceptedMin,
+            acceptedMax,
+            state,
+            provenance,
+            byteViewPreviewTrace(preview, 8)
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolInvalidDataPadding(
         Object offset,
         Object streamId,
