@@ -26,6 +26,75 @@ fn print_decode_failure(label: String, failure: HpackFixtureFailure) -> () effec
 	stdio::println(failure_expected_fixture(failure))
 end
 
+fn encoded_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn encoded_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match encoded_byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn encoded_bytes_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Bool
+	match index == count
+		true => true
+		false => match encoded_byte_at_or_missing(left, index) == encoded_byte_at_or_missing(right, index)
+			true => encoded_bytes_equal_at(left, right, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn encoded_bytes_equal(left: ByteChunk, right: ByteChunk) -> Bool
+	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
+	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	match left_count == right_count
+		true => encoded_bytes_equal_at(left, right, 0, left_count)
+		false => false
+	end
+end
+
+fn repeat_expected_byte(count: Int) -> Result<ByteChunk, String>
+	match count == 0
+		true => Ok(byte_chunk([]))
+		false => Ok(byte_append(byte_chunk_from_hex("61")?, repeat_expected_byte(count - 1)?))
+	end
+end
+
+fn print_encoded_success(label: String, encoded: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" encoded count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(encoded))))
+	stdio::print(" first_byte ")
+	stdio::println(int_to_string(encoded_byte_at_or_missing(encoded, 0)))
+	Ok(())
+end
+
+fn print_encoded_literal(label: String, result: Result<ByteChunk, HpackFixtureFailure>, expected: ByteChunk) -> Result<(), String> effects [stdio]
+	match result
+		Ok(encoded) => match encoded_bytes_equal(encoded, expected)
+			true => print_encoded_success(label, encoded)
+			false => Err("unexpected HPACK fixture string encoding")
+		end
+		Err(_) => Err("expected HPACK fixture string encoding")
+	end
+end
+
+fn print_encode_failure_value(label: String, failure: HpackFixtureFailure) -> Result<(), String> effects [stdio]
+	print_decode_failure(label, failure)
+	Ok(())
+end
+
+fn print_encode_failure(label: String, result: Result<ByteChunk, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected HPACK fixture string encoding failure")
+		Err(failure) => print_encode_failure_value(label, failure)
+	end
+end
+
 fn print_state(label: String, state: HpackFixtureState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" state table_size ")
@@ -87,6 +156,16 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	print_transition("malformed-literal-continuation-length", decode_header_block(byte_chunk_from_hex("04ff80")?, literal_state, 91))
 	print_transition("malformed-literal-length", decode_header_block(byte_chunk_from_hex("04ff")?, literal_state, 83))
 	print_transition("malformed-status-huffman-padding", decode_header_block(byte_chunk_from_hex("08821000")?, initial, 90))
+	Ok(())
+end
+
+fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
+	let expected_short_encoding: ByteChunk = byte_chunk_from_hex("03505554")?
+	let _ = print_encoded_literal("encode-raw-short-put", encode_hpack_raw_string_literal("PUT", 95), expected_short_encoding)?
+	let expected_long_encoding: ByteChunk = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
+	let _ = print_encoded_literal("encode-raw-long-a", encode_hpack_raw_string_literal(hpack_fixture_long_raw_string_value(), 96), expected_long_encoding)?
+	let _ = print_encode_failure("encode-raw-unsupported", encode_hpack_raw_string_literal("bad", 97))?
+	let _ = print_encode_failure("encode-raw-non-visible", encode_hpack_raw_string_literal("\n", 98))?
 	Ok(())
 end
 
@@ -279,6 +358,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let literal_status_block: ByteChunk = byte_chunk_from_hex("0803323031")?
 	let literal_status: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_status_block, literal_status_state, 70)
 	print_transition("literal-status", literal_status)
+	let ignored_raw_string_encode_cases: () = print_raw_string_encode_cases()?
 	let ignored_general_string_literal_cases: () = print_general_string_literal_cases(initial, literal_state)?
 	let literal_indexed_state: HpackFixtureState = next_state_or(literal_status, literal_status_state)
 	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?

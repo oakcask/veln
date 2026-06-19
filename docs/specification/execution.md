@@ -1343,6 +1343,14 @@ execution reference.
   continuation byte through literal-without-indexing and literal-with-indexing
   blocks. The long Huffman fixture remains a deterministic fixture case, not
   general HPACK Huffman streaming support.
+  The same ordinary fixture module exposes
+  `encode_hpack_raw_string_literal` for fixture-owned raw string literals:
+  supported visible-ASCII fixture values encode with the HPACK Huffman flag
+  cleared, and the long raw `a` fixture uses the same saturated seven-bit
+  length prefix plus one continuation byte as the checked decoder boundary.
+  Unsupported fixture values and non-visible raw byte values return
+  `hpack.fixture.unsupported_header_block` with expected fixture
+  `fixture raw string encoding`.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test` through completed HEADERS,

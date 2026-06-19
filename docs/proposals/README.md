@@ -179,9 +179,9 @@ compare it with `../specification/` before changing behavior.
   fixture string-literal decoder boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
   checked fixture-owned entry sizes and table-size update slice,
-  HPACK string encoding, general HPACK string-length policy beyond the checked
-  fixture continuation, and production header validation beyond the fixture
-  request checks.
+  full HPACK string encoding beyond the checked fixture raw-literal helper,
+  general HPACK string-length policy beyond the checked fixture continuation,
+  and production header validation beyond the fixture request checks.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
