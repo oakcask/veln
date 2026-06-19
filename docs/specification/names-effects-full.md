@@ -883,7 +883,9 @@ complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, or four
 big-endian bytes, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one,
-two, three, or four big-endian bytes, supported
+two, three, or four big-endian bytes, including the narrow two-byte
+interleaved middle layout with a sub-byte visible `UIntN`, a reserved field,
+`UInt8`, and a final sub-byte visible `UIntN`, supported
 `ReservedBits(width, value)` plus two visible sub-byte or byte-width `UIntN`
 prefix groups whose widths complete one, two, three, or four big-endian bytes,
 supported consecutive non-byte-aligned

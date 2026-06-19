@@ -607,6 +607,15 @@ against the built `veln` binary.
   than one `ReservedBits(width, value)` field, omit both reserved fields from
   the value record, preserve the visible `UIntN` fields, and reject an
   out-of-range visible encode value.
+- `run/binary-schema-interleaved-reserved-decode-encode/`: generated schema
+  helpers decode and encode one shared non-byte-aligned storage byte where
+  one `ReservedBits(width, value)` field is interleaved with three visible
+  `UIntN` fields, omit the reserved field from the value record, preserve the
+  visible fields, and reject an out-of-range visible encode value.
+- `run/binary-schema-interleaved-reserved-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for the interleaved
+  reserved-bit group with stable field path, byte offset, bit width, expected
+  value, actual value, and byte preview details.
 - `run/binary-schema-packed-reserved-two-byte-truncated-json/`: generated
   schema decode helpers report `schema.truncated_field` at the reserved field
   path when input ends before the two-byte packed storage unit is complete.
@@ -1176,6 +1185,17 @@ against the built `veln` binary.
   helpers write multiple declared non-byte-aligned reserved fields in one
   shared storage byte with adjacent visible `UIntN` fields and report
   `codec.encode_value_unrepresentable` against an out-of-range visible field.
+- `run/binary-schema-interleaved-reserved-decode-encode/`: generated schema
+  encode helpers write one interleaved declared reserved value in a shared
+  storage byte with three visible `UIntN` fields and report
+  `codec.encode_value_unrepresentable` against an out-of-range visible field.
+- `run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`:
+  generated schema decode and encode helpers preserve visible fields around a
+  middle reserved field and a following byte-width field in one shared
+  two-byte storage unit, including derived codec eligibility.
+- `run/binary-schema-byte-interleaved-middle-reserved-json/`: generated
+  schema decode helpers report `schema.reserved_bits_mismatch` for that
+  byte-interleaved middle reserved-bit layout.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected
@@ -1515,6 +1535,10 @@ against the built `veln` binary.
   decode` boundary observes generated decode-step helper output for a
   supported middle reserved-bit layout, including readiness and reserved-bit
   mismatch outcomes.
+- `run/derived-codec-interleaved-reserved-decode-boundary/`: the same
+  `derive decode` boundary observes generated decode-step helper output for
+  an interleaved reserved-bit layout with one reserved field and three visible
+  `UIntN` fields.
 - `run/codec-needmore-parser-state/`: caller-owned parser state drops exactly
   the consumed prefix and advances the explicit base offset after `Decoded`,
   decodes again over the retained suffix, and keeps pending bytes plus base

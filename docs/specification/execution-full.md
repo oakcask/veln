@@ -173,7 +173,12 @@ visible `UIntN` field whose widths together complete one byte or the same
 two-byte, three-byte, or four-byte big-endian storage unit. That form decodes
 the visible fields from their declared high-to-low positions, validates the
 middle reserved field at the reserved field path, omits the reserved field,
-and advances by the shared storage width. The same shared-storage rule also
+and advances by the shared storage width. The narrow two-byte interleaved
+form also accepts a sub-byte visible `UIntN` field, a sub-byte middle
+`ReservedBits(width, value)` field, a byte-width visible `UInt8` field, and a
+final sub-byte visible `UIntN` field when the four widths complete the same
+two-byte big-endian storage unit without completing a storage byte before the
+`UInt8` field. The same shared-storage rule also
 covers consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` fields when the group contains at least one
 visible field and at least one reserved field, every visible field is a
@@ -478,6 +483,9 @@ field, middle `ReservedBits(width, value)` field, and following visible
 representation-only: the helper writes both visible values around the
 declared reserved value in declaration order and reports
 `codec.encode_value_unrepresentable` at the out-of-range visible field.
+The same middle encode rule includes the narrow two-byte interleaved layout
+where a sub-byte visible field and sub-byte middle reserved field are followed
+by `UInt8` and a final sub-byte visible field.
 The same shared-storage encode rule also covers consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` fields when the group contains at
 least one visible field and at least one reserved field, every visible field

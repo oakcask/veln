@@ -400,7 +400,12 @@ execution reference.
   two-byte, three-byte, or four-byte big-endian storage unit. That form
   decodes the visible fields from their declared high-to-low positions,
   validates the middle reserved field at the reserved field path, omits the
-  reserved field, and advances by the shared storage width. A supported
+  reserved field, and advances by the shared storage width. The narrow
+  two-byte interleaved form also accepts a sub-byte visible `UIntN` field, a
+  sub-byte middle `ReservedBits(width, value)` field, a byte-width visible
+  `UInt8` field, and a final sub-byte visible `UIntN` field when the four
+  widths complete the same two-byte big-endian storage unit without completing
+  a storage byte before the `UInt8` field. A supported
   prefix group may also place `ReservedBits(width, value)` before two visible
   sub-byte or byte-width `UIntN` fields when all three widths complete one
   byte, a two-byte big-endian storage unit, a three-byte big-endian
@@ -750,6 +755,9 @@ execution reference.
   storage unit are also representation-only: the helper writes both visible
   values around the declared reserved value in declaration order and reports
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
+  The same middle encode rule includes the narrow two-byte interleaved layout
+  where a sub-byte visible field and sub-byte middle reserved field are
+  followed by `UInt8` and a final sub-byte visible field.
   A supported prefix group with `ReservedBits(width, value)` followed by two
   visible sub-byte or byte-width `UIntN` fields whose widths complete one
   byte, a two-byte big-endian storage unit, a three-byte big-endian
@@ -944,6 +952,8 @@ execution reference.
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-middle-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-byte-interleaved-middle-reserved-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
@@ -956,6 +966,8 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`,
   `examples/specification/run/binary-schema-split-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-interleaved-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-interleaved-reserved-json/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
@@ -1047,8 +1059,9 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
-  supported middle reserved-bit layouts, repeat-backed schemas, same-module or
-  public imported nested dispatch payload schemas, same-module recursive
+  supported middle reserved-bit layouts, including byte-interleaved middle
+  reserved layouts, repeat-backed schemas, same-module or public imported
+  nested dispatch payload schemas, same-module recursive
   closed and extension dispatch payload helpers, and multiple decoded-field
   selected schema mappings already accepted by `byte_decode_step_<schema>`.
   The call accepts a bounded
@@ -1059,6 +1072,7 @@ execution reference.
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
+  `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,

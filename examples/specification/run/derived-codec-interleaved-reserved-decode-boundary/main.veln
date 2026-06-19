@@ -1,0 +1,126 @@
+# Derived codec decode boundaries support interleaved reserved binary layouts.
+use stdio
+
+schema InterleavedReservedHeader
+	format binary
+
+	lead: UInt1
+	guard: ReservedBits(2, 1)
+	mode: UInt2
+	tail: UInt3
+end
+
+codec InterleavedReservedCodec for InterleavedReservedHeader decode
+	derive decode
+end
+
+fn step_kind(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_lead(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.lead
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_mode(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.mode
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_tail(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.tail
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+	end
+end
+
+fn error_offset(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn error_path(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let complete_bytes: ByteChunk = byte_chunk_from_hex("ac")?
+	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(1)?)?
+	let complete: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(complete_view, byte_offset(32)?)
+	stdio::println(step_kind(complete))
+	stdio::println(int_to_string(decoded_lead(complete)))
+	stdio::println(int_to_string(decoded_mode(complete)))
+	stdio::println(int_to_string(decoded_tail(complete)))
+	stdio::println(int_to_string(consumed_count(complete)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(0)?)?
+	let waiting: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(short_view, byte_offset(64)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("ec")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(1)?)?
+	let invalid: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(invalid_view, byte_offset(96)?)
+	stdio::println(step_kind(invalid))
+	stdio::println(int_to_string(consumed_count(invalid)))
+	stdio::println(error_id(invalid))
+	stdio::println(int_to_string(error_offset(invalid)))
+	stdio::println(error_path(invalid))
+	Ok(())
+end
