@@ -313,16 +313,17 @@ bytes plus the static indexed `accept-charset:`,
 literal-with-indexing fixtures whose first byte names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
 Those literal fixtures share the HPACK string literal decoder for short
-visible-ASCII raw values and fixture-supported Huffman values `""`,
-`www.example.com`, `https`, `/target`, and `PUT`. The executable slice covers
-a raw `:authority` value through completed HEADERS and final CONTINUATION
-paths, raw `:status` through completed HEADERS, Huffman `:method: PUT`
-through both literal-without-indexing and literal-with-indexing, raw
-literal-with-indexing `:authority`, Huffman literal-with-indexing
-`:scheme: https`, and raw literal-with-indexing `:status`. It rejects
+visible-ASCII raw values and Huffman-marked values decoded by
+fixture-supported HPACK static Huffman symbols. The executable slice covers a
+raw `:authority` value through completed HEADERS and final CONTINUATION paths,
+raw `:status` through completed HEADERS, Huffman `:path: test` through
+completed HEADERS, Huffman `:method: PUT` through both literal-without-indexing
+and literal-with-indexing, raw literal-with-indexing `:authority`, Huffman
+literal-with-indexing `:scheme: https`, and raw literal-with-indexing
+`:status`. It rejects
 non-visible raw bytes, malformed string length, malformed Huffman padding, and
 a malformed raw `:status` literal. Checked bytes include zero-length `:path`
-as `0x04 0x80`,
+as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`, and
 literal-without-indexing `:authority: www.example.com` as
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
@@ -354,7 +355,7 @@ next immutable HPACK states whose checked table sizes include `30`, `31`,
 HEADERS and final CONTINUATION paths before later header blocks are decoded.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates, table-size updates with trailing bytes after a complete integer, and
-Huffman symbols or padding outside the fixture-supported string decoder,
+Huffman symbols or padding outside the fixture-supported static-symbol decoder,
 remain on `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -651,13 +652,13 @@ value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
 	bytes, plus literal-without-indexing and literal-with-indexing fixtures
 whose first byte names a supported static-table header name for `:authority`,
 `:method`, `:path`, `:scheme`, or `:status`, sharing an HPACK string literal
-decoder for short visible-ASCII raw values and fixture-supported Huffman
-values, including zero-length `:path`, `:scheme: https`,
-`:authority: www.example.com`, and `:method: PUT`, plus checked raw
-literal-with-indexing `:authority`, checked Huffman literal-with-indexing
-`:scheme: https`, raw literal-with-indexing `:status`, malformed string
-length, malformed Huffman padding, and malformed raw `:status` coverage, plus
-one literal-with-indexing `:path: /target`
+decoder for short visible-ASCII raw values and Huffman-marked values decoded
+by fixture-supported HPACK static Huffman symbols, including zero-length
+`:path`, `:path: test`, `:scheme: https`, `:authority: www.example.com`, and
+`:method: PUT`, plus checked raw literal-with-indexing `:authority`, checked
+Huffman literal-with-indexing `:scheme: https`, raw literal-with-indexing
+`:status`, malformed string length, malformed Huffman padding, and malformed
+raw `:status` coverage, plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
 carried by the HTTP/2 decode state, a later literal-with-indexing
@@ -698,7 +699,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  full Huffman decoding, and production header validation remain later work
-  beyond the implemented fixture boundary.
+  HPACK Huffman symbols outside the fixture-supported static-symbol decoder,
+  and production header validation remain later work beyond the implemented
+  fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

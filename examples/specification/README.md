@@ -1464,9 +1464,10 @@ against the built `veln` binary.
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
   fixtures share the HPACK string literal decoder for short visible-ASCII raw
-  values and fixture-supported Huffman values, including zero-length `:path`,
-  `:scheme: https`, `:authority: www.example.com`, and `:method: PUT`; checked
-  output also covers raw literal-with-indexing `:authority`, Huffman
+  values and Huffman-marked values decoded by fixture-supported HPACK static
+  Huffman symbols, including zero-length `:path`, `:path: test`,
+  `:scheme: https`, `:authority: www.example.com`, and `:method: PUT`;
+  checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. Malformed Huffman padding, malformed string length, and a
   malformed `:status` raw literal stay on the unsupported fixture path. It
@@ -1677,7 +1678,8 @@ against the built `veln` binary.
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
   fixtures share the HPACK string literal decoder for short visible-ASCII raw
-  values and fixture-supported Huffman values, including zero-length `:path`,
+  values and Huffman-marked values decoded by fixture-supported HPACK static
+  Huffman symbols, including zero-length `:path`, `:path: test`,
   `:scheme: https`, `:authority: www.example.com`, and `:method: PUT`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing

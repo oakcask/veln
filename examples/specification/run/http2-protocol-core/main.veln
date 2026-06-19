@@ -6297,6 +6297,10 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_step("hpack-literal-huffman", hpack_literal_huffman)
 	let ignored_hpack_literal_huffman: () = emit_header_block("http2-hpack-literal-huffman", hpack_literal_huffman, "0480")?
 	print_hpack_transition("hpack-literal-huffman", hpack_literal_huffman)
+	let hpack_literal_test_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005010400000001048349509f")?), state)?
+	print_step("hpack-literal-test-huffman", hpack_literal_test_huffman)
+	let ignored_hpack_literal_test_huffman: () = emit_header_block("http2-hpack-literal-test-huffman", hpack_literal_test_huffman, "048349509f")?
+	print_hpack_transition("hpack-literal-test-huffman", hpack_literal_test_huffman)
 	let hpack_literal_huffman_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001048100")?), state)?
 	print_failure("hpack-literal-huffman-malformed", hpack_literal_huffman_malformed)
 	let hpack_literal_length_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201040000000104ff")?), state)?

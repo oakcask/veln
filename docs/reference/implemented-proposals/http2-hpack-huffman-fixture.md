@@ -16,11 +16,11 @@ through one string literal decoder.
 
 ## Completed Behavior
 
-The imported HPACK fixture boundary accepts narrow Huffman-marked
-literal-without-indexing header values. It uses the HPACK static Huffman code
-table for the fixture-supported decoded values `""`, `www.example.com`,
-`https`, `/target`, and `PUT`. Checked values include `0x04 0x80` for
-zero-length `:path`,
+The imported HPACK fixture boundary accepts Huffman-marked
+literal-without-indexing header values by scanning fixture-supported HPACK
+static Huffman symbols into decoded visible-ASCII bytes rather than by
+matching a fixed decoded-value allowlist. Checked values include `0x04 0x80`
+for zero-length `:path`, `0x04 0x83 0x49 0x50 0x9f` for `:path: test`,
 `0x06 0x84 0x9d 0x29 0xad 0x1f` for `:scheme: https`, and
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`
 for `:authority: www.example.com`.
@@ -34,13 +34,15 @@ Unsupported symbols and malformed Huffman padding still project through
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the focused `literal-path-empty-huffman` and
-  `literal-scheme-https-huffman` decodes plus malformed Huffman padding that
+  `literal-path-test-huffman` decodes, the existing
+  `literal-scheme-https-huffman` decode, plus malformed Huffman padding that
   stays on the unsupported-header-block path.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
-  completed HEADERS cases named `hpack-literal-huffman` and
-  `hpack-literal-scheme-https-huffman`, emits the header-block bytes `0480`
-  and `06849d29ad1f`, prints the decoded `:path` and `:scheme: https`
-  values, and keeps malformed Huffman padding on
+  completed HEADERS cases named `hpack-literal-huffman`,
+  `hpack-literal-test-huffman`, and `hpack-literal-scheme-https-huffman`,
+  emits the header-block bytes `0480`, `048349509f`, and `06849d29ad1f`,
+  prints the decoded `:path`, `:path: test`, and `:scheme: https` values,
+  and keeps malformed Huffman padding on
   `hpack.fixture.unsupported_header_block`. The broader HTTP/2 case also
   keeps the `:authority: www.example.com` Huffman fixture covered.
 - `../../specification/execution.md` and `../../specification/examples.md`

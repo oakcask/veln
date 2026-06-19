@@ -1669,17 +1669,19 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 fixtures whose first byte names a supported static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
 fixtures share the HPACK string literal decoder for short visible-ASCII raw
-values and fixture-supported Huffman values `""`, `www.example.com`, `https`,
-`/target`, and `PUT`. The example covers `:authority: abc.test` through
-completed HEADERS and final CONTINUATION paths, raw `:status` through
-completed HEADERS, Huffman `:method: PUT` through both
+values and Huffman-marked values decoded by fixture-supported HPACK static
+Huffman symbols rather than a fixed decoded-value allowlist. The example
+covers `:authority: abc.test` through completed HEADERS and final
+CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
+`:path: test` through completed HEADERS, Huffman `:method: PUT` through both
 literal-without-indexing and literal-with-indexing, raw literal-with-indexing
 `:authority`, Huffman literal-with-indexing `:scheme: https`, and raw
 literal-with-indexing `:status`. It rejects non-visible raw bytes, malformed
 string length, malformed Huffman padding, and a malformed raw `:status`
 literal. It does not implement response header-list validation beyond decoding
 the fixture-supported `:status` header-list data. Checked HEADERS bytes
-include zero-length `:path` as `0x04 0x80`, `:scheme: https` as
+include zero-length `:path` as `0x04 0x80`, `:path: test` as
+`0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, and `:authority: www.example.com` as
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
 The
@@ -1711,7 +1713,7 @@ exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
 literal-without-indexing and Huffman symbols or padding outside the
-fixture-supported string decoder. The focused HPACK fixture-codec JSON and
+fixture-supported static-symbol decoder. The focused HPACK fixture-codec JSON and
 human examples assert the unsupported header-block byte preview.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
