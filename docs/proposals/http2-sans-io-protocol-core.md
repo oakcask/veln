@@ -314,16 +314,23 @@ literal-with-indexing fixtures whose first byte names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
 Those literal fixtures share the HPACK string literal decoder for short
 visible-ASCII raw values and Huffman-marked values decoded by
-the HPACK static Huffman table. The executable slice covers a
+the HPACK static Huffman table. The same fixture decoder accepts one
+continuation byte after a saturated seven-bit string-length prefix for checked
+long raw and Huffman-marked values on supported literal names, through both
+literal-without-indexing and literal-with-indexing forms. The executable slice
+covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` through
 completed HEADERS, Huffman `:method: PUT` through both literal-without-indexing
 and literal-with-indexing, Huffman `:status: 200` through completed HEADERS
 and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
-`:status`. It rejects
-non-visible raw bytes, malformed string length, malformed Huffman padding, and
-a malformed raw `:status` literal. Checked bytes include zero-length `:path`
+`:status`. Completed HEADERS and final CONTINUATION paths reach that long
+string-length fixture boundary before the local header-list receive limit
+rejects the decoded long values. It rejects
+non-visible raw bytes, malformed string length including non-terminating
+string-length continuations, malformed Huffman padding, and a malformed raw
+`:status` literal. Checked bytes include zero-length `:path`
 as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
 `:status: 200` as `0x08 0x82 0x10 0x01`, and
@@ -623,66 +630,17 @@ The remaining scope below is still planned work for the full protocol core.
 - Do not optimize for production throughput.
 - Do not encode all protocol state rules inside schema declarations.
 
-The implemented slice now also passes completed HEADERS and final CONTINUATION
-header-block bytes into an imported HPACK fixture module. That module returns
-ordinary header-list data plus a next immutable fixture state for deterministic
-fixture blocks and the static indexed `0x81` `:authority` with an empty
-value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
-`0x85` `:path: /index.html`, `0x86` `:scheme: http`, and `0x87`
-`:scheme: https` bytes plus `0x88`
-`:status: 200`, `0x89` `:status: 204`, `0x8a` `:status: 206`, `0x8b`
-`:status: 304`, `0x8c` `:status: 400`, `0x8d` `:status: 404`, and `0x8e`
-`:status: 500` bytes plus `0x8f` `accept-charset:`, `0x90`
-`accept-encoding: gzip, deflate`, `0x91` `accept-language:`, `0x92`
-`accept-ranges:`, `0x93` `accept:`, `0x94`
-`access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-`authorization:`, `0x98` `cache-control:`, `0x99`
-`content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
-`content-language:`, `0x9c` `content-length:`, `0x9d`
-	`content-location:`, `0x9e` `content-range:`, `0x9f`
-	`content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
-	`0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
-	`if-match:`, `0xa7` `if-modified-since:`, `0xa8` `if-none-match:`,
-	`0xa9` `if-range:`, `0xaa` `if-unmodified-since:`, `0xab`
-	`last-modified:`, `0xac` `link:`, `0xad` `location:`, `0xae`
-	`max-forwards:`, `0xaf` `proxy-authenticate:`, `0xb0`
-	`proxy-authorization:`, `0xb1` `range:`, `0xb2` `referer:`, `0xb3`
-	`refresh:`, `0xb4` `retry-after:`, `0xb5` `server:`, `0xb6`
-	`set-cookie:`, `0xb7` `strict-transport-security:`, `0xb8`
-	`transfer-encoding:`, `0xb9` `user-agent:`, `0xba` `vary:`, `0xbb`
-	`via:`, and `0xbc` `www-authenticate:`
-	bytes, plus literal-without-indexing and literal-with-indexing fixtures
-whose first byte names a supported static-table header name for `:authority`,
-`:method`, `:path`, `:scheme`, or `:status`, sharing an HPACK string literal
-decoder for short visible-ASCII raw values and Huffman-marked values decoded
-by the HPACK static Huffman table, including zero-length `:path`,
-`:path: test`, `:scheme: https`, `:authority: www.example.com`,
-`:method: PUT`, and `:status: 200`, plus checked raw literal-with-indexing
-`:authority`, checked
-Huffman literal-with-indexing `:scheme: https`, raw literal-with-indexing
-`:status`, malformed string length, malformed Huffman padding, and malformed
-raw `:status` coverage, plus one literal-with-indexing `:path: /target`
-insertion and one later dynamic
-indexed reference to that inserted entry through the immutable HPACK state
-carried by the HTTP/2 decode state, a later literal-with-indexing
-`:method: PUT` insertion that becomes the newest dynamic indexed entry while
-retaining the older `:path: /target` entry when the bounded fixture table has
-room, dynamic indexed coverage for both `0xbe` newest-entry and `0xbf`
-older-entry ordering, unsupported fixture coverage after a table-size
-reduction evicts those entries, plus the fixture-boundary slice of HPACK
-integer table-size updates `0x3e`, `0x3f`, `0x3f 0x01`,
-`0x3f 0x0b`, `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
-`0x3f 0x82 0x02` that change the
-immutable HPACK state table size to `30`, `31`, `32`, `42`, `159`, `160`,
-and `289` through both completed HEADERS and final CONTINUATION paths. It
-checks partial fixture eviction by retaining the newest supported
-`:method: PUT` entry at table size `42` while evicting the older
-`:path: /target` entry, and checks full fixture eviction at table size `30`.
-Unsupported fixture blocks project through
-`hpack.fixture.unsupported_header_block`, and the local
-`http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
-fixture decoding. The completed request-header validation slice is current
-behavior under `../specification/` and
+Completed HPACK fixture behavior is current behavior under
+`../specification/` and the implemented-proposal records under
+`../reference/implemented-proposals/`, including
+`../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
+The remaining HPACK work in this proposal starts after that fixture boundary:
+full HPACK compression, unbounded dynamic-table behavior, general eviction
+policy beyond the checked fixture-owned entry sizes and table-size update
+slice, HPACK string encoding, general HPACK string-length policy beyond the
+checked fixture continuation, and production header validation beyond the
+fixture request checks. The completed request-header validation slice is
+current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md`: the
 HTTP/2 core validates fixture-marked request header lists after HPACK fixture
 decode on both completed HEADERS and final CONTINUATION paths, rejects
@@ -702,8 +660,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  multi-byte HPACK string length prefixes, HPACK string encoding, and
-  production header validation remain later work beyond the implemented
-  fixture boundary.
+  HPACK string encoding, general HPACK string-length policy beyond the checked
+  fixture continuation, and production header validation remain later work
+  beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
