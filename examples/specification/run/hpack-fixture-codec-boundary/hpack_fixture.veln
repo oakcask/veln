@@ -55,9 +55,13 @@ fn next_state(state: HpackFixtureState) -> HpackFixtureState
 end
 
 fn dynamic_entry_size(name: String, value: String) -> Int
-	match name == ":path" and value == "/target"
-		true => 44
-		false => 42
+	string_byte_count(name) + string_byte_count(value) + 32
+end
+
+fn string_byte_count(value: String) -> Int
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		Err(_) => 0
 	end
 end
 

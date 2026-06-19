@@ -179,9 +179,9 @@ compare it with `../specification/` before changing behavior.
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
-  checked fixture-owned entry sizes and table-size update slice, Huffman
-  encoding, broader dynamic-table string encoding policy, and production
-  header validation beyond the fixture request and response checks.
+  checked fixture-boundary entry-size calculation and table-size update slice,
+  Huffman encoding, broader dynamic-table string encoding policy, and
+  production header validation beyond the fixture request and response checks.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
