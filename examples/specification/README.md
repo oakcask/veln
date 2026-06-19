@@ -707,6 +707,19 @@ against the built `veln` binary.
   command output.
 - `run/binary-schema-flag16le-bit-index-human/`: `flag16le_set` reports the
   same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag24-decode/`: generated schema decode helpers read
+  three-byte big-endian `Flag24be` and little-endian `Flag24le` fields as
+  source-visible bitset values.
+- `run/binary-schema-flag24-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag24be` and `Flag24le` raw bits and bit positions, construct new
+  three-byte flags from raw bits and named bit indexes, and encode the result
+  through the generated schema helper.
+- `run/binary-schema-flag24-helper-diagnostics-json/`: `Flag24be` and
+  `Flag24le` helper calls reject out-of-range bit indexes and raw-bit values
+  with checked `Result` failures in JSON command output.
+- `run/binary-schema-flag24-mapped-record-decode/`: direct structural decode
+  mapping carries `Flag24be` and `Flag24le` fields into the mapped target
+  record shape.
 - `run/binary-schema-flag32be-decode/`: generated schema decode helpers read a
   four-byte big-endian `Flag32be` field as a source-visible bitset value.
 - `run/binary-schema-flag32be-bit-helpers/`: pure prelude helpers inspect
@@ -1013,6 +1026,17 @@ against the built `veln` binary.
 - `run/binary-schema-flag32le-encode-out-of-range/`: generated schema encode
   helpers reject `Flag32le(bits)` values outside the four-byte unsigned range
   with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag24-encode/`: generated schema encode helpers write
+  `Flag24be(bits)` through the three-byte big-endian `UInt24be`
+  representation path and `Flag24le(bits)` through the three-byte
+  little-endian `UInt24le` representation path.
+- `run/binary-schema-flag24-mapped-record-encode/`: direct structural encode
+  mapping projects `Flag24be` and `Flag24le` target fields back to
+  schema-local fields.
+- `run/binary-schema-flag24-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag24be(bits)` and `Flag24le(bits)` values outside the
+  three-byte unsigned range with the usual `EncodeError` id, field path, and
+  reason shape.
 - `run/binary-schema-flag64be-encode/`: generated schema encode helpers write
   a `Flag64be(bits)` field through the eight-byte big-endian `UInt64be`
   representation path.
