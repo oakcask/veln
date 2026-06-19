@@ -1766,7 +1766,10 @@ against the built `veln` binary.
   replacement-friendly dependency and weight values, rejects missing, closed,
   reset, mismatched, and self-dependent streams before output bytes, and
   preserves frame stream-id and dependency-payload encode failures as codec
-  representation failures.
+  representation failures. It also constructs outbound `PUSH_PROMISE` chunks
+  for an open client-created associated stream, covers CONTINUATION splitting,
+  rejects invalid associated and promised stream ids before accepted bytes,
+  and preserves promised-id representation failures as codec encode failures.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation

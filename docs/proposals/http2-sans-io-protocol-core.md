@@ -532,6 +532,22 @@ stream-state rejection boundary. It rejects stream id `0`, missing or non-open
 streams, already closed or reset streams, and generated frame-header
 representation failures before accepted bytes are produced. HPACK remains
 outside the send intent because the header-block bytes are already encoded.
+The implemented slice also includes the narrow server-side outbound
+`PUSH_PROMISE` send-intent. Ordinary source accepts a nonzero currently open
+client-created associated stream, a nonzero server-initiated promised stream
+id, and an already-encoded opaque header-block `ByteChunk`. It encodes frame
+kind `5` on the associated stream, writes the promised stream id through the
+generated `UInt31be` payload helper, then appends the header-block bytes.
+When the promised-id payload plus header-block bytes exceed the
+peer-advertised maximum frame size, the output uses one `PUSH_PROMISE` frame
+followed by CONTINUATION frames on the same associated stream, with
+`END_HEADERS` only on the final frame. It rejects stream id `0`, missing,
+closed, reset, mismatched, or server-created associated streams, promised
+stream id `0`, and representable client-initiated promised stream ids before
+accepted bytes are produced. Generated payload representation failures, such
+as out-of-range promised stream ids, remain
+`codec.encode_value_unrepresentable` encode errors instead of HTTP/2
+protocol diagnostics.
 The implemented slice also includes the outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id and error code through
 the schema-declared GOAWAY payload record, encodes a nine-byte header with

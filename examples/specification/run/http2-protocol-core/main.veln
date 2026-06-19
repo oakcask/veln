@@ -46,6 +46,13 @@ schema Http2PriorityWeightPayloadWire
 	weight: UInt8
 end
 
+schema Http2PushPromisePayloadWire
+	format binary
+
+	promised_stream_reserved: ReservedBits(1, 0)
+	promised_stream_id: UInt31be
+end
+
 type PendingContinuation
 	NoContinuation
 	Continuation(Int, Int, Int, Int, ByteChunk)
@@ -260,6 +267,12 @@ type OutboundHeadersDecision
 	OutboundHeadersEncodeFailed(Int, Int, Bool, EncodeError)
 end
 
+type OutboundPushPromiseDecision
+	OutboundPushPromiseAccepted(Int, Int, Int, OutboundReceiveCredit, ByteChunk)
+	OutboundPushPromiseRejected(Int, Int, Int, Http2ProtocolFailure)
+	OutboundPushPromiseEncodeFailed(Int, Int, Int, EncodeError)
+end
+
 type OutboundGoawayDecision
 	OutboundGoawayAccepted(Int, Int, Http2DecodeState, ByteChunk)
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
@@ -331,6 +344,10 @@ end
 
 fn encode_priority_weight_payload(payload: {weight: Int}) -> Result<ByteChunk, EncodeError>
 	byte_encode_http2_priority_weight_payload_wire(payload)
+end
+
+fn encode_push_promise_payload(payload: {promised_stream_id: Int}) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_push_promise_payload_wire(payload)
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
@@ -1601,6 +1618,114 @@ fn headers_sent_receive_credit(stream_id: Int, end_stream: Bool, connection_wind
 	match end_stream
 		true => OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id))
 		false => OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window))
+	end
+end
+
+fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPushPromiseDecision, String>
+	let header_block_length: Int = byte_count_to_int(byte_chunk_count(header_block))
+	let payload_length: Int = header_block_length + 4
+	match stream_id == 0
+		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
+		false => match stream_id_is_client_initiated(stream_id)
+			true => send_nonzero_push_promise(stream_id, promised_stream_id, payload_length, header_block, active_peer_max_frame_size(peer_settings), receive_credit)
+			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
+		end
+	end
+end
+
+fn send_nonzero_push_promise(stream_id: Int, promised_stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundPushPromiseDecision, String>
+	match receive_credit
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
+			true => validate_promised_stream_id(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
+			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
+			true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
+			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
+			true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
+			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+	end
+end
+
+fn validate_promised_stream_id(stream_id: Int, promised_stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
+	match promised_stream_id == 0
+		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, promised_stream_id, "nonzero server-initiated promised stream id", "local", "stream-id-domain", "outbound_push_promise_requires_server_stream")))
+		false => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
+	end
+end
+
+fn stream_id_is_server_initiated(stream_id: Int) -> Bool
+	(stream_id / 2) * 2 == stream_id
+end
+
+fn encode_push_promise_intent(stream_id: Int, promised_stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
+	match max_frame_size < 4
+		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, FrameSizeExceeded(0, 4, ReceiveLimit(max_frame_size, LocalConfiguration), 5, stream_id)))
+		false => encode_representable_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
+	end
+end
+
+fn encode_representable_push_promise_intent(stream_id: Int, promised_stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
+	let encoded_payload: Result<ByteChunk, EncodeError> = encode_push_promise_payload({promised_stream_id: promised_stream_id})
+	match encoded_payload
+		Ok(promised_payload) => match stream_id_is_server_initiated(promised_stream_id)
+			true => match payload_length > max_frame_size
+				true => encode_split_push_promise_intent(stream_id, promised_stream_id, payload_length, promised_payload, header_block, max_frame_size, connection_window, stream_window)
+				false => encode_single_push_promise_intent(stream_id, promised_stream_id, payload_length, promised_payload, header_block, connection_window, stream_window)
+			end
+			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, promised_stream_id, "nonzero server-initiated promised stream id", "local", "stream-id-domain", "outbound_push_promise_requires_server_stream")))
+		end
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(stream_id, promised_stream_id, payload_length, error))
+	end
+end
+
+fn encode_single_push_promise_intent(stream_id: Int, promised_stream_id: Int, payload_length: Int, promised_payload: ByteChunk, header_block: ByteChunk, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: payload_length, kind: 5, flags: 4, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => Ok(OutboundPushPromiseAccepted(stream_id, promised_stream_id, payload_length, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window)), byte_append(byte_append(header, promised_payload), header_block)))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(stream_id, promised_stream_id, payload_length, error))
+	end
+end
+
+fn encode_split_push_promise_intent(stream_id: Int, promised_stream_id: Int, payload_length: Int, promised_payload: ByteChunk, header_block: ByteChunk, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
+	let first_header_block_count: ByteCount = byte_count(max_frame_size - 4)?
+	let first_header_block: ByteChunk = byte_take(header_block, first_header_block_count)?
+	let remaining: ByteChunk = byte_drop(header_block, first_header_block_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 5, flags: 0, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_continuation_push_promise_intent(stream_id, promised_stream_id, payload_length, max_frame_size, connection_window, stream_window, remaining, byte_append(byte_append(header, promised_payload), first_header_block))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(stream_id, promised_stream_id, payload_length, error))
+	end
+end
+
+fn encode_continuation_push_promise_intent(stream_id: Int, promised_stream_id: Int, payload_length: Int, max_frame_size: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	match remaining_length > max_frame_size
+		true => encode_nonfinal_push_promise_continuation(stream_id, promised_stream_id, payload_length, max_frame_size, connection_window, stream_window, remaining, encoded)
+		false => encode_final_push_promise_continuation(stream_id, promised_stream_id, payload_length, remaining_length, connection_window, stream_window, remaining, encoded)
+	end
+end
+
+fn encode_nonfinal_push_promise_continuation(stream_id: Int, promised_stream_id: Int, payload_length: Int, max_frame_size: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let payload: ByteChunk = byte_take(remaining, chunk_count)?
+	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: max_frame_size, kind: 9, flags: 0, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_continuation_push_promise_intent(stream_id, promised_stream_id, payload_length, max_frame_size, connection_window, stream_window, next_remaining, byte_append(byte_append(encoded, header), payload))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(stream_id, promised_stream_id, payload_length, error))
+	end
+end
+
+fn encode_final_push_promise_continuation(stream_id: Int, promised_stream_id: Int, payload_length: Int, final_length: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: final_length, kind: 9, flags: 4, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => Ok(OutboundPushPromiseAccepted(stream_id, promised_stream_id, payload_length, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window)), byte_append(byte_append(encoded, header), remaining)))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(stream_id, promised_stream_id, payload_length, error))
 	end
 end
 
@@ -3392,6 +3517,118 @@ fn outbound_headers_encode_detail(decision: OutboundHeadersDecision) -> String
 	end
 end
 
+fn outbound_push_promise_status(decision: OutboundPushPromiseDecision) -> String
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => "accepted"
+		OutboundPushPromiseRejected(_, _, _, _) => "rejected"
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => "encode_error"
+	end
+end
+
+fn outbound_push_promise_reason(decision: OutboundPushPromiseDecision) -> String
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => "none"
+		OutboundPushPromiseRejected(_, _, _, error) => outbound_headers_failure_reason(error)
+		OutboundPushPromiseEncodeFailed(_, _, _, error) => encode_error_id(error)
+	end
+end
+
+fn outbound_push_promise_stream(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(stream_id, _, _, _, _) => stream_id
+		OutboundPushPromiseRejected(stream_id, _, _, _) => stream_id
+		OutboundPushPromiseEncodeFailed(stream_id, _, _, _) => stream_id
+	end
+end
+
+fn outbound_push_promise_promised_stream(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, promised_stream_id, _, _, _) => promised_stream_id
+		OutboundPushPromiseRejected(_, promised_stream_id, _, _) => promised_stream_id
+		OutboundPushPromiseEncodeFailed(_, promised_stream_id, _, _) => promised_stream_id
+	end
+end
+
+fn outbound_push_promise_payload_length(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, payload_length, _, _) => payload_length
+		OutboundPushPromiseRejected(_, _, payload_length, _) => payload_length
+		OutboundPushPromiseEncodeFailed(_, _, payload_length, _) => payload_length
+	end
+end
+
+fn outbound_push_promise_allowed_length(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => 0
+		OutboundPushPromiseRejected(_, _, _, error) => failure_allowed_length(error)
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_push_promise_connection_window(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, receive_credit, _) => outbound_receive_connection_window(receive_credit)
+		OutboundPushPromiseRejected(_, _, _, _) => 0
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_push_promise_open_stream(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, receive_credit, _) => outbound_receive_open_stream_id(receive_credit)
+		OutboundPushPromiseRejected(_, _, _, _) => 0
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_push_promise_closed_stream(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, receive_credit, _) => outbound_receive_closed_stream_id(receive_credit)
+		OutboundPushPromiseRejected(_, _, _, _) => 0
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_push_promise_stream_window(decision: OutboundPushPromiseDecision) -> Int
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, receive_credit, _) => outbound_receive_stream_window(receive_credit)
+		OutboundPushPromiseRejected(_, _, _, _) => 0
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => 0
+	end
+end
+
+fn outbound_push_promise_active_state(decision: OutboundPushPromiseDecision) -> String
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => "none"
+		OutboundPushPromiseRejected(_, _, _, error) => failure_active_state(error)
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => "codec"
+	end
+end
+
+fn outbound_push_promise_chunk(decision: OutboundPushPromiseDecision) -> ByteChunk
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, chunk) => chunk
+		OutboundPushPromiseRejected(_, _, _, _) => byte_chunk([])
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => byte_chunk([])
+	end
+end
+
+fn outbound_push_promise_encode_path(decision: OutboundPushPromiseDecision) -> String
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => "none"
+		OutboundPushPromiseRejected(_, _, _, _) => "none"
+		OutboundPushPromiseEncodeFailed(_, _, _, error) => encode_error_path(error)
+	end
+end
+
+fn outbound_push_promise_encode_detail(decision: OutboundPushPromiseDecision) -> String
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => "none"
+		OutboundPushPromiseRejected(_, _, _, _) => "none"
+		OutboundPushPromiseEncodeFailed(_, _, _, error) => encode_error_reason(error)
+	end
+end
+
 fn outbound_goaway_status(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, _, _) => "accepted"
@@ -4543,6 +4780,40 @@ fn print_outbound_headers_chunk(label: String, decision: OutboundHeadersDecision
 	emit_encoded_header(label, outbound_headers_chunk(decision), expected_hex)
 end
 
+fn print_outbound_push_promise(label: String, decision: OutboundPushPromiseDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-push-promise ")
+	stdio::print(outbound_push_promise_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_push_promise_reason(decision))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(outbound_push_promise_stream(decision)))
+	stdio::print(" promised_stream ")
+	stdio::print(int_to_string(outbound_push_promise_promised_stream(decision)))
+	stdio::print(" payload_length ")
+	stdio::print(int_to_string(outbound_push_promise_payload_length(decision)))
+	stdio::print(" allowed_length ")
+	stdio::print(int_to_string(outbound_push_promise_allowed_length(decision)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(outbound_push_promise_connection_window(decision)))
+	stdio::print(" open_stream ")
+	stdio::print(int_to_string(outbound_push_promise_open_stream(decision)))
+	stdio::print(" closed_stream ")
+	stdio::print(int_to_string(outbound_push_promise_closed_stream(decision)))
+	stdio::print(" stream_window ")
+	stdio::print(int_to_string(outbound_push_promise_stream_window(decision)))
+	stdio::print(" active_state ")
+	stdio::print(outbound_push_promise_active_state(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_push_promise_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_push_promise_encode_detail(decision))
+end
+
+fn print_outbound_push_promise_chunk(label: String, decision: OutboundPushPromiseDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_encoded_header(label, outbound_push_promise_chunk(decision), expected_hex)
+end
+
 fn print_outbound_goaway(label: String, decision: OutboundGoawayDecision) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" outbound-goaway ")
@@ -5412,6 +5683,37 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
+	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
+	let outbound_push_promise_accepted: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("8284")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-accepted", outbound_push_promise_accepted)
+	let ignored_push_promise_chunk: () = print_outbound_push_promise_chunk("http2-push-promise", outbound_push_promise_accepted, "000006050400000001000000028284")?
+	let outbound_push_promise_continuation: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("828486")?, small_peer_max_frame_size_settings(5), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-continuation", outbound_push_promise_continuation)
+	let ignored_push_promise_continuation_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-continuation", outbound_push_promise_continuation, "00000505000000000100000002820000020904000000018486")?
+	let outbound_push_promise_zero: OutboundPushPromiseDecision = send_push_promise(0, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-zero", outbound_push_promise_zero)
+	let outbound_push_promise_even_associated: OutboundPushPromiseDecision = send_push_promise(2, 4, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit_with_open_stream(10, 2, 20))?
+	print_outbound_push_promise("outbound-push-promise-even-associated", outbound_push_promise_even_associated)
+	let outbound_push_promise_missing: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit_without_stream(10))?
+	print_outbound_push_promise("outbound-push-promise-missing", outbound_push_promise_missing)
+	let outbound_push_promise_closed: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit_with_closed_stream(10, 1))?
+	print_outbound_push_promise("outbound-push-promise-closed", outbound_push_promise_closed)
+	let outbound_push_promise_reset: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit_with_reset_stream(10, 1, 8))?
+	print_outbound_push_promise("outbound-push-promise-reset", outbound_push_promise_reset)
+	let outbound_push_promise_mismatch: OutboundPushPromiseDecision = send_push_promise(3, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-mismatch", outbound_push_promise_mismatch)
+	let outbound_push_promise_promised_zero: OutboundPushPromiseDecision = send_push_promise(1, 0, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-promised-zero", outbound_push_promise_promised_zero)
+	let outbound_push_promise_promised_odd: OutboundPushPromiseDecision = send_push_promise(1, 3, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-promised-odd", outbound_push_promise_promised_odd)
+	let outbound_push_promise_promised_encode_error: OutboundPushPromiseDecision = send_push_promise(1, 2147483648, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-promised-encode-error", outbound_push_promise_promised_encode_error)
+	let outbound_push_promise_promised_odd_encode_error: OutboundPushPromiseDecision = send_push_promise(1, 2147483649, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-promised-odd-encode-error", outbound_push_promise_promised_odd_encode_error)
+	Ok(())
+end
+
 fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	let outbound_goaway_accepted: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
 	print_outbound_goaway("outbound-goaway-accepted", outbound_goaway_accepted)
@@ -5432,6 +5734,7 @@ fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 	let ignored_outbound_rst_stream_cases: () = print_outbound_rst_stream_cases()?
 	let ignored_outbound_priority_cases: () = print_outbound_priority_cases()?
 	let ignored_outbound_headers_cases: () = print_outbound_headers_cases()?
+	let ignored_outbound_push_promise_cases: () = print_outbound_push_promise_cases()?
 	let ignored_outbound_goaway_cases: () = print_outbound_goaway_cases()?
 	Ok(())
 end
