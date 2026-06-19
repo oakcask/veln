@@ -24,6 +24,40 @@ pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
+type HpackHuffmanValue
+	HpackHuffmanEmpty
+	HpackHuffmanW
+	HpackHuffmanWw
+	HpackHuffmanWww
+	HpackHuffmanWwwDot
+	HpackHuffmanWwwDotE
+	HpackHuffmanWwwDotEx
+	HpackHuffmanWwwDotExa
+	HpackHuffmanWwwDotExam
+	HpackHuffmanWwwDotExamp
+	HpackHuffmanWwwDotExampl
+	HpackHuffmanWwwDotExample
+	HpackHuffmanWwwDotExampleDot
+	HpackHuffmanWwwDotExampleDotC
+	HpackHuffmanWwwDotExampleDotCo
+	HpackHuffmanWwwDotExampleDotCom
+	HpackHuffmanSlash
+	HpackHuffmanSlashT
+	HpackHuffmanSlashTa
+	HpackHuffmanSlashTar
+	HpackHuffmanSlashTarg
+	HpackHuffmanSlashTarge
+	HpackHuffmanSlashTarget
+	HpackHuffmanH
+	HpackHuffmanHt
+	HpackHuffmanHtt
+	HpackHuffmanHttp
+	HpackHuffmanHttps
+	HpackHuffmanP
+	HpackHuffmanPu
+	HpackHuffmanPut
+end
+
 pub fn initial_state() -> HpackFixtureState
 	HpackFixtureState(4096, 0, NoDynamicEntry)
 end
@@ -120,10 +154,6 @@ fn literal_without_indexing_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
-fn literal_without_indexing_path_empty_huffman_headers() -> HpackHeaderList
-	HpackHeaderList(HpackHeader(":path", ""), HpackHeader(":fixture", "literal-without-indexing"), 2)
-end
-
 fn literal_without_indexing_authority_example_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":authority", "example.com"), HpackHeader(":fixture", "literal-without-indexing"), 13)
 end
@@ -160,12 +190,16 @@ fn decoded_literal_without_indexing_path_target(state: HpackFixtureState) -> Res
 	Ok(HpackDecodeTransition(literal_without_indexing_path_target_headers(), next_state(state)))
 end
 
-fn decoded_literal_without_indexing_path_empty_huffman(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	Ok(HpackDecodeTransition(literal_without_indexing_path_empty_huffman_headers(), next_state(state)))
-end
-
 fn decoded_literal_without_indexing_authority_example(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(literal_without_indexing_authority_example_headers(), next_state(state)))
+end
+
+fn literal_without_indexing_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), wire_size)
+end
+
+fn decoded_literal_without_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_without_indexing_headers(name, value, wire_size), next_state(state)))
 end
 
 fn decoded_literal_with_indexing_path_target(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -226,15 +260,281 @@ fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, H
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
 end
 
+fn unsupported_value(block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn pow2(value: Int) -> Int
+	match value
+		0 => 1
+		1 => 2
+		2 => 4
+		3 => 8
+		4 => 16
+		5 => 32
+		6 => 64
+		7 => 128
+		_ => 256
+	end
+end
+
+fn byte_bit(byte: Int, bit_index: Int) -> Int
+	let divisor: Int = pow2(7 - bit_index)
+	byte / divisor - (byte / (divisor * 2)) * 2
+end
+
+fn hpack_static_huffman_symbol(code: Int, length: Int) -> Option<Int>
+	match length
+		5 => match code
+			3 => Some(97)
+			4 => Some(99)
+			5 => Some(101)
+			7 => Some(111)
+			8 => Some(115)
+			9 => Some(116)
+			_ => None
+		end
+		6 => match code
+			23 => Some(46)
+			24 => Some(47)
+			38 => Some(103)
+			39 => Some(104)
+			40 => Some(108)
+			41 => Some(109)
+			43 => Some(112)
+			44 => Some(114)
+			_ => None
+		end
+		7 => match code
+			107 => Some(80)
+			111 => Some(84)
+			112 => Some(85)
+			120 => Some(119)
+			121 => Some(120)
+			_ => None
+		end
+		_ => None
+	end
+end
+
+fn hpack_huffman_push_symbol(value: HpackHuffmanValue, symbol: Int) -> Option<HpackHuffmanValue>
+	match value
+		HpackHuffmanEmpty => match symbol
+			47 => Some(HpackHuffmanSlash)
+			80 => Some(HpackHuffmanP)
+			104 => Some(HpackHuffmanH)
+			119 => Some(HpackHuffmanW)
+			_ => None
+		end
+		HpackHuffmanW => match symbol
+			119 => Some(HpackHuffmanWw)
+			_ => None
+		end
+		HpackHuffmanWw => match symbol
+			119 => Some(HpackHuffmanWww)
+			_ => None
+		end
+		HpackHuffmanWww => match symbol
+			46 => Some(HpackHuffmanWwwDot)
+			_ => None
+		end
+		HpackHuffmanWwwDot => match symbol
+			101 => Some(HpackHuffmanWwwDotE)
+			_ => None
+		end
+		HpackHuffmanWwwDotE => match symbol
+			120 => Some(HpackHuffmanWwwDotEx)
+			_ => None
+		end
+		HpackHuffmanWwwDotEx => match symbol
+			97 => Some(HpackHuffmanWwwDotExa)
+			_ => None
+		end
+		HpackHuffmanWwwDotExa => match symbol
+			109 => Some(HpackHuffmanWwwDotExam)
+			_ => None
+		end
+		HpackHuffmanWwwDotExam => match symbol
+			112 => Some(HpackHuffmanWwwDotExamp)
+			_ => None
+		end
+		HpackHuffmanWwwDotExamp => match symbol
+			108 => Some(HpackHuffmanWwwDotExampl)
+			_ => None
+		end
+		HpackHuffmanWwwDotExampl => match symbol
+			101 => Some(HpackHuffmanWwwDotExample)
+			_ => None
+		end
+		HpackHuffmanWwwDotExample => match symbol
+			46 => Some(HpackHuffmanWwwDotExampleDot)
+			_ => None
+		end
+		HpackHuffmanWwwDotExampleDot => match symbol
+			99 => Some(HpackHuffmanWwwDotExampleDotC)
+			_ => None
+		end
+		HpackHuffmanWwwDotExampleDotC => match symbol
+			111 => Some(HpackHuffmanWwwDotExampleDotCo)
+			_ => None
+		end
+		HpackHuffmanWwwDotExampleDotCo => match symbol
+			109 => Some(HpackHuffmanWwwDotExampleDotCom)
+			_ => None
+		end
+		HpackHuffmanSlash => match symbol
+			116 => Some(HpackHuffmanSlashT)
+			_ => None
+		end
+		HpackHuffmanSlashT => match symbol
+			97 => Some(HpackHuffmanSlashTa)
+			_ => None
+		end
+		HpackHuffmanSlashTa => match symbol
+			114 => Some(HpackHuffmanSlashTar)
+			_ => None
+		end
+		HpackHuffmanSlashTar => match symbol
+			103 => Some(HpackHuffmanSlashTarg)
+			_ => None
+		end
+		HpackHuffmanSlashTarg => match symbol
+			101 => Some(HpackHuffmanSlashTarge)
+			_ => None
+		end
+		HpackHuffmanSlashTarge => match symbol
+			116 => Some(HpackHuffmanSlashTarget)
+			_ => None
+		end
+		HpackHuffmanH => match symbol
+			116 => Some(HpackHuffmanHt)
+			_ => None
+		end
+		HpackHuffmanHt => match symbol
+			116 => Some(HpackHuffmanHtt)
+			_ => None
+		end
+		HpackHuffmanHtt => match symbol
+			112 => Some(HpackHuffmanHttp)
+			_ => None
+		end
+		HpackHuffmanHttp => match symbol
+			115 => Some(HpackHuffmanHttps)
+			_ => None
+		end
+		HpackHuffmanP => match symbol
+			85 => Some(HpackHuffmanPu)
+			_ => None
+		end
+		HpackHuffmanPu => match symbol
+			84 => Some(HpackHuffmanPut)
+			_ => None
+		end
+		_ => None
+	end
+end
+
+fn hpack_huffman_value_string(value: HpackHuffmanValue) -> Option<String>
+	match value
+		HpackHuffmanEmpty => Some("")
+		HpackHuffmanWwwDotExampleDotCom => Some("www.example.com")
+		HpackHuffmanSlashTarget => Some("/target")
+		HpackHuffmanHttps => Some("https")
+		HpackHuffmanPut => Some("PUT")
+		_ => None
+	end
+end
+
+fn hpack_huffman_value_from_string(value: String) -> HpackHuffmanValue
+	match value == ""
+		true => HpackHuffmanEmpty
+		false => match value == "www.example.com"
+			true => HpackHuffmanWwwDotExampleDotCom
+			false => match value == "/target"
+				true => HpackHuffmanSlashTarget
+				false => match value == "https"
+					true => HpackHuffmanHttps
+					false => HpackHuffmanPut
+				end
+			end
+		end
+	end
+end
+
+fn hpack_huffman_decoded_wire_size(value: HpackHuffmanValue, observed_size: Int) -> Int
+	match value
+		HpackHuffmanEmpty => observed_size
+		HpackHuffmanWwwDotExampleDotCom => 13
+		HpackHuffmanSlashTarget => 7
+		HpackHuffmanHttps => 5
+		HpackHuffmanPut => 3
+		_ => observed_size
+	end
+end
+
+fn hpack_huffman_padding_valid(code: Int, length: Int) -> Bool
+	length == 0 or (length <= 7 and code == pow2(length) - 1)
+end
+
+fn decode_hpack_huffman_done(value: HpackHuffmanValue, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match hpack_huffman_padding_valid(code, length)
+		false => unsupported_value(block, offset)
+		true => match hpack_huffman_value_string(value)
+			Some(decoded) => Ok(decoded)
+			None => unsupported_value(block, offset)
+		end
+	end
+end
+
+fn decode_hpack_huffman_bit(block: ByteChunk, bit_index: Int, total_bits: Int, value: HpackHuffmanValue, code: Int, length: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	let source_byte: Int = byte_at_or_missing(block, 2 + bit_index / 8)
+	let bit: Int = byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code: Int = code * 2 + bit
+	let next_length: Int = length + 1
+	match hpack_static_huffman_symbol(next_code, next_length)
+		Some(symbol) => match hpack_huffman_push_symbol(value, symbol)
+			Some(next_value) => decode_hpack_huffman_bits(block, bit_index + 1, total_bits, next_value, 0, 0, offset)
+			None => unsupported_value(block, offset)
+		end
+		None => match next_length > 7
+			true => unsupported_value(block, offset)
+			false => decode_hpack_huffman_bits(block, bit_index + 1, total_bits, value, next_code, next_length, offset)
+		end
+	end
+end
+
+fn decode_hpack_huffman_bits(block: ByteChunk, bit_index: Int, total_bits: Int, value: HpackHuffmanValue, code: Int, length: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	match bit_index == total_bits
+		true => decode_hpack_huffman_done(value, code, length, block, offset)
+		false => decode_hpack_huffman_bit(block, bit_index, total_bits, value, code, length, offset)
+	end
+end
+
+fn decode_hpack_huffman_literal_value(block: ByteChunk, encoded_count: Int, offset: Int) -> Result<String, HpackFixtureFailure>
+	match encoded_count <= 12
+		true => decode_hpack_huffman_bits(block, 0, encoded_count * 8, HpackHuffmanEmpty, 0, 0, offset)
+		false => unsupported_value(block, offset)
+	end
+end
+
+fn literal_static_name(index: Int) -> String
+	match index == 1
+		true => ":authority"
+		false => match index == 2
+			true => ":method"
+			false => match index == 4
+				true => ":path"
+				false => ":scheme"
+			end
+		end
+	end
+end
+
 fn is_literal_without_indexing_path_target(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
 	match first_byte == 4 and observed_size == 9
 		true => byte_at_or_missing(block, 1) == 7 and byte_at_or_missing(block, 2) == 47 and byte_at_or_missing(block, 3) == 116 and byte_at_or_missing(block, 4) == 97 and byte_at_or_missing(block, 5) == 114 and byte_at_or_missing(block, 6) == 103 and byte_at_or_missing(block, 7) == 101 and byte_at_or_missing(block, 8) == 116
 		false => false
 	end
-end
-
-fn is_literal_without_indexing_path_empty_huffman(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
-	first_byte == 4 and observed_size == 2 and byte_at_or_missing(block, 1) == 128
 end
 
 fn is_literal_without_indexing_authority_example(block: ByteChunk, observed_size: Int, first_byte: Int) -> Bool
@@ -322,8 +622,11 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		end
 		4 => match is_literal_without_indexing_path_target(block, observed_size, first_byte)
 			true => decoded_literal_without_indexing_path_target(state)
-			false => match is_literal_without_indexing_path_empty_huffman(block, observed_size, first_byte)
-				true => decoded_literal_without_indexing_path_empty_huffman(state)
+			false => match observed_size >= 2 and byte_at_or_missing(block, 1) >= 128 and observed_size == byte_at_or_missing(block, 1) - 128 + 2
+				true => match decode_hpack_huffman_literal_value(block, byte_at_or_missing(block, 1) - 128, offset)
+					Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size), state)
+					Err(failure) => Err(failure)
+				end
 				false => unsupported(block, offset)
 			end
 		end
@@ -336,6 +639,19 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		end
 		1 => match is_literal_without_indexing_authority_example(block, observed_size, first_byte)
 			true => decoded_literal_without_indexing_authority_example(state)
+			false => match observed_size >= 2 and byte_at_or_missing(block, 1) >= 128 and observed_size == byte_at_or_missing(block, 1) - 128 + 2
+				true => match decode_hpack_huffman_literal_value(block, byte_at_or_missing(block, 1) - 128, offset)
+					Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size), state)
+					Err(failure) => Err(failure)
+				end
+				false => unsupported(block, offset)
+			end
+		end
+		6 => match observed_size >= 2 and byte_at_or_missing(block, 1) >= 128 and observed_size == byte_at_or_missing(block, 1) - 128 + 2
+			true => match decode_hpack_huffman_literal_value(block, byte_at_or_missing(block, 1) - 128, offset)
+				Ok(value) => decoded_literal_without_indexing(literal_static_name(first_byte), value, hpack_huffman_decoded_wire_size(hpack_huffman_value_from_string(value), observed_size), state)
+				Err(failure) => Err(failure)
+			end
 			false => unsupported(block, offset)
 		end
 		66 => match is_literal_with_indexing_method_put(block, observed_size, first_byte)

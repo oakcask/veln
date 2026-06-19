@@ -11,30 +11,33 @@ checked executable cases
 
 ## Completed Behavior
 
-The imported HPACK fixture boundary accepts narrow Huffman-flagged
-literal-without-indexing header blocks. The `0x04 0x80` fixture uses indexed
-static-table name `:path`, sets the Huffman flag on a zero-length value, and
-decodes the fixture value as the empty string. The
+The imported HPACK fixture boundary accepts narrow Huffman-marked
+literal-without-indexing header values. It uses the HPACK static Huffman code
+table for the fixture-supported decoded values `""`, `www.example.com`,
+`https`, `/target`, and `PUT`. Checked values include `0x04 0x80` for
+zero-length `:path`,
+`0x06 0x84 0x9d 0x29 0xad 0x1f` for `:scheme: https`, and
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`
-fixture uses indexed static-table name `:authority`, sets the Huffman flag on
-the value bytes, and decodes `:authority: www.example.com`.
+for `:authority: www.example.com`.
 
 The transition returns the same immutable `HpackFixtureState` shape and
 advances the decode count through the existing transition accessors.
-Unsupported or malformed Huffman variants still project through
+Unsupported symbols and malformed Huffman padding still project through
 `hpack.fixture.unsupported_header_block`.
 
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
-  the focused `literal-path-empty-huffman` decode and a malformed Huffman
-  variant that stays on the unsupported-header-block path.
+  the focused `literal-path-empty-huffman` and
+  `literal-scheme-https-huffman` decodes plus malformed Huffman padding that
+  stays on the unsupported-header-block path.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   completed HEADERS cases named `hpack-literal-huffman` and
-  `hpack-literal-authority-www-example-huffman`, emits the header-block bytes
-  `0480` and `018cf1e3c2e5f23a6ba0ab90f4ff`, prints the decoded `:path`
-  and `:authority: www.example.com` values, and keeps malformed Huffman input
-  on `hpack.fixture.unsupported_header_block`.
+  `hpack-literal-scheme-https-huffman`, emits the header-block bytes `0480`
+  and `06849d29ad1f`, prints the decoded `:path` and `:scheme: https`
+  values, and keeps malformed Huffman padding on
+  `hpack.fixture.unsupported_header_block`. The broader HTTP/2 case also
+  keeps the `:authority: www.example.com` Huffman fixture covered.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

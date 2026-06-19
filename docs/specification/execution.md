@@ -1271,11 +1271,16 @@ execution reference.
   is not Huffman-marked, whose length is within the small fixture bound, and
   whose raw value bytes are all visible ASCII. The checked example covers
   `:authority: abc.test` through completed HEADERS and final CONTINUATION
-  paths and rejects a non-visible raw value byte. Huffman-flagged literal
-  fixture bytes for zero-length `:path` as `0x04 0x80` and
-  literal-without-indexing `:authority: www.example.com` as
-  `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
-  plus the narrow
+  paths and rejects a non-visible raw value byte. Huffman-marked
+  literal-without-indexing values pass through a narrow HPACK static Huffman
+  value decoder for the fixture-supported values `""`, `www.example.com`,
+  `https`, `/target`, and `PUT`. The checked bytes include zero-length
+  `:path` as `0x04 0x80`, `:scheme: https` as
+  `0x06 0x84 0x9d 0x29 0xad 0x1f`, and
+  `:authority: www.example.com` as
+  `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
+  Malformed Huffman padding remains unsupported. This is still a fixture
+  slice, not a full HPACK string implementation. It also includes the narrow
   dynamic-table slice where `0x44 0x07 "/target"` inserts `:path: /target`
   into the returned immutable fixture state stored on the HTTP/2 decode state
   and a later `0xbe` indexed representation reads that entry, returns ordinary
@@ -1299,7 +1304,8 @@ execution reference.
   representation stays on the unsupported fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, and unsupported Huffman variants, projects through
+  literal-without-indexing, and Huffman symbols or padding outside the narrow
+  fixture decoder, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
   module, and bounded header-block byte preview. That diagnostic path is
