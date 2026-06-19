@@ -5251,6 +5251,34 @@ fn print_hpack_boundary_with_state(label: String, block: ByteChunk, state: Hpack
 	end
 end
 
+fn require_hpack_transition_header(step: Http2Step, previous_state: Http2DecodeState, expected_name: String, expected_value: String) -> Result<(), String>
+	match hpack_fixture::decode_header_block(step_completed_header_block(step), state_hpack_fixture_state(previous_state), step_offset(step))
+		Ok(transition) => match hpack_fixture::header_list_first_name(hpack_fixture::transition_headers(transition)) == expected_name and hpack_fixture::header_list_first_value(hpack_fixture::transition_headers(transition)) == expected_value
+			true => Ok(())
+			false => Err("unexpected HTTP/2 HPACK carried header")
+		end
+		Err(_) => Err("expected HTTP/2 HPACK carried decode")
+	end
+end
+
+fn require_hpack_state_table_size(state: Http2DecodeState, expected_table_size: Int) -> Result<(), String>
+	match hpack_fixture::state_table_size(state_hpack_fixture_state(state)) == expected_table_size
+		true => Ok(())
+		false => Err("unexpected HTTP/2 HPACK carried table size")
+	end
+end
+
+fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
+		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block"
+			true => Ok(())
+			false => Err("expected HTTP/2 HPACK unsupported fixture failure")
+		end
+	end
+end
+
 fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), String> effects [stdio]
 	let base_state: Http2DecodeState = hpack_carry_only_state(step_state(after_path))
 	let literal_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000034203505554")?), base_state)?
@@ -5273,6 +5301,20 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_hpack_state("hpack-stateful-table-size-eviction", step_state(reduced_table_size))
 	let evicted_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000bbe")?), hpack_carry_only_state(step_state(reduced_table_size)))?
 	print_failure("hpack-stateful-after-table-size-eviction", evicted_newest)
+	let partially_reduced_table_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201040000000d3f0b")?), method_state)?
+	print_step("hpack-stateful-table-size-partial-eviction", partially_reduced_table_size)
+	let ignored_partially_reduced_table_size: () = emit_header_block("http2-hpack-stateful-table-size-partial-eviction", partially_reduced_table_size, "3f0b")?
+	print_hpack_transition_from_state("hpack-stateful-table-size-partial-eviction", partially_reduced_table_size, method_state)
+	let retained_state: Http2DecodeState = hpack_carry_only_state(step_state(partially_reduced_table_size))
+	print_hpack_state("hpack-stateful-table-size-partial-eviction", retained_state)
+	let ignored_retained_table_size: () = require_hpack_state_table_size(retained_state, 42)?
+	let retained_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000fbe")?), retained_state)?
+	print_step("hpack-stateful-after-partial-eviction", retained_newest)
+	print_hpack_transition_from_state("hpack-stateful-after-partial-eviction", retained_newest, retained_state)
+	let ignored_retained_newest: () = require_hpack_transition_header(retained_newest, retained_state, ":method", "PUT")?
+	let evicted_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011bf")?), hpack_carry_only_state(step_state(retained_newest)))?
+	print_failure("hpack-stateful-older-after-partial-eviction", evicted_older)
+	let ignored_evicted_older: () = require_hpack_fixture_failure(evicted_older)?
 	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000094203")?), hpack_carry_only_state(step_state(after_path)))?
 	print_step("hpack-continuation-replacement-start", continuation_start)
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000009505554")?), step_state(continuation_start))?
@@ -5287,6 +5329,22 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-continuation-older-path", continuation_older_path)
 	let ignored_continuation_older_path: () = emit_header_block("http2-hpack-continuation-older-path", continuation_older_path, "bf")?
 	print_hpack_transition_from_state("hpack-continuation-older-path", continuation_older_path, continuation_state)
+	let continuation_partial_reduction_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000f3f")?), continuation_state)?
+	print_step("hpack-continuation-partial-eviction-start", continuation_partial_reduction_start)
+	let continuation_partial_reduction_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000f0b")?), step_state(continuation_partial_reduction_start))?
+	print_step("hpack-continuation-partial-eviction-done", continuation_partial_reduction_done)
+	let ignored_continuation_partial_reduction: () = emit_header_block("http2-hpack-continuation-partial-eviction", continuation_partial_reduction_done, "3f0b")?
+	print_hpack_transition_from_state("hpack-continuation-partial-eviction-done", continuation_partial_reduction_done, step_state(continuation_partial_reduction_start))
+	let continuation_retained_state: Http2DecodeState = hpack_carry_only_state(step_state(continuation_partial_reduction_done))
+	print_hpack_state("hpack-continuation-partial-eviction", continuation_retained_state)
+	let ignored_continuation_retained_table_size: () = require_hpack_state_table_size(continuation_retained_state, 42)?
+	let continuation_retained_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011be")?), continuation_retained_state)?
+	print_step("hpack-continuation-after-partial-eviction", continuation_retained_newest)
+	print_hpack_transition_from_state("hpack-continuation-after-partial-eviction", continuation_retained_newest, continuation_retained_state)
+	let ignored_continuation_retained_newest: () = require_hpack_transition_header(continuation_retained_newest, continuation_retained_state, ":method", "PUT")?
+	let continuation_evicted_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000013bf")?), hpack_carry_only_state(step_state(continuation_retained_newest)))?
+	print_failure("hpack-continuation-older-after-partial-eviction", continuation_evicted_older)
+	let ignored_continuation_evicted_older: () = require_hpack_fixture_failure(continuation_evicted_older)?
 	Ok(())
 end
 
