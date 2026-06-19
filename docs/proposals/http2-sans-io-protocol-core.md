@@ -638,16 +638,20 @@ The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked fixture-owned entry sizes and table-size update
 slice, Huffman encoding, broader dynamic-table string encoding policy, and
-production header validation beyond the fixture request checks. The completed
-request-header validation slice is
+production header validation beyond the fixture request and response checks.
+The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
-`../reference/implemented-proposals/http2-request-header-validation.md`: the
-HTTP/2 core validates fixture-marked request header lists after HPACK fixture
-decode on both completed HEADERS and final CONTINUATION paths, rejects
-duplicate request pseudo-headers, request pseudo-headers after regular
-headers, missing `:method`, `:scheme`, or `:path`, and response-only
-`:status`, and projects those failures through
-`http2.protocol.invalid_request_header_list`.
+`../reference/implemented-proposals/http2-request-header-validation.md` plus
+`../reference/implemented-proposals/http2-response-header-validation.md`: the
+HTTP/2 core validates fixture-marked request and response header lists after
+HPACK fixture decode on both completed HEADERS and final CONTINUATION paths.
+Request validation rejects duplicate request pseudo-headers, request
+pseudo-headers after regular headers, missing `:method`, `:scheme`, or
+`:path`, and response-only `:status` through
+`http2.protocol.invalid_request_header_list`. Response validation rejects
+missing or duplicate `:status`, request-only `:authority`, `:method`,
+`:scheme`, or `:path`, and response pseudo-headers after regular headers
+through `http2.protocol.invalid_response_header_list`.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

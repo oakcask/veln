@@ -128,6 +128,8 @@ behavior.
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
+- HTTP/2 response header validation:
+  [http2-response-header-validation.md](http2-response-header-validation.md).
 - Function variadic arguments:
   [function-variadic-arguments.md](function-variadic-arguments.md).
 

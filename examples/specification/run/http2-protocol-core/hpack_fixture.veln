@@ -184,6 +184,30 @@ fn request_headers_method_after_regular() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("host", "example.com"), HpackHeader(":request", "method-after-regular,scheme,path"), 9)
 end
 
+fn response_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
+end
+
+fn response_headers_missing_status() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "example"), HpackHeader(":response", "missing-status"), 9)
+end
+
+fn response_headers_duplicate_status() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "duplicate-status"), 9)
+end
+
+fn response_headers_with_method() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":response", "status"), 9)
+end
+
+fn response_headers_with_authority() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":authority", "example.com"), HpackHeader(":response", "status"), 9)
+end
+
+fn response_headers_status_after_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "example"), HpackHeader(":response", "status-after-regular"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -206,6 +230,30 @@ end
 
 fn decoded_request_headers_method_after_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_method_after_regular(), next_state(state)))
+end
+
+fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers(), next_state(state)))
+end
+
+fn decoded_response_headers_missing_status(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_missing_status(), next_state(state)))
+end
+
+fn decoded_response_headers_duplicate_status(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_duplicate_status(), next_state(state)))
+end
+
+fn decoded_response_headers_with_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_method(), next_state(state)))
+end
+
+fn decoded_response_headers_with_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_authority(), next_state(state)))
+end
+
+fn decoded_response_headers_status_after_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_status_after_regular(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1071,6 +1119,30 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_method_after_regular(state)
 				false => unsupported(block, offset)
 			end
+			53 => match observed_size == 3
+				true => decoded_response_headers(state)
+				false => unsupported(block, offset)
+			end
+			54 => match observed_size == 2
+				true => decoded_response_headers_missing_status(state)
+				false => unsupported(block, offset)
+			end
+			55 => match observed_size == 4
+				true => decoded_response_headers_duplicate_status(state)
+				false => unsupported(block, offset)
+			end
+			56 => match observed_size == 4
+				true => decoded_response_headers_with_method(state)
+				false => unsupported(block, offset)
+			end
+			57 => match observed_size == 4
+				true => decoded_response_headers_status_after_regular(state)
+				false => unsupported(block, offset)
+			end
+			58 => match observed_size == 4
+				true => decoded_response_headers_with_authority(state)
+				false => unsupported(block, offset)
+			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -1143,6 +1215,28 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	end
 end
 
+pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "static-indexed"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-without-indexing"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-with-indexing"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => true
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":response", "status"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "status-after-regular"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_authority(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":authority", _), _, _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
@@ -1179,6 +1273,10 @@ pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":status", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":status", _), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "ok"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "duplicate-status"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "status"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "status-after-regular"), _) => true
 		_ => false
 	end
 end
@@ -1186,6 +1284,14 @@ end
 pub fn header_list_has_duplicate_pseudo_header(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_duplicate_status(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
 		_ => false
 	end
 end
@@ -1193,6 +1299,7 @@ end
 pub fn header_list_has_pseudo_header_after_regular(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "status-after-regular"), _) => true
 		_ => false
 	end
 end
@@ -1204,6 +1311,12 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => "host,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => ":scheme,:path"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => ":status,:method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => ":status"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => "server"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => ":status,:status"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => ":method,:status"
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":response", "status"), _) => ":authority,:status"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "status-after-regular"), _) => "server,:status"
 		HpackHeaderList(HpackHeader(first_name, _), _, _) => first_name
 	end
 end
