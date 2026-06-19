@@ -4295,11 +4295,12 @@ mod tests {
             "result\t",
             "485454502f3220696e76616c69642073747265616d2069642061742062797465206f66667365742030",
             "\tprotocol_diagnostic\thttp2.protocol.invalid_stream_id\t0",
-            "\t7\tframe_kind\tnumber\t1",
+            "\t8\tframe_kind\tnumber\t1",
             "\tstream_id\tnumber\t2",
             "\tstream_ref\tstring\t73747265616d",
             "\trequired_stream_id_domain\tstring\t6e6f6e7a65726f20636c69656e742d696e697469617465642073747265616d206964",
             "\tendpoint_role\tstring\t736572766572",
+            "\tbyte_preview\tbyte_preview_v2\t30303030303030313034303030303030:8:9:true",
             "\tactive_state\tstring\t73747265616d2d69642d646f6d61696e",
             "\trule_provenance\tstring\t7365727665725f72656365697665735f636c69656e745f696e697469617465645f73747265616d73\n",
         );
@@ -4320,6 +4321,11 @@ mod tests {
                 "\"stream_ref\":\"stream\",",
                 "\"required_stream_id_domain\":\"nonzero client-initiated stream id\",",
                 "\"endpoint_role\":\"server\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"0000000104000000\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true},",
                 "\"active_state\":\"stream-id-domain\",",
                 "\"rule_provenance\":\"server_receives_client_initiated_streams\"}}"
             )

@@ -51,8 +51,9 @@ requiring the full command reference on the first read.
   HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
-  failures, invalid connection-state and stream-state frame-kind failures with
-  bounded frame-header byte previews, and fixed payload-length failures
+  failures with bounded frame-header byte previews, invalid connection-state
+  and stream-state frame-kind failures with bounded frame-header byte
+  previews, and fixed payload-length failures
   including SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`,
   plus invalid DATA padding, with bounded payload byte-preview notes,
   and run JSON. Use

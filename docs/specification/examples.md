@@ -1892,10 +1892,11 @@ expected payload length including SETTINGS ACK length zero and `RST_STREAM`
 length four, unexpected SETTINGS ACK state, flow-control window credit,
 expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-structured bounded preface, invalid-frame-kind, and invalid-payload byte
-preview fields, concurrent-stream attempted and allowed counts, required
-stream id domain, endpoint role, PRIORITY dependency stream id, structured
-bounded PRIORITY payload byte preview fields, and rule provenance. The
+structured bounded preface, invalid-stream-id frame-header,
+invalid-frame-kind, and invalid-payload byte preview fields, concurrent-stream
+attempted and allowed counts, required stream id domain, endpoint role,
+PRIORITY dependency stream id, structured bounded PRIORITY payload byte
+preview fields, and rule provenance. The
 request-header projection cases cover missing required request pseudo-headers,
 response-only `:status` pseudo-headers, duplicate request pseudo-headers, and
 request pseudo-headers after regular headers on inbound requests, with decoded

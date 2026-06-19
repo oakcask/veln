@@ -59,6 +59,26 @@ path = "error.details.protocol_diagnostic.endpoint_role"
 equals = "server"
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "0000000104000000"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = true
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
 equals = "stream-id-domain"
 
