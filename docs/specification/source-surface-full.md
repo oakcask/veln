@@ -182,11 +182,11 @@ through a written `use` path or alias, and field selection from an already
 supported structural mapping expression whose type has the selected record
 field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions whose
 operands are decoded schema-local `Int` fields, integer literals, or nested
-supported integer arithmetic mapping expressions. Converter calls take one or
-two arguments. Each argument is either a schema-local field reference or an
-already implemented structural mapping expression made from schema-local
-fields, records, ADT constructors, supported integer arithmetic mapping
-expressions, and nested combinations of those forms.
+supported integer arithmetic mapping expressions. Converter calls take one,
+two, or three arguments. Each argument is either a schema-local field
+reference or an already implemented structural mapping expression made from
+schema-local fields, records, ADT constructors, supported integer arithmetic
+mapping expressions, and nested combinations of those forms.
 Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
@@ -233,6 +233,13 @@ The executable diagnostics case
 `../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
 keeps rejected second arguments and nested converter calls inside
 two-argument converter calls executable.
+`../../examples/specification/check/schema-three-argument-mapping-converters/`
+keeps same-module and imported public three-argument converter calls
+executable.
+The executable diagnostics case
+`../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
+keeps unsupported four-argument converter calls, rejected third arguments, and
+nested converter calls inside three-argument converter calls executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose

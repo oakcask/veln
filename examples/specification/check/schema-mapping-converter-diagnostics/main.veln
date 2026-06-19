@@ -6,7 +6,7 @@ fn two_params(value: Int, extra: Int) -> Int
 	value
 end
 
-fn three_params(value: Int, extra: Int, another: Int) -> Int
+fn four_params(value: Int, extra: Int, another: Int, final: Int) -> Int
 	value
 end
 
@@ -39,7 +39,7 @@ schema HeaderWire
 	map to Header
 		missing = missing_converter(kind)
 		too_few = two_params(kind)
-		too_many = three_params(kind, length)
+		too_many = four_params(kind, length, kind, length)
 		bad_input = needs_text(kind)
 		bad_return = to_text(kind)
 		impure = noisy(kind)

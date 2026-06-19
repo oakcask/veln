@@ -1,0 +1,3 @@
+pub fn summarize(kind: Int, length: Int, bonus: Int) -> Int
+	length - kind + bonus
+end

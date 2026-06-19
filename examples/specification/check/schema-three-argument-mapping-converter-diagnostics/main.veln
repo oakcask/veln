@@ -1,0 +1,30 @@
+use helpers
+
+type Header
+	Header {too_many: Int, unsupported_third: Int, nested_converter: Int, imported_bad_third: Int}
+end
+
+fn four(value: Int, extra: Int, another: Int, final: Int) -> Int
+	value + extra + another + final
+end
+
+fn combine(value: Int, extra: Int, another: Int) -> Int
+	value + extra + another
+end
+
+fn identity(value: Int) -> Int
+	value
+end
+
+schema HeaderWire
+	format binary
+
+	kind: UInt8
+	length: UInt8
+
+	map to Header
+		too_many = four(kind, length, kind, length)
+		unsupported_third = combine(kind, length, kind == 1)
+		nested_converter = combine(kind, length, identity(kind))
+		imported_bad_third = helpers::combine_text(kind, length, kind)
+end

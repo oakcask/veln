@@ -148,11 +148,12 @@ function call through a written `use` path or alias, and field selection from
 an already supported structural mapping expression whose type has the selected
 record field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions
 whose operands are decoded schema-local `Int` fields, integer literals, or
-nested supported integer arithmetic mapping expressions. Converter calls take one
-or two arguments. Each argument is either a schema-local field reference or an
-already implemented structural mapping expression made from schema-local fields,
-records, ADT constructors, supported integer arithmetic mapping expressions,
-and nested combinations of those forms. The converter return value is assigned to the
+nested supported integer arithmetic mapping expressions. Converter calls take
+one, two, or three arguments. Each argument is either a schema-local field
+reference or an already implemented structural mapping expression made from
+schema-local fields, records, ADT constructors, supported integer arithmetic
+mapping expressions, and nested combinations of those forms. The converter
+return value is assigned to the
 target field. A converter-call mapping assignment may name an explicit
 same-module pure inverse converter or imported public pure inverse converter
 through the same written import-path rules as the forward converter with
@@ -232,6 +233,13 @@ The checked diagnostics case
 `../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
 pins rejected second arguments and nested converter calls inside
 two-argument converter calls.
+The checked acceptance case
+`../../examples/specification/check/schema-three-argument-mapping-converters/`
+pins same-module and imported public three-argument converter calls.
+The checked diagnostics case
+`../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
+pins unsupported four-argument converter calls, rejected third arguments, and
+nested converter calls inside three-argument converter calls.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,

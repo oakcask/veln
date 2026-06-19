@@ -4524,6 +4524,102 @@ fn generated_schema_decode_helpers_keep_two_argument_converter_mapping_expressio
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_three_argument_converter_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {summary: Int}\n",
+            "end\n",
+            "\n",
+            "fn combine(input: {value: Int}, extra: Int, another: Int) -> Int\n",
+            "  input.value + extra + another\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = combine({value: wire_kind}, wire_length - 1, wire_kind + 1)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{summary: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let summary = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "summary")
+        .expect("summary mapping should be emitted");
+    assert!(matches!(
+        &summary.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, args, .. }
+            if function == "combine"
+                && args.len() == 3
+                && matches!(
+                    &args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+                        if fields.len() == 1
+                            && fields[0].name == "value"
+                            && matches!(
+                                fields[0].expr,
+                                veln_ir::IrSchemaDecodeMappingExpr::Field(ref field)
+                                    if field == "wire_kind"
+                            )
+                )
+                && matches!(
+                    &args[1],
+                    veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                        op: veln_ast::BinaryOp::Subtract,
+                        left,
+                        right,
+                    } if matches!(
+                            left.as_ref(),
+                            veln_ir::IrSchemaDecodeMappingExpr::Field(field)
+                                if field == "wire_length"
+                        )
+                        && matches!(
+                            right.as_ref(),
+                            veln_ir::IrSchemaDecodeMappingExpr::Literal(1)
+                        )
+                )
+                && matches!(
+                    &args[2],
+                    veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                        op: veln_ast::BinaryOp::Add,
+                        left,
+                        right,
+                    } if matches!(
+                            left.as_ref(),
+                            veln_ir::IrSchemaDecodeMappingExpr::Field(field)
+                                if field == "wire_kind"
+                        )
+                        && matches!(
+                            right.as_ref(),
+                            veln_ir::IrSchemaDecodeMappingExpr::Literal(1)
+                        )
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_imported_two_argument_converter_mapping_expressions() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -4598,6 +4694,92 @@ fn generated_schema_decode_helpers_keep_imported_two_argument_converter_mapping_
                 && matches!(
                     &args[1],
                     veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "wire_length"
+                )
+    ));
+}
+
+#[test]
+fn generated_schema_decode_helpers_keep_imported_three_argument_converter_mapping_expressions() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use helpers\n",
+            "\n",
+            "type Header\n",
+            "  Header {summary: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = helpers::combine({value: wire_kind}, wire_length, wire_kind + 1)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{summary: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod helpers\n",
+            "pub fn combine(input: {value: Int}, extra: Int, another: Int) -> Int\n",
+            "  input.value + extra + another\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        types: app.types,
+        functions: app.functions.into_iter().chain(helpers.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let summary = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "summary")
+        .expect("summary mapping should be emitted");
+    assert!(matches!(
+        &summary.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, args, .. }
+            if function == "combine"
+                && args.len() == 3
+                && matches!(
+                    &args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+                        if fields.len() == 1 && fields[0].name == "value"
+                )
+                && matches!(
+                    &args[1],
+                    veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "wire_length"
+                )
+                && matches!(
+                    &args[2],
+                    veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                        op: veln_ast::BinaryOp::Add,
+                        ..
+                    }
                 )
     ));
 }
