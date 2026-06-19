@@ -122,7 +122,7 @@ behavior.
   [network-stream-task-spawn-with26.md](network-stream-task-spawn-with26.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
-- HTTP/2 HPACK authority static indexed fixture:
+- HTTP/2 HPACK static indexed fixture:
   [http2-hpack-authority-static-indexed-fixture.md](http2-hpack-authority-static-indexed-fixture.md).
 - HTTP/2 HPACK no-Huffman raw literal fixture:
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).

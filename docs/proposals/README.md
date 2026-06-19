@@ -168,7 +168,7 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
-  HPACK behavior beyond the checked fixture string-literal decoder boundary,
+  HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
@@ -176,7 +176,7 @@ compare it with `../specification/` before changing behavior.
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture string-literal decoder boundary, including full HPACK compression,
+  fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
   checked fixture-owned entry sizes and table-size update slice, Huffman
   encoding, broader dynamic-table string encoding policy, and production

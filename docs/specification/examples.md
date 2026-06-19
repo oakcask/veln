@@ -1690,16 +1690,17 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 `content-language:`, `0x9c` `content-length:`, `0x9d`
 	`content-location:`, `0x9e` `content-range:`, `0x9f`
 	`content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
-	`0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
-	`if-match:`, `0xa7` `if-modified-since:`, `0xa8` `if-none-match:`,
-	`0xa9` `if-range:`, `0xaa` `if-unmodified-since:`, `0xab`
-	`last-modified:`, `0xac` `link:`, `0xad` `location:`, `0xae`
-	`max-forwards:`, `0xaf` `proxy-authenticate:`, `0xb0`
-	`proxy-authorization:`, `0xb1` `range:`, `0xb2` `referer:`, `0xb3`
-	`refresh:`, `0xb4` `retry-after:`, `0xb5` `server:`, `0xb6`
-	`set-cookie:`, `0xb7` `strict-transport-security:`, `0xb8`
-	`transfer-encoding:`, `0xb9` `user-agent:`, `0xba` `vary:`, `0xbb`
-	`via:`, and `0xbc` `www-authenticate:`
+	`0xa3` `expect:`, `0xa4` `expires:`, `0xa5` `from:`, `0xa6`
+	`host:`, `0xa7` `if-match:`, `0xa8` `if-modified-since:`, `0xa9`
+	`if-none-match:`, `0xaa` `if-range:`, `0xab`
+	`if-unmodified-since:`, `0xac` `last-modified:`, `0xad` `link:`,
+	`0xae` `location:`, `0xaf` `max-forwards:`, `0xb0`
+	`proxy-authenticate:`, `0xb1` `proxy-authorization:`, `0xb2` `range:`,
+	`0xb3` `referer:`, `0xb4` `refresh:`, `0xb5` `retry-after:`, `0xb6`
+	`server:`, `0xb7` `set-cookie:`, `0xb8`
+	`strict-transport-security:`, `0xb9` `transfer-encoding:`, `0xba`
+	`user-agent:`, `0xbb` `vary:`, `0xbc` `via:`, and `0xbd`
+	`www-authenticate:`
 	header-block bytes plus literal-without-indexing and literal-with-indexing
 fixtures whose first byte names a supported static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
