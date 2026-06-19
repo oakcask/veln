@@ -19,7 +19,8 @@ compare it with `../specification/` before changing behavior.
   declaration schema import/reference visibility checks, and generated
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
-  constructor construction mapping expressions, pure same-module and imported
+  constructor construction mapping expressions including nested constructor
+  payloads in generated decode mappings, pure same-module and imported
   public representation conversion hooks that take one, two, or three
   arguments from schema-local fields or structural mapping expressions, field
   selection from record-shaped structural mapping expressions, decoded-field and integer-literal mapping

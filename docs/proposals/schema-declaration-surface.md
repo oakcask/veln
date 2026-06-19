@@ -428,7 +428,9 @@ Implemented:
   selection from record-shaped structural mapping expressions, and
   decoded-field and integer-literal `+`, `-`, `*`, and `/` mapping
   arithmetic. Converter calls may take one, two, or three arguments. Arguments may be
-  schema-local field references or structural mapping expressions.
+  schema-local field references or structural mapping expressions. Generated
+  decode mapping accepts nested ADT constructor payload expressions when every
+  leaf argument remains in that implemented schema-local expression vocabulary.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=
   literal`, or narrow decoded-field boolean selector expressions, when
@@ -452,7 +454,7 @@ Implemented:
 Remaining:
 
 - Runtime schema value mapping beyond the implemented schema-local field
-  reference, record construction, ADT constructor construction, one pure
+  reference, record construction, nested ADT constructor construction, one pure
   same-module or imported public converter call whose one, two, or three
   arguments may be schema-local fields or structural mapping expressions, field selection from
   record-shaped structural mapping expressions, decoded-field integer

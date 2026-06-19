@@ -575,7 +575,9 @@ execution reference.
   not overlap for any concrete assignment of those fields, so at most one
   mapping is selected. Mapping assignment
   expressions may reference decoded schema fields, construct records,
-  construct ADT payloads resolved through the ordinary source module rules, or
+  construct ADT payloads resolved through the ordinary source module rules,
+  including nested ADT constructor payload expressions whose leaves stay in the
+  implemented schema-local expression vocabulary, or
   call one pure same-module converter function or one imported public pure
   converter function through a written `use` path or alias. They may also
   select a field from an already supported structural mapping expression after
@@ -623,6 +625,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
+  `examples/specification/run/binary-schema-nested-mapped-constructor-decode/`,
   `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`,

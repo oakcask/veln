@@ -142,7 +142,8 @@ structural `map to Target` clauses whose assignment lines use
 `target_field = expression` to map schema-local fields into an ordinary
 source value shape. The implemented mapping expression slice supports
 schema-local field references, record construction, ADT constructor
-construction resolved through ordinary source module rules, one pure
+construction resolved through ordinary source module rules, including
+constructor payloads made from nested supported mapping expressions, one pure
 same-module converter function call, or one imported public pure converter
 function call through a written `use` path or alias, and field selection from
 an already supported structural mapping expression whose type has the selected
@@ -217,7 +218,7 @@ pins boolean selector unsupported, unknown-field, non-`Int`, and overlap
 diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
-arity, constructor payload type, non-`Int` arithmetic operand, and
+arity, direct and nested constructor payload type, non-`Int` arithmetic operand, and
 unsupported arithmetic expression diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 pins unresolved converter, converter arity, converter input type, converter

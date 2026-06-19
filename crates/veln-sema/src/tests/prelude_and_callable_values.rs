@@ -4091,6 +4091,75 @@ fn generated_schema_decode_helpers_keep_structural_mapping_expressions() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_nested_constructor_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Payload\n",
+            "  Payload(Int)\n",
+            "end\n",
+            "\n",
+            "type Envelope\n",
+            "  Envelope(Payload)\n",
+            "end\n",
+            "\n",
+            "type Header\n",
+            "  Header {wrapped: Envelope}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    wrapped = Envelope(Payload(kind))\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{wrapped: Envelope}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let wrapped = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "wrapped")
+        .expect("wrapped mapping should be emitted");
+    assert!(matches!(
+        &wrapped.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Constructor { name, args }
+            if name == &vec!["Envelope".to_string(), "Envelope".to_string()]
+                && args.len() == 1
+                && matches!(
+                    &args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::Constructor {
+                        name: nested_name,
+                        args: nested_args,
+                    } if nested_name == &vec!["Payload".to_string(), "Payload".to_string()]
+                        && nested_args.len() == 1
+                        && matches!(
+                            &nested_args[0],
+                            veln_ir::IrSchemaDecodeMappingExpr::Field(field)
+                                if field == "kind"
+                        )
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_field_selection_mapping_expressions() {
     let source = SourceFile::new(
         "main.veln",
