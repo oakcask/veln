@@ -650,10 +650,9 @@ and
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked fixture-boundary entry-size calculation and
-table-size update slice, general HPACK Huffman encoding beyond the checked
-fixture-owned marked literal values, broader dynamic-table string encoding
-policy, and production header validation beyond the fixture request and
-response checks.
+table-size update slice, HPACK Huffman behavior beyond visible-ASCII fixture
+string literal encoding, broader dynamic-table string encoding policy, and
+production header validation beyond the fixture request and response checks.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -671,10 +670,10 @@ The completed outbound HPACK fixture encoder slice is current behavior under
 `../specification/` and
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
 It supports fixture-owned static-indexed header lists, raw short literal
-header-list encoding and selected Huffman-marked literal encoding for
+header-list encoding, visible-ASCII Huffman-marked literal encoding for
 supported static-table names, the checked request and response pseudo-header
-fixture lists needed by outbound send-intents, and one unsupported-header
-failure path that remains an HPACK fixture result.
+fixture lists needed by outbound send-intents, and unsupported-header failure
+paths that remain HPACK fixture results.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.
@@ -687,8 +686,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  general HPACK Huffman encoding beyond checked fixture-owned marked literal
-  values, broader dynamic-table string encoding policy, and production header
-  validation remain later work beyond the implemented fixture boundary.
+  HPACK Huffman behavior beyond visible-ASCII fixture string literal
+  encoding, broader dynamic-table string encoding policy, and production
+  header validation remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

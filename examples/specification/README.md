@@ -1749,7 +1749,10 @@ against the built `veln` binary.
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. Malformed Huffman padding, malformed string length, non-visible
   raw bytes, and a malformed raw `:status` literal stay on the unsupported
-  fixture path.
+  fixture path. The outbound fixture encoder in this case uses the same static
+  Huffman table for visible-ASCII Huffman-marked string literals, pins
+  `:authority: abc.test` as a non-allowlist encoded value, and keeps a
+  Huffman-marked non-visible value on the raw string encoding failure path.
   Response header-list validation remains outside this executable slice beyond
   decoding the fixture-supported `:status` header-list data. The source-level
   dynamic table receive cases
