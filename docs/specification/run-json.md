@@ -296,7 +296,8 @@ program stdout in the
 aggregate protocol-core run case; they do not populate `error` or
 `details.protocol_diagnostic`. The same applies when those send-intents build
 their opaque header-block bytes from fixture header-list values through the
-HPACK fixture encoder.
+HPACK fixture encoder, including checked Huffman-marked string literal
+fixtures for outbound HEADERS and `PUSH_PROMISE`.
 
 HTTP/2 protocol-core failures that originate from this source-visible
 projection helper attach `details.protocol_diagnostic`. End-of-stream with a

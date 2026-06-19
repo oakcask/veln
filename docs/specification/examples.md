@@ -1853,24 +1853,28 @@ payload respects the peer-advertised maximum frame size, `END_HEADERS` appears
 only on the final frame, and optional `END_STREAM` stays on the first HEADERS
 frame. Accepted `END_STREAM` records local closed-stream state. The checked
 case pins one-continuation, multiple-continuation, and `END_STREAM`-plus-final
-`END_HEADERS` split outputs as complete lowercase hex. It rejects stream id
-`0`, missing streams, closed streams, already reset streams, mismatched open
-streams, and generated frame-header representation failures before accepted
-bytes are produced. After receiving GOAWAY, the same slice accepts outbound
-HEADERS at the recorded last-stream-id boundary and rejects a higher open
-stream through the existing `http2.protocol.stream_after_goaway` diagnostic
-before frame splitting or encode checks. Stream id zero and closed stream
-cases keep their narrower existing failures.
+`END_HEADERS` split outputs as complete lowercase hex. The same checked case
+pins a fixture-encoded Huffman-marked `:path: test` header block inside an
+outbound HEADERS frame. It rejects stream id `0`, missing streams, closed
+streams, already reset streams, mismatched open streams, and generated
+frame-header representation failures before accepted bytes are produced.
+After receiving GOAWAY, the same slice accepts outbound HEADERS at the
+recorded last-stream-id boundary and rejects a higher open stream through the
+existing `http2.protocol.stream_after_goaway` diagnostic before frame
+splitting or encode checks. Stream id zero and closed stream cases keep their
+narrower existing failures.
 The outbound `PUSH_PROMISE` send-intent slice accepts a currently open
 client-created associated stream, a server-initiated promised stream id, and
 already-encoded opaque header-block bytes. It pins a single-frame
 `PUSH_PROMISE` output and a split output where the first frame carries the
 generated promised-stream payload plus the first header-block fragment and the
-final CONTINUATION frame carries `END_HEADERS`. It rejects stream id `0`,
-missing, closed, reset, mismatched, or server-created associated streams,
-promised stream id `0`, and representable client-initiated promised stream
-ids before accepted bytes are produced, while preserving out-of-range
-promised stream ids as generated payload encode errors.
+final CONTINUATION frame carries `END_HEADERS`. The checked case also pins a
+fixture-encoded Huffman-marked `:status: 200` header block inside an outbound
+`PUSH_PROMISE` frame. It rejects stream id `0`, missing, closed, reset,
+mismatched, or server-created associated streams, promised stream id `0`, and
+representable client-initiated promised stream ids before accepted bytes are
+produced, while preserving out-of-range promised stream ids as generated
+payload encode errors.
 The outbound GOAWAY send-intent slice accepts a last stream id and error code,
 emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
 `7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
