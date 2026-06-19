@@ -4341,7 +4341,11 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
         "main.veln",
         concat!(
             "type Header\n",
-            "  Header {body_length: Int, scaled_length: Int}\n",
+            "  Header {body_length: Int, scaled_length: Int, converted_length: Int}\n",
+            "end\n",
+            "\n",
+            "fn bump(value: Int) -> Int\n",
+            "  value + 1\n",
             "end\n",
             "\n",
             "schema HeaderWire\n",
@@ -4354,9 +4358,10 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
             "  map to Header\n",
             "    body_length = (length - 9) + checksum\n",
             "    scaled_length = (length + padding) * 2\n",
+            "    converted_length = bump(length) + checksum\n",
             "end\n",
             "\n",
-            "pub fn main(view: ByteView) -> Result<{body_length: Int, scaled_length: Int}, String>\n",
+            "pub fn main(view: ByteView) -> Result<{body_length: Int, scaled_length: Int, converted_length: Int}, String>\n",
             "  byte_decode_header_wire(view)\n",
             "end\n",
         ),
@@ -4431,6 +4436,28 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
                     )
             )
             && matches!(right.as_ref(), veln_ir::IrSchemaDecodeMappingExpr::Literal(2))
+    ));
+    let converted_length = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "converted_length")
+        .expect("converted_length mapping should be emitted");
+    assert!(matches!(
+        &converted_length.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Binary {
+            op: veln_ast::BinaryOp::Add,
+            left,
+            right,
+        } if matches!(
+                left.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Converter { function, args, .. }
+                    if function == "bump"
+                        && matches!(&args[0], veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "length")
+            )
+            && matches!(
+                right.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "checksum"
+            )
     ));
 }
 

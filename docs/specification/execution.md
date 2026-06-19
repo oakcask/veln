@@ -584,9 +584,10 @@ execution reference.
   the source expression is available, when that source expression has a
   record-shaped type with the selected field. An `Int` target field may also
   use `+`, `-`, `*`, and `/` over decoded schema-local `Int` fields, integer
-  literals, and nested supported mapping arithmetic expressions. Division by
-  zero returns `schema.mapping_division_by_zero` at the offset after the
-  decoded schema body with the schema and target-field path. Converter calls
+  literals, `Int`-returning converter calls, and nested supported mapping
+  arithmetic expressions. Division by zero returns
+  `schema.mapping_division_by_zero` at the offset after the decoded schema
+  body with the schema and target-field path. Converter calls
   take one, two, or three arguments. Each argument is either one decoded
   schema-local field or an already implemented structural mapping expression
   made from decoded schema fields, records, ADT constructors, integer
@@ -627,6 +628,8 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-decode/`,
   `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
+  `examples/specification/run/binary-schema-mapping-converter-arithmetic-decode/`,
+  `examples/specification/run/binary-schema-imported-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`,
   `examples/specification/run/binary-schema-two-argument-mapped-converter-decode/`,
