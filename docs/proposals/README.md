@@ -80,7 +80,8 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` groups that complete one byte or one
   two-byte, three-byte, or four-byte big-endian storage unit,
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
-  two-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`
+  two-byte little-endian, `Flag24be` three-byte big-endian, `Flag24le`
+  three-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`
   four-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,

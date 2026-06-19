@@ -129,8 +129,8 @@ compiler-known calls.
   prefixes for parsing, tracks absolute `ByteOffset` separately, and collects
   outgoing immutable chunks in `List<ByteChunk>` action values. Generated
   binary schema decode helpers return schema-local value fields, including
-  `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`,
-  `Flag32le`, `Flag64be`, or `Flag64le` bitset
+  `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
+  `Flag24le`, `Flag32be`, `Flag32le`, `Flag64be`, or `Flag64le` bitset
   fields, unless the eligible
   structural `map to Target` slice, including decoded-field selected mappings
   that resolve to one record shape, resolves a mapped record shape; generated
@@ -139,6 +139,9 @@ compiler-known calls.
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
   `flag16be_bits`, `flag16be_from_bits`, `flag16le_is_set`,
   `flag16le_set`, `flag16le_bits`, `flag16le_from_bits`,
+  `flag24be_is_set`, `flag24be_set`, `flag24be_bits`,
+  `flag24be_from_bits`, `flag24le_is_set`, `flag24le_set`,
+  `flag24le_bits`, `flag24le_from_bits`,
   `flag32be_is_set`, `flag32be_set`, `flag32be_bits`,
   `flag32be_from_bits`, `flag32le_is_set`, `flag32le_set`,
   `flag32le_bits`, `flag32le_from_bits`, `flag64be_is_set`,
@@ -149,8 +152,9 @@ compiler-known calls.
   raw-bit constructors return `Result` values for out-of-range integers.
   Generated binary schema encode
   helpers for the exact-width
-  primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
-  `Flag64be`, `Flag64le`, supported reserved-bit, length-bounded
+  primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
+  `Flag32be`, `Flag32le`, `Flag64be`, `Flag64le`, supported reserved-bit,
+  length-bounded
   `ByteView`, closed dispatch, extension dispatch, and eligible nested
   dispatch payload slices accept schema-local visible
   fields, using `ByteView` fields for length-bounded payloads and

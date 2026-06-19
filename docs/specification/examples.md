@@ -736,6 +736,23 @@ pin checked `Flag16le` helper behavior for successful raw-bit extraction,
 raw-bit construction, bit reads, and bit sets plus JSON raw-bit range and
 human invalid-index runtime result failures.
 
+`../../examples/specification/run/binary-schema-flag24-decode/`,
+`../../examples/specification/run/binary-schema-flag24-encode/`,
+`../../examples/specification/run/binary-schema-flag24-mapped-record-decode/`,
+`../../examples/specification/run/binary-schema-flag24-mapped-record-encode/`,
+and
+`../../examples/specification/run/binary-schema-flag24-encode-out-of-range/`
+pin the three-byte visible flag bitset slice. The cases prove
+source-visible `Flag24be(bits)` and `Flag24le(bits)` decode, big-endian and
+little-endian encode, direct structural mapping in both directions, and the
+ordinary encode value-representation failure shape for values outside the
+three-byte range.
+`../../examples/specification/run/binary-schema-flag24-bit-helpers/` and
+`../../examples/specification/run/binary-schema-flag24-helper-diagnostics-json/`
+pin checked `Flag24be` and `Flag24le` helper behavior for successful raw-bit
+extraction, raw-bit construction, bit reads, and bit sets plus invalid-index
+and raw-bit range runtime result failures.
+
 `../../examples/specification/run/binary-schema-flag32be-decode/`,
 `../../examples/specification/run/binary-schema-flag32be-encode/`,
 `../../examples/specification/run/binary-schema-flag32be-mapped-record-decode/`,
