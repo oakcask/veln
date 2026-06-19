@@ -680,8 +680,9 @@ behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md`: the
 HTTP/2 core validates fixture-marked request header lists after HPACK fixture
 decode on both completed HEADERS and final CONTINUATION paths, rejects
-missing `:method`, `:scheme`, or `:path`, rejects response-only `:status`,
-and projects those failures through
+duplicate request pseudo-headers, request pseudo-headers after regular
+headers, missing `:method`, `:scheme`, or `:path`, and response-only
+`:status`, and projects those failures through
 `http2.protocol.invalid_request_header_list`.
 
 The remaining scope below is still planned work for the full protocol core and

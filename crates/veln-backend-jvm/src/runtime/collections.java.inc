@@ -3288,6 +3288,12 @@
         } else if ("response_only_pseudo_header".equals(fact)) {
             message = "HTTP/2 request header list contains response-only " + header
                 + " at byte offset " + byteOffset;
+        } else if ("duplicate_pseudo_header".equals(fact)) {
+            message = "HTTP/2 request header list contains duplicate " + header
+                + " at byte offset " + byteOffset;
+        } else if ("pseudo_header_after_regular_header".equals(fact)) {
+            message = "HTTP/2 request header list places " + header
+                + " after a regular header at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }

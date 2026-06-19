@@ -361,9 +361,11 @@ request header-list validation failures use id
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `failed_header_fact`, `header_name`, `decoded_header_names`,
 `active_state`, and `rule_provenance`. The checked projections cover a
-missing required request pseudo-header and a response-only `:status`
-pseudo-header on an inbound request; the larger protocol-core fixture also
-checks the integrated completed HEADERS and final CONTINUATION paths. Received
+missing required request pseudo-header, a response-only `:status`
+pseudo-header, a duplicate request pseudo-header, and a request pseudo-header
+after a regular header on an inbound request; the larger protocol-core fixture
+also checks the integrated completed HEADERS and final CONTINUATION paths.
+Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,

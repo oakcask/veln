@@ -772,15 +772,21 @@ fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 end
 
 fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList) -> RequestHeaderListDecision
-	match hpack_fixture::header_list_has_status(headers)
-		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers)))
-		false => match hpack_fixture::header_list_has_method(headers)
-			false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers)))
-			true => match hpack_fixture::header_list_has_scheme(headers)
-				false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
-				true => match hpack_fixture::header_list_has_path(headers)
-					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers)))
-					true => RequestHeaderListOk
+	match hpack_fixture::header_list_has_duplicate_pseudo_header(headers)
+		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers)))
+		false => match hpack_fixture::header_list_has_pseudo_header_after_regular(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":method", hpack_fixture::header_list_decoded_names(headers)))
+			false => match hpack_fixture::header_list_has_status(headers)
+				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers)))
+				false => match hpack_fixture::header_list_has_method(headers)
+					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers)))
+					true => match hpack_fixture::header_list_has_scheme(headers)
+						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
+						true => match hpack_fixture::header_list_has_path(headers)
+							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers)))
+							true => RequestHeaderListOk
+						end
+					end
 				end
 			end
 		end
@@ -6060,6 +6066,10 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_request_header_failure("request-headers-missing-method", request_headers_missing_done)
 	let request_headers_status: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000132333435")?), state)?
 	print_request_header_failure("request-headers-status", request_headers_status)
+	let request_headers_duplicate_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000133343536")?), state)?
+	print_request_header_failure("request-headers-duplicate-method", request_headers_duplicate_method)
+	let request_headers_method_after_regular: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000134353637")?), state)?
+	print_request_header_failure("request-headers-method-after-regular", request_headers_method_after_regular)
 	Ok(())
 end
 
