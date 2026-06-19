@@ -461,16 +461,19 @@ constructor, pure same-module converter, and imported public pure converter
 expression forms where those forms are implemented for the flag type.
 Mapped-record encode is implemented when every visible encode field can be
 projected back to a schema-local field by a projectable direct field,
-record-shaped, field-selection, or same-module pure converter-call mapping
-with an explicitly named same-module pure inverse converter. A single target
+record-shaped, field-selection, same-module pure converter-call mapping with
+an explicitly named same-module pure inverse converter, or imported public
+pure converter-call mapping with an explicitly named imported public pure
+inverse converter through written import paths. A single target
 field assigned from a direct ADT constructor call is also implemented when
 every constructor payload argument is a schema-local field supported by the
 generated encode helper, including the single-payload flag and exact-width
 integer cases, the first multi-payload direct-field case, and one single
 record payload whose fields are direct schema-local visible field references
 supported by the generated encode helper. General inverse mapping for imported
-converter calls, nested ADT constructors, selected mappings, and other
-non-direct expressions remains outside the implemented encode slice.
+converter calls without explicit written import paths, nested ADT
+constructors, selected mappings, and other non-direct expressions remains
+outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, and `Repeat(left_count - right_count, Payload)` fields

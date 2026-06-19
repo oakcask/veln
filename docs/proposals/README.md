@@ -29,7 +29,7 @@ compare it with `../specification/` before changing behavior.
   diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, plus
   projectable structural mapped schema encode helper including explicitly
-  named same-module converter inverse projection, generated encode-time
+  named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
   support, derived selected-mapping encode boundary support, and codec decode
   boundaries over multiple decoded-field selected mappings that resolve to one
@@ -83,7 +83,7 @@ compare it with `../specification/` before changing behavior.
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
   structural mapping decode, projectable mapped-record encode, same-module
-  converter-call mapped encode with an explicitly named inverse converter,
+  and imported converter-call mapped encode with explicitly named inverse converters,
   and direct ADT constructor mapped encode boundaries for supported
   schema-local fields plus one record-payload constructor slice,
   standalone visible `UInt1` through `UInt7` decode and encode,

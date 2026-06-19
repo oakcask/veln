@@ -2602,6 +2602,82 @@ mod tests {
     }
 
     #[test]
+    fn run_entry_can_reach_imported_schema_mapping_encode_inverse_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use helpers\n",
+                        "\n",
+                        "type Header\n",
+                        "  Header {kind: Int}\n",
+                        "end\n",
+                        "\n",
+                        "schema HeaderWire\n",
+                        "  format binary\n",
+                        "  wire_kind: UInt8\n",
+                        "\n",
+                        "  map to Header\n",
+                        "    kind = helpers::next_kind(wire_kind) inverse helpers::previous_kind\n",
+                        "end\n",
+                        "\n",
+                        "codec HeaderCodec for HeaderWire encode\n",
+                        "  derive encode\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main(packet: {kind: Int}) -> EncodeStep<()>\n",
+                        "  HeaderCodec(packet)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "helpers.veln",
+                    concat!(
+                        "pub fn next_kind(kind: Int) -> Int\n",
+                        "  kind + 1\n",
+                        "end\n",
+                        "\n",
+                        "pub fn previous_kind(kind: Int) -> Int\n",
+                        "  kind - 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("main")),
+                (Some("helpers"), FunctionKind::Function, Some("next_kind")),
+                (
+                    Some("helpers"),
+                    FunctionKind::Function,
+                    Some("previous_kind")
+                ),
+            ]
+        );
+    }
+
+    #[test]
     fn run_entry_can_reach_codec_encode_function() {
         let project = Project {
             root: ".".into(),

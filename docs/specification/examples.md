@@ -576,6 +576,17 @@ value whose fields recover schema-local fields.
 `../../examples/specification/run/binary-schema-mapped-field-selection-encode/`
 pins the same inverse projection when a mapped target field selects a direct
 schema-local field from a record-shaped mapping expression.
+`../../examples/specification/run/binary-schema-imported-mapped-converter-encode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapped-converter-encode-mismatch/`
+pin converter inverse projection through imported public pure forward and
+inverse converters written with import paths. The passing case writes the
+recovered schema-local field, and the mismatch case reports
+`codec.encode_mapping_mismatch` when the inverse projection does not
+round-trip through the forward converter.
+`../../examples/specification/run/derived-codec-imported-mapped-converter-encode-boundary/`
+pins the same generated helper eligibility through a `derive encode` codec
+boundary.
 `../../examples/specification/run/binary-schema-int-mapped-constructor-encode/`
 and
 `../../examples/specification/run/binary-schema-int-mapped-constructor-encode-out-of-range/`

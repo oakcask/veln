@@ -637,11 +637,13 @@ execution reference.
   target field assigned from a direct ADT constructor call whose payload
   arguments use those supported projectable field and record-expression forms
   already supported by the generated encode helper. A target field assigned
-  from one pure same-module converter call is also projectable when the
-  assignment names an explicit same-module pure inverse converter with
-  `inverse name`; the helper calls the inverse, checks that applying the
-  mapped converter to the projected value round-trips to the supplied target
-  field value, then writes the recovered schema-local fields. Single-payload
+  from one pure same-module converter call or one imported public pure
+  converter call through a written `use` path or alias is also projectable
+  when the assignment names an explicit pure inverse converter through the
+  same written path rules with `inverse name`; the helper calls the inverse,
+  checks that applying the mapped converter to the projected value
+  round-trips to the supplied target field value, then writes the recovered
+  schema-local fields. Single-payload
   constructor wrappers remain limited to the existing single-constructor flag
   and exact-width integer cases unless the payload is that record-expression
   slice. A target value whose ADT constructor does not match the constructor
@@ -657,7 +659,10 @@ execution reference.
   and
   `examples/specification/run/binary-schema-mapped-field-selection-encode/`,
   `examples/specification/run/binary-schema-mapped-converter-encode/`, and
-  `examples/specification/run/binary-schema-mapped-converter-encode-mismatch/`.
+  `examples/specification/run/binary-schema-mapped-converter-encode-mismatch/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-encode/`,
+  and
+  `examples/specification/run/binary-schema-imported-mapped-converter-encode-mismatch/`.
   A
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload field is a `ByteView` record
