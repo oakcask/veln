@@ -7327,7 +7327,7 @@
     }
 
     private static String schemaCountDescription(String expression) {
-        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        SchemaFieldExpression parsed = schemaFieldExpression(expression, false);
         if (parsed != null && parsed.isField()) {
             return "count field `" + expression + "`";
         }
@@ -7377,7 +7377,8 @@
             role + " length expression",
             role + " length field",
             role + " length operand",
-            schemaName
+            schemaName,
+            true
         );
     }
 
@@ -7392,7 +7393,8 @@
             "repeat count expression",
             "repeat count field",
             "repeat count operand",
-            schemaName
+            schemaName,
+            false
         );
     }
 
@@ -7402,9 +7404,10 @@
         String expressionRole,
         String fieldRole,
         String operandRole,
-        String schemaName
+        String schemaName,
+        boolean allowProduct
     ) {
-        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        SchemaFieldExpression parsed = schemaFieldExpression(expression, allowProduct);
         if (parsed == null) {
             return err(
                 "unsupported "
@@ -7449,18 +7452,28 @@
         long rightValue = asLong(right);
         long result = parsed.operator == '+'
             ? leftValue + rightValue
-            : leftValue - rightValue;
+            : parsed.operator == '-'
+                ? leftValue - rightValue
+                : leftValue * rightValue;
         return ok(Long.valueOf(result));
     }
 
-    private static SchemaFieldExpression schemaFieldExpression(String expression) {
+    private static SchemaFieldExpression schemaFieldExpression(
+        String expression,
+        boolean allowProduct
+    ) {
         String trimmed = expression.trim();
         if (isSchemaLengthExpressionIdentifier(trimmed)) {
             return new SchemaFieldExpression(trimmed);
         }
         int plus = trimmed.indexOf('+');
         int minus = trimmed.indexOf('-');
-        if (plus >= 0 && minus >= 0) {
+        int product = trimmed.indexOf('*');
+        if (product >= 0 && !allowProduct) {
+            return null;
+        }
+        int operatorCount = (plus >= 0 ? 1 : 0) + (minus >= 0 ? 1 : 0) + (product >= 0 ? 1 : 0);
+        if (operatorCount > 1) {
             return null;
         }
         if (plus >= 0) {
@@ -7468,6 +7481,9 @@
         }
         if (minus >= 0) {
             return schemaBinaryFieldExpression(trimmed, minus, '-');
+        }
+        if (product >= 0) {
+            return schemaBinaryFieldExpression(trimmed, product, '*');
         }
         return null;
     }
@@ -7569,7 +7585,7 @@
     }
 
     private static String schemaLengthDescription(String expression) {
-        SchemaFieldExpression parsed = schemaFieldExpression(expression);
+        SchemaFieldExpression parsed = schemaFieldExpression(expression, true);
         if (parsed != null && parsed.isField()) {
             return "length field `" + expression + "`";
         }

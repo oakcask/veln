@@ -1138,6 +1138,17 @@ against the built `veln` binary.
   computed length.
 - `run/binary-schema-byteview-add-encode-length-mismatch/`: addition length
   encode rejects a view whose count does not match the computed length.
+- `run/binary-schema-byteview-product-decode/`: generated schema decode
+  helpers compute a `ByteView(row_count * column_count)` payload count from
+  earlier decoded fields.
+- `run/binary-schema-byteview-product-truncated-json/`: product length decode
+  reports `schema.length_out_of_bounds` when the computed length exceeds the
+  remaining bytes.
+- `run/binary-schema-byteview-product-encode/`: derived schema encode accepts
+  a `ByteView(row_count * column_count)` payload whose view count matches the
+  computed length.
+- `run/binary-schema-byteview-product-encode-length-mismatch/`: product length
+  encode rejects a view whose count does not match the computed length.
 - `run/binary-schema-byteview-subtract-decode/`: generated schema decode
   helpers compute a `ByteView(length - padding_length)` payload count from
   earlier decoded fields.

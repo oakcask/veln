@@ -1,0 +1,15 @@
+# Binary schema ByteView product rejects payloads beyond available bytes.
+schema PacketWire
+	format binary
+
+	row_count: UInt8
+	column_count: UInt8
+	payload: ByteView(row_count * column_count)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0203aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let ignored: {row_count: Int, column_count: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	Ok(())
+end

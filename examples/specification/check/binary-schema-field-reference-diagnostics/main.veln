@@ -92,6 +92,29 @@ schema WrongByteViewAddOperand
 	payload: ByteView(available_length + flags)
 end
 
+schema MissingByteViewProductOperand
+	format binary
+
+	available_length: UInt8
+	payload: ByteView(available_length * missing_length)
+end
+
+schema ForwardByteViewProductOperand
+	format binary
+
+	available_length: UInt8
+	payload: ByteView(available_length * later_length)
+	later_length: UInt8
+end
+
+schema WrongByteViewProductOperand
+	format binary
+
+	available_length: UInt8
+	flags: Flag8
+	payload: ByteView(available_length * flags)
+end
+
 schema MissingDispatchTag
 	format binary
 

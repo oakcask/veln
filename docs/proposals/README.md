@@ -97,7 +97,8 @@ compare it with `../specification/` before changing behavior.
   boundary coverage, bounded `Repeat(count_field, ByteView(length_field))`
   decode and encode plus derived codec boundary slices, length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
-  `ByteView(left_length + right_length)` decode and encode,
+  `ByteView(left_length + right_length)`, and
+  `ByteView(left_length * right_length)` decode and encode,
   declaration-time missing, forward, and wrong-role schema-local field
   reference diagnostics for repeat count fields and count expressions,
   byte-view lengths, dispatch tags, and extension-dispatch tags and lengths,

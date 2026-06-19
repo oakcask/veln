@@ -3744,6 +3744,7 @@ pub(crate) enum ByteViewLengthExpr {
     Field(String),
     Sum { left: String, right: String },
     Difference { left: String, right: String },
+    Product { left: String, right: String },
 }
 
 impl ByteViewLengthExpr {
@@ -3752,6 +3753,7 @@ impl ByteViewLengthExpr {
             Self::Field(field) => vec![field.as_str()],
             Self::Sum { left, right } => vec![left.as_str(), right.as_str()],
             Self::Difference { left, right } => vec![left.as_str(), right.as_str()],
+            Self::Product { left, right } => vec![left.as_str(), right.as_str()],
         }
     }
 
@@ -3760,11 +3762,19 @@ impl ByteViewLengthExpr {
             Self::Field(field) => field.clone(),
             Self::Sum { left, right } => format!("{left} + {right}"),
             Self::Difference { left, right } => format!("{left} - {right}"),
+            Self::Product { left, right } => format!("{left} * {right}"),
         }
     }
 }
 
 pub(crate) fn schema_length_expression(text: &str) -> Option<ByteViewLengthExpr> {
+    schema_length_expression_with_product(text, false)
+}
+
+fn schema_length_expression_with_product(
+    text: &str,
+    allow_product: bool,
+) -> Option<ByteViewLengthExpr> {
     let text = text.trim();
     if is_simple_schema_field_reference(text) {
         return Some(ByteViewLengthExpr::Field(text.to_string()));
@@ -3775,8 +3785,17 @@ pub(crate) fn schema_length_expression(text: &str) -> Option<ByteViewLengthExpr>
             right: right.to_string(),
         });
     }
-    let (left, right) = schema_length_binary_expression_operands(text, '-')?;
-    Some(ByteViewLengthExpr::Difference {
+    if let Some((left, right)) = schema_length_binary_expression_operands(text, '-') {
+        return Some(ByteViewLengthExpr::Difference {
+            left: left.to_string(),
+            right: right.to_string(),
+        });
+    }
+    if !allow_product {
+        return None;
+    }
+    let (left, right) = schema_length_binary_expression_operands(text, '*')?;
+    Some(ByteViewLengthExpr::Product {
         left: left.to_string(),
         right: right.to_string(),
     })
@@ -3790,11 +3809,18 @@ pub(crate) fn schema_length_expression_references(text: &str) -> Option<Vec<&str
     if let Some((left, right)) = schema_length_binary_expression_operands(text, '+') {
         return Some(vec![left, right]);
     }
-    let (left, right) = schema_length_binary_expression_operands(text, '-')?;
-    Some(vec![left, right])
+    if let Some((left, right)) = schema_length_binary_expression_operands(text, '-') {
+        return Some(vec![left, right]);
+    }
+    None
 }
 
 fn schema_length_binary_expression_operands(text: &str, op: char) -> Option<(&str, &str)> {
+    for other_op in ['+', '-', '*'] {
+        if other_op != op && text.contains(other_op) {
+            return None;
+        }
+    }
     let (left, right) = text.split_once(op)?;
     if right.contains(op) {
         return None;
@@ -3811,7 +3837,7 @@ fn schema_length_binary_expression_operands(text: &str, op: char) -> Option<(&st
 pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr> {
     let text = ty.trim();
     let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
-    schema_length_expression(inner)
+    schema_length_expression_with_product(inner, true)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -3862,7 +3888,9 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
             ByteViewLengthExpr::Field(length_field) => {
                 SchemaRepeatPayload::ByteView { length_field }
             }
-            ByteViewLengthExpr::Sum { .. } | ByteViewLengthExpr::Difference { .. } => return None,
+            ByteViewLengthExpr::Sum { .. }
+            | ByteViewLengthExpr::Difference { .. }
+            | ByteViewLengthExpr::Product { .. } => return None,
         }
     } else if schema_payload_name_path(primitive).is_some() {
         SchemaRepeatPayload::Schema {
