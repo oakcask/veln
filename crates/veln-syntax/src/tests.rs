@@ -1572,6 +1572,57 @@ fn parses_task_spawn_with20_plain_and_type_argument_callees() {
 }
 
 #[test]
+fn parses_task_spawn_with21_plain_and_type_argument_callees() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(job: fn(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String) -> String effects [concurrency], first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String) -> ()\n",
+            "  task::spawn_with21(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first)\n",
+            "  task::spawn_with21<String>(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr {
+        expr: plain_expr, ..
+    } = &function.body[0]
+    else {
+        panic!("expected plain call expression line");
+    };
+    let ExprKind::Call { callee, args } = &plain_expr.kind else {
+        panic!("expected plain call expression");
+    };
+    assert_eq!(args.len(), 22);
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["task".to_string(), "spawn_with21".to_string()]
+    ));
+
+    let BodyLine::Expr {
+        expr: typed_expr, ..
+    } = &function.body[1]
+    else {
+        panic!("expected typed call expression line");
+    };
+    let ExprKind::Call { callee, args } = &typed_expr.kind else {
+        panic!("expected typed call expression");
+    };
+    assert_eq!(args.len(), 22);
+    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+        panic!("expected type-applied callee");
+    };
+    assert_eq!(type_args, &vec!["String".to_string()]);
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["task".to_string(), "spawn_with21".to_string()]
+    ));
+}
+
+#[test]
 fn parses_angle_type_argument_call_without_hiding_comparisons() {
     let source = SourceFile::new(
         "main.veln",
