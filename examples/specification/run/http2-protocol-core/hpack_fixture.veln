@@ -202,6 +202,14 @@ fn request_headers_with_status() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":request", "method,scheme,path"), 9)
 end
 
+fn request_headers_duplicate_method() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "duplicate-method,scheme,path"), 9)
+end
+
+fn request_headers_method_after_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("host", "example.com"), HpackHeader(":request", "method-after-regular,scheme,path"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -216,6 +224,14 @@ end
 
 fn decoded_request_headers_with_status(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_with_status(), next_state(state)))
+end
+
+fn decoded_request_headers_duplicate_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_duplicate_method(), next_state(state)))
+end
+
+fn decoded_request_headers_method_after_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_method_after_regular(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -785,6 +801,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_status(state)
 				false => unsupported(block, offset)
 			end
+			51 => match observed_size == 4
+				true => decoded_request_headers_duplicate_method(state)
+				false => unsupported(block, offset)
+			end
+			52 => match observed_size == 4
+				true => decoded_request_headers_method_after_regular(state)
+				false => unsupported(block, offset)
+			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -846,6 +870,8 @@ end
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
+		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => true
 		_ => false
@@ -856,6 +882,7 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		_ => false
 	end
 end
@@ -864,6 +891,8 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":scheme", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		_ => false
 	end
@@ -874,6 +903,8 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":path", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":path", _), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		_ => false
 	end
@@ -887,9 +918,25 @@ pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
 	end
 end
 
+pub fn header_list_has_duplicate_pseudo_header(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_pseudo_header_after_regular(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => ":method,:method,:scheme,:path"
+		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => "host,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => ":scheme,:path"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => ":status,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(first_name, _), _, _) => first_name

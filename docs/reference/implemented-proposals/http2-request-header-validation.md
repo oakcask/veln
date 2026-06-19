@@ -13,8 +13,9 @@ The HTTP/2 protocol-core example decodes completed inbound HEADERS and final
 CONTINUATION header blocks through the imported HPACK fixture module before
 running request-header validation for fixture-marked request header lists.
 
-The validation rejects request header lists that are missing `:method`,
-`:scheme`, or `:path`, and rejects response-only `:status` on inbound
+The validation rejects request header lists that duplicate a request
+pseudo-header, place a request pseudo-header after a regular header, omit
+`:method`, `:scheme`, or `:path`, or carry response-only `:status` on inbound
 requests. Failures use the protocol-owned
 `http2.protocol.invalid_request_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
@@ -23,12 +24,17 @@ HPACK fixture diagnostics.
 
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   integrated protocol-core path, including one accepted request fixture, a
-  final CONTINUATION path missing `:method`, and a HEADERS path containing
-  response-only `:status`.
+  final CONTINUATION path missing `:method`, a HEADERS path containing
+  response-only `:status`, a duplicate `:method`, and a `:method` after a
+  regular `host` header.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-json/`
   checks the JSON projection for a missing required pseudo-header.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-human/`
   checks the human projection for a response-only pseudo-header.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/`
+  checks the JSON projection for a duplicate pseudo-header.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-order-human/`
+  checks the human projection for a pseudo-header after a regular header.
 
 ## Remaining Work
 

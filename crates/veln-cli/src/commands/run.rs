@@ -807,6 +807,16 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                         "request header list contains response-only {header_name} at byte offset {byte_offset}"
                     )
                 }
+                "duplicate_pseudo_header" => {
+                    format!(
+                        "request header list contains duplicate {header_name} at byte offset {byte_offset}"
+                    )
+                }
+                "pseudo_header_after_regular_header" => {
+                    format!(
+                        "request header list places {header_name} after a regular header at byte offset {byte_offset}"
+                    )
+                }
                 _ => format!("invalid request header list at byte offset {byte_offset}"),
             };
             let mut diagnostic = Diagnostic::new(
@@ -3059,6 +3069,115 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_request_pseudo_headers")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_duplicate_request_pseudo_header() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("duplicate_pseudo_header"),
+            ),
+            ("header_name", JsonValue::string(":method")),
+            (
+                "decoded_header_names",
+                JsonValue::string(":method,:method,:scheme,:path"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_request_pseudo_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list contains duplicate :method at byte offset 12".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list contains duplicate :method at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains(":method,:method,:scheme,:path")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_request_pseudo_header_order() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("pseudo_header_after_regular_header"),
+            ),
+            ("header_name", JsonValue::string(":method")),
+            (
+                "decoded_header_names",
+                JsonValue::string("host,:method,:scheme,:path"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_request_pseudo_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list places :method after a regular header at byte offset 12"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list places :method after a regular header at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("host,:method,:scheme,:path")
         );
     }
 
