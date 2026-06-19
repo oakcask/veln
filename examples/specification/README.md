@@ -1931,13 +1931,13 @@ against the built `veln` binary.
   provenance.
 - `run/http2-protocol-core-goaway-length-human/`: a wrong-length GOAWAY
   fixed-prefix payload reports `http2.protocol.invalid_payload_length` through
-  human `run` stderr with observed and expected payload length plus protocol
-  state and provenance notes.
+  human `run` stderr with observed and expected payload length, bounded
+  inspected-payload byte preview, protocol state, and provenance notes.
 - `run/http2-protocol-core-goaway-length-json/`: the same GOAWAY
   fixed-prefix payload failure reports
   `http2.protocol.invalid_payload_length` through `run --json` with byte
   offset, frame kind, stream reference, observed and expected payload lengths,
-  active state, and rule provenance.
+  structured byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-stream-after-goaway-human/`: a peer-created
   HEADERS stream greater than a recorded GOAWAY last stream id reports
   `http2.protocol.stream_after_goaway` through human `run` stderr with

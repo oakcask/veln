@@ -404,7 +404,8 @@ uses the same object shape as other protocol-owned byte previews while
 payload length facts stay in their own fields; the checked HTTP/2 examples
 cover the SETTINGS ACK expected-zero-length failure, PING fixed-length failure
 with JSON byte-preview assertions, PRIORITY fixed-length failure, GOAWAY
-fixed-prefix length failure, `RST_STREAM` fixed-length failure, and
+fixed-prefix length failure with JSON byte-preview assertions, `RST_STREAM`
+fixed-length failure, and
 `WINDOW_UPDATE` fixed-length failure. A SETTINGS ACK received while no local
 SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
