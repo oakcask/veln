@@ -1,0 +1,71 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "text"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "reserved bits mismatch at byte offset 0"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.reserved_bits_mismatch"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 0
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"InterleavedReservedHeader"},{"kind":"field","name":"guard"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.bit_width"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_value"
+equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.actual_value"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "ec"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(reserved bits mismatch at byte offset 0)\n"

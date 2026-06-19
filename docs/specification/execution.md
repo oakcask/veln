@@ -954,6 +954,8 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`,
   `examples/specification/run/binary-schema-split-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-interleaved-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-interleaved-reserved-json/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
@@ -1057,6 +1059,7 @@ execution reference.
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
+  `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
