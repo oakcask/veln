@@ -301,10 +301,13 @@ field references, field selection from such a record expression when the
 selected field maps directly to one schema-local visible field, or a direct
 ADT constructor call whose payload arguments use those projectable field and
 record-expression forms already supported by the generated encode helper.
+Constructor payload arguments may nest ADT constructor calls when their
+leaves stay within those same projectable forms.
 Single-payload constructor wrappers remain limited to the existing
 single-constructor flag and exact-width integer cases unless the payload is
-that record-expression slice. Selected mappings that cannot reconstruct every
-schema-local encode field through direct source-field assignments, mapping
+that record-expression slice or a supported nested constructor projection.
+Selected mappings that cannot reconstruct every schema-local encode field
+through direct source-field assignments, mapping
 expressions that cannot be projected back to schema-local fields, recursive
 dispatch payload schemas, dispatch payload schemas outside the generated
 helper slice, non-byte-aligned reserved fields outside the supported packed,

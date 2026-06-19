@@ -1666,7 +1666,13 @@ fn schema_encode_mapping_assignment_sources(
             if !allow_single_payload_variant
                 && args.len() == 1
                 && descriptor.variants.len() != 1
-                && !matches!(args.first(), Some(SchemaDecodeMappingExpr::Record(_)))
+                && !matches!(
+                    args.first(),
+                    Some(
+                        SchemaDecodeMappingExpr::Record(_)
+                            | SchemaDecodeMappingExpr::Constructor { .. }
+                    )
+                )
             {
                 return None;
             }

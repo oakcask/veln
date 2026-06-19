@@ -636,6 +636,16 @@ constructor; the JSON variant pins that id in run result diagnostic details.
 The range case preserves the ordinary
 `codec.encode_value_unrepresentable` shape on the projected schema-local
 field path.
+`../../examples/specification/run/binary-schema-nested-mapped-constructor-encode/`,
+`../../examples/specification/run/binary-schema-nested-mapped-constructor-encode-outer-mismatch-json/`,
+`../../examples/specification/run/binary-schema-nested-mapped-constructor-encode-inner-mismatch-json/`,
+and
+`../../examples/specification/run/binary-schema-nested-mapped-constructor-encode-out-of-range/`
+pin nested ADT constructor inverse mapping. The passing case projects the
+inner constructor payload back to the schema-local field. The mismatch cases
+report `codec.encode_mapping_mismatch` for either the outer or inner
+constructor, and the range case preserves
+`codec.encode_value_unrepresentable` after projection.
 `../../examples/specification/run/binary-schema-sub-byte-decode/`,
 `../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
 `../../examples/specification/run/binary-schema-sub-byte-encode/`,
