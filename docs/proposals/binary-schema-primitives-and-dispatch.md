@@ -354,7 +354,7 @@ for:
   and raw-bit helper access,
   direct structural mapping boundary, and implemented direct constructor
   mapped encode boundaries, including broader frame-specific ADTs beyond the
-  implemented record-payload constructor slice
+  implemented record-payload and nested constructor slices
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
   `ByteView(left_length + right_length)` decode and encode helper slices
@@ -483,10 +483,11 @@ every constructor payload argument is a schema-local field supported by the
 generated encode helper, including the single-payload flag and exact-width
 integer cases, the first multi-payload direct-field case, and one single
 record payload whose fields are direct schema-local visible field references
-supported by the generated encode helper. General inverse mapping for imported
-converter calls without explicit written import paths, nested ADT
-constructors, selected mappings, and other non-direct expressions remains
-outside the implemented encode slice.
+supported by the generated encode helper. Constructor payload arguments can
+also be nested ADT constructor calls when their leaves stay within those
+projectable forms. General inverse mapping for imported converter calls
+without explicit written import paths, selected mappings, and other
+non-direct expressions remains outside the implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, `Repeat(left_count - right_count, Payload)` fields when

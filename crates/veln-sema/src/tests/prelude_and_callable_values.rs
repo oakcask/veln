@@ -1239,6 +1239,79 @@ fn generated_schema_encode_helpers_accept_record_payload_mapped_constructor_reco
 }
 
 #[test]
+fn generated_schema_encode_helpers_accept_nested_mapped_constructor_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Payload\n",
+            "  Payload(Int)\n",
+            "end\n",
+            "\n",
+            "type Envelope\n",
+            "  Envelope(Payload)\n",
+            "  OtherEnvelope(Payload)\n",
+            "end\n",
+            "\n",
+            "type Header\n",
+            "  Header {wrapped: Envelope}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    wrapped = Envelope(Payload(kind))\n",
+            "end\n",
+            "\n",
+            "pub fn main(header: {wrapped: Envelope}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_header_wire(header)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "HeaderWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "HeaderWire"
+    ));
+}
+
+#[test]
 fn generated_schema_encode_helpers_reject_multi_variant_mapped_constructor_records() {
     let source = SourceFile::new(
         "main.veln",

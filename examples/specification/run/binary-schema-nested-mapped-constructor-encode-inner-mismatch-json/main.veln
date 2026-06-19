@@ -1,0 +1,25 @@
+type Payload
+	Payload(Int)
+	OtherPayload(Int)
+end
+
+type Envelope
+	Envelope(Payload)
+end
+
+type Header
+	Header {wrapped: Envelope}
+end
+
+schema HeaderWire
+	format binary
+
+	kind: UInt8
+
+	map to Header
+		wrapped = Envelope(Payload(kind))
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_header_wire({wrapped: Envelope(OtherPayload(5))})
+end

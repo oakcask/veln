@@ -86,8 +86,8 @@ compare it with `../specification/` before changing behavior.
   bitset decode and encode, checked bit and raw-bit helpers,
   structural mapping decode, projectable mapped-record encode, same-module
   and imported converter-call mapped encode with explicitly named inverse converters,
-  and direct ADT constructor mapped encode boundaries for supported
-  schema-local fields plus one record-payload constructor slice,
+  and direct or nested ADT constructor mapped encode boundaries for supported
+  schema-local fields plus record-payload constructor slices,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
