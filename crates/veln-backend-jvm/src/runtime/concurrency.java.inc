@@ -834,6 +834,10 @@
         return new Task((Fn) fn, new Object[] { firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg, twentyFirstArg });
     }
 
+    public static Object taskSpawnWith22(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg, Object twentiethArg, Object twentyFirstArg, Object twentySecondArg) {
+        return new Task((Fn) fn, new Object[] { firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg, twentyFirstArg, twentySecondArg });
+    }
+
     public static Object taskJoin(Object task) {
         Task handle = (Task) task;
         try {
