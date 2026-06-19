@@ -89,13 +89,15 @@ compare it with `../specification/` before changing behavior.
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive and nested schema field
-  decode and encode slices, bounded `Repeat(count_field, ByteView(length_field))`
+  decode and encode slices, bounded `Repeat(left_count + right_count,
+  Payload)` decode and encode with primitive count-mismatch and derived codec
+  boundary coverage, bounded `Repeat(count_field, ByteView(length_field))`
   decode and encode plus derived codec boundary slices, length-bounded
   `ByteView(length_field)` and `ByteView(left_length - right_length)` decode
   and encode,
   declaration-time missing, forward, and wrong-role schema-local field
-  reference diagnostics for repeat counts, byte-view lengths, dispatch tags,
-  and extension-dispatch tags and lengths,
+  reference diagnostics for repeat count fields and count expressions,
+  byte-view lengths, dispatch tags, and extension-dispatch tags and lengths,
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the HTTP/2 GOAWAY payload

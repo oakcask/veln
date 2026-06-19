@@ -1,0 +1,43 @@
+# Binary schema Repeat addition counts reject list length mismatches.
+use stdio
+
+schema CountedValues
+	format binary
+
+	left_count: UInt8
+	right_count: UInt8
+	items: Repeat(left_count + right_count, UInt16be)
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let items: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_nil()))))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_values({left_count: 2, right_count: 3, items: items})
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
