@@ -229,6 +229,10 @@ keeps imported converter visibility and missing written import-path
 diagnostics executable.
 `../../examples/specification/check/schema-two-argument-mapping-converters/`
 keeps same-module and imported public two-argument converter calls executable.
+The executable diagnostics case
+`../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
+keeps rejected second arguments and nested converter calls inside
+two-argument converter calls executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose

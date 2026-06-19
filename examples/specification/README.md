@@ -285,6 +285,12 @@ against the built `veln` binary.
   converter-shaped schema mapping assignment values report unresolved paths,
   private converters, missing written import paths, arity, input type, return
   type, and purity diagnostics.
+- `check/schema-two-argument-mapping-converters/`: same-module and imported
+  public two-argument schema mapping converters accept supported structural
+  mapping expression arguments.
+- `check/schema-two-argument-mapping-converter-diagnostics/`: two-argument
+  schema mapping converters reject unsupported second arguments, nested
+  converter-call arguments, and imported public converter input mismatches.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -858,12 +864,18 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-converter-adt-argument-decode/`: a generated
   binary schema decode helper calls a pure same-module converter with an ADT
   constructor expression built from a schema-local field.
+- `run/binary-schema-two-argument-mapped-converter-decode/`: a generated
+  binary schema decode helper calls a pure same-module converter with two
+  supported structural mapping expression arguments.
 - `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
   schema decode helper calls imported public pure converters through written
   `use` paths before returning the decoded value.
 - `run/binary-schema-imported-mapped-converter-structural-argument-decode/`: a
   generated binary schema decode helper calls an imported public pure
   converter with a record expression built from schema-local fields.
+- `run/binary-schema-imported-two-argument-mapped-converter-decode/`: a
+  generated binary schema decode helper calls an imported public pure
+  converter with two supported structural mapping expression arguments.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

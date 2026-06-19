@@ -228,6 +228,10 @@ pins imported converter visibility and missing written import-path diagnostics.
 The checked acceptance case
 `../../examples/specification/check/schema-two-argument-mapping-converters/`
 pins same-module and imported public two-argument converter calls.
+The checked diagnostics case
+`../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
+pins rejected second arguments and nested converter calls inside
+two-argument converter calls.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag32be`, `Flag32le`,
