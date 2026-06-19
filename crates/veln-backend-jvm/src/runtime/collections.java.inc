@@ -3487,7 +3487,8 @@
         Object observedValue,
         Object acceptedMinValue,
         Object acceptedMaxValue,
-        Object peerLimitProvenance
+        Object peerLimitProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long identifier = asLong(settingIdentifier);
@@ -3496,6 +3497,7 @@
         long acceptedMin = asLong(acceptedMinValue);
         long acceptedMax = asLong(acceptedMaxValue);
         String provenance = asString(peerLimitProvenance);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 SETTINGS value outside accepted range at byte offset "
             + byteOffset;
         registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
@@ -3506,7 +3508,8 @@
             observed,
             acceptedMin,
             acceptedMax,
-            provenance
+            provenance,
+            nearbyContext
         );
         return err(message);
     }

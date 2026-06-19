@@ -547,7 +547,8 @@
         long observedValue,
         long acceptedMinValue,
         long acceptedMaxValue,
-        String peerLimitProvenance
+        String peerLimitProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -560,7 +561,8 @@
                     DiagnosticDetail.number("observed_value", observedValue),
                     DiagnosticDetail.number("accepted_min_value", acceptedMinValue),
                     DiagnosticDetail.number("accepted_max_value", acceptedMaxValue),
-                    DiagnosticDetail.string("peer_limit_provenance", peerLimitProvenance)
+                    DiagnosticDetail.string("peer_limit_provenance", peerLimitProvenance),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );

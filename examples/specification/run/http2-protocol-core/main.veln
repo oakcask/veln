@@ -185,7 +185,7 @@ type Http2ProtocolFailure
 	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
 	ConcurrentStreamsExceeded(Int, Int, Int, Int, String, String, String)
 	HeaderListSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int, String)
-	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
+	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String, ByteView)
 	HpackFixtureDecodeFailed(Int, Int, Int, String, String, ByteChunk)
 end
 
@@ -993,37 +993,37 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wir
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match identifier == 5
-		true => validate_max_frame_size_setting(next_offset + item_wire_offset, value)
+		true => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
 		false => match identifier == 4
-			true => validate_initial_window_size_setting(next_offset + item_wire_offset, value)
+			true => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
 			false => match identifier == 2
-				true => validate_enable_push_setting(next_offset + item_wire_offset, value)
+				true => validate_enable_push_setting(next_offset + item_wire_offset, value, item)
 				false => Ok(SettingsValueOk)
 			end
 		end
 	end
 end
 
-fn validate_max_frame_size_setting(item_offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+fn validate_max_frame_size_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
 	match value < 16384
-		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings")))
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
 		false => match value > 16777215
-			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings")))
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
 			false => Ok(SettingsValueOk)
 		end
 	end
 end
 
-fn validate_initial_window_size_setting(item_offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+fn validate_initial_window_size_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
 	match value > 2147483647
-		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings")))
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings", preview)))
 		false => Ok(SettingsValueOk)
 	end
 end
 
-fn validate_enable_push_setting(item_offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+fn validate_enable_push_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
 	match value > 1
-		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings")))
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
 		false => Ok(SettingsValueOk)
 	end
 end
@@ -1255,9 +1255,9 @@ end
 
 fn send_local_max_frame_size_and_enable_push_settings(max_frame_size_value: Int, enable_push_value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
 	match enable_push_value < 0
-		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings")))
+		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings", empty_byte_preview()?)))
 		false => match enable_push_value > 1
-			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings")))
+			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings", empty_byte_preview()?)))
 			false => match connection
 				ConnectionState(decode_state, _) => encode_local_settings_batch_intent(max_frame_size_value, enable_push_value, decode_state)
 			end
@@ -1317,9 +1317,9 @@ end
 
 fn send_local_enable_push_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
 	match value < 0
-		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings")))
+		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
 		false => match value > 1
-			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings")))
+			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
 			false => match connection
 				ConnectionState(decode_state, _) => encode_local_enable_push_intent(value, decode_state)
 			end
@@ -2993,7 +2993,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderListSizeExceeded(_, _, _, _, _, _) => failure_rule_provenance(error)
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => failure_rule_provenance(error)
 	end
 end
@@ -3464,7 +3464,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderListSizeExceeded(_, _, _, _, _, _) => failure_rule_provenance(error)
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => failure_rule_provenance(error)
 	end
 end
@@ -3830,9 +3830,9 @@ end
 
 fn outbound_settings_failure(decision: OutboundSettingsDecision) -> Http2ProtocolFailure
 	match decision
-		OutboundSettingsAccepted(_, _, _, _) => SettingsValueOutOfRange(0, 0, "none", 0, 0, 0, "none")
+		OutboundSettingsAccepted(_, _, _, _) => ClosedWithPending(0, 0)
 		OutboundSettingsRejected(failure) => failure
-		OutboundSettingsEncodeFailed(_) => SettingsValueOutOfRange(0, 0, "none", 0, 0, 0, "none")
+		OutboundSettingsEncodeFailed(_) => ClosedWithPending(0, 0)
 	end
 end
 
@@ -3863,7 +3863,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.concurrent_streams_exceeded"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "http2.peer_limit.header_list_size_exceeded"
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 	end
 end
@@ -3886,7 +3886,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
 		ConcurrentStreamsExceeded(offset, _, _, _, _, _, _) => offset
 		HeaderListSizeExceeded(offset, _, _, _, _, _) => offset
-		SettingsValueOutOfRange(offset, _, _, _, _, _, _) => offset
+		SettingsValueOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		HpackFixtureDecodeFailed(offset, _, _, _, _, _) => offset
 	end
 end
@@ -3909,7 +3909,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -3932,7 +3932,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 4
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 1
 	end
 end
@@ -3955,7 +3955,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
 		ConcurrentStreamsExceeded(_, stream_id, _, _, _, _, _) => stream_id
 		HeaderListSizeExceeded(_, _, _, _, actual_stream, _) => actual_stream
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -3978,7 +3978,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4001,7 +4001,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 4
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 1
 	end
 end
@@ -4024,7 +4024,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4047,7 +4047,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4070,7 +4070,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
 		ConcurrentStreamsExceeded(_, _, attempted_count, _, _, _, _) => attempted_count
 		HeaderListSizeExceeded(_, observed_size, _, _, _, _) => observed_size
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -4093,7 +4093,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
 		ConcurrentStreamsExceeded(_, _, _, allowed_count, _, _, _) => allowed_count
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_value(receive_limit)
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4116,7 +4116,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
 		ConcurrentStreamsExceeded(_, _, _, _, active_state, _, _) => active_state
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "header-list"
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "connection-control"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "connection-control"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "hpack-fixture"
 	end
 end
@@ -4139,7 +4139,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		HeaderListSizeExceeded(_, _, _, _, _, rule_provenance) => rule_provenance
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2_settings_value_range"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2_settings_value_range"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "hpack_fixture_decode"
 	end
 end
@@ -4162,7 +4162,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, receive_limit_provenance, _) => receive_limit_provenance
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_provenance_label(receive_limit)
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
 	end
 end
@@ -4185,7 +4185,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _) => setting_identifier
+		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4208,7 +4208,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
-		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _) => setting_name
+		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _, _) => setting_name
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
 	end
 end
@@ -4231,7 +4231,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _) => observed_value
+		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _, _) => observed_value
 		HpackFixtureDecodeFailed(_, _, observed_first_byte, _, _, _) => observed_first_byte
 	end
 end
@@ -4254,7 +4254,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _) => accepted_min_value
+		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _, _) => accepted_min_value
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4277,7 +4277,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _) => accepted_max_value
+		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _, _) => accepted_max_value
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end
@@ -4300,7 +4300,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
-		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
+		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance, _) => peer_limit_provenance
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
 	end
 end
@@ -4405,7 +4405,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance)
 		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, active_state, receive_limit_provenance, rule_provenance) => http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, active_state, receive_limit_provenance, rule_provenance)
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance) => http2_peer_limit_header_list_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance)
-		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance)
+		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview)
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 	end
@@ -4429,7 +4429,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
 	end
 end
@@ -4452,7 +4452,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
 	end
 end
@@ -4475,7 +4475,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
-		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 0
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => 0
 	end
 end

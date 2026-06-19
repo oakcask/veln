@@ -1625,7 +1625,10 @@ failures; when a later item in the same frame is known, that known item is
 still applied or rejected at its own byte offset. Received values for settings
 with protocol range constraints are checked before updating peer-advertised
 state or open-stream receive-window credit; out-of-range values stay as typed
-peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
+peer-limit failures at the offending SETTINGS item byte offset. The focused
+human and JSON SETTINGS value cases construct a bounded `ByteView` over the
+offending six-byte SETTINGS item and pin the related byte preview note plus
+the structured JSON preview fields. SETTINGS ACK
 frames do not update peer-advertised state or receive-window credit. A valid
 SETTINGS ACK clears outstanding local SETTINGS state; an ACK with no
 outstanding local SETTINGS is a typed protocol failure. A

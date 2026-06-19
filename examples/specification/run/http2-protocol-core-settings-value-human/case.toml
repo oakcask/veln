@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.peer_limit.settings_value_out_of_range]: SETTINGS value outside accepted range at byte offset 9", "note: SETTINGS_ENABLE_PUSH (2) declared 2; accepted range is 0..1.", "note: Peer limit provenance: peer_settings."]
+contains = ["error[http2.peer_limit.settings_value_out_of_range]: SETTINGS value outside accepted range at byte offset 9", "note: SETTINGS_ENABLE_PUSH (2) declared 2; accepted range is 0..1.", "note: Nearby bytes: 00 02 00 00 00 02 (showing 6 of 6 byte(s), complete).", "note: Peer limit provenance: peer_settings."]

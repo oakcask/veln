@@ -1016,6 +1016,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "{setting_name} ({setting_identifier}) declared {observed_value}; accepted range is {accepted_min_value}..{accepted_max_value}."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Peer limit provenance: {provenance}.")));
@@ -2963,6 +2964,7 @@ mod tests {
             ("accepted_min_value", JsonValue::Number(16384)),
             ("accepted_max_value", JsonValue::Number(16777215)),
             ("peer_limit_provenance", JsonValue::string("peer_settings")),
+            ("byte_preview", byte_preview("000500003fff")),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 SETTINGS value outside accepted range at byte offset 9".to_string(),
@@ -2982,7 +2984,7 @@ mod tests {
             diagnostic.message,
             "SETTINGS value outside accepted range at byte offset 9"
         );
-        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(diagnostic.related.len(), 3);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -2993,7 +2995,12 @@ mod tests {
                 .to_json()
                 .contains("accepted range is 16384..16777215")
         );
-        assert!(diagnostic.related[1].to_json().contains("peer_settings"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 05 00 00 3f ff")
+        );
+        assert!(diagnostic.related[2].to_json().contains("peer_settings"));
     }
 
     #[test]
