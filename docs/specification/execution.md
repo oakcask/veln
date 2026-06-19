@@ -1305,11 +1305,13 @@ execution reference.
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:` bytes, plus no-Huffman literal-without-indexing
 	  fixtures whose first byte names a supported static-table header name for
-  `:authority`, `:method`, `:path`, or `:scheme`, whose one-byte value length
-  is not Huffman-marked, whose length is within the small fixture bound, and
-  whose raw value bytes are all visible ASCII. The checked example covers
-  `:authority: abc.test` through completed HEADERS and final CONTINUATION
-  paths and rejects a non-visible raw value byte. Huffman-marked
+  `:authority`, `:method`, `:path`, `:scheme`, or `:status`, whose one-byte
+  value length is not Huffman-marked, whose length is within the small fixture
+  bound, and whose raw value bytes are all visible ASCII. The checked example
+  covers `:authority: abc.test` through completed HEADERS and final
+  CONTINUATION paths, covers a raw `:status` value through completed HEADERS,
+  and rejects both a non-visible raw value byte and a malformed raw `:status`
+  literal. Huffman-marked
   literal-without-indexing values pass through a narrow HPACK static Huffman
   value decoder for the fixture-supported values `""`, `www.example.com`,
   `https`, `/target`, and `PUT`. The checked bytes include zero-length
