@@ -89,6 +89,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "http2_protocol_invalid_payload_length" => "http2ProtocolInvalidPayloadLength",
     "http2_protocol_invalid_data_padding" => "http2ProtocolInvalidDataPadding",
     "http2_protocol_invalid_request_header_list" => "http2ProtocolInvalidRequestHeaderList",
+    "http2_protocol_invalid_response_header_list" => "http2ProtocolInvalidResponseHeaderList",
     "http2_protocol_unexpected_settings_ack" => "http2ProtocolUnexpectedSettingsAck",
     "http2_protocol_invalid_priority_dependency" => "http2ProtocolInvalidPriorityDependency",
     "http2_protocol_stream_after_goaway" => "http2ProtocolStreamAfterGoaway",

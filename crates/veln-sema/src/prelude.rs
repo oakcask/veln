@@ -376,6 +376,19 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_protocol_invalid_response_header_list" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "http2_protocol_unexpected_settings_ack" => Some((
             vec![Type::int(), Type::string(), Type::string()],
             adt::result_type(Type::unit(), Type::string()),
@@ -1303,6 +1316,19 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_invalid_request_header_list" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
+                CoreType::string(),
+                CoreType::string(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_invalid_response_header_list" => Some((
             vec![
                 CoreType::int(),
                 CoreType::int(),

@@ -1700,8 +1700,7 @@ the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. It rejects non-visible raw bytes, malformed
 string length including non-terminating string-length continuations, malformed
 Huffman padding, and a malformed raw `:status` literal. It does not implement
-response header-list validation beyond decoding the fixture-supported
-`:status` header-list data. Checked HEADERS bytes
+general HPACK behavior beyond the fixture boundary. Checked HEADERS bytes
 include zero-length `:path` as `0x04 0x80`, `:path: test` as
 `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
@@ -1928,10 +1927,15 @@ request-header projection cases cover missing required request pseudo-headers,
 response-only `:status` pseudo-headers, duplicate request pseudo-headers, and
 request pseudo-headers after regular headers on inbound requests, with decoded
 header names carried as related context or structured JSON details. The
-larger protocol-core case also checks an accepted fixture-marked request
-header list, a final CONTINUATION path missing `:method`, a completed HEADERS
-path containing response-only `:status`, a duplicate `:method`, and a
-`:method` after a regular `host` header. The
+response-header projection cases cover missing and duplicate `:status`,
+request-only pseudo-headers, and response pseudo-headers after regular
+headers, with the same JSON detail and human related-note shape. The larger
+protocol-core case also checks an accepted fixture-marked request header list,
+a final CONTINUATION path missing `:method`, a completed HEADERS path
+containing response-only `:status`, a duplicate `:method`, and a `:method`
+after a regular `host` header, plus an accepted fixture-marked response header
+list, a final CONTINUATION path missing `:status`, duplicate `:status`,
+request-only `:method`, and `:status` after a regular `server` header. The
 focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the

@@ -839,6 +839,57 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.invalid_response_header_list" => {
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let failed_fact = json_string(protocol_entries, "failed_header_fact")?;
+            let header_name = json_string(protocol_entries, "header_name")?;
+            let decoded_header_names = json_string(protocol_entries, "decoded_header_names")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let message = match failed_fact.as_str() {
+                "missing_required_pseudo_header" => {
+                    format!(
+                        "response header list is missing {header_name} at byte offset {byte_offset}"
+                    )
+                }
+                "request_only_pseudo_header" => {
+                    format!(
+                        "response header list contains request-only {header_name} at byte offset {byte_offset}"
+                    )
+                }
+                "duplicate_pseudo_header" => {
+                    format!(
+                        "response header list contains duplicate {header_name} at byte offset {byte_offset}"
+                    )
+                }
+                "pseudo_header_after_regular_header" => {
+                    format!(
+                        "response header list places {header_name} after a regular header at byte offset {byte_offset}"
+                    )
+                }
+                _ => format!("invalid response header list at byte offset {byte_offset}"),
+            };
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                message,
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} decoded response header names: {decoded_header_names}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.protocol.invalid_priority_dependency" => {
             let frame_kind = json_number(protocol_entries, "frame_kind")?;
             let stream_id = json_number(protocol_entries, "stream_id")?;
@@ -3070,6 +3121,65 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_request_pseudo_headers")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_response_header_list_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_response_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(9)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("missing_required_pseudo_header"),
+            ),
+            ("header_name", JsonValue::string(":status")),
+            ("decoded_header_names", JsonValue::string("server")),
+            ("active_state", JsonValue::string("response-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_response_pseudo_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 response header list is missing :status at byte offset 12".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_response_header_list");
+        assert_eq!(
+            diagnostic.message,
+            "response header list is missing :status at byte offset 12"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Frame kind 9 on stream 1")
+        );
+        assert!(diagnostic.related[0].to_json().contains("server"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_response_pseudo_headers")
         );
     }
 

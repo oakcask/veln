@@ -3326,6 +3326,54 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidResponseHeaderList(
+        Object offset,
+        Object frameKind,
+        Object streamId,
+        Object failedHeaderFact,
+        Object headerName,
+        Object decodedHeaderNames,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String fact = asString(failedHeaderFact);
+        String header = asString(headerName);
+        String names = asString(decodedHeaderNames);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message;
+        if ("missing_required_pseudo_header".equals(fact)) {
+            message = "HTTP/2 response header list is missing " + header
+                + " at byte offset " + byteOffset;
+        } else if ("request_only_pseudo_header".equals(fact)) {
+            message = "HTTP/2 response header list contains request-only " + header
+                + " at byte offset " + byteOffset;
+        } else if ("duplicate_pseudo_header".equals(fact)) {
+            message = "HTTP/2 response header list contains duplicate " + header
+                + " at byte offset " + byteOffset;
+        } else if ("pseudo_header_after_regular_header".equals(fact)) {
+            message = "HTTP/2 response header list places " + header
+                + " after a regular header at byte offset " + byteOffset;
+        } else {
+            message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
+        }
+        registerHttp2ProtocolInvalidResponseHeaderListDiagnostic(
+            message,
+            byteOffset,
+            kind,
+            stream,
+            fact,
+            header,
+            names,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolInvalidPriorityDependency(
         Object offset,
         Object streamId,

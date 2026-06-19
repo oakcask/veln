@@ -2650,6 +2650,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidRequestHeaderList",
         ),
         (
+            "http2_protocol_invalid_response_header_list",
+            "http2ProtocolInvalidResponseHeaderList",
+        ),
+        (
             "http2_protocol_unexpected_settings_ack",
             "http2ProtocolUnexpectedSettingsAck",
         ),
