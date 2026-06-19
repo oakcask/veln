@@ -34,16 +34,22 @@ helper, including supported middle reserved layouts, and derived encode calls
 for schemas that are already eligible for the generated binary schema encode
 helper, including the checked non-HTTP composite helper shape, selected
 structural mapping encode slice, and caller-owned parser-state retention
-around `Decoded` and `NeedMore` in `../specification/execution.md`.
+around `Decoded` and `NeedMore` in `../specification/execution.md`. The
+implemented hand-written decode boundary also covers a bounded `ByteView` plus
+caller-supplied base `ByteOffset` example that returns `Decoded` with a
+consumed `ByteCount`, returns non-consuming `NeedMore` for short input, and
+reports malformed input at the absolute offset derived from the base offset
+plus the local byte position.
 The eligible derived codec decode and encode execution boundaries now also
 cover same-module recursive closed and extension dispatch payload helpers
 already accepted by the generated helper path.
 
 Define codec support for:
 
-- remaining general decoding from `ByteView` plus an explicit input position,
-  beyond the implemented generated exact-width binary schema decode-step
-  helper slice in `../specification/execution.md`
+- remaining general generated and schema-driven decoding from `ByteView` plus
+  an explicit input position, beyond the implemented hand-written boundary and
+  generated binary schema decode-step helper slices in
+  `../specification/execution.md`
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper, derived codec encode, and
   budgeted derived codec encode slices in `../specification/execution.md`,
@@ -329,7 +335,8 @@ encoder state owns only the remaining encode work.
   over generated helper output, selected structural mapping encode cases
   already accepted by the generated helper, same-module recursive closed and
   extension dispatch payload helpers, and the caller-owned parser-state
-  retention example.
+  retention and hand-written bounded `ByteView` base-offset `NeedMore`
+  examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.

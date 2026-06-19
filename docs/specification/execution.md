@@ -1112,7 +1112,13 @@ execution reference.
   base_offset, codec_name))`. When the referenced schema uses multiple
   decoded-field selected mappings that resolve to one implemented target
   record shape, the referenced function must return `DecodeStep<T>` for that
-  selected mapping record shape.
+  selected mapping record shape. The checked
+  `examples/specification/run/codec-byteview-offset-needmore/` case covers a
+  source-written decoder that inspects a bounded `ByteView`, returns
+  `Decoded` with consumed `ByteCount`, returns non-consuming
+  `NeedMore(NeedBytes(...))` for short input, and reports malformed input with
+  a `DecodeError` whose byte offset is the caller-supplied base offset plus
+  the local field position.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` is
   projected to a focused human runtime diagnostic and

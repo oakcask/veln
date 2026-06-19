@@ -1404,6 +1404,12 @@ against the built `veln` binary.
   valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
   schema mapping pins the accepted value type. It projects an oversized
   consumed count to `codec.consumed_count_invalid`.
+- `run/codec-byteview-offset-needmore/`: a source-written decoder receives a
+  bounded `ByteView` plus caller-supplied base `ByteOffset`, returns
+  `Decoded` with a consumed `ByteCount` for complete input, returns
+  non-consuming `NeedMore(NeedBytes(...))` for short input, and reports a
+  malformed local field with the absolute byte offset derived from
+  `base + local_position`.
 - `run/codec-decode-consumed-count-invalid-human/` and
   `run/codec-decode-consumed-count-invalid-json/`: a hand-written codec
   boundary's stable `codec.consumed_count_invalid` decode failure projects
