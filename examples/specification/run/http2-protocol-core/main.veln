@@ -5770,6 +5770,12 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_hpack_transition("hpack-literal-huffman", hpack_literal_huffman)
 	let hpack_literal_huffman_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001048100")?), state)?
 	print_failure("hpack-literal-huffman-malformed", hpack_literal_huffman_malformed)
+	let hpack_literal_scheme_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000106849d29ad1f")?), state)?
+	print_step("hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman)
+	let ignored_hpack_literal_scheme_huffman: () = emit_header_block("http2-hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman, "06849d29ad1f")?
+	print_hpack_transition("hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman)
+	let hpack_literal_scheme_huffman_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301040000000106819d")?), state)?
+	print_failure("hpack-literal-scheme-huffman-padding", hpack_literal_scheme_huffman_malformed)
 	let hpack_literal_authority_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010100")?), state)?
 	print_failure("hpack-literal-authority-malformed", hpack_literal_authority_malformed)
 	let hpack_literal_non_visible: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010103611f62")?), state)?

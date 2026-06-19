@@ -1591,12 +1591,15 @@ first byte names a supported static-table header name for `:authority`,
 Huffman-marked, whose length is within the small fixture bound, and whose raw
 value bytes are all visible ASCII. The example covers `:authority: abc.test`
 through completed HEADERS and final CONTINUATION paths and rejects a
-non-visible raw value byte. It also keeps Huffman-flagged literal fixture bytes
-for zero-length `:path` as `0x04 0x80` and literal-without-indexing
+non-visible raw value byte. It also decodes narrow Huffman-marked
+literal-without-indexing values through HPACK static Huffman codes for the
+fixture-supported values `""`, `www.example.com`, `https`, `/target`, and
+`PUT`. Checked HEADERS bytes include zero-length `:path` as `0x04 0x80`,
+`:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`, and
 `:authority: www.example.com` as
-`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
-in completed HEADERS or final CONTINUATION
-frames. The source-level HPACK
+`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`;
+malformed Huffman padding remains on the unsupported fixture path. The
+source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header
@@ -1620,9 +1623,9 @@ fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing and unsupported Huffman variants. The focused HPACK
-fixture-codec JSON and human examples assert the unsupported header-block byte
-preview.
+literal-without-indexing and Huffman symbols or padding outside the narrow
+fixture decoder. The focused HPACK fixture-codec JSON and human examples
+assert the unsupported header-block byte preview.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads

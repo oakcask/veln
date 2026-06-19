@@ -315,14 +315,18 @@ bytes plus the static indexed `accept-charset:`,
 not Huffman-marked, whose length is within the small fixture bound, and whose
 raw value bytes are all visible ASCII. The executable slice covers a raw
 `:authority` value through completed HEADERS and final CONTINUATION paths and
-rejects a non-visible raw value byte. Huffman-flagged fixture bytes for
-zero-length `:path` as `0x04 0x80` and literal-without-indexing
+rejects a non-visible raw value byte. Huffman-marked
+literal-without-indexing values decode through a narrow HPACK static Huffman
+value decoder for the fixture-supported values `""`, `www.example.com`,
+`https`, `/target`, and `PUT`. Checked bytes include zero-length `:path` as
+`0x04 0x80`, `:scheme: https` as
+`0x06 0x84 0x9d 0x29 0xad 0x1f`, and literal-without-indexing
 `:authority: www.example.com` as
-`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
-in completed HEADERS or final CONTINUATION frames, returns ordinary
-header-list data through the same
-accessors as the deterministic fixture-label blocks, advances immutable
-fixture state, and also covers one dynamic-table receive slice: a
+`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
+In completed HEADERS or final CONTINUATION frames, the fixture returns
+ordinary header-list data through the same accessors as the deterministic
+fixture-label blocks, advances immutable fixture state, and also covers one
+dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
@@ -343,7 +347,7 @@ next immutable HPACK states whose checked table sizes include `30`, `31`,
 HEADERS and final CONTINUATION paths before later header blocks are decoded.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates, table-size updates with trailing bytes after a complete integer, and
-unsupported Huffman variants, remain on
+Huffman symbols or padding outside the narrow fixture decoder, remain on
 `hpack.fixture.unsupported_header_block`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
@@ -622,10 +626,9 @@ value, `0x82` `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`,
 names a supported static-table header name for `:authority`, `:method`,
 `:path`, or `:scheme`, whose one-byte value length is not Huffman-marked,
 whose length is within the small fixture bound, and whose raw value bytes are
-all visible ASCII, plus Huffman-flagged fixture bytes for zero-length `:path`
-as `0x04 0x80` and literal-without-indexing
-`:authority: www.example.com` as
-`0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`,
+all visible ASCII, plus Huffman-marked literal-without-indexing fixture values
+decoded through HPACK static Huffman codes for zero-length `:path`,
+`:scheme: https`, and `:authority: www.example.com`,
 plus one literal-with-indexing `:path: /target`
 insertion and one later dynamic
 indexed reference to that inserted entry through the immutable HPACK state
