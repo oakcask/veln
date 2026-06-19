@@ -529,6 +529,14 @@ and
 pin converter arguments built from structural mapping expressions: a
 same-module pure converter receives an ADT constructor expression, and an
 imported public pure converter receives a record expression.
+`../../examples/specification/run/binary-schema-two-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-two-argument-mapped-converter-decode/`
+pin same-module and imported public two-argument converter calls.
+`../../examples/specification/run/binary-schema-three-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`
+pin same-module and imported public three-argument converter calls.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`

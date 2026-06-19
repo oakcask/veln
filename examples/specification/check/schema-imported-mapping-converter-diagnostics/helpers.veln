@@ -2,7 +2,7 @@ pub fn two_params(value: Int, extra: Int) -> Int
 	value
 end
 
-pub fn three_params(value: Int, extra: Int, another: Int) -> Int
+pub fn four_params(value: Int, extra: Int, another: Int, final: Int) -> Int
 	value
 end
 

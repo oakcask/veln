@@ -20,9 +20,9 @@ compare it with `../specification/` before changing behavior.
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions, pure same-module and imported
-  public representation conversion hooks that take one or two arguments from
-  schema-local fields or structural mapping expressions, field selection from record-shaped
-  structural mapping expressions, decoded-field and integer-literal mapping
+  public representation conversion hooks that take one, two, or three
+  arguments from schema-local fields or structural mapping expressions, field
+  selection from record-shaped structural mapping expressions, decoded-field and integer-literal mapping
   arithmetic including integer division,
   decoded-field integer equality, inequality, and narrow boolean mapping
   selection, focused mapping selection diagnostics, and the generated-helper schema validation

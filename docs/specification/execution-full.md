@@ -226,11 +226,11 @@ expressions. Division by zero returns `schema.mapping_division_by_zero` at
 the offset after the decoded schema body with the schema and target-field
 path. A mapping assignment may also call one pure same-module converter
 function or one imported public pure converter function through a written
-`use` path or alias with one or two arguments. Each argument must be either
-one decoded schema-local field or an already implemented structural mapping
-expression made from decoded schema fields, records, ADT constructors, integer
-arithmetic mapping expressions, and nested combinations of those forms before
-assigning the returned value to the target field. Multiple selected mappings
+`use` path or alias with one, two, or three arguments. Each argument must be
+either one decoded schema-local field or an already implemented structural
+mapping expression made from decoded schema fields, records, ADT constructors,
+integer arithmetic mapping expressions, and nested combinations of those forms
+before assigning the returned value to the target field. Multiple selected mappings
 may use narrow boolean selector expressions over decoded schema-local `Int`
 fields, integer literals, `==`, `!=`, `and`, `or`, and `not` when the selector
 clauses do not overlap and all branches resolve to one target record shape. A

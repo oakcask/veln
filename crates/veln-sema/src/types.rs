@@ -2144,6 +2144,8 @@ struct SchemaMappingExprContext<'a> {
     schema_fields: &'a BTreeMap<String, Type>,
 }
 
+const SCHEMA_MAPPING_CONVERTER_ARITY: std::ops::RangeInclusive<usize> = 1..=3;
+
 pub(crate) fn schema_decode_mapping_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -3054,22 +3056,24 @@ fn schema_mapping_converter_arg_exprs(
     ),
     Box<SchemaMappingExprError>,
 > {
-    if !(1..=2).contains(&args.len()) {
+    if !SCHEMA_MAPPING_CONVERTER_ARITY.contains(&args.len()) {
         return Err(Box::new(SchemaMappingExprError::ConverterArity {
             name: function.name.clone(),
-            expected: 2,
+            expected: *SCHEMA_MAPPING_CONVERTER_ARITY.end(),
             actual: args.len(),
             span: expr.span.clone(),
             function_span: function.span.clone(),
         }));
     }
-    if function.params.len() != args.len() || !(1..=2).contains(&function.params.len()) {
-        let expected = if (1..=2).contains(&function.params.len()) {
+    if function.params.len() != args.len()
+        || !SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len())
+    {
+        let expected = if SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len()) {
             function.params.len()
         } else {
             args.len()
         };
-        let actual = if (1..=2).contains(&function.params.len()) {
+        let actual = if SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len()) {
             args.len()
         } else {
             function.params.len()

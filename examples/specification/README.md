@@ -291,6 +291,13 @@ against the built `veln` binary.
 - `check/schema-two-argument-mapping-converter-diagnostics/`: two-argument
   schema mapping converters reject unsupported second arguments, nested
   converter-call arguments, and imported public converter input mismatches.
+- `check/schema-three-argument-mapping-converters/`: same-module and imported
+  public three-argument schema mapping converters accept supported structural
+  mapping expression arguments.
+- `check/schema-three-argument-mapping-converter-diagnostics/`:
+  three-argument schema mapping converters reject unsupported fourth
+  arguments, unsupported third arguments, nested converter-call arguments, and
+  imported public converter input mismatches.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -867,6 +874,9 @@ against the built `veln` binary.
 - `run/binary-schema-two-argument-mapped-converter-decode/`: a generated
   binary schema decode helper calls a pure same-module converter with two
   supported structural mapping expression arguments.
+- `run/binary-schema-three-argument-mapped-converter-decode/`: a generated
+  binary schema decode helper calls a pure same-module converter with three
+  supported structural mapping expression arguments.
 - `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
   schema decode helper calls imported public pure converters through written
   `use` paths before returning the decoded value.
@@ -876,6 +886,9 @@ against the built `veln` binary.
 - `run/binary-schema-imported-two-argument-mapped-converter-decode/`: a
   generated binary schema decode helper calls an imported public pure
   converter with two supported structural mapping expression arguments.
+- `run/binary-schema-imported-three-argument-mapped-converter-decode/`: a
+  generated binary schema decode helper calls an imported public pure
+  converter with three supported structural mapping expression arguments.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

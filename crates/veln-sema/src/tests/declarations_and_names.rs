@@ -1888,7 +1888,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "  value\n",
             "end\n",
             "\n",
-            "fn three_params(value: Int, extra: Int, another: Int) -> Int\n",
+            "fn four_params(value: Int, extra: Int, another: Int, final: Int) -> Int\n",
             "  value\n",
             "end\n",
             "\n",
@@ -1920,7 +1920,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "\n",
             "  map to Header\n",
             "    too_few = two_params(kind)\n",
-            "    too_many = three_params(kind, length)\n",
+            "    too_many = four_params(kind, length, kind, length)\n",
             "    bad_input = needs_text(kind)\n",
             "    bad_return = to_text(kind)\n",
             "    impure = noisy(kind)\n",
@@ -1946,7 +1946,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_converter_arity"
                 && diagnostic.message
-                    == "schema mapping converter `three_params` expects 2 argument(s), but got 3"
+                    == "schema mapping converter `four_params` expects 3 argument(s), but got 4"
         }),
         "{diagnostics:#?}"
     );
