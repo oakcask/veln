@@ -1684,8 +1684,10 @@ against the built `veln` binary.
   pending. It projects typed protocol
   failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
-  failure, stream id domain failures including HEADERS and CONTINUATION on
-  the connection stream, invalid stream-state frame kinds,
+  failure, request-header validation for a fixture-marked request header list,
+  missing `:method` on a final CONTINUATION path, and response-only `:status`
+  on a completed HEADERS path, stream id domain failures including HEADERS
+  and CONTINUATION on the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
   peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an
   unknown extension frame, and valid

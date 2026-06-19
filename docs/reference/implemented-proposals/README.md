@@ -122,6 +122,8 @@ behavior.
   [http2-hpack-dynamic-table-eviction-fixture.md](http2-hpack-dynamic-table-eviction-fixture.md).
 - HTTP/2 HPACK Huffman fixture:
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
+- HTTP/2 request header validation:
+  [http2-request-header-validation.md](http2-request-header-validation.md).
 - Function variadic arguments:
   [function-variadic-arguments.md](function-variadic-arguments.md).
 

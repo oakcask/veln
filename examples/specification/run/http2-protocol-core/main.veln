@@ -177,6 +177,7 @@ type Http2ProtocolFailure
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidDataPadding(Int, Int, Int, Int, String, String, ByteView)
+	InvalidRequestHeaderList(Int, Int, Int, String, String, String)
 	UnexpectedSettingsAck(Int, String, String)
 	InvalidPriorityDependency(Int, Int, Int, String, String, ByteView)
 	StreamAfterGoaway(Int, Int, Int, String, String, String)
@@ -227,8 +228,13 @@ type HeaderListSizeDecision
 	HeaderListSizeFailed(Http2ProtocolFailure)
 end
 
+type RequestHeaderListDecision
+	RequestHeaderListOk
+	RequestHeaderListFailed(Http2ProtocolFailure)
+end
+
 type HeaderListDecodeDecision
-	HeaderListDecodeOk(Int, HpackFixtureState)
+	HeaderListDecodeOk(Int, HpackFixtureState, HpackHeaderList)
 	HeaderListDecodeFailed(Http2ProtocolFailure)
 end
 
@@ -703,8 +709,11 @@ end
 
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	match decode_completed_header_list(next_offset, kind, flags, completed_header_block, hpack_state)
-		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state) => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size)
-			HeaderListSizeOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, consumed_state)
+		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size)
+			HeaderListSizeOk => match validate_request_header_list(next_offset, kind, flags, stream_id, headers)
+				RequestHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, consumed_state)
+				RequestHeaderListFailed(error) => Ok(Failed(consumed_state, error))
+			end
 			HeaderListSizeFailed(error) => Ok(Failed(consumed_state, error))
 		end
 		HeaderListDecodeFailed(error) => Ok(Failed(consumed_state, error))
@@ -723,10 +732,10 @@ end
 fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match header_list_boundary_reached(kind, flags)
 		true => match hpack_fixture::decode_header_block(completed_header_block, hpack_state, offset)
-			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition))
+			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
 			Err(failure) => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
 		end
-		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state)
+		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state, hpack_fixture::incomplete_header_list())
 	end
 end
 
@@ -752,6 +761,29 @@ fn validate_completed_header_list_size(offset: Int, kind: Int, stream_id: Int, o
 	match observed_size > allowed_size
 		true => HeaderListSizeFailed(HeaderListSizeExceeded(offset, observed_size, receive_limit, kind, stream_id, "header_list_receive_limit"))
 		false => HeaderListSizeOk
+	end
+end
+
+fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList) -> RequestHeaderListDecision
+	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_request(headers)
+		false => RequestHeaderListOk
+		true => validate_completed_request_header_list(offset, kind, stream_id, headers)
+	end
+end
+
+fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList) -> RequestHeaderListDecision
+	match hpack_fixture::header_list_has_status(headers)
+		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers)))
+		false => match hpack_fixture::header_list_has_method(headers)
+			false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers)))
+			true => match hpack_fixture::header_list_has_scheme(headers)
+				false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
+				true => match hpack_fixture::header_list_has_path(headers)
+					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers)))
+					true => RequestHeaderListOk
+				end
+			end
+		end
 	end
 end
 
@@ -2932,6 +2964,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3402,6 +3435,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3799,6 +3833,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "http2.protocol.invalid_data_padding"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "http2.protocol.invalid_request_header_list"
 		UnexpectedSettingsAck(_, _, _) => "http2.protocol.unexpected_settings_ack"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(_, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
@@ -3821,6 +3856,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(offset, _, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _, _) => offset
 		InvalidDataPadding(offset, _, _, _, _, _, _) => offset
+		InvalidRequestHeaderList(offset, _, _, _, _, _) => offset
 		UnexpectedSettingsAck(offset, _, _) => offset
 		InvalidPriorityDependency(offset, _, _, _, _, _) => offset
 		StreamAfterGoaway(offset, _, _, _, _, _) => offset
@@ -3843,6 +3879,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -3865,6 +3902,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		UnexpectedSettingsAck(_, _, _) => 4
 		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
@@ -3887,6 +3925,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _, _) => actual_stream
 		InvalidDataPadding(_, actual_stream, _, _, _, _, _) => actual_stream
+		InvalidRequestHeaderList(_, _, actual_stream, _, _, _) => actual_stream
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, stream_id, _, _, _, _) => stream_id
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
@@ -3909,6 +3948,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
@@ -3931,6 +3971,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		UnexpectedSettingsAck(_, _, _) => 4
 		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
@@ -3953,6 +3994,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -3975,6 +4017,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -3997,6 +4040,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
 		InvalidDataPadding(_, _, pad_length, _, _, _, _) => pad_length
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
@@ -4019,6 +4063,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
 		InvalidDataPadding(_, _, _, remaining_payload_length, _, _, _) => remaining_payload_length
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
@@ -4041,6 +4086,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, active_state, _) => active_state
 		InvalidPayloadLength(_, _, _, _, _, active_state, _, _) => active_state
 		InvalidDataPadding(_, _, _, _, active_state, _, _) => active_state
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "request-headers"
 		UnexpectedSettingsAck(_, active_state, _) => active_state
 		InvalidPriorityDependency(_, _, _, active_state, _, _) => active_state
 		StreamAfterGoaway(_, _, _, shutdown_state, _, _) => shutdown_state
@@ -4063,6 +4109,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		InvalidDataPadding(_, _, _, _, _, rule_provenance, _) => rule_provenance
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "rfc9113_request_pseudo_headers"
 		UnexpectedSettingsAck(_, _, rule_provenance) => rule_provenance
 		InvalidPriorityDependency(_, _, _, _, rule_provenance, _) => rule_provenance
 		StreamAfterGoaway(_, _, _, _, _, rule_provenance) => rule_provenance
@@ -4085,6 +4132,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
@@ -4107,6 +4155,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -4129,6 +4178,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
@@ -4151,6 +4201,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -4173,6 +4224,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -4195,6 +4247,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
@@ -4217,6 +4270,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
@@ -4226,6 +4280,27 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
 		HpackFixtureDecodeFailed(_, _, _, _, _, _) => "none"
+	end
+end
+
+fn failure_header_fact(failure: Http2ProtocolFailure) -> String
+	match failure
+		InvalidRequestHeaderList(_, _, _, failed_header_fact, _, _) => failed_header_fact
+		_ => "none"
+	end
+end
+
+fn failure_header_name(failure: Http2ProtocolFailure) -> String
+	match failure
+		InvalidRequestHeaderList(_, _, _, _, header_name, _) => header_name
+		_ => "none"
+	end
+end
+
+fn failure_decoded_header_names(failure: Http2ProtocolFailure) -> String
+	match failure
+		InvalidRequestHeaderList(_, _, _, _, _, decoded_header_names) => decoded_header_names
+		_ => "none"
 	end
 end
 
@@ -4300,6 +4375,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?)
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance)
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, "request-headers", "rfc9113_request_pseudo_headers")
 		UnexpectedSettingsAck(offset, active_state, rule_provenance) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
@@ -4323,6 +4399,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, required_domain, _, _, _) => required_domain
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "request pseudo-header list"
 		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
@@ -4345,6 +4422,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidStreamId(_, _, _, _, endpoint_role, _, _) => endpoint_role
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		InvalidRequestHeaderList(_, _, _, _, _, _) => "server"
 		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, endpoint_role, _) => endpoint_role
@@ -4368,6 +4446,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -4455,6 +4534,29 @@ fn print_stream_id_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(failure_required_stream_id_domain(failure))
 	stdio::print(" endpoint ")
 	stdio::print(failure_endpoint_role(failure))
+	stdio::print(" active_state ")
+	stdio::print(failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::println(failure_rule_provenance(failure))
+end
+
+fn print_request_header_failure(label: String, step: Http2Step) -> () effects [stdio]
+	let failure: Http2ProtocolFailure = step_failure(step)
+	stdio::print(label)
+	stdio::print(" id ")
+	stdio::print(failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" frame_kind ")
+	stdio::print(int_to_string(failure_actual_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(failure_actual_stream(failure)))
+	stdio::print(" failed_header_fact ")
+	stdio::print(failure_header_fact(failure))
+	stdio::print(" header_name ")
+	stdio::print(failure_header_name(failure))
+	stdio::print(" decoded_header_names ")
+	stdio::print(failure_decoded_header_names(failure))
 	stdio::print(" active_state ")
 	stdio::print(failure_active_state(failure))
 	stdio::print(" rule ")
@@ -5863,11 +5965,26 @@ fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), Strin
 	Ok(())
 end
 
+fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let request_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001303132")?), state)?
+	print_step("request-headers-valid", request_headers)
+	let ignored_request_headers: () = emit_header_block("http2-request-headers-valid", request_headers, "303132")?
+	print_hpack_transition("request-headers-valid", request_headers)
+	let request_headers_missing_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000131")?), state)?
+	print_step("request-headers-missing-start", request_headers_missing_start)
+	let request_headers_missing_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(request_headers_missing_start))?
+	print_request_header_failure("request-headers-missing-method", request_headers_missing_done)
+	let request_headers_status: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000132333435")?), state)?
+	print_request_header_failure("request-headers-status", request_headers_status)
+	Ok(())
+end
+
 fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let header_list_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000011102030405060708")?), state)?
 	print_step("header-list-accepted", header_list_accepted)
 	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "1102030405060708")?
 	print_hpack_transition("header-list-accepted", header_list_accepted)
+	let ignored_request_header_validation_cases: () = print_request_header_validation_cases(state)?
 	let hpack_static_indexed_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000182")?), state)?
 	print_step("hpack-static-indexed-method", hpack_static_indexed_method)
 	let ignored_hpack_static_indexed_method: () = emit_header_block("http2-hpack-static-indexed-method", hpack_static_indexed_method, "82")?

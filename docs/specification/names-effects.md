@@ -163,7 +163,8 @@ compiler-known calls.
   HTTP/2 frame-header decoding is provided by generated schema helpers such
   as `byte_decode_http2_frame_header_wire`; bounded payload frame decoding and
   protocol diagnostic projection helpers including stream id domain and
-  post-GOAWAY stream failure projection are
+  post-GOAWAY stream failure projection, plus request header-list validation,
+  are
   listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).

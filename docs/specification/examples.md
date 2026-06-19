@@ -1813,6 +1813,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
@@ -1829,6 +1830,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
@@ -1854,6 +1856,12 @@ structured bounded preface, invalid-frame-kind, and invalid-payload byte
 preview fields, concurrent-stream attempted and allowed counts, required
 stream id domain, endpoint role, PRIORITY dependency stream id, structured
 bounded PRIORITY payload byte preview fields, and rule provenance. The
+request-header projection cases cover missing required request pseudo-headers
+and response-only `:status` pseudo-headers on inbound requests, with decoded
+header names carried as related context or structured JSON details. The
+larger protocol-core case also checks an accepted fixture-marked request
+header list, a final CONTINUATION path missing `:method`, and a completed
+HEADERS path containing response-only `:status`. The
 focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the
