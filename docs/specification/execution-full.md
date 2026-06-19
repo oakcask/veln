@@ -681,6 +681,8 @@ after freezing all twenty-four ordinary source values at the task boundary.
 after freezing all twenty-five ordinary source values at the task boundary.
 `task::spawn_with26` starts a twenty-six-argument callable on a JVM thread
 after freezing all twenty-six ordinary source values at the task boundary.
+`task::spawn_with27` starts a twenty-seven-argument callable on a JVM thread
+after freezing all twenty-seven ordinary source values at the task boundary.
 All task spawn helpers freeze the returned value before it crosses back through the
 task handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
 completion or `Err(JoinError)` on interruption, cancellation, or runtime
@@ -823,7 +825,8 @@ metadata value through `task::spawn_with24`. The twenty-five-argument
 stream-task case extends it with one additional ordinary metadata value
 through `task::spawn_with25`. The twenty-six-argument stream-task case
 extends it with one additional ordinary metadata value through
-`task::spawn_with26`.
+`task::spawn_with26`. The twenty-seven-argument stream-task case extends it
+with one additional ordinary metadata value through `task::spawn_with27`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
@@ -871,6 +874,8 @@ checked examples are
 `examples/specification/check/socket-stream-adapter-routing-spawn25-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn26/`,
 `examples/specification/check/socket-stream-adapter-routing-spawn26-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn27/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn27-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
