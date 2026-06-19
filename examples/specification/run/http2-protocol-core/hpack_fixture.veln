@@ -62,6 +62,10 @@ pub fn initial_state() -> HpackFixtureState
 	HpackFixtureState(4096, 0, NoDynamicEntry)
 end
 
+pub fn incomplete_header_list() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":fixture", "incomplete"), HpackHeader(":fixture", "incomplete"), 0)
+end
+
 fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
 	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
@@ -186,8 +190,32 @@ fn dynamic_indexed_header(name: String, value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "dynamic-indexed"), 9)
 end
 
+fn request_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path"), 9)
+end
+
+fn request_headers_missing_method() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":path", "/"), 9)
+end
+
+fn request_headers_with_status() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":request", "method,scheme,path"), 9)
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
+end
+
+fn decoded_request_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers(), next_state(state)))
+end
+
+fn decoded_request_headers_missing_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_missing_method(), next_state(state)))
+end
+
+fn decoded_request_headers_with_status(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_status(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -738,6 +766,18 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 					false => unsupported(block, offset)
 				end
 			end
+			48 => match observed_size == 3
+				true => decoded_request_headers(state)
+				false => unsupported(block, offset)
+			end
+			49 => match observed_size == 2
+				true => decoded_request_headers_missing_method(state)
+				false => unsupported(block, offset)
+			end
+			50 => match observed_size == 4
+				true => decoded_request_headers_with_status(state)
+				false => unsupported(block, offset)
+			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -792,6 +832,59 @@ end
 pub fn header_list_first_value(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), _, _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":scheme", _), _, _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":path", _), _, _) => true
+		HpackHeaderList(_, HpackHeader(":path", _), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":status", _), _, _) => true
+		HpackHeaderList(_, HpackHeader(":status", _), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => ":scheme,:path"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => ":status,:method,:scheme,:path"
+		HpackHeaderList(HpackHeader(first_name, _), _, _) => first_name
 	end
 end
 

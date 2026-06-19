@@ -1859,6 +1859,9 @@ bounded PRIORITY payload byte preview fields, and rule provenance. The
 request-header projection cases cover missing required request pseudo-headers
 and response-only `:status` pseudo-headers on inbound requests, with decoded
 header names carried as related context or structured JSON details. The
+larger protocol-core case also checks an accepted fixture-marked request
+header list, a final CONTINUATION path missing `:method`, and a completed
+HEADERS path containing response-only `:status`. The
 focused frame-kind, stream-id, and `PUSH_PROMISE` projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the

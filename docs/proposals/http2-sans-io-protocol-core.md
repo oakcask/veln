@@ -661,7 +661,14 @@ immutable HPACK state table size to `30`, `31`, `32`, `159`, `160`, and
 Unsupported fixture blocks project through
 `hpack.fixture.unsupported_header_block`, and the local
 `http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
-fixture decoding.
+fixture decoding. The completed request-header validation slice is current
+behavior under `../specification/` and
+`../reference/implemented-proposals/http2-request-header-validation.md`: the
+HTTP/2 core validates fixture-marked request header lists after HPACK fixture
+decode on both completed HEADERS and final CONTINUATION paths, rejects
+missing `:method`, `:scheme`, or `:path`, rejects response-only `:status`,
+and projects those failures through
+`http2.protocol.invalid_request_header_list`.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

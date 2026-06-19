@@ -171,6 +171,7 @@ compare it with `../specification/` before changing behavior.
   HPACK fixture-boundary, unknown extension-frame, flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
+  plus the request-side header-list validation slice
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
