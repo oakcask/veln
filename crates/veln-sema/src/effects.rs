@@ -332,6 +332,7 @@ fn task_signature(
         "spawn_with18" => task_spawn_with18_signature(expected, handle_type, explicit_item),
         "spawn_with19" => task_spawn_with19_signature(expected, handle_type, explicit_item),
         "spawn_with20" => task_spawn_with20_signature(expected, handle_type, explicit_item),
+        "spawn_with21" => task_spawn_with_n_signature(21, expected, handle_type, explicit_item),
         "join" => task_join_signature(handle_type),
         "cancel" => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
         _ => None,
@@ -1567,6 +1568,36 @@ fn task_spawn_with20_signature(
     ))
 }
 
+fn task_spawn_with_n_signature(
+    arity: usize,
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let params = handle_type.and_then(function_params).unwrap_or(&[]);
+    let args = (0..arity)
+        .map(|index| params.get(index).cloned().unwrap_or(Type::Unknown))
+        .collect::<Vec<_>>();
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(function_return_type).cloned())
+        .unwrap_or(Type::Unknown);
+    let mut call_params = Vec::with_capacity(arity + 1);
+    call_params.push(Type::Function {
+        params: args.clone(),
+        variadic: None,
+        return_type: Box::new(item.clone()),
+        effects: vec!["concurrency".to_string()],
+    });
+    call_params.extend(args);
+    Some((call_params, Type::named("Task", vec![item])))
+}
+
 fn task_join_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)> {
     let item = handle_type
         .and_then(|ty| named_type_argument(ty, "Task"))
@@ -1797,6 +1828,9 @@ fn core_task_signature(
         "spawn_with18" => core_task_spawn_with18_signature(expected, handle_type, explicit_item),
         "spawn_with19" => core_task_spawn_with19_signature(expected, handle_type, explicit_item),
         "spawn_with20" => core_task_spawn_with20_signature(expected, handle_type, explicit_item),
+        "spawn_with21" => {
+            core_task_spawn_with_n_signature(21, expected, handle_type, explicit_item)
+        }
         "join" => core_task_join_signature(handle_type),
         "cancel" => Some((
             vec![CoreType::named("Task", vec![unknown])],
@@ -3033,6 +3067,36 @@ fn core_task_spawn_with20_signature(
         ],
         CoreType::named("Task", vec![item]),
     ))
+}
+
+fn core_task_spawn_with_n_signature(
+    arity: usize,
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let params = handle_type.and_then(core_function_params).unwrap_or(&[]);
+    let args = (0..arity)
+        .map(|index| params.get(index).cloned().unwrap_or(CoreType::Unknown))
+        .collect::<Vec<_>>();
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| core_named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(core_function_return_type).cloned())
+        .unwrap_or(CoreType::Unknown);
+    let mut call_params = Vec::with_capacity(arity + 1);
+    call_params.push(CoreType::Function {
+        params: args.clone(),
+        variadic: None,
+        return_type: Box::new(item.clone()),
+        effects: vec!["concurrency".to_string()],
+    });
+    call_params.extend(args);
+    Some((call_params, CoreType::named("Task", vec![item])))
 }
 
 fn core_task_join_signature(handle_type: Option<&CoreType>) -> Option<(Vec<CoreType>, CoreType)> {

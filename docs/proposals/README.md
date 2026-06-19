@@ -183,7 +183,8 @@ compare it with `../specification/` before changing behavior.
   seven-argument, eight-argument, nine-argument, ten-argument,
   eleven-argument, twelve-argument, thirteen-argument, fourteen-argument,
   fifteen-argument, sixteen-argument, seventeen-argument, and
-  eighteen-argument, nineteen-argument, and twenty-argument spawn,
+  eighteen-argument, nineteen-argument, twenty-argument, and
+  twenty-one-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
   sixteen-route channel-first routing, receiver-list cancellable

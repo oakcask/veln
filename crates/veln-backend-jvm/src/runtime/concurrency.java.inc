@@ -52,6 +52,18 @@
             this.thread.start();
         }
 
+        private Task(Fn fn, Object[] args) {
+            Object[] frozenArgs = new Object[args.length];
+            for (int index = 0; index < args.length; index += 1) {
+                frozenArgs[index] = freezeBoundaryValue(args[index]);
+            }
+            this.future = new java.util.concurrent.FutureTask<Object>(
+                () -> freezeBoundaryValue(call(fn, frozenArgs))
+            );
+            this.thread = new Thread(this.future);
+            this.thread.start();
+        }
+
         private Task(Fn fn, Object arg) {
             Object frozenArg = freezeBoundaryValue(arg);
             this.future = new java.util.concurrent.FutureTask<Object>(
@@ -816,6 +828,10 @@
 
     public static Object taskSpawnWith20(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg, Object twentiethArg) {
         return new Task((Fn) fn, firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg);
+    }
+
+    public static Object taskSpawnWith21(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg, Object twentiethArg, Object twentyFirstArg) {
+        return new Task((Fn) fn, new Object[] { firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg, twentyFirstArg });
     }
 
     public static Object taskJoin(Object task) {
