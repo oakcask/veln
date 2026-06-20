@@ -202,7 +202,7 @@ compare it with `../specification/` before changing behavior.
   checked fixture-boundary entry-size calculation,
   HPACK Huffman behavior beyond visible-ASCII fixture string literal
   encoding, and broader dynamic-table string encoding policy beyond the checked
-  dynamic-name literal-with-indexing fixture.
+  dynamic-name literal fixtures.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

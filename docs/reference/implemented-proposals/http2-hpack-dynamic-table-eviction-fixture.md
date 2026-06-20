@@ -46,10 +46,19 @@ the fixture accepts the continuation-byte indexed-name forms
 `63` and `64`, respectively. Those forms reuse the retained dynamic entry
 name, decode the following visible-ASCII string literal as the replacement
 value, and insert the decoded header as the newest dynamic entry without
-discarding older entries while the bounded table has room. Missing,
-malformed, out-of-range, and unsupported dynamic-name continuations remain on
-the unsupported fixture path. The HTTP/2 protocol-core example covers the
-same state carry through completed HEADERS and final CONTINUATION paths.
+discarding older entries while the bounded table has room.
+
+Literal-without-indexing and literal-never-indexed dynamic-name forms reuse
+the same dynamic-table name lookup through saturated four-bit indexed-name
+prefixes. After `:path: /target` has been inserted, the boundary accepts
+`0x0f 0x2f 0x03 "/no"` as `:path: /no` and
+`0x1f 0x2f 0x07 "/secret"` as `:path: /secret`. Both forms advance the
+immutable fixture decode count without inserting replacement dynamic entries,
+so a later `0xbe` lookup from their returned state still reads the previously
+inserted `:path: /target` entry. Missing, malformed, out-of-range, and
+unsupported dynamic-name continuations remain on the unsupported fixture path.
+The HTTP/2 protocol-core example continues to cover dynamic HPACK state carry
+through completed HEADERS and final CONTINUATION paths.
 
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
 `0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
@@ -69,11 +78,12 @@ unsupported fixture path.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   literal-with-indexing insertion, newest, second, and third dynamic indexed
-  reads, dynamic-name literal-with-indexing insertion and malformed
-  dynamic-name literals, missing dynamic state, accepted-entry-size eviction,
-  full and partial reduced-table-size eviction failure paths, oldest-first
-  eviction after a three-entry table-size reduction, and the fixture-boundary
-  table-size update slice.
+  reads, dynamic-name literal-with-indexing insertion, dynamic-name
+  literal-without-indexing and literal-never-indexed decode without dynamic
+  insertion, malformed and out-of-range dynamic-name literals, missing dynamic
+  state, accepted-entry-size eviction, full and partial reduced-table-size
+  eviction failure paths, oldest-first eviction after a three-entry table-size
+  reduction, and the fixture-boundary table-size update slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
