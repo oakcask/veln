@@ -1192,7 +1192,8 @@ the generated helper slice, forward references, and incompatible payload
 shapes.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
-is not length-bounded.
+is not length-bounded, or when an imported recursive payload is referenced
+outside the selected length-bounded mapping boundary.
 `../../examples/specification/check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`
 pins the remaining `schema.dispatch_payload` rejection when mixed dispatch
 payload shapes use selected mappings keyed by a field other than the dispatch

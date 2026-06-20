@@ -1,9 +1,9 @@
-command = ["check", "--json", "main.veln"]
+command = ["check", "--json", "main.veln", "wire.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `UnboundedNode` cannot reference itself"]
+contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `UnboundedNode` cannot reference itself", "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself"]
 
 [stderr]
 format = "empty"
@@ -17,3 +17,23 @@ id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
 message = "dispatch payload schema `UnboundedNode` cannot reference itself"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself"
+
+[diagnostics.span]
+file = "main.veln"
+line = 28
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself"
+
+[diagnostics.span]
+file = "main.veln"
+line = 36

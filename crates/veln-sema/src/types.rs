@@ -1074,6 +1074,25 @@ pub(crate) fn schema_has_eligible_recursive_dispatch_payload(schema: &SchemaDecl
     })
 }
 
+pub(crate) fn schema_has_recursive_dispatch_payload(schema: &SchemaDecl) -> bool {
+    let Some(schema_name) = schema.name.as_deref() else {
+        return false;
+    };
+    schema.fields.iter().any(|field| {
+        closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+            .is_some_and(|dispatch| {
+                dispatch.cases.iter().any(|case| {
+                    matches!(
+                        &case.payload,
+                        SchemaDispatchCasePayload::Schema { schema_name: payload_name }
+                            if payload_name == schema_name
+                    )
+                })
+            })
+    })
+}
+
 fn recursive_dispatch_payload_target_is_eligible(
     module: &SurfaceModule,
     schema: &SchemaDecl,
