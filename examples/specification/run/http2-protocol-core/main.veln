@@ -5643,6 +5643,36 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-stateful-dynamic-indexed-older-path", older_path)
 	let ignored_older_path: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-older-path", older_path, "bf")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-older-path", older_path, method_state)
+	let literal_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000946849d29ad1f")?), method_state)?
+	print_step("hpack-stateful-literal-indexed-scheme-https-retained", literal_scheme)
+	let ignored_literal_scheme: () = emit_header_block("http2-hpack-stateful-literal-indexed-scheme-https-retained", literal_scheme, "46849d29ad1f")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-scheme-https-retained", literal_scheme, method_state)
+	let scheme_state: Http2DecodeState = hpack_carry_only_state(step_state(literal_scheme))
+	let three_entry_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000bbe")?), scheme_state)?
+	print_step("hpack-stateful-three-entry-newest-scheme", three_entry_newest)
+	print_hpack_transition_from_state("hpack-stateful-three-entry-newest-scheme", three_entry_newest, scheme_state)
+	let three_entry_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000dbf")?), scheme_state)?
+	print_step("hpack-stateful-three-entry-second-method", three_entry_second)
+	print_hpack_transition_from_state("hpack-stateful-three-entry-second-method", three_entry_second, scheme_state)
+	let three_entry_third: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000fc0")?), scheme_state)?
+	print_step("hpack-stateful-three-entry-third-path", three_entry_third)
+	print_hpack_transition_from_state("hpack-stateful-three-entry-third-path", three_entry_third, scheme_state)
+	let three_entry_reduction: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000113f37")?), scheme_state)?
+	print_step("hpack-stateful-three-entry-table-size-eviction", three_entry_reduction)
+	let ignored_three_entry_reduction: () = emit_header_block("http2-hpack-stateful-three-entry-table-size-eviction", three_entry_reduction, "3f37")?
+	print_hpack_transition_from_state("hpack-stateful-three-entry-table-size-eviction", three_entry_reduction, scheme_state)
+	let three_entry_reduced_state: Http2DecodeState = hpack_carry_only_state(step_state(three_entry_reduction))
+	print_hpack_state("hpack-stateful-three-entry-table-size-eviction", three_entry_reduced_state)
+	let ignored_three_entry_table_size: () = require_hpack_state_table_size(three_entry_reduced_state, 86)?
+	let three_entry_retained_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000013be")?), three_entry_reduced_state)?
+	print_step("hpack-stateful-three-entry-newest-after-eviction", three_entry_retained_newest)
+	print_hpack_transition_from_state("hpack-stateful-three-entry-newest-after-eviction", three_entry_retained_newest, three_entry_reduced_state)
+	let three_entry_retained_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000015bf")?), three_entry_reduced_state)?
+	print_step("hpack-stateful-three-entry-second-after-eviction", three_entry_retained_second)
+	print_hpack_transition_from_state("hpack-stateful-three-entry-second-after-eviction", three_entry_retained_second, three_entry_reduced_state)
+	let three_entry_evicted_third: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000017c0")?), three_entry_reduced_state)?
+	print_failure("hpack-stateful-three-entry-third-after-eviction", three_entry_evicted_third)
+	let ignored_three_entry_evicted_third: () = require_hpack_fixture_failure(three_entry_evicted_third)?
 	let reduced_table_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000093e")?), method_state)?
 	print_step("hpack-stateful-table-size-eviction", reduced_table_size)
 	let ignored_reduced_table_size: () = emit_header_block("http2-hpack-stateful-table-size-eviction", reduced_table_size, "3e")?
@@ -5695,6 +5725,17 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-continuation-older-path", continuation_older_path)
 	let ignored_continuation_older_path: () = emit_header_block("http2-hpack-continuation-older-path", continuation_older_path, "bf")?
 	print_hpack_transition_from_state("hpack-continuation-older-path", continuation_older_path, continuation_state)
+	let continuation_scheme_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301000000000f46849d")?), continuation_state)?
+	print_step("hpack-continuation-third-entry-start", continuation_scheme_start)
+	let continuation_scheme_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000000f29ad1f")?), step_state(continuation_scheme_start))?
+	print_step("hpack-continuation-third-entry-done", continuation_scheme_done)
+	let ignored_continuation_scheme: () = emit_header_block("http2-hpack-continuation-third-entry", continuation_scheme_done, "46849d29ad1f")?
+	print_hpack_transition_from_state("hpack-continuation-third-entry-done", continuation_scheme_done, step_state(continuation_scheme_start))
+	let continuation_scheme_state: Http2DecodeState = hpack_carry_only_state(step_state(continuation_scheme_done))
+	let continuation_third_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011c0")?), continuation_scheme_state)?
+	print_step("hpack-continuation-third-path", continuation_third_path)
+	let ignored_continuation_third_path: () = emit_header_block("http2-hpack-continuation-third-path", continuation_third_path, "c0")?
+	print_hpack_transition_from_state("hpack-continuation-third-path", continuation_third_path, continuation_scheme_state)
 	let continuation_partial_reduction_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000f3f")?), continuation_state)?
 	print_step("hpack-continuation-partial-eviction-start", continuation_partial_reduction_start)
 	let continuation_partial_reduction_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000f0b")?), step_state(continuation_partial_reduction_start))?

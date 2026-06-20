@@ -312,6 +312,21 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("dynamic-indexed-method-put", dynamic_indexed_method)
 	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
 	print_transition("dynamic-indexed-older-path", decode_header_block(evicted_indexed_block, next_state_or(dynamic_indexed_method, replaced_state), 76))
+	let literal_indexed_scheme_block: ByteChunk = byte_chunk_from_hex("46849d29ad1f")?
+	let literal_indexed_scheme: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_scheme_block, replaced_state, 85)
+	print_transition("literal-indexed-scheme-https-retained", literal_indexed_scheme)
+	let three_entry_state: HpackFixtureState = require_decoded_header(literal_indexed_scheme, ":scheme", "https")?
+	let third_indexed_block: ByteChunk = byte_chunk_from_hex("c0")?
+	print_transition("dynamic-three-newest-scheme", decode_header_block(dynamic_indexed_block, three_entry_state, 86))
+	print_transition("dynamic-three-second-method", decode_header_block(evicted_indexed_block, three_entry_state, 87))
+	print_transition("dynamic-three-third-path", decode_header_block(third_indexed_block, three_entry_state, 88))
+	let three_entry_reduction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f37")?, three_entry_state, 89)
+	print_transition("dynamic-three-table-size-eviction", three_entry_reduction)
+	let three_entry_reduced_state: HpackFixtureState = require_decoded_header(three_entry_reduction, ":fixture", "table-size-update")?
+	print_state("dynamic-three-table-size-eviction", three_entry_reduced_state)
+	print_transition("dynamic-three-newest-after-eviction", decode_header_block(dynamic_indexed_block, three_entry_reduced_state, 90))
+	print_transition("dynamic-three-second-after-eviction", decode_header_block(evicted_indexed_block, three_entry_reduced_state, 91))
+	print_transition("dynamic-three-third-after-eviction", decode_header_block(third_indexed_block, three_entry_reduced_state, 92))
 	let reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3e")?, replaced_state, 77)
 	print_transition("dynamic-table-size-eviction", reduced_table_size)
 	let reduced_state: HpackFixtureState = next_state_or(reduced_table_size, replaced_state)

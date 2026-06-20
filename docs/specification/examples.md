@@ -1810,12 +1810,14 @@ boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header
 field decodes through that carried state, and the same indexed byte without a
-dynamic entry stays unsupported. A later literal incremental-indexing
-`:method: PUT` block becomes the newest bounded fixture dynamic-table entry
-while the older `:path: /target` entry remains addressable when the table has
-room; `0xbe` decodes the newest entry and `0xbf` decodes the older retained
-entry. Completed HEADERS and final CONTINUATION paths both carry that HPACK
-state before later header blocks are decoded. The fixture also accepts dynamic
+dynamic entry stays unsupported. Later literal incremental-indexing blocks
+prepend newest-first bounded fixture dynamic-table entries while older entries
+remain addressable when the table has room. After `:method: PUT` and
+`:scheme: https` are inserted over `:path: /target`, `0xbe` decodes the
+newest `:scheme: https` entry, `0xbf` decodes the second `:method: PUT`
+entry, and `0xc0` decodes the third retained `:path: /target` entry.
+Completed HEADERS and final CONTINUATION paths both carry that HPACK state
+before later header blocks are decoded. The fixture also accepts dynamic
 table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table
@@ -1826,11 +1828,15 @@ header block decodes while malformed non-terminating table-size updates and
 table-size updates with trailing bytes after a complete integer remain
 unsupported. Reducing the fixture table size below the supported entries
 uses the accepted header name byte count plus value byte count plus `32` for
-each dynamic entry: table size `42` retains the newest `:method: PUT` entry,
-evicts the older `:path: /target` entry, and also evicts
-`:authority: abc.test`; table size `30` evicts both supported
-`:method: PUT` and `:path: /target` dynamic entries and leaves later dynamic
-indexed representations on the unsupported fixture path. The fixture
+each dynamic entry and evicts oldest entries first: table size `86` retains
+the newest `:scheme: https` and second `:method: PUT` entries while evicting
+the third `:path: /target` entry; table size `42` retains the newest
+`:method: PUT` entry when that entry is followed by `:path: /target`, evicts
+the older `:path: /target` entry, and also evicts `:authority: abc.test`;
+table size
+`30` evicts both supported `:method: PUT` and `:path: /target` dynamic
+entries and leaves later dynamic indexed representations on the unsupported
+fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed

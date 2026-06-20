@@ -1467,12 +1467,14 @@ execution reference.
   inserts `:path: /target` into the returned immutable fixture state stored on
   the HTTP/2 decode state
   and a later `0xbe` indexed representation reads that entry, returns ordinary
-  header-list data plus the next immutable fixture state. A later
-  literal-with-indexing `:method: PUT` fixture becomes the newest dynamic
-  entry while retaining the older `:path: /target` entry when the bounded
-  fixture table has room; `0xbe` reads the newest entry and `0xbf` reads the
-  older entry. Completed HEADERS and final CONTINUATION paths both carry that
-  HPACK state before later header blocks are decoded. It also accepts
+  header-list data plus the next immutable fixture state. Later
+  literal-with-indexing fixtures prepend newest-first dynamic entries while
+  retaining older entries when the bounded fixture table has room; after
+  `:method: PUT` and `:scheme: https` are inserted over `:path: /target`,
+  `0xbe` reads the newest `:scheme: https` entry, `0xbf` reads the second
+  `:method: PUT` entry, and `0xc0` reads the third retained
+  `:path: /target` entry. Completed HEADERS and final CONTINUATION paths both
+  carry that HPACK state before later header blocks are decoded. It also accepts
   dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update
@@ -1484,12 +1486,14 @@ execution reference.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte
-  count plus value byte count plus `32`: a reduction to `42` keeps the newest
-  supported `:method: PUT` entry while evicting the older `:path: /target`
-  entry, the same table size evicts a supported `:authority: abc.test` entry,
-  and a reduction to `30` drops both supported `:method: PUT` and
-  `:path: /target` entries so later dynamic indexed representations stay on
-  the unsupported fixture path. Unsupported fixture
+  count plus value byte count plus `32` and evicts oldest entries first: a
+  reduction to `86` keeps the newest two entries while evicting the third
+  retained entry, a reduction to `42` keeps the newest supported
+  `:method: PUT` entry while evicting the older `:path: /target` entry when
+  those two entries are retained, the same table size evicts a supported
+  `:authority: abc.test` entry, and a reduction to `30` drops both supported
+  `:method: PUT` and `:path: /target` entries so later dynamic indexed
+  representations stay on the unsupported fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, malformed Huffman padding, Huffman EOS, and

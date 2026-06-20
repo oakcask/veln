@@ -347,15 +347,19 @@ literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
 indexed representation without prior state stays unsupported. A later
-literal-with-indexing `:method: PUT` block is inserted as the newest bounded
-fixture dynamic-table entry while the older `:path: /target` entry remains
-addressable when the table has room. The fixture carries that state through
-both completed HEADERS and final CONTINUATION paths, decodes the newest entry
-through `0xbe`, decodes the older retained entry through `0xbf`, and keeps
-dynamic entries evicted by a reduced fixture table size on the unsupported
-fixture path. Reducing the fixture table size to `42` keeps the newest
-supported `:method: PUT` entry and evicts the older `:path: /target` entry;
-reducing the fixture table size to `30` evicts both supported entries. The
+literal-with-indexing `:method: PUT` block and a later
+literal-with-indexing `:scheme: https` block are inserted as newest-first
+bounded fixture dynamic-table entries while older entries remain addressable
+when the table has room. The fixture carries that state through both completed
+HEADERS and final CONTINUATION paths, decodes the newest entry through
+`0xbe`, the second retained entry through `0xbf`, the third retained entry
+through `0xc0`, and keeps dynamic entries evicted by a reduced fixture table
+size on the unsupported fixture path. Reducing the fixture table size to `86`
+keeps the newest two supported entries and evicts the third retained entry;
+reducing the fixture table size to `42` keeps the newest supported
+`:method: PUT` entry when that entry is followed by `:path: /target` and
+evicts the older `:path: /target` entry; reducing the fixture table size to
+`30` evicts both supported entries. The
 fixture also
 accepts dynamic table-size update bytes `0x3e`, `0x3f`, one-byte
 continuations such as `0x3f 0x01`, and the fixture-boundary slice of general
@@ -646,15 +650,16 @@ The remaining scope below is still planned work for the full protocol core.
 Completed HPACK fixture behavior is current behavior under
 `../specification/` and the implemented-proposal records under
 `../reference/implemented-proposals/`, including
-`../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`
+`../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
-policy beyond the checked fixture-boundary entry-size calculation and
-table-size update slice, HPACK Huffman behavior beyond visible-ASCII fixture
-string literal encoding, broader dynamic-table string encoding policy, and
-production header validation beyond the fixture request and response checks.
+policy beyond the checked bounded fixture dynamic table, HPACK Huffman
+behavior beyond visible-ASCII fixture string literal encoding, broader
+dynamic-table string encoding policy, and production header validation beyond
+the fixture request and response checks.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -687,9 +692,10 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
-  policy, table-size policy beyond fixture-boundary HPACK integer updates,
-  HPACK Huffman behavior beyond visible-ASCII fixture string literal
-  encoding, broader dynamic-table string encoding policy, and production
-  header validation remain later work beyond the implemented fixture boundary.
+  policy beyond the checked bounded fixture dynamic table, table-size policy
+  beyond fixture-boundary HPACK integer updates, HPACK Huffman behavior beyond
+  visible-ASCII fixture string literal encoding, broader dynamic-table string
+  encoding policy, and production header validation remain later work beyond
+  the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
