@@ -231,6 +231,10 @@ fn request_headers_with_bad_te_header() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,te:gzip"), 9)
 end
 
+fn request_headers_with_content_length(value_label: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", value_label), 9)
+end
+
 fn response_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
 end
@@ -273,6 +277,10 @@ end
 
 fn response_headers_with_bad_te_header() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,te:gzip"), 9)
+end
+
+fn response_headers_with_content_length(value_label: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", value_label), 9)
 end
 
 pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
@@ -371,6 +379,10 @@ fn decoded_request_headers_with_bad_te_header(state: HpackFixtureState) -> Resul
 	Ok(HpackDecodeTransition(request_headers_with_bad_te_header(), next_state(state)))
 end
 
+fn decoded_request_headers_with_content_length(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_content_length(value_label), next_state(state)))
+end
+
 fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers(), next_state(state)))
 end
@@ -413,6 +425,10 @@ end
 
 fn decoded_response_headers_with_bad_te_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers_with_bad_te_header(), next_state(state)))
+end
+
+fn decoded_response_headers_with_content_length(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_content_length(value_label), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -2012,6 +2028,38 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_bad_te_header(state)
 				false => unsupported(block, offset)
 			end
+			79 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:5", state)
+				false => unsupported(block, offset)
+			end
+			80 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:5,content-length:5", state)
+				false => unsupported(block, offset)
+			end
+			81 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:5,content-length:7", state)
+				false => unsupported(block, offset)
+			end
+			82 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:", state)
+				false => unsupported(block, offset)
+			end
+			83 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:abc", state)
+				false => unsupported(block, offset)
+			end
+			84 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:+5", state)
+				false => unsupported(block, offset)
+			end
+			85 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length: 5", state)
+				false => unsupported(block, offset)
+			end
+			86 => match observed_size == 4
+				true => decoded_request_headers_with_content_length("scheme,path,content-length:-5", state)
+				false => unsupported(block, offset)
+			end
 			53 => match observed_size == 3
 				true => decoded_response_headers(state)
 				false => unsupported(block, offset)
@@ -2054,6 +2102,38 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			78 => match observed_size == 4
 				true => decoded_response_headers_with_bad_te_header(state)
+				false => unsupported(block, offset)
+			end
+			87 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:5", state)
+				false => unsupported(block, offset)
+			end
+			88 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:5,content-length:5", state)
+				false => unsupported(block, offset)
+			end
+			89 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:5,content-length:7", state)
+				false => unsupported(block, offset)
+			end
+			90 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:", state)
+				false => unsupported(block, offset)
+			end
+			91 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:abc", state)
+				false => unsupported(block, offset)
+			end
+			92 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:+5", state)
+				false => unsupported(block, offset)
+			end
+			93 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length: 5", state)
+				false => unsupported(block, offset)
+			end
+			94 => match observed_size == 4
+				true => decoded_response_headers_with_content_length("ok,content-length:-5", state)
 				false => unsupported(block, offset)
 			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -2130,6 +2210,56 @@ pub fn header_list_is_table_size_update(headers: HpackHeaderList) -> Bool
 	end
 end
 
+fn request_content_length_label(value: String) -> Bool
+	match value == "scheme,path,content-length:5"
+		true => true
+		false => match value == "scheme,path,content-length:5,content-length:5"
+			true => true
+			false => match value == "scheme,path,content-length:5,content-length:7"
+				true => true
+				false => match value == "scheme,path,content-length:"
+					true => true
+					false => match value == "scheme,path,content-length:abc"
+						true => true
+						false => match value == "scheme,path,content-length:+5"
+							true => true
+							false => match value == "scheme,path,content-length: 5"
+								true => true
+								false => value == "scheme,path,content-length:-5"
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn response_content_length_label(value: String) -> Bool
+	match value == "ok,content-length:5"
+		true => true
+		false => match value == "ok,content-length:5,content-length:5"
+			true => true
+			false => match value == "ok,content-length:5,content-length:7"
+				true => true
+				false => match value == "ok,content-length:"
+					true => true
+					false => match value == "ok,content-length:abc"
+						true => true
+						false => match value == "ok,content-length:+5"
+							true => true
+							false => match value == "ok,content-length: 5"
+								true => true
+								false => value == "ok,content-length:-5"
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
@@ -2147,6 +2277,7 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:trailers"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", value), _) => request_content_length_label(value)
 		_ => false
 	end
 end
@@ -2162,6 +2293,7 @@ pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:trailers"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", value), _) => response_content_length_label(value)
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => true
@@ -2190,6 +2322,7 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", value), _) => request_content_length_label(value)
 		_ => false
 	end
 end
@@ -2211,6 +2344,7 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", value), _) => request_content_length_label(value)
 		_ => false
 	end
 end
@@ -2233,6 +2367,7 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", value), _) => request_content_length_label(value)
 		_ => false
 	end
 end
@@ -2283,6 +2418,30 @@ pub fn header_list_has_invalid_te_header_value(headers: HpackHeaderList) -> Bool
 	end
 end
 
+pub fn header_list_has_invalid_content_length(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:abc"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:+5"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length: 5"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:-5"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:abc"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:+5"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length: 5"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:-5"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_mismatched_content_length(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:7"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:7"), _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => "Host"
@@ -2306,6 +2465,7 @@ pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":response", "duplicate-status"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "status"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "status-after-regular"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", value), _) => response_content_length_label(value)
 		_ => false
 	end
 end
@@ -2350,10 +2510,26 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => ":method,:scheme,:path,upgrade"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:trailers"), _) => ":method,:scheme,:path,te"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => ":method,:scheme,:path,te"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5"), _) => ":method,:scheme,:path,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:5"), _) => ":method,:scheme,:path,content-length,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:7"), _) => ":method,:scheme,:path,content-length,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:"), _) => ":method,:scheme,:path,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:abc"), _) => ":method,:scheme,:path,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:+5"), _) => ":method,:scheme,:path,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length: 5"), _) => ":method,:scheme,:path,content-length"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:-5"), _) => ":method,:scheme,:path,content-length"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => ":status"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => ":status,server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:trailers"), _) => ":status,te"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => ":status,te"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5"), _) => ":status,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:5"), _) => ":status,content-length,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:7"), _) => ":status,content-length,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:"), _) => ":status,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:abc"), _) => ":status,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:+5"), _) => ":status,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length: 5"), _) => ":status,content-length"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:-5"), _) => ":status,content-length"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => ":status,Server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => ":status,bad header"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => "server"

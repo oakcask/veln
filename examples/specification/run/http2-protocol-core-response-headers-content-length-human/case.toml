@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[http2.protocol.invalid_response_header_list]: response header list contains mismatched content-length values at byte offset 12", "note: Frame kind 1 on stream 1 decoded response header names: :status,content-length,content-length.", "note: Active protocol state: response-headers.", "note: Rule provenance: rfc9113_content_length."]

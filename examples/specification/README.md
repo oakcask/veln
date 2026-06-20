@@ -1799,9 +1799,12 @@ against the built `veln` binary.
   the same static Huffman table for visible-ASCII Huffman-marked string literals, pins
   `:authority: abc.test` as a non-allowlist encoded value, and keeps a
   Huffman-marked non-visible value on the raw string encoding failure path.
-  Response header-list validation remains outside this executable slice beyond
-  decoding the fixture-supported `:status` header-list data. The source-level
-  dynamic table receive cases
+  Request and response header-list validation also covers fixture-marked
+  `content-length` values: absence is accepted, one valid decimal value is
+  accepted, repeated identical valid decimal values are accepted, mismatched
+  repeated values fail with `content_length_mismatch`, and empty,
+  non-decimal, signed, whitespace-padded, and negative-looking values fail
+  with `content_length_invalid`. The source-level dynamic table receive cases
   carry the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, replace the single-entry fixture table with a later `:method: PUT`
@@ -1831,7 +1834,8 @@ against the built `veln` binary.
   on a completed HEADERS path, a duplicate `:method`, and a `:method` after
   a regular `host` header, while also accepting a request with a lowercase
   ordinary `host` header and rejecting uppercase and token-invalid ordinary
-  request header names, stream id domain failures including HEADERS
+  request header names, accepted and rejected request and response
+  `content-length` values, stream id domain failures including HEADERS
   and CONTINUATION on the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
   peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an

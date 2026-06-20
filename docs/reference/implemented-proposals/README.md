@@ -158,6 +158,8 @@ behavior.
   [http2-response-header-validation.md](http2-response-header-validation.md).
 - HTTP/2 TE header validation:
   [http2-te-header-validation.md](http2-te-header-validation.md).
+- HTTP/2 content-length header validation:
+  [http2-content-length-header-validation.md](http2-content-length-header-validation.md).
 - Function variadic arguments:
   [function-variadic-arguments.md](function-variadic-arguments.md).
 

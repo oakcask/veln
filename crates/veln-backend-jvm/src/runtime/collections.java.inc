@@ -3442,6 +3442,12 @@
         } else if ("te_header_value_not_trailers".equals(fact)) {
             message = "HTTP/2 request header list contains te value other than trailers"
                 + " at byte offset " + byteOffset;
+        } else if ("content_length_invalid".equals(fact)) {
+            message = "HTTP/2 request header list contains invalid content-length"
+                + " at byte offset " + byteOffset;
+        } else if ("content_length_mismatch".equals(fact)) {
+            message = "HTTP/2 request header list contains mismatched content-length values"
+                + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }
@@ -3498,6 +3504,12 @@
                 + header + " at byte offset " + byteOffset;
         } else if ("te_header_value_not_trailers".equals(fact)) {
             message = "HTTP/2 response header list contains te value other than trailers"
+                + " at byte offset " + byteOffset;
+        } else if ("content_length_invalid".equals(fact)) {
+            message = "HTTP/2 response header list contains invalid content-length"
+                + " at byte offset " + byteOffset;
+        } else if ("content_length_mismatch".equals(fact)) {
+            message = "HTTP/2 response header list contains mismatched content-length values"
                 + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;

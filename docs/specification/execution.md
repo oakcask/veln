@@ -1617,7 +1617,11 @@ execution reference.
   state, and rule provenance remain structured details or related notes.
   The same boundary accepts ordinary `te: trailers` on inbound requests and
   rejects any other fixture-marked `te` value with failed fact
-  `te_header_value_not_trailers`.
+  `te_header_value_not_trailers`. Fixture-marked request `content-length`
+  values are valid only when each value is a decimal byte string and repeated
+  values are exactly identical. Empty, non-decimal, signed, whitespace-padded,
+  and negative-looking values fail with `content_length_invalid`; repeated
+  valid decimal values that differ fail with `content_length_mismatch`.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers
@@ -1625,9 +1629,11 @@ execution reference.
   uppercase ordinary header names and ordinary header names outside the HTTP
   field-name token shape on an inbound response. Ordinary `te: trailers` is
   accepted on inbound responses, and any other fixture-marked `te` value is
-  rejected with failed fact `te_header_value_not_trailers`. The response
-  diagnostic uses the same structured detail shape as request validation
-  while naming the response-specific failed header-list fact.
+  rejected with failed fact `te_header_value_not_trailers`. The same
+  `content-length` value rules and failed facts apply to fixture-marked
+  response header lists. The response diagnostic uses the same structured
+  detail shape as request validation while naming the response-specific
+  failed header-list fact.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

@@ -692,12 +692,15 @@ policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding,
 broader dynamic-table string encoding policy beyond the checked dynamic-name
 literal fixtures, and production header validation beyond ordinary request
-and response header-name shape plus the source-visible `te` value rule.
+and response header-name shape, the source-visible `te` value rule, and the
+fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
 `../reference/implemented-proposals/http2-response-header-validation.md` plus
-`../reference/implemented-proposals/http2-te-header-validation.md`: the HTTP/2
+`../reference/implemented-proposals/http2-te-header-validation.md` plus
+`../reference/implemented-proposals/http2-content-length-header-validation.md`:
+the HTTP/2
 core validates fixture-marked request and response header lists after HPACK
 fixture decode on both completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
@@ -714,7 +717,12 @@ field-name token shape through
 `http2.protocol.invalid_response_header_list`.
 Both request and response validation accept `te: trailers` and reject any
 other fixture-marked `te` value through the same request or response
-header-list diagnostic with failed fact `te_header_value_not_trailers`.
+header-list diagnostic with failed fact `te_header_value_not_trailers`. They
+also accept absent `content-length`, one valid decimal value, and repeated
+identical valid decimal values; reject empty, non-decimal, signed,
+whitespace-padded, and negative-looking values with failed fact
+`content_length_invalid`; and reject mismatched repeated valid decimal values
+with failed fact `content_length_mismatch`.
 The completed outbound HPACK fixture encoder slice is current behavior under
 `../specification/` and
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
