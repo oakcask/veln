@@ -397,9 +397,11 @@ execution reference.
   `ByteView(length_field)` when
   `length_field` is another earlier visible exact-width unsigned field decoded
   as `Int`.
-  `Repeat(left_count - right_count, Payload)` and
-  `Repeat(left_count + right_count, Payload)` use the difference or sum of two
-  earlier visible exact-width unsigned `Int` fields as the repeat count. A
+  `Repeat(left_count - right_count, Payload)`,
+  `Repeat(left_count + right_count, Payload)`, and
+  `Repeat(left_count * right_count, Payload)` use the difference, sum, or
+  product of two earlier visible exact-width unsigned `Int` fields as the
+  repeat count. A
   repeated primitive field decodes to `List<Int>`; a repeated
   nested schema field decodes to a list of the nested schema's decoded record
   shape, including when the schema is named through a written `use` path; and
@@ -413,7 +415,9 @@ execution reference.
   checked examples are `examples/specification/run/binary-schema-repeat-decode/`,
   `examples/specification/run/binary-schema-repeat-add-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-decode/`,
+  `examples/specification/run/binary-schema-repeat-product-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
+  `examples/specification/run/binary-schema-repeat-product-negative-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-human/`,
   `examples/specification/run/binary-schema-repeat-nested-decode/`,
@@ -789,10 +793,11 @@ execution reference.
   public imported nested schema's decoded record shape, and repeated
   `ByteView(length_field)` fields are
   `List<ByteView>` record fields. They emit exactly the number of elements
-  named by the earlier count field or by the computed difference or sum of two
-  earlier count operands. A list length mismatch, a primitive element outside
-  the selected primitive range, a repeated byte-view element whose bounded
-  byte count differs from the earlier length field, or a nested element
+  named by the earlier count field or by the computed difference, sum, or
+  product of two earlier count operands. A list length mismatch, a primitive
+  element outside the selected primitive range, a repeated byte-view element
+  whose bounded byte count differs from the earlier length field, or a nested
+  element
   representation failure returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; repeated byte-view element failures append the element index to
@@ -1032,10 +1037,12 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-encode/`,
   `examples/specification/run/binary-schema-repeat-add-encode/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode/`,
+  `examples/specification/run/binary-schema-repeat-product-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-add-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode-count-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-product-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-imported-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,

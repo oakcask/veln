@@ -198,9 +198,11 @@ Generated binary schema decode helpers also support bounded
 `Repeat(count_field, Payload)` fields when `count_field` is an earlier
 visible exact-width unsigned field decoded as `Int` and `Payload` is either
 an implemented byte-aligned exact-width unsigned primitive or an eligible
-nested binary schema payload. `Repeat(left_count - right_count, Payload)`
-and `Repeat(left_count + right_count, Payload)` use the difference or sum of
-two earlier visible exact-width unsigned `Int` fields as the repeat count.
+nested binary schema payload. `Repeat(left_count - right_count, Payload)`,
+`Repeat(left_count + right_count, Payload)`, and
+`Repeat(left_count * right_count, Payload)` use the difference, sum, or
+product of two earlier visible exact-width unsigned `Int` fields as the
+repeat count.
 Repeated primitive fields decode as `List<Int>`; repeated
 nested schema fields decode as lists of the nested schema's decoded record
 shape, including when the nested schema is a public imported binary schema
@@ -406,10 +408,11 @@ A
 bounded `Repeat(count_field, Payload)` field emits exactly the number of
 elements named by the earlier count field, and
 `Repeat(left_count - right_count, Payload)` and
-`Repeat(left_count + right_count, Payload)` emit exactly the computed
-difference or sum. Primitive payloads use `List<Int>`; nested schema payloads
-use a list of the same-module or public imported nested schema's decoded
-record shape; repeated
+`Repeat(left_count + right_count, Payload)` and
+`Repeat(left_count * right_count, Payload)` emit exactly the computed
+difference, sum, or product. Primitive payloads use `List<Int>`; nested
+schema payloads use a list of the same-module or public imported nested
+schema's decoded record shape; repeated
 `ByteView(length_field)` payloads use `List<ByteView>` and write each
 element's bounded bytes in declaration order. A list length mismatch,
 primitive range failure, repeated byte-view element count mismatch, or nested

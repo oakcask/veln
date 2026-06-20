@@ -3768,7 +3768,7 @@ impl ByteViewLengthExpr {
 }
 
 pub(crate) fn schema_length_expression(text: &str) -> Option<ByteViewLengthExpr> {
-    schema_length_expression_with_product(text, false)
+    schema_length_expression_with_product(text, true)
 }
 
 fn schema_length_expression_with_product(
@@ -3810,6 +3810,9 @@ pub(crate) fn schema_length_expression_references(text: &str) -> Option<Vec<&str
         return Some(vec![left, right]);
     }
     if let Some((left, right)) = schema_length_binary_expression_operands(text, '-') {
+        return Some(vec![left, right]);
+    }
+    if let Some((left, right)) = schema_length_binary_expression_operands(text, '*') {
         return Some(vec![left, right]);
     }
     None

@@ -865,9 +865,15 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-subtract-decode/`: generated schema decode helpers
   compute a `Repeat(left_count - right_count, Primitive)` element count from
   earlier decoded fields.
+- `run/binary-schema-repeat-product-decode/`: generated schema decode helpers
+  compute a `Repeat(left_count * right_count, Primitive)` element count from
+  earlier decoded fields.
 - `run/binary-schema-repeat-subtract-negative-json/`: subtraction repeat count
   decode reports `schema.length_out_of_bounds` when the computed count is
   negative.
+- `run/binary-schema-repeat-product-negative-json/`: product repeat count
+  decode reports `schema.length_out_of_bounds` when the computed count wraps
+  to an invalid negative count.
 - `run/binary-schema-repeat-truncated-json/`: repeated primitive truncation
   reports `schema.truncated_field` with the repeated field path plus an
   `index` segment for the element that could not be fully read.
@@ -1097,6 +1103,9 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-subtract-encode/`: generated schema encode helpers
   write a bounded `Repeat(left_count - right_count, Primitive)` list field
   after the explicit count operands.
+- `run/binary-schema-repeat-product-encode/`: generated schema encode helpers
+  write a bounded `Repeat(left_count * right_count, Primitive)` list field
+  after the explicit count operands.
 - `run/binary-schema-repeat-encode-out-of-range/`: repeated primitive encode
   rejects an element outside the selected primitive range with the usual
   `EncodeError` id, field path, and reason shape.
@@ -1106,6 +1115,9 @@ against the built `veln` binary.
   encode rejects a `List<Int>` whose length does not match the computed count
   expression.
 - `run/binary-schema-repeat-subtract-encode-count-mismatch/`: repeated
+  primitive encode rejects a `List<Int>` whose length does not match the
+  computed count expression.
+- `run/binary-schema-repeat-product-encode-count-mismatch/`: repeated
   primitive encode rejects a `List<Int>` whose length does not match the
   computed count expression.
 - `run/binary-schema-repeat-nested-encode/`: generated schema encode helpers

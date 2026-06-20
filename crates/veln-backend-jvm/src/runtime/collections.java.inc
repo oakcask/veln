@@ -7426,7 +7426,7 @@
             "repeat count field",
             "repeat count operand",
             schemaName,
-            false
+            true
         );
     }
 

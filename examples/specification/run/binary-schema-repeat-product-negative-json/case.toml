@@ -1,0 +1,59 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "repeat count out of bounds at byte offset 9"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.length_out_of_bounds"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 9
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"CountedValues"},{"kind":"field","name":"items"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_count"
+equals = -2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 0
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "7fffffffffffffff"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 9
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = true

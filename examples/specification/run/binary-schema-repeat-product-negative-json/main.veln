@@ -1,0 +1,15 @@
+# Binary schema Repeat product rejects invalid computed counts.
+schema CountedValues
+	format binary
+
+	row_count: UInt64be
+	column_count: UInt8
+	items: Repeat(row_count * column_count, UInt16be)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("7fffffffffffffff02")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let ignored: {row_count: Int, column_count: Int, items: List<Int>} = byte_decode_counted_values(view)?
+	Ok(())
+end

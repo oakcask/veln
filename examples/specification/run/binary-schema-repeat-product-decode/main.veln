@@ -1,0 +1,42 @@
+# Binary schema Repeat product counts decode primitive lists.
+use stdio
+
+schema CountedValues
+	format binary
+
+	row_count: UInt8
+	column_count: UInt8
+	items: Repeat(row_count * column_count, UInt16be)
+end
+
+fn list_count(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn emit_sample(sample: {row_count: Int, column_count: Int, items: List<Int>}) -> () effects [stdio]
+	stdio::print(int_to_string(sample.row_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample.column_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(sample.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(list_sum(sample.items)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("02030001000200030004000500ff")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(14)?)?
+	let sample: {row_count: Int, column_count: Int, items: List<Int>} = byte_decode_counted_values(view)?
+	emit_sample(sample)
+	Ok(())
+end
