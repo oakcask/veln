@@ -222,6 +222,14 @@ fn request_headers_with_upgrade_header() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,upgrade"), 9)
 end
 
+fn request_headers_with_te_trailers_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,te:trailers"), 9)
+end
+
+fn request_headers_with_bad_te_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,te:gzip"), 9)
+end
+
 fn response_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
 end
@@ -256,6 +264,14 @@ end
 
 fn response_headers_bad_token_regular() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response-error", "ok,bad header"), 9)
+end
+
+fn response_headers_with_te_trailers_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,te:trailers"), 9)
+end
+
+fn response_headers_with_bad_te_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,te:gzip"), 9)
 end
 
 pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
@@ -346,6 +362,14 @@ fn decoded_request_headers_with_upgrade_header(state: HpackFixtureState) -> Resu
 	Ok(HpackDecodeTransition(request_headers_with_upgrade_header(), next_state(state)))
 end
 
+fn decoded_request_headers_with_te_trailers_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_te_trailers_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_bad_te_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_bad_te_header(), next_state(state)))
+end
+
 fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers(), next_state(state)))
 end
@@ -380,6 +404,14 @@ end
 
 fn decoded_response_headers_bad_token_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers_bad_token_regular(), next_state(state)))
+end
+
+fn decoded_response_headers_with_te_trailers_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_te_trailers_header(), next_state(state)))
+end
+
+fn decoded_response_headers_with_bad_te_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_bad_te_header(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1967,6 +1999,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_upgrade_header(state)
 				false => unsupported(block, offset)
 			end
+			75 => match observed_size == 4
+				true => decoded_request_headers_with_te_trailers_header(state)
+				false => unsupported(block, offset)
+			end
+			76 => match observed_size == 4
+				true => decoded_request_headers_with_bad_te_header(state)
+				false => unsupported(block, offset)
+			end
 			53 => match observed_size == 3
 				true => decoded_response_headers(state)
 				false => unsupported(block, offset)
@@ -2001,6 +2041,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			71 => match observed_size == 4
 				true => decoded_response_headers_bad_token_regular(state)
+				false => unsupported(block, offset)
+			end
+			77 => match observed_size == 4
+				true => decoded_response_headers_with_te_trailers_header(state)
+				false => unsupported(block, offset)
+			end
+			78 => match observed_size == 4
+				true => decoded_response_headers_with_bad_te_header(state)
 				false => unsupported(block, offset)
 			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -2092,6 +2140,8 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:trailers"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		_ => false
 	end
 end
@@ -2105,6 +2155,8 @@ pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:trailers"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => true
@@ -2131,6 +2183,8 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		_ => false
 	end
 end
@@ -2150,6 +2204,8 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		_ => false
 	end
 end
@@ -2170,6 +2226,8 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:trailers"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		_ => false
 	end
 end
@@ -2212,6 +2270,14 @@ pub fn header_list_connection_specific_header_name(headers: HpackHeaderList) -> 
 	end
 end
 
+pub fn header_list_has_invalid_te_header_value(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => "Host"
@@ -2228,6 +2294,8 @@ pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":status", _), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "ok"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "ok,server"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "ok,te:trailers"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "ok,te:gzip"), _) => true
 		HpackHeaderList(_, HpackHeader(":response-error", "ok,Server"), _) => true
 		HpackHeaderList(_, HpackHeader(":response-error", "ok,bad header"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "duplicate-status"), _) => true
@@ -2275,8 +2343,12 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => ":method,:scheme,:path,proxy-connection"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => ":method,:scheme,:path,transfer-encoding"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => ":method,:scheme,:path,upgrade"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:trailers"), _) => ":method,:scheme,:path,te"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => ":method,:scheme,:path,te"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => ":status"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => ":status,server"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:trailers"), _) => ":status,te"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => ":status,te"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => ":status,Server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => ":status,bad header"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => "server"

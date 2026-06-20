@@ -881,6 +881,11 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                         "request header list contains connection-specific header {header_name} at byte offset {byte_offset}"
                     )
                 }
+                "te_header_value_not_trailers" => {
+                    format!(
+                        "request header list contains te value other than trailers at byte offset {byte_offset}"
+                    )
+                }
                 _ => format!("invalid request header list at byte offset {byte_offset}"),
             };
             let mut diagnostic = Diagnostic::new(
@@ -940,6 +945,11 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 "ordinary_header_name_invalid_token" => {
                     format!(
                         "response header list contains invalid ordinary header name {header_name} at byte offset {byte_offset}"
+                    )
+                }
+                "te_header_value_not_trailers" => {
+                    format!(
+                        "response header list contains te value other than trailers at byte offset {byte_offset}"
                     )
                 }
                 _ => format!("invalid response header list at byte offset {byte_offset}"),
@@ -3643,6 +3653,66 @@ mod tests {
     }
 
     #[test]
+    fn protocol_result_failure_diagnostic_projects_request_te_header_value() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("te_header_value_not_trailers"),
+            ),
+            ("header_name", JsonValue::string("te")),
+            (
+                "decoded_header_names",
+                JsonValue::string(":method,:scheme,:path,te"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_te_trailers_only"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list contains te value other than trailers at byte offset 12"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list contains te value other than trailers at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains(":method,:scheme,:path,te")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_te_trailers_only")
+        );
+    }
+
+    #[test]
     fn protocol_result_failure_diagnostic_projects_response_ordinary_header_name_facts() {
         let uppercase_protocol_diagnostic = JsonValue::object([
             ("kind", JsonValue::string("protocol_diagnostic")),
@@ -3748,6 +3818,59 @@ mod tests {
             token_diagnostic.related[2]
                 .to_json()
                 .contains("rfc9110_field_name_token")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_response_te_header_value() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_response_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("te_header_value_not_trailers"),
+            ),
+            ("header_name", JsonValue::string("te")),
+            ("decoded_header_names", JsonValue::string(":status,te")),
+            ("active_state", JsonValue::string("response-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_te_trailers_only"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 response header list contains te value other than trailers at byte offset 12"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "response header list contains te value other than trailers at byte offset 12"
+        );
+        assert!(diagnostic.related[0].to_json().contains(":status,te"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_te_trailers_only")
         );
     }
 
