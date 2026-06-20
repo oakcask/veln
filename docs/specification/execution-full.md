@@ -966,7 +966,7 @@ and `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
 ordinary `StreamInput` values through two, three, four, receiver-list
-five-route through twenty-seven-route, and receiver-list timeout typed
+five-route through twenty-nine-route, and receiver-list timeout typed
 channel routes
 before handler invocation. Adapter
 code selects the ready route with existing channel selection and requires
@@ -1004,6 +1004,8 @@ are
 `examples/specification/run/channel-first-stream-routing-twenty-four-route/`,
 `examples/specification/run/channel-first-stream-routing-twenty-five-route/`,
 `examples/specification/run/channel-first-stream-routing-twenty-seven-route/`,
+`examples/specification/run/channel-first-stream-routing-twenty-eight-route/`,
+`examples/specification/run/channel-first-stream-routing-twenty-nine-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/run/channel-select-timeout-cancellable/`,
 `examples/specification/run/channel-select-many-timeout-cancellable/`,
@@ -1057,6 +1059,10 @@ and
 `examples/specification/check/channel-first-stream-routing-twenty-six-route-effects/`,
 and
 `examples/specification/check/channel-first-stream-routing-twenty-seven-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-twenty-eight-route-effects/`,
+and
+`examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`,
 and
 `examples/specification/check/channel-select-many-timeout-effects/`, and
 `examples/specification/check/channel-select-timeout-cancellable-effects/`, and
