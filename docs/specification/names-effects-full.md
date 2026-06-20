@@ -981,7 +981,7 @@ interleaved middle layout with a sub-byte visible `UIntN`, a reserved field,
 prefix groups whose widths complete one, two, three, or four big-endian bytes,
 supported consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups whose widths complete one,
-two, three, four, or five big-endian bytes,
+two, three, four, five, or six big-endian bytes,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width field and whose payload is an exact-width unsigned
 primitive, an eligible nested binary schema, or

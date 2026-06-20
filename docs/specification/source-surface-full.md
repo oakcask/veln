@@ -278,7 +278,7 @@ byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
-twenty-four, thirty-two, or forty bits,
+twenty-four, thirty-two, forty, or forty-eight bits,
 bounded repeat fields whose count is an earlier visible exact-width field or
 the difference, sum, product, or integer quotient of two earlier visible
 exact-width fields,

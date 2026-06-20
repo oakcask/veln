@@ -544,8 +544,8 @@ execution reference.
   fields when the group contains at least one visible field and at least one
   reserved field, every visible field is a big-endian sub-byte `UIntN`, and
   the declared widths complete one byte or the same two-byte, three-byte,
-  four-byte, or five-byte big-endian storage unit. Reserved fields in the
-  group remain representation-only, each reserved value is validated at its
+  four-byte, five-byte, or six-byte big-endian storage unit. Reserved fields
+  in the group remain representation-only, each reserved value is validated at its
   own field path, and visible fields are decoded from their declared
   high-to-low positions.
 - Exact-width generated binary schema decode helpers preserve each field's
@@ -942,9 +942,9 @@ execution reference.
   non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
   group contains at least one visible field and at least one reserved field,
   every visible field is a big-endian sub-byte `UIntN`, and the declared
-  widths complete one byte or the same two-byte, three-byte, four-byte, or
-  five-byte big-endian storage unit. The helper writes visible and reserved
-  values in declaration order, omits reserved fields from the encoder value
+  widths complete one byte or the same two-byte, three-byte, four-byte,
+  five-byte, or six-byte big-endian storage unit. The helper writes visible
+  and reserved values in declaration order, omits reserved fields from the encoder value
   record, and reports `codec.encode_value_unrepresentable` at the
   out-of-range visible field.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
@@ -1173,6 +1173,9 @@ execution reference.
   `examples/specification/run/binary-schema-five-byte-split-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-five-byte-split-reserved-json/`,
   `examples/specification/run/binary-schema-five-byte-split-reserved-human/`,
+  `examples/specification/run/binary-schema-six-byte-split-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-six-byte-split-reserved-json/`,
+  `examples/specification/run/binary-schema-six-byte-split-reserved-human/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
