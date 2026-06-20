@@ -162,11 +162,9 @@ payload fields, same-module representation-only reserved-bit payload
 round trips, extension-tolerant known payloads, recursive extension known
 payloads, unknown payload preservation, and nested helper diagnostics. A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
-in one generated decode-and-encode schema. Supporting recursive dispatch
-payload schemas outside the selected same-module or public imported
-length-bounded decode-and-encode slice, broader unsupported field layouts, and
-schema value mapping beyond the implemented structural slices remains proposal
-work. The completed reserved-byte-prefix encode slice for
+in one generated decode-and-encode schema. Broader unsupported field layouts
+and schema value mapping beyond the implemented structural slices remain
+proposal work. The completed reserved-byte-prefix encode slice for
 `ReservedBits(2, 0)` followed by `UInt8` is archived under
 `../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md`.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
@@ -438,9 +436,10 @@ for:
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
-- recursive dispatch payload schemas outside the selected same-module or
-  public imported length-bounded dispatch decode-and-encode slice and dispatch
-  payload schemas outside the generated helper slice
+- support rather than rejection for recursive dispatch payload schemas outside
+  the selected same-module or public imported length-bounded dispatch
+  decode-and-encode slice and dispatch payload schemas outside the generated
+  helper slice
 
 ## Discussion Result: Dependent Structure Boundary
 
@@ -590,11 +589,11 @@ earlier visible `Int` fields in the same schema.
 eligible same-module or public imported nested binary schema payload named
 through a written `use` path, plus `ByteView(length_field)` when the length
 field is an earlier visible `Int` field.
-General schema-owned decode and encode beyond the implemented slices,
-recursive dispatch payload schemas outside the selected same-module or public
-imported length-bounded dispatch decode-and-encode slice, dispatch payload
-schemas outside the generated helper slice, and mapping beyond the implemented
-slices remain proposal work.
+General schema-owned decode and encode beyond the implemented slices, support
+rather than rejection for recursive dispatch payload schemas outside the
+selected same-module or public imported length-bounded dispatch
+decode-and-encode slice, dispatch payload schemas outside the generated helper
+slice, and mapping beyond the implemented slices remain proposal work.
 A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
 remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
@@ -755,7 +754,7 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- Broader unsupported field layouts, ineligible imported recursive dispatch
-  payload schemas, other ineligible dispatch payload schemas beyond the checked
-  unsupported `ReservedBits` diagnostic, and schema value mapping beyond the
-  implemented structural slices remain proposal work.
+- Broader unsupported field layouts, other ineligible dispatch payload schemas
+  beyond the checked unsupported `ReservedBits` and imported recursive
+  diagnostics, and schema value mapping beyond the implemented structural
+  slices remain proposal work.

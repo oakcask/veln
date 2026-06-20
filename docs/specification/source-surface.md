@@ -222,11 +222,11 @@ supported reserved-bit, closed dispatch, extension dispatch, bounded repeated
 primitive or nested schema field, length-bounded `ByteView`, and eligible
 nested dispatch payload helper
 slices, general ADT constructor mapping beyond schema-local structural
-expressions, recursive dispatch payload schemas outside the selected
-same-module or public imported length-bounded dispatch decode-and-encode
-slice, dispatch payload schemas outside the generated helper slice, arbitrary
-mapping expressions, and mapping selection beyond this narrow decoded-field
-boolean selector slice are not implemented.
+expressions, support rather than rejection for recursive dispatch payload
+schemas outside the selected same-module or public imported length-bounded
+dispatch decode-and-encode slice, dispatch payload schemas outside the
+generated helper slice, arbitrary mapping expressions, and mapping selection
+beyond this narrow decoded-field boolean selector slice are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the equality and inequality mapping selection boundary. The checked
@@ -248,6 +248,10 @@ unsupported converter argument expression diagnostics.
 The checked diagnostics case
 `../../examples/specification/check/schema-imported-mapping-converter-diagnostics/`
 pins imported converter visibility and missing written import-path diagnostics.
+The checked diagnostics case
+`../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
+pins recursive dispatch payload schemas rejected outside the selected
+same-module or public imported length-bounded dispatch boundary.
 The checked acceptance case
 `../../examples/specification/check/schema-two-argument-mapping-converters/`
 pins same-module and imported public two-argument converter calls.

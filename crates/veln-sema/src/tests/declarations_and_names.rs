@@ -2347,6 +2347,90 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
 }
 
 #[test]
+fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "schema ImportedRecursivePacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 0 => UInt8, 1 => wire::RecursivePayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedRecursiveUnmappedPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => wire::RecursivePayload)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "type RecursivePayloadValue\n",
+            "  Leaf(Int)\n",
+            "  Branch({length: Int, kind: Int, payload: RecursivePayloadValue})\n",
+            "end\n",
+            "\n",
+            "type RecursivePayloadNode\n",
+            "  RecursivePayloadNode {length: Int, kind: Int, payload: RecursivePayloadValue}\n",
+            "end\n",
+            "\n",
+            "pub schema RecursivePayload\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)\n",
+            "\n",
+            "  map to RecursivePayloadNode when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = RecursivePayloadValue::Leaf(payload)\n",
+            "\n",
+            "  map to RecursivePayloadNode when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = RecursivePayloadValue::Branch(payload)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let mut schemas = app.schemas;
+    schemas.extend(wire.schemas);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas,
+        codecs: Vec::new(),
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let matching_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "schema.dispatch_payload"
+                && diagnostic.message
+                    == "dispatch payload schema `wire::RecursivePayload` cannot reference itself"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"self_payload_schema\"")
+        })
+        .count();
+    assert_eq!(matching_diagnostics, 2, "{diagnostics:#?}");
+}
+
+#[test]
 fn repeat_payload_schema_references_report_resolution_diagnostics() {
     let app_source = SourceFile::new(
         "app.veln",

@@ -8,10 +8,10 @@ use crate::types::{
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
-    schema_encode_value_type, schema_length_expression_references,
-    schema_mapping_assignment_expr_typed, schema_mapping_selector_predicate,
-    schema_mapping_selectors_overlap, schema_mapping_source_field_types,
-    schema_payload_name_last_segment, schema_payload_name_path,
+    schema_encode_value_type, schema_has_recursive_dispatch_payload,
+    schema_length_expression_references, schema_mapping_assignment_expr_typed,
+    schema_mapping_selector_predicate, schema_mapping_selectors_overlap,
+    schema_mapping_source_field_types, schema_payload_name_last_segment, schema_payload_name_path,
     schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
     supported_encode_reserved_bits,
 };
@@ -2576,6 +2576,28 @@ fn check_schema_dispatch_field(
                         diagnostics,
                     )
                     .and_then(|payload_schema| {
+                        if schema_has_recursive_dispatch_payload(payload_schema)
+                            && !recursive_dispatch_payload_case_is_eligible(
+                                module,
+                                schema,
+                                field,
+                                dispatch,
+                                schema_name,
+                            )
+                        {
+                            diagnostics.push(schema_dispatch_payload_diagnostic(
+                                schema,
+                                field,
+                                case.tag,
+                                schema_name,
+                                "self_payload_schema",
+                                format!(
+                                    "dispatch payload schema `{schema_name}` cannot reference itself"
+                                ),
+                                [],
+                            ));
+                            return None;
+                        }
                         schema_decode_value_type(module, payload_schema).or_else(|| {
                             diagnostics.push(schema_dispatch_payload_diagnostic(
                                 schema,
