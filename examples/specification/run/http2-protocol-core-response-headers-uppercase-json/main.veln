@@ -1,0 +1,32 @@
+# HTTP/2 uppercase ordinary response header names project structured runtime details.
+
+type Http2ProtocolFailure
+	InvalidResponseHeaderList(Int, Int, Int, String, String, String)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+	match failure
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext("response-headers", "rfc9113_field_name_lowercase")
+	http2_protocol_diagnostic(InvalidResponseHeaderList(12, 1, 1, "ordinary_header_name_not_lowercase", "Server", ":status,Server"), context)
+end

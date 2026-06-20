@@ -202,6 +202,10 @@ fn response_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
 end
 
+fn response_headers_with_regular_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,server"), 9)
+end
+
 fn response_headers_missing_status() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("server", "example"), HpackHeader(":response", "missing-status"), 9)
 end
@@ -220,6 +224,14 @@ end
 
 fn response_headers_status_after_regular() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("server", "example"), HpackHeader(":response", "status-after-regular"), 9)
+end
+
+fn response_headers_uppercase_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response-error", "ok,Server"), 9)
+end
+
+fn response_headers_bad_token_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response-error", "ok,bad header"), 9)
 end
 
 pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
@@ -294,6 +306,10 @@ fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTrans
 	Ok(HpackDecodeTransition(response_headers(), next_state(state)))
 end
 
+fn decoded_response_headers_with_regular_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_with_regular_header(), next_state(state)))
+end
+
 fn decoded_response_headers_missing_status(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers_missing_status(), next_state(state)))
 end
@@ -312,6 +328,14 @@ end
 
 fn decoded_response_headers_status_after_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers_status_after_regular(), next_state(state)))
+end
+
+fn decoded_response_headers_uppercase_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_uppercase_regular(), next_state(state)))
+end
+
+fn decoded_response_headers_bad_token_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(response_headers_bad_token_regular(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1006,8 +1030,21 @@ end
 fn encode_response_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match value == "ok"
 		true => encoded_hex_or_failure("353637", headers, offset)
-		false => match value == "status"
-			true => encoded_hex_or_failure("38393a3b", headers, offset)
+		false => match value == "ok,server"
+			true => encoded_hex_or_failure("40414243", headers, offset)
+			false => match value == "status"
+				true => encoded_hex_or_failure("38393a3b", headers, offset)
+				false => unsupported_header_list_encoding(headers, offset)
+			end
+		end
+	end
+end
+
+fn encode_response_error_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match value == "ok,Server"
+		true => encoded_hex_or_failure("45464748", headers, offset)
+		false => match value == "ok,bad header"
+			true => encoded_hex_or_failure("4748494a", headers, offset)
 			false => unsupported_header_list_encoding(headers, offset)
 		end
 	end
@@ -1022,6 +1059,7 @@ pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteC
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing-huffman"), _) => encode_huffman_literal_header_with_prefix(name, value, 64, headers, offset)
 		HpackHeaderList(_, HpackHeader(":request", marker), _) => encode_request_headers(marker, headers, offset)
 		HpackHeaderList(_, HpackHeader(":response", marker), _) => encode_response_headers(marker, headers, offset)
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", marker), _) => encode_response_error_headers(marker, headers, offset)
 		_ => unsupported_header_list_encoding(headers, offset)
 	end
 end
@@ -1762,6 +1800,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_response_headers(state)
 				false => unsupported(block, offset)
 			end
+			64 => match observed_size == 4
+				true => decoded_response_headers_with_regular_header(state)
+				false => unsupported(block, offset)
+			end
 			54 => match observed_size == 2
 				true => decoded_response_headers_missing_status(state)
 				false => unsupported(block, offset)
@@ -1780,6 +1822,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			58 => match observed_size == 4
 				true => decoded_response_headers_with_authority(state)
+				false => unsupported(block, offset)
+			end
+			69 => match observed_size == 4
+				true => decoded_response_headers_uppercase_regular(state)
+				false => unsupported(block, offset)
+			end
+			71 => match observed_size == 4
+				true => decoded_response_headers_bad_token_regular(state)
 				false => unsupported(block, offset)
 			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -1866,6 +1916,9 @@ pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-without-indexing"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-with-indexing"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => true
@@ -1923,6 +1976,7 @@ end
 pub fn header_list_has_uppercase_ordinary_header(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => true
 		_ => false
 	end
 end
@@ -1930,6 +1984,7 @@ end
 pub fn header_list_has_invalid_token_ordinary_header(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
 		_ => false
 	end
 end
@@ -1938,6 +1993,8 @@ pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> Str
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => "Host"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => "bad header"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => "Server"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => "bad header"
 		_ => ""
 	end
 end
@@ -1947,6 +2004,9 @@ pub fn header_list_has_status(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":status", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":status", _), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "ok"), _) => true
+		HpackHeaderList(_, HpackHeader(":response", "ok,server"), _) => true
+		HpackHeaderList(_, HpackHeader(":response-error", "ok,Server"), _) => true
+		HpackHeaderList(_, HpackHeader(":response-error", "ok,bad header"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "duplicate-status"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "status"), _) => true
 		HpackHeaderList(_, HpackHeader(":response", "status-after-regular"), _) => true
@@ -1988,6 +2048,9 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => ":method,:scheme,:path,Host"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => ":method,:scheme,:path,bad header"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => ":status"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => ":status,server"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => ":status,Server"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => ":status,bad header"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "missing-status"), _) => "server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "duplicate-status"), _) => ":status,:status"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => ":method,:status"

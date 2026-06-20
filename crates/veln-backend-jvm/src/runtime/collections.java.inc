@@ -3484,6 +3484,12 @@
         } else if ("pseudo_header_after_regular_header".equals(fact)) {
             message = "HTTP/2 response header list places " + header
                 + " after a regular header at byte offset " + byteOffset;
+        } else if ("ordinary_header_name_not_lowercase".equals(fact)) {
+            message = "HTTP/2 response header list contains uppercase ordinary header "
+                + header + " at byte offset " + byteOffset;
+        } else if ("ordinary_header_name_invalid_token".equals(fact)) {
+            message = "HTTP/2 response header list contains invalid ordinary header name "
+                + header + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }
