@@ -5767,6 +5767,48 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	end
 end
 
+fn continue_http2_deep_dynamic_path_state(inserted: Http2Step, state: Http2DecodeState, remaining: Int) -> Result<Http2DecodeState, String>
+	let ignored_inserted: () = require_hpack_transition_header(inserted, state, ":path", "/a")?
+	build_http2_deep_dynamic_path_state(remaining - 1, hpack_carry_only_state(step_state(inserted)))
+end
+
+fn build_http2_deep_dynamic_path_state(remaining: Int, state: Http2DecodeState) -> Result<Http2DecodeState, String>
+	match remaining == 0
+		true => Ok(state)
+		false => continue_http2_deep_dynamic_path_state(receive(InputChunk(byte_chunk_from_hex("00000401040000000144022f61")?), state)?, state, remaining)
+	end
+end
+
+fn print_hpack_wide_dynamic_name_cases() -> Result<(), String> effects [stdio]
+	let deep_state: Http2DecodeState = build_http2_deep_dynamic_path_state(66, frame_state())?
+	let retained_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001ff")?), deep_state)?
+	print_step("hpack-stateful-dynamic-name-wide-retained-older-path", retained_older)
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-wide-retained-older-path", retained_older, deep_state)
+	let ignored_retained_older: () = require_hpack_transition_header(retained_older, deep_state, ":path", "/a")?
+	let literal_indexed_wide: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037f40052f64656570")?), deep_state)?
+	print_step("hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide)
+	let ignored_literal_indexed_wide: () = emit_header_block("http2-hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide, "7f40052f64656570")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide, deep_state)
+	let ignored_literal_indexed_wide_header: () = require_hpack_transition_header(literal_indexed_wide, deep_state, ":path", "/deep")?
+	let literal_indexed_wide_state: Http2DecodeState = hpack_carry_only_state(step_state(literal_indexed_wide))
+	let dynamic_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000005be")?), literal_indexed_wide_state)?
+	print_step("hpack-stateful-dynamic-name-wide-newest", dynamic_newest)
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-wide-newest", dynamic_newest, literal_indexed_wide_state)
+	let ignored_dynamic_newest: () = require_hpack_transition_header(dynamic_newest, literal_indexed_wide_state, ":path", "/deep")?
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030100000000077f4005")?), deep_state)?
+	print_step("hpack-continuation-dynamic-name-wide-start", continuation_start)
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000072f64656570")?), step_state(continuation_start))?
+	print_step("hpack-continuation-dynamic-name-wide-done", continuation_done)
+	let ignored_continuation_wide: () = emit_header_block("http2-hpack-continuation-dynamic-name-wide", continuation_done, "7f40052f64656570")?
+	print_hpack_transition_from_state("hpack-continuation-dynamic-name-wide-done", continuation_done, step_state(continuation_start))
+	let continuation_wide_state: Http2DecodeState = hpack_carry_only_state(step_state(continuation_done))
+	let continuation_dynamic_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000009be")?), continuation_wide_state)?
+	print_step("hpack-after-continuation-dynamic-name-wide", continuation_dynamic_newest)
+	print_hpack_transition_from_state("hpack-after-continuation-dynamic-name-wide", continuation_dynamic_newest, continuation_wide_state)
+	let ignored_continuation_dynamic_newest: () = require_hpack_transition_header(continuation_dynamic_newest, continuation_wide_state, ":path", "/deep")?
+	Ok(())
+end
+
 fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), String> effects [stdio]
 	let base_state: Http2DecodeState = hpack_carry_only_state(step_state(after_path))
 	let literal_dynamic_name: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037e062f616761696e")?), base_state)?
@@ -6933,6 +6975,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let ignored_hpack_stateful_dynamic_indexed_path_target: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, step_state(hpack_stateful_literal_indexed_path_target))
 	let ignored_hpack_stateful_replacement_cases: () = print_hpack_stateful_replacement_cases(hpack_stateful_dynamic_indexed_path_target)?
+	let ignored_hpack_wide_dynamic_name_cases: () = print_hpack_wide_dynamic_name_cases()?
 	let ignored_hpack_dynamic_table_cases: () = print_hpack_dynamic_table_cases()?
 	let ignored_hpack_table_size_cases: () = print_hpack_table_size_cases(state)?
 	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?

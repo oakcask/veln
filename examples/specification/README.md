@@ -1579,8 +1579,10 @@ against the built `veln` binary.
   table entry, decodes the newest entry through `0xbe`, decodes the older
   retained entry through `0xbf`, reuses dynamic-table names for
   literal-without-indexing and literal-never-indexed blocks without inserting
-  replacement dynamic entries, keeps the newest `:method: PUT` entry while
-  evicting the older `:path: /target` entry at table size `42`, and keeps
+  replacement dynamic entries, checks dynamic index value `127` for all three
+  dynamic-name literal forms through wider continuation bytes, keeps the
+  newest `:method: PUT` entry while evicting the older `:path: /target` entry
+  at table size `42`, and keeps
   both missing dynamic state and dynamic entries evicted by a reduced fixture
   table size on the unsupported fixture failure path. It accepts dynamic
   table-size update fixtures `0x3e`, `0x3f`, one-byte HPACK integer
@@ -1811,7 +1813,9 @@ against the built `veln` binary.
   literal-with-indexing entry, decode dynamic-index `63` non-inserting
   literal-without-indexing and literal-never-indexed forms while preserving
   later `0xbe` and `0xbf` reads of the existing `:method: PUT` and
-  `:path: /target` entries, retain that newest entry while evicting the older
+  `:path: /target` entries, carry dynamic-index `127`
+  literal-with-indexing coverage through completed HEADERS and final
+  CONTINUATION paths, retain that newest entry while evicting the older
   path entry at table size `42`, reject the evicted older entry path,
   carry the replacement state through completed HEADERS and final
   CONTINUATION paths through the imported fixture codec, accept dynamic
