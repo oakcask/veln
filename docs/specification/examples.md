@@ -1837,8 +1837,11 @@ paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. It rejects non-visible raw bytes, malformed
 string length including non-terminating string-length continuations, malformed
-Huffman padding, and a malformed raw `:status` literal. It does not implement
-general HPACK behavior beyond the fixture boundary. Checked HEADERS bytes
+raw `:status` literals, and unsupported HPACK Huffman forms. Malformed
+Huffman padding has the focused id
+`hpack.fixture.malformed_huffman_padding` and is checked through completed
+HEADERS and final CONTINUATION paths. It does not implement general HPACK
+behavior beyond the fixture boundary. Checked HEADERS bytes
 include zero-length `:path` as `0x04 0x80`, `:path: test` as
 `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
@@ -1914,11 +1917,11 @@ fixture path. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing, malformed string-length continuations, malformed
-Huffman padding, Huffman EOS, and Huffman strings whose decoded bytes are not
-visible ASCII. The focused HPACK
-fixture-codec JSON and
-human examples assert the unsupported header-block byte preview.
+literal-without-indexing, malformed string-length continuations, Huffman EOS,
+and Huffman strings whose decoded bytes are not visible ASCII. Malformed
+Huffman padding stays on the HPACK fixture boundary but uses
+`hpack.fixture.malformed_huffman_padding`, and the focused JSON and human
+examples assert its bounded header-block byte preview.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
@@ -2063,6 +2066,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
@@ -2083,6 +2087,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,
@@ -2102,7 +2107,8 @@ pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
-frame sizes, setting identity, observed setting value, accepted setting range,
+frame sizes, malformed HPACK Huffman padding fixture context, setting identity,
+observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length including SETTINGS ACK length zero and `RST_STREAM`
 length four, unexpected SETTINGS ACK state, flow-control window credit,

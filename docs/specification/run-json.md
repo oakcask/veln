@@ -471,9 +471,11 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
-and records `byte_offset.value`, `observed_header_block_size`,
+for unsupported header blocks and
+`hpack.fixture.malformed_huffman_padding` for malformed Huffman padding. Both
+record `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
-structured bounded `byte_preview` for the unsupported header-block bytes.
+structured bounded `byte_preview` for the inspected header-block bytes.
 Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
 typed HPACK fixture results in program stdout; they are not converted into
 `details.protocol_diagnostic`.

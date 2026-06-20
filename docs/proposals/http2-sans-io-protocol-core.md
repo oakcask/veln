@@ -264,6 +264,10 @@ stable fixture output ids, `protocol_diagnostic` JSON details, and human
 related context. The partial and invalid client connection preface projections
 and stream id domain projection include bounded protocol-owned byte previews
 for the raw bytes inspected by the preface or frame-header check.
+The HPACK fixture boundary now gives malformed Huffman padding its own stable
+`hpack.fixture.malformed_huffman_padding` id with header-block byte offset,
+observed first byte, observed block size, codec module, and bounded preview,
+and reaches that id from both completed HEADERS and final CONTINUATION paths.
 It also splits the active receive-limit entry and receive-window credit from
 peer-advertised SETTINGS state. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
@@ -333,11 +337,13 @@ and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
 `:status`, plus raw literal-never-indexed `:path` through completed HEADERS
 and final CONTINUATION. Completed HEADERS and final CONTINUATION paths reach
-that long string-length fixture boundary before the local header-list receive limit
-rejects the decoded long values. It rejects
-non-visible raw bytes, malformed string length including non-terminating
-string-length continuations, malformed Huffman padding, and a malformed raw
-`:status` literal. Checked bytes include zero-length `:path`
+that long string-length fixture boundary before the local header-list receive
+limit rejects the decoded long values. It rejects non-visible raw bytes,
+malformed string length including non-terminating string-length continuations,
+and a malformed raw `:status` literal through
+`hpack.fixture.unsupported_header_block`. Malformed Huffman padding uses the
+focused `hpack.fixture.malformed_huffman_padding` id. Checked bytes include
+zero-length `:path`
 as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
 `:status: 200` as `0x08 0x82 0x10 0x01`, and
@@ -391,9 +397,10 @@ that repeats the current fixture table size, through
 `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
 size, frame kind, stream id, receive-limit provenance, and rule provenance.
 Unsupported HPACK bytes, including malformed non-terminating table-size
-updates, table-size updates with trailing bytes after a complete integer, and
-malformed Huffman padding, Huffman EOS, or Huffman strings whose decoded bytes
-are not visible ASCII, remain on `hpack.fixture.unsupported_header_block`.
+updates, table-size updates with trailing bytes after a complete integer,
+Huffman EOS, or Huffman strings whose decoded bytes are not visible ASCII,
+remain on `hpack.fixture.unsupported_header_block`. Malformed Huffman padding
+uses `hpack.fixture.malformed_huffman_padding`.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on

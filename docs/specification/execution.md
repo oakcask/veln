@@ -1518,9 +1518,13 @@ execution reference.
   The completed HEADERS path checks a valid long raw literal before the local
   header-list receive limit rejects its decoded size; the final CONTINUATION
   path checks the same boundary for a valid long Huffman-marked literal.
-  Malformed Huffman padding, malformed string lengths including non-terminating
-  string-length continuations, non-visible raw bytes, and a malformed raw
-  `:status` literal remain unsupported. This is still a fixture slice, not
+  Malformed string lengths including non-terminating string-length
+  continuations, non-visible raw bytes, and a malformed raw `:status` literal
+  remain unsupported. Malformed Huffman padding uses the focused
+  `hpack.fixture.malformed_huffman_padding` id with the same header-block byte
+  offset, observed size, observed first byte, codec module, and bounded
+  preview fields as other HPACK fixture diagnostics; the checked path covers
+  completed HEADERS and final CONTINUATION. This is still a fixture slice, not
   full HPACK string or compression support. It also
   includes the narrow dynamic-table slice where `0x44 0x07 "/target"`
   inserts `:path: /target` into the returned immutable fixture state stored on
@@ -1587,11 +1591,13 @@ execution reference.
   representations stay on the unsupported fixture path. Unsupported fixture
   input, including malformed non-terminating table-size updates, table-size
   updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, malformed Huffman padding, Huffman EOS, and
-  Huffman strings whose decoded bytes are not visible ASCII, projects through
+  literal-without-indexing, Huffman EOS, and Huffman strings whose decoded
+  bytes are not visible ASCII, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
-  module, and bounded header-block byte preview. That diagnostic path is
+  module, and bounded header-block byte preview. Malformed Huffman padding
+  projects through `hpack.fixture.malformed_huffman_padding` with the same
+  fixture diagnostic shape. That diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;
   the HTTP/2 core still owns the local
   `http2.peer_limit.header_table_size_exceeded` and

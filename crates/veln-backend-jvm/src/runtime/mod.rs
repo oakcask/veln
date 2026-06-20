@@ -109,6 +109,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "http2_peer_limit_concurrent_streams_exceeded" => "http2PeerLimitConcurrentStreamsExceeded",
     "http2_peer_limit_settings_value_out_of_range" => "http2PeerLimitSettingsValueOutOfRange",
     "hpack_fixture_unsupported_header_block" => "hpackFixtureUnsupportedHeaderBlock",
+    "hpack_fixture_malformed_huffman_padding" => "hpackFixtureMalformedHuffmanPadding",
     "byte_read_u16_be" => "byteReadU16Be",
     "byte_read_u24_be" => "byteReadU24Be",
     "byte_read_u31_be" => "byteReadU31Be",

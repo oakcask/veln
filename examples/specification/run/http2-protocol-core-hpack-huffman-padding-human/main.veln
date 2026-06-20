@@ -1,0 +1,7 @@
+# HTTP/2 HPACK malformed Huffman padding projects to human runtime diagnostics.
+
+pub fn main() -> Result<(), String>
+	let block: ByteChunk = byte_chunk_from_hex("048100")?
+	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
+	hpack_fixture_malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_fixture", preview)
+end
