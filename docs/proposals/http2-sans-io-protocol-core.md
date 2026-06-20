@@ -379,8 +379,12 @@ multi-byte HPACK integer continuations with the table-size update prefix,
 including `0x3f 0x0b`, `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
 `0x3f 0x82 0x02`, returns
 next immutable HPACK states whose checked table sizes include `30`, `31`,
-`32`, `42`, `159`, `160`, and `289`, and carries those states through completed
-HEADERS and final CONTINUATION paths before later header blocks are decoded.
+`32`, `42`, `159`, `160`, and `289`. The HTTP/2 core carries accepted
+table-size updates at or below the active local header-table receive limit
+through completed HEADERS and final CONTINUATION paths before later header
+blocks are decoded, and rejects larger decoded updates through
+`http2.peer_limit.header_table_size_exceeded` with observed size, allowed
+size, frame kind, stream id, receive-limit provenance, and rule provenance.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates, table-size updates with trailing bytes after a complete integer, and
 malformed Huffman padding, Huffman EOS, or Huffman strings whose decoded bytes
@@ -697,6 +701,12 @@ header-list encoding, visible-ASCII Huffman-marked literal encoding for
 supported static-table names, the checked request and response pseudo-header
 fixture lists needed by outbound send-intents, and unsupported-header failure
 paths that remain HPACK fixture results.
+The completed local HPACK table-size receive-policy slice is current behavior
+under `../specification/` and
+`../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It
+rejects decoded dynamic table-size updates above the active local
+header-table receive limit on both completed HEADERS and final CONTINUATION
+paths while preserving accepted table-size updates at or below that limit.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.
@@ -708,8 +718,7 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
-  policy beyond the checked bounded fixture dynamic table, table-size policy
-  beyond fixture-boundary HPACK integer updates, HPACK Huffman behavior beyond
+  policy beyond the checked bounded fixture dynamic table, HPACK Huffman behavior beyond
   visible-ASCII fixture string literal encoding, broader dynamic-table string
   encoding policy beyond the checked dynamic-name literal-with-indexing
   fixture, production request-header validation beyond ordinary header-name

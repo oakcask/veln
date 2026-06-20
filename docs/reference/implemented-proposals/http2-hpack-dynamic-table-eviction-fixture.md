@@ -51,9 +51,11 @@ HPACK integer continuations with the table-size update prefix, including
 `0x3f 0x0b`, `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
 `0x3f 0x82 0x02`, returning immutable fixture states with table sizes `30`,
 `31`, `32`, `42`, `159`, `160`, and `289`. The HTTP/2 protocol-core example
-carries those updated states through completed HEADERS and final CONTINUATION
-paths before later header blocks are decoded. Malformed non-terminating
-table-size updates and
+carries accepted updated states at or below its local receive policy through
+completed HEADERS and final CONTINUATION paths before later header blocks are
+decoded; larger decoded table-size updates are now covered by
+[http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
+Malformed non-terminating table-size updates and
 table-size updates with trailing bytes after a complete integer remain on the
 unsupported fixture path.
 

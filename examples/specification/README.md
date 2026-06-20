@@ -1804,11 +1804,12 @@ against the built `veln` binary.
   carry the replacement state through completed HEADERS and final
   CONTINUATION paths through the imported fixture codec, accept dynamic
   table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
-  `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, reject
-  malformed non-terminating table-size updates and table-size updates with
-  trailing bytes after a complete integer, and carry the resulting immutable
+  `0x3f 0x80 0x01`, and `0x3f 0x81 0x01`, carry accepted resulting immutable
   HPACK state through completed HEADERS and final CONTINUATION paths before
-  later header blocks are decoded,
+  later header blocks are decoded, reject the larger decoded `0x3f 0x82 0x02`
+  table-size update through `http2.peer_limit.header_table_size_exceeded` on
+  both paths, reject malformed non-terminating table-size updates and
+  table-size updates with trailing bytes after a complete integer,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind
@@ -1971,6 +1972,15 @@ against the built `veln` binary.
   `http2.peer_limit.concurrent_streams_exceeded` through `run --json` with
   byte offset, stream reference, attempted and allowed counts, active state,
   receive-limit provenance, and rule provenance.
+- `run/http2-protocol-core-header-table-human/`: an HPACK dynamic table-size
+  update above the active local receive limit reports
+  `http2.peer_limit.header_table_size_exceeded` through human `run` stderr
+  with focused requested-size, limit, provenance, and rule notes.
+- `run/http2-protocol-core-header-table-json/`: the same HPACK table-size
+  peer-limit failure reports
+  `http2.peer_limit.header_table_size_exceeded` through `run --json` with
+  byte offset, observed and allowed header-table sizes, frame kind, stream
+  reference, receive-limit provenance, and rule provenance.
 - `run/http2-protocol-core-settings-value-human/`: a received
   `SETTINGS_ENABLE_PUSH` value above the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr

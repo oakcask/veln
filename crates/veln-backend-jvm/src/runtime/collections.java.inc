@@ -3620,6 +3620,37 @@
         return err(message);
     }
 
+    public static Object http2PeerLimitHeaderTableSizeExceeded(
+        Object offset,
+        Object observedSize,
+        Object allowedSize,
+        Object frameKind,
+        Object streamId,
+        Object receiveLimitProvenance,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long observed = asLong(observedSize);
+        long allowed = asLong(allowedSize);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String limitProvenance = asString(receiveLimitProvenance);
+        String rule = asString(ruleProvenance);
+        String message = "HTTP/2 header table size exceeds receive maximum at byte offset "
+            + byteOffset;
+        registerHttp2PeerLimitHeaderTableSizeExceededDiagnostic(
+            message,
+            byteOffset,
+            observed,
+            allowed,
+            kind,
+            stream,
+            limitProvenance,
+            rule
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitFlowControlWindowExceeded(
         Object offset,
         Object observedLength,

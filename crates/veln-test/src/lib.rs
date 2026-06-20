@@ -4175,6 +4175,43 @@ mod tests {
     }
 
     #[test]
+    fn header_table_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220686561646572207461626c652073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f6666736574203335",
+            "\tprotocol_diagnostic\thttp2.peer_limit.header_table_size_exceeded\t35",
+            "\t7\tobserved_header_table_size\tnumber\t289",
+            "\tallowed_header_table_size\tnumber\t160",
+            "\tframe_kind\tnumber\t9",
+            "\tstream_id\tnumber\t1",
+            "\tstream_ref\tstring\t73747265616d",
+            "\treceive_limit_provenance\tstring\t6c6f63616c5f636f6e66696775726174696f6e",
+            "\trule_provenance\tstring\t687061636b5f64796e616d69635f7461626c655f73697a655f757064617465\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 header table size exceeds receive maximum at byte offset 35\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.header_table_size_exceeded\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":35},",
+                "\"observed_header_table_size\":289,",
+                "\"allowed_header_table_size\":160,",
+                "\"frame_kind\":9,",
+                "\"stream_id\":1,",
+                "\"stream_ref\":\"stream\",",
+                "\"receive_limit_provenance\":\"local_configuration\",",
+                "\"rule_provenance\":\"hpack_dynamic_table_size_update\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn flow_control_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

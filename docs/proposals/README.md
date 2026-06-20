@@ -197,7 +197,7 @@ compare it with `../specification/` before changing behavior.
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, general eviction policy beyond the
-  checked fixture-boundary entry-size calculation and table-size update slice,
+  checked fixture-boundary entry-size calculation and local table-size policy,
   HPACK Huffman behavior beyond visible-ASCII fixture string literal
   encoding, broader dynamic-table string encoding policy beyond the checked
   dynamic-name literal-with-indexing fixture, and production request-header

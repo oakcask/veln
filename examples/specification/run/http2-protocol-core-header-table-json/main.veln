@@ -1,0 +1,38 @@
+# HTTP/2 HPACK header-table peer-limit failures project structured runtime details.
+
+type Http2ProtocolFailure
+	HeaderTableSizeExceeded(Int, Int, Int, Int)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(Int, String, String)
+end
+
+fn context_allowed_header_table_size(context: Http2DiagnosticContext) -> Int
+	match context
+		DiagnosticContext(allowed_size, _, _) => allowed_size
+	end
+end
+
+fn context_receive_limit_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, receive_limit_provenance, _) => receive_limit_provenance
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, _, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+	match failure
+		HeaderTableSizeExceeded(offset, observed_size, frame_kind, stream_id) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, context_allowed_header_table_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context))
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext(160, "local_configuration", "hpack_dynamic_table_size_update")
+	http2_protocol_diagnostic(HeaderTableSizeExceeded(35, 289, 9, 1), context)
+end
