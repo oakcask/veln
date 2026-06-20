@@ -1547,7 +1547,8 @@ execution reference.
   `30`, `31`, `32`, `42`, `159`, `160`, and `289`; the HTTP/2 core carries
   table-size updates at or below the active local header-table receive limit
   from either a completed HEADERS block or a final CONTINUATION block before a
-  later header block is decoded, and rejects larger decoded updates through
+  later header block is decoded, and rejects larger decoded updates, including
+  a repeated current fixture table size above the local limit, through
   `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
   size, frame kind, stream id, receive-limit provenance, and rule provenance.
   This is not full HPACK compression support. When

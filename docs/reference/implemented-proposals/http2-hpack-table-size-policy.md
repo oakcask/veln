@@ -17,7 +17,8 @@ after a completed HEADERS or final CONTINUATION header block returns its next
 immutable HPACK state. A decoded dynamic table-size update whose requested
 table size is at or below the active local header-table-size receive limit is
 accepted and carried into later header-block decoding. A decoded update above
-that limit is rejected before the decoded HPACK state is installed.
+that limit is rejected before the decoded HPACK state is installed, including
+when the requested size repeats the current fixture table size.
 
 The rejection is a protocol peer-limit failure, not an HPACK fixture
 unsupported-header-block failure. It uses
@@ -32,7 +33,7 @@ the inbound receive-limit provenance.
 - `../../../examples/specification/run/http2-protocol-core/case.toml` checks
   accepted table-size updates through completed HEADERS and final CONTINUATION
   paths, including the boundary value `160`, and rejects a larger checked
-  update through both paths.
+  update through both paths, including a repeated initial fixture table size.
 - `../../../examples/specification/run/http2-protocol-core-header-table-human/case.toml`
   checks the human diagnostic projection for the local header-table receive
   limit.

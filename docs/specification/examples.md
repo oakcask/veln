@@ -1868,10 +1868,12 @@ table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 resulting checked table
 sizes `30`, `31`, `32`, `42`, `159`, `160`, and `289` through the fixture-state
 accessor, and the HTTP/2 example covers both completed HEADERS blocks and
-final CONTINUATION blocks carrying those updated immutable states into later
-header block decodes while malformed non-terminating table-size updates and
-table-size updates with trailing bytes after a complete integer remain
-unsupported. Reducing the fixture table size below the supported entries
+final CONTINUATION blocks carrying accepted updated immutable states into
+later header block decodes or rejecting updates above the local header-table
+receive policy, including `0x3f 0xe1 0x1f` for the current fixture table size.
+Malformed non-terminating table-size updates and table-size updates with
+trailing bytes after a complete integer remain unsupported.
+Reducing the fixture table size below the supported entries
 uses the accepted header name byte count plus value byte count plus `32` for
 each dynamic entry and evicts oldest entries first: table size `86` retains
 the newest `:scheme: https` and second `:method: PUT` entries while evicting

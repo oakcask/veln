@@ -382,7 +382,8 @@ next immutable HPACK states whose checked table sizes include `30`, `31`,
 `32`, `42`, `159`, `160`, and `289`. The HTTP/2 core carries accepted
 table-size updates at or below the active local header-table receive limit
 through completed HEADERS and final CONTINUATION paths before later header
-blocks are decoded, and rejects larger decoded updates through
+blocks are decoded, and rejects larger decoded updates, including an update
+that repeats the current fixture table size, through
 `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
 size, frame kind, stream id, receive-limit provenance, and rule provenance.
 Unsupported HPACK bytes, including malformed non-terminating table-size
@@ -706,7 +707,8 @@ under `../specification/` and
 `../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It
 rejects decoded dynamic table-size updates above the active local
 header-table receive limit on both completed HEADERS and final CONTINUATION
-paths while preserving accepted table-size updates at or below that limit.
+paths, including updates that repeat the current fixture table size, while
+preserving accepted table-size updates at or below that limit.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

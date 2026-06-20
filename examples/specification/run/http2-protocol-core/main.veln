@@ -727,7 +727,7 @@ end
 
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	match decode_completed_header_list(next_offset, kind, flags, completed_header_block, hpack_state)
-		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_table_size_update(next_offset, kind, flags, stream_id, hpack_state, next_hpack_state)
+		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_table_size_update(next_offset, kind, flags, stream_id, headers, next_hpack_state)
 			HeaderTableSizeOk => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size)
 				HeaderListSizeOk => match validate_request_header_list(next_offset, kind, flags, stream_id, headers)
 					RequestHeaderListOk => match validate_response_header_list(next_offset, kind, flags, stream_id, headers)
@@ -770,8 +770,8 @@ fn validate_header_list_size(offset: Int, kind: Int, flags: Int, stream_id: Int,
 	end
 end
 
-fn validate_header_table_size_update(offset: Int, kind: Int, flags: Int, stream_id: Int, previous_hpack_state: HpackFixtureState, next_hpack_state: HpackFixtureState) -> HeaderTableSizeDecision
-	match header_list_boundary_reached(kind, flags) and hpack_fixture::state_table_size(previous_hpack_state) != hpack_fixture::state_table_size(next_hpack_state)
+fn validate_header_table_size_update(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, next_hpack_state: HpackFixtureState) -> HeaderTableSizeDecision
+	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_table_size_update(headers)
 		true => validate_completed_header_table_size_update(offset, kind, stream_id, hpack_fixture::state_table_size(next_hpack_state), header_table_receive_limit())
 		false => HeaderTableSizeOk
 	end
@@ -6014,6 +6014,12 @@ fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-table-size-continuation-unsupported-extra-start", continuation_unsupported_extra_start)
 	let continuation_unsupported_extra_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000002d3f0200")?), step_state(continuation_unsupported_extra_start))?
 	print_failure("hpack-table-size-continuation-unsupported-extra", continuation_unsupported_extra_done)
+	let table_size_update_initial_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000002f3fe11f")?), state)?
+	print_failure("hpack-table-size-update-initial-size", table_size_update_initial_size)
+	let continuation_initial_size_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000031")?), state)?
+	print_step("hpack-table-size-continuation-initial-size-start", continuation_initial_size_start)
+	let continuation_initial_size_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030904000000313fe11f")?), step_state(continuation_initial_size_start))?
+	print_failure("hpack-table-size-continuation-initial-size-done", continuation_initial_size_done)
 	Ok(())
 end
 
