@@ -332,7 +332,9 @@ covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` through
 completed HEADERS, Huffman `:method: PUT` through both literal-without-indexing
-and literal-with-indexing, Huffman `:status: 200` through completed HEADERS
+and literal-with-indexing, Huffman `:method: bad` through
+literal-without-indexing, literal-with-indexing, and literal-never-indexed,
+Huffman `:status: 200` through completed HEADERS
 and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
 `:status`, plus raw literal-never-indexed `:path` through completed HEADERS
@@ -346,7 +348,9 @@ focused `hpack.fixture.malformed_huffman_padding` id. Checked bytes include
 zero-length `:path`
 as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
-`:status: 200` as `0x08 0x82 0x10 0x01`, and
+`:status: 200` as `0x08 0x82 0x10 0x01`, `:method: bad` as
+`0x02 0x83 0x8c 0x72 0x7f`, `0x42 0x83 0x8c 0x72 0x7f`, and
+`0x12 0x83 0x8c 0x72 0x7f`, and
 literal-without-indexing `:authority: www.example.com` as
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
 The focused HPACK boundary also checks raw literal-never-indexed
@@ -685,10 +689,10 @@ and
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
-behavior beyond visible-ASCII fixture string literal encoding, broader
-dynamic-table string encoding policy beyond the checked dynamic-name literal
-fixtures, and production header validation beyond ordinary request and
-response header-name shape plus the source-visible `te` value rule.
+behavior beyond visible-ASCII fixture string literal decoding and encoding,
+broader dynamic-table string encoding policy beyond the checked dynamic-name
+literal fixtures, and production header validation beyond ordinary request
+and response header-name shape plus the source-visible `te` value rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -738,8 +742,8 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy beyond the checked bounded fixture dynamic table, HPACK Huffman
-  behavior beyond visible-ASCII fixture string literal encoding, broader
-  dynamic-table string encoding policy beyond the checked dynamic-name literal
-  fixtures remain later work beyond the implemented fixture boundary.
+  behavior beyond visible-ASCII fixture string literal decoding and encoding,
+  broader dynamic-table string encoding policy beyond the checked dynamic-name
+  literal fixtures remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

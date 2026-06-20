@@ -149,14 +149,17 @@ end
 
 fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state: HpackFixtureState) -> Result<(), String> effects [stdio]
 	print_transition("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83))
+	print_transition("literal-method-bad-huffman", decode_header_block(byte_chunk_from_hex("02838c727f")?, initial, 106))
 	print_transition("literal-path-test-huffman", decode_header_block(byte_chunk_from_hex("048349509f")?, initial, 88))
 	print_transition("literal-status-200-huffman", decode_header_block(byte_chunk_from_hex("08821001")?, initial, 89))
 	print_transition("literal-authority-www-example-huffman", decode_header_block(byte_chunk_from_hex("018cf1e3c2e5f23a6ba0ab90f4ff")?, initial, 90))
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
 	print_transition("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84))
+	print_transition("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107))
 	print_transition("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87))
 	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
 	print_transition("literal-never-indexed-authority", decode_header_block(byte_chunk_from_hex("11086162632e74657374")?, initial, 95))
+	print_transition("literal-never-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("12838c727f")?, initial, 108))
 	print_transition("literal-never-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("16849d29ad1f")?, initial, 96))
 	print_transition("literal-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("017f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 91))
 	print_transition("literal-path-huffman-long-length", decode_header_block(byte_chunk_from_hex("04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?, initial, 92))
