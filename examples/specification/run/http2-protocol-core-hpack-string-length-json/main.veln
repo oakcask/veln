@@ -1,0 +1,7 @@
+# HTTP/2 HPACK malformed string length projects structured runtime details.
+
+pub fn main() -> Result<(), String>
+	let block: ByteChunk = byte_chunk_from_hex("04ff")?
+	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
+	hpack_fixture_malformed_string_length(9, 2, 4, "fixture HPACK string length", "hpack_fixture", preview)
+end

@@ -1,0 +1,7 @@
+# HTTP/2 HPACK malformed raw string value projects to human runtime diagnostics.
+
+pub fn main() -> Result<(), String>
+	let block: ByteChunk = byte_chunk_from_hex("0803321f30")?
+	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
+	hpack_fixture_malformed_raw_string_value(9, 5, 8, "fixture HPACK raw string value", "hpack_fixture", preview)
+end

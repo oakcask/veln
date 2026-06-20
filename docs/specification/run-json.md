@@ -474,6 +474,10 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
 for unsupported header blocks,
+`hpack.fixture.malformed_string_length` for malformed HPACK string-length
+encodings,
+`hpack.fixture.malformed_raw_string_value` for malformed raw string values on
+supported literal-name forms,
 `hpack.fixture.malformed_huffman_padding` for malformed Huffman padding,
 `hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a symbol,
 and `hpack.fixture.huffman_non_visible_value` for Huffman decoded bytes outside

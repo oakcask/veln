@@ -2986,6 +2986,14 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureUnsupportedHeaderBlock",
         ),
         (
+            "hpack_fixture_malformed_string_length",
+            "hpackFixtureMalformedStringLength",
+        ),
+        (
+            "hpack_fixture_malformed_raw_string_value",
+            "hpackFixtureMalformedRawStringValue",
+        ),
+        (
             "hpack_fixture_malformed_huffman_padding",
             "hpackFixtureMalformedHuffmanPadding",
         ),

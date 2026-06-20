@@ -8344,6 +8344,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\"), ",
             "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
             "hpack_fixture: hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
+            "hpack_string_length: hpack_fixture_malformed_string_length(27, 2, 4, \"fixture HPACK string length\", \"hpack_fixture\", view), ",
+            "hpack_raw_string: hpack_fixture_malformed_raw_string_value(27, 5, 8, \"fixture HPACK raw string value\", \"hpack_fixture\", view), ",
             "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
             "hpack_eos: hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
             "hpack_visible: hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",

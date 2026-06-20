@@ -1923,15 +1923,17 @@ by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
 `user-agent: agent` through a final CONTINUATION as
 `0x1f 0x2b 0x05 "agent"`. Completed HEADERS and final CONTINUATION paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
-limit rejects the decoded size. It rejects non-visible raw bytes, malformed
-string length including non-terminating string-length continuations, malformed
-raw `:status` literals, and unsupported HPACK Huffman forms. Malformed
-Huffman padding has the focused id
-`hpack.fixture.malformed_huffman_padding`. Huffman EOS used as a decoded symbol
-has `hpack.fixture.huffman_eos_symbol`, and Huffman decoded bytes outside the
-fixture visible-ASCII header-value boundary have
-`hpack.fixture.huffman_non_visible_value`. The focused Huffman failures are
-checked through completed HEADERS or final CONTINUATION paths as appropriate.
+limit rejects the decoded size. Malformed string length including
+non-terminating string-length continuations has
+`hpack.fixture.malformed_string_length`. Malformed raw string values for
+supported literal names, including non-visible raw bytes and malformed raw
+`:status` literals, have `hpack.fixture.malformed_raw_string_value`.
+Malformed Huffman padding has `hpack.fixture.malformed_huffman_padding`.
+Huffman EOS used as a decoded symbol has `hpack.fixture.huffman_eos_symbol`,
+and Huffman decoded bytes outside the fixture visible-ASCII header-value
+boundary have `hpack.fixture.huffman_non_visible_value`. The focused failures
+are checked through completed HEADERS or final CONTINUATION paths as
+appropriate.
 It does not implement general HPACK behavior beyond the fixture boundary.
 Checked HEADERS bytes
 include zero-length `:path` as `0x04 0x80`, `:path: test` as
@@ -2021,12 +2023,12 @@ capacity keeps the inserted `:path: /target` entry readable at `0xbe` and
 evicts the older entries so `0xbf` stays unsupported. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
-input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing and malformed string-length continuations. Malformed
-Huffman padding, Huffman EOS, and Huffman strings whose decoded bytes are not
-visible ASCII stay on the HPACK fixture boundary but use focused `hpack.fixture.*`
-ids, and the focused JSON and human examples assert their bounded header-block
-byte previews.
+input on `hpack.fixture.unsupported_header_block`, including unsupported
+literal-without-indexing forms. Malformed string lengths, malformed raw string
+values for supported literal names, malformed Huffman padding, Huffman EOS,
+and Huffman strings whose decoded bytes are not visible ASCII stay on the
+HPACK fixture boundary but use focused `hpack.fixture.*` ids, and the focused
+JSON and human examples assert their bounded header-block byte previews.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
@@ -2176,6 +2178,8 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
+`../../examples/specification/run/http2-protocol-core-hpack-string-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-string-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/case.toml`,
@@ -2203,6 +2207,8 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
+`../../examples/specification/run/http2-protocol-core-hpack-string-length-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-string-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/case.toml`,

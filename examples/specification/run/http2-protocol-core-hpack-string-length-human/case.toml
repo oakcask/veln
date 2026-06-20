@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[hpack.fixture.malformed_string_length]: malformed HPACK string length at byte offset 9", "note: HPACK fixture codec `hpack_fixture` observed header block size 2 and first byte 4.", "note: Nearby bytes: 04 ff (showing 2 of 2 byte(s), complete).", "note: Expected fixture HPACK string length."]

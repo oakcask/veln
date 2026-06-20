@@ -38,7 +38,9 @@ Literal-never-indexed advances the fixture decode count without inserting a
 dynamic-table entry.
 
 Malformed string lengths including non-terminating string-length
-continuations, non-visible raw bytes, and unsupported names continue to
+continuations use `hpack.fixture.malformed_string_length`. Malformed raw
+string values for supported literal names, including non-visible raw bytes,
+use `hpack.fixture.malformed_raw_string_value`. Unsupported names continue to
 project through `hpack.fixture.unsupported_header_block`. Malformed Huffman
 padding keeps the established `hpack.fixture.malformed_huffman_padding`
 diagnostic. Huffman EOS and Huffman strings whose decoded bytes are not
@@ -66,9 +68,9 @@ visible ASCII remain unsupported but use focused HPACK fixture diagnostics.
   string literal cases through completed HEADERS and final CONTINUATION paths.
   Long valid values reach the HPACK boundary and then the local header-list
   receive-limit check on the protocol-core path, including a 129-byte raw
-  final CONTINUATION case, while malformed fixture inputs preserve the
-  existing `hpack.fixture.unsupported_header_block` diagnostic path except for
-  the focused Huffman padding, EOS, and non-visible decoded-byte diagnostics.
+  final CONTINUATION case, while malformed string lengths, malformed raw
+  string values on supported literal names, Huffman padding, EOS, and
+  non-visible decoded-byte diagnostics use focused HPACK fixture ids.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented fixture boundary and route readers to the checked
   examples.

@@ -26,10 +26,10 @@ Literal-with-indexing still inserts a bounded dynamic-table entry, while
 literal-without-indexing and literal-never-indexed advance decode state
 without inserting replacement entries.
 
-Unsupported or malformed fixture input remains
-`hpack.fixture.unsupported_header_block`, malformed Huffman padding remains
-`hpack.fixture.malformed_huffman_padding`, and HTTP/2 receive-policy failures
-remain under `http2.peer_limit.*`.
+Unsupported fixture input remains `hpack.fixture.unsupported_header_block`.
+Malformed string lengths, malformed raw string values on supported literal
+names, and malformed Huffman inputs use focused `hpack.fixture.*` diagnostics.
+HTTP/2 receive-policy failures remain under `http2.peer_limit.*`.
 
 ## Evidence
 

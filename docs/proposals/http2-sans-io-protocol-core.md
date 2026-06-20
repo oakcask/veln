@@ -347,8 +347,11 @@ CONTINUATION. Completed HEADERS and final CONTINUATION paths reach that long
 string-length fixture boundary before the local header-list receive limit
 rejects the decoded long values. It rejects non-visible raw bytes,
 malformed string length including non-terminating string-length continuations,
-and a malformed raw `:status` literal through
-`hpack.fixture.unsupported_header_block`. Malformed Huffman padding uses the
+and a malformed raw `:status` literal through focused HPACK fixture ids.
+Malformed string-length encodings use
+`hpack.fixture.malformed_string_length`; malformed raw string values on
+supported literal-name forms use
+`hpack.fixture.malformed_raw_string_value`. Malformed Huffman padding uses the
 focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS and Huffman
 strings whose decoded bytes are not visible ASCII use focused
 `hpack.fixture.huffman_eos_symbol` and
@@ -411,9 +414,10 @@ that repeats the current fixture table size, through
 size, frame kind, stream id, receive-limit provenance, and rule provenance.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates and table-size updates with trailing bytes after a complete integer,
-remain on `hpack.fixture.unsupported_header_block`. Malformed Huffman padding,
-Huffman EOS, and Huffman strings whose decoded bytes are not visible ASCII use
-their focused HPACK fixture diagnostic ids.
+remain on `hpack.fixture.unsupported_header_block`. Malformed string lengths,
+malformed raw string values on supported literal-name forms, malformed Huffman
+padding, Huffman EOS, and Huffman strings whose decoded bytes are not visible
+ASCII use their focused HPACK fixture diagnostic ids.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
@@ -700,7 +704,7 @@ and
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding
-plus the focused unsupported-Huffman fixture diagnostics,
+and beyond the focused fixture diagnostics for malformed Huffman inputs,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request and
 response header-name shape, the source-visible `te` value rule, and the

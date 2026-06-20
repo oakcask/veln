@@ -25,6 +25,8 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	MalformedStringLength(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	MalformedRawStringValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	HuffmanEosSymbol(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
@@ -625,6 +627,18 @@ end
 
 fn malformed_huffman_padding_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
 	Err(MalformedHuffmanPadding(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman padding", "hpack_fixture", block))
+end
+
+fn malformed_string_length(block: ByteChunk, offset: Int) -> Result<HpackStringLength, HpackFixtureFailure>
+	Err(MalformedStringLength(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK string length", "hpack_fixture", block))
+end
+
+fn malformed_string_length_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	Err(MalformedStringLength(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK string length", "hpack_fixture", block))
+end
+
+fn malformed_raw_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	Err(MalformedRawStringValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK raw string value", "hpack_fixture", block))
 end
 
 fn huffman_eos_symbol(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -1822,7 +1836,7 @@ end
 fn string_length_from_prefix_result(huffman_marked: Bool, result: Result<HpackIntegerPrefix, HpackFixtureFailure>) -> Result<HpackStringLength, HpackFixtureFailure>
 	match result
 		Ok(prefix) => Ok(string_length_from_integer(huffman_marked, prefix))
-		Err(failure) => Err(failure)
+		Err(_) => Err(MalformedStringLength(0, 0, -1, "fixture HPACK string length", "hpack_fixture", byte_chunk([])))
 	end
 end
 
@@ -1834,7 +1848,10 @@ fn decode_hpack_string_length_at(block: ByteChunk, observed_size: Int, index: In
 	let value_count: Int = byte_at_or_missing(block, index)
 	let encoded_count: Int = low_seven_bits(value_count)
 	let huffman_marked: Bool = value_count >= 128
-	string_length_from_prefix_result(huffman_marked, decode_hpack_prefixed_integer(encoded_count, 127, block, observed_size, index + 1, offset))
+	match string_length_from_prefix_result(huffman_marked, decode_hpack_prefixed_integer(encoded_count, 127, block, observed_size, index + 1, offset))
+		Ok(length) => Ok(length)
+		Err(_) => malformed_string_length(block, offset)
+	end
 end
 
 fn decode_hpack_string_literal_value(block: ByteChunk, length: HpackStringLength, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
@@ -1844,7 +1861,7 @@ fn decode_hpack_string_literal_value(block: ByteChunk, length: HpackStringLength
 		true => decode_hpack_huffman_literal_value(block, encoded_count, prefix_size, offset)
 		false => match encoded_count > 0
 			true => no_huffman_literal_raw_value(block, encoded_count, prefix_size, offset)
-			false => unsupported_string_literal(block, offset)
+			false => malformed_raw_string_literal(block, offset)
 		end
 	end
 end
@@ -1856,15 +1873,15 @@ fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, prefix_size:
 				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
 					Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
 						Ok(value) => Ok(HpackStringLiteral(value, value_count + prefix_size))
-						Err(_) => unsupported_string_literal(block, offset)
+						Err(_) => malformed_raw_string_literal(block, offset)
 					end
-					Err(_) => unsupported_string_literal(block, offset)
+					Err(_) => malformed_raw_string_literal(block, offset)
 				end
-				Err(_) => unsupported_string_literal(block, offset)
+				Err(_) => malformed_raw_string_literal(block, offset)
 			end
-			Err(_) => unsupported_string_literal(block, offset)
+			Err(_) => malformed_raw_string_literal(block, offset)
 		end
-		Err(_) => unsupported_string_literal(block, offset)
+		Err(_) => malformed_raw_string_literal(block, offset)
 	end
 end
 
@@ -1872,7 +1889,10 @@ fn decode_hpack_string_literal_at(block: ByteChunk, observed_size: Int, index: I
 	match decode_hpack_string_length_at(block, observed_size, index, offset)
 		Ok(length) => match observed_size == string_length_prefix_size(length) + string_length_encoded_count(length)
 			true => decode_hpack_string_literal_value(block, length, offset)
-			false => unsupported_string_literal(block, offset)
+			false => match string_length_huffman_marked(length)
+				true => malformed_string_length_literal(block, offset)
+				false => malformed_raw_string_literal(block, offset)
+			end
 		end
 		Err(failure) => Err(failure)
 	end
@@ -2725,6 +2745,8 @@ end
 pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		MalformedStringLength(offset, _, _, _, _, _) => offset
+		MalformedRawStringValue(offset, _, _, _, _, _) => offset
 		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
 		HuffmanEosSymbol(offset, _, _, _, _, _) => offset
 		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
@@ -2735,6 +2757,8 @@ end
 pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		MalformedStringLength(_, observed_size, _, _, _, _) => observed_size
+		MalformedRawStringValue(_, observed_size, _, _, _, _) => observed_size
 		MalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
 		HuffmanEosSymbol(_, observed_size, _, _, _, _) => observed_size
 		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
@@ -2745,6 +2769,8 @@ end
 pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		MalformedStringLength(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		MalformedRawStringValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		HuffmanEosSymbol(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
@@ -2755,6 +2781,8 @@ end
 pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => 0
+		MalformedStringLength(_, _, _, _, _, _) => 0
+		MalformedRawStringValue(_, _, _, _, _, _) => 0
 		MalformedHuffmanPadding(_, _, _, _, _, _) => 0
 		HuffmanEosSymbol(_, _, _, _, _, _) => 0
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => 0
@@ -2765,6 +2793,8 @@ end
 pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		MalformedStringLength(_, _, _, expected_fixture, _, _) => expected_fixture
+		MalformedRawStringValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedHuffmanPadding(_, _, _, expected_fixture, _, _) => expected_fixture
 		HuffmanEosSymbol(_, _, _, expected_fixture, _, _) => expected_fixture
 		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
@@ -2775,6 +2805,8 @@ end
 pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		MalformedStringLength(_, _, _, _, codec_module, _) => codec_module
+		MalformedRawStringValue(_, _, _, _, codec_module, _) => codec_module
 		MalformedHuffmanPadding(_, _, _, _, codec_module, _) => codec_module
 		HuffmanEosSymbol(_, _, _, _, codec_module, _) => codec_module
 		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
@@ -2785,6 +2817,8 @@ end
 pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		MalformedStringLength(_, _, _, _, _, preview) => preview
+		MalformedRawStringValue(_, _, _, _, _, preview) => preview
 		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
 		HuffmanEosSymbol(_, _, _, _, _, preview) => preview
 		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
@@ -2797,6 +2831,8 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedStringLength(_, _, _, _, _, _) => hpack_fixture_malformed_string_length(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedRawStringValue(_, _, _, _, _, _) => hpack_fixture_malformed_raw_string_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		HuffmanEosSymbol(_, _, _, _, _, _) => hpack_fixture_huffman_eos_symbol(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)

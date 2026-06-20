@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[hpack.fixture.malformed_raw_string_value]: malformed HPACK raw string value at byte offset 9", "note: HPACK fixture codec `hpack_fixture` observed header block size 5 and first byte 8.", "note: Nearby bytes: 08 03 32 1f 30 (showing 5 of 5 byte(s), complete).", "note: Expected fixture HPACK raw string value."]
