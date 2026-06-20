@@ -877,9 +877,15 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-nested-decode/`: generated schema decode helpers
   read a bounded `Repeat(count_field, SchemaName)` field into a list of nested
   decoded records.
+- `run/binary-schema-imported-repeat-nested-decode/`: generated schema decode
+  helpers read a bounded `Repeat(count_field, module::SchemaName)` field into
+  a list of imported public nested decoded records.
 - `run/binary-schema-repeat-nested-truncated-json/`: repeated nested schema
   truncation reports `schema.truncated_field` with the repeated field path,
   element `index`, and nested schema field path.
+- `run/binary-schema-imported-repeat-nested-truncated-json/`: imported
+  repeated nested schema truncation reports the repeated field path, element
+  `index`, and imported nested schema field path.
 - `run/binary-schema-repeat-byteview-decode/`: generated schema decode helpers
   read a bounded `Repeat(count_field, ByteView(length_field))` field into a
   `List<ByteView>`.
@@ -1105,6 +1111,9 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-nested-encode/`: generated schema encode helpers
   write a bounded `Repeat(count_field, SchemaName)` list field by invoking the
   nested schema helper for each record.
+- `run/binary-schema-imported-repeat-nested-encode/`: generated schema encode
+  helpers write a bounded `Repeat(count_field, module::SchemaName)` list field
+  by invoking the imported public nested schema helper for each record.
 - `run/binary-schema-repeat-nested-encode-failure/`: repeated nested schema
   encode failures prefix the nested field path with the repeated field and
   element index.

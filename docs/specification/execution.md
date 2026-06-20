@@ -413,6 +413,7 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-nested-decode/`,
   `examples/specification/run/binary-schema-imported-repeat-nested-decode/`,
   `examples/specification/run/binary-schema-repeat-nested-truncated-json/`,
+  `examples/specification/run/binary-schema-imported-repeat-nested-truncated-json/`,
   `examples/specification/run/binary-schema-repeat-byteview-decode/`, and
   `examples/specification/run/binary-schema-repeat-byteview-truncated-json/`.
 - Generated binary schema decode helpers support byte-aligned

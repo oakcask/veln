@@ -320,6 +320,9 @@ nested element representation, and repeated byte-view element length
 mismatches through `EncodeError`; element failures append an index segment
 before nested schema field path segments or at the repeated byte-view element
 path.
+The completed nested schema payload part of this repeat slice is archived under
+`../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md`;
+current behavior is specified under `../specification/`.
 The generated length-bounded byte payload slice is implemented as
 `ByteView(length_field)`, `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, and
