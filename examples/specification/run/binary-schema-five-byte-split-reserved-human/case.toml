@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.reserved_bits_mismatch]: reserved bits mismatch at byte offset 0", "note: ReservedBits(10, 682) expected value 682; actual value was 683.", "note: Nearby bytes: b5 5c 6a aa b6 (showing 5 of 5 byte(s), complete).", "note: Field path: schema `FiveByteSplitReservedHeader` / field `guard`."]

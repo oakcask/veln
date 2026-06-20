@@ -269,7 +269,7 @@ byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
-twenty-four, or thirty-two bits,
+twenty-four, thirty-two, or forty bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` and

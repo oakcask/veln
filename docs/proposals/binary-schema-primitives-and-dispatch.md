@@ -78,11 +78,11 @@ report the same reserved-bit mismatch, truncation, and
 Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
 group contains at least one visible field and at least one reserved field and
-the declared widths complete one byte or one two-byte, three-byte, or
-four-byte big-endian storage unit. The helpers validate or emit each reserved
-field at its declared position, omit reserved fields from decoded records and
-mapping source values, preserve visible fields in declaration order, and
-report the same reserved-bit mismatch, truncation, and
+the declared widths complete one byte or one two-byte, three-byte, four-byte,
+or five-byte big-endian storage unit. The helpers validate or emit each
+reserved field at its declared position, omit reserved fields from decoded
+records and mapping source values, preserve visible fields in declaration
+order, and report the same reserved-bit mismatch, truncation, and
 `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema
 helpers also decode and encode standalone visible
@@ -379,7 +379,7 @@ for:
   four-byte reserved prefix widths twenty-five through thirty-one, and
   consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
-  one two-byte, three-byte, or four-byte big-endian storage unit
+  one two-byte, three-byte, four-byte, or five-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset,
   two-byte big-endian `Flag16be` bitset, two-byte little-endian `Flag16le`
   bitset, four-byte big-endian `Flag32be` bitset, and four-byte little-endian
@@ -571,10 +571,10 @@ twenty-five through thirty-one, the narrow two-byte byte-interleaved middle
 layout with a sub-byte visible field, a sub-byte reserved field, `UInt8`, and
 a final sub-byte visible field, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
-two-byte, three-byte, or four-byte big-endian storage unit are implemented under
-`../specification/execution.md`. Remaining proposal work is limited to
-non-byte-aligned shapes outside those layouts and any later opt-in mapping
-exposure.
+two-byte, three-byte, four-byte, or five-byte big-endian storage unit are
+implemented under `../specification/execution.md`. Remaining proposal work is
+limited to non-byte-aligned shapes outside those layouts and any later opt-in
+mapping exposure.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable
