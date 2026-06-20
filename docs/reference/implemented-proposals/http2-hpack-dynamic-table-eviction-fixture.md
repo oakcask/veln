@@ -110,7 +110,8 @@ unsupported fixture path.
   continuation-byte dynamic-name literal-with-indexing for retained dynamic
   indexes `63`, `64`, and `127`, dynamic-index `63`
   literal-without-indexing and literal-never-indexed forms without
-  replacement insertion,
+  replacement insertion, dynamic-index `127` literal-without-indexing and
+  literal-never-indexed forms without replacement insertion,
   generalized dynamic indexed lookup,
   oldest-first table-size eviction, the accepted-entry-size eviction case, and
   the fixture-boundary table-size update slice.

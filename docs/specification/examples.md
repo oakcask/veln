@@ -1899,8 +1899,8 @@ case checks the one-continuation indexed-name forms `0x0f 0x30 0x03 "/no"`
 and `0x1f 0x30 0x07 "/secret"` for dynamic index `63`; both reuse
 `:path`, decode the visible-ASCII values, advance the fixture decode count,
 and leave later `0xbe` and `0xbf` reads pointed at the prior `:method: PUT`
-and `:path: /target` entries. The fixture-codec boundary also covers dynamic
-index value `127` for those two non-inserting forms with
+and `:path: /target` entries. The HTTP/2 protocol-core case also covers
+dynamic index value `127` for those two non-inserting forms with
 `0x0f 0x70 0x05 "/skip"` and `0x1f 0x70 0x07 "/secret"`, then proves a later
 `0xff` read still observes the older retained `:path: /a` entry. A
 literal-never-indexed decode without a prior
