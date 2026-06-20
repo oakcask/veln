@@ -349,7 +349,11 @@ rejects the decoded long values. It rejects non-visible raw bytes,
 malformed string length including non-terminating string-length continuations,
 and a malformed raw `:status` literal through
 `hpack.fixture.unsupported_header_block`. Malformed Huffman padding uses the
-focused `hpack.fixture.malformed_huffman_padding` id. Checked bytes include
+focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS and Huffman
+strings whose decoded bytes are not visible ASCII use focused
+`hpack.fixture.huffman_eos_symbol` and
+`hpack.fixture.huffman_non_visible_value` ids while remaining outside full
+HPACK support. Checked bytes include
 zero-length `:path`
 as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
@@ -406,10 +410,10 @@ that repeats the current fixture table size, through
 `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
 size, frame kind, stream id, receive-limit provenance, and rule provenance.
 Unsupported HPACK bytes, including malformed non-terminating table-size
-updates, table-size updates with trailing bytes after a complete integer,
-Huffman EOS, or Huffman strings whose decoded bytes are not visible ASCII,
-remain on `hpack.fixture.unsupported_header_block`. Malformed Huffman padding
-uses `hpack.fixture.malformed_huffman_padding`.
+updates and table-size updates with trailing bytes after a complete integer,
+remain on `hpack.fixture.unsupported_header_block`. Malformed Huffman padding,
+Huffman EOS, and Huffman strings whose decoded bytes are not visible ASCII use
+their focused HPACK fixture diagnostic ids.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
@@ -690,11 +694,13 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
-behavior beyond visible-ASCII fixture string literal decoding and encoding,
+behavior beyond visible-ASCII fixture string literal decoding and encoding
+plus the focused unsupported-Huffman fixture diagnostics,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request and
 response header-name shape, the source-visible `te` value rule, and the

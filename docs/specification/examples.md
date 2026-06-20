@@ -1926,9 +1926,13 @@ limit rejects the decoded size. It rejects non-visible raw bytes, malformed
 string length including non-terminating string-length continuations, malformed
 raw `:status` literals, and unsupported HPACK Huffman forms. Malformed
 Huffman padding has the focused id
-`hpack.fixture.malformed_huffman_padding` and is checked through completed
-HEADERS and final CONTINUATION paths. It does not implement general HPACK
-behavior beyond the fixture boundary. Checked HEADERS bytes
+`hpack.fixture.malformed_huffman_padding`. Huffman EOS used as a decoded symbol
+has `hpack.fixture.huffman_eos_symbol`, and Huffman decoded bytes outside the
+fixture visible-ASCII header-value boundary have
+`hpack.fixture.huffman_non_visible_value`. The focused Huffman failures are
+checked through completed HEADERS or final CONTINUATION paths as appropriate.
+It does not implement general HPACK behavior beyond the fixture boundary.
+Checked HEADERS bytes
 include zero-length `:path` as `0x04 0x80`, `:path: test` as
 `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
@@ -2017,11 +2021,11 @@ evicts the older entries so `0xbf` stays unsupported. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed
-literal-without-indexing, malformed string-length continuations, Huffman EOS,
-and Huffman strings whose decoded bytes are not visible ASCII. Malformed
-Huffman padding stays on the HPACK fixture boundary but uses
-`hpack.fixture.malformed_huffman_padding`, and the focused JSON and human
-examples assert its bounded header-block byte preview.
+literal-without-indexing and malformed string-length continuations. Malformed
+Huffman padding, Huffman EOS, and Huffman strings whose decoded bytes are not
+visible ASCII stay on the HPACK fixture boundary but use focused `hpack.fixture.*`
+ids, and the focused JSON and human examples assert their bounded header-block
+byte previews.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
@@ -2172,6 +2176,10 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/case.toml`,
+`../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
+`../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
@@ -2195,6 +2203,10 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/case.toml`,
+`../../examples/specification/run/hpack-fixture-huffman-eos-json/`,
+`../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,

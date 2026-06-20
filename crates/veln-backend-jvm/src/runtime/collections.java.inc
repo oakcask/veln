@@ -3971,6 +3971,62 @@
         return err(message);
     }
 
+    public static Object hpackFixtureHuffmanEosSymbol(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
+        String message = "HPACK fixture Huffman EOS symbol at byte offset "
+            + byteOffset;
+        registerHpackFixtureHuffmanEosSymbolDiagnostic(
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            expected,
+            module,
+            nearbyContext
+        );
+        return err(message);
+    }
+
+    public static Object hpackFixtureHuffmanNonVisibleValue(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
+        String message = "HPACK fixture Huffman non-visible value at byte offset "
+            + byteOffset;
+        registerHpackFixtureHuffmanNonVisibleValueDiagnostic(
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            expected,
+            module,
+            nearbyContext
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_be", false);
     }

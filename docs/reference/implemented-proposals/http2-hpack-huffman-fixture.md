@@ -28,8 +28,9 @@ for `:authority: www.example.com`.
 
 The transition returns the same immutable `HpackFixtureState` shape and
 advances the decode count through the existing transition accessors.
-Huffman EOS and decoded non-visible bytes still project through
-`hpack.fixture.unsupported_header_block`. The later
+Huffman EOS and decoded non-visible bytes stay outside full HPACK support but
+now project through focused `hpack.fixture.huffman_eos_symbol` and
+`hpack.fixture.huffman_non_visible_value` diagnostics. The later
 [HPACK malformed Huffman padding diagnostic](http2-hpack-huffman-padding-diagnostic.md)
 record preserves the focused diagnostic id for malformed Huffman padding.
 
@@ -50,7 +51,16 @@ record preserves the focused diagnostic id for malformed Huffman padding.
   the focused malformed-padding diagnostic covered through the later
   implemented record. The broader HTTP/2 case also keeps the
   `:authority: www.example.com` Huffman fixture covered and checks
-  `:status: 200` through a final CONTINUATION path.
+  `:status: 200` through a final CONTINUATION path. It also checks focused
+  Huffman EOS through a final CONTINUATION path and focused non-visible
+  decoded bytes through a completed HEADERS path.
+- `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/`,
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/`,
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/`,
+  and
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/`
+  check the human and JSON command-output projection for the focused EOS and
+  non-visible decoded-byte diagnostics with stable preview fields.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

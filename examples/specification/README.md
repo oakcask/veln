@@ -1669,6 +1669,14 @@ against the built `veln` binary.
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
   and HTTP/2 frame-state diagnostics.
+- `run/http2-protocol-core-hpack-huffman-padding-human/`,
+  `run/http2-protocol-core-hpack-huffman-padding-json/`,
+  `run/http2-protocol-core-hpack-huffman-eos-human/`,
+  `run/http2-protocol-core-hpack-huffman-eos-json/`,
+  `run/http2-protocol-core-hpack-huffman-non-visible-human/`, and
+  `run/http2-protocol-core-hpack-huffman-non-visible-json/`: focused HPACK
+  fixture Huffman failures project through stable human and JSON runtime
+  diagnostics with bounded header-block previews.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded`, `Partial`, and

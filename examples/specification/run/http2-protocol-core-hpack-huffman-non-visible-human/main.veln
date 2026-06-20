@@ -1,0 +1,7 @@
+# HTTP/2 HPACK Huffman non-visible values project to human runtime diagnostics.
+
+pub fn main() -> Result<(), String>
+	let block: ByteChunk = byte_chunk_from_hex("0482ffc7")?
+	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
+	hpack_fixture_huffman_non_visible_value(9, 4, 4, "fixture HPACK Huffman visible ASCII header value", "hpack_fixture", preview)
+end

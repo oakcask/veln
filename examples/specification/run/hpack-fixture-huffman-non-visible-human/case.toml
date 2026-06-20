@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.huffman_non_visible_value]: HPACK Huffman decoded non-visible header value at byte offset 9", "note: HPACK fixture codec `hpack_fixture` observed header block size 4 and first byte 4.", "note: Nearby bytes: 04 82 ff c7 (showing 4 of 4 byte(s), complete).", "note: Expected fixture HPACK Huffman visible ASCII header value."]

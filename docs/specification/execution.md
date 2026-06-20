@@ -1601,11 +1601,15 @@ execution reference.
   Malformed string lengths including non-terminating string-length
   continuations, non-visible raw bytes, and a malformed raw `:status` literal
   remain unsupported. Malformed Huffman padding uses the focused
-  `hpack.fixture.malformed_huffman_padding` id with the same header-block byte
-  offset, observed size, observed first byte, codec module, and bounded
-  preview fields as other HPACK fixture diagnostics; the checked path covers
-  completed HEADERS and final CONTINUATION. This is still a fixture slice, not
-  full HPACK string or compression support. It also
+  `hpack.fixture.malformed_huffman_padding` id. Huffman EOS used as a decoded
+  symbol uses `hpack.fixture.huffman_eos_symbol`, and a Huffman string whose
+  decoded bytes are outside the visible-ASCII header-value fixture boundary
+  uses `hpack.fixture.huffman_non_visible_value`. Each focused HPACK fixture
+  diagnostic records the same header-block byte offset, observed size,
+  observed first byte, codec module, expected fixture, and bounded preview
+  fields as other HPACK fixture diagnostics; the checked paths cover completed
+  HEADERS or final CONTINUATION as appropriate. This is still a fixture slice,
+  not full HPACK string or compression support. It also
   includes the narrow dynamic-table slice where `0x44 0x07 "/target"`
   inserts `:path: /target` into the returned immutable fixture state stored on
   the HTTP/2 decode state
@@ -1684,13 +1688,14 @@ execution reference.
   succeeds, while `0xbf` stays on the unsupported fixture path. Unsupported
   fixture input, including malformed non-terminating table-size updates,
   table-size updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, Huffman EOS, and Huffman strings whose decoded
-  bytes are not visible ASCII, projects through
+  literal-without-indexing, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
-  module, and bounded header-block byte preview. Malformed Huffman padding
-  projects through `hpack.fixture.malformed_huffman_padding` with the same
-  fixture diagnostic shape. That diagnostic path is
+  module, and bounded header-block byte preview. Malformed Huffman padding,
+  Huffman EOS, and Huffman strings whose decoded bytes are not visible ASCII
+  stay on the HPACK fixture boundary but project through their focused
+  `hpack.fixture.*` ids with the same fixture diagnostic shape. That
+  diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;
   the HTTP/2 core still owns the local
   `http2.peer_limit.header_table_size_exceeded` and
