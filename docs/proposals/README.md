@@ -131,6 +131,9 @@ compare it with `../specification/` before changing behavior.
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
+  The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
+  followed by `UInt8` is archived under
+  [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

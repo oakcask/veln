@@ -258,7 +258,8 @@ primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
 `Flag32be`, `Flag32le`, `Flag64be`, and `Flag64le` bitset fields, supported
 byte-aligned `ReservedBits(width, value)` fields,
-the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
+the supported `ReservedBits(1, 0)` before `UInt31be` layout, the supported
+`ReservedBits(2, 0)` before `UInt8` byte-prefix layout, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,

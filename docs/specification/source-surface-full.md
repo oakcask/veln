@@ -262,7 +262,8 @@ schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, including standalone
 `UInt1` through `UInt7` fields that consume one byte each, plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
-`ReservedBits(1, 0)` before `UInt31be` layout, supported packed
+`ReservedBits(1, 0)` before `UInt31be` layout, the supported
+`ReservedBits(2, 0)` before `UInt8` byte-prefix layout, supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
 eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
 reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or

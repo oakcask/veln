@@ -938,7 +938,8 @@ slices expose
 `byte_encode_<schema>` helpers for eligible binary schemas whose
 source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
-`ReservedBits(1, 0)` before `UInt31be` layout, supported packed
+`ReservedBits(1, 0)` before `UInt31be` layout, the supported
+`ReservedBits(2, 0)` before `UInt8` byte-prefix layout, supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, or four
@@ -976,7 +977,10 @@ bounded bytes, or a structured encode error. The
 supported reserved-bit encode layout omits byte-aligned
 `ReservedBits(width, value)` fields from the value record and writes their
 declared fixed values. It also omits `ReservedBits(1, 0)` from the value
-record when it immediately precedes `UInt31be`; supported packed
+record when it immediately precedes `UInt31be`; it omits
+`ReservedBits(2, 0)` from the value record when it immediately precedes
+`UInt8` and writes the declared reserved bits, visible byte, and zero low
+padding bits in one two-byte bitstream slice; supported packed
 prefix layouts omit the reserved field and write the declared high bits with
 the visible low-bit record field in the shared storage unit. Supported suffix
 layouts omit the reserved field and write the visible high-bit record field
