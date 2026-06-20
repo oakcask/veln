@@ -155,10 +155,14 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	print_transition("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84))
 	print_transition("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87))
 	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
+	print_transition("literal-never-indexed-authority", decode_header_block(byte_chunk_from_hex("11086162632e74657374")?, initial, 95))
+	print_transition("literal-never-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("16849d29ad1f")?, initial, 96))
 	print_transition("literal-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("017f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 91))
 	print_transition("literal-path-huffman-long-length", decode_header_block(byte_chunk_from_hex("04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?, initial, 92))
 	print_transition("literal-indexed-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("417f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 93))
 	print_transition("literal-indexed-path-huffman-long-length", decode_header_block(byte_chunk_from_hex("44ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?, initial, 94))
+	print_transition("literal-never-indexed-authority-raw-long-length", decode_header_block(byte_chunk_from_hex("117f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")?, initial, 97))
+	print_transition("literal-never-indexed-path-huffman-long-length", decode_header_block(byte_chunk_from_hex("14ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?, initial, 98))
 	print_transition("malformed-literal-continuation-length", decode_header_block(byte_chunk_from_hex("04ff80")?, literal_state, 91))
 	print_transition("malformed-literal-length", decode_header_block(byte_chunk_from_hex("04ff")?, literal_state, 83))
 	print_transition("malformed-status-huffman-padding", decode_header_block(byte_chunk_from_hex("08821000")?, initial, 90))
@@ -295,6 +299,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("literal-status", literal_status)
 	let ignored_raw_string_encode_cases: () = print_raw_string_encode_cases()?
 	let ignored_general_string_literal_cases: () = print_general_string_literal_cases(initial, literal_state)?
+	let literal_never_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("14072f746172676574")?, initial, 99)
+	print_transition("literal-never-indexed-path", literal_never_indexed_path)
+	print_transition("literal-never-indexed-dynamic-missing", decode_header_block(byte_chunk_from_hex("be")?, next_state_or(literal_never_indexed_path, initial), 100))
 	let literal_indexed_state: HpackFixtureState = next_state_or(literal_status, literal_status_state)
 	let literal_indexed_path_block: ByteChunk = byte_chunk_from_hex("44072f746172676574")?
 	let literal_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, literal_indexed_state, 68)

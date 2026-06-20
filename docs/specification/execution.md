@@ -1423,8 +1423,9 @@ execution reference.
 	  `retry-after:`, `0xb6` `server:`, `0xb7` `set-cookie:`, `0xb8`
 	  `strict-transport-security:`, `0xb9` `transfer-encoding:`, `0xba`
 	  `user-agent:`, `0xbb` `vary:`, `0xbc` `via:`, and `0xbd`
-	  `www-authenticate:` bytes, plus literal-without-indexing and
-	  literal-with-indexing fixtures whose first byte names a supported
+	  `www-authenticate:` bytes, plus literal-without-indexing,
+	  literal-with-indexing, and literal-never-indexed fixtures whose first
+	  byte names a supported
   static-table header name for `:authority`, `:method`, `:path`, `:scheme`,
   or `:status`. Those literal fixtures share the same HPACK string literal
   decoder: short raw values must be visible ASCII, and Huffman-marked values
@@ -1433,8 +1434,9 @@ execution reference.
   The same decoder accepts the fixture-boundary string-length integer
   continuation form for supported literal names: checked raw and
   Huffman-marked long values use a saturated seven-bit length prefix plus one
-  continuation byte through literal-without-indexing and literal-with-indexing
-  blocks. The long Huffman fixture remains a deterministic fixture case, not
+  continuation byte through literal-without-indexing, literal-with-indexing,
+  and literal-never-indexed blocks. The long Huffman fixture remains a
+  deterministic fixture case, not
   general HPACK Huffman streaming support.
   The same ordinary fixture module exposes
   `encode_hpack_raw_string_literal` for fixture-owned raw string literals:
@@ -1470,7 +1472,8 @@ execution reference.
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
   Huffman `:status: 200` through completed HEADERS and final CONTINUATION,
   Huffman `:method: PUT` through both literal-without-indexing and
-  literal-with-indexing, raw literal-with-indexing `:authority`, Huffman
+  literal-with-indexing, raw literal-never-indexed `:path` through completed
+  HEADERS and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. Checked bytes also include zero-length `:path` as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
@@ -1478,6 +1481,11 @@ execution reference.
   `0x08 0x82 0x10 0x01`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
+  The focused HPACK boundary also checks raw literal-never-indexed
+  `:authority: abc.test` as `0x11 0x08 "abc.test"`, Huffman-marked
+  literal-never-indexed `:scheme: https` as
+  `0x16 0x84 0x9d 0x29 0xad 0x1f`, and the same long raw and Huffman-marked
+  string-length boundary through literal-never-indexed forms.
   The completed HEADERS path checks a valid long raw literal before the local
   header-list receive limit rejects its decoded size; the final CONTINUATION
   path checks the same boundary for a valid long Huffman-marked literal.
@@ -1496,7 +1504,11 @@ execution reference.
   `0xbe` reads the newest `:scheme: https` entry, `0xbf` reads the second
   `:method: PUT` entry, and `0xc0` reads the third retained
   `:path: /target` entry. Completed HEADERS and final CONTINUATION paths both
-  carry that HPACK state before later header blocks are decoded. It also accepts
+  carry that HPACK state before later header blocks are decoded. A
+  literal-never-indexed decode advances the immutable fixture decode count but
+  does not insert a dynamic-table entry, so a later `0xbe` lookup from that
+  returned state remains unsupported unless a previous literal-with-indexing
+  block inserted an entry. It also accepts
   dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update

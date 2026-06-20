@@ -312,15 +312,17 @@ bytes plus the static indexed `accept-charset:`,
 	`referer:`, `refresh:`, `retry-after:`, `server:`, `set-cookie:`,
 	`strict-transport-security:`, `transfer-encoding:`, `user-agent:`,
 	`vary:`, `via:`, and
-	`www-authenticate:` header bytes, plus literal-without-indexing and
-literal-with-indexing fixtures whose first byte names a supported static-table
+	`www-authenticate:` header bytes, plus literal-without-indexing,
+literal-with-indexing, and literal-never-indexed fixtures whose first byte
+names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
 Those literal fixtures share the HPACK string literal decoder for short
 visible-ASCII raw values and Huffman-marked values decoded by
 the HPACK static Huffman table. The same fixture decoder accepts one
 continuation byte after a saturated seven-bit string-length prefix for checked
-long raw and Huffman-marked values on supported literal names, through both
-literal-without-indexing and literal-with-indexing forms. The executable slice
+long raw and Huffman-marked values on supported literal names, through
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+forms. The executable slice
 covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` through
@@ -328,8 +330,9 @@ completed HEADERS, Huffman `:method: PUT` through both literal-without-indexing
 and literal-with-indexing, Huffman `:status: 200` through completed HEADERS
 and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
-`:status`. Completed HEADERS and final CONTINUATION paths reach that long
-string-length fixture boundary before the local header-list receive limit
+`:status`, plus raw literal-never-indexed `:path` through completed HEADERS
+and final CONTINUATION. Completed HEADERS and final CONTINUATION paths reach
+that long string-length fixture boundary before the local header-list receive limit
 rejects the decoded long values. It rejects
 non-visible raw bytes, malformed string length including non-terminating
 string-length continuations, malformed Huffman padding, and a malformed raw
@@ -339,6 +342,10 @@ as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:status: 200` as `0x08 0x82 0x10 0x01`, and
 literal-without-indexing `:authority: www.example.com` as
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
+The focused HPACK boundary also checks raw literal-never-indexed
+`:authority: abc.test`, Huffman-marked literal-never-indexed
+`:scheme: https`, and long raw and Huffman-marked literal-never-indexed
+string-length boundaries.
 In completed HEADERS or final CONTINUATION frames, the fixture returns
 ordinary header-list data through the same accessors as the deterministic
 fixture-label blocks, advances immutable fixture state, and also covers one
@@ -353,7 +360,8 @@ bounded fixture dynamic-table entries while older entries remain addressable
 when the table has room. The fixture carries that state through both completed
 HEADERS and final CONTINUATION paths, decodes the newest entry through
 `0xbe`, the second retained entry through `0xbf`, the third retained entry
-through `0xc0`, and keeps dynamic entries evicted by a reduced fixture table
+through `0xc0`, keeps literal-never-indexed decodes from inserting dynamic
+entries, and keeps dynamic entries evicted by a reduced fixture table
 size on the unsupported fixture path. Reducing the fixture table size to `86`
 keeps the newest two supported entries and evicts the third retained entry;
 reducing the fixture table size to `42` keeps the newest supported
