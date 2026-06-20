@@ -1325,7 +1325,8 @@ execution reference.
   header-block boundary, local header-list receive-limit checks after fixture
   decoding, zero-length SETTINGS ACK frames that clear outstanding local
   SETTINGS state,
-  zero-length SETTINGS ACK frames with no outstanding local SETTINGS state,
+  zero-length SETTINGS ACK frames with no outstanding local SETTINGS state
+  and bounded inspected frame-header previews,
   wrong-length SETTINGS ACK payloads with bounded inspected-payload previews,
   stream id domain failures including HEADERS and CONTINUATION on the
   connection stream with bounded inspected frame-header previews, invalid
@@ -1620,7 +1621,8 @@ execution reference.
   A valid received SETTINGS ACK when no local SETTINGS batch is outstanding
   fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
-  provenance in related context.
+  provenance in related context, plus a bounded byte preview for the
+  inspected frame header.
 - The same HTTP/2 protocol-core example also covers the narrow outbound PING
   ACK send-intent. After a valid inbound non-ACK PING frame, ordinary source
   reuses the frame-header encode path to construct exactly one immutable

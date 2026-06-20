@@ -360,7 +360,8 @@
         String message,
         long byteOffset,
         String activeState,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -371,6 +372,7 @@
                     DiagnosticDetail.number("frame_kind", 4),
                     DiagnosticDetail.number("stream_id", 0),
                     DiagnosticDetail.string("stream_ref", "connection"),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", activeState),
                     DiagnosticDetail.string("rule_provenance", ruleProvenance)
                 )

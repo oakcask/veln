@@ -3382,7 +3382,8 @@
     public static Object http2ProtocolUnexpectedSettingsAck(
         Object offset,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         String state = asString(activeState);
@@ -3392,7 +3393,8 @@
             message,
             byteOffset,
             state,
-            provenance
+            provenance,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }

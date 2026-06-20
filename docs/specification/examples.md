@@ -1674,7 +1674,8 @@ of preserved as an unknown extension frame and `PUSH_PROMISE` on the
 connection stream rejected by the existing stream id domain route. It also
 pins zero-length SETTINGS ACK on the connection stream, a valid SETTINGS ACK
 clearing outstanding local SETTINGS state, an unexpected SETTINGS ACK with no
-outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack`,
+outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack` with a
+bounded inspected frame-header byte preview,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures with inspected-payload byte previews, a PRIORITY
