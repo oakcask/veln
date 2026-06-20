@@ -2027,6 +2027,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
@@ -2046,6 +2047,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
@@ -2074,16 +2076,19 @@ PRIORITY dependency stream id, structured bounded PRIORITY payload byte
 preview fields, and rule provenance. The
 request-header projection cases cover missing required request pseudo-headers,
 response-only `:status` pseudo-headers, duplicate request pseudo-headers, and
-request pseudo-headers after regular headers on inbound requests, with decoded
-header names carried as related context or structured JSON details. The
+request pseudo-headers after regular headers, uppercase ordinary header names,
+and ordinary header names outside the HTTP field-name token shape on inbound
+requests, with decoded header names carried as related context or structured
+JSON details. The
 response-header projection cases cover missing and duplicate `:status`,
 request-only pseudo-headers, and response pseudo-headers after regular
 headers, with the same JSON detail and human related-note shape. The larger
 protocol-core case also checks an accepted fixture-marked request header list,
 a final CONTINUATION path missing `:method`, a completed HEADERS path
 containing response-only `:status`, a duplicate `:method`, and a `:method`
-after a regular `host` header, plus an accepted fixture-marked response header
-list, a final CONTINUATION path missing `:status`, duplicate `:status`,
+after a regular `host` header, plus uppercase and token-invalid ordinary
+request header names. It also checks an accepted fixture-marked response
+header list, a final CONTINUATION path missing `:status`, duplicate `:status`,
 request-only `:method` and `:authority`, and `:status` after a regular
 `server` header. The focused frame-kind, stream-id, and `PUSH_PROMISE`
 projection examples declare

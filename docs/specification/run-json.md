@@ -388,8 +388,10 @@ request header-list validation failures use id
 `failed_header_fact`, `header_name`, `decoded_header_names`,
 `active_state`, and `rule_provenance`. The checked projections cover a
 missing required request pseudo-header, a response-only `:status`
-pseudo-header, a duplicate request pseudo-header, and a request pseudo-header
-after a regular header on an inbound request; the larger protocol-core fixture
+pseudo-header, a duplicate request pseudo-header, a request pseudo-header
+after a regular header, an uppercase ordinary header name, and an ordinary
+header name outside the HTTP field-name token shape on an inbound request; the
+larger protocol-core fixture
 also checks the integrated completed HEADERS and final CONTINUATION paths.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured

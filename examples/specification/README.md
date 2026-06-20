@@ -1819,7 +1819,9 @@ against the built `veln` binary.
   failure, request-header validation for a fixture-marked request header list,
   missing `:method` on a final CONTINUATION path, response-only `:status`
   on a completed HEADERS path, a duplicate `:method`, and a `:method` after
-  a regular `host` header, stream id domain failures including HEADERS
+  a regular `host` header, while also accepting a request with a lowercase
+  ordinary `host` header and rejecting uppercase and token-invalid ordinary
+  request header names, stream id domain failures including HEADERS
   and CONTINUATION on the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
   peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an

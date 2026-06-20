@@ -1561,8 +1561,9 @@ execution reference.
   fixture decoding. Fixture-marked request header lists are validated after
   that HPACK fixture decode on completed HEADERS and final CONTINUATION paths.
   Duplicate request pseudo-headers, request pseudo-headers after regular
-  headers, missing `:method`, `:scheme`, or `:path`, and response-only
-  `:status` on an inbound request project through
+  headers, missing `:method`, `:scheme`, or `:path`, response-only
+  `:status`, uppercase ordinary header names, and ordinary header names
+  outside the HTTP field-name token shape on an inbound request project through
   `http2.protocol.invalid_request_header_list`. Its primary message names the
   failed header-list fact; decoded header names, stream id, frame kind, active
   state, and rule provenance remain structured details or related notes.
