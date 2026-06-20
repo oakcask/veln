@@ -5770,6 +5770,34 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-stateful-dynamic-indexed-older-path", older_path)
 	let ignored_older_path: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-older-path", older_path, "bf")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-older-path", older_path, method_state)
+	let dynamic_without_indexing_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060104000000090f30032f6e6f")?), method_state)?
+	print_step("hpack-stateful-without-indexing-dynamic-name-second-path-no", dynamic_without_indexing_second)
+	let ignored_dynamic_without_indexing_second: () = emit_header_block("http2-hpack-stateful-without-indexing-dynamic-name-second-path-no", dynamic_without_indexing_second, "0f30032f6e6f")?
+	print_hpack_transition_from_state("hpack-stateful-without-indexing-dynamic-name-second-path-no", dynamic_without_indexing_second, method_state)
+	let ignored_dynamic_without_indexing_header: () = require_hpack_transition_header(dynamic_without_indexing_second, method_state, ":path", "/no")?
+	let dynamic_without_indexing_state: Http2DecodeState = hpack_carry_only_state(step_state(dynamic_without_indexing_second))
+	let dynamic_without_indexing_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000bbe")?), dynamic_without_indexing_state)?
+	print_step("hpack-stateful-without-indexing-dynamic-name-second-newest", dynamic_without_indexing_newest)
+	print_hpack_transition_from_state("hpack-stateful-without-indexing-dynamic-name-second-newest", dynamic_without_indexing_newest, dynamic_without_indexing_state)
+	let ignored_dynamic_without_indexing_newest: () = require_hpack_transition_header(dynamic_without_indexing_newest, dynamic_without_indexing_state, ":method", "PUT")?
+	let dynamic_without_indexing_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000dbf")?), dynamic_without_indexing_state)?
+	print_step("hpack-stateful-without-indexing-dynamic-name-second-older", dynamic_without_indexing_older)
+	print_hpack_transition_from_state("hpack-stateful-without-indexing-dynamic-name-second-older", dynamic_without_indexing_older, dynamic_without_indexing_state)
+	let ignored_dynamic_without_indexing_older: () = require_hpack_transition_header(dynamic_without_indexing_older, dynamic_without_indexing_state, ":path", "/target")?
+	let dynamic_never_indexed_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a01040000000f1f30072f736563726574")?), method_state)?
+	print_step("hpack-stateful-never-indexed-dynamic-name-second-path-secret", dynamic_never_indexed_second)
+	let ignored_dynamic_never_indexed_second: () = emit_header_block("http2-hpack-stateful-never-indexed-dynamic-name-second-path-secret", dynamic_never_indexed_second, "1f30072f736563726574")?
+	print_hpack_transition_from_state("hpack-stateful-never-indexed-dynamic-name-second-path-secret", dynamic_never_indexed_second, method_state)
+	let ignored_dynamic_never_indexed_header: () = require_hpack_transition_header(dynamic_never_indexed_second, method_state, ":path", "/secret")?
+	let dynamic_never_indexed_state: Http2DecodeState = hpack_carry_only_state(step_state(dynamic_never_indexed_second))
+	let dynamic_never_indexed_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011be")?), dynamic_never_indexed_state)?
+	print_step("hpack-stateful-never-indexed-dynamic-name-second-newest", dynamic_never_indexed_newest)
+	print_hpack_transition_from_state("hpack-stateful-never-indexed-dynamic-name-second-newest", dynamic_never_indexed_newest, dynamic_never_indexed_state)
+	let ignored_dynamic_never_indexed_newest: () = require_hpack_transition_header(dynamic_never_indexed_newest, dynamic_never_indexed_state, ":method", "PUT")?
+	let dynamic_never_indexed_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000013bf")?), dynamic_never_indexed_state)?
+	print_step("hpack-stateful-never-indexed-dynamic-name-second-older", dynamic_never_indexed_older)
+	print_hpack_transition_from_state("hpack-stateful-never-indexed-dynamic-name-second-older", dynamic_never_indexed_older, dynamic_never_indexed_state)
+	let ignored_dynamic_never_indexed_older: () = require_hpack_transition_header(dynamic_never_indexed_older, dynamic_never_indexed_state, ":path", "/target")?
 	let literal_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000946849d29ad1f")?), method_state)?
 	print_step("hpack-stateful-literal-indexed-scheme-https-retained", literal_scheme)
 	let ignored_literal_scheme: () = emit_header_block("http2-hpack-stateful-literal-indexed-scheme-https-retained", literal_scheme, "46849d29ad1f")?

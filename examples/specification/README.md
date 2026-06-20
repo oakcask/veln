@@ -1801,8 +1801,11 @@ against the built `veln` binary.
   carry the immutable HPACK
   state from a literal-with-indexing insertion to a later dynamic indexed
   reference, replace the single-entry fixture table with a later `:method: PUT`
-  literal-with-indexing entry, retain that newest entry while evicting the
-  older path entry at table size `42`, reject the evicted older entry path,
+  literal-with-indexing entry, decode dynamic-index `63` non-inserting
+  literal-without-indexing and literal-never-indexed forms while preserving
+  later `0xbe` and `0xbf` reads of the existing `:method: PUT` and
+  `:path: /target` entries, retain that newest entry while evicting the older
+  path entry at table size `42`, reject the evicted older entry path,
   carry the replacement state through completed HEADERS and final
   CONTINUATION paths through the imported fixture codec, accept dynamic
   table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
