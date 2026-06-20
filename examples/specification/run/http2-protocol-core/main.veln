@@ -5693,6 +5693,23 @@ fn print_hpack_decoded(label: String, transition: HpackDecodeTransition) -> () e
 	stdio::println(int_to_string(hpack_fixture::state_decode_count(hpack_fixture::transition_state(transition))))
 end
 
+fn print_hpack_two_header_decoded(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
+	let headers: HpackHeaderList = hpack_fixture::transition_headers(transition)
+	stdio::print(label)
+	stdio::print(" hpack decoded ")
+	stdio::print(hpack_fixture::header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(hpack_fixture::header_list_first_value(headers))
+	stdio::print(" then ")
+	stdio::print(hpack_fixture::header_list_second_name(headers))
+	stdio::print(" ")
+	stdio::print(hpack_fixture::header_list_second_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(hpack_fixture::header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(hpack_fixture::state_decode_count(hpack_fixture::transition_state(transition))))
+end
+
 fn print_hpack_failed(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" hpack failed ")
@@ -5711,6 +5728,13 @@ end
 fn print_hpack_transition(label: String, step: Http2Step) -> () effects [stdio]
 	match hpack_fixture::decode_header_block(step_completed_header_block(step), hpack_fixture::initial_state(), step_offset(step))
 		Ok(transition) => print_hpack_decoded(label, transition)
+		Err(failure) => print_hpack_failed(label, failure)
+	end
+end
+
+fn print_hpack_two_header_transition(label: String, step: Http2Step) -> () effects [stdio]
+	match hpack_fixture::decode_header_block(step_completed_header_block(step), hpack_fixture::initial_state(), step_offset(step))
+		Ok(transition) => print_hpack_two_header_decoded(label, transition)
 		Err(failure) => print_hpack_failed(label, failure)
 	end
 end
@@ -6977,6 +7001,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-method", hpack_static_indexed_method)
 	let ignored_hpack_static_indexed_method: () = emit_header_block("http2-hpack-static-indexed-method", hpack_static_indexed_method, "82")?
 	print_hpack_transition("hpack-static-indexed-method", hpack_static_indexed_method)
+	let hpack_static_indexed_method_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000018284")?), state)?
+	print_step("hpack-static-indexed-method-path", hpack_static_indexed_method_path)
+	let ignored_hpack_static_indexed_method_path: () = emit_header_block("http2-hpack-static-indexed-method-path", hpack_static_indexed_method_path, "8284")?
+	print_hpack_two_header_transition("hpack-static-indexed-method-path", hpack_static_indexed_method_path)
 	let hpack_static_indexed_method_post: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000183")?), state)?
 	print_step("hpack-static-indexed-method-post", hpack_static_indexed_method_post)
 	let ignored_hpack_static_indexed_method_post: () = emit_header_block("http2-hpack-static-indexed-method-post", hpack_static_indexed_method_post, "83")?

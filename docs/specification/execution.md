@@ -1461,7 +1461,10 @@ execution reference.
 	  `retry-after:`, `0xb6` `server:`, `0xb7` `set-cookie:`, `0xb8`
 	  `strict-transport-security:`, `0xb9` `transfer-encoding:`, `0xba`
 	  `user-agent:`, `0xbb` `vary:`, `0xbc` `via:`, and `0xbd`
-	  `www-authenticate:` bytes, plus literal-without-indexing,
+	  `www-authenticate:` bytes. The same fixture boundary accepts the
+	  two-byte static-indexed block `0x82 0x84` as `:method: GET` followed
+	  by `:path: /`, preserving both headers in the source-visible
+	  `HpackHeaderList`, plus literal-without-indexing,
 	  literal-with-indexing, and literal-never-indexed fixtures whose first
 	  byte names a supported
   static-table header name for `:authority`, `:method`, `:path`, `:scheme`,

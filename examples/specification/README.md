@@ -1554,7 +1554,10 @@ against the built `veln` binary.
 	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
-	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
+	  bytes, plus the two-byte static-indexed block `0x82 0x84` as
+	  `:method: GET` followed by `:path: /` with both headers preserved in
+	  the fixture header list, plus literal-without-indexing and
+	  literal-with-indexing fixtures
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
   fixtures share the HPACK string literal decoder for visible-ASCII raw
@@ -1787,7 +1790,10 @@ against the built `veln` binary.
 	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
 	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
 	  `www-authenticate:`
-	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
+	  bytes, plus a completed HEADERS block carrying `0x82 0x84`
+	  through the HPACK fixture boundary as `:method: GET` followed by
+	  `:path: /` with both headers preserved in the fixture header list,
+	  plus literal-without-indexing and literal-with-indexing fixtures
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
   fixtures share the HPACK string literal decoder for visible-ASCII raw
