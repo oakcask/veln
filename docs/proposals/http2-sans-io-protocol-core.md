@@ -363,7 +363,10 @@ HEADERS and final CONTINUATION paths, decodes the newest entry through
 `0xbe`, the second retained entry through `0xbf`, the third retained entry
 through `0xc0`, accepts the checked dynamic-name literal-with-indexing block
 `0x7e 0x06 "/again"` that reuses the newest dynamic name `:path`, inserts
-`:path: /again`, and retains the older `:path: /target` entry, keeps
+`:path: /again`, accepts the continuation-byte indexed-name forms
+`0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"` for dynamic index
+values `63` and `64`, and retains older entries when the bounded fixture table
+has room, keeps
 literal-never-indexed decodes from inserting dynamic
 entries, and keeps dynamic entries evicted by a reduced fixture table
 size on the unsupported fixture path. Reducing the fixture table size to `86`
