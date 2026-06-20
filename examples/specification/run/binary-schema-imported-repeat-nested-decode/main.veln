@@ -1,0 +1,40 @@
+# Binary schema Repeat fields decode imported nested records.
+use stdio
+use wire
+
+schema ImportedCountedItems
+	format binary
+
+	count: UInt8
+	items: Repeat(count, wire::ItemRecord)
+end
+
+fn list_count(items: List<{code: Int, value: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<{code: Int, value: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head.value + list_sum(tail)
+	end
+end
+
+fn emit_sample(sample: {count: Int, items: List<{code: Int, value: Int}>}) -> () effects [stdio]
+	stdio::print(int_to_string(sample.count))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(sample.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(list_sum(sample.items)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0207012c09000a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let sample: {count: Int, items: List<{code: Int, value: Int}>} = byte_decode_imported_counted_items(view)?
+	emit_sample(sample)
+	Ok(())
+end

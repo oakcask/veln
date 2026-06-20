@@ -320,6 +320,9 @@ nested element representation, and repeated byte-view element length
 mismatches through `EncodeError`; element failures append an index segment
 before nested schema field path segments or at the repeated byte-view element
 path.
+The completed nested schema payload part of this repeat slice is archived under
+`../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md`;
+current behavior is specified under `../specification/`.
 The generated length-bounded byte payload slice is implemented as
 `ByteView(length_field)`, `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, and
@@ -534,8 +537,9 @@ earlier visible `Int` fields in the same schema.
 `Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,
 `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`, `UInt64le`, or an
-eligible nested binary schema payload, plus `ByteView(length_field)` when the
-length field is an earlier visible `Int` field.
+eligible same-module or public imported nested binary schema payload named
+through a written `use` path, plus `ByteView(length_field)` when the length
+field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module or public
 imported length-bounded dispatch decode-and-encode slice, dispatch payload

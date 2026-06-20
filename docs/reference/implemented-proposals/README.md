@@ -68,6 +68,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
+- Binary schema nested repeat payload helpers:
+  [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:

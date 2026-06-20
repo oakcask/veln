@@ -1,0 +1,16 @@
+# Binary schema imported Repeat nested decode failures include the element index.
+use wire
+
+schema ImportedCountedItems
+	format binary
+
+	count: UInt8
+	items: Repeat(count, wire::ItemRecord)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0207012c09")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let _: {count: Int, items: List<{code: Int, value: Int}>} = byte_decode_imported_counted_items(view)?
+	Ok(())
+end
