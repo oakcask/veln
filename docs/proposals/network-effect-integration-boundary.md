@@ -59,7 +59,7 @@ slices, and narrow deadline and cancellation slices, for:
   sixteen-argument, seventeen-argument, eighteen-argument, and
   nineteen-argument, twenty-argument, twenty-one-argument,
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, twenty-seven-argument, and
+  twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, and thirty-argument spawned
   handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
@@ -218,6 +218,8 @@ The twenty-nine-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with29.md`.
 The thirty-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with30.md`.
+The thirty-one-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with31.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -431,9 +433,10 @@ or the pure protocol core.
   fifteen-argument, sixteen-argument, seventeen-argument, and
   eighteen-argument, nineteen-argument, twenty-argument, twenty-one-argument,
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, twenty-seven-argument, and
+  twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, and thirty-argument spawned
-  handler task, and adapter-level cancellable stream routing slices;
+  handler task, thirty-one-argument spawned handler task, and adapter-level
+  cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
