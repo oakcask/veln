@@ -164,8 +164,10 @@ positions report `schema.exact_width_primitive`. Missing
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
-unbounded recursive, outside the generated helper slice, or incompatible report
-`schema.dispatch_payload`. The checked
+unbounded recursive, outside the generated helper slice such as an unsupported
+standalone or suffix `ReservedBits` layout, or incompatible report
+`schema.dispatch_payload`. The
+checked
 field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is

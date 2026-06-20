@@ -1446,8 +1446,9 @@ against the built `veln` binary.
   schema names are checked against the eligible generated-helper schema
   boundary, with
   diagnostics for missing names, non-schema names, private imported schemas,
-  self references outside the eligible recursive length-bounded dispatch
-  slice, forward references, and incompatible payload shapes.
+  schemas outside the generated helper slice, self references outside the
+  eligible recursive length-bounded dispatch slice, forward references, and
+  incompatible payload shapes.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
   closed dispatch remains rejected when the self-reference is not
   length-bounded.

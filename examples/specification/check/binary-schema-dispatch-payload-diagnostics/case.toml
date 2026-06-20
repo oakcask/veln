@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
+contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `UnsupportedReservedPayload` is not a supported decoded binary schema", "dispatch payload schema `UnsupportedReservedSuffixPayload` is not a supported decoded binary schema", "\"reason\":\"incompatible_payload_schema\"", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
 
 [stderr]
 format = "empty"
@@ -41,6 +41,18 @@ id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
 message = "dispatch payload `wire::WireShape` resolves to a type, not a schema"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `UnsupportedReservedPayload` is not a supported decoded binary schema"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `UnsupportedReservedSuffixPayload` is not a supported decoded binary schema"
 
 [[diagnostics]]
 id = "schema.dispatch_payload"
