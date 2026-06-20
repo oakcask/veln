@@ -102,7 +102,7 @@ compiler-known calls.
   transport effects.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
-  five-route through twenty-seven-route examples use
+  five-route through twenty-nine-route examples use
   `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`, and the timeout selection example uses
   `channel::select_many_timeout` and
@@ -121,7 +121,7 @@ compiler-known calls.
   transport effects. Other routing adapters require `concurrency`, and socket
   wrappers around them require both `net` and `concurrency`.
 - Receiver-list channel-first routing effect coverage extends through the
-  twenty-seven-route checked example: channel selection carries
+  twenty-nine-route checked example: channel selection carries
   `concurrency`, while the selected stream handler remains effect-free.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
