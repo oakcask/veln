@@ -53,6 +53,21 @@ schema UnsupportedReservedPacket
 	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
 end
 
+schema UnsupportedReservedSuffixPayload
+	format binary
+
+	control: UInt8
+	control_padding: ReservedBits(9, 0)
+end
+
+schema ExtensionUnsupportedReservedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => UnsupportedReservedSuffixPayload)
+end
+
 schema ImportedPublicPacket
 	format binary
 

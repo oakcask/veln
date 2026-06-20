@@ -1148,8 +1148,9 @@ through a `derive decode` codec boundary, including the returned
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
 missing names, non-schema names, private imported schemas, self references
-outside the eligible recursive length-bounded dispatch slice, forward
-references, and incompatible payload shapes.
+outside the eligible recursive length-bounded dispatch slice, schemas outside
+the generated helper slice, forward references, and incompatible payload
+shapes.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
 is not length-bounded.
