@@ -1574,7 +1574,9 @@ against the built `veln` binary.
   later dynamic indexed reference to that entry, inserts a later
   `:method: PUT` literal-with-indexing entry as the newest bounded fixture
   table entry, decodes the newest entry through `0xbe`, decodes the older
-  retained entry through `0xbf`, keeps the newest `:method: PUT` entry while
+  retained entry through `0xbf`, reuses dynamic-table names for
+  literal-without-indexing and literal-never-indexed blocks without inserting
+  replacement dynamic entries, keeps the newest `:method: PUT` entry while
   evicting the older `:path: /target` entry at table size `42`, and keeps
   both missing dynamic state and dynamic entries evicted by a reduced fixture
   table size on the unsupported fixture failure path. It accepts dynamic

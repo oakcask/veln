@@ -365,11 +365,12 @@ through `0xc0`, accepts the checked dynamic-name literal-with-indexing block
 `0x7e 0x06 "/again"` that reuses the newest dynamic name `:path`, inserts
 `:path: /again`, accepts the continuation-byte indexed-name forms
 `0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"` for dynamic index
-values `63` and `64`, and retains older entries when the bounded fixture table
-has room, keeps
-literal-never-indexed decodes from inserting dynamic
-entries, and keeps dynamic entries evicted by a reduced fixture table
-size on the unsupported fixture path. Reducing the fixture table size to `86`
+values `63` and `64`, accepts checked dynamic-name literal-without-indexing
+and literal-never-indexed blocks that reuse `:path` without inserting
+replacement dynamic entries, and retains older entries when the bounded
+fixture table has room, keeps dynamic entries evicted by a reduced fixture
+table size on the unsupported fixture path. Reducing the fixture table size to
+`86`
 keeps the newest two supported entries and evicts the third retained entry;
 reducing the fixture table size to `42` keeps the newest supported
 `:method: PUT` entry when that entry is followed by `:path: /target` and
@@ -678,9 +679,9 @@ The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal encoding, broader
-dynamic-table string encoding policy beyond the checked dynamic-name
-literal-with-indexing fixture, and production header validation beyond
-ordinary request and response header-name shape.
+dynamic-table string encoding policy beyond the checked dynamic-name literal
+fixtures, and production header validation beyond ordinary request and
+response header-name shape.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -725,9 +726,9 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
-  policy beyond the checked bounded fixture dynamic table, HPACK Huffman behavior beyond
-  visible-ASCII fixture string literal encoding, broader dynamic-table string
-  encoding policy beyond the checked dynamic-name literal-with-indexing
-  fixture remain later work beyond the implemented fixture boundary.
+  policy beyond the checked bounded fixture dynamic table, HPACK Huffman
+  behavior beyond visible-ASCII fixture string literal encoding, broader
+  dynamic-table string encoding policy beyond the checked dynamic-name literal
+  fixtures remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

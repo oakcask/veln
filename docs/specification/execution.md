@@ -1542,13 +1542,20 @@ execution reference.
   and `0x7f 0x01 0x06 "/third"`: they reuse dynamic index values `63` and
   `64`, respectively, decode the following visible-ASCII value literal, and
   prepend the decoded header as the newest dynamic entry while the bounded
-  fixture table has room. Completed HEADERS and final CONTINUATION paths both
-  carry that HPACK state before later header blocks are decoded. A
-  literal-never-indexed decode advances the immutable fixture decode count but
-  does not insert a dynamic-table entry, so a later `0xbe` lookup from that
-  returned state remains unsupported unless a previous literal-with-indexing
-  block inserted an entry. Missing, malformed, and out-of-range dynamic-name
-  continuations remain on `hpack.fixture.unsupported_header_block`. It also
+  fixture table has room. The fixture reuses the same dynamic-name lookup for
+  literal-without-indexing and literal-never-indexed header blocks with
+  saturated four-bit indexed-name prefixes: `0x0f 0x2f 0x03 "/no"` decodes
+  `:path: /no`, and `0x1f 0x2f 0x07 "/secret"` decodes
+  `:path: /secret` after `:path: /target` has been inserted. Those forms
+  advance the immutable fixture decode count without inserting a dynamic-table
+  entry, so a later `0xbe` lookup from the returned state still reads the
+  previously inserted `:path: /target` entry. Completed HEADERS and final
+  CONTINUATION paths both carry that HPACK state before later header blocks
+  are decoded. A literal-never-indexed decode without a prior dynamic entry
+  still inserts no dynamic table entry, so a later `0xbe` lookup from that
+  returned state remains unsupported. Missing, malformed, and out-of-range
+  dynamic-name continuations remain on
+  `hpack.fixture.unsupported_header_block`. It also
   accepts dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update
