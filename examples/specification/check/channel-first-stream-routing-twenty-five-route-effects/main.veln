@@ -1,0 +1,135 @@
+# Twenty-five-route receiver-list routing keeps handlers pure and adapter effects explicit.
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn handle_selected(index: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match index
+		0 => handle_stream_input(1, input, state)
+		1 => handle_stream_input(3, input, state)
+		2 => handle_stream_input(5, input, state)
+		3 => handle_stream_input(7, input, state)
+		4 => handle_stream_input(9, input, state)
+		5 => handle_stream_input(11, input, state)
+		6 => handle_stream_input(13, input, state)
+		7 => handle_stream_input(15, input, state)
+		8 => handle_stream_input(17, input, state)
+		9 => handle_stream_input(19, input, state)
+		10 => handle_stream_input(21, input, state)
+		11 => handle_stream_input(23, input, state)
+		12 => handle_stream_input(25, input, state)
+		13 => handle_stream_input(27, input, state)
+		14 => handle_stream_input(29, input, state)
+		15 => handle_stream_input(31, input, state)
+		16 => handle_stream_input(33, input, state)
+		17 => handle_stream_input(35, input, state)
+		18 => handle_stream_input(37, input, state)
+		19 => handle_stream_input(39, input, state)
+		20 => handle_stream_input(41, input, state)
+		21 => handle_stream_input(43, input, state)
+		22 => handle_stream_input(45, input, state)
+		23 => handle_stream_input(47, input, state)
+		_ => handle_stream_input(49, input, state)
+	end
+end
+
+fn route_selected_stream_input(first_input: StreamInput, second_input: StreamInput, third_input: StreamInput, fourth_input: StreamInput, fifth_input: StreamInput, sixth_input: StreamInput, seventh_input: StreamInput, eighth_input: StreamInput, ninth_input: StreamInput, tenth_input: StreamInput, eleventh_input: StreamInput, twelfth_input: StreamInput, thirteenth_input: StreamInput, fourteenth_input: StreamInput, fifteenth_input: StreamInput, sixteenth_input: StreamInput, seventeenth_input: StreamInput, eighteenth_input: StreamInput, nineteenth_input: StreamInput, twentieth_input: StreamInput, twenty_first_input: StreamInput, twenty_second_input: StreamInput, twenty_third_input: StreamInput, twenty_fourth_input: StreamInput, twenty_fifth_input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	let first = channel::bounded<StreamInput>(1)
+	let second = channel::bounded<StreamInput>(1)
+	let third = channel::bounded<StreamInput>(1)
+	let fourth = channel::bounded<StreamInput>(1)
+	let fifth = channel::bounded<StreamInput>(1)
+	let sixth = channel::bounded<StreamInput>(1)
+	let seventh = channel::bounded<StreamInput>(1)
+	let eighth = channel::bounded<StreamInput>(1)
+	let ninth = channel::bounded<StreamInput>(1)
+	let tenth = channel::bounded<StreamInput>(1)
+	let eleventh = channel::bounded<StreamInput>(1)
+	let twelfth = channel::bounded<StreamInput>(1)
+	let thirteenth = channel::bounded<StreamInput>(1)
+	let fourteenth = channel::bounded<StreamInput>(1)
+	let fifteenth = channel::bounded<StreamInput>(1)
+	let sixteenth = channel::bounded<StreamInput>(1)
+	let seventeenth = channel::bounded<StreamInput>(1)
+	let eighteenth = channel::bounded<StreamInput>(1)
+	let nineteenth = channel::bounded<StreamInput>(1)
+	let twentieth = channel::bounded<StreamInput>(1)
+	let twenty_first = channel::bounded<StreamInput>(1)
+	let twenty_second = channel::bounded<StreamInput>(1)
+	let twenty_third = channel::bounded<StreamInput>(1)
+	let twenty_fourth = channel::bounded<StreamInput>(1)
+	let twenty_fifth = channel::bounded<StreamInput>(1)
+	let _ = channel::send(first.tx, first_input)
+	let _ = channel::send(second.tx, second_input)
+	let _ = channel::send(third.tx, third_input)
+	let _ = channel::send(fourth.tx, fourth_input)
+	let _ = channel::send(fifth.tx, fifth_input)
+	let _ = channel::send(sixth.tx, sixth_input)
+	let _ = channel::send(seventh.tx, seventh_input)
+	let _ = channel::send(eighth.tx, eighth_input)
+	let _ = channel::send(ninth.tx, ninth_input)
+	let _ = channel::send(tenth.tx, tenth_input)
+	let _ = channel::send(eleventh.tx, eleventh_input)
+	let _ = channel::send(twelfth.tx, twelfth_input)
+	let _ = channel::send(thirteenth.tx, thirteenth_input)
+	let _ = channel::send(fourteenth.tx, fourteenth_input)
+	let _ = channel::send(fifteenth.tx, fifteenth_input)
+	let _ = channel::send(sixteenth.tx, sixteenth_input)
+	let _ = channel::send(seventeenth.tx, seventeenth_input)
+	let _ = channel::send(eighteenth.tx, eighteenth_input)
+	let _ = channel::send(nineteenth.tx, nineteenth_input)
+	let _ = channel::send(twentieth.tx, twentieth_input)
+	let _ = channel::send(twenty_first.tx, twenty_first_input)
+	let _ = channel::send(twenty_second.tx, twenty_second_input)
+	let _ = channel::send(twenty_third.tx, twenty_third_input)
+	let _ = channel::send(twenty_fourth.tx, twenty_fourth_input)
+	let _ = channel::send(twenty_fifth.tx, twenty_fifth_input)
+	channel::close(first.tx)
+	channel::close(second.tx)
+	channel::close(third.tx)
+	channel::close(fourth.tx)
+	channel::close(fifth.tx)
+	channel::close(sixth.tx)
+	channel::close(seventh.tx)
+	channel::close(eighth.tx)
+	channel::close(ninth.tx)
+	channel::close(tenth.tx)
+	channel::close(eleventh.tx)
+	channel::close(twelfth.tx)
+	channel::close(thirteenth.tx)
+	channel::close(fourteenth.tx)
+	channel::close(fifteenth.tx)
+	channel::close(sixteenth.tx)
+	channel::close(seventeenth.tx)
+	channel::close(eighteenth.tx)
+	channel::close(nineteenth.tx)
+	channel::close(twentieth.tx)
+	channel::close(twenty_first.tx)
+	channel::close(twenty_second.tx)
+	channel::close(twenty_third.tx)
+	channel::close(twenty_fourth.tx)
+	channel::close(twenty_fifth.tx)
+	let receivers: List<Receiver<StreamInput>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_cons(fourth.rx, list_cons(fifth.rx, list_cons(sixth.rx, list_cons(seventh.rx, list_cons(eighth.rx, list_cons(ninth.rx, list_cons(tenth.rx, list_cons(eleventh.rx, list_cons(twelfth.rx, list_cons(thirteenth.rx, list_cons(fourteenth.rx, list_cons(fifteenth.rx, list_cons(sixteenth.rx, list_cons(seventeenth.rx, list_cons(eighteenth.rx, list_cons(nineteenth.rx, list_cons(twentieth.rx, list_cons(twenty_first.rx, list_cons(twenty_second.rx, list_cons(twenty_third.rx, list_cons(twenty_fourth.rx, list_cons(twenty_fifth.rx, list_nil())))))))))))))))))))))))))
+	let selected: { index : Int, value : StreamInput } = match channel::select_many_priority(receivers)
+		Some(value) => value
+		None => { index: 0, value: End }
+	end
+	handle_selected(selected.index, selected.value, state)
+end
+
+pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id, input, state)
+end
+
+pub fn adapter_missing_concurrency(first_input: StreamInput, second_input: StreamInput, third_input: StreamInput, fourth_input: StreamInput, fifth_input: StreamInput, sixth_input: StreamInput, seventh_input: StreamInput, eighth_input: StreamInput, ninth_input: StreamInput, tenth_input: StreamInput, eleventh_input: StreamInput, twelfth_input: StreamInput, thirteenth_input: StreamInput, fourteenth_input: StreamInput, fifteenth_input: StreamInput, sixteenth_input: StreamInput, seventeenth_input: StreamInput, eighteenth_input: StreamInput, nineteenth_input: StreamInput, twentieth_input: StreamInput, twenty_first_input: StreamInput, twenty_second_input: StreamInput, twenty_third_input: StreamInput, twenty_fourth_input: StreamInput, twenty_fifth_input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	route_selected_stream_input(first_input, second_input, third_input, fourth_input, fifth_input, sixth_input, seventh_input, eighth_input, ninth_input, tenth_input, eleventh_input, twelfth_input, thirteenth_input, fourteenth_input, fifteenth_input, sixteenth_input, seventeenth_input, eighteenth_input, nineteenth_input, twentieth_input, twenty_first_input, twenty_second_input, twenty_third_input, twenty_fourth_input, twenty_fifth_input, state)
+end
