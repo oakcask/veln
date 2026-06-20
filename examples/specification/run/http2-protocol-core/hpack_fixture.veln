@@ -1896,6 +1896,13 @@ pub fn header_list_first_value(headers: HpackHeaderList) -> String
 	end
 end
 
+pub fn header_list_is_table_size_update(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":fixture", "table-size-update"), _, _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true

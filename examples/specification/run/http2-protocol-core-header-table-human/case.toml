@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.peer_limit.header_table_size_exceeded]: header table size exceeds receive maximum at byte offset 35", "note: Frame kind 9 on stream 1 requested HPACK header table size 289; active receive maximum is 160.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: hpack_dynamic_table_size_update."]

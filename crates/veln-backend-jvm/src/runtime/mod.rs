@@ -104,6 +104,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "http2_protocol_stream_after_goaway" => "http2ProtocolStreamAfterGoaway",
     "http2_peer_limit_frame_size_exceeded" => "http2PeerLimitFrameSizeExceeded",
     "http2_peer_limit_header_list_size_exceeded" => "http2PeerLimitHeaderListSizeExceeded",
+    "http2_peer_limit_header_table_size_exceeded" => "http2PeerLimitHeaderTableSizeExceeded",
     "http2_peer_limit_flow_control_window_exceeded" => "http2PeerLimitFlowControlWindowExceeded",
     "http2_peer_limit_concurrent_streams_exceeded" => "http2PeerLimitConcurrentStreamsExceeded",
     "http2_peer_limit_settings_value_out_of_range" => "http2PeerLimitSettingsValueOutOfRange",

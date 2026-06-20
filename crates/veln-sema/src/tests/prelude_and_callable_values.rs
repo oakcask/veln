@@ -8180,6 +8180,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "stream_after_goaway_http2: http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\"), ",
             "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",
             "header_list_http2: http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\"), ",
+            "header_table_http2: http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, \"local_configuration\", \"hpack_dynamic_table_size_update\"), ",
             "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\"), ",
             "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\"), ",
             "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",

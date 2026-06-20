@@ -1542,10 +1542,15 @@ execution reference.
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update
   prefix, such as `0x3f 0x0b`, `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
-  `0x3f 0x82 0x02`. Those
+  `0x3f 0x82 0x02`. The HPACK fixture boundary accepts those
   fixtures return next immutable fixture states with checked table sizes
-  `30`, `31`, `32`, `42`, `159`, `160`, and `289` from either a completed HEADERS
-  block or a final CONTINUATION block before a later header block is decoded.
+  `30`, `31`, `32`, `42`, `159`, `160`, and `289`; the HTTP/2 core carries
+  table-size updates at or below the active local header-table receive limit
+  from either a completed HEADERS block or a final CONTINUATION block before a
+  later header block is decoded, and rejects larger decoded updates, including
+  a repeated current fixture table size above the local limit, through
+  `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
+  size, frame kind, stream id, receive-limit provenance, and rule provenance.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte
@@ -1566,7 +1571,8 @@ execution reference.
   module, and bounded header-block byte preview. That diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;
   the HTTP/2 core still owns the local
-  `http2.peer_limit.header_list_size_exceeded` receive-limit boundary after
+  `http2.peer_limit.header_table_size_exceeded` and
+  `http2.peer_limit.header_list_size_exceeded` receive-limit boundaries after
   fixture decoding. Fixture-marked request header lists are validated after
   that HPACK fixture decode on completed HEADERS and final CONTINUATION paths.
   Duplicate request pseudo-headers, request pseudo-headers after regular
