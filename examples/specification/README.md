@@ -2816,6 +2816,10 @@ against the built `veln` binary.
   twenty-five-route receiver-list channel-first stream routing keeps the same
   handler boundary: routing declares `concurrency`, and the handler remains
   effect-free.
+- `check/channel-first-stream-routing-twenty-six-route-effects/`:
+  twenty-six-route receiver-list channel-first stream routing keeps the same
+  handler boundary: routing declares `concurrency`, and the handler remains
+  effect-free.
 - `check/channel-select-many-timeout-effects/`: receiver-list timeout
   result selection keeps the same effect boundary: the routing adapter
   declares `concurrency`, and the handler remains effect-free.
