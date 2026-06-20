@@ -693,12 +693,11 @@ Completed HPACK fixture behavior is current behavior under
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
-full HPACK compression, unbounded dynamic-table behavior, general eviction
-policy beyond the checked bounded fixture dynamic table, HPACK Huffman
+full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding,
 outbound table-size behavior beyond the checked fixture encoder update
-boundary, and production header validation beyond ordinary request
-and response header-name shape, the source-visible `te` value rule, and the
+boundary, and production header validation beyond ordinary request and
+response header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
@@ -760,8 +759,7 @@ full HPACK behavior.
 - A pure decode state transition handles chunk arrival and end-of-stream.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
-- Full HPACK compression, unbounded dynamic table behavior, general eviction
-  policy beyond the checked bounded fixture dynamic table, HPACK Huffman
+- Full HPACK compression, unbounded dynamic table behavior, and HPACK Huffman
   behavior beyond visible-ASCII fixture string literal decoding and encoding
   remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,

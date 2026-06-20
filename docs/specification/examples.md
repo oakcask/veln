@@ -1993,7 +1993,9 @@ the older `:path: /target` entry, and also evicts `:authority: abc.test`;
 table size
 `30` evicts both supported `:method: PUT` and `:path: /target` dynamic
 entries and leaves later dynamic indexed representations on the unsupported
-fixture path. The fixture
+fixture path. A later literal-with-indexing insertion that exceeds remaining
+capacity keeps the inserted `:path: /target` entry readable at `0xbe` and
+evicts the older entries so `0xbf` stays unsupported. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including malformed

@@ -1665,9 +1665,14 @@ execution reference.
   those two entries are retained, the same table size evicts a supported
   `:authority: abc.test` entry, and a reduction to `30` drops both supported
   `:method: PUT` and `:path: /target` entries so later dynamic indexed
-  representations stay on the unsupported fixture path. Unsupported fixture
-  input, including malformed non-terminating table-size updates, table-size
-  updates with trailing bytes after a complete integer, malformed
+  representations stay on the unsupported fixture path. The checked fixture
+  boundary also covers eviction caused by a later literal-with-indexing
+  insertion: after a reduced table keeps `:scheme: https` and `:method: PUT`,
+  inserting `:path: /target` keeps that new entry as the newest dynamic entry
+  and evicts the older entries that no longer fit; a later `0xbe` lookup
+  succeeds, while `0xbf` stays on the unsupported fixture path. Unsupported
+  fixture input, including malformed non-terminating table-size updates,
+  table-size updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, Huffman EOS, and Huffman strings whose decoded
   bytes are not visible ASCII, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block

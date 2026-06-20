@@ -5959,6 +5959,22 @@ fn print_hpack_wide_dynamic_name_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_hpack_insertion_eviction_cases(three_entry_reduced_state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let insertion_eviction: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000001944072f746172676574")?), three_entry_reduced_state)?
+	print_step("hpack-stateful-insertion-evicts-older-path", insertion_eviction)
+	let ignored_insertion_eviction: () = emit_header_block("http2-hpack-stateful-insertion-evicts-older-path", insertion_eviction, "44072f746172676574")?
+	print_hpack_transition_from_state("hpack-stateful-insertion-evicts-older-path", insertion_eviction, three_entry_reduced_state)
+	let insertion_eviction_state: Http2DecodeState = hpack_carry_only_state(step_state(insertion_eviction))
+	let insertion_retained_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000001bbe")?), insertion_eviction_state)?
+	print_step("hpack-stateful-insertion-eviction-newest-path", insertion_retained_newest)
+	print_hpack_transition_from_state("hpack-stateful-insertion-eviction-newest-path", insertion_retained_newest, insertion_eviction_state)
+	let ignored_insertion_retained_newest: () = require_hpack_transition_header(insertion_retained_newest, insertion_eviction_state, ":path", "/target")?
+	let insertion_evicted_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000001dbf")?), insertion_eviction_state)?
+	print_failure("hpack-stateful-insertion-eviction-second-missing", insertion_evicted_second)
+	let ignored_insertion_evicted_second: () = require_hpack_fixture_failure(insertion_evicted_second)?
+	Ok(())
+end
+
 fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), String> effects [stdio]
 	let base_state: Http2DecodeState = hpack_carry_only_state(step_state(after_path))
 	let literal_dynamic_name: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037e062f616761696e")?), base_state)?
@@ -6074,6 +6090,7 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	let three_entry_evicted_third: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000017c0")?), three_entry_reduced_state)?
 	print_failure("hpack-stateful-three-entry-third-after-eviction", three_entry_evicted_third)
 	let ignored_three_entry_evicted_third: () = require_hpack_fixture_failure(three_entry_evicted_third)?
+	let ignored_insertion_eviction_cases: () = print_hpack_insertion_eviction_cases(three_entry_reduced_state)?
 	let reduced_table_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000093e")?), method_state)?
 	print_step("hpack-stateful-table-size-eviction", reduced_table_size)
 	let ignored_reduced_table_size: () = emit_header_block("http2-hpack-stateful-table-size-eviction", reduced_table_size, "3e")?

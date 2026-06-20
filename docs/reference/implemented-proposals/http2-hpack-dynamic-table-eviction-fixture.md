@@ -31,10 +31,15 @@ supported `:method: PUT` entry when that entry is followed by
 `:authority: abc.test` entry because that accepted entry is larger than `42`.
 Reducing the table size to `30` evicts both supported `:method: PUT` and
 `:path: /target` entries, and later dynamic indexed representations for
-evicted entries remain unsupported. The HTTP/2 protocol-core example carries
-the generalized dynamic-table state and reduced table-size state through both
-completed HEADERS and final CONTINUATION paths before decoding later dynamic
-indexed blocks.
+evicted entries remain unsupported. The checked fixture boundary also covers a
+later literal-with-indexing insertion that exceeds the remaining capacity of a
+reduced table: inserting `:path: /target` after the reduced table retained
+`:scheme: https` and `:method: PUT` keeps the new entry readable at `0xbe` and
+evicts the older entries so `0xbf` is unsupported. The HTTP/2 protocol-core
+example carries the generalized dynamic-table state, reduced table-size state,
+and insertion-caused eviction state through completed HEADERS before decoding
+later dynamic indexed blocks, and carries the reduced table-size state through
+final CONTINUATION paths.
 
 The fixture also accepts checked dynamic-name literal-with-indexing blocks
 after dynamic entries have been inserted. `0x7e 0x06 "/again"` reuses the
@@ -101,9 +106,9 @@ unsupported fixture path.
   insertion, dynamic index `127` continuation coverage for all three
   dynamic-name literal forms, malformed and out-of-range dynamic-name
   literals, missing dynamic state, accepted-entry-size eviction, full and
-  partial reduced-table-size
-  eviction failure paths, oldest-first eviction after a three-entry table-size
-  reduction, and the fixture-boundary table-size update slice.
+  partial reduced-table-size eviction failure paths, insertion-caused
+  eviction, oldest-first eviction after a three-entry table-size reduction,
+  and the fixture-boundary table-size update slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
@@ -112,9 +117,9 @@ unsupported fixture path.
   literal-without-indexing and literal-never-indexed forms without
   replacement insertion, dynamic-index `127` literal-without-indexing and
   literal-never-indexed forms without replacement insertion,
-  generalized dynamic indexed lookup,
-  oldest-first table-size eviction, the accepted-entry-size eviction case, and
-  the fixture-boundary table-size update slice.
+  generalized dynamic indexed lookup, oldest-first table-size eviction,
+  insertion-caused eviction, the accepted-entry-size eviction case, and the
+  fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.
