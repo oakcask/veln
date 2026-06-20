@@ -1868,11 +1868,16 @@ before later header blocks are decoded. The checked dynamic-name
 literal-with-indexing form `0x7e 0x06 "/again"` reuses the newest dynamic
 entry name `:path`, inserts `:path: /again` as the newest entry, and leaves
 the older `:path: /target` entry readable while the bounded fixture table has
-room. A literal-never-indexed decode
+room. With three retained dynamic entries, the boundary also checks
+continuation-byte indexed-name values `63` and `64` through
+`0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"`, then reads the
+inserted newest entries through the carried fixture state. A final
+CONTINUATION path covers the value `63` form before a later header block reads
+the inserted `:method: PATCH` entry. A literal-never-indexed decode
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state
-remains unsupported. Missing or malformed dynamic-name literals remain
-unsupported. The fixture also accepts dynamic
+remains unsupported. Missing, malformed, and out-of-range dynamic-name
+continuations remain unsupported. The fixture also accepts dynamic
 table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table
