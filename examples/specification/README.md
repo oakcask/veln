@@ -1552,7 +1552,7 @@ against the built `veln` binary.
 	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-  fixtures share the HPACK string literal decoder for short visible-ASCII raw
+  fixtures share the HPACK string literal decoder for visible-ASCII raw
   values and Huffman-marked values decoded by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`, and
@@ -1562,8 +1562,9 @@ against the built `veln` binary.
   `:status`. The same fixture module encodes supported raw string literals
   through `encode_hpack_raw_string_literal`, including a short `PUT` value
   that keeps its bytes, a visible ASCII `bad` value that was not part of the
-  former fixture allowlist, and the long raw `a` value at the
-  one-continuation HPACK integer length boundary; non-visible raw byte values
+  former fixture allowlist, the long raw `a` value at the
+  one-continuation HPACK integer length boundary, and raw values beyond the
+  former checked 128-byte decode boundary; non-visible raw byte values
   return the fixture-owned unsupported-header-block failure with expected
   fixture `fixture raw string encoding`. Malformed Huffman padding,
   malformed string length, and a
@@ -1778,15 +1779,16 @@ against the built `veln` binary.
 	  bytes, plus literal-without-indexing and literal-with-indexing fixtures
   whose first byte names a supported static-table header name for
   `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-  fixtures share the HPACK string literal decoder for short visible-ASCII raw
+  fixtures share the HPACK string literal decoder for visible-ASCII raw
   values and Huffman-marked values decoded by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`, and
   `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
-  literal-with-indexing `:scheme: https`, and raw literal-with-indexing
-  `:status`. Malformed Huffman padding, malformed string length, non-visible
-  raw bytes, and a malformed raw `:status` literal stay on the unsupported
+  literal-with-indexing `:scheme: https`, raw literal-with-indexing
+  `:status`, and a 129-byte raw literal. Malformed Huffman padding,
+  malformed string length, non-visible raw bytes, and a malformed raw
+  `:status` literal stay on the unsupported
   fixture path. The outbound fixture encoder in this case uses the same static
   Huffman table for visible-ASCII Huffman-marked string literals, pins
   `:authority: abc.test` as a non-allowlist encoded value, and keeps a

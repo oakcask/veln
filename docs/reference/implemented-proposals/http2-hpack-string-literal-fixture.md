@@ -14,11 +14,12 @@ checked executable cases
 The imported HPACK fixture boundary decodes literal header values through one
 HPACK string literal helper for the supported static-table names
 `:authority`, `:method`, `:path`, `:scheme`, and `:status`. The helper accepts
-short visible-ASCII raw string literals and Huffman-marked values decoded by
+visible-ASCII raw string literals and Huffman-marked values decoded by
 the HPACK static Huffman table. It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
-long raw values and a deterministic long Huffman-marked value.
+long raw values, including raw values past the former checked 128-byte decode
+boundary, and a deterministic long Huffman-marked value.
 The same fixture module also exposes a raw string-literal encoder for values
 accepted by `byte_chunk_from_visible_ascii_string`. It emits HPACK string
 literal bytes with the Huffman flag cleared, including the same
@@ -50,7 +51,8 @@ narrower diagnostic.
   literal-with-indexing `:status`, raw literal-never-indexed `:authority`,
   Huffman-marked literal-never-indexed `:scheme: https`, long raw and
   Huffman-marked string-length continuation fixtures through all three
-  literal forms, malformed string-length continuation, malformed Huffman
+  literal forms, 129-byte raw values through all three literal forms,
+  malformed string-length continuation, malformed Huffman
   padding, short and long raw string-literal encoding, unsupported and
   non-visible raw string-literal encoding failures, dynamic-table behavior
   after literal-with-indexing insertions, and no dynamic-table insertion after
@@ -58,9 +60,9 @@ narrower diagnostic.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   string literal cases through completed HEADERS and final CONTINUATION paths.
   Long valid values reach the HPACK boundary and then the local header-list
-  receive-limit check on the protocol-core path, while malformed fixture
-  inputs preserve the existing `hpack.fixture.unsupported_header_block`
-  diagnostic path.
+  receive-limit check on the protocol-core path, including a 129-byte raw
+  final CONTINUATION case, while malformed fixture inputs preserve the
+  existing `hpack.fixture.unsupported_header_block` diagnostic path.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented fixture boundary and route readers to the checked
   examples.

@@ -1428,14 +1428,15 @@ execution reference.
 	  byte names a supported
   static-table header name for `:authority`, `:method`, `:path`, `:scheme`,
   or `:status`. Those literal fixtures share the same HPACK string literal
-  decoder: short raw values must be visible ASCII, and Huffman-marked values
+  decoder: raw values must be visible ASCII, and Huffman-marked values
   decode by scanning the HPACK static Huffman table into decoded
   visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
   The same decoder accepts the fixture-boundary string-length integer
   continuation form for supported literal names: checked raw and
   Huffman-marked long values use a saturated seven-bit length prefix plus one
   continuation byte through literal-without-indexing, literal-with-indexing,
-  and literal-never-indexed blocks. The long Huffman fixture remains a
+  and literal-never-indexed blocks, including raw fixture values beyond the
+  former checked 128-byte decode boundary. The long Huffman fixture remains a
   deterministic fixture case, not
   general HPACK Huffman streaming support.
   The same ordinary fixture module exposes
@@ -1484,8 +1485,10 @@ execution reference.
   The focused HPACK boundary also checks raw literal-never-indexed
   `:authority: abc.test` as `0x11 0x08 "abc.test"`, Huffman-marked
   literal-never-indexed `:scheme: https` as
-  `0x16 0x84 0x9d 0x29 0xad 0x1f`, and the same long raw and Huffman-marked
-  string-length boundary through literal-never-indexed forms.
+  `0x16 0x84 0x9d 0x29 0xad 0x1f`, the same long raw and Huffman-marked
+  string-length boundary through literal-never-indexed forms, and a 129-byte
+  raw `:authority` value through literal-without-indexing,
+  literal-with-indexing, and literal-never-indexed forms.
   The completed HEADERS path checks a valid long raw literal before the local
   header-list receive limit rejects its decoded size; the final CONTINUATION
   path checks the same boundary for a valid long Huffman-marked literal.

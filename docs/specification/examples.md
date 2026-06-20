@@ -1779,13 +1779,15 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	and literal-never-indexed fixtures whose first byte names a supported
 static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-fixtures share the HPACK string literal decoder for short visible-ASCII raw
+fixtures share the HPACK string literal decoder for visible-ASCII raw
 values and Huffman-marked values decoded by the HPACK static Huffman table
 rather than a fixed decoded-value allowlist. The same decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
-through all three literal forms. The HTTP/2 protocol-core example uses the same
-static Huffman table to encode visible-ASCII Huffman-marked outbound fixture
-string literals, including a non-allowlist `:authority: abc.test` value whose
+through all three literal forms, including a 129-byte raw `:authority` value
+past the former checked raw decode boundary. The HTTP/2 protocol-core example
+uses the same static Huffman table to encode visible-ASCII Huffman-marked
+outbound fixture string literals, including a non-allowlist
+`:authority: abc.test` value whose
 checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, and keeps a
 Huffman-marked non-visible value on the raw string encoding failure path. The
 boundary example also checks
@@ -1819,7 +1821,9 @@ The focused HPACK boundary also checks raw literal-never-indexed
 `:authority: abc.test` as `0x11 0x08 "abc.test"`, Huffman-marked
 literal-never-indexed `:scheme: https` as
 `0x16 0x84 0x9d 0x29 0xad 0x1f`, and long raw and Huffman-marked
-literal-never-indexed string-length boundaries.
+literal-never-indexed string-length boundaries. The protocol-core example
+also mirrors a 129-byte raw literal through the final CONTINUATION path before
+the local header-list receive limit rejects the decoded size.
 The
 source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
