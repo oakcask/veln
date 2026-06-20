@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "selected 0:1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19 action-score 4000 payload-bytes 82 first-ended true second-chunks 1 third-ended true fourth-chunks 1 fifth-ended true sixth-chunks 1 seventh-chunks 1 eighth-chunks 1 ninth-chunks 1 tenth-chunks 1 eleventh-chunks 1 twelfth-chunks 1 thirteenth-chunks 1 fourteenth-chunks 1 fifteenth-chunks 1 sixteenth-chunks 1 seventeenth-chunks 1 eighteenth-chunks 1 nineteenth-chunks 1 twentieth-chunks 1 writes 17\n"
+
+[[json_assert]]
+path = "error"
+equals = null
