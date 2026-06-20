@@ -122,8 +122,9 @@ Binary schema
 fields
 also accept `Repeat(count_field, Payload)` when `count_field` names a
 previously decoded visible `Int` field in the same schema, and
-`Repeat(left_count - right_count, Payload)` and
-`Repeat(left_count + right_count, Payload)` when both operands name earlier
+`Repeat(left_count - right_count, Payload)`,
+`Repeat(left_count + right_count, Payload)`, and
+`Repeat(left_count * right_count, Payload)` when both operands name earlier
 visible `Int` fields in the same schema. `Payload` is one of the implemented
 byte-aligned exact-width unsigned primitives or an eligible nested binary
 schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
@@ -274,7 +275,8 @@ supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, or thirty-two bits,
 bounded repeat fields whose count is an earlier visible exact-width field or
-the difference or sum of two earlier visible exact-width fields, including
+the difference, sum, or product of two earlier visible exact-width fields,
+including
 `Repeat(count_field, ByteView(length_field))` when the length field is also
 earlier visible,
 length-bounded `ByteView(length_field)`

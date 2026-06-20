@@ -8,6 +8,7 @@ pub  schema   Http2FrameHeader
   stream_id:UInt31be
   checksum  : UInt32be
   settings:Repeat(length-padding_length,UInt16be)
+  product_settings:Repeat(length*padding_length,UInt16be)
   payload:ByteView(length-padding_length)
   product_payload:ByteView(length*padding_length)
 
@@ -19,6 +20,7 @@ pub  schema   Http2FrameHeader
     checksum = checksum
     body_length=(length-padding_length)+checksum
     settings=settings
+    product_settings=product_settings
     payload=payload
     product_payload=product_payload
 end

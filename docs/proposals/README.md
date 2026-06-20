@@ -96,8 +96,10 @@ compare it with `../specification/` before changing behavior.
   schema field, and public imported nested schema field decode and encode
   slices, bounded `Repeat(left_count + right_count,
   Payload)` decode and encode with primitive count-mismatch and derived codec
-  boundary coverage, bounded `Repeat(count_field, ByteView(length_field))`
-  decode and encode plus derived codec boundary slices, length-bounded
+  boundary coverage, bounded `Repeat(left_count * right_count, Payload)`
+  decode and encode with count-mismatch and invalid-count coverage,
+  bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
+  derived codec boundary slices, length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
   `ByteView(left_length + right_length)`, and
   `ByteView(left_length * right_length)` decode and encode,
