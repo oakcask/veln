@@ -92,8 +92,9 @@ compare it with `../specification/` before changing behavior.
   schema-local fields plus record-payload constructor slices,
   standalone visible `UInt1` through `UInt7` decode and encode,
   bounded `Repeat(count_field, Payload)` and
-  `Repeat(left_count - right_count, Payload)` primitive and nested schema field
-  decode and encode slices, bounded `Repeat(left_count + right_count,
+  `Repeat(left_count - right_count, Payload)` primitive, same-module nested
+  schema field, and public imported nested schema field decode and encode
+  slices, bounded `Repeat(left_count + right_count,
   Payload)` decode and encode with primitive count-mismatch and derived codec
   boundary coverage, bounded `Repeat(count_field, ByteView(length_field))`
   decode and encode plus derived codec boundary slices, length-bounded

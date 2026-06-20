@@ -459,6 +459,117 @@ fn generated_schema_helpers_resolve_bounded_repeated_nested_schema_fields() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_bounded_repeated_imported_nested_schema_fields() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.wire\n",
+            "\n",
+            "schema CountedItems\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  items: Repeat(count, wire::ItemRecord)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, items: List<{code: Int, value: Int}>}, String>\n",
+            "  byte_decode_counted_items(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, items: List<{code: Int, value: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_items(packet)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod app.wire\n",
+            "\n",
+            "pub schema ItemRecord\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas: [app.schemas, wire.schemas].concat(),
+        codecs: Vec::new(),
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for (function_name, target_name, expected_target) in [
+        ("read", "CountedItems", "decode"),
+        ("write", "CountedItems", "encode"),
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("helper wrapper should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        match (&expr.kind, expected_target) {
+            (
+                CoreExprKind::Call {
+                    target: CoreCallTarget::SchemaDecode(name),
+                    ..
+                },
+                "decode",
+            ) => assert_eq!(name, target_name),
+            (
+                CoreExprKind::Call {
+                    target: CoreCallTarget::SchemaEncode(name),
+                    ..
+                },
+                "encode",
+            ) => assert_eq!(name, target_name),
+            _ => panic!("helper wrapper should lower to a schema helper call"),
+        }
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "CountedItems")
+        .expect("counted schema should be emitted");
+    let repeat = schema.fields[1]
+        .repeat
+        .as_ref()
+        .expect("items should carry repeat metadata");
+    assert_eq!(repeat.count_field, "count");
+    assert_eq!(repeat.width, 0);
+    let nested = repeat
+        .payload_schema
+        .as_ref()
+        .expect("imported nested repeat should carry schema metadata");
+    assert_eq!(nested.schema_name, "ItemRecord");
+    assert_eq!(
+        nested
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width))
+            .collect::<Vec<_>>(),
+        vec![("code", 1), ("value", 2)]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_resolve_bounded_repeated_byte_view_fields() {
     let source = SourceFile::new(
         "main.veln",
