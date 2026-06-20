@@ -7120,6 +7120,12 @@
             if (op.equals("/")) {
                 return divide(left, right);
             }
+            if (op.equals("==")) {
+                return equal(left, right);
+            }
+            if (op.equals("!=")) {
+                return notEqual(left, right);
+            }
             throw new IllegalStateException("unsupported schema mapping binary operator");
         }
         throw new IllegalStateException("unsupported schema mapping expression metadata");

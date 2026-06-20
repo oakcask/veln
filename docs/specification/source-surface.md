@@ -161,7 +161,8 @@ an already supported structural mapping expression whose type has the selected
 record field. An `Int` target field may also use `+`, `-`, `*`, and `/`
 expressions whose operands are decoded schema-local `Int` fields, integer
 literals, `Int`-returning converter calls, or nested supported integer
-arithmetic mapping expressions. Converter calls take one, two, or three
+arithmetic mapping expressions. A `Bool` target field may use `==` and `!=`
+between decoded schema-local `Int` fields and integer literals. Converter calls take one, two, or three
 arguments. Each argument is either a schema-local field reference or an
 already implemented structural mapping expression made from schema-local
 fields, records, ADT constructors, supported integer arithmetic mapping
@@ -237,6 +238,9 @@ diagnostics. The checked diagnostics case
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, direct and nested constructor payload type, non-`Int` arithmetic operand, and
 unsupported arithmetic expression diagnostics. The checked diagnostics case
+`../../examples/specification/check/schema-mapping-bool-comparison-diagnostics/`
+pins non-`Int` comparison operands, non-`Bool` comparison targets, and
+unsupported comparison operand shapes. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
