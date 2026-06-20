@@ -670,10 +670,53 @@
         String codecModule,
         String nearbyContext
     ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.unsupported_header_block",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
+    private static void registerHpackFixtureMalformedHuffmanPaddingDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.malformed_huffman_padding",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
+    private static void registerHpackFixtureHeaderBlockDiagnostic(
+        String message,
+        String id,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
         protocolDiagnostics.get().put(
             message,
             new ProtocolDiagnostic(
-                "hpack.fixture.unsupported_header_block",
+                id,
                 byteOffset,
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("observed_header_block_size", observedSize),

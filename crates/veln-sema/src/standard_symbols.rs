@@ -537,6 +537,7 @@ source_prelude_symbol_set! {
     "http2_peer_limit_concurrent_streams_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_concurrent_streams_exceeded"),
     "http2_peer_limit_settings_value_out_of_range" => veln_stdlib::prelude_source("http2_peer_limit_settings_value_out_of_range"),
     "hpack_fixture_unsupported_header_block" => veln_stdlib::prelude_source("hpack_fixture_unsupported_header_block"),
+    "hpack_fixture_malformed_huffman_padding" => veln_stdlib::prelude_source("hpack_fixture_malformed_huffman_padding"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),
     "byte_read_u24_be" => veln_stdlib::prelude_source("byte_read_u24_be"),
     "byte_read_u31_be" => veln_stdlib::prelude_source("byte_read_u31_be"),

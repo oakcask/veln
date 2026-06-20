@@ -28,9 +28,10 @@ for `:authority: www.example.com`.
 
 The transition returns the same immutable `HpackFixtureState` shape and
 advances the decode count through the existing transition accessors.
-Malformed Huffman padding, Huffman EOS, and decoded non-visible bytes still
-project through
-`hpack.fixture.unsupported_header_block`.
+Huffman EOS and decoded non-visible bytes still project through
+`hpack.fixture.unsupported_header_block`. The later
+[HPACK malformed Huffman padding diagnostic](http2-hpack-huffman-padding-diagnostic.md)
+record preserves the focused diagnostic id for malformed Huffman padding.
 
 ## Evidence
 
@@ -39,16 +40,16 @@ project through
   `literal-path-test-huffman` decodes, the existing
   `literal-scheme-https-huffman` decode, the
   `literal-status-200-huffman` decode, plus malformed Huffman padding that
-  stays on the unsupported-header-block path.
+  was later split into a focused diagnostic path.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   completed HEADERS cases named `hpack-literal-huffman`,
   `hpack-literal-test-huffman`, `hpack-literal-scheme-https-huffman`, and
   `hpack-literal-status-200-huffman`, emits the header-block bytes `0480`,
   `048349509f`, `06849d29ad1f`, and `08821001`, prints the decoded `:path`,
   `:path: test`, `:scheme: https`, and `:status: 200` values, and keeps
-  malformed Huffman padding on
-  `hpack.fixture.unsupported_header_block`. The broader HTTP/2 case also
-  keeps the `:authority: www.example.com` Huffman fixture covered and checks
+  the focused malformed-padding diagnostic covered through the later
+  implemented record. The broader HTTP/2 case also keeps the
+  `:authority: www.example.com` Huffman fixture covered and checks
   `:status: 200` through a final CONTINUATION path.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the

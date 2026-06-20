@@ -436,6 +436,10 @@ pub fn hpack_fixture_unsupported_header_block(offset: Int, observed_size: Int, o
 	prelude_builtin::hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
 end
 
+pub fn hpack_fixture_malformed_huffman_padding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::hpack_fixture_malformed_huffman_padding(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

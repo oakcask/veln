@@ -2866,6 +2866,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureUnsupportedHeaderBlock",
         ),
         (
+            "hpack_fixture_malformed_huffman_padding",
+            "hpackFixtureMalformedHuffmanPadding",
+        ),
+        (
             "http2_protocol_invalid_frame_kind",
             "http2ProtocolInvalidFrameKind",
         ),

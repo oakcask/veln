@@ -21,6 +21,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	MalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
 type HpackStringLiteral
@@ -582,6 +583,10 @@ end
 
 fn unsupported_byte_chunk(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn malformed_huffman_padding_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	Err(MalformedHuffmanPadding(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman padding", "hpack_fixture", block))
 end
 
 fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -1568,7 +1573,7 @@ end
 
 fn decode_hpack_huffman_done(decoded: ByteChunk, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
 	match hpack_huffman_padding_valid(code, length)
-		false => unsupported_string_literal(block, offset)
+		false => malformed_huffman_padding_string_literal(block, offset)
 		true => match byte_chunk_to_visible_ascii_string(decoded)
 			Ok(value) => Ok(HpackStringLiteral(value, hpack_huffman_decoded_wire_size(value, byte_count_to_int(byte_chunk_count(decoded)))))
 			Err(_) => unsupported_string_literal(block, offset)
@@ -2375,41 +2380,50 @@ end
 pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
 	end
 end
 
 pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		MalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
 	end
 end
 
 pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		MalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
 	end
 end
 
 pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		MalformedHuffmanPadding(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
 
 pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		MalformedHuffmanPadding(_, _, _, _, codec_module, _) => codec_module
 	end
 end
 
 pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
 	end
 end
 
 pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	let preview_chunk: ByteChunk = hpack_failure_preview(failure)
 	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
-	hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+	end
 end

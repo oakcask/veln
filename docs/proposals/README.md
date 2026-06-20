@@ -52,7 +52,7 @@ compare it with `../specification/` before changing behavior.
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
   protocol byte previews, plus the HPACK fixture unsupported-header-block
-  protocol byte preview, HTTP/2 SETTINGS value range protocol byte preview,
+  and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value range protocol byte preview,
   HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, and HTTP/2
   unexpected SETTINGS ACK protocol byte preview.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
@@ -192,8 +192,9 @@ compare it with `../specification/` before changing behavior.
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
   header-list validation slice, the source-visible `te` header value rule,
-  and the outbound HPACK fixture header-list encoder slice, including
-  visible-ASCII Huffman-marked string literal encoding,
+  the malformed Huffman padding fixture diagnostic, and the outbound HPACK
+  fixture header-list encoder slice, including visible-ASCII Huffman-marked
+  string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
