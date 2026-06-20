@@ -25,6 +25,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
 type HpackStringLiteral
@@ -423,6 +424,11 @@ fn unsupported_header_list_encoding(headers: HpackHeaderList, offset: Int) -> Re
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture header list encoding", "hpack_fixture", preview))
 end
 
+fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_size: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	let preview: ByteChunk = byte_chunk([])
+	Err(OutboundTableSizeUpdateExceeded(offset, table_size, allowed_size, "fixture outbound table-size update", "hpack_fixture", preview))
+end
+
 fn literal_static_name_index(name: String) -> Int
 	match name == ":authority"
 		true => 1
@@ -484,6 +490,53 @@ pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtu
 	match dynamic_index < 0
 		true => encode_non_dynamic_header_list(headers, state, offset)
 		false => encode_dynamic_indexed_header_list(dynamic_index, headers, state, offset)
+	end
+end
+
+pub fn encode_table_size_update_with_state(table_size: Int, peer_advertised_limit: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match table_size > peer_advertised_limit
+		true => outbound_table_size_update_exceeded(offset, table_size, peer_advertised_limit)
+		false => encode_valid_table_size_update_with_state(table_size, state, offset)
+	end
+end
+
+fn encode_valid_table_size_update_with_state(table_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match table_size < 31
+		true => encode_table_size_update_prefix_byte(32 + table_size, table_size, state, offset)
+		false => match byte_write_u8_be(63)
+			Ok(prefix) => match encode_hpack_integer_tail(table_size - 31, offset)
+				Ok(tail) => Ok(HpackEncodeTransition(byte_append(prefix, tail), state_with_table_size(state, table_size)))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => outbound_table_size_update_exceeded(offset, table_size, table_size)
+		end
+	end
+end
+
+fn encode_table_size_update_prefix_byte(value: Int, table_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_write_u8_be(value)
+		Ok(encoded) => Ok(HpackEncodeTransition(encoded, state_with_table_size(state, table_size)))
+		Err(_) => outbound_table_size_update_exceeded(offset, table_size, table_size)
+	end
+end
+
+fn encode_hpack_integer_tail(remaining: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match remaining < 128
+		true => encode_hpack_integer_tail_byte(remaining, offset)
+		false => match encode_hpack_integer_tail_byte((remaining - (remaining / 128) * 128) + 128, offset)
+			Ok(current) => match encode_hpack_integer_tail(remaining / 128, offset)
+				Ok(next) => Ok(byte_append(current, next))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn encode_hpack_integer_tail_byte(value: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_write_u8_be(value)
+		Ok(encoded) => Ok(encoded)
+		Err(_) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture HPACK integer encoding", "hpack_fixture", byte_chunk([])))
 	end
 end
 
@@ -1391,36 +1444,42 @@ end
 pub fn failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
 
 pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
 
 pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
 
 pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
 
 pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
 
 pub fn failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
 end
 

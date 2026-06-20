@@ -75,8 +75,9 @@ diagnostics by the outbound send-intent helpers.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the same stateful encoder transition directly at the HPACK fixture boundary:
   separate initial encode state, literal-with-indexing insertion, dynamic
-  indexed reuse, encode-count advancement, and stateless wrapper
-  compatibility.
+  indexed reuse, encode-count advancement, stateless wrapper compatibility,
+  accepted outbound table-size update bytes, reduced table capacity observed
+  by a later encode, and over-peer-limit table-size update failure.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.

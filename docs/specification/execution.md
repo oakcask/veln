@@ -1767,6 +1767,8 @@ execution reference.
   literal-with-indexing `:path: /target` header list, carries the returned
   bounded dynamic-table state, and emits a later matching header list as the
   dynamic indexed byte `0xbe` before the HEADERS frame-splitting boundary.
+  The focused HPACK boundary also pins those stateful encode transitions and
+  outbound table-size update transitions before HTTP/2 framing is involved.
   The same outbound fixture encoder accepts requested dynamic table-size
   updates before HEADERS framing, including one-byte prefix output `0x3e` for
   table size `30` and saturated-prefix continuation output `0x3f 0x81 0x01`
