@@ -668,7 +668,7 @@ full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal encoding, broader
 dynamic-table string encoding policy, and production header validation beyond
-the fixture request and response checks.
+ordinary request header-name shape and beyond the fixture response checks.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -677,7 +677,8 @@ HTTP/2 core validates fixture-marked request and response header lists after
 HPACK fixture decode on both completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
-`:path`, and response-only `:status` through
+`:path`, response-only `:status`, uppercase ordinary header names, and
+ordinary header names outside the HTTP field-name token shape through
 `http2.protocol.invalid_request_header_list`. Response validation rejects
 missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, and response pseudo-headers after regular headers
@@ -704,7 +705,8 @@ full HPACK behavior.
   policy beyond the checked bounded fixture dynamic table, table-size policy
   beyond fixture-boundary HPACK integer updates, HPACK Huffman behavior beyond
   visible-ASCII fixture string literal encoding, broader dynamic-table string
-  encoding policy, and production header validation remain later work beyond
-  the implemented fixture boundary.
+  encoding policy, production request-header validation beyond ordinary
+  header-name shape, and production response-header validation remain later
+  work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

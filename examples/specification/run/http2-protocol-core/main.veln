@@ -795,7 +795,13 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
 						true => match hpack_fixture::header_list_has_path(headers)
 							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers)))
-							true => RequestHeaderListOk
+							true => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
+								true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
+								false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
+									true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
+									false => RequestHeaderListOk
+								end
+							end
 						end
 					end
 				end
@@ -4361,6 +4367,16 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 	end
 end
 
+fn request_header_rule_provenance(failed_header_fact: String) -> String
+	match failed_header_fact == "ordinary_header_name_not_lowercase"
+		true => "rfc9113_field_name_lowercase"
+		false => match failed_header_fact == "ordinary_header_name_invalid_token"
+			true => "rfc9110_field_name_token"
+			false => "rfc9113_request_pseudo_headers"
+		end
+	end
+end
+
 fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
@@ -4372,7 +4388,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidDataPadding(_, _, _, _, _, rule_provenance, _) => rule_provenance
-			InvalidRequestHeaderList(_, _, _, _, _, _) => "rfc9113_request_pseudo_headers"
+			InvalidRequestHeaderList(_, _, _, failed_header_fact, _, _) => request_header_rule_provenance(failed_header_fact)
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "rfc9113_response_pseudo_headers"
 			UnexpectedSettingsAck(_, _, rule_provenance, _) => rule_provenance
 		InvalidPriorityDependency(_, _, _, _, rule_provenance, _) => rule_provenance
@@ -4657,7 +4673,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?)
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview)
-			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, "request-headers", "rfc9113_request_pseudo_headers")
+			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure))
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, "response-headers", "rfc9113_response_pseudo_headers")
 			UnexpectedSettingsAck(offset, active_state, rule_provenance, preview) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
@@ -6573,6 +6589,10 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_step("request-headers-valid", request_headers)
 	let ignored_request_headers: () = emit_header_block("http2-request-headers-valid", request_headers, "303132")?
 	print_hpack_transition("request-headers-valid", request_headers)
+	let request_headers_regular: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030104000000013b3c3d")?), state)?
+	print_step("request-headers-ordinary-valid", request_headers_regular)
+	let ignored_request_headers_regular: () = emit_header_block("http2-request-headers-ordinary-valid", request_headers_regular, "3b3c3d")?
+	print_hpack_transition("request-headers-ordinary-valid", request_headers_regular)
 	let request_headers_missing_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000131")?), state)?
 	print_step("request-headers-missing-start", request_headers_missing_start)
 	let request_headers_missing_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(request_headers_missing_start))?
@@ -6583,6 +6603,10 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_request_header_failure("request-headers-duplicate-method", request_headers_duplicate_method)
 	let request_headers_method_after_regular: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000134353637")?), state)?
 	print_request_header_failure("request-headers-method-after-regular", request_headers_method_after_regular)
+	let request_headers_uppercase_regular: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000013c3d3e3f")?), state)?
+	print_request_header_failure("request-headers-uppercase-ordinary", request_headers_uppercase_regular)
+	let request_headers_bad_token_regular: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000013d3e3f40")?), state)?
+	print_request_header_failure("request-headers-bad-token-ordinary", request_headers_bad_token_regular)
 	Ok(())
 end
 
