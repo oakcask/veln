@@ -39,6 +39,17 @@ state is emitted as a single dynamic indexed HEADERS block. Server-side
 `PUSH_PROMISE` keeps the same promised-stream payload encoding and
 CONTINUATION splitting after the fixture encoder produces its header block.
 
+The stateful encoder also accepts bounded dynamic table-size update requests
+for outbound HEADERS header blocks. It emits canonical checked fixture bytes
+for the implemented HPACK integer boundary, including `0x3e` for table size
+`30` and `0x3f 0x81 0x01` for table size `160`, and returns a new immutable
+fixture state with the updated table capacity. Later outbound HEADERS
+encoding from that reduced state observes the new capacity before deciding
+whether a supported header list can reuse a dynamic indexed entry. A requested
+table-size update greater than the active peer-advertised
+`SETTINGS_HEADER_TABLE_SIZE` returns a typed HPACK fixture encode failure
+before the send-intent path emits header-block bytes.
+
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
 The checked Huffman-marked non-visible value remains on the raw string
@@ -52,7 +63,10 @@ diagnostics by the outbound send-intent helpers.
   HEADERS, raw literal `:path: /target` into outbound HEADERS split across
   CONTINUATION frames, stateful literal-with-indexing `:path: /target`
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
-  `0xbe`, Huffman-marked literal `:path: test` into outbound HEADERS,
+  `0xbe`, outbound dynamic table-size update bytes `0x3e` and
+  `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
+  dynamic-table capacity, an over-peer-limit table-size update failure,
+  Huffman-marked literal `:path: test` into outbound HEADERS,
   Huffman-marked literal `:authority: abc.test` into outbound HEADERS, static
   indexed `:status: 200` and Huffman-marked literal `:status: 200` into
   server-side `PUSH_PROMISE`, one non-visible Huffman value encode failure,
@@ -61,8 +75,9 @@ diagnostics by the outbound send-intent helpers.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the same stateful encoder transition directly at the HPACK fixture boundary:
   separate initial encode state, literal-with-indexing insertion, dynamic
-  indexed reuse, encode-count advancement, and stateless wrapper
-  compatibility.
+  indexed reuse, encode-count advancement, stateless wrapper compatibility,
+  accepted outbound table-size update bytes, reduced table capacity observed
+  by a later encode, and over-peer-limit table-size update failure.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.
