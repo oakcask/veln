@@ -1,0 +1,4 @@
+fn main()
+	task::spawn_with33(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first, twenty_second, twenty_third, twenty_fourth, twenty_fifth, twenty_sixth, twenty_seventh, twenty_eighth, twenty_ninth, thirtieth, thirty_first, thirty_second, thirty_third)
+	task::spawn_with33<String>(job, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first, twenty_second, twenty_third, twenty_fourth, twenty_fifth, twenty_sixth, twenty_seventh, twenty_eighth, twenty_ninth, thirtieth, thirty_first, thirty_second, thirty_third)
+end
