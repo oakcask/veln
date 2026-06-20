@@ -201,9 +201,10 @@ compare it with `../specification/` before changing behavior.
   header-list validation slice, the source-visible `te` header value rule,
   the `content-length` header-list consistency slice,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
-  fixture header-list encoder slice, including visible-ASCII Huffman-marked
-  string literal encoding and the bounded stateful dynamic-table fixture
-  encoder path plus checked outbound dynamic table-size update encoding,
+  fixture header-list encoder slice, including static-name literal fixtures,
+  visible-ASCII Huffman-marked string literal encoding, and the bounded
+  stateful dynamic-table fixture encoder path plus checked outbound dynamic
+  table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

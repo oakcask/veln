@@ -1502,10 +1502,11 @@ execution reference.
 	  two-byte static-indexed block `0x82 0x84` as `:method: GET` followed
 	  by `:path: /`, preserving both headers in the source-visible
 	  `HpackHeaderList`, plus literal-without-indexing,
-	  literal-with-indexing, and literal-never-indexed fixtures whose first
-	  byte names a supported
-  static-table header name for `:authority`, `:method`, `:path`, `:scheme`,
-  or `:status`. Those literal fixtures share the same HPACK string literal
+	  literal-with-indexing, and literal-never-indexed fixtures whose
+	  indexed-name form names a supported static-table header name already
+	  accepted by the static-indexed fixture set, including ordinary names
+	  such as `server`, `content-type`, and `user-agent`. Those literal
+	  fixtures share the same HPACK string literal
   decoder: raw values must be visible ASCII, and Huffman-marked values
   decode by scanning the HPACK static Huffman table into decoded
   visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
@@ -1561,7 +1562,13 @@ execution reference.
   raw literal-never-indexed `:path` through completed HEADERS and final
   CONTINUATION, raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
-  `:status`. Checked bytes also include zero-length `:path` as `0x04 0x80`,
+  `:status`. It also checks ordinary static-name literals: raw
+  literal-without-indexing `server: ok` as `0x0f 0x27 0x02 "ok"`, raw
+  literal-with-indexing `content-type: text` as `0x5f 0x04 "text"` followed
+  by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
+  `user-agent: agent` through a final CONTINUATION as
+  `0x1f 0x2b 0x05 "agent"`. Checked bytes also include zero-length `:path`
+  as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
   `0x08 0x82 0x10 0x01`, `:method: bad` as `0x02 0x83 0x8c 0x72 0x7f`,

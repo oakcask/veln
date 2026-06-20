@@ -12,10 +12,13 @@ checked executable cases
 ## Completed Behavior
 
 The imported HPACK fixture boundary decodes literal header values through one
-HPACK string literal helper for the supported static-table names
-`:authority`, `:method`, `:path`, `:scheme`, and `:status`. The helper accepts
-visible-ASCII raw string literals and Huffman-marked values decoded by
-the HPACK static Huffman table. It also accepts the fixture-boundary
+HPACK string literal helper for supported static-table names. This slice
+introduced the helper for `:authority`, `:method`, `:path`, `:scheme`, and
+`:status`; the later
+`http2-hpack-static-name-literal-fixture.md` record extends the same helper to
+ordinary static-table names accepted by the static-indexed fixture set. The
+helper accepts visible-ASCII raw string literals and Huffman-marked values
+decoded by the HPACK static Huffman table. It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
 long raw values, including raw values past the former checked 128-byte decode

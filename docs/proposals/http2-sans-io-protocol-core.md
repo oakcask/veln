@@ -317,9 +317,10 @@ bytes plus the static indexed `accept-charset:`,
 	`strict-transport-security:`, `transfer-encoding:`, `user-agent:`,
 	`vary:`, `via:`, and
 	`www-authenticate:` header bytes, plus literal-without-indexing,
-literal-with-indexing, and literal-never-indexed fixtures whose first byte
-names a supported static-table
-header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
+literal-with-indexing, and literal-never-indexed fixtures whose indexed-name
+form names a supported static-table header name already accepted by the
+static-indexed fixture set, including ordinary names such as `server`,
+`content-type`, and `user-agent`.
 Those literal fixtures share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by
 the HPACK static Huffman table. The same fixture decoder accepts one
@@ -338,9 +339,13 @@ Huffman `:status: 200` through completed HEADERS
 and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, and raw literal-with-indexing
 `:status`, plus raw literal-never-indexed `:path` through completed HEADERS
-and final CONTINUATION. Completed HEADERS and final CONTINUATION paths reach
-that long string-length fixture boundary before the local header-list receive
-limit rejects the decoded long values. It rejects non-visible raw bytes,
+and final CONTINUATION. It also covers ordinary static-name literals:
+literal-without-indexing `server: ok`, literal-with-indexing
+`content-type: text` followed by dynamic-indexed reuse from the inserted
+fixture entry, and literal-never-indexed `user-agent: agent` through a final
+CONTINUATION. Completed HEADERS and final CONTINUATION paths reach that long
+string-length fixture boundary before the local header-list receive limit
+rejects the decoded long values. It rejects non-visible raw bytes,
 malformed string length including non-terminating string-length continuations,
 and a malformed raw `:status` literal through
 `hpack.fixture.unsupported_header_block`. Malformed Huffman padding uses the
@@ -684,6 +689,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/`, including
 `../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:

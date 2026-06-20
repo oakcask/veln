@@ -1611,19 +1611,23 @@ against the built `veln` binary.
 	  `www-authenticate:`
 	  bytes, plus the two-byte static-indexed block `0x82 0x84` as
 	  `:method: GET` followed by `:path: /` with both headers preserved in
-	  the fixture header list, plus literal-without-indexing and
-	  literal-with-indexing fixtures
-  whose first byte names a supported static-table header name for
-  `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-  fixtures share the HPACK string literal decoder for visible-ASCII raw
-  values and Huffman-marked values decoded by the HPACK static
+	  the fixture header list, plus literal-without-indexing,
+	  literal-with-indexing, and literal-never-indexed fixtures whose
+	  indexed-name form names a supported static-table header name already
+	  accepted by the static-indexed fixture set, including ordinary names
+	  such as `server`, `content-type`, and `user-agent`. Those literal
+	  fixtures share the HPACK string literal decoder for visible-ASCII raw
+	  values and Huffman-marked values decoded by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:method: bad` and `:scheme: https`, raw
-  literal-with-indexing `:status`, and Huffman literal-never-indexed
-  `:method: bad`. The same fixture module encodes supported raw string literals
+  literal-with-indexing `:status`, Huffman literal-never-indexed
+  `:method: bad`, raw literal-without-indexing `server: ok`, raw
+  literal-with-indexing `content-type: text` followed by dynamic-indexed reuse,
+  and raw literal-never-indexed `user-agent: agent` through a final
+  CONTINUATION. The same fixture module encodes supported raw string literals
   through `encode_hpack_raw_string_literal`, including a short `PUT` value
   that keeps its bytes, a visible ASCII `bad` value that was not part of the
   former fixture allowlist, the long raw `a` value at the
@@ -1848,18 +1852,23 @@ against the built `veln` binary.
 	  bytes, plus a completed HEADERS block carrying `0x82 0x84`
 	  through the HPACK fixture boundary as `:method: GET` followed by
 	  `:path: /` with both headers preserved in the fixture header list,
-	  plus literal-without-indexing and literal-with-indexing fixtures
-  whose first byte names a supported static-table header name for
-  `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-  fixtures share the HPACK string literal decoder for visible-ASCII raw
-  values and Huffman-marked values decoded by the HPACK static
+	  plus literal-without-indexing, literal-with-indexing, and
+	  literal-never-indexed fixtures whose indexed-name form names a supported
+	  static-table header name already accepted by the static-indexed fixture
+	  set, including ordinary names such as `server`, `content-type`, and
+	  `user-agent`. Those literal fixtures share the HPACK string literal
+	  decoder for visible-ASCII raw values and Huffman-marked values decoded
+	  by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:method: bad` and `:scheme: https`, raw
   literal-with-indexing `:status`, Huffman literal-never-indexed
-  `:method: bad`, and a 129-byte raw literal. Malformed Huffman padding keeps
+  `:method: bad`, raw literal-without-indexing `server: ok`, raw
+  literal-with-indexing `content-type: text` followed by dynamic-indexed reuse,
+  raw literal-never-indexed `user-agent: agent` through a final CONTINUATION,
+  and a 129-byte raw literal. Malformed Huffman padding keeps
   the focused `hpack.fixture.malformed_huffman_padding` id; malformed string
   length, non-visible raw bytes, and a malformed raw `:status` literal stay on
   the unsupported fixture path. The outbound fixture encoder in this case uses

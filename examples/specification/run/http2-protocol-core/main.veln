@@ -6935,6 +6935,21 @@ end
 fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let ignored_hpack_literal_authority_raw: () = print_hpack_header_block_case(state, "hpack-literal-authority-raw", "http2-hpack-literal-authority-raw", "00000a01040000000101086162632e74657374", "01086162632e74657374")?
 	let ignored_hpack_literal_status_raw: () = print_hpack_header_block_case(state, "hpack-literal-status-raw", "http2-hpack-literal-status-raw", "0000050104000000010803323031", "0803323031")?
+	let ignored_hpack_literal_static_name_server_raw: () = print_hpack_header_block_case(state, "hpack-literal-static-name-server-raw", "http2-hpack-literal-static-name-server-raw", "0000050104000000010f27026f6b", "0f27026f6b")?
+	let hpack_literal_indexed_static_name_content_type: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060104000000015f0474657874")?), state)?
+	print_step("hpack-literal-indexed-static-name-content-type", hpack_literal_indexed_static_name_content_type)
+	let ignored_hpack_literal_indexed_static_name_content_type: () = emit_header_block("http2-hpack-literal-indexed-static-name-content-type", hpack_literal_indexed_static_name_content_type, "5f0474657874")?
+	print_hpack_transition_from_state("hpack-literal-indexed-static-name-content-type", hpack_literal_indexed_static_name_content_type, state)
+	let hpack_dynamic_indexed_static_name_content_type: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001be")?), step_state(hpack_literal_indexed_static_name_content_type))?
+	print_step("hpack-dynamic-indexed-static-name-content-type", hpack_dynamic_indexed_static_name_content_type)
+	let ignored_hpack_dynamic_indexed_static_name_content_type: () = emit_header_block("http2-hpack-dynamic-indexed-static-name-content-type", hpack_dynamic_indexed_static_name_content_type, "be")?
+	print_hpack_transition_from_state("hpack-dynamic-indexed-static-name-content-type", hpack_dynamic_indexed_static_name_content_type, step_state(hpack_literal_indexed_static_name_content_type))
+	let hpack_literal_never_indexed_static_name_user_agent_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030100000000011f2b05")?), state)?
+	print_step("hpack-literal-never-indexed-static-name-user-agent-start", hpack_literal_never_indexed_static_name_user_agent_start)
+	let hpack_literal_never_indexed_static_name_user_agent_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000016167656e74")?), step_state(hpack_literal_never_indexed_static_name_user_agent_start))?
+	print_step("hpack-literal-never-indexed-static-name-user-agent-done", hpack_literal_never_indexed_static_name_user_agent_done)
+	let ignored_hpack_literal_never_indexed_static_name_user_agent: () = emit_header_block("http2-hpack-literal-never-indexed-static-name-user-agent", hpack_literal_never_indexed_static_name_user_agent_done, "1f2b056167656e74")?
+	print_hpack_transition_from_state("hpack-literal-never-indexed-static-name-user-agent-done", hpack_literal_never_indexed_static_name_user_agent_done, state)
 	let hpack_literal_authority_raw_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401000000000101086162")?), state)?
 	print_step("hpack-literal-authority-raw-continuation-start", hpack_literal_authority_raw_continuation_start)
 	let hpack_literal_authority_raw_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006090400000001632e74657374")?), step_state(hpack_literal_authority_raw_continuation_start))?
