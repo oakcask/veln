@@ -1879,7 +1879,13 @@ lookup without inserting replacement dynamic entries; the focused HPACK
 boundary checks `0x0f 0x2f 0x03 "/no"` and
 `0x1f 0x2f 0x07 "/secret"` after `:path: /target` has been inserted, then
 reads the retained `:path: /target` entry through `0xbe` from each returned
-state. A literal-never-indexed decode without a prior dynamic entry still
+state. After `:method: PUT` has also been inserted, the HTTP/2 protocol-core
+case checks the one-continuation indexed-name forms `0x0f 0x30 0x03 "/no"`
+and `0x1f 0x30 0x07 "/secret"` for dynamic index `63`; both reuse
+`:path`, decode the visible-ASCII values, advance the fixture decode count,
+and leave later `0xbe` and `0xbf` reads pointed at the prior `:method: PUT`
+and `:path: /target` entries. A literal-never-indexed decode without a prior
+dynamic entry still
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state
 remains unsupported. Missing, malformed, and out-of-range dynamic-name

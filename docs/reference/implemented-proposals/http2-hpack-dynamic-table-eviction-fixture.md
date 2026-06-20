@@ -55,7 +55,13 @@ prefixes. After `:path: /target` has been inserted, the boundary accepts
 `0x1f 0x2f 0x07 "/secret"` as `:path: /secret`. Both forms advance the
 immutable fixture decode count without inserting replacement dynamic entries,
 so a later `0xbe` lookup from their returned state still reads the previously
-inserted `:path: /target` entry. Missing, malformed, out-of-range, and
+inserted `:path: /target` entry. After `:method: PUT` has also been inserted,
+the same non-inserting forms accept one continuation byte for dynamic index
+`63`: `0x0f 0x30 0x03 "/no"` and
+`0x1f 0x30 0x07 "/secret"` both reuse the retained `:path` name, decode the
+visible-ASCII value literal, advance only the decode count, and leave later
+`0xbe` and `0xbf` reads pointed at the prior `:method: PUT` and
+`:path: /target` entries. Missing, malformed, out-of-range, and
 unsupported dynamic-name continuations remain on the unsupported fixture path.
 The HTTP/2 protocol-core example continues to cover dynamic HPACK state carry
 through completed HEADERS and final CONTINUATION paths.
@@ -88,7 +94,9 @@ unsupported fixture path.
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
   continuation-byte dynamic-name literal-with-indexing for retained dynamic
-  indexes `63` and `64`, generalized dynamic indexed lookup,
+  indexes `63` and `64`, dynamic-index `63` literal-without-indexing and
+  literal-never-indexed forms without replacement insertion,
+  generalized dynamic indexed lookup,
   oldest-first table-size eviction, the accepted-entry-size eviction case, and
   the fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
