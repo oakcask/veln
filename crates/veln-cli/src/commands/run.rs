@@ -886,6 +886,16 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                         "request header list contains te value other than trailers at byte offset {byte_offset}"
                     )
                 }
+                "content_length_invalid" => {
+                    format!(
+                        "request header list contains invalid content-length at byte offset {byte_offset}"
+                    )
+                }
+                "content_length_mismatch" => {
+                    format!(
+                        "request header list contains mismatched content-length values at byte offset {byte_offset}"
+                    )
+                }
                 _ => format!("invalid request header list at byte offset {byte_offset}"),
             };
             let mut diagnostic = Diagnostic::new(
@@ -950,6 +960,16 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 "te_header_value_not_trailers" => {
                     format!(
                         "response header list contains te value other than trailers at byte offset {byte_offset}"
+                    )
+                }
+                "content_length_invalid" => {
+                    format!(
+                        "response header list contains invalid content-length at byte offset {byte_offset}"
+                    )
+                }
+                "content_length_mismatch" => {
+                    format!(
+                        "response header list contains mismatched content-length values at byte offset {byte_offset}"
                     )
                 }
                 _ => format!("invalid response header list at byte offset {byte_offset}"),

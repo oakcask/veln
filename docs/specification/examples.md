@@ -2074,6 +2074,8 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-response-headers-content-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
@@ -2096,6 +2098,8 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-content-length-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-response-headers-content-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
@@ -2127,24 +2131,31 @@ request-header projection cases cover missing required request pseudo-headers,
 response-only `:status` pseudo-headers, duplicate request pseudo-headers, and
 request pseudo-headers after regular headers, uppercase ordinary header names,
 ordinary header names outside the HTTP field-name token shape, and invalid
-`te` values on inbound requests, with decoded header names carried as related
-context or structured JSON details. The
+`te` values on inbound requests, plus invalid and mismatched
+`content-length` values, with decoded header names carried as related context
+or structured JSON details. The
 response-header projection cases cover missing and duplicate `:status`,
 request-only pseudo-headers, and response pseudo-headers after regular
-headers and invalid `te` values, with the same JSON detail and human
-related-note shape. The larger protocol-core case also checks an accepted
+headers, invalid `te` values, and invalid and mismatched `content-length`
+values, with the same JSON detail and human related-note shape. The larger
+protocol-core case also checks an accepted
 fixture-marked request header list, accepted `te: trailers`, a final
 CONTINUATION path missing `:method`, a completed HEADERS path containing
 response-only `:status`, a duplicate `:method`, and a `:method` after a
 regular `host` header, plus uppercase and token-invalid ordinary request
 header names, connection-specific ordinary request header names `connection`,
 `keep-alive`, `proxy-connection`, `transfer-encoding`, and `upgrade`, and an
-invalid `te` value. It also checks accepted fixture-marked response header
-lists including a final CONTINUATION path for `te: trailers`, a final
+invalid `te` value. It accepts one and repeated matching valid decimal
+`content-length` request values and rejects mismatched, empty, non-decimal,
+signed, whitespace-padded, and negative-looking request values. It also
+checks accepted fixture-marked response header lists including a final
+CONTINUATION path for `te: trailers`, a final
 CONTINUATION path missing `:status`, duplicate `:status`, request-only
 `:method` and `:authority`, and `:status` after a regular `server` header,
 plus uppercase and token-invalid ordinary response header names and an
-invalid `te` value. The focused
+invalid `te` value. It accepts one and repeated matching valid decimal
+`content-length` response values and rejects mismatched, empty, non-decimal,
+signed, whitespace-padded, and negative-looking response values. The focused
 frame-kind, stream-id, and `PUSH_PROMISE`
 projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before

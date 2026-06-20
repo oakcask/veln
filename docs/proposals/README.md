@@ -192,6 +192,7 @@ compare it with `../specification/` before changing behavior.
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
   header-list validation slice, the source-visible `te` header value rule,
+  the `content-length` header-list consistency slice,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including visible-ASCII Huffman-marked
   string literal encoding,
