@@ -1546,10 +1546,15 @@ execution reference.
   literal-without-indexing and literal-never-indexed header blocks with
   saturated four-bit indexed-name prefixes: `0x0f 0x2f 0x03 "/no"` decodes
   `:path: /no`, and `0x1f 0x2f 0x07 "/secret"` decodes
-  `:path: /secret` after `:path: /target` has been inserted. Those forms
-  advance the immutable fixture decode count without inserting a dynamic-table
-  entry, so a later `0xbe` lookup from the returned state still reads the
-  previously inserted `:path: /target` entry. Completed HEADERS and final
+  `:path: /secret` after `:path: /target` has been inserted. After
+  `:method: PUT` has also been inserted, the same non-inserting literal
+  forms accept one continuation byte for dynamic index `63`:
+  `0x0f 0x30 0x03` with value `/no` decodes `:path: /no`, and
+  `0x1f 0x30 0x07` with value `/secret` decodes `:path: /secret`. Those
+  forms advance the immutable fixture decode count without inserting a
+  dynamic-table entry, so later `0xbe` and `0xbf` lookups from the returned
+  states still read the previously inserted `:method: PUT` and
+  `:path: /target` entries. Completed HEADERS and final
   CONTINUATION paths both carry that HPACK state before later header blocks
   are decoded. A literal-never-indexed decode without a prior dynamic entry
   still inserts no dynamic table entry, so a later `0xbe` lookup from that
