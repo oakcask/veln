@@ -405,6 +405,8 @@ examples are
 `examples/specification/run/binary-schema-byteview-product-truncated-json/`,
 `examples/specification/run/binary-schema-byteview-product-encode/`,
 `examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`,
+`examples/specification/run/binary-schema-byteview-quotient-encode/`,
+`examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
 `examples/specification/run/binary-schema-byteview-encode-diagnostic-json/`
 and
 `examples/specification/run/binary-schema-byteview-encode-diagnostic-human/`.

@@ -794,6 +794,8 @@ execution reference.
   expected count, actual `ByteView` count, length expression, byte offset,
   bounded byte preview, and count mismatch reason in human and JSON output.
   The checked examples are
+  `examples/specification/run/binary-schema-byteview-quotient-encode/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-encode-diagnostic-json/`
   and
   `examples/specification/run/binary-schema-byteview-encode-diagnostic-human/`.
@@ -1040,6 +1042,8 @@ execution reference.
   `examples/specification/run/binary-schema-byteview-product-truncated-json/`,
   `examples/specification/run/binary-schema-byteview-product-encode/`,
   `examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,
   `examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
   `examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,
@@ -1049,11 +1053,13 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-add-encode/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode/`,
   `examples/specification/run/binary-schema-repeat-product-encode/`,
+  `examples/specification/run/binary-schema-repeat-quotient-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-add-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-product-encode-count-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-quotient-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-imported-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,

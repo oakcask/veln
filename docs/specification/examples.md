@@ -947,13 +947,18 @@ and derived codec encode success.
 `../../examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`
 pin `ByteView(row_count * column_count)` decode, short-input failure, derived
 codec encode success, and direct helper encode mismatch.
-`../../examples/specification/run/binary-schema-byteview-quotient-decode/`
-pins `ByteView(total_length / chunk_count)` decode.
+`../../examples/specification/run/binary-schema-byteview-quotient-decode/`,
+`../../examples/specification/run/binary-schema-byteview-quotient-encode/`, and
+`../../examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`
+pin `ByteView(total_length / chunk_count)` decode, derived codec encode
+success, and direct helper encode mismatch.
 `../../examples/specification/run/binary-schema-repeat-quotient-decode/`,
-`../../examples/specification/run/binary-schema-repeat-quotient-encode/`, and
+`../../examples/specification/run/binary-schema-repeat-quotient-encode/`,
+`../../examples/specification/run/binary-schema-repeat-quotient-encode-count-mismatch/`,
+and
 `../../examples/specification/run/binary-schema-repeat-quotient-division-by-zero-json/`
-pin `Repeat(total_count / group_count, UInt16be)` decode, encode, and
-division-by-zero diagnostics.
+pin `Repeat(total_count / group_count, UInt16be)` decode, encode, direct
+helper encode mismatch, and division-by-zero diagnostics.
 
 `../../examples/specification/run/binary-schema-repeat-truncated-json/` and
 `../../examples/specification/run/binary-schema-repeat-truncated-human/` pin
