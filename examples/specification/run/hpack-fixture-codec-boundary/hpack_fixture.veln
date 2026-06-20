@@ -19,6 +19,10 @@ pub type HpackDecodeTransition
 	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
 end
 
+pub type HpackEncodeTransition
+	HpackEncodeTransition(encoded: ByteChunk, state: HpackFixtureState)
+end
+
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
@@ -36,6 +40,10 @@ type HpackIntegerPrefix
 end
 
 pub fn initial_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0, NoDynamicEntry)
+end
+
+pub fn initial_encode_state() -> HpackFixtureState
 	HpackFixtureState(4096, 0, NoDynamicEntry)
 end
 
@@ -380,6 +388,156 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 			Err(failure) => Err(failure)
 		end
 		Err(failure) => Err(failure)
+	end
+end
+
+pub fn outbound_literal_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn encoded_hex_or_failure(hex: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_chunk_from_hex(hex)
+		Ok(chunk) => Ok(chunk)
+		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
+fn unsupported_header_list_preview(headers: HpackHeaderList) -> ByteChunk
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+	end
+end
+
+fn unsupported_header_list_encoding(headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let preview: ByteChunk = unsupported_header_list_preview(headers)
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture header list encoding", "hpack_fixture", preview))
+end
+
+fn literal_static_name_index(name: String) -> Int
+	match name == ":authority"
+		true => 1
+		false => match name == ":method"
+			true => 2
+			false => match name == ":path"
+				true => 4
+				false => match name == ":scheme"
+					true => 6
+					false => match name == ":status"
+						true => 8
+						false => -1
+					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match name == ":authority" and value == ""
+		true => encoded_hex_or_failure("81", headers, offset)
+		false => match name == ":method" and value == "GET"
+			true => encoded_hex_or_failure("82", headers, offset)
+			false => match name == ":method" and value == "POST"
+				true => encoded_hex_or_failure("83", headers, offset)
+				false => match name == ":path" and value == "/"
+					true => encoded_hex_or_failure("84", headers, offset)
+					false => unsupported_header_list_encoding(headers, offset)
+				end
+			end
+		end
+	end
+end
+
+fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let index: Int = literal_static_name_index(name)
+	match index < 0
+		true => unsupported_header_list_encoding(headers, offset)
+		false => match byte_write_u8_be(prefix_offset + index)
+			Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
+				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
+pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_header_list_with_state(headers, initial_encode_state(), offset)
+		Ok(transition) => Ok(encode_transition_bytes(transition))
+		Err(failure) => Err(failure)
+	end
+end
+
+pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	let dynamic_index: Int = matching_dynamic_index(headers, state)
+	match dynamic_index < 0
+		true => encode_non_dynamic_header_list(headers, state, offset)
+		false => encode_dynamic_indexed_header_list(dynamic_index, headers, state, offset)
+	end
+end
+
+fn encode_non_dynamic_header_list(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match headers
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), _) => encode_header_list_transition(encode_static_indexed_header(name, value, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 0, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_header_list_transition(encoded: Result<ByteChunk, HpackFixtureFailure>, state: HpackFixtureState) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encoded
+		Ok(bytes) => Ok(HpackEncodeTransition(bytes, state))
+		Err(failure) => Err(failure)
+	end
+end
+
+fn encode_dynamic_indexed_header_list(dynamic_index: Int, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_write_u8_be(190 + dynamic_index)
+		Ok(encoded) => Ok(HpackEncodeTransition(encoded, next_state(state)))
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn matching_dynamic_index(headers: HpackHeaderList, state: HpackFixtureState) -> Int
+	match headers
+		HpackHeaderList(HpackHeader(name, value), _, _) => match state
+			HpackFixtureState(_, _, dynamic_entry) => matching_dynamic_entry_index(dynamic_entry, name, value, 0)
+		end
+	end
+end
+
+fn matching_dynamic_entry_index(dynamic_entry: HpackDynamicEntry, name: String, value: String, index: Int) -> Int
+	match dynamic_entry
+		NoDynamicEntry => -1
+		DynamicEntry(entry_name, entry_value, older) => match entry_name == name and entry_value == value
+			true => index
+			false => matching_dynamic_entry_index(older, name, value, index + 1)
+		end
+	end
+end
+
+pub fn encode_transition_bytes(transition: HpackEncodeTransition) -> ByteChunk
+	match transition
+		HpackEncodeTransition(encoded, _) => encoded
+	end
+end
+
+pub fn encode_transition_state(transition: HpackEncodeTransition) -> HpackFixtureState
+	match transition
+		HpackEncodeTransition(_, state) => state
 	end
 end
 
@@ -1265,6 +1423,10 @@ pub fn state_decode_count(state: HpackFixtureState) -> Int
 	match state
 		HpackFixtureState(_, decode_count, _) => decode_count
 	end
+end
+
+pub fn state_encode_count(state: HpackFixtureState) -> Int
+	state_decode_count(state)
 end
 
 pub fn state_table_size(state: HpackFixtureState) -> Int

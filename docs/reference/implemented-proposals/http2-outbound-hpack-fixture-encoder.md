@@ -19,12 +19,25 @@ same fixture boundary, and the checked request and response pseudo-header
 fixture lists used by outbound HEADERS and server-side `PUSH_PROMISE`
 send-intents.
 
+The fixture module also exposes a stateful encode transition. Callers create a
+separate initial encode state, encode a supported literal-with-indexing header
+list, and receive both the encoded header block and a new state whose bounded
+dynamic table contains the inserted entry. A later matching header list encoded
+from that returned state uses the checked dynamic indexed byte `0xbe` and
+returns a state with the encode count advanced again. The stateless
+`encode_header_list` wrapper remains as a compatibility path that delegates to
+the stateful encoder with a fresh initial encode state.
+
 Successful fixture encoding produces the opaque header-block `ByteChunk` that
 the existing outbound send-intent path already accepts. HEADERS therefore
 keeps the same single-frame and CONTINUATION splitting behavior based on the
-peer-advertised maximum frame size. Server-side `PUSH_PROMISE` keeps the same
-promised-stream payload encoding and CONTINUATION splitting after the fixture
-encoder produces its header block.
+peer-advertised maximum frame size. The checked stateful HEADERS case encodes
+the HPACK header block before frame splitting: the first literal-with-indexing
+block is split across HEADERS and CONTINUATION frames when the peer frame-size
+limit is small, while the later matching header list from the returned encode
+state is emitted as a single dynamic indexed HEADERS block. Server-side
+`PUSH_PROMISE` keeps the same promised-stream payload encoding and
+CONTINUATION splitting after the fixture encoder produces its header block.
 
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
@@ -37,12 +50,19 @@ diagnostics by the outbound send-intent helpers.
 - `../../../examples/specification/run/http2-protocol-core/` checks
   header-list encoding for static indexed `:method: GET` into outbound
   HEADERS, raw literal `:path: /target` into outbound HEADERS split across
-  CONTINUATION frames, Huffman-marked literal `:path: test` into outbound
-  HEADERS, Huffman-marked literal `:authority: abc.test` into outbound
-  HEADERS, static indexed `:status: 200` and Huffman-marked literal
-  `:status: 200` into server-side `PUSH_PROMISE`, one non-visible Huffman
-  value encode failure, and one unsupported-header encode failure that remains
-  an HPACK fixture result.
+  CONTINUATION frames, stateful literal-with-indexing `:path: /target`
+  encoding before HEADERS splitting, stateful dynamic indexed reuse as
+  `0xbe`, Huffman-marked literal `:path: test` into outbound HEADERS,
+  Huffman-marked literal `:authority: abc.test` into outbound HEADERS, static
+  indexed `:status: 200` and Huffman-marked literal `:status: 200` into
+  server-side `PUSH_PROMISE`, one non-visible Huffman value encode failure,
+  and one unsupported-header encode failure that remains an HPACK fixture
+  result.
+- `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
+  the same stateful encoder transition directly at the HPACK fixture boundary:
+  separate initial encode state, literal-with-indexing insertion, dynamic
+  indexed reuse, encode-count advancement, and stateless wrapper
+  compatibility.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.

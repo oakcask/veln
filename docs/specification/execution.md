@@ -1758,7 +1758,11 @@ execution reference.
   that opaque header-block chunk from fixture-owned ordinary header-list
   values through the HPACK fixture encoder before entering the same send-intent
   path, including checked Huffman-marked `:path: test` and
-  `:authority: abc.test` fixture literals.
+  `:authority: abc.test` fixture literals. The checked stateful encoder path
+  starts from a separate fixture encode state, emits a supported
+  literal-with-indexing `:path: /target` header list, carries the returned
+  bounded dynamic-table state, and emits a later matching header list as the
+  dynamic indexed byte `0xbe` before the HEADERS frame-splitting boundary.
   When the header-block fits within the peer-advertised maximum frame
   size, the intent emits one immutable output chunk with a HEADERS frame header
   kind `1`,

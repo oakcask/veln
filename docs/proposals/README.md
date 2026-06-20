@@ -199,7 +199,8 @@ compare it with `../specification/` before changing behavior.
   the `content-length` header-list consistency slice,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including visible-ASCII Huffman-marked
-  string literal encoding,
+  string literal encoding and the bounded stateful dynamic-table fixture
+  encoder path,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
