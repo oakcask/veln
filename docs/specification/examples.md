@@ -1862,12 +1862,13 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	indexed block that preserves `:method: GET` followed by `:path: /` in
 	the source-visible header list, plus literal-without-indexing,
 	literal-with-indexing,
-	and literal-never-indexed fixtures whose first byte names a supported
-static-table header name for
-`:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
-fixtures share the HPACK string literal decoder for visible-ASCII raw
-values and Huffman-marked values decoded by the HPACK static Huffman table
-rather than a fixed decoded-value allowlist. The same decoder accepts checked
+	and literal-never-indexed fixtures whose indexed-name form names a
+supported static-table header name already accepted by the static-indexed
+fixture set, including ordinary names such as `server`, `content-type`, and
+`user-agent`. Those literal fixtures share the HPACK string literal decoder
+for visible-ASCII raw values and Huffman-marked values decoded by the HPACK
+static Huffman table rather than a fixed decoded-value allowlist. The same
+decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
 through all three literal forms, including a 129-byte raw `:authority` value
 past the former checked raw decode boundary. The same HPACK-prefixed integer
@@ -1896,7 +1897,12 @@ final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
 literal-with-indexing `:scheme: https`, raw literal-with-indexing `:status`,
 raw literal-never-indexed `:path` through completed HEADERS and final
 CONTINUATION, and long raw and Huffman-marked string-length continuation
-fixtures. Completed HEADERS and final CONTINUATION paths reach
+fixtures. It also covers ordinary static-name literals: raw
+literal-without-indexing `server: ok` as `0x0f 0x27 0x02 "ok"`, raw
+literal-with-indexing `content-type: text` as `0x5f 0x04 "text"` followed
+by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
+`user-agent: agent` through a final CONTINUATION as
+`0x1f 0x2b 0x05 "agent"`. Completed HEADERS and final CONTINUATION paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. It rejects non-visible raw bytes, malformed
 string length including non-terminating string-length continuations, malformed
