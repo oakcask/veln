@@ -1047,6 +1047,8 @@ and
 and
 `examples/specification/check/channel-first-stream-routing-twenty-five-route-effects/`,
 and
+`examples/specification/check/channel-first-stream-routing-twenty-six-route-effects/`,
+and
 `examples/specification/check/channel-select-many-timeout-effects/`, and
 `examples/specification/check/channel-select-timeout-cancellable-effects/`, and
 `examples/specification/check/channel-select-many-timeout-cancellable-effects/`, and
