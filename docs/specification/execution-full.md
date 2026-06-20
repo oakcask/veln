@@ -185,8 +185,8 @@ covers consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` fields when the group contains at least one
 visible field and at least one reserved field, every visible field is a
 big-endian sub-byte `UIntN`, and the declared widths complete one byte or the
-same two-byte, three-byte, or four-byte big-endian storage unit. Reserved
-fields in the group remain representation-only, each reserved value is
+same two-byte, three-byte, four-byte, or five-byte big-endian storage unit.
+Reserved fields in the group remain representation-only, each reserved value is
 validated at its own field path, and visible fields are decoded from their
 declared high-to-low positions.
 Generated binary schema decode helpers also support standalone visible
@@ -504,9 +504,9 @@ The same shared-storage encode rule also covers consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` fields when the group contains at
 least one visible field and at least one reserved field, every visible field
 is a big-endian sub-byte `UIntN`, and the declared widths complete one byte or
-the same two-byte, three-byte, or four-byte big-endian storage unit. The
-helper writes visible and reserved values in declaration order, omits reserved
-fields from the encoder value record, and reports
+the same two-byte, three-byte, four-byte, or five-byte big-endian storage unit.
+The helper writes visible and reserved values in declaration order, omits
+reserved fields from the encoder value record, and reports
 `codec.encode_value_unrepresentable` at the out-of-range visible field.
 Unsupported non-byte-aligned reserved-bit encode shapes report
 `schema.reserved_bits_encode`.

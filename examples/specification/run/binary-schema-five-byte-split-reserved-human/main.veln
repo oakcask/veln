@@ -1,0 +1,16 @@
+schema FiveByteSplitReservedHeader
+	format binary
+
+	lead: UInt3
+	guard: ReservedBits(10, 682)
+	mode: UInt5
+	gap: ReservedBits(17, 87381)
+	tail: UInt5
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("b55c6aaab6")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_five_byte_split_reserved_header(view)?
+	Ok(())
+end

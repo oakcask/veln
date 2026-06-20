@@ -376,23 +376,24 @@
     }
 
     private static long reservedMaxValue(int bitWidth) {
-        return bitWidth == 32 ? 0xffffffffL : (1L << bitWidth) - 1L;
+        return (1L << bitWidth) - 1L;
     }
 
     private static boolean supportedReservedBits(int bitWidth, long reservedValue) {
-        if (bitWidth <= 0 || bitWidth > 32) {
+        if (bitWidth <= 0 || bitWidth > 40) {
             return false;
         }
         if (bitWidth < 8
             || (bitWidth > 8 && bitWidth < 16)
             || (bitWidth > 16 && bitWidth < 24)
-            || (bitWidth > 24 && bitWidth < 32)) {
+            || (bitWidth > 24 && bitWidth < 32)
+            || (bitWidth > 32 && bitWidth < 40)) {
             return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
         }
         if (bitWidth % 8 != 0) {
             return false;
         }
-        return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
+        return bitWidth <= 32 && reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
     }
 
     private static int packedReservedStorageByteWidth(int bitWidth) {
@@ -508,7 +509,7 @@
     }
 
     private static boolean bitPackedStorageBitWidth(int bitWidth) {
-        return bitWidth == 8 || bitWidth == 16 || bitWidth == 24 || bitWidth == 32;
+        return bitWidth == 8 || bitWidth == 16 || bitWidth == 24 || bitWidth == 32 || bitWidth == 40;
     }
 
     private static BitPackedFieldGroupSpec bitPackedFieldGroupSpec(
@@ -534,7 +535,7 @@
                     ? new BitPackedFieldGroupSpec(fieldCount, totalBitWidth / 8, totalBitWidth)
                     : null;
             }
-            if (totalBitWidth > 32) {
+            if (totalBitWidth > 40) {
                 return null;
             }
         }
