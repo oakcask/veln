@@ -3199,6 +3199,37 @@ mod tests {
     }
 
     #[test]
+    fn run_entry_reaches_spawn_with31_function_value() {
+        let module = lower(concat!(
+            "fn combine(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String) -> String effects [concurrency]\n",
+            "  suffix(thirty_first)\n",
+            "end\n",
+            "fn suffix(value: String) -> String\n",
+            "  value\n",
+            "end\n",
+            "pub fn main() -> Task<String> effects [concurrency]\n",
+            "  task::spawn_with31(combine, \"one\", \"two\", \"three\", \"four\", \"five\", \"six\", \"seven\", \"eight\", \"nine\", \"ten\", \"eleven\", \"twelve\", \"thirteen\", \"fourteen\", \"fifteen\", \"sixteen\", \"seventeen\", \"eighteen\", \"nineteen\", \"twenty\", \"twenty-one\", \"twenty-two\", \"twenty-three\", \"twenty-four\", \"twenty-five\", \"twenty-six\", \"twenty-seven\", \"twenty-eight\", \"twenty-nine\", \"thirty\", \"thirty-one\")\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Function, Some("combine")),
+                (FunctionKind::Function, Some("suffix")),
+                (FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
     fn modules_manifest_section_is_rejected() {
         let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
