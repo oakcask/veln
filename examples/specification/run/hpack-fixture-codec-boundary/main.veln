@@ -14,6 +14,23 @@ fn print_decoded_transition(label: String, transition: HpackDecodeTransition) ->
 	stdio::println(int_to_string(state_decode_count(transition_state(transition))))
 end
 
+fn print_decoded_two_header_transition(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
+	let headers: HpackHeaderList = transition_headers(transition)
+	stdio::print(label)
+	stdio::print(" decoded ")
+	stdio::print(header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(header_list_first_value(headers))
+	stdio::print(" then ")
+	stdio::print(header_list_second_name(headers))
+	stdio::print(" ")
+	stdio::print(header_list_second_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(state_decode_count(transition_state(transition))))
+end
+
 fn print_decode_failure(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" failed offset ")
@@ -106,6 +123,13 @@ end
 fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
 	match result
 		Ok(transition) => print_decoded_transition(label, transition)
+		Err(failure) => print_decode_failure(label, failure)
+	end
+end
+
+fn print_two_header_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
+	match result
+		Ok(transition) => print_decoded_two_header_transition(label, transition)
 		Err(failure) => print_decode_failure(label, failure)
 	end
 end
@@ -235,8 +259,7 @@ fn print_dynamic_name_wide_continuation_cases() -> Result<(), String> effects [s
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [stdio]
-	let initial: HpackFixtureState = initial_state()
+fn print_initial_static_indexed_cases(initial: HpackFixtureState) -> Result<HpackFixtureState, String> effects [stdio]
 	let first_block: ByteChunk = byte_chunk_from_hex("102030")?
 	let first: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(first_block, initial, 9)
 	print_transition("first", first)
@@ -252,6 +275,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let method_post_block: ByteChunk = byte_chunk_from_hex("83")?
 	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, authority_state, 26)
 	print_transition("method-post", method_post)
+	print_two_header_transition("method-path", decode_header_block(byte_chunk_from_hex("8284")?, initial, 26))
 	let accept_charset_state: HpackFixtureState = next_state_or(method_post, authority_state)
 	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
 	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
@@ -337,6 +361,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let vary_state: HpackFixtureState = print_static_indexed_decode("vary", "bb", user_agent_state, 64)?
 	let via_state: HpackFixtureState = print_static_indexed_decode("via", "bc", vary_state, 65)?
 	let literal_state: HpackFixtureState = print_static_indexed_decode("www-authenticate", "bd", via_state, 66)?
+	Ok(literal_state)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let initial: HpackFixtureState = initial_state()
+	let literal_state: HpackFixtureState = print_initial_static_indexed_cases(initial)?
 	let literal_path_block: ByteChunk = byte_chunk_from_hex("04072f746172676574")?
 	let literal_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_path_block, literal_state, 66)
 	print_transition("literal-path", literal_path)
@@ -475,7 +505,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let malformed_status_block: ByteChunk = byte_chunk_from_hex("08033230")?
 	print_transition("malformed-status", decode_header_block(malformed_status_block, literal_state, 75))
 	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
-	print_transition("bad", decode_header_block(bad_block, second_state, 27))
+	print_transition("bad", decode_header_block(bad_block, initial, 27))
 	let literal_scheme_huffman_block: ByteChunk = byte_chunk_from_hex("06849d29ad1f")?
 	print_transition("literal-scheme-https-huffman", decode_header_block(literal_scheme_huffman_block, initial, 81))
 	let malformed_scheme_huffman_block: ByteChunk = byte_chunk_from_hex("06819d")?

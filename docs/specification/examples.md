@@ -1810,7 +1810,10 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	`strict-transport-security:`, `0xb9` `transfer-encoding:`, `0xba`
 	`user-agent:`, `0xbb` `vary:`, `0xbc` `via:`, and `0xbd`
 	`www-authenticate:`
-	header-block bytes plus literal-without-indexing, literal-with-indexing,
+	header-block bytes. It also checks `0x82 0x84` as a two-header static
+	indexed block that preserves `:method: GET` followed by `:path: /` in
+	the source-visible header list, plus literal-without-indexing,
+	literal-with-indexing,
 	and literal-never-indexed fixtures whose first byte names a supported
 static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal

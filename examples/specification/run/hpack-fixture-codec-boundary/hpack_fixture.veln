@@ -106,8 +106,20 @@ fn fixture_headers(label: String, wire_size: Int) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":fixture", label), HpackHeader(":status", "ok"), wire_size)
 end
 
+fn static_indexed_method_get_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
 fn static_indexed_method_post_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_path_root_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
+end
+
+fn static_indexed_two_headers(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(first, second, wire_size)
 end
 
 fn static_indexed_header(name: String, value: String) -> HpackHeaderList
@@ -130,8 +142,20 @@ fn decoded_static_indexed_method_post(state: HpackFixtureState) -> Result<HpackD
 	Ok(HpackDecodeTransition(static_indexed_method_post_headers(), next_state(state)))
 end
 
+fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_method_get_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_root_headers(), next_state(state)))
+end
+
 fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_header(name, value), next_state(state)))
+end
+
+fn decoded_static_indexed_two_headers(first: HpackHeader, second: HpackHeader, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_two_headers(first, second, 2), next_state(state)))
 end
 
 fn decoded_static_indexed_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1027,12 +1051,76 @@ fn decode_literal_never_indexed_dynamic_name_header_block(first_byte: Int, obser
 	end
 end
 
+fn static_indexed_header_value(byte: Int) -> Option<HpackHeader>
+	match byte
+		129 => Some(HpackHeader(":authority", ""))
+		130 => Some(HpackHeader(":method", "GET"))
+		131 => Some(HpackHeader(":method", "POST"))
+		132 => Some(HpackHeader(":path", "/"))
+		143 => Some(HpackHeader("accept-charset", ""))
+		144 => Some(HpackHeader("accept-encoding", "gzip, deflate"))
+		145 => Some(HpackHeader("accept-language", ""))
+		153 => Some(HpackHeader("content-disposition", ""))
+		154 => Some(HpackHeader("content-encoding", ""))
+		155 => Some(HpackHeader("content-language", ""))
+		156 => Some(HpackHeader("content-length", ""))
+		157 => Some(HpackHeader("content-location", ""))
+		158 => Some(HpackHeader("content-range", ""))
+		159 => Some(HpackHeader("content-type", ""))
+		160 => Some(HpackHeader("cookie", ""))
+		161 => Some(HpackHeader("date", ""))
+		162 => Some(HpackHeader("etag", ""))
+		163 => Some(HpackHeader("expect", ""))
+		164 => Some(HpackHeader("expires", ""))
+		165 => Some(HpackHeader("from", ""))
+		166 => Some(HpackHeader("host", ""))
+		167 => Some(HpackHeader("if-match", ""))
+		168 => Some(HpackHeader("if-modified-since", ""))
+		169 => Some(HpackHeader("if-none-match", ""))
+		170 => Some(HpackHeader("if-range", ""))
+		171 => Some(HpackHeader("if-unmodified-since", ""))
+		172 => Some(HpackHeader("last-modified", ""))
+		173 => Some(HpackHeader("link", ""))
+		174 => Some(HpackHeader("location", ""))
+		175 => Some(HpackHeader("max-forwards", ""))
+		176 => Some(HpackHeader("proxy-authenticate", ""))
+		177 => Some(HpackHeader("proxy-authorization", ""))
+		178 => Some(HpackHeader("range", ""))
+		179 => Some(HpackHeader("referer", ""))
+		180 => Some(HpackHeader("refresh", ""))
+		181 => Some(HpackHeader("retry-after", ""))
+		182 => Some(HpackHeader("server", ""))
+		183 => Some(HpackHeader("set-cookie", ""))
+		184 => Some(HpackHeader("strict-transport-security", ""))
+		185 => Some(HpackHeader("transfer-encoding", ""))
+		186 => Some(HpackHeader("user-agent", ""))
+		187 => Some(HpackHeader("vary", ""))
+		188 => Some(HpackHeader("via", ""))
+		189 => Some(HpackHeader("www-authenticate", ""))
+		_ => None
+	end
+end
+
+fn decode_static_indexed_two_header_block(first_byte: Int, second_byte: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match static_indexed_header_value(first_byte)
+		Some(first) => match static_indexed_header_value(second_byte)
+			Some(second) => decoded_static_indexed_two_headers(first, second, state)
+			None => unsupported(block, offset)
+		end
+		None => unsupported(block, offset)
+	end
+end
+
 fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match observed_size == 1
-		false => unsupported(block, offset)
-		true => match first_byte
+	match observed_size == 2
+		true => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
+		false => match observed_size == 1
+			false => unsupported(block, offset)
+			true => match first_byte
 			129 => decoded_static_indexed_authority(state)
+			130 => decoded_static_indexed_method_get(state)
 			131 => decoded_static_indexed_method_post(state)
+			132 => decoded_static_indexed_path_root(state)
 			143 => decoded_static_indexed_header("accept-charset", "", state)
 			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
 			145 => decoded_static_indexed_header("accept-language", "", state)
@@ -1074,6 +1162,7 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			188 => decoded_static_indexed_header("via", "", state)
 			189 => decoded_static_indexed_header("www-authenticate", "", state)
 			_ => unsupported(block, offset)
+			end
 		end
 	end
 end
@@ -1157,6 +1246,18 @@ end
 pub fn header_list_first_value(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn header_list_second_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(_, HpackHeader(name, _), _) => name
+	end
+end
+
+pub fn header_list_second_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(_, HpackHeader(_, value), _) => value
 	end
 end
 
