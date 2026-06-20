@@ -53,7 +53,8 @@ compare it with `../specification/` before changing behavior.
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
   protocol byte previews, plus the HPACK fixture unsupported-header-block
   protocol byte preview, HTTP/2 SETTINGS value range protocol byte preview,
-  and HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview.
+  HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, and HTTP/2
+  unexpected SETTINGS ACK protocol byte preview.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
