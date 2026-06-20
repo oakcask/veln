@@ -4606,6 +4606,102 @@ fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_reserved_payload_dispatch_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PackedReservedPayload\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(2, 1)\n",
+            "  value: UInt6\n",
+            "end\n",
+            "\n",
+            "schema ByteReservedPayload\n",
+            "  format binary\n",
+            "\n",
+            "  marker: ReservedBits(8, 171)\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "schema ClosedReservedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => PackedReservedPayload)\n",
+            "end\n",
+            "\n",
+            "schema ExtensionReservedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => ByteReservedPayload)\n",
+            "end\n",
+            "\n",
+            "pub fn read_closed(view: ByteView) -> Result<{kind: Int, payload: {value: Int}}, String>\n",
+            "  byte_decode_closed_reserved_packet(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_closed(packet: {kind: Int, payload: {value: Int}}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_closed_reserved_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn read_extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int}>}, String>\n",
+            "  byte_decode_extension_reserved_packet(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_extension(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_extension_reserved_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let closed = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "ClosedReservedPacket")
+        .expect("closed dispatch metadata should be emitted");
+    let closed_dispatch = closed.fields[1]
+        .dispatch
+        .as_ref()
+        .expect("closed payload should carry dispatch metadata");
+    assert_eq!(
+        closed_dispatch.cases[0]
+            .payload_schema
+            .as_ref()
+            .expect("closed case should carry nested schema metadata")
+            .schema_name,
+        "PackedReservedPayload"
+    );
+
+    let extension = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "ExtensionReservedPacket")
+        .expect("extension dispatch metadata should be emitted");
+    let extension_dispatch = extension.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("extension payload should carry dispatch metadata");
+    assert_eq!(extension_dispatch.length_field.as_deref(), Some("length"));
+    assert_eq!(
+        extension_dispatch.cases[0]
+            .payload_schema
+            .as_ref()
+            .expect("extension case should carry nested schema metadata")
+            .schema_name,
+        "ByteReservedPayload"
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_return_mapped_record_shape() {
     let source = SourceFile::new(
         "main.veln",

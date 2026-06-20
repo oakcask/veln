@@ -1,0 +1,46 @@
+# Nested dispatch payloads may use supported representation-only reserved bits.
+
+schema PackedReservedPayload
+	format binary
+
+	prefix: ReservedBits(2, 1)
+	value: UInt6
+end
+
+schema ByteReservedPayload
+	format binary
+
+	marker: ReservedBits(8, 171)
+	code: UInt8
+end
+
+schema ClosedReservedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => PackedReservedPayload)
+end
+
+schema ExtensionReservedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => ByteReservedPayload)
+end
+
+pub fn decode_closed(view: ByteView) -> Result<{kind: Int, payload: {value: Int}}, String>
+	byte_decode_closed_reserved_packet(view)
+end
+
+pub fn encode_closed(packet: {kind: Int, payload: {value: Int}}) -> Result<ByteChunk, EncodeError>
+	byte_encode_closed_reserved_packet(packet)
+end
+
+pub fn decode_extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int}>}, String>
+	byte_decode_extension_reserved_packet(view)
+end
+
+pub fn encode_extension(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int}>}) -> Result<ByteChunk, EncodeError>
+	byte_encode_extension_reserved_packet(packet)
+end

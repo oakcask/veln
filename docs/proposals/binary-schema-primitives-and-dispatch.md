@@ -158,7 +158,8 @@ field path. Those nested dispatch payload decode and encode slices route
 selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
-payload fields, extension-tolerant known payloads, recursive extension known
+payload fields, same-module representation-only reserved-bit payload
+round trips, extension-tolerant known payloads, recursive extension known
 payloads, unknown payload preservation, and nested helper diagnostics. A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. Supporting recursive dispatch
@@ -409,9 +410,8 @@ for:
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
 - recursive dispatch payload schemas outside the selected same-module or
-  public imported length-bounded dispatch decode-and-encode slice and
-  additional dispatch payload schemas outside the generated helper slice beyond
-  the checked unsupported `ReservedBits` payload diagnostic
+  public imported length-bounded dispatch decode-and-encode slice and dispatch
+  payload schemas outside the generated helper slice
 
 ## Discussion Result: Dependent Structure Boundary
 
@@ -557,9 +557,8 @@ through a written `use` path, plus `ByteView(length_field)` when the length
 field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module or public
-imported length-bounded dispatch decode-and-encode slice, additional dispatch
-payload schemas outside the generated helper slice beyond the checked
-unsupported `ReservedBits` diagnostic, and mapping beyond the implemented
+imported length-bounded dispatch decode-and-encode slice, dispatch payload
+schemas outside the generated helper slice, and mapping beyond the implemented
 slices remain proposal work.
 A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
