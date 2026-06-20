@@ -160,6 +160,11 @@ widths seventeen through twenty-three are accepted when the two visible fields
 complete the remaining bits in declaration order; in the four-byte form,
 reserved prefix widths twenty-five through thirty-one are accepted when the
 two visible fields complete the remaining bits in declaration order.
+The narrow `ReservedBits(2, 0)` prefix followed by `UInt8` also uses a
+two-byte big-endian bitstream slice: the reserved bits are validated first,
+the visible byte is decoded from the following bits, trailing low padding bits
+are ignored, and the reserved field is omitted from decoded records and
+mapping source values.
 The helper validates the high reserved bits, decodes the following visible
 bits from their declared high-to-low positions as ordinary `Int` values,
 omits the reserved field from decoded records and mapping source values, and
@@ -494,7 +499,11 @@ twenty-three when the visible fields complete the remaining bits, the
 four-byte encode form accepts reserved prefix widths twenty-five through
 thirty-one when the visible fields complete the remaining bits, and reports
 `codec.encode_value_unrepresentable`
-at the out-of-range visible field. A
+at the out-of-range visible field. The narrow `ReservedBits(2, 0)` prefix
+followed by `UInt8` emits a two-byte big-endian bitstream slice with the
+declared reserved bits first, the visible byte immediately after them, and
+zero low padding bits; the reserved field remains omitted from the encoder
+value record. A
 visible `UIntN` field followed by a
 `ReservedBits(width, value)` suffix that completes the same one-byte,
 two-byte, three-byte, or four-byte big-endian storage unit is

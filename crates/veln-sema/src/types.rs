@@ -3985,6 +3985,12 @@ pub(crate) fn supported_encode_reserved_bits(
     {
         return Some((1, 0));
     }
+    if bit_width == 2
+        && expected_value == 0
+        && next_field.is_some_and(|field| field.ty.trim() == "UInt8")
+    {
+        return Some((2, 0));
+    }
     let packed_storage_bit_width = if (1..=7).contains(&bit_width) {
         Some(8)
     } else if (9..=15).contains(&bit_width) {

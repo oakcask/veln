@@ -165,7 +165,9 @@ in one generated decode-and-encode schema. Supporting recursive dispatch
 payload schemas outside the selected same-module or public imported
 length-bounded decode-and-encode slice, broader unsupported field layouts, and
 schema value mapping beyond the implemented structural slices remains proposal
-work.
+work. The completed reserved-byte-prefix encode slice for
+`ReservedBits(2, 0)` followed by `UInt8` is archived under
+`../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md`.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
 one byte through the existing `UInt8` representation path, decodes to the
