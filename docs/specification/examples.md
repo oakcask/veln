@@ -2099,7 +2099,8 @@ after a regular `host` header, plus uppercase and token-invalid ordinary
 request header names. It also checks an accepted fixture-marked response
 header list, a final CONTINUATION path missing `:status`, duplicate `:status`,
 request-only `:method` and `:authority`, and `:status` after a regular
-`server` header. The focused frame-kind, stream-id, and `PUSH_PROMISE`
+`server` header, plus uppercase and token-invalid ordinary response header
+names. The focused frame-kind, stream-id, and `PUSH_PROMISE`
 projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the

@@ -227,11 +227,11 @@ fn response_headers_status_after_regular() -> HpackHeaderList
 end
 
 fn response_headers_uppercase_regular() -> HpackHeaderList
-	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,Server"), 9)
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response-error", "ok,Server"), 9)
 end
 
 fn response_headers_bad_token_regular() -> HpackHeaderList
-	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok,bad header"), 9)
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response-error", "ok,bad header"), 9)
 end
 
 pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
