@@ -107,7 +107,8 @@ unsigned binary primitives or an eligible nested binary schema payload.
 Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
-schema helper path. A same-module recursive dispatch case may name the
+schema helper path, including supported representation-only `ReservedBits`
+layouts. A same-module recursive dispatch case may name the
 enclosing schema recursively, and a public imported recursive payload schema
 may be named through a written `use` path, only in the length-bounded form
 when selected `map to Target when tag_field == literal` clauses cover every

@@ -1320,6 +1320,10 @@ against the built `veln` binary.
   extension-tolerant nested dispatch encode cases write the selected nested
   payload through the generated schema helper path, including byte-aligned
   reserved fields and little-endian primitive output.
+- `run/binary-schema-dispatch-reserved-payload-roundtrip/`: closed and
+  extension-tolerant nested dispatch payloads that contain supported
+  representation-only reserved bits decode and then encode back through the
+  ordinary generated schema helper path.
 - `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
   binary schema encode helper selects a closed dispatch public imported nested
   payload schema and writes the nested record fields in schema order.
@@ -1453,6 +1457,9 @@ against the built `veln` binary.
   schemas outside the generated helper slice, self references outside the
   eligible recursive length-bounded dispatch slice, forward references, and
   incompatible payload shapes.
+- `check/binary-schema-dispatch-reserved-payload-eligibility/`: same-module
+  nested dispatch payload schemas with supported representation-only
+  `ReservedBits` layouts expose both decode and encode helper signatures.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
   closed dispatch remains rejected when the self-reference is not
   length-bounded.
