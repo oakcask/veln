@@ -690,8 +690,7 @@ The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding,
-broader dynamic-table string encoding policy beyond the checked dynamic-name
-literal fixtures, and production header validation beyond ordinary request
+and production header validation beyond ordinary request
 and response header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are
@@ -750,8 +749,7 @@ full HPACK behavior.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, general eviction
   policy beyond the checked bounded fixture dynamic table, HPACK Huffman
-  behavior beyond visible-ASCII fixture string literal decoding and encoding,
-  broader dynamic-table string encoding policy beyond the checked dynamic-name
-  literal fixtures remain later work beyond the implemented fixture boundary.
+  behavior beyond visible-ASCII fixture string literal decoding and encoding
+  remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
