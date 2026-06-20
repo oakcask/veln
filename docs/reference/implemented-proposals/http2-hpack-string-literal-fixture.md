@@ -25,11 +25,13 @@ literal bytes with the Huffman flag cleared, including the same
 one-continuation length boundary for the long raw `a` fixture, and keeps
 non-visible input on the fixture-owned unsupported-header-block failure path.
 
-The shared decoder is used by literal-without-indexing and
-literal-with-indexing header blocks. Literal-with-indexing still returns the
-next immutable `HpackFixtureState` with the inserted dynamic entry, so later
-indexed lookup and fixture table-size eviction keep the same state behavior as
-the earlier dynamic-table slice.
+The shared decoder is used by literal-without-indexing,
+literal-with-indexing, and literal-never-indexed header blocks.
+Literal-with-indexing returns the next immutable `HpackFixtureState` with the
+inserted dynamic entry, so later indexed lookup and fixture table-size
+eviction keep the same state behavior as the earlier dynamic-table slice.
+Literal-never-indexed advances the fixture decode count without inserting a
+dynamic-table entry.
 
 Malformed Huffman padding, malformed string lengths including non-terminating
 string-length continuations, non-visible raw bytes, unsupported names,
@@ -45,11 +47,14 @@ narrower diagnostic.
   `:path: test`, Huffman-marked `:status: 200`, Huffman-marked
   literal-with-indexing `:method: PUT`, raw literal-with-indexing
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw
-  literal-with-indexing `:status`, long raw and Huffman-marked string-length
-  continuation fixtures through both literal forms, malformed string-length
-  continuation, malformed Huffman padding, short and long raw string-literal
-  encoding, unsupported and non-visible raw string-literal encoding failures,
-  and dynamic-table behavior after literal-with-indexing insertions.
+  literal-with-indexing `:status`, raw literal-never-indexed `:authority`,
+  Huffman-marked literal-never-indexed `:scheme: https`, long raw and
+  Huffman-marked string-length continuation fixtures through all three
+  literal forms, malformed string-length continuation, malformed Huffman
+  padding, short and long raw string-literal encoding, unsupported and
+  non-visible raw string-literal encoding failures, dynamic-table behavior
+  after literal-with-indexing insertions, and no dynamic-table insertion after
+  literal-never-indexed decoding.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   string literal cases through completed HEADERS and final CONTINUATION paths.
   Long valid values reach the HPACK boundary and then the local header-list

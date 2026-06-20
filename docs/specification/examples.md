@@ -1775,14 +1775,15 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	`strict-transport-security:`, `0xb9` `transfer-encoding:`, `0xba`
 	`user-agent:`, `0xbb` `vary:`, `0xbc` `via:`, and `0xbd`
 	`www-authenticate:`
-	header-block bytes plus literal-without-indexing and literal-with-indexing
-fixtures whose first byte names a supported static-table header name for
+	header-block bytes plus literal-without-indexing, literal-with-indexing,
+	and literal-never-indexed fixtures whose first byte names a supported
+static-table header name for
 `:authority`, `:method`, `:path`, `:scheme`, or `:status`. Those literal
 fixtures share the HPACK string literal decoder for short visible-ASCII raw
 values and Huffman-marked values decoded by the HPACK static Huffman table
 rather than a fixed decoded-value allowlist. The same decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
-through both literal forms. The HTTP/2 protocol-core example uses the same
+through all three literal forms. The HTTP/2 protocol-core example uses the same
 static Huffman table to encode visible-ASCII Huffman-marked outbound fixture
 string literals, including a non-allowlist `:authority: abc.test` value whose
 checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, and keeps a
@@ -1800,8 +1801,10 @@ CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
 literal-without-indexing and literal-with-indexing, Huffman `:status: 200`
 through completed HEADERS and final CONTINUATION, raw literal-with-indexing
 `:authority`, Huffman literal-with-indexing `:scheme: https`, raw
-literal-with-indexing `:status`, and long raw and Huffman-marked string-length
-continuation fixtures. Completed HEADERS and final CONTINUATION paths reach
+literal-with-indexing `:status`, raw literal-never-indexed `:path` through
+completed HEADERS and final CONTINUATION, and long raw and Huffman-marked
+string-length continuation fixtures. Completed HEADERS and final CONTINUATION
+paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. It rejects non-visible raw bytes, malformed
 string length including non-terminating string-length continuations, malformed
@@ -1812,6 +1815,11 @@ include zero-length `:path` as `0x04 0x80`, `:path: test` as
 `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
 `0x08 0x82 0x10 0x01`, and `:authority: www.example.com` as
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
+The focused HPACK boundary also checks raw literal-never-indexed
+`:authority: abc.test` as `0x11 0x08 "abc.test"`, Huffman-marked
+literal-never-indexed `:scheme: https` as
+`0x16 0x84 0x9d 0x29 0xad 0x1f`, and long raw and Huffman-marked
+literal-never-indexed string-length boundaries.
 The
 source-level HPACK
 boundary also checks one dynamic-table receive slice: a literal
@@ -1825,7 +1833,10 @@ remain addressable when the table has room. After `:method: PUT` and
 newest `:scheme: https` entry, `0xbf` decodes the second `:method: PUT`
 entry, and `0xc0` decodes the third retained `:path: /target` entry.
 Completed HEADERS and final CONTINUATION paths both carry that HPACK state
-before later header blocks are decoded. The fixture also accepts dynamic
+before later header blocks are decoded. A literal-never-indexed decode
+advances the immutable fixture decode count without inserting a dynamic-table
+entry, so a following `0xbe` dynamic-indexed lookup from that returned state
+remains unsupported. The fixture also accepts dynamic
 table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table

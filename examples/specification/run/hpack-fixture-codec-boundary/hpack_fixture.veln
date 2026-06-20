@@ -142,12 +142,20 @@ fn literal_with_indexing_headers(name: String, value: String, wire_size: Int) ->
 	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), wire_size)
 end
 
+fn literal_never_indexed_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed"), wire_size)
+end
+
 fn decoded_literal_without_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(literal_without_indexing_headers(name, value, wire_size), next_state(state)))
 end
 
 fn decoded_literal_with_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(literal_with_indexing_headers(name, value, wire_size), state_with_dynamic_entry(state, name, value)))
+end
+
+fn decoded_literal_never_indexed(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_never_indexed_headers(name, value, wire_size), next_state(state)))
 end
 
 fn dynamic_entry_at(dynamic_entry: HpackDynamicEntry, table_index: Int) -> Option<HpackHeader>
@@ -862,6 +870,23 @@ fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int
 	end
 end
 
+fn decode_literal_never_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let name_index: Int = first_byte - 16
+	match supported_no_huffman_literal_static_name(name_index) and observed_size >= 2
+		true => match decode_hpack_string_length(block, observed_size, offset)
+			Ok(length) => match observed_size == string_length_prefix_size(length) + string_length_encoded_count(length)
+				true => match decode_hpack_string_literal_value(block, length, offset)
+					Ok(literal) => decoded_literal_never_indexed(literal_static_name(name_index), string_literal_value(literal), string_literal_wire_size(literal), state)
+					Err(failure) => Err(failure)
+				end
+				false => unsupported(block, offset)
+			end
+			Err(failure) => Err(failure)
+		end
+		false => unsupported(block, offset)
+	end
+end
+
 fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match observed_size == 1
 		false => unsupported(block, offset)
@@ -926,17 +951,18 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			false => decode_saturated_table_size_update(block, observed_size, state, offset)
 		end
 		4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
-		17 => match observed_size == 8
+		17 => match observed_size == 8 and byte_at_or_missing(block, 1) == 2
 			true => decoded("header-list-accepted", 8, state)
-			false => match observed_size == 10
-				true => decoded("header-list-too-large", 10, state)
-				false => unsupported(block, offset)
-			end
+			false => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
 		end
 		1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 		6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 		2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 		8 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		18 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		20 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		22 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		24 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
 		65 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 		66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 		68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)

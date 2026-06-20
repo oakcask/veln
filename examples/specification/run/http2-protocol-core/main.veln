@@ -6535,6 +6535,13 @@ fn print_hpack_literal_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_step("hpack-literal-path-target", hpack_literal_path_target)
 	let ignored_hpack_literal_path_target: () = emit_header_block("http2-hpack-literal-path-target", hpack_literal_path_target, "04072f746172676574")?
 	print_hpack_transition("hpack-literal-path-target", hpack_literal_path_target)
+	let ignored_hpack_literal_never_indexed_path_target: () = print_hpack_header_block_case(state, "hpack-literal-never-indexed-path-target", "http2-hpack-literal-never-indexed-path-target", "00000901040000000114072f746172676574", "14072f746172676574")?
+	let hpack_literal_never_indexed_path_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401000000000114072f74")?), state)?
+	print_step("hpack-literal-never-indexed-path-continuation-start", hpack_literal_never_indexed_path_continuation_start)
+	let hpack_literal_never_indexed_path_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000016172676574")?), step_state(hpack_literal_never_indexed_path_continuation_start))?
+	print_step("hpack-literal-never-indexed-path-continuation-done", hpack_literal_never_indexed_path_continuation_done)
+	let ignored_hpack_literal_never_indexed_path_continuation: () = emit_header_block("http2-hpack-literal-never-indexed-path-continuation", hpack_literal_never_indexed_path_continuation_done, "14072f746172676574")?
+	print_hpack_transition("hpack-literal-never-indexed-path-continuation-done", hpack_literal_never_indexed_path_continuation_done)
 	let ignored_hpack_no_huffman_raw_cases: () = print_hpack_no_huffman_raw_cases(state)?
 	let hpack_literal_method_put: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010203505554")?), state)?
 	print_step("hpack-literal-method-put", hpack_literal_method_put)
