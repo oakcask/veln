@@ -24,9 +24,10 @@ preserves the slice that shares this raw-value path with Huffman-marked
 literal values and literal-with-indexing header blocks.
 
 The transition advances the immutable `HpackFixtureState` through the same
-path as the other literal-without-indexing fixtures. Unsupported, malformed,
-or non-visible raw literal variants still project through
-`hpack.fixture.unsupported_header_block`.
+path as the other literal-without-indexing fixtures. Unsupported literal
+variants still project through `hpack.fixture.unsupported_header_block`.
+Malformed or non-visible raw values on supported literal names use focused
+HPACK fixture diagnostics.
 
 ## Evidence
 
@@ -37,8 +38,8 @@ or non-visible raw literal variants still project through
   bytes `01086162632e74657374`, and prints the decoded `:authority` header
   value.
 - The same executable case includes `hpack-literal-non-visible`, which rejects
-  a no-Huffman literal value containing a non-visible byte through
-  `hpack.fixture.unsupported_header_block`.
+  a no-Huffman literal value containing a non-visible byte through focused
+  HPACK fixture diagnostics.
 - `../../specification/execution.md` states that the HTTP/2 protocol-core
   HPACK fixture boundary accepts no-Huffman literal-without-indexing fixtures
   for supported static-table names when the raw value bytes are all visible

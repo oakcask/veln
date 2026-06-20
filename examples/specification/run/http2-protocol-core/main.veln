@@ -4172,13 +4172,19 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 end
 
 fn hpack_fixture_failure_id(expected_fixture: String) -> String
-	match expected_fixture == "fixture HPACK Huffman padding"
-		true => "hpack.fixture.malformed_huffman_padding"
-		false => match expected_fixture == "fixture HPACK Huffman data symbol instead of EOS"
-			true => "hpack.fixture.huffman_eos_symbol"
-			false => match expected_fixture == "fixture HPACK Huffman visible ASCII header value"
-				true => "hpack.fixture.huffman_non_visible_value"
-				false => "hpack.fixture.unsupported_header_block"
+	match expected_fixture == "fixture HPACK string length"
+		true => "hpack.fixture.malformed_string_length"
+		false => match expected_fixture == "fixture HPACK raw string value"
+			true => "hpack.fixture.malformed_raw_string_value"
+			false => match expected_fixture == "fixture HPACK Huffman padding"
+				true => "hpack.fixture.malformed_huffman_padding"
+				false => match expected_fixture == "fixture HPACK Huffman data symbol instead of EOS"
+					true => "hpack.fixture.huffman_eos_symbol"
+					false => match expected_fixture == "fixture HPACK Huffman visible ASCII header value"
+						true => "hpack.fixture.huffman_non_visible_value"
+						false => "hpack.fixture.unsupported_header_block"
+					end
+				end
 			end
 		end
 	end
@@ -4821,13 +4827,19 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview)
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_huffman_padding"
-			true => hpack_fixture_malformed_huffman_padding(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_eos_symbol"
-				true => hpack_fixture_huffman_eos_symbol(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_non_visible_value"
-					true => hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-					false => hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
+			true => hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_raw_string_value"
+				true => hpack_fixture_malformed_raw_string_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_huffman_padding"
+					true => hpack_fixture_malformed_huffman_padding(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+					false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_eos_symbol"
+						true => hpack_fixture_huffman_eos_symbol(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+						false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_non_visible_value"
+							true => hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+							false => hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+						end
+					end
 				end
 			end
 		end
@@ -5880,9 +5892,9 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value"
 			true => Ok(())
-			false => Err("expected HTTP/2 HPACK unsupported fixture failure")
+			false => Err("expected HTTP/2 HPACK fixture failure")
 		end
 	end
 end
@@ -7404,6 +7416,10 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_failure("hpack-literal-huffman-malformed-continuation-done", hpack_literal_huffman_malformed_continuation_done)
 	let hpack_literal_length_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201040000000104ff")?), state)?
 	print_failure("hpack-literal-length-malformed", hpack_literal_length_malformed)
+	let hpack_literal_length_malformed_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000104")?), state)?
+	print_step("hpack-literal-length-malformed-continuation-start", hpack_literal_length_malformed_continuation_start)
+	let hpack_literal_length_malformed_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001090400000001ff")?), step_state(hpack_literal_length_malformed_continuation_start))?
+	print_failure("hpack-literal-length-malformed-continuation-done", hpack_literal_length_malformed_continuation_done)
 	let hpack_literal_scheme_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000106849d29ad1f")?), state)?
 	print_step("hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman)
 	let ignored_hpack_literal_scheme_huffman: () = emit_header_block("http2-hpack-literal-scheme-https-huffman", hpack_literal_scheme_huffman, "06849d29ad1f")?
@@ -7424,6 +7440,12 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 	print_failure("hpack-literal-non-visible", hpack_literal_non_visible)
 	let hpack_literal_status_malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000108033230")?), state)?
 	print_failure("hpack-literal-status-malformed", hpack_literal_status_malformed)
+	let hpack_literal_status_non_visible: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010803321f30")?), state)?
+	print_failure("hpack-literal-status-non-visible", hpack_literal_status_non_visible)
+	let hpack_literal_status_malformed_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000010803")?), state)?
+	print_step("hpack-literal-status-malformed-continuation-start", hpack_literal_status_malformed_continuation_start)
+	let hpack_literal_status_malformed_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000013230")?), step_state(hpack_literal_status_malformed_continuation_start))?
+	print_failure("hpack-literal-status-malformed-continuation-done", hpack_literal_status_malformed_continuation_done)
 	Ok(())
 end
 

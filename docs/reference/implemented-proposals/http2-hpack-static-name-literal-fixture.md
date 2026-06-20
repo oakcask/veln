@@ -18,13 +18,13 @@ pseudo-header literal boundary to ordinary names such as `server`,
 `content-type`, and `user-agent` while keeping full HPACK compression and a
 production dynamic table out of scope.
 
-The literal forms share the existing visible-ASCII string literal decoder and
-the existing unsupported-header failure routes for unsupported names,
-malformed string lengths, non-visible raw values, and unsupported Huffman
-forms. Literal-with-indexing still inserts the decoded name and value into the
-bounded immutable fixture dynamic table. Literal-without-indexing and
-literal-never-indexed still advance decode state without inserting a dynamic
-entry.
+The literal forms share the existing visible-ASCII string literal decoder.
+Unsupported names keep the unsupported-header failure route, while malformed
+string lengths, non-visible raw values on supported names, and malformed
+Huffman inputs use focused HPACK fixture diagnostics. Literal-with-indexing
+still inserts the decoded name and value into the bounded immutable fixture
+dynamic table. Literal-without-indexing and literal-never-indexed still
+advance decode state without inserting a dynamic entry.
 
 ## Evidence
 

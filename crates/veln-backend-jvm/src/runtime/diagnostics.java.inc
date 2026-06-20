@@ -682,6 +682,48 @@
         );
     }
 
+    private static void registerHpackFixtureMalformedStringLengthDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.malformed_string_length",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
+    private static void registerHpackFixtureMalformedRawStringValueDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.malformed_raw_string_value",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
     private static void registerHpackFixtureMalformedHuffmanPaddingDiagnostic(
         String message,
         long byteOffset,

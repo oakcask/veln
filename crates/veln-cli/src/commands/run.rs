@@ -1236,6 +1236,50 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Expected {expected_fixture}.")));
             Some(diagnostic)
         }
+        "hpack.fixture.malformed_string_length" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("malformed HPACK string length at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
+        "hpack.fixture.malformed_raw_string_value" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("malformed HPACK raw string value at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
         "hpack.fixture.malformed_huffman_padding" => {
             let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
             let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
@@ -4006,6 +4050,100 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("ff (showing 1 of 1 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_string_length_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.malformed_string_length"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(2)),
+            ("observed_first_byte", JsonValue::Number(4)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK string length"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("04ff")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture malformed string length at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.malformed_string_length");
+        assert_eq!(
+            diagnostic.message,
+            "malformed HPACK string length at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("04 ff (showing 2 of 2 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_raw_string_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.malformed_raw_string_value"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(5)),
+            ("observed_first_byte", JsonValue::Number(8)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK raw string value"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("0803321f30")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture malformed raw string value at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.malformed_raw_string_value");
+        assert_eq!(
+            diagnostic.message,
+            "malformed HPACK raw string value at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("08 03 32 1f 30 (showing 5 of 5 byte(s), complete)")
         );
     }
 
