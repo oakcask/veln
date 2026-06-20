@@ -809,6 +809,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Frame kind {frame_kind} on {stream_ref} {stream_id} acknowledged local SETTINGS, but no local SETTINGS batch is outstanding."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -3721,6 +3722,10 @@ mod tests {
             ("frame_kind", JsonValue::Number(4)),
             ("stream_id", JsonValue::Number(0)),
             ("stream_ref", JsonValue::string("connection")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000401000000", 9, true),
+            ),
             ("active_state", JsonValue::string("connection-control")),
             (
                 "rule_provenance",
@@ -3742,7 +3747,7 @@ mod tests {
             diagnostic.message,
             "unexpected SETTINGS ACK at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3751,10 +3756,15 @@ mod tests {
         assert!(
             diagnostic.related[1]
                 .to_json()
-                .contains("connection-control")
+                .contains("00 00 00 04 01 00 00 00")
         );
         assert!(
             diagnostic.related[2]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_settings_ack_requires_outstanding_local_settings")
         );

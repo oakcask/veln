@@ -1884,7 +1884,8 @@ against the built `veln` binary.
   on a valid received SETTINGS ACK, rejects local `SETTINGS_ENABLE_PUSH`
   values outside `0..1` before emitting bytes, and rejects an ACK with no
   outstanding local SETTINGS as
-  `http2.protocol.unexpected_settings_ack`. After a valid inbound non-ACK
+  `http2.protocol.unexpected_settings_ack` with a bounded inspected
+  frame-header byte preview. After a valid inbound non-ACK
   PING frame, it constructs one immutable outbound PING ACK chunk
   through the frame-header encode path with the original opaque payload, while
   a received PING ACK remains observable and produces no response chunk. It
@@ -2027,11 +2028,12 @@ against the built `veln` binary.
   state, and rule provenance.
 - `run/http2-protocol-core-settings-unexpected-ack-human/`: a SETTINGS ACK
   received with no outstanding local SETTINGS reports
-  `http2.protocol.unexpected_settings_ack` through human `run` stderr.
+  `http2.protocol.unexpected_settings_ack` through human `run` stderr with a
+  bounded frame-header byte-preview note.
 - `run/http2-protocol-core-settings-unexpected-ack-json/`: the same
   unexpected SETTINGS ACK reports `http2.protocol.unexpected_settings_ack`
   through `run --json` with byte offset, frame kind, stream reference, active
-  state, and rule provenance.
+  state, rule provenance, and structured byte preview.
 - `run/http2-protocol-core-ping-length-human/`: a wrong-length PING payload
   reports `http2.protocol.invalid_payload_length` through human `run` stderr
   with observed and expected payload length, bounded inspected-payload byte

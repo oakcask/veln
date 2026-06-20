@@ -433,7 +433,10 @@ fixed-length failure, and
 SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `active_state`,
-and `rule_provenance`. A PRIORITY frame whose dependency stream id is its own
+and `rule_provenance`, plus a structured bounded `byte_preview` for the
+inspected frame header bytes. The preview uses the same object shape as other
+protocol-owned byte previews while SETTINGS ACK state facts stay in their own
+fields. A PRIORITY frame whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a

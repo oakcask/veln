@@ -7948,7 +7948,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "invalid_data_padding_http2: http2_protocol_invalid_data_padding(9, 1, 2, 0, \"open-stream\", \"rfc9113_data_padding\", view), ",
             "invalid_request_headers_http2: http2_protocol_invalid_request_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":method\", \":scheme,:path\", \"request-headers\", \"rfc9113_request_pseudo_headers\"), ",
             "invalid_response_headers_http2: http2_protocol_invalid_response_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":status\", \"server\", \"response-headers\", \"rfc9113_response_pseudo_headers\"), ",
-            "unexpected_settings_ack_http2: http2_protocol_unexpected_settings_ack(0, \"connection-control\", \"rfc9113_settings_ack_requires_outstanding_local_settings\"), ",
+            "unexpected_settings_ack_http2: http2_protocol_unexpected_settings_ack(0, \"connection-control\", \"rfc9113_settings_ack_requires_outstanding_local_settings\", view), ",
             "invalid_priority_dependency_http2: http2_protocol_invalid_priority_dependency(0, 1, 1, \"stream-control\", \"rfc9113_priority_dependency\", view), ",
             "stream_after_goaway_http2: http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\"), ",
             "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",

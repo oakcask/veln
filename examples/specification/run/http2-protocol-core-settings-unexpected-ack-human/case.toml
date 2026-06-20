@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.protocol.unexpected_settings_ack]: unexpected SETTINGS ACK at byte offset 0", "note: Frame kind 4 on connection 0 acknowledged local SETTINGS, but no local SETTINGS batch is outstanding.", "note: Active protocol state: connection-control.", "note: Rule provenance: rfc9113_settings_ack_requires_outstanding_local_settings."]
+contains = ["error[http2.protocol.unexpected_settings_ack]: unexpected SETTINGS ACK at byte offset 0", "note: Frame kind 4 on connection 0 acknowledged local SETTINGS, but no local SETTINGS batch is outstanding.", "note: Nearby bytes: 00 00 00 04 01 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: connection-control.", "note: Rule provenance: rfc9113_settings_ack_requires_outstanding_local_settings."]

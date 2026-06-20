@@ -53,6 +53,7 @@ requiring the full command reference on the first read.
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures with bounded frame-header byte previews, invalid connection-state
   and stream-state frame-kind failures with bounded frame-header byte
+  previews, unexpected SETTINGS ACK failures with bounded frame-header byte
   previews, and fixed payload-length failures
   including SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`,
   plus invalid DATA padding, with bounded payload byte-preview notes,

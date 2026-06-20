@@ -431,7 +431,12 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             adt::result_type(Type::unit(), Type::string()),
         )),
         "http2_protocol_unexpected_settings_ack" => Some((
-            vec![Type::int(), Type::string(), Type::string()],
+            vec![
+                Type::int(),
+                Type::string(),
+                Type::string(),
+                byte_view.clone(),
+            ],
             adt::result_type(Type::unit(), Type::string()),
         )),
         "http2_protocol_invalid_priority_dependency" => Some((
@@ -1424,7 +1429,12 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_unexpected_settings_ack" => Some((
-            vec![CoreType::int(), CoreType::string(), CoreType::string()],
+            vec![
+                CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
+                byte_view.clone(),
+            ],
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_invalid_priority_dependency" => Some((

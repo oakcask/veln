@@ -396,8 +396,8 @@ pub fn http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int,
 	prelude_builtin::http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, rule_provenance)
 end
 
-pub fn http2_protocol_unexpected_settings_ack(offset: Int, active_state: String, rule_provenance: String) -> Result<(), String>
-	prelude_builtin::http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance)
+pub fn http2_protocol_unexpected_settings_ack(offset: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview)
 end
 
 pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
