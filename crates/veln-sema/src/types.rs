@@ -2852,20 +2852,38 @@ fn schema_mapping_binary_expr(
     right: &Expr,
     allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
-    if !matches!(
-        op,
-        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide
-    ) {
-        return Err(Box::new(SchemaMappingExprError::Unsupported {
-            text: schema_mapping_expr_render(expr),
-            span: expr.span.clone(),
-        }));
-    }
-    let expected = Type::int();
-    let left =
-        schema_mapping_arithmetic_operand(context, expr, left, &expected, allow_converter_calls)?;
-    let right =
-        schema_mapping_arithmetic_operand(context, expr, right, &expected, allow_converter_calls)?;
+    let (expected, left, right) = match op {
+        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+            let expected = Type::int();
+            let left = schema_mapping_arithmetic_operand(
+                context,
+                expr,
+                left,
+                &expected,
+                allow_converter_calls,
+            )?;
+            let right = schema_mapping_arithmetic_operand(
+                context,
+                expr,
+                right,
+                &expected,
+                allow_converter_calls,
+            )?;
+            (expected, left, right)
+        }
+        BinaryOp::Equal | BinaryOp::NotEqual => {
+            let operand_ty = Type::int();
+            let left = schema_mapping_comparison_operand(context, expr, left, &operand_ty)?;
+            let right = schema_mapping_comparison_operand(context, expr, right, &operand_ty)?;
+            (Type::bool(), left, right)
+        }
+        _ => {
+            return Err(Box::new(SchemaMappingExprError::Unsupported {
+                text: schema_mapping_expr_render(expr),
+                span: expr.span.clone(),
+            }));
+        }
+    };
     Ok(SchemaMappingTypedExpr {
         ty: expected,
         expr: SchemaDecodeMappingExpr::Binary {
@@ -2965,6 +2983,58 @@ fn schema_mapping_arithmetic_operand(
                     }))
                 }
             }
+        }
+        _ => Err(Box::new(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(whole_expr),
+            span: whole_expr.span.clone(),
+        })),
+    }
+}
+
+fn schema_mapping_comparison_operand(
+    context: &SchemaMappingExprContext<'_>,
+    whole_expr: &Expr,
+    operand: &Expr,
+    expected: &Type,
+) -> SchemaMappingExprResult {
+    match &operand.kind {
+        ExprKind::NamePath(segments) => {
+            let [name] = segments.as_slice() else {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(whole_expr),
+                    span: whole_expr.span.clone(),
+                }));
+            };
+            let Some(ty) = context.schema_fields.get(name) else {
+                return Err(Box::new(SchemaMappingExprError::UnknownSchemaField {
+                    name: name.clone(),
+                    span: operand.span.clone(),
+                }));
+            };
+            if !is_assignable(expected, ty) {
+                return Err(Box::new(SchemaMappingExprError::TypeMismatch {
+                    expected: Box::new(expected.clone()),
+                    actual: Box::new(ty.clone()),
+                    text: schema_mapping_expr_render(operand),
+                    span: operand.span.clone(),
+                }));
+            }
+            Ok(SchemaMappingTypedExpr {
+                ty: ty.clone(),
+                expr: SchemaDecodeMappingExpr::Field(name.clone()),
+            })
+        }
+        ExprKind::IntLiteral(value) => {
+            let Some(value) = parse_schema_mapping_integer(value) else {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(operand),
+                    span: operand.span.clone(),
+                }));
+            };
+            Ok(SchemaMappingTypedExpr {
+                ty: Type::int(),
+                expr: SchemaDecodeMappingExpr::Literal(value),
+            })
         }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(whole_expr),
@@ -3144,6 +3214,12 @@ fn schema_mapping_converter_arg_exprs(
     let first_input = schema_mapping_converter_input(&args[0]);
     let mut typed_args = Vec::with_capacity(args.len());
     for (arg, param_ty) in args.iter().zip(&function.params) {
+        if schema_mapping_is_comparison_expr(arg) {
+            return Err(Box::new(SchemaMappingExprError::Unsupported {
+                text: schema_mapping_expr_render(arg),
+                span: arg.span.clone(),
+            }));
+        }
         let input = schema_mapping_converter_input(arg);
         let typed_arg = match schema_mapping_expr_typed_unchecked(context, arg, param_ty, false) {
             Ok(typed) => typed,
@@ -3179,6 +3255,16 @@ fn schema_mapping_converter_arg_exprs(
         });
     }
     Ok((typed_args, first_input))
+}
+
+fn schema_mapping_is_comparison_expr(expr: &Expr) -> bool {
+    matches!(
+        expr.kind,
+        ExprKind::Binary {
+            op: BinaryOp::Equal | BinaryOp::NotEqual,
+            ..
+        }
+    )
 }
 
 fn schema_mapping_converter_input(arg: &Expr) -> SchemaMappingConverterInput {
@@ -3231,6 +3317,13 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
                 && schema_mapping_expr_actual_type(context, right) == Type::int() =>
         {
             Type::int()
+        }
+        ExprKind::Binary { op, left, right }
+            if matches!(op, BinaryOp::Equal | BinaryOp::NotEqual)
+                && schema_mapping_expr_actual_type(context, left) == Type::int()
+                && schema_mapping_expr_actual_type(context, right) == Type::int() =>
+        {
+            Type::bool()
         }
         _ => Type::Unknown,
     }

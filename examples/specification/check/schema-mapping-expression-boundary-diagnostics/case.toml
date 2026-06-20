@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_constructor\"", "schema mapping constructor `Missing` is not resolved", "\"id\":\"schema.mapping_constructor_arity\"", "schema mapping constructor `FrameKind::FrameKind` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_type\"", "expression `{ value: kind }` has type `{value: Int}`", "expression `Payload(kind)` has type `Payload`", "expression `payload` has type `ByteView`", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `{ value: length } + kind` is not supported", "schema mapping expression `kind == length` is not supported"]
+contains = ["\"id\":\"schema.mapping_constructor\"", "schema mapping constructor `Missing` is not resolved", "\"id\":\"schema.mapping_constructor_arity\"", "schema mapping constructor `FrameKind::FrameKind` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_type\"", "expression `{ value: kind }` has type `{value: Int}`", "expression `Payload(kind)` has type `Payload`", "expression `payload` has type `ByteView`", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `{ value: length } + kind` is not supported", "schema mapping expression `kind < length` is not supported"]
 
 [stderr]
 format = "empty"

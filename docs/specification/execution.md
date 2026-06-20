@@ -687,7 +687,8 @@ execution reference.
   record-shaped type with the selected field. An `Int` target field may also
   use `+`, `-`, `*`, and `/` over decoded schema-local `Int` fields, integer
   literals, `Int`-returning converter calls, and nested supported mapping
-  arithmetic expressions. Division by zero returns
+  arithmetic expressions. A `Bool` target field may use `==` and `!=` over
+  decoded schema-local `Int` fields and integer literals. Division by zero returns
   `schema.mapping_division_by_zero` at the offset after the decoded schema
   body with the schema and target-field path. Converter calls
   take one, two, or three arguments. Each argument is either one decoded
@@ -737,6 +738,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-decode/`,
   `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
+  `examples/specification/run/binary-schema-mapping-bool-comparison-decode/`,
   `examples/specification/run/binary-schema-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-imported-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,

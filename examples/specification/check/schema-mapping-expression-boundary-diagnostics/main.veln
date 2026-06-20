@@ -25,5 +25,5 @@ schema HeaderWire
 		bad_operand = length * payload
 		literal_operand_bad_type = payload + 1
 		unsupported_record_operand = {value: length} + kind
-		unsupported_operator = kind == length
+		unsupported_operator = kind < length
 end
