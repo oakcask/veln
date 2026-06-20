@@ -192,8 +192,9 @@ compare it with `../specification/` before changing behavior.
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
   header-list validation slice, the source-visible `te` header value rule,
-  and the outbound HPACK fixture header-list encoder slice, including
-  visible-ASCII Huffman-marked string literal encoding,
+  the malformed Huffman padding fixture diagnostic, and the outbound HPACK
+  fixture header-list encoder slice, including visible-ASCII Huffman-marked
+  string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

@@ -146,6 +146,8 @@ behavior.
   [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
 - HTTP/2 HPACK Huffman fixture:
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
+- HTTP/2 HPACK malformed Huffman padding diagnostic:
+  [http2-hpack-huffman-padding-diagnostic.md](http2-hpack-huffman-padding-diagnostic.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 outbound HPACK fixture encoder:
