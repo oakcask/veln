@@ -36,14 +36,20 @@ the generalized dynamic-table state and reduced table-size state through both
 completed HEADERS and final CONTINUATION paths before decoding later dynamic
 indexed blocks.
 
-The fixture also accepts the checked dynamic-name literal-with-indexing block
-`0x7e 0x06 "/again"` after `:path: /target` has been inserted. That block
-reuses the newest dynamic entry name `:path`, supplies the visible-ASCII value
-`/again`, prepends `:path: /again`, and keeps the older `:path: /target`
-entry readable when the bounded table allows it. Missing or malformed
-dynamic-name literals remain on the unsupported fixture path. The HTTP/2
-protocol-core example covers the same state carry through completed HEADERS
-and final CONTINUATION paths.
+The fixture also accepts checked dynamic-name literal-with-indexing blocks
+after dynamic entries have been inserted. `0x7e 0x06 "/again"` reuses the
+newest dynamic entry name `:path`, supplies the visible-ASCII value `/again`,
+prepends `:path: /again`, and keeps the older `:path: /target` entry readable
+when the bounded table allows it. After three retained dynamic entries exist,
+the fixture accepts the continuation-byte indexed-name forms
+`0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"` for dynamic indexes
+`63` and `64`, respectively. Those forms reuse the retained dynamic entry
+name, decode the following visible-ASCII string literal as the replacement
+value, and insert the decoded header as the newest dynamic entry without
+discarding older entries while the bounded table has room. Missing,
+malformed, out-of-range, and unsupported dynamic-name continuations remain on
+the unsupported fixture path. The HTTP/2 protocol-core example covers the
+same state carry through completed HEADERS and final CONTINUATION paths.
 
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
 `0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
@@ -71,7 +77,8 @@ unsupported fixture path.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
-  generalized dynamic indexed lookup,
+  continuation-byte dynamic-name literal-with-indexing for retained dynamic
+  indexes `63` and `64`, generalized dynamic indexed lookup,
   oldest-first table-size eviction, the accepted-entry-size eviction case, and
   the fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
