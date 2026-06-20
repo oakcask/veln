@@ -3770,7 +3770,8 @@
         Object frameKind,
         Object streamId,
         Object receiveLimitProvenance,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long observed = asLong(observedSize);
@@ -3779,6 +3780,7 @@
         long stream = asLong(streamId);
         String limitProvenance = asString(receiveLimitProvenance);
         String rule = asString(ruleProvenance);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 header list size exceeds receive maximum at byte offset "
             + byteOffset;
         registerHttp2PeerLimitHeaderListSizeExceededDiagnostic(
@@ -3789,7 +3791,8 @@
             kind,
             stream,
             limitProvenance,
-            rule
+            rule,
+            nearbyContext
         );
         return err(message);
     }
@@ -3801,7 +3804,8 @@
         Object frameKind,
         Object streamId,
         Object receiveLimitProvenance,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long observed = asLong(observedSize);
@@ -3810,6 +3814,7 @@
         long stream = asLong(streamId);
         String limitProvenance = asString(receiveLimitProvenance);
         String rule = asString(ruleProvenance);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 header table size exceeds receive maximum at byte offset "
             + byteOffset;
         registerHttp2PeerLimitHeaderTableSizeExceededDiagnostic(
@@ -3820,7 +3825,8 @@
             kind,
             stream,
             limitProvenance,
-            rule
+            rule,
+            nearbyContext
         );
         return err(message);
     }

@@ -1684,6 +1684,8 @@ execution reference.
   a repeated current fixture table size above the local limit, through
   `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
   size, frame kind, stream id, receive-limit provenance, and rule provenance.
+  The diagnostic carries a bounded structured preview of the inspected
+  header-block bytes separately from those facts.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte
@@ -1716,8 +1718,10 @@ execution reference.
   the HTTP/2 core still owns the local
   `http2.peer_limit.header_table_size_exceeded` and
   `http2.peer_limit.header_list_size_exceeded` receive-limit boundaries after
-  fixture decoding. Fixture-marked request header lists are validated after
-  that HPACK fixture decode on completed HEADERS and final CONTINUATION paths.
+  fixture decoding. Those receive-limit diagnostics carry bounded structured
+  previews of the inspected header-block bytes. Fixture-marked request header
+  lists are validated after that HPACK fixture decode on completed HEADERS and
+  final CONTINUATION paths.
   Duplicate request pseudo-headers, request pseudo-headers after regular
   headers, missing `:method`, `:scheme`, or `:path`, response-only
   `:status`, uppercase ordinary header names, ordinary header names outside

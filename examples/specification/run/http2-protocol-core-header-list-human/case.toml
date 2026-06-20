@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.peer_limit.header_list_size_exceeded]: header list size exceeds receive maximum at byte offset 12", "note: Frame kind 9 on stream 1 decoded header list size 10; active receive maximum is 9.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: header_list_receive_limit."]
+contains = ["error[http2.peer_limit.header_list_size_exceeded]: header list size exceeds receive maximum at byte offset 12", "note: Frame kind 9 on stream 1 decoded header list size 10; active receive maximum is 9.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: header_list_receive_limit.", "note: Nearby bytes: 06 07 08 09 0a 0b 0c 0d (showing 8 of 9 byte(s), truncated)."]

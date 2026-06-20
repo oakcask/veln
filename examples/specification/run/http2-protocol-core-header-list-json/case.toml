@@ -65,3 +65,23 @@ equals = "local_configuration"
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
 equals = "header_list_receive_limit"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "060708090a0b0c0d"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = true

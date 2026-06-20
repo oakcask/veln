@@ -379,7 +379,8 @@ list size exceeds the active local receive policy uses id
 `http2.peer_limit.header_list_size_exceeded` and records
 `byte_offset.value`, `observed_header_list_size`,
 `allowed_header_list_size`, `frame_kind`, `stream_id`, `stream_ref`,
-`receive_limit_provenance`, and `rule_provenance`; peer-advertised
+`receive_limit_provenance`, `rule_provenance`, and a structured bounded
+`byte_preview` for the inspected header-block bytes; peer-advertised
 `SETTINGS_MAX_HEADER_LIST_SIZE` remains outbound peer state and is not used as
 the receive-limit provenance for rejecting incoming header blocks. A decoded
 HPACK dynamic table-size update in received HEADERS or a final CONTINUATION
@@ -387,7 +388,8 @@ whose requested size exceeds the active local header-table receive policy uses
 id `http2.peer_limit.header_table_size_exceeded` and records
 `byte_offset.value`, `observed_header_table_size`,
 `allowed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`,
-`receive_limit_provenance`, and `rule_provenance`; peer-advertised
+`receive_limit_provenance`, `rule_provenance`, and a structured bounded
+`byte_preview` for the inspected header-block bytes; peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` remains outbound peer state and is not reported
 as the receive-limit provenance for rejecting incoming table-size updates.
 Received

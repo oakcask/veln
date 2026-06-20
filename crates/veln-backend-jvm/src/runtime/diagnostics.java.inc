@@ -528,7 +528,8 @@
         long frameKind,
         long streamId,
         String receiveLimitProvenance,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -542,7 +543,8 @@
                     DiagnosticDetail.number("stream_id", streamId),
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                     DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );
@@ -556,7 +558,8 @@
         long frameKind,
         long streamId,
         String receiveLimitProvenance,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -570,7 +573,8 @@
                     DiagnosticDetail.number("stream_id", streamId),
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                     DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );
