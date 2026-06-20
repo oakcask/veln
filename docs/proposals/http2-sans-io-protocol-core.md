@@ -725,8 +725,6 @@ full HPACK behavior.
   policy beyond the checked bounded fixture dynamic table, HPACK Huffman behavior beyond
   visible-ASCII fixture string literal encoding, broader dynamic-table string
   encoding policy beyond the checked dynamic-name literal-with-indexing
-  fixture, production request-header validation beyond ordinary header-name
-  shape, and production response-header validation beyond ordinary
-  header-name shape remain later work beyond the implemented fixture boundary.
+  fixture remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
