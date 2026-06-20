@@ -1258,6 +1258,52 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Expected {expected_fixture}.")));
             Some(diagnostic)
         }
+        "hpack.fixture.huffman_eos_symbol" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("HPACK Huffman EOS used as decoded symbol at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
+        "hpack.fixture.huffman_non_visible_value" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!(
+                    "HPACK Huffman decoded non-visible header value at byte offset {byte_offset}"
+                ),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
         _ => None,
     }
 }
@@ -4012,6 +4058,97 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("04 81 00 (showing 3 of 3 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_huffman_eos_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("hpack.fixture.huffman_eos_symbol")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(6)),
+            ("observed_first_byte", JsonValue::Number(4)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK Huffman data symbol instead of EOS"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("0484ffffffff")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture Huffman EOS symbol at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.huffman_eos_symbol");
+        assert_eq!(
+            diagnostic.message,
+            "HPACK Huffman EOS used as decoded symbol at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("04 84 ff ff ff ff (showing 6 of 6 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_huffman_non_visible_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.huffman_non_visible_value"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(4)),
+            ("observed_first_byte", JsonValue::Number(4)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK Huffman visible ASCII header value"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("0482ffc7")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture Huffman non-visible value at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.huffman_non_visible_value");
+        assert_eq!(
+            diagnostic.message,
+            "HPACK Huffman decoded non-visible header value at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("04 82 ff c7 (showing 4 of 4 byte(s), complete)")
         );
     }
 

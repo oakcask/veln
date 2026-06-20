@@ -2990,6 +2990,14 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureMalformedHuffmanPadding",
         ),
         (
+            "hpack_fixture_huffman_eos_symbol",
+            "hpackFixtureHuffmanEosSymbol",
+        ),
+        (
+            "hpack_fixture_huffman_non_visible_value",
+            "hpackFixtureHuffmanNonVisibleValue",
+        ),
+        (
             "http2_protocol_invalid_frame_kind",
             "http2ProtocolInvalidFrameKind",
         ),

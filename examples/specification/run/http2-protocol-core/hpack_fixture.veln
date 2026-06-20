@@ -26,6 +26,8 @@ end
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	HuffmanEosSymbol(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
@@ -623,6 +625,14 @@ end
 
 fn malformed_huffman_padding_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
 	Err(MalformedHuffmanPadding(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman padding", "hpack_fixture", block))
+end
+
+fn huffman_eos_symbol(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	Err(HuffmanEosSymbol(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman data symbol instead of EOS", "hpack_fixture", block))
+end
+
+fn huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	Err(HuffmanNonVisibleValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman visible ASCII header value", "hpack_fixture", block))
 end
 
 fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -1712,9 +1722,15 @@ fn hpack_huffman_decoded_wire_size(value: String, decoded_size: Int) -> Int
 end
 
 fn append_hpack_huffman_symbol(decoded: ByteChunk, symbol: Int, block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match byte_write_u8_be(symbol)
-		Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
-		Err(_) => unsupported_byte_chunk(block, offset)
+	match symbol == 256
+		true => huffman_eos_symbol(block, offset)
+		false => match symbol < 32 or symbol > 126
+			true => huffman_non_visible_value(block, offset)
+			false => match byte_write_u8_be(symbol)
+				Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
+				Err(_) => unsupported_byte_chunk(block, offset)
+			end
+		end
 	end
 end
 
@@ -2710,6 +2726,8 @@ pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
 		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
+		HuffmanEosSymbol(offset, _, _, _, _, _) => offset
+		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
@@ -2718,6 +2736,8 @@ pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
 		MalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
+		HuffmanEosSymbol(_, observed_size, _, _, _, _) => observed_size
+		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -2726,6 +2746,8 @@ pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		HuffmanEosSymbol(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -2734,6 +2756,8 @@ pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => 0
 		MalformedHuffmanPadding(_, _, _, _, _, _) => 0
+		HuffmanEosSymbol(_, _, _, _, _, _) => 0
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => 0
 		OutboundTableSizeUpdateExceeded(_, _, allowed_size, _, _, _) => allowed_size
 	end
 end
@@ -2742,6 +2766,8 @@ pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedHuffmanPadding(_, _, _, expected_fixture, _, _) => expected_fixture
+		HuffmanEosSymbol(_, _, _, expected_fixture, _, _) => expected_fixture
+		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
@@ -2750,6 +2776,8 @@ pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
 		MalformedHuffmanPadding(_, _, _, _, codec_module, _) => codec_module
+		HuffmanEosSymbol(_, _, _, _, codec_module, _) => codec_module
+		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
@@ -2758,6 +2786,8 @@ pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
 		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
+		HuffmanEosSymbol(_, _, _, _, _, preview) => preview
+		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
 end
@@ -2768,6 +2798,8 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		HuffmanEosSymbol(_, _, _, _, _, _) => hpack_fixture_huffman_eos_symbol(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 	end
 end

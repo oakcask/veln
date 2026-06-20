@@ -210,8 +210,8 @@ compare it with `../specification/` before changing behavior.
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, and HPACK Huffman behavior beyond
-  visible-ASCII fixture string literal
-  decoding and encoding.
+  visible-ASCII fixture string literal decoding and encoding plus focused
+  unsupported-Huffman diagnostics.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

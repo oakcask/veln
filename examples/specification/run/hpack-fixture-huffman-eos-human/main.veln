@@ -1,0 +1,7 @@
+# HPACK fixture Huffman EOS failures project human runtime details.
+
+pub fn main() -> Result<(), String>
+	let block: ByteChunk = byte_chunk_from_hex("0484ffffffff")?
+	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
+	hpack_fixture_huffman_eos_symbol(9, 6, 4, "fixture HPACK Huffman data symbol instead of EOS", "hpack_fixture", preview)
+end

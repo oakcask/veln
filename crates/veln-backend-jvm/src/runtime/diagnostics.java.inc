@@ -703,6 +703,48 @@
         );
     }
 
+    private static void registerHpackFixtureHuffmanEosSymbolDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.huffman_eos_symbol",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
+    private static void registerHpackFixtureHuffmanNonVisibleValueDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        registerHpackFixtureHeaderBlockDiagnostic(
+            message,
+            "hpack.fixture.huffman_non_visible_value",
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            expectedFixture,
+            codecModule,
+            nearbyContext
+        );
+    }
+
     private static void registerHpackFixtureHeaderBlockDiagnostic(
         String message,
         String id,
