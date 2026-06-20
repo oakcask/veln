@@ -112,12 +112,52 @@ fn print_encode_failure(label: String, result: Result<ByteChunk, HpackFixtureFai
 	end
 end
 
+fn print_encode_transition(label: String, result: Result<HpackEncodeTransition, HpackFixtureFailure>, expected_hex: String) -> Result<HpackFixtureState, String> effects [stdio]
+	match result
+		Ok(transition) => match encoded_bytes_equal(encode_transition_bytes(transition), byte_chunk_from_hex(expected_hex)?)
+			true => print_encode_transition_success(label, transition)
+			false => Err("unexpected HPACK fixture header-list encoding")
+		end
+		Err(_) => Err("expected HPACK fixture header-list encoding")
+	end
+end
+
+fn print_encode_transition_success(label: String, transition: HpackEncodeTransition) -> Result<HpackFixtureState, String> effects [stdio]
+	let encoded: ByteChunk = encode_transition_bytes(transition)
+	let state: HpackFixtureState = encode_transition_state(transition)
+	stdio::print(label)
+	stdio::print(" encoded count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(encoded))))
+	stdio::print(" first_byte ")
+	stdio::print(int_to_string(encoded_byte_at_or_missing(encoded, 0)))
+	stdio::print(" next_encode_count ")
+	stdio::print(int_to_string(state_encode_count(state)))
+	stdio::print(" table_size ")
+	stdio::println(int_to_string(state_table_size(state)))
+	Ok(state)
+end
+
+fn require_header_list_encoding(result: Result<ByteChunk, HpackFixtureFailure>) -> Result<ByteChunk, String>
+	match result
+		Ok(encoded) => Ok(encoded)
+		Err(_) => Err("expected HPACK fixture header-list encoding")
+	end
+end
+
 fn print_state(label: String, state: HpackFixtureState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" state table_size ")
 	stdio::print(int_to_string(state_table_size(state)))
 	stdio::print(" decode_count ")
 	stdio::println(int_to_string(state_decode_count(state)))
+end
+
+fn print_encode_state(label: String, state: HpackFixtureState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" encode_state table_size ")
+	stdio::print(int_to_string(state_table_size(state)))
+	stdio::print(" encode_count ")
+	stdio::println(int_to_string(state_encode_count(state)))
 end
 
 fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
@@ -208,6 +248,18 @@ fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
 	let expected_long_encoding: ByteChunk = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
 	let _ = print_encoded_literal("encode-raw-long-a", encode_hpack_raw_string_literal(hpack_fixture_long_raw_string_value(), 96), expected_long_encoding)?
 	let _ = print_encode_failure("encode-raw-non-visible", encode_hpack_raw_string_literal("\n", 98))?
+	Ok(())
+end
+
+fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
+	let initial_encode: HpackFixtureState = initial_encode_state()
+	print_encode_state("encode-initial", initial_encode)
+	let literal_headers: HpackHeaderList = outbound_literal_indexed_path_target_headers()
+	let literal_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-indexed-path-target", encode_header_list_with_state(literal_headers, initial_encode, 120), "44072f746172676574")?
+	let dynamic_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-indexed-path-target", encode_header_list_with_state(literal_headers, literal_state, 121), "be")?
+	print_encode_state("encode-stateful-after-dynamic", dynamic_state)
+	let stateless_encoded: ByteChunk = require_header_list_encoding(encode_header_list(literal_headers, 122))?
+	let _ = print_encoded_literal("encode-stateless-literal-indexed-path-target", Ok(stateless_encoded), byte_chunk_from_hex("44072f746172676574")?)?
 	Ok(())
 end
 
@@ -383,6 +435,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let literal_status: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_status_block, literal_status_state, 70)
 	print_transition("literal-status", literal_status)
 	let ignored_raw_string_encode_cases: () = print_raw_string_encode_cases()?
+	let ignored_header_list_encode_cases: () = print_header_list_encode_cases()?
 	let ignored_general_string_literal_cases: () = print_general_string_literal_cases(initial, literal_state)?
 	let literal_never_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("14072f746172676574")?, initial, 99)
 	print_transition("literal-never-indexed-path", literal_never_indexed_path)

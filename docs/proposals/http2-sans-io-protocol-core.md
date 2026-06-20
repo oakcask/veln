@@ -727,9 +727,10 @@ The completed outbound HPACK fixture encoder slice is current behavior under
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
 It supports fixture-owned static-indexed header lists, raw short literal
 header-list encoding, visible-ASCII Huffman-marked literal encoding for
-supported static-table names, the checked request and response pseudo-header
-fixture lists needed by outbound send-intents, and unsupported-header failure
-paths that remain HPACK fixture results.
+supported static-table names, stateful bounded dynamic-table reuse for a
+literal-with-indexing `:path: /target` fixture header list, the checked request
+and response pseudo-header fixture lists needed by outbound send-intents, and
+unsupported-header failure paths that remain HPACK fixture results.
 The completed local HPACK table-size receive-policy slice is current behavior
 under `../specification/` and
 `../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It
