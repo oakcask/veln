@@ -1526,12 +1526,18 @@ execution reference.
   `:method: PUT` and `:scheme: https` are inserted over `:path: /target`,
   `0xbe` reads the newest `:scheme: https` entry, `0xbf` reads the second
   `:method: PUT` entry, and `0xc0` reads the third retained
-  `:path: /target` entry. Completed HEADERS and final CONTINUATION paths both
+  `:path: /target` entry. The same bounded fixture table also supports the
+  checked dynamic-name literal-with-indexing form `0x7e 0x06 "/again"` after
+  `:path: /target` has been inserted: it reuses the newest dynamic entry name
+  `:path`, supplies the visible-ASCII value `/again`, prepends
+  `:path: /again`, and retains the older `:path: /target` entry when table
+  size allows. Completed HEADERS and final CONTINUATION paths both
   carry that HPACK state before later header blocks are decoded. A
   literal-never-indexed decode advances the immutable fixture decode count but
   does not insert a dynamic-table entry, so a later `0xbe` lookup from that
   returned state remains unsupported unless a previous literal-with-indexing
-  block inserted an entry. It also accepts
+  block inserted an entry. Missing or malformed dynamic-name literals remain
+  on `hpack.fixture.unsupported_header_block`. It also accepts
   dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update

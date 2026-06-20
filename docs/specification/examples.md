@@ -1854,10 +1854,15 @@ remain addressable when the table has room. After `:method: PUT` and
 newest `:scheme: https` entry, `0xbf` decodes the second `:method: PUT`
 entry, and `0xc0` decodes the third retained `:path: /target` entry.
 Completed HEADERS and final CONTINUATION paths both carry that HPACK state
-before later header blocks are decoded. A literal-never-indexed decode
+before later header blocks are decoded. The checked dynamic-name
+literal-with-indexing form `0x7e 0x06 "/again"` reuses the newest dynamic
+entry name `:path`, inserts `:path: /again` as the newest entry, and leaves
+the older `:path: /target` entry readable while the bounded fixture table has
+room. A literal-never-indexed decode
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state
-remains unsupported. The fixture also accepts dynamic
+remains unsupported. Missing or malformed dynamic-name literals remain
+unsupported. The fixture also accepts dynamic
 table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table

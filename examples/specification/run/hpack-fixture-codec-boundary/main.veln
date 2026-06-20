@@ -313,6 +313,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
 	let dynamic_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, dynamic_state, 69)
 	print_transition("dynamic-indexed-path", dynamic_indexed_path)
+	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
+	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
+	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)
+	let literal_indexed_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name, ":path", "/again")?
+	print_transition("dynamic-indexed-dynamic-name-path-again", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_state, 74))
+	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
+	print_transition("dynamic-name-retained-older-path", decode_header_block(evicted_indexed_block, literal_indexed_dynamic_name_state, 75))
+	print_transition("literal-indexed-dynamic-name-missing", decode_header_block(literal_indexed_dynamic_name_block, initial, 76))
+	print_transition("malformed-literal-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("7e00")?, dynamic_state, 77))
 	let replacement_state: HpackFixtureState = next_state_or(dynamic_indexed_path, dynamic_state)
 	let literal_indexed_method_block: ByteChunk = byte_chunk_from_hex("4203505554")?
 	let literal_indexed_method: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_method_block, replacement_state, 70)
@@ -320,7 +329,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let replaced_state: HpackFixtureState = next_state_or(literal_indexed_method, replacement_state)
 	let dynamic_indexed_method: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, replaced_state, 75)
 	print_transition("dynamic-indexed-method-put", dynamic_indexed_method)
-	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
 	print_transition("dynamic-indexed-older-path", decode_header_block(evicted_indexed_block, next_state_or(dynamic_indexed_method, replaced_state), 76))
 	let literal_indexed_scheme_block: ByteChunk = byte_chunk_from_hex("46849d29ad1f")?
 	let literal_indexed_scheme: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_scheme_block, replaced_state, 85)
