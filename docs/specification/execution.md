@@ -1482,6 +1482,11 @@ execution reference.
   decoder: raw values must be visible ASCII, and Huffman-marked values
   decode by scanning the HPACK static Huffman table into decoded
   visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
+  HPACK-prefixed integers for table-size updates, dynamic-name indexes, and
+  string literal lengths are decoded by the same bounded fixture foundation,
+  so the checked saturated-prefix forms take the same continuation-byte path
+  before their callers apply the table-size, name lookup, or string-value
+  policy.
   The same decoder accepts the fixture-boundary string-length integer
   continuation form for supported literal names: checked raw and
   Huffman-marked long values use a saturated seven-bit length prefix plus one
@@ -1585,17 +1590,16 @@ execution reference.
   `:path: /no`, and `0x1f 0x2f 0x07 "/secret"` decodes
   `:path: /secret` after `:path: /target` has been inserted. After
   `:method: PUT` has also been inserted, the same non-inserting literal
-  forms accept one continuation byte for dynamic index `63`:
-  `0x0f 0x30 0x03` with value `/no` decodes `:path: /no`, and
-  `0x1f 0x30 0x07` with value `/secret` decodes `:path: /secret`. Those
+  forms accept one continuation byte for dynamic index `63` and the deeper
+  dynamic index value `127`: `0x0f 0x30 0x03` with value `/no` decodes
+  `:path: /no`, `0x1f 0x30 0x07` with value `/secret` decodes
+  `:path: /secret`, `0x0f 0x70 0x05 "/skip"` decodes `:path: /skip`, and
+  `0x1f 0x70 0x07 "/secret"` decodes `:path: /secret`. Those
   forms advance the immutable fixture decode count without inserting a
   dynamic-table entry, so later `0xbe` and `0xbf` lookups from the returned
   states still read the previously inserted `:method: PUT` and
-  `:path: /target` entries. The deeper bounded dynamic table also checks
-  `0x0f 0x70 0x05 "/skip"` and
-  `0x1f 0x70 0x07 "/secret"` for dynamic index value `127`; both reuse the
-  retained `:path` name without insertion, and later `0xff` reads still
-  observe `:path: /a`. Completed HEADERS and final
+  `:path: /target` entries, while later `0xff` reads still observe
+  `:path: /a` after the index `127` forms. Completed HEADERS and final
   CONTINUATION paths both carry that HPACK state before later header blocks
   are decoded. A literal-never-indexed decode without a prior dynamic entry
   still inserts no dynamic table entry, so a later `0xbe` lookup from that
