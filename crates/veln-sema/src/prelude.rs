@@ -116,6 +116,8 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let flag24le = Type::named("Flag24le", Vec::new());
     let flag32be = Type::named("Flag32be", Vec::new());
     let flag32le = Type::named("Flag32le", Vec::new());
+    let flag48be = Type::named("Flag48be", Vec::new());
+    let flag48le = Type::named("Flag48le", Vec::new());
     let flag64be = Type::named("Flag64be", Vec::new());
     let flag64le = Type::named("Flag64le", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
@@ -218,6 +220,32 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "flag32le_from_bits" => Some((
             vec![Type::int()],
             adt::result_type(flag32le.clone(), Type::string()),
+        )),
+        "flag48be_is_set" => Some((
+            vec![flag48be.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag48be_set" => Some((
+            vec![flag48be.clone(), Type::int()],
+            adt::result_type(flag48be.clone(), Type::string()),
+        )),
+        "flag48be_bits" => Some((vec![flag48be.clone()], Type::int())),
+        "flag48be_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag48be.clone(), Type::string()),
+        )),
+        "flag48le_is_set" => Some((
+            vec![flag48le.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag48le_set" => Some((
+            vec![flag48le.clone(), Type::int()],
+            adt::result_type(flag48le.clone(), Type::string()),
+        )),
+        "flag48le_bits" => Some((vec![flag48le.clone()], Type::int())),
+        "flag48le_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag48le.clone(), Type::string()),
         )),
         "flag64be_is_set" => Some((
             vec![flag64be.clone(), Type::int()],
@@ -1134,6 +1162,8 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
     let flag24le = CoreType::named("Flag24le", Vec::new());
     let flag32be = CoreType::named("Flag32be", Vec::new());
     let flag32le = CoreType::named("Flag32le", Vec::new());
+    let flag48be = CoreType::named("Flag48be", Vec::new());
+    let flag48le = CoreType::named("Flag48le", Vec::new());
     let flag64be = CoreType::named("Flag64be", Vec::new());
     let flag64le = CoreType::named("Flag64le", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
@@ -1236,6 +1266,32 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "flag32le_from_bits" => Some((
             vec![CoreType::int()],
             adt::core_result_type(flag32le.clone(), CoreType::string()),
+        )),
+        "flag48be_is_set" => Some((
+            vec![flag48be.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag48be_set" => Some((
+            vec![flag48be.clone(), CoreType::int()],
+            adt::core_result_type(flag48be.clone(), CoreType::string()),
+        )),
+        "flag48be_bits" => Some((vec![flag48be.clone()], CoreType::int())),
+        "flag48be_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag48be.clone(), CoreType::string()),
+        )),
+        "flag48le_is_set" => Some((
+            vec![flag48le.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag48le_set" => Some((
+            vec![flag48le.clone(), CoreType::int()],
+            adt::core_result_type(flag48le.clone(), CoreType::string()),
+        )),
+        "flag48le_bits" => Some((vec![flag48le.clone()], CoreType::int())),
+        "flag48le_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag48le.clone(), CoreType::string()),
         )),
         "flag64be_is_set" => Some((
             vec![flag64be.clone(), CoreType::int()],
