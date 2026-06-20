@@ -17,21 +17,24 @@ value. A literal-with-indexing `:path: /target` block returns a next
 decodes the carried entry through that state. The same indexed block without a
 prior dynamic entry remains unsupported.
 
-A later literal-with-indexing `:method: PUT` block becomes the newest bounded
-fixture dynamic-table entry while the older `:path: /target` entry remains
-addressable when the table has room. A following `0xbe` indexed block decodes
-the newest `:method: PUT` entry, and `0xbf` decodes the older retained
-`:path: /target` entry. The bounded eviction policy measures each accepted
-dynamic entry as header name byte count plus value byte count plus `32`.
-Reducing the fixture table size to `42` keeps the newest `:method: PUT` entry
-and evicts the older `:path: /target` entry; the same table size evicts a
-supported `:authority: abc.test` entry because that accepted entry is larger
-than `42`. Reducing the table size to `30` evicts both supported
-`:method: PUT` and `:path: /target` entries, and later dynamic indexed
-representations for evicted entries remain unsupported. The HTTP/2
-protocol-core example carries the two-entry state and reduced table-size
-state through both completed HEADERS and final CONTINUATION paths before
-decoding later dynamic indexed blocks.
+Later literal-with-indexing blocks prepend bounded fixture dynamic-table
+entries in newest-first order. After `:method: PUT` and `:scheme: https` are
+inserted over `:path: /target`, dynamic indexed blocks decode `0xbe` as the
+newest `:scheme: https` entry, `0xbf` as the second `:method: PUT` entry, and
+`0xc0` as the third retained `:path: /target` entry. The bounded eviction
+policy measures each accepted dynamic entry as header name byte count plus
+value byte count plus `32` and evicts oldest entries first after insertion or
+table-size updates. Reducing the fixture table size to `86` keeps the newest
+two entries and evicts the third; reducing it to `42` keeps only the newest
+supported `:method: PUT` entry when that entry is followed by
+`:path: /target`; the same table size evicts a supported
+`:authority: abc.test` entry because that accepted entry is larger than `42`.
+Reducing the table size to `30` evicts both supported `:method: PUT` and
+`:path: /target` entries, and later dynamic indexed representations for
+evicted entries remain unsupported. The HTTP/2 protocol-core example carries
+the generalized dynamic-table state and reduced table-size state through both
+completed HEADERS and final CONTINUATION paths before decoding later dynamic
+indexed blocks.
 
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
 `0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
@@ -48,14 +51,16 @@ unsupported fixture path.
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
-  literal-with-indexing insertion, newest and older dynamic indexed reads,
-  missing dynamic state, accepted-entry-size eviction, full and partial
-  reduced-table-size eviction failure paths, and the fixture-boundary
-  table-size update slice.
+  literal-with-indexing insertion, newest, second, and third dynamic indexed
+  reads, missing dynamic state, accepted-entry-size eviction, full and partial
+  reduced-table-size eviction failure paths, oldest-first eviction after a
+  three-entry table-size reduction, and the fixture-boundary table-size update
+  slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
-  CONTINUATION paths, including the accepted-entry-size eviction case and the
-  fixture-boundary table-size update slice.
+  CONTINUATION paths, including generalized dynamic indexed lookup,
+  oldest-first table-size eviction, the accepted-entry-size eviction case, and
+  the fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.
