@@ -200,9 +200,10 @@ visible exact-width unsigned field decoded as `Int` and `Payload` is either
 an implemented byte-aligned exact-width unsigned primitive or an eligible
 nested binary schema payload. `Repeat(left_count - right_count, Payload)`,
 `Repeat(left_count + right_count, Payload)`, and
-`Repeat(left_count * right_count, Payload)` use the difference, sum, or
-product of two earlier visible exact-width unsigned `Int` fields as the
-repeat count.
+`Repeat(left_count * right_count, Payload)`, and
+`Repeat(left_count / right_count, Payload)` use the difference, sum, product,
+or integer quotient of two earlier visible exact-width unsigned `Int` fields
+as the repeat count.
 Repeated primitive fields decode as `List<Int>`; repeated
 nested schema fields decode as lists of the nested schema's decoded record
 shape, including when the nested schema is a public imported binary schema
@@ -381,12 +382,15 @@ satisfies the clause and then writes the projected schema-local record.
 Length-bounded `ByteView(length_field)`,
 `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, and
-`ByteView(left_length * right_length)` payload fields are `ByteView` record
+`ByteView(left_length * right_length)`, and
+`ByteView(left_length / right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier
 visible length operand fields are written. Decode computes arithmetic lengths
-from earlier decoded field values and rejects negative or unavailable payload
-ranges as `schema.length_out_of_bounds`. If the supplied view count differs
-from the earlier length field or computed length expression, the helper returns
+from earlier decoded field values, rejects negative or unavailable payload
+ranges as `schema.length_out_of_bounds`, and reports
+`schema.length_division_by_zero` when a division length expression has divisor
+zero. If the supplied view count differs from the earlier length field or
+computed length expression, the helper returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`
 without emitting partial output. Command-facing diagnostics for this
 schema-facing conversion boundary preserve the schema field path, expected
@@ -409,9 +413,11 @@ bounded `Repeat(count_field, Payload)` field emits exactly the number of
 elements named by the earlier count field, and
 `Repeat(left_count - right_count, Payload)` and
 `Repeat(left_count + right_count, Payload)` and
-`Repeat(left_count * right_count, Payload)` emit exactly the computed
-difference, sum, or product. Primitive payloads use `List<Int>`; nested
-schema payloads use a list of the same-module or public imported nested
+`Repeat(left_count * right_count, Payload)` and
+`Repeat(left_count / right_count, Payload)` emit exactly the computed
+difference, sum, product, or integer quotient. Primitive payloads use
+`List<Int>`; nested schema payloads use a list of the same-module or public
+imported nested
 schema's decoded record shape; repeated
 `ByteView(length_field)` payloads use `List<ByteView>` and write each
 element's bounded bytes in declaration order. A list length mismatch,

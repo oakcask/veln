@@ -308,7 +308,9 @@ The narrow bounded repeated payload slice is implemented as
 and encode helpers. `Repeat(left_count + right_count, Payload)` is also
 implemented for generated binary schema decode and encode helpers.
 `Repeat(left_count * right_count, Payload)` is implemented for generated
-binary schema decode and encode helpers.
+binary schema decode and encode helpers. `Repeat(left_count / right_count,
+Payload)` is implemented for generated binary schema decode and encode
+helpers.
 The count field or count operands must be earlier visible
 `Int` fields in the same schema, and the payload must be one of the
 implemented byte-aligned exact-width unsigned primitives, an eligible nested
@@ -317,7 +319,8 @@ earlier visible `Int` field. Primitive repeats decode and encode as
 `List<Int>`; nested schema repeats decode and encode as lists of the nested
 schema's decoded record shape; repeated byte views decode and encode as
 `List<ByteView>`. Negative computed counts report the existing schema
-length/count boundary shape. Encode rejects list length, primitive range,
+length/count boundary shape, and division by zero reports
+`schema.length_division_by_zero`. Encode rejects list length, primitive range,
 nested element representation, and repeated byte-view element length
 mismatches through `EncodeError`; element failures append an index segment
 before nested schema field path segments or at the repeated byte-view element
@@ -327,14 +330,16 @@ The completed nested schema payload part of this repeat slice is archived under
 current behavior is specified under `../specification/`.
 The generated length-bounded byte payload slice is implemented as
 `ByteView(length_field)`, `ByteView(left_length - right_length)`,
-`ByteView(left_length + right_length)`, and
-`ByteView(left_length * right_length)` for generated binary schema decode and
+`ByteView(left_length + right_length)`,
+`ByteView(left_length * right_length)`, and
+`ByteView(left_length / right_length)` for generated binary schema decode and
 encode helpers. The length operands must be earlier visible `Int` fields in
 the same schema, the encoded value record keeps the length operand fields and
 the `ByteView` payload field, the helper writes the earlier fields normally
 and then writes exactly the bounded bytes from the supplied view, negative
 computed decode lengths report
-`schema.length_out_of_bounds`, and mismatched encode view counts return the
+`schema.length_out_of_bounds`, division by zero reports
+`schema.length_division_by_zero`, and mismatched encode view counts return the
 existing structured `EncodeError` value-representation shape.
 The narrow schema-level structural validation slice is implemented as one
 `validate` predicate after binary schema fields. Generated decode helpers run
@@ -392,8 +397,9 @@ for:
   implemented record-payload and nested constructor slices
 - general schema-declared length-prefixed payloads beyond the implemented
   `ByteView(length_field)`, `ByteView(left_length - right_length)`,
-  `ByteView(left_length + right_length)`, and
-  `ByteView(left_length * right_length)` decode and encode helper slices
+  `ByteView(left_length + right_length)`,
+  `ByteView(left_length * right_length)`, and
+  `ByteView(left_length / right_length)` decode and encode helper slices
 - field references inside later field definitions beyond implemented bounded
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
   lengths, and their declaration-time missing, forward, and wrong-role
@@ -534,8 +540,9 @@ The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, `Repeat(left_count - right_count, Payload)` fields when
 both operands name earlier visible `Int` fields in the same schema, and
-`Repeat(left_count + right_count, Payload)` and
-`Repeat(left_count * right_count, Payload)` fields when both operands name
+`Repeat(left_count + right_count, Payload)`,
+`Repeat(left_count * right_count, Payload)`, and
+`Repeat(left_count / right_count, Payload)` fields when both operands name
 earlier visible `Int` fields in the same schema.
 `Payload` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,

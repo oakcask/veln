@@ -41,7 +41,8 @@ requiring the full command reference on the first read.
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, integer range failure, field-local validation failure,
   closed-dispatch unknown tag
-  failures, payload length boundary failures, generated binary schema
+  failures, payload length boundary failures, schema length/count
+  division-by-zero failures, generated binary schema
   `EncodeError` value failures for primitive representability, dispatch
   unknown tags, dispatch length mismatches, and dispatch tag/payload
   mismatches, hand-written codec `EncodeStep::Invalid(EncodeError(...))`

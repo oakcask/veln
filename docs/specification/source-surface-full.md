@@ -124,7 +124,8 @@ also accept `Repeat(count_field, Payload)` when `count_field` names a
 previously decoded visible `Int` field in the same schema, and
 `Repeat(left_count - right_count, Payload)`,
 `Repeat(left_count + right_count, Payload)`, and
-`Repeat(left_count * right_count, Payload)` when both operands name earlier
+`Repeat(left_count * right_count, Payload)`, and
+`Repeat(left_count / right_count, Payload)` when both operands name earlier
 visible `Int` fields in the same schema. `Payload` is one of the implemented
 byte-aligned exact-width unsigned primitives or an eligible nested binary
 schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
@@ -132,7 +133,8 @@ both references name earlier visible `Int` fields in the same schema.
 Length-bounded `ByteView(length_field)`,
 `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, and
-`ByteView(left_length * right_length)` payload fields are accepted when every
+`ByteView(left_length * right_length)`, and
+`ByteView(left_length / right_length)` payload fields are accepted when every
 length operand names an earlier visible `Int` field in the same binary schema.
 A repeated primitive field decodes and encodes as `List<Int>`; a repeated
 nested schema field decodes and encodes as a list of the nested schema's
@@ -275,7 +277,8 @@ supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, or forty bits,
 bounded repeat fields whose count is an earlier visible exact-width field or
-the difference, sum, or product of two earlier visible exact-width fields,
+the difference, sum, product, or integer quotient of two earlier visible
+exact-width fields,
 including
 `Repeat(count_field, ByteView(length_field))` when the length field is also
 earlier visible,
@@ -286,6 +289,8 @@ visible exact-width fields,
 `ByteView(left_length + right_length)` fields whose operands both name earlier
 visible exact-width fields, and
 `ByteView(left_length * right_length)` fields whose operands both name earlier
+visible exact-width fields, and
+`ByteView(left_length / right_length)` fields whose operands both name earlier
 visible exact-width fields, closed
 dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier

@@ -103,6 +103,19 @@ When the result value is a binary schema payload length boundary failure,
 - `available_count`: the byte count available after the frame header
 - `byte_preview`: a structured bounded byte preview object
 
+When the result value is a binary schema repeat count or byte-view length
+division-by-zero failure, `details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.length_division_by_zero"`
+- `byte_offset`: the decoded-stream `ByteOffset` where the repeat or
+  byte-view field length/count is evaluated
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `length_expression`: the repeat count or byte-view length expression
+- `divisor_operand`: the right operand whose decoded value was zero
+- `operator: "/"`
+- `byte_preview`: a structured bounded byte preview object
+
 When the result value is a binary schema integer range failure,
 `details.byte_diagnostic` includes:
 
