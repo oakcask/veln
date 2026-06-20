@@ -1767,6 +1767,16 @@ execution reference.
   literal-with-indexing `:path: /target` header list, carries the returned
   bounded dynamic-table state, and emits a later matching header list as the
   dynamic indexed byte `0xbe` before the HEADERS frame-splitting boundary.
+  The same outbound fixture encoder accepts requested dynamic table-size
+  updates before HEADERS framing, including one-byte prefix output `0x3e` for
+  table size `30` and saturated-prefix continuation output `0x3f 0x81 0x01`
+  for table size `160`. The returned encode state carries the reduced table
+  capacity into a later outbound HEADERS encode: after reducing the table to
+  `30`, the supported `:path: /target` fixture is encoded as a literal
+  header block rather than reusing the earlier dynamic indexed byte. A
+  requested outbound table-size update greater than the active
+  peer-advertised `SETTINGS_HEADER_TABLE_SIZE` fails at the HPACK fixture
+  encode boundary before HEADERS header-block bytes are emitted.
   When the header-block fits within the peer-advertised maximum frame
   size, the intent emits one immutable output chunk with a HEADERS frame header
   kind `1`,

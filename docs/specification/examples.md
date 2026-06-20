@@ -2082,6 +2082,11 @@ frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
 payload, accepted PRIORITY frame-header-plus-priority-payload chunks,
 accepted HEADERS frame-header-plus-header-block chunks with and without
 `END_STREAM`, an accepted post-GOAWAY HEADERS frame at the recorded boundary,
+accepted outbound HPACK dynamic table-size update HEADERS chunks for the
+one-byte and saturated-prefix continuation integer forms, a later HEADERS
+chunk that observes the reduced outbound HPACK table capacity, an empty chunk
+list for an outbound table-size update rejected above the peer-advertised
+`SETTINGS_HEADER_TABLE_SIZE`,
 accepted `PUSH_PROMISE` frame-header-plus-promised-stream-payload chunks,
 an accepted GOAWAY frame plus last-stream-id and error-code payload, and the
 maximum valid `UInt31be` stream id. The source

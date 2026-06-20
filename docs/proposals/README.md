@@ -200,7 +200,7 @@ compare it with `../specification/` before changing behavior.
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including visible-ASCII Huffman-marked
   string literal encoding and the bounded stateful dynamic-table fixture
-  encoder path,
+  encoder path plus checked outbound dynamic table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

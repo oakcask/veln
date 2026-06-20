@@ -690,7 +690,8 @@ The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding,
-and production header validation beyond ordinary request
+outbound table-size behavior beyond the checked fixture encoder update
+boundary, and production header validation beyond ordinary request
 and response header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are
@@ -730,7 +731,12 @@ header-list encoding, visible-ASCII Huffman-marked literal encoding for
 supported static-table names, stateful bounded dynamic-table reuse for a
 literal-with-indexing `:path: /target` fixture header list, the checked request
 and response pseudo-header fixture lists needed by outbound send-intents, and
-unsupported-header failure paths that remain HPACK fixture results.
+unsupported-header failure paths that remain HPACK fixture results. It also
+supports checked outbound dynamic table-size update requests for HEADERS
+header blocks, carries the returned reduced table capacity into later
+outbound HPACK encoding, and rejects requested updates above the
+peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture encode
+failures before emitting header-block bytes.
 The completed local HPACK table-size receive-policy slice is current behavior
 under `../specification/` and
 `../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It
