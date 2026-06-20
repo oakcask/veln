@@ -316,13 +316,14 @@ bytes plus the static indexed `accept-charset:`,
 literal-with-indexing, and literal-never-indexed fixtures whose first byte
 names a supported static-table
 header name for `:authority`, `:method`, `:path`, `:scheme`, or `:status`.
-Those literal fixtures share the HPACK string literal decoder for short
+Those literal fixtures share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by
 the HPACK static Huffman table. The same fixture decoder accepts one
 continuation byte after a saturated seven-bit string-length prefix for checked
 long raw and Huffman-marked values on supported literal names, through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
-forms. The executable slice
+forms, including raw fixture values beyond the former checked 128-byte decode
+boundary. The executable slice
 covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` through

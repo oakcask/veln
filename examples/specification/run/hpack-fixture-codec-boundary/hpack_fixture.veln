@@ -811,7 +811,7 @@ fn decode_hpack_string_literal_value(block: ByteChunk, length: HpackStringLength
 	let prefix_size: Int = string_length_prefix_size(length)
 	match string_length_huffman_marked(length)
 		true => decode_hpack_huffman_literal_value(block, encoded_count, prefix_size, offset)
-		false => match encoded_count > 0 and encoded_count <= 128
+		false => match encoded_count > 0
 			true => no_huffman_literal_raw_value(block, encoded_count, prefix_size, offset)
 			false => unsupported_string_literal(block, offset)
 		end
