@@ -1499,13 +1499,16 @@ execution reference.
   completed HEADERS, Huffman `:path: test` through completed HEADERS,
   Huffman `:status: 200` through completed HEADERS and final CONTINUATION,
   Huffman `:method: PUT` through both literal-without-indexing and
-  literal-with-indexing, raw literal-never-indexed `:path` through completed
-  HEADERS and final CONTINUATION, raw literal-with-indexing `:authority`, Huffman
+  literal-with-indexing, Huffman `:method: bad` through
+  literal-without-indexing, literal-with-indexing, and literal-never-indexed,
+  raw literal-never-indexed `:path` through completed HEADERS and final
+  CONTINUATION, raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:scheme: https`, and raw literal-with-indexing
   `:status`. Checked bytes also include zero-length `:path` as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
-  `0x08 0x82 0x10 0x01`, and
+  `0x08 0x82 0x10 0x01`, `:method: bad` as `0x02 0x83 0x8c 0x72 0x7f`,
+  `0x42 0x83 0x8c 0x72 0x7f`, and `0x12 0x83 0x8c 0x72 0x7f`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
   The focused HPACK boundary also checks raw literal-never-indexed

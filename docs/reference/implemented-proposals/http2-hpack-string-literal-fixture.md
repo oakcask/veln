@@ -34,18 +34,18 @@ eviction keep the same state behavior as the earlier dynamic-table slice.
 Literal-never-indexed advances the fixture decode count without inserting a
 dynamic-table entry.
 
-Malformed Huffman padding, malformed string lengths including non-terminating
-string-length continuations, non-visible raw bytes, unsupported names,
-Huffman EOS, and Huffman strings whose decoded bytes are not visible ASCII
-continue to project through
-`hpack.fixture.unsupported_header_block`; this slice does not introduce a
-narrower diagnostic.
+Malformed string lengths including non-terminating string-length
+continuations, non-visible raw bytes, unsupported names, Huffman EOS, and
+Huffman strings whose decoded bytes are not visible ASCII continue to project
+through `hpack.fixture.unsupported_header_block`. Malformed Huffman padding
+keeps the established `hpack.fixture.malformed_huffman_padding` diagnostic.
 
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   raw and Huffman-marked literal-without-indexing values, Huffman-marked
-  `:path: test`, Huffman-marked `:status: 200`, Huffman-marked
+  `:path: test`, Huffman-marked `:method: bad` through all three literal
+  forms, Huffman-marked `:status: 200`, Huffman-marked
   `:authority: www.example.com`, Huffman-marked
   literal-with-indexing `:method: PUT`, raw literal-with-indexing
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw
