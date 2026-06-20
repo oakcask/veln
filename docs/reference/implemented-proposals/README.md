@@ -160,6 +160,8 @@ behavior.
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
 - HTTP/2 HPACK malformed Huffman padding diagnostic:
   [http2-hpack-huffman-padding-diagnostic.md](http2-hpack-huffman-padding-diagnostic.md).
+- HTTP/2 HPACK focused Huffman diagnostics:
+  [http2-hpack-huffman-focused-diagnostics.md](http2-hpack-huffman-focused-diagnostics.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

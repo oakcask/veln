@@ -694,11 +694,13 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
-behavior beyond visible-ASCII fixture string literal decoding and encoding,
+behavior beyond visible-ASCII fixture string literal decoding and encoding
+plus the focused unsupported-Huffman fixture diagnostics,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request and
 response header-name shape, the source-visible `te` value rule, and the
