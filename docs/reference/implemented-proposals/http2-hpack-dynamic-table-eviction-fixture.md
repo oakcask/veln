@@ -46,7 +46,14 @@ the fixture accepts the continuation-byte indexed-name forms
 `63` and `64`, respectively. Those forms reuse the retained dynamic entry
 name, decode the following visible-ASCII string literal as the replacement
 value, and insert the decoded header as the newest dynamic entry without
-discarding older entries while the bounded table has room.
+discarding older entries while the bounded table has room. A deeper bounded
+table with retained `:path: /a` entries also accepts dynamic index `127`
+through `0x7f 0x40 0x05 "/deep"` for literal-with-indexing, proves the older
+retained entry remains addressable through `0xff`, and keeps the next newest
+dynamic indexed read pointed at the inserted `:path: /deep` entry. The HTTP/2
+protocol-core example carries the same deep dynamic state through a completed
+HEADERS block and through a final CONTINUATION block before later dynamic
+indexed reads observe the inserted value.
 
 Literal-without-indexing and literal-never-indexed dynamic-name forms reuse
 the same dynamic-table name lookup through saturated four-bit indexed-name
@@ -61,8 +68,13 @@ the same non-inserting forms accept one continuation byte for dynamic index
 `0x1f 0x30 0x07 "/secret"` both reuse the retained `:path` name, decode the
 visible-ASCII value literal, advance only the decode count, and leave later
 `0xbe` and `0xbf` reads pointed at the prior `:method: PUT` and
-`:path: /target` entries. Missing, malformed, out-of-range, and
-unsupported dynamic-name continuations remain on the unsupported fixture path.
+`:path: /target` entries. The deeper table also accepts dynamic index `127`
+for both non-inserting forms with `0x0f 0x70 0x05 "/skip"` and
+`0x1f 0x70 0x07 "/secret"`; later `0xff` reads from their returned states
+still observe the older retained `:path: /a` entry. Missing, malformed,
+out-of-range, and unsupported dynamic-name continuations remain on the
+unsupported fixture path, including dynamic index `128` for the deep
+literal-with-indexing form.
 The HTTP/2 protocol-core example continues to cover dynamic HPACK state carry
 through completed HEADERS and final CONTINUATION paths.
 
@@ -86,16 +98,19 @@ unsupported fixture path.
   literal-with-indexing insertion, newest, second, and third dynamic indexed
   reads, dynamic-name literal-with-indexing insertion, dynamic-name
   literal-without-indexing and literal-never-indexed decode without dynamic
-  insertion, malformed and out-of-range dynamic-name literals, missing dynamic
-  state, accepted-entry-size eviction, full and partial reduced-table-size
+  insertion, dynamic index `127` continuation coverage for all three
+  dynamic-name literal forms, malformed and out-of-range dynamic-name
+  literals, missing dynamic state, accepted-entry-size eviction, full and
+  partial reduced-table-size
   eviction failure paths, oldest-first eviction after a three-entry table-size
   reduction, and the fixture-boundary table-size update slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
   continuation-byte dynamic-name literal-with-indexing for retained dynamic
-  indexes `63` and `64`, dynamic-index `63` literal-without-indexing and
-  literal-never-indexed forms without replacement insertion,
+  indexes `63`, `64`, and `127`, dynamic-index `63`
+  literal-without-indexing and literal-never-indexed forms without
+  replacement insertion,
   generalized dynamic indexed lookup,
   oldest-first table-size eviction, the accepted-entry-size eviction case, and
   the fixture-boundary table-size update slice.

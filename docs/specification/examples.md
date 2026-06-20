@@ -1880,9 +1880,14 @@ continuation-byte indexed-name values `63` and `64` through
 `0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"`, then reads the
 inserted newest entries through the carried fixture state. A final
 CONTINUATION path covers the value `63` form before a later header block reads
-the inserted `:method: PATCH` entry. Literal-without-indexing and
-literal-never-indexed dynamic-name forms reuse the same dynamic-table name
-lookup without inserting replacement dynamic entries; the focused HPACK
+the inserted `:method: PATCH` entry. The boundary also checks a deeper
+bounded dynamic table where dynamic index value `127` is encoded as
+`0x7f 0x40 0x05 "/deep"`, reuses an older retained `:path` name, inserts
+`:path: /deep`, and carries that insertion through both completed HEADERS and
+final CONTINUATION paths before later `0xbe` reads.
+Literal-without-indexing and literal-never-indexed dynamic-name forms reuse
+the same dynamic-table name lookup without inserting replacement dynamic
+entries; the focused HPACK
 boundary checks `0x0f 0x2f 0x03 "/no"` and
 `0x1f 0x2f 0x07 "/secret"` after `:path: /target` has been inserted, then
 reads the retained `:path: /target` entry through `0xbe` from each returned
@@ -1891,7 +1896,11 @@ case checks the one-continuation indexed-name forms `0x0f 0x30 0x03 "/no"`
 and `0x1f 0x30 0x07 "/secret"` for dynamic index `63`; both reuse
 `:path`, decode the visible-ASCII values, advance the fixture decode count,
 and leave later `0xbe` and `0xbf` reads pointed at the prior `:method: PUT`
-and `:path: /target` entries. A literal-never-indexed decode without a prior
+and `:path: /target` entries. The fixture-codec boundary also covers dynamic
+index value `127` for those two non-inserting forms with
+`0x0f 0x70 0x05 "/skip"` and `0x1f 0x70 0x07 "/secret"`, then proves a later
+`0xff` read still observes the older retained `:path: /a` entry. A
+literal-never-indexed decode without a prior
 dynamic entry still
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state

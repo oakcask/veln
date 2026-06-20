@@ -1549,7 +1549,12 @@ execution reference.
   and `0x7f 0x01 0x06 "/third"`: they reuse dynamic index values `63` and
   `64`, respectively, decode the following visible-ASCII value literal, and
   prepend the decoded header as the newest dynamic entry while the bounded
-  fixture table has room. The fixture reuses the same dynamic-name lookup for
+  fixture table has room. With a deeper bounded dynamic table, the same
+  literal-with-indexing path accepts dynamic index value `127` through
+  `0x7f 0x40 0x05 "/deep"`, proves the older retained `:path: /a` entry is
+  still addressable through `0xff`, and carries the inserted `:path: /deep`
+  value through both completed HEADERS and final CONTINUATION paths before
+  later `0xbe` reads. The fixture reuses the same dynamic-name lookup for
   literal-without-indexing and literal-never-indexed header blocks with
   saturated four-bit indexed-name prefixes: `0x0f 0x2f 0x03 "/no"` decodes
   `:path: /no`, and `0x1f 0x2f 0x07 "/secret"` decodes
@@ -1561,7 +1566,11 @@ execution reference.
   forms advance the immutable fixture decode count without inserting a
   dynamic-table entry, so later `0xbe` and `0xbf` lookups from the returned
   states still read the previously inserted `:method: PUT` and
-  `:path: /target` entries. Completed HEADERS and final
+  `:path: /target` entries. The deeper bounded dynamic table also checks
+  `0x0f 0x70 0x05 "/skip"` and
+  `0x1f 0x70 0x07 "/secret"` for dynamic index value `127`; both reuse the
+  retained `:path` name without insertion, and later `0xff` reads still
+  observe `:path: /a`. Completed HEADERS and final
   CONTINUATION paths both carry that HPACK state before later header blocks
   are decoded. A literal-never-indexed decode without a prior dynamic entry
   still inserts no dynamic table entry, so a later `0xbe` lookup from that
