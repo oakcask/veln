@@ -79,16 +79,18 @@ four-byte, or eight-byte range.
 non-negative integers. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
-Payload)`, `Repeat(left_count + right_count, Payload)`, and
-`Repeat(left_count * right_count, Payload)` are accepted when both operands
+Payload)`, `Repeat(left_count + right_count, Payload)`,
+`Repeat(left_count * right_count, Payload)`, and
+`Repeat(left_count / right_count, Payload)` are accepted when both operands
 name earlier visible `Int` fields in the same binary schema.
 `Payload` is either an implemented byte-aligned
 exact-width unsigned primitive, an eligible nested binary schema payload, or
 `ByteView(length_field)` when `length_field` is another earlier visible `Int`
 field in the same schema. Length-bounded `ByteView(length_field)`,
 `ByteView(left_length - right_length)`,
-`ByteView(left_length + right_length)`, and
-`ByteView(left_length * right_length)` payload fields are accepted when every
+`ByteView(left_length + right_length)`,
+`ByteView(left_length * right_length)`, and
+`ByteView(left_length / right_length)` payload fields are accepted when every
 length operand names an earlier visible `Int` field in the same binary schema.
 A repeated primitive field decodes and encodes as `List<Int>`; a repeated
 nested schema field decodes and encodes as a list of the nested schema's
@@ -186,7 +188,8 @@ exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
 length-bounded
 `ByteView(length_field)`, `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, or
-`ByteView(left_length * right_length)` payload fields as `ByteView`, bounded
+`ByteView(left_length * right_length)`, or
+`ByteView(left_length / right_length)` payload fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
 including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
 closed nested dispatch payload fields as the nested schema record shape, and
@@ -274,7 +277,8 @@ bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width unsigned `Int` field, bounded
 `Repeat(left_count - right_count, Payload)` and
 `Repeat(left_count + right_count, Payload)` and
-`Repeat(left_count * right_count, Payload)` fields whose operands both name
+`Repeat(left_count * right_count, Payload)` and
+`Repeat(left_count / right_count, Payload)` fields whose operands both name
 earlier visible exact-width unsigned `Int` fields, and whose payload is either
 `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
 `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`,
@@ -289,6 +293,8 @@ earlier visible exact-width unsigned `Int` fields,
 `ByteView(left_length + right_length)` payload fields whose operands both name
 earlier visible exact-width unsigned `Int` fields, or
 `ByteView(left_length * right_length)` payload fields whose operands both name
+earlier visible exact-width unsigned `Int` fields, or
+`ByteView(left_length / right_length)` payload fields whose operands both name
 earlier visible exact-width unsigned `Int` fields,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,

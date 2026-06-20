@@ -1040,6 +1040,31 @@
         );
     }
 
+    private static void registerSchemaLengthDivisionByZeroDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        String expression,
+        String divisorOperand,
+        String nearbyContext
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("length_expression", expression));
+        details.add(DiagnosticDetail.string("divisor_operand", divisorOperand));
+        details.add(DiagnosticDetail.string("operator", "/"));
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.length_division_by_zero",
+                byteOffset,
+                fieldPath,
+                details
+            )
+        );
+    }
+
     private static void registerSchemaValueValidationFailedDiagnostic(
         String message,
         String schemaName,

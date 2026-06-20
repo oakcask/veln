@@ -1,0 +1,15 @@
+# Binary schema Repeat division counts report division by zero.
+
+schema CountedValues
+	format binary
+
+	total_count: UInt8
+	group_count: UInt8
+	items: Repeat(total_count / group_count, UInt16be)
+end
+
+pub fn main() -> Result<{total_count: Int, group_count: Int, items: List<Int>}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0800")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	byte_decode_counted_values(view)
+end

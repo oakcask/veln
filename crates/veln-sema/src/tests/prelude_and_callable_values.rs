@@ -5735,11 +5735,60 @@ fn generated_schema_decode_helpers_resolve_product_byte_view_length_fields() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_quotient_byte_view_length_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  chunk_count: UInt8\n",
+            "  payload: ByteView(length / chunk_count)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, chunk_count: Int, payload: ByteView}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, chunk_count: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(
+        schema.fields[2].length_field.as_deref(),
+        Some("length / chunk_count")
+    );
+}
+
+#[test]
 fn repeat_count_expressions_accept_product_lengths() {
     let repeat = repeat_schema_primitive("Repeat(row_count * column_count, UInt16be)")
         .expect("product repeat count should parse");
 
     assert_eq!(repeat.count_field, "row_count * column_count");
+}
+
+#[test]
+fn repeat_count_expressions_accept_quotient_lengths() {
+    let repeat = repeat_schema_primitive("Repeat(length / chunk_count, UInt16be)")
+        .expect("quotient repeat count should parse");
+
+    assert_eq!(repeat.count_field, "length / chunk_count");
 }
 
 #[test]
@@ -5875,6 +5924,50 @@ fn generated_schema_decode_helpers_resolve_product_repeat_count_fields() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_quotient_repeat_count_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  chunk_count: UInt8\n",
+            "  items: Repeat(length / chunk_count, UInt16be)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, chunk_count: Int, items: List<Int>}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, chunk_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(schema.fields[2].name, "items");
+    assert_eq!(
+        schema.fields[2]
+            .repeat
+            .as_ref()
+            .map(|repeat| repeat.count_field.as_str()),
+        Some("length / chunk_count")
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_reject_forward_subtracted_byte_view_operands() {
     let source = SourceFile::new(
         "main.veln",
@@ -5950,6 +6043,73 @@ fn generated_schema_decode_helpers_reject_added_byte_view_operands() {
         (
             "forward_field_reference",
             "ByteView length operand `padding_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "ByteView length operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.byte_view_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing ByteView length expression should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_quotient_byte_view_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length / chunk_count)\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length / chunk_count)\n",
+            "  chunk_count: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  flags: Flag8\n",
+            "  payload: ByteView(length / flags)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "ByteView length operand `chunk_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "ByteView length operand `chunk_count` must be an earlier decoded `Int` field",
         ),
         (
             "incompatible_field_reference",
@@ -6151,6 +6311,73 @@ fn generated_schema_decode_helpers_reject_product_repeat_count_operands() {
         (
             "forward_field_reference",
             "repeat count operand `column_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing Repeat count expression should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_quotient_repeat_count_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length / chunk_count, UInt16be)\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  items: Repeat(length / chunk_count, UInt16be)\n",
+            "  chunk_count: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  flags: Flag8\n",
+            "  items: Repeat(length / flags, UInt16be)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count operand `chunk_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count operand `chunk_count` must be an earlier decoded `Int` field",
         ),
         (
             "incompatible_field_reference",

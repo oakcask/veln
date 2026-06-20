@@ -399,9 +399,10 @@ execution reference.
   as `Int`.
   `Repeat(left_count - right_count, Payload)`,
   `Repeat(left_count + right_count, Payload)`, and
-  `Repeat(left_count * right_count, Payload)` use the difference, sum, or
-  product of two earlier visible exact-width unsigned `Int` fields as the
-  repeat count. A
+  `Repeat(left_count * right_count, Payload)`, and
+  `Repeat(left_count / right_count, Payload)` use the difference, sum,
+  product, or integer quotient of two earlier visible exact-width unsigned
+  `Int` fields as the repeat count. A
   repeated primitive field decodes to `List<Int>`; a repeated
   nested schema field decodes to a list of the nested schema's decoded record
   shape, including when the schema is named through a written `use` path; and
@@ -409,15 +410,19 @@ execution reference.
   `List<ByteView>` with each element preserving its bounded bytes in element
   order. The helper reads exactly the computed count in declaration order. A
   negative computed count reports `schema.length_out_of_bounds` at the repeat
-  field path. Truncation is reported at the first element that cannot be fully
-  read with the usual `schema.truncated_field` details and a schema field path
-  that appends an `index` segment before nested schema field segments. The
+  field path. Division by zero reports `schema.length_division_by_zero` at the
+  repeat field path. Truncation is reported at the first element that cannot
+  be fully read with the usual `schema.truncated_field` details and a schema
+  field path that appends an `index` segment before nested schema field
+  segments. The
   checked examples are `examples/specification/run/binary-schema-repeat-decode/`,
   `examples/specification/run/binary-schema-repeat-add-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-decode/`,
   `examples/specification/run/binary-schema-repeat-product-decode/`,
+  `examples/specification/run/binary-schema-repeat-quotient-decode/`,
   `examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
   `examples/specification/run/binary-schema-repeat-product-negative-json/`,
+  `examples/specification/run/binary-schema-repeat-quotient-division-by-zero-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-json/`,
   `examples/specification/run/binary-schema-repeat-truncated-human/`,
   `examples/specification/run/binary-schema-repeat-nested-decode/`,
@@ -663,7 +668,8 @@ execution reference.
   length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`,
   `ByteView(left_length + right_length)`, and
-  `ByteView(left_length * right_length)` payload fields as `ByteView`; closed
+  `ByteView(left_length * right_length)`, and
+  `ByteView(left_length / right_length)` payload fields as `ByteView`; closed
   nested dispatch payload fields as the nested schema record shape; closed
   mixed dispatch payload fields as the
   selected primitive `Int` or nested schema record shape inside the matching
@@ -771,12 +777,15 @@ execution reference.
   length-bounded `ByteView(length_field)`,
   `ByteView(left_length - right_length)`,
   `ByteView(left_length + right_length)`, or
-  `ByteView(left_length * right_length)` payload field is a `ByteView` record
+  `ByteView(left_length * right_length)`, or
+  `ByteView(left_length / right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
   visible length operand fields are written. Decode computes arithmetic
   lengths from the earlier decoded field values, rejects negative results as
-  `schema.length_out_of_bounds`, and reports the same diagnostic when the
-  computed payload length exceeds the remaining bytes. If the supplied view
+  `schema.length_out_of_bounds`, reports `schema.length_division_by_zero` when
+  a division length expression has divisor zero, and reports
+  `schema.length_out_of_bounds` when the computed payload length exceeds the
+  remaining bytes. If the supplied view
   count differs from the earlier length field or computed length expression,
   the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
@@ -785,6 +794,8 @@ execution reference.
   expected count, actual `ByteView` count, length expression, byte offset,
   bounded byte preview, and count mismatch reason in human and JSON output.
   The checked examples are
+  `examples/specification/run/binary-schema-byteview-quotient-encode/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-encode-diagnostic-json/`
   and
   `examples/specification/run/binary-schema-byteview-encode-diagnostic-human/`.
@@ -794,8 +805,9 @@ execution reference.
   public imported nested schema's decoded record shape, and repeated
   `ByteView(length_field)` fields are
   `List<ByteView>` record fields. They emit exactly the number of elements
-  named by the earlier count field or by the computed difference, sum, or
-  product of two earlier count operands. A list length mismatch, a primitive
+  named by the earlier count field or by the computed difference, sum,
+  product, or integer quotient of two earlier count operands. A list length
+  mismatch, a primitive
   element outside the selected primitive range, a repeated byte-view element
   whose bounded byte count differs from the earlier length field, or a nested
   element
@@ -1030,6 +1042,8 @@ execution reference.
   `examples/specification/run/binary-schema-byteview-product-truncated-json/`,
   `examples/specification/run/binary-schema-byteview-product-encode/`,
   `examples/specification/run/binary-schema-byteview-product-encode-length-mismatch/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode/`,
+  `examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-byteview-subtract-decode/`,
   `examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
   `examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,
@@ -1039,11 +1053,13 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-add-encode/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode/`,
   `examples/specification/run/binary-schema-repeat-product-encode/`,
+  `examples/specification/run/binary-schema-repeat-quotient-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-add-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-subtract-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-product-encode-count-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-quotient-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-imported-repeat-nested-encode/`,
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,

@@ -4708,7 +4708,10 @@
                     decoded,
                     field.lengthField,
                     "payload",
-                    schema.name
+                    schema.name,
+                    Long.valueOf(diagnosticBaseOffset + relativeOffset),
+                    schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
+                    byteViewPreviewTrace(view, 8)
                 );
                 if (isErr(payloadLengthValue)) {
                     return payloadLengthValue;
@@ -4738,7 +4741,10 @@
                 Object repeatCountValue = schemaRepeatCountExpressionValue(
                     decoded,
                     field.repeat.countField,
-                    schema.name
+                    schema.name,
+                    Long.valueOf(diagnosticBaseOffset + relativeOffset),
+                    schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
+                    byteViewPreviewTrace(view, 8)
                 );
                 if (isErr(repeatCountValue)) {
                     return repeatCountValue;
@@ -4766,7 +4772,10 @@
                             decoded,
                             field.repeat.byteViewLengthField,
                             "repeat payload",
-                            schema.name
+                            schema.name,
+                            Long.valueOf(diagnosticBaseOffset + repeatRelativeOffset),
+                            schemaRepeatedFieldPath(schema.name, field.name, elementIndex),
+                            byteViewPreviewTrace(view, 8)
                         );
                         if (isErr(payloadLengthValue)) {
                             return payloadLengthValue;
@@ -7406,6 +7415,26 @@
         String role,
         String schemaName
     ) {
+        return schemaLengthExpressionValue(
+            fields,
+            expression,
+            role,
+            schemaName,
+            null,
+            null,
+            null
+        );
+    }
+
+    private static Object schemaLengthExpressionValue(
+        java.util.Map<?, ?> fields,
+        String expression,
+        String role,
+        String schemaName,
+        Long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        String nearbyContext
+    ) {
         return schemaFieldExpressionValue(
             fields,
             expression,
@@ -7413,7 +7442,10 @@
             role + " length field",
             role + " length operand",
             schemaName,
-            true
+            true,
+            byteOffset,
+            fieldPath,
+            nearbyContext
         );
     }
 
@@ -7422,6 +7454,24 @@
         String expression,
         String schemaName
     ) {
+        return schemaRepeatCountExpressionValue(
+            fields,
+            expression,
+            schemaName,
+            null,
+            null,
+            null
+        );
+    }
+
+    private static Object schemaRepeatCountExpressionValue(
+        java.util.Map<?, ?> fields,
+        String expression,
+        String schemaName,
+        Long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        String nearbyContext
+    ) {
         return schemaFieldExpressionValue(
             fields,
             expression,
@@ -7429,7 +7479,10 @@
             "repeat count field",
             "repeat count operand",
             schemaName,
-            true
+            true,
+            byteOffset,
+            fieldPath,
+            nearbyContext
         );
     }
 
@@ -7440,7 +7493,10 @@
         String fieldRole,
         String operandRole,
         String schemaName,
-        boolean allowProduct
+        boolean allowProduct,
+        Long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        String nearbyContext
     ) {
         SchemaFieldExpression parsed = schemaFieldExpression(expression, allowProduct);
         if (parsed == null) {
@@ -7485,11 +7541,30 @@
         }
         long leftValue = asLong(left);
         long rightValue = asLong(right);
+        if (parsed.operator == '/' && rightValue == 0L) {
+            String message = "schema length division by zero";
+            if (byteOffset != null) {
+                message = message + " at byte offset " + byteOffset.longValue();
+            }
+            if (byteOffset != null && fieldPath != null && nearbyContext != null) {
+                registerSchemaLengthDivisionByZeroDiagnostic(
+                    message,
+                    byteOffset.longValue(),
+                    fieldPath,
+                    expression,
+                    parsed.right,
+                    nearbyContext
+                );
+            }
+            return err(message);
+        }
         long result = parsed.operator == '+'
             ? leftValue + rightValue
             : parsed.operator == '-'
                 ? leftValue - rightValue
-                : leftValue * rightValue;
+                : parsed.operator == '*'
+                    ? leftValue * rightValue
+                    : leftValue / rightValue;
         return ok(Long.valueOf(result));
     }
 
@@ -7504,10 +7579,14 @@
         int plus = trimmed.indexOf('+');
         int minus = trimmed.indexOf('-');
         int product = trimmed.indexOf('*');
+        int quotient = trimmed.indexOf('/');
         if (product >= 0 && !allowProduct) {
             return null;
         }
-        int operatorCount = (plus >= 0 ? 1 : 0) + (minus >= 0 ? 1 : 0) + (product >= 0 ? 1 : 0);
+        int operatorCount = (plus >= 0 ? 1 : 0)
+            + (minus >= 0 ? 1 : 0)
+            + (product >= 0 ? 1 : 0)
+            + (quotient >= 0 ? 1 : 0);
         if (operatorCount > 1) {
             return null;
         }
@@ -7519,6 +7598,9 @@
         }
         if (product >= 0) {
             return schemaBinaryFieldExpression(trimmed, product, '*');
+        }
+        if (quotient >= 0) {
+            return schemaBinaryFieldExpression(trimmed, quotient, '/');
         }
         return null;
     }
@@ -7594,7 +7676,11 @@
             schemaName
         );
         if (isErr(lengthValue)) {
-            return lengthValue;
+            return err(encodeError(
+                "codec.encode_value_unrepresentable",
+                schemaName + "." + field.name,
+                asString(resultValue(lengthValue))
+            ));
         }
         long suppliedLength = asLong(unwrapOk(lengthValue));
         Object view = fields.get(field.name);

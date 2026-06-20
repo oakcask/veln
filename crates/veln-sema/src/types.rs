@@ -3745,6 +3745,7 @@ pub(crate) enum ByteViewLengthExpr {
     Sum { left: String, right: String },
     Difference { left: String, right: String },
     Product { left: String, right: String },
+    Quotient { left: String, right: String },
 }
 
 impl ByteViewLengthExpr {
@@ -3754,6 +3755,7 @@ impl ByteViewLengthExpr {
             Self::Sum { left, right } => vec![left.as_str(), right.as_str()],
             Self::Difference { left, right } => vec![left.as_str(), right.as_str()],
             Self::Product { left, right } => vec![left.as_str(), right.as_str()],
+            Self::Quotient { left, right } => vec![left.as_str(), right.as_str()],
         }
     }
 
@@ -3763,6 +3765,7 @@ impl ByteViewLengthExpr {
             Self::Sum { left, right } => format!("{left} + {right}"),
             Self::Difference { left, right } => format!("{left} - {right}"),
             Self::Product { left, right } => format!("{left} * {right}"),
+            Self::Quotient { left, right } => format!("{left} / {right}"),
         }
     }
 }
@@ -3791,6 +3794,12 @@ fn schema_length_expression_with_product(
             right: right.to_string(),
         });
     }
+    if let Some((left, right)) = schema_length_binary_expression_operands(text, '/') {
+        return Some(ByteViewLengthExpr::Quotient {
+            left: left.to_string(),
+            right: right.to_string(),
+        });
+    }
     if !allow_product {
         return None;
     }
@@ -3815,11 +3824,14 @@ pub(crate) fn schema_length_expression_references(text: &str) -> Option<Vec<&str
     if let Some((left, right)) = schema_length_binary_expression_operands(text, '*') {
         return Some(vec![left, right]);
     }
+    if let Some((left, right)) = schema_length_binary_expression_operands(text, '/') {
+        return Some(vec![left, right]);
+    }
     None
 }
 
 fn schema_length_binary_expression_operands(text: &str, op: char) -> Option<(&str, &str)> {
-    for other_op in ['+', '-', '*'] {
+    for other_op in ['+', '-', '*', '/'] {
         if other_op != op && text.contains(other_op) {
             return None;
         }
@@ -3893,7 +3905,8 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
             }
             ByteViewLengthExpr::Sum { .. }
             | ByteViewLengthExpr::Difference { .. }
-            | ByteViewLengthExpr::Product { .. } => return None,
+            | ByteViewLengthExpr::Product { .. }
+            | ByteViewLengthExpr::Quotient { .. } => return None,
         }
     } else if schema_payload_name_path(primitive).is_some() {
         SchemaRepeatPayload::Schema {
