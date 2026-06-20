@@ -5653,6 +5653,22 @@ end
 
 fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), String> effects [stdio]
 	let base_state: Http2DecodeState = hpack_carry_only_state(step_state(after_path))
+	let literal_dynamic_name: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037e062f616761696e")?), base_state)?
+	print_step("hpack-stateful-literal-indexed-dynamic-name-path-again", literal_dynamic_name)
+	let ignored_literal_dynamic_name: () = emit_header_block("http2-hpack-stateful-literal-indexed-dynamic-name-path-again", literal_dynamic_name, "7e062f616761696e")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-dynamic-name-path-again", literal_dynamic_name, base_state)
+	let dynamic_name_state: Http2DecodeState = hpack_carry_only_state(step_state(literal_dynamic_name))
+	let dynamic_name_newest: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000005be")?), dynamic_name_state)?
+	print_step("hpack-stateful-dynamic-name-newest-path-again", dynamic_name_newest)
+	let ignored_dynamic_name_newest: () = emit_header_block("http2-hpack-stateful-dynamic-name-newest-path-again", dynamic_name_newest, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-newest-path-again", dynamic_name_newest, dynamic_name_state)
+	let dynamic_name_older: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000007bf")?), dynamic_name_state)?
+	print_step("hpack-stateful-dynamic-name-older-path-target", dynamic_name_older)
+	let ignored_dynamic_name_older: () = emit_header_block("http2-hpack-stateful-dynamic-name-older-path-target", dynamic_name_older, "bf")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-older-path-target", dynamic_name_older, dynamic_name_state)
+	let malformed_dynamic_name: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000097e00")?), base_state)?
+	print_failure("hpack-stateful-literal-indexed-dynamic-name-malformed", malformed_dynamic_name)
+	let ignored_malformed_dynamic_name: () = require_hpack_fixture_failure(malformed_dynamic_name)?
 	let literal_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000034203505554")?), base_state)?
 	print_step("hpack-stateful-literal-indexed-method-put", literal_method)
 	let ignored_literal_method: () = emit_header_block("http2-hpack-stateful-literal-indexed-method-put", literal_method, "4203505554")?
@@ -5748,6 +5764,16 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	print_step("hpack-continuation-older-path", continuation_older_path)
 	let ignored_continuation_older_path: () = emit_header_block("http2-hpack-continuation-older-path", continuation_older_path, "bf")?
 	print_hpack_transition_from_state("hpack-continuation-older-path", continuation_older_path, continuation_state)
+	let dynamic_name_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201000000000f7e06")?), hpack_carry_only_state(step_state(after_path)))?
+	print_step("hpack-continuation-dynamic-name-start", dynamic_name_continuation_start)
+	let dynamic_name_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000609040000000f2f616761696e")?), step_state(dynamic_name_continuation_start))?
+	print_step("hpack-continuation-dynamic-name-done", dynamic_name_continuation_done)
+	let ignored_dynamic_name_continuation: () = emit_header_block("http2-hpack-continuation-dynamic-name", dynamic_name_continuation_done, "7e062f616761696e")?
+	print_hpack_transition_from_state("hpack-continuation-dynamic-name-done", dynamic_name_continuation_done, step_state(dynamic_name_continuation_start))
+	let dynamic_name_continuation_state: Http2DecodeState = hpack_carry_only_state(step_state(dynamic_name_continuation_done))
+	let dynamic_name_after_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011be")?), dynamic_name_continuation_state)?
+	print_step("hpack-after-continuation-dynamic-name", dynamic_name_after_continuation)
+	print_hpack_transition_from_state("hpack-after-continuation-dynamic-name", dynamic_name_after_continuation, dynamic_name_continuation_state)
 	let continuation_scheme_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301000000000f46849d")?), continuation_state)?
 	print_step("hpack-continuation-third-entry-start", continuation_scheme_start)
 	let continuation_scheme_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000000f29ad1f")?), step_state(continuation_scheme_start))?

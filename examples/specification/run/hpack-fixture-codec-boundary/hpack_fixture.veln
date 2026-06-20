@@ -177,6 +177,15 @@ fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState,
 	end
 end
 
+fn dynamic_header_name_at(table_index: Int, state: HpackFixtureState) -> Option<String>
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
+			Some(HpackHeader(name, _)) => Some(name)
+			None => None
+		end
+	end
+end
+
 fn decoded_table_size_update(state: HpackFixtureState, table_size: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, table_size)))
 end
@@ -870,6 +879,26 @@ fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int
 	end
 end
 
+fn decode_literal_with_dynamic_name_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let table_index: Int = first_byte - 126
+	match observed_size >= 2
+		true => match dynamic_header_name_at(table_index, state)
+			Some(name) => match decode_hpack_string_length(block, observed_size, offset)
+				Ok(length) => match observed_size == string_length_prefix_size(length) + string_length_encoded_count(length)
+					true => match decode_hpack_string_literal_value(block, length, offset)
+						Ok(literal) => decoded_literal_with_indexing(name, string_literal_value(literal), string_literal_wire_size(literal), state)
+						Err(failure) => Err(failure)
+					end
+					false => unsupported(block, offset)
+				end
+				Err(failure) => Err(failure)
+			end
+			None => unsupported(block, offset)
+		end
+		false => unsupported(block, offset)
+	end
+end
+
 fn decode_literal_never_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let name_index: Int = first_byte - 16
 	match supported_no_huffman_literal_static_name(name_index) and observed_size >= 2
@@ -968,6 +997,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 		68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 		70 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 		72 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		126 => decode_literal_with_dynamic_name_indexing_header_block(first_byte, observed_size, state, block, offset)
 		16 => match observed_size == 3
 			true => decoded("single-headers", 8, state)
 			false => unsupported(block, offset)

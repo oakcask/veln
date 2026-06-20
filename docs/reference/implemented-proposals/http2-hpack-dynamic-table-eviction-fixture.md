@@ -36,6 +36,15 @@ the generalized dynamic-table state and reduced table-size state through both
 completed HEADERS and final CONTINUATION paths before decoding later dynamic
 indexed blocks.
 
+The fixture also accepts the checked dynamic-name literal-with-indexing block
+`0x7e 0x06 "/again"` after `:path: /target` has been inserted. That block
+reuses the newest dynamic entry name `:path`, supplies the visible-ASCII value
+`/again`, prepends `:path: /again`, and keeps the older `:path: /target`
+entry readable when the bounded table allows it. Missing or malformed
+dynamic-name literals remain on the unsupported fixture path. The HTTP/2
+protocol-core example covers the same state carry through completed HEADERS
+and final CONTINUATION paths.
+
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
 `0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
 HPACK integer continuations with the table-size update prefix, including
@@ -52,13 +61,15 @@ unsupported fixture path.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   literal-with-indexing insertion, newest, second, and third dynamic indexed
-  reads, missing dynamic state, accepted-entry-size eviction, full and partial
-  reduced-table-size eviction failure paths, oldest-first eviction after a
-  three-entry table-size reduction, and the fixture-boundary table-size update
-  slice.
+  reads, dynamic-name literal-with-indexing insertion and malformed
+  dynamic-name literals, missing dynamic state, accepted-entry-size eviction,
+  full and partial reduced-table-size eviction failure paths, oldest-first
+  eviction after a three-entry table-size reduction, and the fixture-boundary
+  table-size update slice.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
-  CONTINUATION paths, including generalized dynamic indexed lookup,
+  CONTINUATION paths, including dynamic-name literal-with-indexing,
+  generalized dynamic indexed lookup,
   oldest-first table-size eviction, the accepted-entry-size eviction case, and
   the fixture-boundary table-size update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`

@@ -361,7 +361,10 @@ bounded fixture dynamic-table entries while older entries remain addressable
 when the table has room. The fixture carries that state through both completed
 HEADERS and final CONTINUATION paths, decodes the newest entry through
 `0xbe`, the second retained entry through `0xbf`, the third retained entry
-through `0xc0`, keeps literal-never-indexed decodes from inserting dynamic
+through `0xc0`, accepts the checked dynamic-name literal-with-indexing block
+`0x7e 0x06 "/again"` that reuses the newest dynamic name `:path`, inserts
+`:path: /again`, and retains the older `:path: /target` entry, keeps
+literal-never-indexed decodes from inserting dynamic
 entries, and keeps dynamic entries evicted by a reduced fixture table
 size on the unsupported fixture path. Reducing the fixture table size to `86`
 keeps the newest two supported entries and evicts the third retained entry;
@@ -667,7 +670,8 @@ The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, general eviction
 policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal encoding, broader
-dynamic-table string encoding policy, and production header validation beyond
+dynamic-table string encoding policy beyond the checked dynamic-name
+literal-with-indexing fixture, and production header validation beyond
 ordinary request header-name shape and beyond the fixture response checks.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
@@ -705,8 +709,9 @@ full HPACK behavior.
   policy beyond the checked bounded fixture dynamic table, table-size policy
   beyond fixture-boundary HPACK integer updates, HPACK Huffman behavior beyond
   visible-ASCII fixture string literal encoding, broader dynamic-table string
-  encoding policy, production request-header validation beyond ordinary
-  header-name shape, and production response-header validation remain later
-  work beyond the implemented fixture boundary.
+  encoding policy beyond the checked dynamic-name literal-with-indexing
+  fixture, production request-header validation beyond ordinary header-name
+  shape, and production response-header validation remain later work beyond
+  the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
