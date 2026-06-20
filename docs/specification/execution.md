@@ -193,7 +193,7 @@ execution reference.
   accepted stream.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through two, three, four, receiver-list five-route through
-  receiver-list nineteen-route, and receiver-list timeout typed channel
+  receiver-list twenty-route, and receiver-list timeout typed channel
   routes, select the next ready route with the existing channel selection
   vocabulary, and only then invoke a plain handler with explicit per-stream
   state. The receiver-list priority examples use
@@ -231,6 +231,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-seventeen-route/`,
   `examples/specification/run/channel-first-stream-routing-eighteen-route/`,
   `examples/specification/run/channel-first-stream-routing-nineteen-route/`,
+  `examples/specification/run/channel-first-stream-routing-twenty-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
   `examples/specification/run/channel-select-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable/`,
@@ -268,6 +269,8 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-eighteen-route-effects/`,
   and
   `examples/specification/check/channel-first-stream-routing-nineteen-route-effects/`,
+  and
+  `examples/specification/check/channel-first-stream-routing-twenty-route-effects/`,
   and
   `examples/specification/check/channel-select-many-timeout-effects/`, and
   `examples/specification/check/channel-select-timeout-cancellable-effects/`, and
