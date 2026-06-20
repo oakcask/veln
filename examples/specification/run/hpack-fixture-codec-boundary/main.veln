@@ -506,6 +506,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("dynamic-three-newest-after-eviction", decode_header_block(dynamic_indexed_block, three_entry_reduced_state, 90))
 	print_transition("dynamic-three-second-after-eviction", decode_header_block(evicted_indexed_block, three_entry_reduced_state, 91))
 	print_transition("dynamic-three-third-after-eviction", decode_header_block(third_indexed_block, three_entry_reduced_state, 92))
+	let insertion_eviction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_path_block, three_entry_reduced_state, 117)
+	print_transition("dynamic-insertion-evicts-older-path", insertion_eviction)
+	let insertion_eviction_state: HpackFixtureState = require_decoded_header(insertion_eviction, ":path", "/target")?
+	print_transition("dynamic-insertion-eviction-newest-path", decode_header_block(dynamic_indexed_block, insertion_eviction_state, 118))
+	let insertion_evicted_second: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(evicted_indexed_block, insertion_eviction_state, 119)
+	print_transition("dynamic-insertion-eviction-second-missing", insertion_evicted_second)
+	let ignored_insertion_evicted_second: () = require_unsupported(insertion_evicted_second)?
 	let reduced_table_size: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3e")?, replaced_state, 77)
 	print_transition("dynamic-table-size-eviction", reduced_table_size)
 	let reduced_state: HpackFixtureState = next_state_or(reduced_table_size, replaced_state)

@@ -203,15 +203,14 @@ compare it with `../specification/` before changing behavior.
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
   visible-ASCII Huffman-marked string literal encoding, and the bounded
-  stateful dynamic-table fixture encoder path plus checked outbound dynamic
-  table-size update encoding,
+  stateful dynamic-table fixture encoder path, inbound fixture dynamic-table
+  eviction, and checked outbound dynamic table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
-  unbounded dynamic-table behavior, general eviction policy beyond the
-  checked fixture-boundary entry-size calculation,
-  and HPACK Huffman behavior beyond visible-ASCII fixture string literal
+  unbounded dynamic-table behavior, and HPACK Huffman behavior beyond
+  visible-ASCII fixture string literal
   decoding and encoding.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
