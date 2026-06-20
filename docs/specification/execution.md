@@ -347,25 +347,29 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
 - Generated binary schema decode helpers support opt-in `Flag8`,
   `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
-  `Flag64be`, and `Flag64le` fields as visible flag bitsets. They consume
-  the same byte width, byte order, and truncation behavior as `UInt8`,
-  `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt32be`, `UInt32le`,
-  `UInt64be`, and `UInt64le`, but the decoded record fields are
-  source-visible `Flag8(bits)`, `Flag16be(bits)`, `Flag16le(bits)`,
-  `Flag24be(bits)`, `Flag24le(bits)`, `Flag32be(bits)`, `Flag32le(bits)`,
-  `Flag64be(bits)`, and `Flag64le(bits)` values rather than raw `Int` values.
+  `Flag48be`, `Flag48le`, `Flag64be`, and `Flag64le` fields as visible flag
+  bitsets. They consume the same byte width, byte order, and truncation
+  behavior as `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
+  `UInt32be`, `UInt32le`, `UInt48be`, `UInt48le`, `UInt64be`, and
+  `UInt64le`, but the decoded record fields are source-visible
+  `Flag8(bits)`, `Flag16be(bits)`, `Flag16le(bits)`, `Flag24be(bits)`,
+  `Flag24le(bits)`, `Flag32be(bits)`, `Flag32le(bits)`,
+  `Flag48be(bits)`, `Flag48le(bits)`, `Flag64be(bits)`, and
+  `Flag64le(bits)` values rather than raw `Int` values.
   Existing `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
   `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`,
   `UInt56be`, `UInt56le`, `UInt64be`, and `UInt64le` declarations continue
   to decode as ordinary `Int` fields. Pure prelude helpers inspect or set
   `Flag8` bit indexes `0` through `7`, `Flag16be` and `Flag16le` bit indexes
   `0` through `15`, `Flag24be` and `Flag24le` bit indexes `0` through `23`,
-  `Flag32be` and `Flag32le` bit indexes `0` through `31`, and `Flag64be` and
-  `Flag64le` bit indexes `0` through `63`, returning `Result` failures for
-  indexes outside each helper's range. Raw-bit helpers expose decoded `Flag8`,
-  `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
-  `Flag64be`, and `Flag64le` integer bits and construct flag values for
-  encode only when the supplied integer fits the matching flag width.
+  `Flag32be` and `Flag32le` bit indexes `0` through `31`, `Flag48be` and
+  `Flag48le` bit indexes `0` through `47`, and `Flag64be` and `Flag64le` bit
+  indexes `0` through `63`, returning `Result` failures for indexes outside
+  each helper's range. Raw-bit helpers expose decoded `Flag8`, `Flag16be`,
+  `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`, `Flag48be`,
+  `Flag48le`, `Flag64be`, and `Flag64le` integer bits and construct flag
+  values for encode only when the supplied integer fits the matching flag
+  width.
   The checked examples are
   `examples/specification/run/binary-schema-flag8-decode/`,
   `examples/specification/run/binary-schema-flag16be-decode/`,
@@ -395,6 +399,16 @@ execution reference.
   `examples/specification/run/binary-schema-flag32le-from-bits-out-of-range-json/`,
   `examples/specification/run/binary-schema-flag32le-bit-index-json/`,
   `examples/specification/run/binary-schema-flag32le-bit-index-human/`,
+  `examples/specification/run/binary-schema-flag48be-decode/`,
+  `examples/specification/run/binary-schema-flag48be-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag48be-from-bits-out-of-range-json/`,
+  `examples/specification/run/binary-schema-flag48be-bit-index-json/`,
+  `examples/specification/run/binary-schema-flag48be-bit-index-human/`,
+  `examples/specification/run/binary-schema-flag48le-decode/`,
+  `examples/specification/run/binary-schema-flag48le-bit-helpers/`,
+  `examples/specification/run/binary-schema-flag48le-from-bits-out-of-range-json/`,
+  `examples/specification/run/binary-schema-flag48le-bit-index-json/`,
+  `examples/specification/run/binary-schema-flag48le-bit-index-human/`,
   `examples/specification/run/binary-schema-flag64be-decode/`,
   `examples/specification/run/binary-schema-flag64be-bit-helpers/`,
   `examples/specification/run/binary-schema-flag64be-from-bits-out-of-range-json/`,
@@ -688,6 +702,7 @@ execution reference.
   `Flag16be` fields as `Flag16be`; `Flag16le` fields as `Flag16le`;
   `Flag24be` fields as `Flag24be`; `Flag24le` fields as `Flag24le`;
   `Flag32be` fields as `Flag32be`; `Flag32le` fields as `Flag32le`;
+  `Flag48be` fields as `Flag48be`; `Flag48le` fields as `Flag48le`;
   `Flag64be` fields as `Flag64be`; `Flag64le` fields as `Flag64le`;
   length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`,
@@ -709,6 +724,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag24-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag32be-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag32le-mapped-record-decode/`,
+  `examples/specification/run/binary-schema-flag48be-mapped-record-decode/`,
+  `examples/specification/run/binary-schema-flag48le-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag64be-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag64le-mapped-record-decode/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-decode/`,
@@ -749,10 +766,11 @@ execution reference.
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and
   whose `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
-  `Flag32be`, `Flag32le`, `Flag64be`, and `Flag64le` fields are
-  source-visible `Flag8(bits)`, `Flag16be(bits)`, `Flag16le(bits)`,
-  `Flag24be(bits)`, `Flag24le(bits)`, `Flag32be(bits)`, `Flag32le(bits)`,
-  `Flag64be(bits)`, and `Flag64le(bits)` values. For one
+  `Flag32be`, `Flag32le`, `Flag48be`, `Flag48le`, `Flag64be`, and
+  `Flag64le` fields are source-visible `Flag8(bits)`, `Flag16be(bits)`,
+  `Flag16le(bits)`, `Flag24be(bits)`, `Flag24le(bits)`, `Flag32be(bits)`,
+  `Flag32le(bits)`, `Flag48be(bits)`, `Flag48le(bits)`, `Flag64be(bits)`, and
+  `Flag64le(bits)` values. For one
   structural `map to Target` clause whose assignments project every visible
   encode field, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
@@ -849,6 +867,9 @@ execution reference.
   `Flag32be` emits four bytes through the same big-endian representation path
   as `UInt32be`, `Flag32le` emits four bytes through the same little-endian
   representation path as `UInt32le`,
+  `Flag48be` emits six bytes through the same big-endian representation path
+  as `UInt48be`, `Flag48le` emits six bytes through the same little-endian
+  representation path as `UInt48le`,
   `Flag64be` emits eight bytes through the same big-endian representation
   path as `UInt64be`, and `Flag64le` emits eight bytes through the same
   little-endian representation path as `UInt64le`;
@@ -1024,6 +1045,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag24-mapped-record-encode/`,
   `examples/specification/run/binary-schema-flag32be-mapped-record-encode/`,
   `examples/specification/run/binary-schema-flag32le-mapped-record-encode/`,
+  `examples/specification/run/binary-schema-flag48be-mapped-record-encode/`,
+  `examples/specification/run/binary-schema-flag48le-mapped-record-encode/`,
   `examples/specification/run/binary-schema-flag64be-mapped-record-encode/`,
   `examples/specification/run/binary-schema-flag64le-mapped-record-encode/`,
   `examples/specification/run/binary-schema-mapped-record-encode/`,
@@ -1034,6 +1057,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag24-encode/`,
   `examples/specification/run/binary-schema-flag32be-encode/`,
   `examples/specification/run/binary-schema-flag32le-encode/`,
+  `examples/specification/run/binary-schema-flag48be-encode/`,
+  `examples/specification/run/binary-schema-flag48le-encode/`,
   `examples/specification/run/binary-schema-flag64be-encode/`,
   `examples/specification/run/binary-schema-flag64le-encode/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
@@ -1043,6 +1068,8 @@ execution reference.
   `examples/specification/run/binary-schema-flag24-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag32be-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag32le-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-flag48be-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-flag48le-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag64be-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag64le-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-mapped-constructor-encode/`,

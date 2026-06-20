@@ -1668,6 +1668,92 @@
         return ok(Long.valueOf(1L << bitIndex));
     }
 
+    public static Object flag48beIsSet(Object flags, Object index) {
+        Object maskResult = flag48beBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag48beBits(flags);
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag48beSet(Object flags, Object index) {
+        Object maskResult = flag48beBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag48beBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag48beObject(bits + mask));
+    }
+
+    public static Object flag48beRawBits(Object flags) {
+        return Long.valueOf(flag48beBits(flags));
+    }
+
+    public static Object flag48beFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 281474976710655L) {
+            return err("flag48be bits must be between 0 and 281474976710655");
+        }
+        return ok(flag48beObject(bits));
+    }
+
+    private static Object flag48beBitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 47) {
+            return err("flag bit index must be between 0 and 47");
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
+    public static Object flag48leIsSet(Object flags, Object index) {
+        Object maskResult = flag48leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag48leBits(flags);
+        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
+    }
+
+    public static Object flag48leSet(Object flags, Object index) {
+        Object maskResult = flag48leBitMask(index);
+        if (!isOk(maskResult)) {
+            return maskResult;
+        }
+        long mask = asLong(resultValue(maskResult));
+        long bits = flag48leBits(flags);
+        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
+            return ok(flags);
+        }
+        return ok(flag48leObject(bits + mask));
+    }
+
+    public static Object flag48leRawBits(Object flags) {
+        return Long.valueOf(flag48leBits(flags));
+    }
+
+    public static Object flag48leFromBits(Object value) {
+        long bits = asLong(value);
+        if (bits < 0 || bits > 281474976710655L) {
+            return err("flag48le bits must be between 0 and 281474976710655");
+        }
+        return ok(flag48leObject(bits));
+    }
+
+    private static Object flag48leBitMask(Object index) {
+        long bitIndex = asLong(index);
+        if (bitIndex < 0 || bitIndex > 47) {
+            return err("flag bit index must be between 0 and 47");
+        }
+        return ok(Long.valueOf(1L << bitIndex));
+    }
+
     public static Object flag64beIsSet(Object flags, Object index) {
         Object maskResult = flag64BitMask(index);
         if (!isOk(maskResult)) {
@@ -8110,6 +8196,22 @@
 
     private static long flag32leBits(Object value) {
         return schemaFlagBits(value, "Flag32le");
+    }
+
+    private static Object flag48beObject(long bits) {
+        return flagObject("Flag48be", bits);
+    }
+
+    private static long flag48beBits(Object value) {
+        return schemaFlagBits(value, "Flag48be");
+    }
+
+    private static Object flag48leObject(long bits) {
+        return flagObject("Flag48le", bits);
+    }
+
+    private static long flag48leBits(Object value) {
+        return schemaFlagBits(value, "Flag48le");
     }
 
     private static Object flag64beObject(long bits) {

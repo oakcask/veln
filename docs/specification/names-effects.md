@@ -136,8 +136,8 @@ compiler-known calls.
   outgoing immutable chunks in `List<ByteChunk>` action values. Generated
   binary schema decode helpers return schema-local value fields, including
   `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
-  `Flag24le`, `Flag32be`, `Flag32le`, `Flag64be`, or `Flag64le` bitset
-  fields, unless the eligible
+  `Flag24le`, `Flag32be`, `Flag32le`, `Flag48be`, `Flag48le`, `Flag64be`, or
+  `Flag64le` bitset fields, unless the eligible
   structural `map to Target` slice, including decoded-field selected mappings
   that resolve to one record shape, resolves a mapped record shape; generated
   decode-step helpers expose the same value shape through `DecodeStep<T>` for
@@ -150,17 +150,20 @@ compiler-known calls.
   `flag24le_bits`, `flag24le_from_bits`,
   `flag32be_is_set`, `flag32be_set`, `flag32be_bits`,
   `flag32be_from_bits`, `flag32le_is_set`, `flag32le_set`,
-  `flag32le_bits`, `flag32le_from_bits`, `flag64be_is_set`,
-  `flag64be_set`, `flag64be_bits`, `flag64be_from_bits`,
-  `flag64le_is_set`, `flag64le_set`, `flag64le_bits`, and
-  `flag64le_from_bits` require no effects. The checked
+  `flag32le_bits`, `flag32le_from_bits`, `flag48be_is_set`,
+  `flag48be_set`, `flag48be_bits`, `flag48be_from_bits`,
+  `flag48le_is_set`, `flag48le_set`, `flag48le_bits`,
+  `flag48le_from_bits`, `flag64be_is_set`, `flag64be_set`,
+  `flag64be_bits`, `flag64be_from_bits`, `flag64le_is_set`,
+  `flag64le_set`, `flag64le_bits`, and `flag64le_from_bits` require no
+  effects. The checked
   bit-index helpers return `Result` values for invalid indexes, and the
   raw-bit constructors return `Result` values for out-of-range integers.
   Generated binary schema encode
   helpers for the exact-width
   primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
-  `Flag32be`, `Flag32le`, `Flag64be`, `Flag64le`, supported reserved-bit,
-  length-bounded
+  `Flag32be`, `Flag32le`, `Flag48be`, `Flag48le`, `Flag64be`, `Flag64le`,
+  supported reserved-bit, length-bounded
   `ByteView`, closed dispatch, extension dispatch, and eligible nested
   dispatch payload slices accept schema-local visible
   fields, using `ByteView` fields for length-bounded payloads and
