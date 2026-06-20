@@ -1,6 +1,6 @@
 schema UnsupportedReservedEncode
 	format binary
 
-	header_bits: ReservedBits(2, 0)
+	header_bits: ReservedBits(3, 0)
 	payload: UInt8
 end

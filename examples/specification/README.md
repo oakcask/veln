@@ -1294,6 +1294,10 @@ against the built `veln` binary.
   generated schema decode and encode helpers preserve visible fields around a
   middle reserved field and a following byte-width field in one shared
   two-byte storage unit, including derived codec eligibility.
+- `run/binary-schema-reserved-byte-prefix-decode-encode/`: generated schema
+  decode and encode helpers preserve a visible `UInt8` field after a
+  `ReservedBits(2, 0)` prefix in a two-byte bitstream slice, omit the reserved
+  field from visible records, and keep derived codec eligibility.
 - `run/binary-schema-byte-interleaved-middle-reserved-json/`: generated
   schema decode helpers report `schema.reserved_bits_mismatch` for that
   byte-interleaved middle reserved-bit layout.

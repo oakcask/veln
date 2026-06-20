@@ -1,0 +1,148 @@
+use stdio
+
+schema ReservedBytePrefixHeader
+	format binary
+
+	guard: ReservedBits(2, 0)
+	payload: UInt8
+end
+
+codec ReservedBytePrefixCodec for ReservedBytePrefixHeader decode encode
+	derive decode
+	derive encode
+end
+
+fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn decode_step_kind(step: DecodeStep<{payload: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_payload(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.payload
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn encode_step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn encode_error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn encode_error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn emit_direct_encoded_chunk(chunk: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::println(int_to_string(byte_value(chunk, 0)?))
+	stdio::println(int_to_string(byte_value(chunk, 1)?))
+	Ok(())
+end
+
+fn emit_unexpected_direct_encode_failure() -> Result<(), String> effects [stdio]
+	stdio::println("unexpected direct encode failure")
+	Ok(())
+end
+
+fn emit_direct_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => emit_direct_encoded_chunk(chunk)
+		Err(_) => emit_unexpected_direct_encode_failure()
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_unexpected_chunk_count(chunks: List<ByteChunk>) -> () effects [stdio]
+	stdio::print("unexpected chunk count ")
+	stdio::println(int_to_string(chunk_count(chunks)))
+end
+
+fn emit_derived_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => emit_unexpected_chunk_count(chunks)
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("2ac0")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let decoded: {payload: Int} = byte_decode_reserved_byte_prefix_header(view)?
+	stdio::println(int_to_string(decoded.payload))
+
+	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_reserved_byte_prefix_header({payload: 171})
+	let ignored: () = emit_direct_encoded(direct_encoded)?
+
+	let derived_decoded: DecodeStep<{payload: Int}> = ReservedBytePrefixCodec(view, byte_offset(32)?)
+	stdio::println(decode_step_kind(derived_decoded))
+	stdio::println(int_to_string(decoded_payload(derived_decoded)))
+	stdio::println(int_to_string(consumed_count(derived_decoded)))
+
+	let derived_encoded: EncodeStep<()> = ReservedBytePrefixCodec({payload: 171})
+	stdio::println(encode_step_kind(derived_encoded))
+	emit_derived_encoded("reserved-byte-prefix", derived_encoded, "2ac0")
+
+	let rejected: EncodeStep<()> = ReservedBytePrefixCodec({payload: 256})
+	stdio::println(encode_step_kind(rejected))
+	stdio::println(encode_error_id(rejected))
+	stdio::println(encode_error_path(rejected))
+	Ok(())
+end

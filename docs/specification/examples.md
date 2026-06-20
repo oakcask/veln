@@ -828,8 +828,11 @@ JSON raw-bit range and human invalid-index runtime result failures.
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
 The case checks complete lowercase hex output for an HTTP/2-style stream
-identifier field and the `UInt31be` maximum boundary. The adjacent checker
-case
+identifier field and the `UInt31be` maximum boundary.
+`../../examples/specification/run/binary-schema-reserved-byte-prefix-decode-encode/`
+pins the reserved-byte-prefix slice for `ReservedBits(2, 0)` followed by
+`UInt8`, including direct helpers, derived codec eligibility, lowercase hex
+output, and the visible-field range failure. The adjacent checker case
 `../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
 asserts `schema.reserved_bits_encode` for a non-byte-aligned reserved-bit
 shape outside the supported encode layouts.
