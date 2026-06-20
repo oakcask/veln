@@ -687,7 +687,9 @@ HPACK fixture decode on both completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
-ordinary header names outside the HTTP field-name token shape through
+ordinary header names outside the HTTP field-name token shape, plus
+connection-specific ordinary header names `connection`, `keep-alive`,
+`proxy-connection`, `transfer-encoding`, and `upgrade`, through
 `http2.protocol.invalid_request_header_list`. Response validation rejects
 missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,
@@ -723,8 +725,6 @@ full HPACK behavior.
   policy beyond the checked bounded fixture dynamic table, HPACK Huffman behavior beyond
   visible-ASCII fixture string literal encoding, broader dynamic-table string
   encoding policy beyond the checked dynamic-name literal-with-indexing
-  fixture, production request-header validation beyond ordinary header-name
-  shape, and production response-header validation beyond ordinary
-  header-name shape remain later work beyond the implemented fixture boundary.
+  fixture remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

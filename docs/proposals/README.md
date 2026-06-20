@@ -189,8 +189,10 @@ compare it with `../specification/` before changing behavior.
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
-  plus the request-side and response-side header-list validation slices and
-  the outbound HPACK fixture header-list encoder slice, including
+  plus the request-side header-list validation slice including
+  connection-specific ordinary header rejection, the response-side
+  header-list validation slice, and the outbound HPACK fixture header-list
+  encoder slice, including
   visible-ASCII Huffman-marked string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
@@ -199,10 +201,8 @@ compare it with `../specification/` before changing behavior.
   unbounded dynamic-table behavior, general eviction policy beyond the
   checked fixture-boundary entry-size calculation,
   HPACK Huffman behavior beyond visible-ASCII fixture string literal
-  encoding, broader dynamic-table string encoding policy beyond the checked
-  dynamic-name literal-with-indexing fixture, and production request-header
-  validation beyond ordinary header-name shape plus production
-  response-header validation beyond ordinary header-name shape.
+  encoding, and broader dynamic-table string encoding policy beyond the checked
+  dynamic-name literal-with-indexing fixture.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
