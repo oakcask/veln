@@ -86,9 +86,10 @@ compiler-known calls.
   thirty-argument variant with one additional ordinary metadata value using
   `task::spawn_with30`, plus a thirty-one-argument variant with one
   additional ordinary metadata value using `task::spawn_with31`, plus
-  thirty-two-argument, thirty-three-argument, and thirty-four-argument
-  variants with one additional ordinary metadata value each using
-  `task::spawn_with32`, `task::spawn_with33`, and `task::spawn_with34`,
+  thirty-two-argument, thirty-three-argument, thirty-four-argument, and
+  thirty-five-argument variants with one additional ordinary metadata value
+  each using `task::spawn_with32`, `task::spawn_with33`,
+  `task::spawn_with34`, and `task::spawn_with35`,
   deadline-aware accepted stream reads that stop on
   `net::read_chunk_until` returning `None`, cancellable accepted-stream
   routing that turns `WaitCancelled` into an ordinary cleanup action, and

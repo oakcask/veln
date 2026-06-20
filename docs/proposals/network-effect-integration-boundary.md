@@ -62,7 +62,8 @@ slices, and narrow deadline and cancellation slices, for:
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
   thirty-one-argument, thirty-two-argument, thirty-three-argument, and
-  thirty-four-argument spawned handler task shapes over ordinary source values
+  thirty-four-argument, and thirty-five-argument spawned handler task shapes
+  over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -227,6 +228,8 @@ The thirty-three-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with33.md`.
 The thirty-four-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with34.md`.
+The thirty-five-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with35.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel

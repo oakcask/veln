@@ -2712,6 +2712,34 @@ fn bytecode_backend_runs_thirty_four_argument_task_function_values_when_java_is_
 }
 
 #[test]
+fn bytecode_backend_runs_thirty_five_argument_task_function_values_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn last(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String, thirty_second: String, thirty_third: String, thirty_fourth: String, thirty_fifth: String) -> String effects [concurrency]\n",
+        "  thirty_fifth\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let task = task::spawn_with35(last, \"one\", \"two\", \"three\", \"four\", \"five\", \"six\", \"seven\", \"eight\", \"nine\", \"ten\", \"eleven\", \"twelve\", \"thirteen\", \"fourteen\", \"fifteen\", \"sixteen\", \"seventeen\", \"eighteen\", \"nineteen\", \"twenty\", \"twenty-one\", \"twenty-two\", \"twenty-three\", \"twenty-four\", \"twenty-five\", \"twenty-six\", \"twenty-seven\", \"twenty-eight\", \"twenty-nine\", \"thirty\", \"thirty-one\", \"thirty-two\", \"thirty-three\", \"thirty-four\", \"thirty-five\")\n",
+        "  let value: String = task::join(task)?\n",
+        "  stdio::println(value)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-task-arg35", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "thirty-five\n");
+}
+
+#[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Int) -> output: Int\n",
@@ -3131,6 +3159,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::spawn_with32", "taskSpawnWith32"),
         ("task::spawn_with33", "taskSpawnWith33"),
         ("task::spawn_with34", "taskSpawnWith34"),
+        ("task::spawn_with35", "taskSpawnWith35"),
         ("task::join", "taskJoin"),
         ("task::cancel", "taskCancel"),
     ] {
