@@ -46,6 +46,7 @@ narrower diagnostic.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   raw and Huffman-marked literal-without-indexing values, Huffman-marked
   `:path: test`, Huffman-marked `:status: 200`, Huffman-marked
+  `:authority: www.example.com`, Huffman-marked
   literal-with-indexing `:method: PUT`, raw literal-with-indexing
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw
   literal-with-indexing `:status`, raw literal-never-indexed `:authority`,
