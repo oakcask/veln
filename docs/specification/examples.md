@@ -1834,7 +1834,10 @@ values and Huffman-marked values decoded by the HPACK static Huffman table
 rather than a fixed decoded-value allowlist. The same decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
 through all three literal forms, including a 129-byte raw `:authority` value
-past the former checked raw decode boundary. The HTTP/2 protocol-core example
+past the former checked raw decode boundary. The same HPACK-prefixed integer
+foundation reads checked table-size updates, dynamic-name indexes, and string
+literal lengths before each caller applies its fixture-specific policy. The
+HTTP/2 protocol-core example
 uses the same static Huffman table to encode visible-ASCII Huffman-marked
 outbound fixture string literals, including a non-allowlist
 `:authority: abc.test` value whose

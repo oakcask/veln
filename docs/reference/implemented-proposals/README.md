@@ -156,6 +156,8 @@ behavior.
   [http2-hpack-huffman-padding-diagnostic.md](http2-hpack-huffman-padding-diagnostic.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
+- HTTP/2 HPACK decoder foundation:
+  [http2-hpack-decoder-foundation.md](http2-hpack-decoder-foundation.md).
 - HTTP/2 outbound HPACK fixture encoder:
   [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
 - HTTP/2 request header validation:

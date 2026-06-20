@@ -5895,6 +5895,28 @@ fn print_hpack_wide_dynamic_name_cases() -> Result<(), String> effects [stdio]
 	print_step("hpack-after-continuation-dynamic-name-wide", continuation_dynamic_newest)
 	print_hpack_transition_from_state("hpack-after-continuation-dynamic-name-wide", continuation_dynamic_newest, continuation_wide_state)
 	let ignored_continuation_dynamic_newest: () = require_hpack_transition_header(continuation_dynamic_newest, continuation_wide_state, ":path", "/deep")?
+	let continuation_without_indexing_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301000000000b0f7005")?), deep_state)?
+	print_step("hpack-continuation-dynamic-name-wide-without-indexing-start", continuation_without_indexing_start)
+	let continuation_without_indexing_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000509040000000b2f736b6970")?), step_state(continuation_without_indexing_start))?
+	print_step("hpack-continuation-dynamic-name-wide-without-indexing-done", continuation_without_indexing_done)
+	let ignored_continuation_without_indexing: () = emit_header_block("http2-hpack-continuation-dynamic-name-wide-without-indexing", continuation_without_indexing_done, "0f70052f736b6970")?
+	print_hpack_transition_from_state("hpack-continuation-dynamic-name-wide-without-indexing-done", continuation_without_indexing_done, step_state(continuation_without_indexing_start))
+	let continuation_without_indexing_state: Http2DecodeState = hpack_carry_only_state(step_state(continuation_without_indexing_done))
+	let continuation_without_indexing_retained: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000dff")?), continuation_without_indexing_state)?
+	print_step("hpack-after-continuation-dynamic-name-wide-without-indexing", continuation_without_indexing_retained)
+	print_hpack_transition_from_state("hpack-after-continuation-dynamic-name-wide-without-indexing", continuation_without_indexing_retained, continuation_without_indexing_state)
+	let ignored_continuation_without_indexing_retained: () = require_hpack_transition_header(continuation_without_indexing_retained, continuation_without_indexing_state, ":path", "/a")?
+	let continuation_never_indexed_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301000000000f1f7007")?), deep_state)?
+	print_step("hpack-continuation-dynamic-name-wide-never-indexed-start", continuation_never_indexed_start)
+	let continuation_never_indexed_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000709040000000f2f736563726574")?), step_state(continuation_never_indexed_start))?
+	print_step("hpack-continuation-dynamic-name-wide-never-indexed-done", continuation_never_indexed_done)
+	let ignored_continuation_never_indexed: () = emit_header_block("http2-hpack-continuation-dynamic-name-wide-never-indexed", continuation_never_indexed_done, "1f70072f736563726574")?
+	print_hpack_transition_from_state("hpack-continuation-dynamic-name-wide-never-indexed-done", continuation_never_indexed_done, step_state(continuation_never_indexed_start))
+	let continuation_never_indexed_state: Http2DecodeState = hpack_carry_only_state(step_state(continuation_never_indexed_done))
+	let continuation_never_indexed_retained: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000011ff")?), continuation_never_indexed_state)?
+	print_step("hpack-after-continuation-dynamic-name-wide-never-indexed", continuation_never_indexed_retained)
+	print_hpack_transition_from_state("hpack-after-continuation-dynamic-name-wide-never-indexed", continuation_never_indexed_retained, continuation_never_indexed_state)
+	let ignored_continuation_never_indexed_retained: () = require_hpack_transition_header(continuation_never_indexed_retained, continuation_never_indexed_state, ":path", "/a")?
 	Ok(())
 end
 
