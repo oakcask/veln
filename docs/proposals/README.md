@@ -201,8 +201,8 @@ compare it with `../specification/` before changing behavior.
   HPACK Huffman behavior beyond visible-ASCII fixture string literal
   encoding, broader dynamic-table string encoding policy beyond the checked
   dynamic-name literal-with-indexing fixture, and production request-header
-  validation beyond ordinary header-name shape plus response-header validation
-  beyond the fixture response checks.
+  validation beyond ordinary header-name shape plus production
+  response-header validation beyond ordinary header-name shape.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

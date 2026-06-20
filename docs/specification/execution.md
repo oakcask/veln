@@ -1579,9 +1579,11 @@ execution reference.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers
-  project through `http2.protocol.invalid_response_header_list`. The response
-  diagnostic uses the same structured detail shape as request validation
-  while naming the response-specific failed header-list fact.
+  project through `http2.protocol.invalid_response_header_list`, as do
+  uppercase ordinary header names and ordinary header names outside the HTTP
+  field-name token shape on an inbound response. The response diagnostic uses
+  the same structured detail shape as request validation while naming the
+  response-specific failed header-list fact.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

@@ -672,7 +672,7 @@ policy beyond the checked bounded fixture dynamic table, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal encoding, broader
 dynamic-table string encoding policy beyond the checked dynamic-name
 literal-with-indexing fixture, and production header validation beyond
-ordinary request header-name shape and beyond the fixture response checks.
+ordinary request and response header-name shape.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -685,8 +685,10 @@ pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 ordinary header names outside the HTTP field-name token shape through
 `http2.protocol.invalid_request_header_list`. Response validation rejects
 missing or duplicate `:status`, request-only `:authority`, `:method`,
-`:scheme`, or `:path`, and response pseudo-headers after regular headers
-through `http2.protocol.invalid_response_header_list`.
+`:scheme`, or `:path`, response pseudo-headers after regular headers,
+uppercase ordinary header names, and ordinary header names outside the HTTP
+field-name token shape through
+`http2.protocol.invalid_response_header_list`.
 The completed outbound HPACK fixture encoder slice is current behavior under
 `../specification/` and
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
@@ -711,7 +713,7 @@ full HPACK behavior.
   visible-ASCII fixture string literal encoding, broader dynamic-table string
   encoding policy beyond the checked dynamic-name literal-with-indexing
   fixture, production request-header validation beyond ordinary header-name
-  shape, and production response-header validation remain later work beyond
-  the implemented fixture boundary.
+  shape, and production response-header validation beyond ordinary
+  header-name shape remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.
