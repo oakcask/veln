@@ -38,6 +38,8 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-one-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-twenty-two-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable/`
@@ -76,6 +78,8 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-twenty-one-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-twenty-two-route-effects/`
+and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
@@ -84,7 +88,7 @@ and
 
 The completed route-count slices add checked five-, six-, seven-, eight-,
 nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, fifteen-, sixteen-,
-seventeen-, eighteen-, nineteen-, twenty-, and twenty-one-route evidence for
+seventeen-, eighteen-, nineteen-, twenty-, twenty-one-, and twenty-two-route evidence for
 the narrow `channel::select_many_priority(receivers)` standard-library boundary over a
 non-empty `List<Receiver<T>>`. It returns
 `Option<{index: Int, value: T}>`, where `index` is the zero-based receiver
