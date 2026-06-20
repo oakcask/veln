@@ -61,8 +61,8 @@ slices, and narrow deadline and cancellation slices, for:
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, and thirty-two-argument spawned handler task shapes
-  over ordinary source values
+  thirty-one-argument, thirty-two-argument, and thirty-three-argument spawned
+  handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -223,6 +223,8 @@ The thirty-one-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with31.md`.
 The thirty-two-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with32.md`.
+The thirty-three-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with33.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -442,8 +444,8 @@ or the pure protocol core.
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, and thirty-two-argument spawned handler task, and
-  adapter-level cancellable stream routing slices;
+  thirty-one-argument, thirty-two-argument, and thirty-three-argument spawned
+  handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
