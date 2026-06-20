@@ -399,7 +399,8 @@ request header-list validation failures use id
 missing required request pseudo-header, a response-only `:status`
 pseudo-header, a duplicate request pseudo-header, a request pseudo-header
 after a regular header, an uppercase ordinary header name, and an ordinary
-header name outside the HTTP field-name token shape on an inbound request; the
+header name outside the HTTP field-name token shape, plus a
+connection-specific ordinary header name on an inbound request; the
 larger protocol-core fixture
 also checks the integrated completed HEADERS and final CONTINUATION paths.
 Received response header-list validation failures use id

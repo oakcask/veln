@@ -2064,6 +2064,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,

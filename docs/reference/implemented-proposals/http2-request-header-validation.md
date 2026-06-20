@@ -17,7 +17,10 @@ The validation rejects request header lists that duplicate a request
 pseudo-header, place a request pseudo-header after a regular header, omit
 `:method`, `:scheme`, or `:path`, carry response-only `:status` on inbound
 requests, carry uppercase ordinary header names, or carry ordinary header
-names outside the HTTP field-name token shape. Failures use the protocol-owned
+names outside the HTTP field-name token shape. The follow-up connection-specific
+header slice also rejects `connection`, `keep-alive`, `proxy-connection`,
+`transfer-encoding`, and `upgrade` as ordinary request headers. Failures use
+the protocol-owned
 `http2.protocol.invalid_request_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
 
@@ -29,7 +32,8 @@ HPACK fixture diagnostics.
   CONTINUATION path missing `:method`, a HEADERS path containing
   response-only `:status`, a duplicate `:method`, and a `:method` after a
   regular `host` header, plus uppercase and token-invalid ordinary request
-  header names.
+  header names and the checked connection-specific ordinary request header
+  names.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-json/`
   checks the JSON projection for a missing required pseudo-header.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-human/`
@@ -43,9 +47,11 @@ HPACK fixture diagnostics.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-token-human/`
   checks the human projection for an ordinary header name outside the HTTP
   field-name token shape.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/`
+  checks the JSON projection for a connection-specific ordinary request
+  header name.
 
 ## Remaining Work
 
-Full HPACK compression, request-header rules beyond ordinary header-name
-shape, response-header production validation, dynamic-table policy, and socket
-integration remain outside this completed slice.
+Full HPACK compression, response-header production validation, dynamic-table
+policy, and socket integration remain outside this completed slice.

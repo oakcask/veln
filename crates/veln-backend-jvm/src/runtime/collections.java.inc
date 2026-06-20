@@ -3436,6 +3436,9 @@
         } else if ("ordinary_header_name_invalid_token".equals(fact)) {
             message = "HTTP/2 request header list contains invalid ordinary header name "
                 + header + " at byte offset " + byteOffset;
+        } else if ("connection_specific_header".equals(fact)) {
+            message = "HTTP/2 request header list contains connection-specific header "
+                + header + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }

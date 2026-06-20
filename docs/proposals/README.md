@@ -189,8 +189,9 @@ compare it with `../specification/` before changing behavior.
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
-  plus the request-side and response-side header-list validation slices and
-  the outbound HPACK fixture header-list encoder slice, including
+  plus the request-side and response-side header-list validation slices, the
+  request connection-specific header rejection slice, and the outbound HPACK
+  fixture header-list encoder slice, including
   visible-ASCII Huffman-marked string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes

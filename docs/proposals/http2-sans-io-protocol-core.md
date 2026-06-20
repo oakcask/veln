@@ -687,7 +687,9 @@ HPACK fixture decode on both completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
-ordinary header names outside the HTTP field-name token shape through
+ordinary header names outside the HTTP field-name token shape, plus
+connection-specific ordinary header names `connection`, `keep-alive`,
+`proxy-connection`, `transfer-encoding`, and `upgrade`, through
 `http2.protocol.invalid_request_header_list`. Response validation rejects
 missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,

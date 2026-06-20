@@ -198,6 +198,26 @@ fn request_headers_bad_token_regular() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,bad header"), 9)
 end
 
+fn request_headers_with_connection_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,connection"), 9)
+end
+
+fn request_headers_with_keep_alive_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,keep-alive"), 9)
+end
+
+fn request_headers_with_proxy_connection_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,proxy-connection"), 9)
+end
+
+fn request_headers_with_transfer_encoding_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,transfer-encoding"), 9)
+end
+
+fn request_headers_with_upgrade_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,upgrade"), 9)
+end
+
 fn response_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
 end
@@ -300,6 +320,26 @@ end
 
 fn decoded_request_headers_bad_token_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_bad_token_regular(), next_state(state)))
+end
+
+fn decoded_request_headers_with_connection_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_connection_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_keep_alive_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_keep_alive_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_proxy_connection_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_proxy_connection_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_transfer_encoding_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_transfer_encoding_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_upgrade_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_upgrade_header(), next_state(state)))
 end
 
 fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1796,6 +1836,26 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_bad_token_regular(state)
 				false => unsupported(block, offset)
 			end
+			62 => match observed_size == 4
+				true => decoded_request_headers_with_connection_header(state)
+				false => unsupported(block, offset)
+			end
+			63 => match observed_size == 4
+				true => decoded_request_headers_with_keep_alive_header(state)
+				false => unsupported(block, offset)
+			end
+			67 => match observed_size == 4
+				true => decoded_request_headers_with_proxy_connection_header(state)
+				false => unsupported(block, offset)
+			end
+			73 => match observed_size == 4
+				true => decoded_request_headers_with_transfer_encoding_header(state)
+				false => unsupported(block, offset)
+			end
+			74 => match observed_size == 4
+				true => decoded_request_headers_with_upgrade_header(state)
+				false => unsupported(block, offset)
+			end
 			53 => match observed_size == 3
 				true => decoded_response_headers(state)
 				false => unsupported(block, offset)
@@ -1913,6 +1973,11 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		_ => false
 	end
 end
@@ -1947,6 +2012,11 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,keep-alive"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		_ => false
 	end
 end
@@ -1961,6 +2031,11 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,Host"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,bad header"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,keep-alive"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		_ => false
 	end
 end
@@ -1976,6 +2051,11 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,Host"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,bad header"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,keep-alive"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path,upgrade"), _) => true
 		_ => false
 	end
 end
@@ -1993,6 +2073,28 @@ pub fn header_list_has_invalid_token_ordinary_header(headers: HpackHeaderList) -
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
 		_ => false
+	end
+end
+
+pub fn header_list_has_connection_specific_header(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_connection_specific_header_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => "connection"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => "keep-alive"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => "proxy-connection"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => "transfer-encoding"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => "upgrade"
+		_ => ""
 	end
 end
 
@@ -2054,6 +2156,11 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":request", "method,scheme,path"), _) => ":status,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => ":method,:scheme,:path,Host"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => ":method,:scheme,:path,bad header"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => ":method,:scheme,:path,connection"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => ":method,:scheme,:path,keep-alive"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => ":method,:scheme,:path,proxy-connection"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => ":method,:scheme,:path,transfer-encoding"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => ":method,:scheme,:path,upgrade"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok"), _) => ":status"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,server"), _) => ":status,server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => ":status,Server"
