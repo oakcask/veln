@@ -698,8 +698,7 @@ and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
-behavior beyond visible-ASCII fixture string literal decoding and encoding
-plus focused unsupported-Huffman diagnostics,
+behavior beyond visible-ASCII fixture string literal decoding and encoding,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request and
 response header-name shape, the source-visible `te` value rule, and the

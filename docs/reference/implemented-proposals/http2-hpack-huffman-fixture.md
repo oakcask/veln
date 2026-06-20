@@ -54,6 +54,13 @@ record preserves the focused diagnostic id for malformed Huffman padding.
   `:status: 200` through a final CONTINUATION path. It also checks focused
   Huffman EOS through a final CONTINUATION path and focused non-visible
   decoded bytes through a completed HEADERS path.
+- `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/`,
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/`,
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/`,
+  and
+  `../../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/`
+  check the human and JSON command-output projection for the focused EOS and
+  non-visible decoded-byte diagnostics with stable preview fields.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.
