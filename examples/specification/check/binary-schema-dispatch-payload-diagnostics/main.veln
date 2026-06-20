@@ -40,6 +40,19 @@ schema ImportedWrongKindPacket
 	payload: Dispatch(kind, 1 => wire::WireShape)
 end
 
+schema UnsupportedReservedPayload
+	format binary
+
+	control_reserved: ReservedBits(9, 0)
+end
+
+schema UnsupportedReservedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
+end
+
 schema ImportedPublicPacket
 	format binary
 

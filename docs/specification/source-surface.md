@@ -130,7 +130,8 @@ Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward, uses an unbounded
 or otherwise ineligible recursive form, uses a schema outside the generated
-helper slice, or decodes to an incompatible payload shape. Closed dispatch
+helper slice such as an unsupported `ReservedBits` layout, or decodes to an
+incompatible payload shape. Closed dispatch
 cases with mixed
 primitive and
 nested payload shapes are accepted only at an eligible selected mapping

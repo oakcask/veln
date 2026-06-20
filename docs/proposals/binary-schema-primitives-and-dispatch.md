@@ -405,8 +405,9 @@ for:
   lengths, and their declaration-time missing, forward, and wrong-role
   reference diagnostics
 - recursive dispatch payload schemas outside the selected same-module or
-  public imported length-bounded dispatch decode-and-encode slice and dispatch
-  payload schemas outside the generated helper slice
+  public imported length-bounded dispatch decode-and-encode slice and
+  additional dispatch payload schemas outside the generated helper slice beyond
+  the checked unsupported `ReservedBits` payload diagnostic
 
 ## Discussion Result: Dependent Structure Boundary
 
@@ -552,8 +553,9 @@ through a written `use` path, plus `ByteView(length_field)` when the length
 field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices,
 recursive dispatch payload schemas outside the selected same-module or public
-imported length-bounded dispatch decode-and-encode slice, dispatch payload
-schemas outside the generated helper slice, and mapping beyond the implemented
+imported length-bounded dispatch decode-and-encode slice, additional dispatch
+payload schemas outside the generated helper slice beyond the checked
+unsupported `ReservedBits` diagnostic, and mapping beyond the implemented
 slices remain proposal work.
 A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
@@ -716,5 +718,6 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Broader unsupported field layouts, ineligible imported recursive dispatch
-  payload schemas, other ineligible dispatch payload schemas, and schema value
-  mapping beyond the implemented structural slices remain proposal work.
+  payload schemas, other ineligible dispatch payload schemas beyond the checked
+  unsupported `ReservedBits` diagnostic, and schema value mapping beyond the
+  implemented structural slices remain proposal work.
