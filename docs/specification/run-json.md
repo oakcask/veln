@@ -400,17 +400,19 @@ missing required request pseudo-header, a response-only `:status`
 pseudo-header, a duplicate request pseudo-header, a request pseudo-header
 after a regular header, an uppercase ordinary header name, and an ordinary
 header name outside the HTTP field-name token shape, plus a
-connection-specific ordinary header name on an inbound request; the
-larger protocol-core fixture
-also checks the integrated completed HEADERS and final CONTINUATION paths.
+connection-specific ordinary header name and invalid `te` value on an inbound
+request; the larger protocol-core fixture also checks the integrated
+completed HEADERS and final CONTINUATION paths, including accepted
+`te: trailers`.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
 fields. The checked projections cover a missing required `:status`, duplicate
 `:status`, request-only pseudo-headers, and a response pseudo-header after a
 regular header, an uppercase ordinary header name, and an ordinary header
-name outside the HTTP field-name token shape; the larger protocol-core
-fixture also checks `:authority` as request-only and checks valid ordinary
-response header lists through integrated completed HEADERS and final
+name outside the HTTP field-name token shape, plus invalid `te` value human
+output; the larger protocol-core fixture also checks `:authority` as
+request-only and checks valid ordinary response header lists, including
+accepted `te: trailers`, through integrated completed HEADERS and final
 CONTINUATION paths.
 Received
 SETTINGS range failures use id

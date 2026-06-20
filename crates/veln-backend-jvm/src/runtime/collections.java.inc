@@ -3439,6 +3439,9 @@
         } else if ("connection_specific_header".equals(fact)) {
             message = "HTTP/2 request header list contains connection-specific header "
                 + header + " at byte offset " + byteOffset;
+        } else if ("te_header_value_not_trailers".equals(fact)) {
+            message = "HTTP/2 request header list contains te value other than trailers"
+                + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }
@@ -3493,6 +3496,9 @@
         } else if ("ordinary_header_name_invalid_token".equals(fact)) {
             message = "HTTP/2 response header list contains invalid ordinary header name "
                 + header + " at byte offset " + byteOffset;
+        } else if ("te_header_value_not_trailers".equals(fact)) {
+            message = "HTTP/2 response header list contains te value other than trailers"
+                + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }

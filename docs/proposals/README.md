@@ -191,8 +191,8 @@ compare it with `../specification/` before changing behavior.
   rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
-  header-list validation slice, and the outbound HPACK fixture header-list
-  encoder slice, including
+  header-list validation slice, the source-visible `te` header value rule,
+  and the outbound HPACK fixture header-list encoder slice, including
   visible-ASCII Huffman-marked string literal encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
