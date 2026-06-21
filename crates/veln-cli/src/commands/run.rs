@@ -886,6 +886,11 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                         "request header list contains te value other than trailers at byte offset {byte_offset}"
                     )
                 }
+                "scheme_value_not_http_or_https" => {
+                    format!(
+                        "request header list contains :scheme value other than http or https at byte offset {byte_offset}"
+                    )
+                }
                 "content_length_invalid" => {
                     format!(
                         "request header list contains invalid content-length at byte offset {byte_offset}"
@@ -3858,6 +3863,66 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_te_trailers_only")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_request_scheme_value() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("scheme_value_not_http_or_https"),
+            ),
+            ("header_name", JsonValue::string(":scheme")),
+            (
+                "decoded_header_names",
+                JsonValue::string(":method,:scheme,:path"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_request_scheme"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list contains :scheme value other than http or https at byte offset 12"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list contains :scheme value other than http or https at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains(":method,:scheme,:path")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_request_scheme")
         );
     }
 

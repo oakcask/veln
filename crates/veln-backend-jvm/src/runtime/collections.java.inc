@@ -3595,6 +3595,9 @@
         } else if ("te_header_value_not_trailers".equals(fact)) {
             message = "HTTP/2 request header list contains te value other than trailers"
                 + " at byte offset " + byteOffset;
+        } else if ("scheme_value_not_http_or_https".equals(fact)) {
+            message = "HTTP/2 request header list contains :scheme value other than http or https"
+                + " at byte offset " + byteOffset;
         } else if ("content_length_invalid".equals(fact)) {
             message = "HTTP/2 request header list contains invalid content-length"
                 + " at byte offset " + byteOffset;

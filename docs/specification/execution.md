@@ -1743,6 +1743,8 @@ execution reference.
   `http2.protocol.invalid_request_header_list`. Its primary message names the
   failed header-list fact; decoded header names, stream id, frame kind, active
   state, and rule provenance remain structured details or related notes.
+  Fixture-marked request `:scheme` values are valid only when they are `http`
+  or `https`; any other value fails with `scheme_value_not_http_or_https`.
   The same boundary accepts ordinary `te: trailers` on inbound requests and
   rejects any other fixture-marked `te` value with failed fact
   `te_header_value_not_trailers`. Fixture-marked request `content-length`

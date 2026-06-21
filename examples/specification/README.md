@@ -1940,11 +1940,13 @@ against the built `veln` binary.
   failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, request-header validation for a fixture-marked request header list,
-  missing `:method` on a final CONTINUATION path, response-only `:status`
-  on a completed HEADERS path, a duplicate `:method`, and a `:method` after
-  a regular `host` header, while also accepting a request with a lowercase
-  ordinary `host` header and rejecting uppercase and token-invalid ordinary
-  request header names, accepted and rejected request and response
+  accepted `:scheme` values `http` and `https` through completed HEADERS and
+  final CONTINUATION paths, an unsupported `:scheme` value, missing `:method`
+  on a final CONTINUATION path, response-only `:status` on a completed
+  HEADERS path, a duplicate `:method`, and a `:method` after a regular `host`
+  header, while also accepting a request with a lowercase ordinary `host`
+  header and rejecting uppercase and token-invalid ordinary request header
+  names, accepted and rejected request and response
   `content-length` values, stream id domain failures including HEADERS
   and CONTINUATION on the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,

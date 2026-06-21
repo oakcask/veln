@@ -2219,6 +2219,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-scheme-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-response-headers-content-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
@@ -2249,6 +2250,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-request-headers-scheme-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-content-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-response-headers-content-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
@@ -2287,16 +2289,18 @@ ordinary header names outside the HTTP field-name token shape, and invalid
 or structured JSON details. The
 response-header projection cases cover missing and duplicate `:status`,
 request-only pseudo-headers, and response pseudo-headers after regular
-headers, invalid `te` values, and invalid and mismatched `content-length`
-values, with the same JSON detail and human related-note shape. The larger
-protocol-core case also checks an accepted
-fixture-marked request header list, accepted `te: trailers`, a final
-CONTINUATION path missing `:method`, a completed HEADERS path containing
-response-only `:status`, a duplicate `:method`, and a `:method` after a
-regular `host` header, plus uppercase and token-invalid ordinary request
-header names, connection-specific ordinary request header names `connection`,
-`keep-alive`, `proxy-connection`, `transfer-encoding`, and `upgrade`, and an
-invalid `te` value. It accepts one and repeated matching valid decimal
+headers, invalid request `:scheme` values, invalid `te` values, and invalid
+and mismatched `content-length` values, with the same JSON detail and human
+related-note shape. The larger protocol-core case also checks an accepted
+fixture-marked request header list, accepted request `:scheme` values `http`
+and `https` through completed HEADERS and final CONTINUATION paths, an
+unsupported `:scheme` value, accepted `te: trailers`, a final CONTINUATION
+path missing `:method`, a completed HEADERS path containing response-only
+`:status`, a duplicate `:method`, and a `:method` after a regular `host`
+header, plus uppercase and token-invalid ordinary request header names,
+connection-specific ordinary request header names `connection`, `keep-alive`,
+`proxy-connection`, `transfer-encoding`, and `upgrade`, and an invalid `te`
+value. It accepts one and repeated matching valid decimal
 `content-length` request values and rejects mismatched, empty, non-decimal,
 signed, whitespace-padded, and negative-looking request values. It also
 checks accepted fixture-marked response header lists including a final
