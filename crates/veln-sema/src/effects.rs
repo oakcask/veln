@@ -360,6 +360,7 @@ fn task_signature(
         "spawn_with37" => task_spawn_with_n_signature(37, expected, handle_type, explicit_item),
         "spawn_with38" => task_spawn_with_n_signature(38, expected, handle_type, explicit_item),
         "spawn_with39" => task_spawn_with_n_signature(39, expected, handle_type, explicit_item),
+        "spawn_with40" => task_spawn_with_n_signature(40, expected, handle_type, explicit_item),
         "join" => task_join_signature(handle_type),
         "cancel" => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
         _ => None,
@@ -1920,6 +1921,9 @@ fn core_task_signature(
         }
         "spawn_with39" => {
             core_task_spawn_with_n_signature(39, expected, handle_type, explicit_item)
+        }
+        "spawn_with40" => {
+            core_task_spawn_with_n_signature(40, expected, handle_type, explicit_item)
         }
         "join" => core_task_join_signature(handle_type),
         "cancel" => Some((
