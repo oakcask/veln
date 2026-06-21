@@ -1103,6 +1103,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic
                 .related
                 .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             Some(diagnostic)
         }
         "http2.peer_limit.header_table_size_exceeded" => {
@@ -1130,6 +1131,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic
                 .related
                 .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             Some(diagnostic)
         }
         "http2.peer_limit.flow_control_window_exceeded" => {
@@ -3137,6 +3139,10 @@ mod tests {
                 "rule_provenance",
                 JsonValue::string("header_list_receive_limit"),
             ),
+            (
+                "byte_preview",
+                byte_preview_with_counts("060708090a0b0c0d", 9, true),
+            ),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 header list size exceeds receive maximum at byte offset 12".to_string(),
@@ -3153,7 +3159,7 @@ mod tests {
             diagnostic.message,
             "header list size exceeds receive maximum at byte offset 12"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3173,6 +3179,11 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("header_list_receive_limit")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("06 07 08 09 0a 0b 0c 0d (showing 8 of 9 byte(s), truncated)")
         );
     }
 
@@ -3204,6 +3215,7 @@ mod tests {
                 "rule_provenance",
                 JsonValue::string("hpack_dynamic_table_size_update"),
             ),
+            ("byte_preview", byte_preview("3f8101")),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 header table size exceeds receive maximum at byte offset 35".to_string(),
@@ -3220,7 +3232,7 @@ mod tests {
             diagnostic.message,
             "header table size exceeds receive maximum at byte offset 35"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3240,6 +3252,11 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("hpack_dynamic_table_size_update")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("3f 81 01 (showing 3 of 3 byte(s), complete)")
         );
     }
 

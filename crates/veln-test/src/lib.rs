@@ -4143,13 +4143,14 @@ mod tests {
             "result\t",
             "485454502f3220686561646572206c6973742073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f6666736574203132",
             "\tprotocol_diagnostic\thttp2.peer_limit.header_list_size_exceeded\t12",
-            "\t7\tobserved_header_list_size\tnumber\t10",
+            "\t8\tobserved_header_list_size\tnumber\t10",
             "\tallowed_header_list_size\tnumber\t9",
             "\tframe_kind\tnumber\t9",
             "\tstream_id\tnumber\t1",
             "\tstream_ref\tstring\t73747265616d",
             "\treceive_limit_provenance\tstring\t6c6f63616c5f636f6e66696775726174696f6e",
-            "\trule_provenance\tstring\t6865616465725f6c6973745f726563656976655f6c696d6974\n",
+            "\trule_provenance\tstring\t6865616465725f6c6973745f726563656976655f6c696d6974",
+            "\tbyte_preview\tbyte_preview_v2\t30363037303830393061306230633064:8:9:true\n",
         );
 
         let failure = result_failure_from_trace(trace).expect("trace should decode");
@@ -4169,7 +4170,12 @@ mod tests {
                 "\"stream_id\":1,",
                 "\"stream_ref\":\"stream\",",
                 "\"receive_limit_provenance\":\"local_configuration\",",
-                "\"rule_provenance\":\"header_list_receive_limit\"}}"
+                "\"rule_provenance\":\"header_list_receive_limit\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"060708090a0b0c0d\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true}}}"
             )
         );
     }
@@ -4180,13 +4186,14 @@ mod tests {
             "result\t",
             "485454502f3220686561646572207461626c652073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f6666736574203335",
             "\tprotocol_diagnostic\thttp2.peer_limit.header_table_size_exceeded\t35",
-            "\t7\tobserved_header_table_size\tnumber\t289",
+            "\t8\tobserved_header_table_size\tnumber\t289",
             "\tallowed_header_table_size\tnumber\t160",
             "\tframe_kind\tnumber\t9",
             "\tstream_id\tnumber\t1",
             "\tstream_ref\tstring\t73747265616d",
             "\treceive_limit_provenance\tstring\t6c6f63616c5f636f6e66696775726174696f6e",
-            "\trule_provenance\tstring\t687061636b5f64796e616d69635f7461626c655f73697a655f757064617465\n",
+            "\trule_provenance\tstring\t687061636b5f64796e616d69635f7461626c655f73697a655f757064617465",
+            "\tbyte_preview\tbyte_preview_v2\t336638313031:3:3:false\n",
         );
 
         let failure = result_failure_from_trace(trace).expect("trace should decode");
@@ -4206,7 +4213,12 @@ mod tests {
                 "\"stream_id\":1,",
                 "\"stream_ref\":\"stream\",",
                 "\"receive_limit_provenance\":\"local_configuration\",",
-                "\"rule_provenance\":\"hpack_dynamic_table_size_update\"}}"
+                "\"rule_provenance\":\"hpack_dynamic_table_size_update\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"3f8101\",",
+                "\"preview_byte_count\":3,",
+                "\"total_byte_count\":3,",
+                "\"truncated\":false}}}"
             )
         );
     }
