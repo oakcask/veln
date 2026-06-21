@@ -47,24 +47,17 @@ slices, and narrow deadline and cancellation slices, for:
   timeout-result selection, socket/channel routing, and deadline-aware and
   cancellable lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, four-route, receiver-list five-route through thirty-route,
+  three-route, four-route, receiver-list select-many route-count fixtures,
   receiver-list timeout, receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
   cancellable timeout-result selection, and receiver-list cancellable
-  channel-first fixture shapes
-- richer per-stream task handling beyond the one-argument, two-argument,
-  three-argument, four-argument, five-argument, six-argument, seven-argument,
-  eight-argument, nine-argument, ten-argument, eleven-argument,
-  twelve-argument, thirteen-argument, fourteen-argument, fifteen-argument,
-  sixteen-argument, seventeen-argument, eighteen-argument, and
-  nineteen-argument, twenty-argument, twenty-one-argument,
-  twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, twenty-seven-argument,
-  twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, thirty-two-argument, thirty-three-argument,
-  thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, thirty-eight-argument, thirty-nine-argument, and
-  forty-argument spawned handler task shapes over ordinary source values
+  channel-first fixture shapes. Additional work should add a more general
+  routing abstraction or a concrete routing feature, not the next route-count
+  fixture.
+- richer per-stream task handling beyond the context-based
+  `task::spawn_with<Result, Context>` handler boundary. Additional work should
+  improve task ownership, lifecycle, cancellation, or adapter APIs, not add
+  another same-shaped spawned-handler arity.
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -228,9 +221,8 @@ implemented in
 The explicit stream close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-close-boundary.md`.
 
-The receiver-list five-route through thirty-route, timeout,
-timeout-result, and cancellable timeout-result channel-first stream routing
-slices, including the
+The bounded receiver-list select-many, timeout, timeout-result, and
+cancellable timeout-result channel-first stream routing slices, including the
 `channel::select_many_priority` and
 `channel::select_many_timeout` helpers plus
 `channel::select_many_timeout_result` and
@@ -243,6 +235,9 @@ The two-receiver cancellable timeout-result selection slice, including
 
 The context-based stream-task slice is now part of the current task spawning
 specification instead of a planned arity-growth path.
+The proposal no longer treats more `spawn_withN` or positional handler
+arguments as remaining work; handler context should be carried as one ordinary
+source value unless a future proposal introduces a different task API.
 
 ## Discussion Result: Transport Error Boundary
 
@@ -339,25 +334,13 @@ or the pure protocol core.
   fixture-backed listener/stream handles, narrow multi-event
   socket-to-handler routing, stream-task handler, clean stream-end, optional
   accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, receiver-list five-route through thirty-route,
-  receiver-list timeout,
+  three-route, four-route, receiver-list select-many routing through the
+  current checked boundary, receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, two-receiver cancellable timeout-result selection,
   and receiver-list cancellable channel-first stream routing, deadline-aware
-  accepted-stream lifecycle, cancellable
-  accepted-stream lifecycle, one-argument,
-  two-argument, three-argument, four-argument, five-argument, six-argument,
-  seven-argument, eight-argument, nine-argument, ten-argument,
-  eleven-argument, twelve-argument, thirteen-argument, fourteen-argument,
-  fifteen-argument, sixteen-argument, seventeen-argument, and
-  eighteen-argument, nineteen-argument, twenty-argument, twenty-one-argument,
-  twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, twenty-seven-argument,
-  twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, thirty-two-argument, thirty-three-argument,
-  thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, thirty-eight-argument, thirty-nine-argument, and
-  forty-argument spawned handler task, and adapter-level cancellable stream
+  accepted-stream lifecycle, cancellable accepted-stream lifecycle,
+  context-based spawned handler task, and adapter-level cancellable stream
   routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,

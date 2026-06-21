@@ -229,23 +229,12 @@ compare it with `../specification/` before changing behavior.
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, channel-first route-count, task, deadline,
   cancellation, deadline-aware listener accept, deadline-aware stream read,
-  adapter-owned listener-to-clean-stream-end lifecycle, network task
-  two-argument, three-argument, four-argument, five-argument, six-argument,
-  seven-argument, eight-argument, nine-argument, ten-argument,
-  eleven-argument, twelve-argument, thirteen-argument, fourteen-argument,
-  fifteen-argument, sixteen-argument, seventeen-argument, and
-  eighteen-argument, nineteen-argument, twenty-argument, twenty-one-argument,
-  twenty-two-argument, twenty-three-argument, twenty-four-argument,
-  twenty-five-argument, twenty-six-argument, twenty-seven-argument,
-  twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, thirty-two-argument, thirty-three-argument,
-  thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, thirty-eight-argument, thirty-nine-argument, and
-  forty-argument spawn,
+  adapter-owned listener-to-clean-stream-end lifecycle, context-based
+  `task::spawn_with<Result, Context>` handler spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
-  lifecycle, stream close lifecycle, receiver-list five-route through
-  thirty-route channel-first routing, receiver-list cancellable
-  channel-first routing,
+  lifecycle, stream close lifecycle, bounded receiver-list channel-first
+  routing through the current checked select-many boundary, receiver-list
+  cancellable channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, and two-receiver cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
