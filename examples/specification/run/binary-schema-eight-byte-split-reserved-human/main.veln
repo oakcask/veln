@@ -1,0 +1,16 @@
+schema EightByteSplitReservedHeader
+	format binary
+
+	lead: UInt6
+	guard: ReservedBits(15, 21845)
+	mode: UInt7
+	gap: ReservedBits(29, 357913941)
+	tail: UInt7
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaab55aaaaaaaea")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_eight_byte_split_reserved_header(view)?
+	Ok(())
+end

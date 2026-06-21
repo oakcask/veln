@@ -579,10 +579,10 @@ execution reference.
   fields when the group contains at least one visible field and at least one
   reserved field, every visible field is a big-endian sub-byte `UIntN`, and
   the declared widths complete one byte or the same two-byte, three-byte,
-  four-byte, five-byte, six-byte, or seven-byte big-endian storage unit. Reserved fields
-  in the group remain representation-only, each reserved value is validated at its
-  own field path, and visible fields are decoded from their declared
-  high-to-low positions.
+  four-byte, five-byte, six-byte, seven-byte, or eight-byte big-endian storage
+  unit. Reserved fields in the group remain representation-only, each
+  reserved value is validated at its own field path, and visible fields are
+  decoded from their declared high-to-low positions.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports
@@ -992,10 +992,10 @@ execution reference.
   group contains at least one visible field and at least one reserved field,
   every visible field is a big-endian sub-byte `UIntN`, and the declared
   widths complete one byte or the same two-byte, three-byte, four-byte,
-  five-byte, six-byte, or seven-byte big-endian storage unit. The helper writes visible
-  and reserved values in declaration order, omits reserved fields from the encoder value
-  record, and reports `codec.encode_value_unrepresentable` at the
-  out-of-range visible field.
+  five-byte, six-byte, seven-byte, or eight-byte big-endian storage unit. The
+  helper writes visible and reserved values in declaration order, omits
+  reserved fields from the encoder value record, and reports
+  `codec.encode_value_unrepresentable` at the out-of-range visible field.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -1240,6 +1240,9 @@ execution reference.
   `examples/specification/run/binary-schema-seven-byte-split-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-seven-byte-split-reserved-json/`,
   `examples/specification/run/binary-schema-seven-byte-split-reserved-human/`,
+  `examples/specification/run/binary-schema-eight-byte-split-reserved-decode-encode/`,
+  `examples/specification/run/binary-schema-eight-byte-split-reserved-json/`,
+  `examples/specification/run/binary-schema-eight-byte-split-reserved-human/`,
   `examples/specification/run/binary-schema-middle-reserved-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,

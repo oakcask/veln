@@ -1,8 +1,8 @@
-# Binary Schema Seven-Byte Split Reserved Layouts
+# Binary Schema Eight-Byte Split Reserved Layouts
 
 Status: implemented
 
-This record preserves the completed seven-byte split reserved layout slice
+This record preserves the completed eight-byte split reserved layout slice
 from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
@@ -12,7 +12,7 @@ behavior is specified by `../../specification/source-surface.md`,
 
 Generated binary schema decode and encode helpers accept consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` groups whose
-declared widths complete one seven-byte big-endian storage unit. The group
+declared widths complete one eight-byte big-endian storage unit. The group
 must contain at least one visible field and at least one reserved field, and
 every visible field remains a big-endian sub-byte `UIntN`.
 
@@ -29,13 +29,13 @@ smaller shared-storage split reserved layouts.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-seven-byte-split-reserved-decode-encode/`
+- `../../../examples/specification/run/binary-schema-eight-byte-split-reserved-decode-encode/`
   checks decode, encode, reserved-field omission from the value record, and
   visible-field encode range failure.
-- `../../../examples/specification/run/binary-schema-seven-byte-split-reserved-json/`
+- `../../../examples/specification/run/binary-schema-eight-byte-split-reserved-json/`
   checks the JSON `schema.reserved_bits_mismatch` diagnostic with field path,
   bit width, expected value, actual value, and byte preview details.
-- `../../../examples/specification/run/binary-schema-seven-byte-split-reserved-human/`
+- `../../../examples/specification/run/binary-schema-eight-byte-split-reserved-human/`
   checks the matching human diagnostic projection.
 
 ## Remaining Work

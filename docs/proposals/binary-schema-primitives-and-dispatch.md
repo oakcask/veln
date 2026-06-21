@@ -79,7 +79,7 @@ Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
 group contains at least one visible field and at least one reserved field and
 the declared widths complete one byte or one two-byte, three-byte, four-byte,
-five-byte, six-byte, or seven-byte big-endian storage unit. The helpers
+five-byte, six-byte, seven-byte, or eight-byte big-endian storage unit. The helpers
 validate or emit each reserved field at its declared position, omit reserved
 fields from decoded records and mapping source values, preserve visible fields
 in declaration order, and report the same reserved-bit mismatch, truncation,
@@ -471,8 +471,8 @@ for:
   four-byte reserved prefix widths twenty-five through thirty-one, and
   consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
-  one two-byte, three-byte, four-byte, five-byte, six-byte, or seven-byte
-  big-endian storage unit
+  one two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
+  eight-byte big-endian storage unit
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset,
   two-byte big-endian `Flag16be` bitset, two-byte little-endian `Flag16le`
   bitset, four-byte big-endian `Flag32be` bitset, four-byte little-endian
@@ -692,11 +692,13 @@ twenty-five through thirty-one, the narrow two-byte byte-interleaved middle
 layout with a sub-byte visible field, a sub-byte reserved field, `UInt8`, and
 a final sub-byte visible field, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
-two-byte, three-byte, four-byte, five-byte, six-byte, or seven-byte
+two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit are implemented under
-`../specification/execution.md`. The completed seven-byte split reserved
-layout slice is recorded in
-[Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md).
+`../specification/execution.md`. Completed split reserved layout slices are
+recorded in
+[Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md)
+and
+[Binary Schema Eight-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-eight-byte-split-reserved-layouts.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 
