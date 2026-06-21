@@ -566,828 +566,609 @@ fn decode_need_more_result_failure_diagnostic(
 }
 
 fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
-    let details = json_object(&failure.details)?;
-    let protocol_diagnostic = json_field(details, "protocol_diagnostic")?;
-    let protocol_entries = json_object(protocol_diagnostic)?;
-    let id = json_string(protocol_entries, "id")?;
-    let byte_offset = byte_offset_value(protocol_entries)?;
+    ProtocolDiagnosticContext::from_failure(failure)?.project()
+}
 
-    match id.as_str() {
-        "http2.protocol.closed_with_pending" => {
-            let pending_count = json_number(protocol_entries, "pending_count")?;
-            let active_continuation = json_string(protocol_entries, "active_continuation")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("input ended with pending bytes at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Input end arrived while {pending_count} byte(s) remained undecoded."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Active continuation state: {active_continuation}."
-            )));
-            Some(diagnostic)
+struct ProtocolDiagnosticContext<'a> {
+    source: &'a JsonValue,
+    entries: &'a [(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+}
+
+impl<'a> ProtocolDiagnosticContext<'a> {
+    fn from_failure(failure: &'a TestFailure) -> Option<Self> {
+        let details = json_object(&failure.details)?;
+        let source = json_field(details, "protocol_diagnostic")?;
+        let entries = json_object(source)?;
+        Some(Self {
+            source,
+            entries,
+            id: json_string(entries, "id")?,
+            byte_offset: byte_offset_value(entries)?,
+        })
+    }
+
+    fn project(&self) -> Option<Diagnostic> {
+        self.project_connection_rule()
+            .or_else(|| self.project_header_list_rule())
+            .or_else(|| self.project_stream_rule())
+            .or_else(|| self.project_peer_limit_rule())
+            .or_else(|| self.project_hpack_fixture_rule())
+    }
+
+    fn project_connection_rule(&self) -> Option<Diagnostic> {
+        self.project_connection_lifecycle_rule()
+            .or_else(|| self.project_frame_shape_rule())
+    }
+
+    fn project_connection_lifecycle_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.protocol.closed_with_pending" => {
+                let pending_count = self.number("pending_count")?;
+                let active_continuation = self.string("active_continuation")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "input ended with pending bytes at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Input end arrived while {pending_count} byte(s) remained undecoded."
+                )));
+                diagnostic.related.push(note_json(format!(
+                    "Active continuation state: {active_continuation}."
+                )));
+                Some(diagnostic)
+            }
+            "http2.protocol.partial_preface" => {
+                let pending_count = self.number("pending_count")?;
+                let expected_count = self.number("expected_count")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "input ended with partial client connection preface at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.invalid_preface" => {
+                let expected_byte = self.number("expected_byte")?;
+                let actual_byte = self.number("actual_byte")?;
+                let matched_count = self.number("matched_prefix_count")?;
+                let expected_count = self.number("expected_count")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid client connection preface at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.continuation_expected" => {
+                let actual_kind = self.number("actual_frame_kind")?;
+                let actual_stream = self.number("actual_stream_id")?;
+                let expected_stream = self.number("expected_stream_id")?;
+                let started_kind = self.number("started_frame_kind")?;
+                let started_offset = self.number("started_byte_offset")?;
+                let active_continuation = self.string("active_continuation")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "expected CONTINUATION frame at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
+                )));
+                diagnostic.related.push(note_json(format!(
+                    "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}."
+                )));
+                Some(diagnostic)
+            }
+            _ => None,
         }
-        "http2.protocol.partial_preface" => {
-            let pending_count = json_number(protocol_entries, "pending_count")?;
-            let expected_count = json_number(protocol_entries, "expected_count")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!(
-                    "input ended with partial client connection preface at byte offset {byte_offset}"
+    }
+
+    fn project_frame_shape_rule(&self) -> Option<Diagnostic> {
+        self.project_frame_identity_rule()
+            .or_else(|| self.project_frame_payload_rule())
+            .or_else(|| self.project_settings_ack_rule())
+    }
+
+    fn project_frame_identity_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.protocol.invalid_frame_kind" => {
+                let actual_kind = self.number("actual_frame_kind")?;
+                let expected_kind = self.number("expected_frame_kind")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid frame kind at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {actual_kind} on {} {} did not match expected frame kind {expected_kind}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.invalid_stream_id" => {
+                let frame_kind = self.number("frame_kind")?;
+                let required_domain = self.string("required_stream_id_domain")?;
+                let endpoint_role = self.string("endpoint_role")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid stream id at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} requires {required_domain} for {endpoint_role}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            _ => None,
+        }
+    }
+
+    fn project_frame_payload_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.protocol.invalid_payload_length" => {
+                let frame_kind = self.number("frame_kind")?;
+                let observed_length = self.number("observed_payload_length")?;
+                let expected_length = self.number("expected_payload_length")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid payload length at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); expected {expected_length} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.invalid_window_update_increment" => {
+                let frame_kind = self.number("frame_kind")?;
+                let observed_increment = self.number("observed_window_increment")?;
+                let accepted_min = self.number("accepted_min_window_increment")?;
+                let accepted_max = self.number("accepted_max_window_increment")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid WINDOW_UPDATE increment at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared WINDOW_UPDATE increment {observed_increment}; accepted range is {accepted_min}..{accepted_max}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.invalid_data_padding" => {
+                let frame_kind = self.number("frame_kind")?;
+                let pad_length = self.number("pad_length")?;
+                let remaining_payload_length = self.number("remaining_payload_length")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid DATA padding at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared pad length {pad_length} byte(s); remaining payload length is {remaining_payload_length} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            _ => None,
+        }
+    }
+
+    fn project_settings_ack_rule(&self) -> Option<Diagnostic> {
+        if self.id != "http2.protocol.unexpected_settings_ack" {
+            return None;
+        }
+        let frame_kind = self.number("frame_kind")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "unexpected SETTINGS ACK at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} acknowledged local SETTINGS, but no local SETTINGS batch is outstanding.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_header_list_rule(&self) -> Option<Diagnostic> {
+        let (header_kind, message) = match self.id.as_str() {
+            "http2.protocol.invalid_request_header_list" => (
+                "request",
+                protocol_header_list_message(
+                    "request",
+                    &self.string("failed_header_fact")?,
+                    &self.string("header_name")?,
+                    self.byte_offset,
                 ),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_preface" => {
-            let expected_byte = json_number(protocol_entries, "expected_byte")?;
-            let actual_byte = json_number(protocol_entries, "actual_byte")?;
-            let matched_count = json_number(protocol_entries, "matched_prefix_count")?;
-            let expected_count = json_number(protocol_entries, "expected_count")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid client connection preface at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.continuation_expected" => {
-            let actual_kind = json_number(protocol_entries, "actual_frame_kind")?;
-            let actual_stream = json_number(protocol_entries, "actual_stream_id")?;
-            let expected_stream = json_number(protocol_entries, "expected_stream_id")?;
-            let started_kind = json_number(protocol_entries, "started_frame_kind")?;
-            let started_offset = json_number(protocol_entries, "started_byte_offset")?;
-            let active_continuation = json_string(protocol_entries, "active_continuation")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("expected CONTINUATION frame at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}."
-            )));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_frame_kind" => {
-            let actual_kind = json_number(protocol_entries, "actual_frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let expected_kind = json_number(protocol_entries, "expected_frame_kind")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid frame kind at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {actual_kind} on {stream_ref} {stream_id} did not match expected frame kind {expected_kind}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_stream_id" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let required_domain = json_string(protocol_entries, "required_stream_id_domain")?;
-            let endpoint_role = json_string(protocol_entries, "endpoint_role")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid stream id at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} requires {required_domain} for {endpoint_role}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_payload_length" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
-            let expected_length = json_number(protocol_entries, "expected_payload_length")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid payload length at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); expected {expected_length} byte(s)."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_window_update_increment" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let observed_increment = json_number(protocol_entries, "observed_window_increment")?;
-            let accepted_min = json_number(protocol_entries, "accepted_min_window_increment")?;
-            let accepted_max = json_number(protocol_entries, "accepted_max_window_increment")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid WINDOW_UPDATE increment at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared WINDOW_UPDATE increment {observed_increment}; accepted range is {accepted_min}..{accepted_max}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_data_padding" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let pad_length = json_number(protocol_entries, "pad_length")?;
-            let remaining_payload_length =
-                json_number(protocol_entries, "remaining_payload_length")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid DATA padding at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared pad length {pad_length} byte(s); remaining payload length is {remaining_payload_length} byte(s)."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.unexpected_settings_ack" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("unexpected SETTINGS ACK at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} acknowledged local SETTINGS, but no local SETTINGS batch is outstanding."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_request_header_list" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let failed_fact = json_string(protocol_entries, "failed_header_fact")?;
-            let header_name = json_string(protocol_entries, "header_name")?;
-            let decoded_header_names = json_string(protocol_entries, "decoded_header_names")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let message = match failed_fact.as_str() {
-                "missing_required_pseudo_header" => {
-                    format!(
-                        "request header list is missing {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "response_only_pseudo_header" => {
-                    format!(
-                        "request header list contains response-only {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "duplicate_pseudo_header" => {
-                    format!(
-                        "request header list contains duplicate {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "pseudo_header_after_regular_header" => {
-                    format!(
-                        "request header list places {header_name} after a regular header at byte offset {byte_offset}"
-                    )
-                }
-                "ordinary_header_name_not_lowercase" => {
-                    format!(
-                        "request header list contains uppercase ordinary header {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "ordinary_header_name_invalid_token" => {
-                    format!(
-                        "request header list contains invalid ordinary header name {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "connection_specific_header" => {
-                    format!(
-                        "request header list contains connection-specific header {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "te_header_value_not_trailers" => {
-                    format!(
-                        "request header list contains te value other than trailers at byte offset {byte_offset}"
-                    )
-                }
-                "scheme_value_not_http_or_https" => {
-                    format!(
-                        "request header list contains :scheme value other than http or https at byte offset {byte_offset}"
-                    )
-                }
-                "content_length_invalid" => {
-                    format!(
-                        "request header list contains invalid content-length at byte offset {byte_offset}"
-                    )
-                }
-                "content_length_mismatch" => {
-                    format!(
-                        "request header list contains mismatched content-length values at byte offset {byte_offset}"
-                    )
-                }
-                _ => format!("invalid request header list at byte offset {byte_offset}"),
-            };
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                message,
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} decoded request header names: {decoded_header_names}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_response_header_list" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let failed_fact = json_string(protocol_entries, "failed_header_fact")?;
-            let header_name = json_string(protocol_entries, "header_name")?;
-            let decoded_header_names = json_string(protocol_entries, "decoded_header_names")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let message = match failed_fact.as_str() {
-                "missing_required_pseudo_header" => {
-                    format!(
-                        "response header list is missing {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "request_only_pseudo_header" => {
-                    format!(
-                        "response header list contains request-only {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "duplicate_pseudo_header" => {
-                    format!(
-                        "response header list contains duplicate {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "pseudo_header_after_regular_header" => {
-                    format!(
-                        "response header list places {header_name} after a regular header at byte offset {byte_offset}"
-                    )
-                }
-                "ordinary_header_name_not_lowercase" => {
-                    format!(
-                        "response header list contains uppercase ordinary header {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "ordinary_header_name_invalid_token" => {
-                    format!(
-                        "response header list contains invalid ordinary header name {header_name} at byte offset {byte_offset}"
-                    )
-                }
-                "te_header_value_not_trailers" => {
-                    format!(
-                        "response header list contains te value other than trailers at byte offset {byte_offset}"
-                    )
-                }
-                "content_length_invalid" => {
-                    format!(
-                        "response header list contains invalid content-length at byte offset {byte_offset}"
-                    )
-                }
-                "content_length_mismatch" => {
-                    format!(
-                        "response header list contains mismatched content-length values at byte offset {byte_offset}"
-                    )
-                }
-                _ => format!("invalid response header list at byte offset {byte_offset}"),
-            };
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                message,
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} decoded response header names: {decoded_header_names}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.invalid_priority_dependency" => {
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let dependency_stream_id = json_number(protocol_entries, "dependency_stream_id")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("invalid PRIORITY dependency at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared itself as dependency stream {dependency_stream_id}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.protocol.stream_after_goaway" => {
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let last_stream_id = json_number(protocol_entries, "last_stream_id")?;
-            let shutdown_state = json_string(protocol_entries, "shutdown_state")?;
-            let endpoint_role = json_string(protocol_entries, "endpoint_role")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("stream opened after graceful shutdown at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Peer opened {stream_ref} {stream_id}; graceful shutdown recorded last stream id {last_stream_id}."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Active shutdown state: {shutdown_state}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Endpoint role: {endpoint_role}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
-        }
-        "http2.peer_limit.frame_size_exceeded" => {
-            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
-            let allowed_length = json_number(protocol_entries, "allowed_max_frame_size")?;
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let provenance = json_string(protocol_entries, "receive_limit_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!(
-                    "frame payload length exceeds receive maximum at byte offset {byte_offset}"
+            ),
+            "http2.protocol.invalid_response_header_list" => (
+                "response",
+                protocol_header_list_message(
+                    "response",
+                    &self.string("failed_header_fact")?,
+                    &self.string("header_name")?,
+                    self.byte_offset,
                 ),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); active receive maximum is {allowed_length} byte(s)."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Receive limit provenance: {provenance}."
-            )));
-            Some(diagnostic)
+            ),
+            _ => return None,
+        };
+        let frame_kind = self.number("frame_kind")?;
+        let decoded_header_names = self.string("decoded_header_names")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(message);
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} decoded {header_kind} header names: {decoded_header_names}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_stream_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.protocol.invalid_priority_dependency" => {
+                let frame_kind = self.number("frame_kind")?;
+                let dependency_stream_id = self.number("dependency_stream_id")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "invalid PRIORITY dependency at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared itself as dependency stream {dependency_stream_id}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.protocol.stream_after_goaway" => {
+                let frame = self.frame_ref()?;
+                let last_stream_id = self.number("last_stream_id")?;
+                let shutdown_state = self.string("shutdown_state")?;
+                let endpoint_role = self.string("endpoint_role")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "stream opened after graceful shutdown at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Peer opened {} {}; graceful shutdown recorded last stream id {last_stream_id}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                diagnostic.related.push(note_json(format!(
+                    "Active shutdown state: {shutdown_state}."
+                )));
+                diagnostic
+                    .related
+                    .push(note_json(format!("Endpoint role: {endpoint_role}.")));
+                self.push_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            _ => None,
         }
-        "http2.peer_limit.header_list_size_exceeded" => {
-            let observed_size = json_number(protocol_entries, "observed_header_list_size")?;
-            let allowed_size = json_number(protocol_entries, "allowed_header_list_size")?;
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let limit_provenance = json_string(protocol_entries, "receive_limit_provenance")?;
-            let rule_provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("header list size exceeds receive maximum at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} decoded header list size {observed_size}; active receive maximum is {allowed_size}."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Receive limit provenance: {limit_provenance}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            Some(diagnostic)
+    }
+
+    fn project_peer_limit_rule(&self) -> Option<Diagnostic> {
+        self.project_peer_size_limit_rule()
+            .or_else(|| self.project_peer_flow_limit_rule())
+            .or_else(|| self.project_peer_settings_limit_rule())
+    }
+
+    fn project_peer_size_limit_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.peer_limit.frame_size_exceeded" => {
+                let observed_length = self.number("observed_payload_length")?;
+                let allowed_length = self.number("allowed_max_frame_size")?;
+                let frame_kind = self.number("frame_kind")?;
+                let frame = self.frame_ref()?;
+                let provenance = self.string("receive_limit_provenance")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "frame payload length exceeds receive maximum at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); active receive maximum is {allowed_length} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                diagnostic.related.push(note_json(format!(
+                    "Receive limit provenance: {provenance}."
+                )));
+                Some(diagnostic)
+            }
+            "http2.peer_limit.header_list_size_exceeded" => self.project_size_limit_rule(
+                "observed_header_list_size",
+                "allowed_header_list_size",
+                "header list size exceeds receive maximum",
+                "decoded header list size",
+            ),
+            "http2.peer_limit.header_table_size_exceeded" => self.project_size_limit_rule(
+                "observed_header_table_size",
+                "allowed_header_table_size",
+                "header table size exceeds receive maximum",
+                "requested HPACK header table size",
+            ),
+            _ => None,
         }
-        "http2.peer_limit.header_table_size_exceeded" => {
-            let observed_size = json_number(protocol_entries, "observed_header_table_size")?;
-            let allowed_size = json_number(protocol_entries, "allowed_header_table_size")?;
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let limit_provenance = json_string(protocol_entries, "receive_limit_provenance")?;
-            let rule_provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("header table size exceeds receive maximum at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} requested HPACK header table size {observed_size}; active receive maximum is {allowed_size}."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Receive limit provenance: {limit_provenance}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            Some(diagnostic)
+    }
+
+    fn project_peer_flow_limit_rule(&self) -> Option<Diagnostic> {
+        match self.id.as_str() {
+            "http2.peer_limit.flow_control_window_exceeded" => {
+                let observed_length = self.number("observed_payload_length")?;
+                let allowed_credit = self.number("allowed_window_credit")?;
+                let frame_kind = self.number("frame_kind")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "flow-control window exceeded at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
+            "http2.peer_limit.concurrent_streams_exceeded" => {
+                let frame = self.frame_ref()?;
+                let attempted_count = self.number("attempted_concurrent_stream_count")?;
+                let allowed_count = self.number("allowed_concurrent_stream_count")?;
+                let limit_provenance = self.string("receive_limit_provenance")?;
+                let rule_provenance = self.string("rule_provenance")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "concurrent stream receive limit exceeded at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Opening {} {} would make {attempted_count} concurrent peer-created stream(s); active receive limit is {allowed_count}.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_active_state(&mut diagnostic)?;
+                diagnostic.related.push(note_json(format!(
+                    "Receive limit provenance: {limit_provenance}."
+                )));
+                diagnostic
+                    .related
+                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+                Some(diagnostic)
+            }
+            _ => None,
         }
-        "http2.peer_limit.flow_control_window_exceeded" => {
-            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
-            let allowed_credit = json_number(protocol_entries, "allowed_window_credit")?;
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("flow-control window exceeded at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s)."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {provenance}.")));
-            Some(diagnostic)
+    }
+
+    fn project_peer_settings_limit_rule(&self) -> Option<Diagnostic> {
+        if self.id != "http2.peer_limit.settings_value_out_of_range" {
+            return None;
         }
-        "http2.peer_limit.concurrent_streams_exceeded" => {
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let attempted_count =
-                json_number(protocol_entries, "attempted_concurrent_stream_count")?;
-            let allowed_count = json_number(protocol_entries, "allowed_concurrent_stream_count")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let limit_provenance = json_string(protocol_entries, "receive_limit_provenance")?;
-            let rule_provenance = json_string(protocol_entries, "rule_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("concurrent stream receive limit exceeded at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Opening {stream_ref} {stream_id} would make {attempted_count} concurrent peer-created stream(s); active receive limit is {allowed_count}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Active protocol state: {active_state}.")));
-            diagnostic.related.push(note_json(format!(
-                "Receive limit provenance: {limit_provenance}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-            Some(diagnostic)
+        let setting_identifier = self.number("setting_identifier")?;
+        let setting_name = self.string("setting_name")?;
+        let observed_value = self.number("observed_value")?;
+        let accepted_min_value = self.number("accepted_min_value")?;
+        let accepted_max_value = self.number("accepted_max_value")?;
+        let provenance = self.string("peer_limit_provenance")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "SETTINGS value outside accepted range at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "{setting_name} ({setting_identifier}) declared {observed_value}; accepted range is {accepted_min_value}..{accepted_max_value}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Peer limit provenance: {provenance}.")));
+        Some(diagnostic)
+    }
+
+    fn project_size_limit_rule(
+        &self,
+        observed_key: &str,
+        allowed_key: &str,
+        message: &str,
+        observed_label: &str,
+    ) -> Option<Diagnostic> {
+        let observed_size = self.number(observed_key)?;
+        let allowed_size = self.number(allowed_key)?;
+        let frame_kind = self.number("frame_kind")?;
+        let frame = self.frame_ref()?;
+        let limit_provenance = self.string("receive_limit_provenance")?;
+        let rule_provenance = self.string("rule_provenance")?;
+        let mut diagnostic =
+            self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} {observed_label} {observed_size}; active receive maximum is {allowed_size}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        diagnostic.related.push(note_json(format!(
+            "Receive limit provenance: {limit_provenance}."
+        )));
+        diagnostic
+            .related
+            .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        Some(diagnostic)
+    }
+
+    fn project_hpack_fixture_rule(&self) -> Option<Diagnostic> {
+        let message = match self.id.as_str() {
+            "hpack.fixture.unsupported_header_block" => "unsupported HPACK fixture header block",
+            "hpack.fixture.malformed_string_length" => "malformed HPACK string length",
+            "hpack.fixture.malformed_raw_string_value" => "malformed HPACK raw string value",
+            "hpack.fixture.malformed_huffman_padding" => "malformed HPACK Huffman padding",
+            "hpack.fixture.huffman_eos_symbol" => "HPACK Huffman EOS used as decoded symbol",
+            "hpack.fixture.huffman_non_visible_value" => {
+                "HPACK Huffman decoded non-visible header value"
+            }
+            "hpack.fixture.table_size_update_not_at_start" => {
+                return self.project_hpack_table_size_update_rule();
+            }
+            _ => return None,
+        };
+        self.project_hpack_fixture_message(message)
+    }
+
+    fn project_hpack_fixture_message(&self, message: &str) -> Option<Diagnostic> {
+        let observed_size = self.number("observed_header_block_size")?;
+        let observed_first_byte = self.number("observed_first_byte")?;
+        let expected_fixture = self.string("expected_fixture")?;
+        let codec_module = self.string("codec_module")?;
+        let mut diagnostic =
+            self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
+        diagnostic.related.push(note_json(format!(
+            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Expected {expected_fixture}.")));
+        Some(diagnostic)
+    }
+
+    fn project_hpack_table_size_update_rule(&self) -> Option<Diagnostic> {
+        let observed_size = self.number("observed_header_block_size")?;
+        let observed_first_byte = self.number("observed_first_byte")?;
+        let observed_update_size = self.number("observed_header_table_size")?;
+        let frame_kind = self.number("frame_kind")?;
+        let frame = self.frame_ref()?;
+        let active_state = self.string("active_state")?;
+        let expected_fixture = self.string("expected_fixture")?;
+        let codec_module = self.string("codec_module")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "HPACK table-size update appears after a header field at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} requested HPACK header table size {observed_update_size} after a decoded header field.",
+            frame.stream_ref, frame.stream_id
+        )));
+        diagnostic.related.push(note_json(format!(
+            "HPACK fixture codec `{codec_module}` observed header block size {observed_size}, first byte {observed_first_byte}, and active state {active_state}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Expected {expected_fixture}.")));
+        Some(diagnostic)
+    }
+
+    fn diagnostic(&self, message: String) -> Diagnostic {
+        Diagnostic::new(
+            self.id.clone(),
+            Severity::Error,
+            DiagnosticKind::Runtime,
+            message,
+            None,
+            self.source.clone(),
+        )
+    }
+
+    fn frame_ref(&self) -> Option<ProtocolFrameRef> {
+        Some(ProtocolFrameRef {
+            stream_id: self.number("stream_id")?,
+            stream_ref: self.string("stream_ref")?,
+        })
+    }
+
+    fn number(&self, key: &str) -> Option<i64> {
+        json_number(self.entries, key)
+    }
+
+    fn string(&self, key: &str) -> Option<String> {
+        json_string(self.entries, key)
+    }
+
+    fn push_preview_state_and_provenance(&self, diagnostic: &mut Diagnostic) -> Option<()> {
+        push_byte_preview_note(diagnostic, self.entries);
+        self.push_state_and_provenance(diagnostic)
+    }
+
+    fn push_state_and_provenance(&self, diagnostic: &mut Diagnostic) -> Option<()> {
+        self.push_active_state(diagnostic)?;
+        self.push_rule_provenance(diagnostic)
+    }
+
+    fn push_active_state(&self, diagnostic: &mut Diagnostic) -> Option<()> {
+        diagnostic.related.push(note_json(format!(
+            "Active protocol state: {}.",
+            self.string("active_state")?
+        )));
+        Some(())
+    }
+
+    fn push_rule_provenance(&self, diagnostic: &mut Diagnostic) -> Option<()> {
+        diagnostic.related.push(note_json(format!(
+            "Rule provenance: {}.",
+            self.string("rule_provenance")?
+        )));
+        Some(())
+    }
+}
+
+struct ProtocolFrameRef {
+    stream_id: i64,
+    stream_ref: String,
+}
+
+fn protocol_header_list_message(
+    header_kind: &str,
+    failed_fact: &str,
+    header_name: &str,
+    byte_offset: i64,
+) -> String {
+    let subject = format!("{header_kind} header list");
+    match failed_fact {
+        "missing_required_pseudo_header" => {
+            format!("{subject} is missing {header_name} at byte offset {byte_offset}")
         }
-        "http2.peer_limit.settings_value_out_of_range" => {
-            let setting_identifier = json_number(protocol_entries, "setting_identifier")?;
-            let setting_name = json_string(protocol_entries, "setting_name")?;
-            let observed_value = json_number(protocol_entries, "observed_value")?;
-            let accepted_min_value = json_number(protocol_entries, "accepted_min_value")?;
-            let accepted_max_value = json_number(protocol_entries, "accepted_max_value")?;
-            let provenance = json_string(protocol_entries, "peer_limit_provenance")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("SETTINGS value outside accepted range at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "{setting_name} ({setting_identifier}) declared {observed_value}; accepted range is {accepted_min_value}..{accepted_max_value}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Peer limit provenance: {provenance}.")));
-            Some(diagnostic)
+        "response_only_pseudo_header" => {
+            format!("{subject} contains response-only {header_name} at byte offset {byte_offset}")
         }
-        "hpack.fixture.unsupported_header_block" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("unsupported HPACK fixture header block at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
+        "request_only_pseudo_header" => {
+            format!("{subject} contains request-only {header_name} at byte offset {byte_offset}")
         }
-        "hpack.fixture.malformed_string_length" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("malformed HPACK string length at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
+        "duplicate_pseudo_header" => {
+            format!("{subject} contains duplicate {header_name} at byte offset {byte_offset}")
         }
-        "hpack.fixture.malformed_raw_string_value" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("malformed HPACK raw string value at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
+        "pseudo_header_after_regular_header" => format!(
+            "{subject} places {header_name} after a regular header at byte offset {byte_offset}"
+        ),
+        "ordinary_header_name_not_lowercase" => format!(
+            "{subject} contains uppercase ordinary header {header_name} at byte offset {byte_offset}"
+        ),
+        "ordinary_header_name_invalid_token" => format!(
+            "{subject} contains invalid ordinary header name {header_name} at byte offset {byte_offset}"
+        ),
+        "connection_specific_header" => format!(
+            "{subject} contains connection-specific header {header_name} at byte offset {byte_offset}"
+        ),
+        "te_header_value_not_trailers" => {
+            format!("{subject} contains te value other than trailers at byte offset {byte_offset}")
         }
-        "hpack.fixture.malformed_huffman_padding" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("malformed HPACK Huffman padding at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
+        "scheme_value_not_http_or_https" => format!(
+            "{subject} contains :scheme value other than http or https at byte offset {byte_offset}"
+        ),
+        "content_length_invalid" => {
+            format!("{subject} contains invalid content-length at byte offset {byte_offset}")
         }
-        "hpack.fixture.huffman_eos_symbol" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("HPACK Huffman EOS used as decoded symbol at byte offset {byte_offset}"),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
-        }
-        "hpack.fixture.huffman_non_visible_value" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!(
-                    "HPACK Huffman decoded non-visible header value at byte offset {byte_offset}"
-                ),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
-        }
-        "hpack.fixture.table_size_update_not_at_start" => {
-            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
-            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
-            let observed_update_size = json_number(protocol_entries, "observed_header_table_size")?;
-            let frame_kind = json_number(protocol_entries, "frame_kind")?;
-            let stream_id = json_number(protocol_entries, "stream_id")?;
-            let stream_ref = json_string(protocol_entries, "stream_ref")?;
-            let active_state = json_string(protocol_entries, "active_state")?;
-            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
-            let codec_module = json_string(protocol_entries, "codec_module")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!(
-                    "HPACK table-size update appears after a header field at byte offset {byte_offset}"
-                ),
-                None,
-                protocol_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Frame kind {frame_kind} on {stream_ref} {stream_id} requested HPACK header table size {observed_update_size} after a decoded header field."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size}, first byte {observed_first_byte}, and active state {active_state}."
-            )));
-            push_byte_preview_note(&mut diagnostic, protocol_entries);
-            diagnostic
-                .related
-                .push(note_json(format!("Expected {expected_fixture}.")));
-            Some(diagnostic)
-        }
-        _ => None,
+        "content_length_mismatch" => format!(
+            "{subject} contains mismatched content-length values at byte offset {byte_offset}"
+        ),
+        _ => format!("invalid {subject} at byte offset {byte_offset}"),
     }
 }
 
