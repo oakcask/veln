@@ -108,9 +108,10 @@ unsigned primitive names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
 `UInt64be`, and `UInt64le`; those names are schema-local representation
 vocabulary, not ordinary source types or values. Binary schema fields also
 accept `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`,
-`Flag32le`, `Flag48be`, `Flag48le`, `Flag64be`, and `Flag64le` as visible
-flag bitset fields that decode and encode through source-visible flag values
-instead of raw `Int` fields.
+`Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`,
+`Flag56le`, `Flag64be`, and `Flag64le` as visible flag bitset fields that
+decode and encode through source-visible flag values instead of raw `Int`
+fields.
 Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as

@@ -1,0 +1,6 @@
+# Flag40be helper functions reject indexes outside the five-byte bit range.
+
+pub fn main() -> Result<(), String>
+	let ignored: Bool = flag40be_is_set(Flag40be(0), 40)?
+	Ok(())
+end

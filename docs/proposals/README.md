@@ -86,8 +86,10 @@ compare it with `../specification/` before changing behavior.
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
   two-byte little-endian, `Flag24be` three-byte big-endian, `Flag24le`
   three-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`
-  four-byte little-endian, `Flag48be` six-byte big-endian, `Flag48le`
-  six-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
+  four-byte little-endian, `Flag40be` five-byte big-endian, `Flag40le`
+  five-byte little-endian, `Flag48be` six-byte big-endian, `Flag48le`
+  six-byte little-endian, `Flag56be` seven-byte big-endian, `Flag56le`
+  seven-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
   structural mapping decode, projectable mapped-record encode, same-module
@@ -135,6 +137,9 @@ compare it with `../specification/` before changing behavior.
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
+  The completed `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` flag
+  bitset slice is archived under
+  [Binary Schema Flag40 And Flag56 Bitsets](../reference/implemented-proposals/binary-schema-flag40-and-flag56-bitsets.md).
   The completed `Flag48be` and `Flag48le` flag bitset slice is archived under
   [Binary Schema Flag48 Bitsets](../reference/implemented-proposals/binary-schema-flag48-bitsets.md).
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`

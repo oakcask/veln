@@ -68,6 +68,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
+- Binary schema `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` bitsets:
+  [binary-schema-flag40-and-flag56-bitsets.md](binary-schema-flag40-and-flag56-bitsets.md).
 - Binary schema `Flag48be` and `Flag48le` bitsets:
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
 - Binary schema reserved-byte-prefix encode:

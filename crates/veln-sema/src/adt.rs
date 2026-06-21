@@ -606,6 +606,42 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "Flag40be".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag40be".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag40be(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag40be".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "Flag40le".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag40le".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag40le(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag40le".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "Flag48be".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
@@ -638,6 +674,42 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                 visibility: Visibility::Public,
             }],
             diagnostic_name: "flag48le".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "Flag56be".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag56be".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag56be(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag56be".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "Flag56le".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "Flag56le".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![AdtPayloadField {
+                    name: "bits".to_string(),
+                    ty: AdtPayloadType::Concrete(Type::int()),
+                }],
+                coverage_case: "Flag56le(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "flag56le".to_string(),
             propagation: None,
             visibility: Visibility::Public,
         },
@@ -1128,8 +1200,12 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
                 | "Flag24le"
                 | "Flag32be"
                 | "Flag32le"
+                | "Flag40be"
+                | "Flag40le"
                 | "Flag48be"
                 | "Flag48le"
+                | "Flag56be"
+                | "Flag56le"
                 | "Flag64be"
                 | "Flag64le"
                 | "DecodeError"
