@@ -7,17 +7,21 @@ use veln_ir::{
     IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaRepeat, IrSchemaReservedBits,
 };
 
+use crate::schema::mapping::{
+    SchemaDecodeMapping, SchemaDecodeMappingExpr, SchemaDecodeMappingField,
+    SchemaDecodeMappingSelector, SchemaMappingSelectorComparison, schema_decode_mapping_fields,
+    schema_decode_mappings,
+};
 use crate::types::{
-    SchemaDecodeMappingExpr, SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
-    SchemaMappingSelectorComparison, SchemaRepeatPayload, SchemaRepeatSpec, Type,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
-    recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_length_expression_references, schema_recursive_dispatch_payload_type,
-    selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
+    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    SchemaRepeatSpec, Type, byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    exact_width_schema_primitive, exact_width_schema_primitive_little_endian,
+    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
+    flag_schema_primitive, recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
+    schema_dispatch_payload_schema, schema_length_expression_references,
+    schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
+    supported_encode_reserved_bits,
 };
 
 pub(crate) fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
@@ -255,9 +259,7 @@ fn ir_schema_dispatch_field(
     ))
 }
 
-fn ir_schema_mapping_field(
-    field: crate::types::SchemaDecodeMappingField,
-) -> IrSchemaDecodeMappingField {
+fn ir_schema_mapping_field(field: SchemaDecodeMappingField) -> IrSchemaDecodeMappingField {
     IrSchemaDecodeMappingField {
         target: field.target,
         source: field.source,
@@ -294,9 +296,7 @@ fn ir_schema_mapping_alternatives(
         .collect()
 }
 
-fn ir_schema_mapping_alternative(
-    mapping: crate::types::SchemaDecodeMapping,
-) -> IrSchemaDecodeMapping {
+fn ir_schema_mapping_alternative(mapping: SchemaDecodeMapping) -> IrSchemaDecodeMapping {
     IrSchemaDecodeMapping {
         selector: mapping.selector.map(ir_schema_mapping_selector),
         fields: mapping
@@ -308,7 +308,7 @@ fn ir_schema_mapping_alternative(
 }
 
 fn ir_schema_mapping_selector(
-    selector: crate::types::SchemaDecodeMappingSelector,
+    selector: SchemaDecodeMappingSelector,
 ) -> IrSchemaDecodeMappingSelector {
     let simple = selector
         .predicate
