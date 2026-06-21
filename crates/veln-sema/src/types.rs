@@ -1831,7 +1831,8 @@ fn is_type_flag_bitset(ty: &Type) -> bool {
             if matches!(
                 name.as_str(),
                 "Flag8" | "Flag16be" | "Flag16le" | "Flag24be" | "Flag24le"
-                    | "Flag32be" | "Flag32le" | "Flag48be" | "Flag48le"
+                    | "Flag32be" | "Flag32le" | "Flag40be" | "Flag40le"
+                    | "Flag48be" | "Flag48le" | "Flag56be" | "Flag56le"
                     | "Flag64be" | "Flag64le"
             )
                 && args.is_empty()
@@ -3755,7 +3756,9 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         "Flag16be" | "Flag16le" => Some(2),
         "Flag24be" | "Flag24le" => Some(3),
         "Flag32be" | "Flag32le" => Some(4),
+        "Flag40be" | "Flag40le" => Some(5),
         "Flag48be" | "Flag48le" => Some(6),
+        "Flag56be" | "Flag56le" => Some(7),
         "Flag64be" | "Flag64le" => Some(8),
         "UInt16be" | "UInt16le" => Some(2),
         "UInt24be" | "UInt24le" => Some(3),
@@ -3778,9 +3781,11 @@ pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
             | "UInt31le"
             | "UInt32le"
             | "UInt40le"
+            | "Flag40le"
             | "Flag48le"
             | "UInt48le"
             | "UInt56le"
+            | "Flag56le"
             | "Flag32le"
             | "UInt64le"
             | "Flag64le"
@@ -3796,8 +3801,12 @@ pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
         "Flag24le" => Some("Flag24le"),
         "Flag32be" => Some("Flag32be"),
         "Flag32le" => Some("Flag32le"),
+        "Flag40be" => Some("Flag40be"),
+        "Flag40le" => Some("Flag40le"),
         "Flag48be" => Some("Flag48be"),
         "Flag48le" => Some("Flag48le"),
+        "Flag56be" => Some("Flag56be"),
+        "Flag56le" => Some("Flag56le"),
         "Flag64be" => Some("Flag64be"),
         "Flag64le" => Some("Flag64le"),
         _ => None,
@@ -3817,7 +3826,9 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "Flag16be" | "Flag16le" => Some(16),
         "Flag24be" | "Flag24le" => Some(24),
         "Flag32be" | "Flag32le" => Some(32),
+        "Flag40be" | "Flag40le" => Some(40),
         "Flag48be" | "Flag48le" => Some(48),
+        "Flag56be" | "Flag56le" => Some(56),
         "Flag64be" | "Flag64le" => Some(64),
         "UInt16be" | "UInt16le" => Some(16),
         "UInt24be" | "UInt24le" => Some(24),
@@ -3844,7 +3855,9 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "Flag16be" | "Flag16le" => Some(0xffff),
         "Flag24be" | "Flag24le" => Some(0xffffff),
         "Flag32be" | "Flag32le" => Some(0xffffffff),
+        "Flag40be" | "Flag40le" => Some(0xffffffffff),
         "Flag48be" | "Flag48le" => Some(0xffffffffffff),
+        "Flag56be" | "Flag56le" => Some(0xffffffffffffff),
         "Flag64be" | "Flag64le" => Some(i64::MAX),
         "UInt16be" | "UInt16le" => Some(0xffff),
         "UInt24be" | "UInt24le" => Some(0xffffff),

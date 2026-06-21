@@ -30,12 +30,28 @@ pub type Flag32le
 	Flag32le(bits: Int)
 end
 
+pub type Flag40be
+	Flag40be(bits: Int)
+end
+
+pub type Flag40le
+	Flag40le(bits: Int)
+end
+
 pub type Flag48be
 	Flag48be(bits: Int)
 end
 
 pub type Flag48le
 	Flag48le(bits: Int)
+end
+
+pub type Flag56be
+	Flag56be(bits: Int)
+end
+
+pub type Flag56le
+	Flag56le(bits: Int)
 end
 
 pub type Flag64be
@@ -158,6 +174,38 @@ pub fn flag32le_from_bits(bits: Int) -> Result<Flag32le, String>
 	prelude_builtin::flag32le_from_bits(bits)
 end
 
+pub fn flag40be_is_set(flags: Flag40be, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag40be_is_set(flags, index)
+end
+
+pub fn flag40be_set(flags: Flag40be, index: Int) -> Result<Flag40be, String>
+	prelude_builtin::flag40be_set(flags, index)
+end
+
+pub fn flag40be_bits(flags: Flag40be) -> Int
+	prelude_builtin::flag40be_bits(flags)
+end
+
+pub fn flag40be_from_bits(bits: Int) -> Result<Flag40be, String>
+	prelude_builtin::flag40be_from_bits(bits)
+end
+
+pub fn flag40le_is_set(flags: Flag40le, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag40le_is_set(flags, index)
+end
+
+pub fn flag40le_set(flags: Flag40le, index: Int) -> Result<Flag40le, String>
+	prelude_builtin::flag40le_set(flags, index)
+end
+
+pub fn flag40le_bits(flags: Flag40le) -> Int
+	prelude_builtin::flag40le_bits(flags)
+end
+
+pub fn flag40le_from_bits(bits: Int) -> Result<Flag40le, String>
+	prelude_builtin::flag40le_from_bits(bits)
+end
+
 pub fn flag48be_is_set(flags: Flag48be, index: Int) -> Result<Bool, String>
 	prelude_builtin::flag48be_is_set(flags, index)
 end
@@ -188,6 +236,38 @@ end
 
 pub fn flag48le_from_bits(bits: Int) -> Result<Flag48le, String>
 	prelude_builtin::flag48le_from_bits(bits)
+end
+
+pub fn flag56be_is_set(flags: Flag56be, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag56be_is_set(flags, index)
+end
+
+pub fn flag56be_set(flags: Flag56be, index: Int) -> Result<Flag56be, String>
+	prelude_builtin::flag56be_set(flags, index)
+end
+
+pub fn flag56be_bits(flags: Flag56be) -> Int
+	prelude_builtin::flag56be_bits(flags)
+end
+
+pub fn flag56be_from_bits(bits: Int) -> Result<Flag56be, String>
+	prelude_builtin::flag56be_from_bits(bits)
+end
+
+pub fn flag56le_is_set(flags: Flag56le, index: Int) -> Result<Bool, String>
+	prelude_builtin::flag56le_is_set(flags, index)
+end
+
+pub fn flag56le_set(flags: Flag56le, index: Int) -> Result<Flag56le, String>
+	prelude_builtin::flag56le_set(flags, index)
+end
+
+pub fn flag56le_bits(flags: Flag56le) -> Int
+	prelude_builtin::flag56le_bits(flags)
+end
+
+pub fn flag56le_from_bits(bits: Int) -> Result<Flag56le, String>
+	prelude_builtin::flag56le_from_bits(bits)
 end
 
 pub fn flag64be_is_set(flags: Flag64be, index: Int) -> Result<Bool, String>

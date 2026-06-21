@@ -716,6 +716,14 @@ flag32le_is_set(flags: Flag32le, index: Int) -> Result<Bool, String>
 flag32le_set(flags: Flag32le, index: Int) -> Result<Flag32le, String>
 flag32le_bits(flags: Flag32le) -> Int
 flag32le_from_bits(bits: Int) -> Result<Flag32le, String>
+flag40be_is_set(flags: Flag40be, index: Int) -> Result<Bool, String>
+flag40be_set(flags: Flag40be, index: Int) -> Result<Flag40be, String>
+flag40be_bits(flags: Flag40be) -> Int
+flag40be_from_bits(bits: Int) -> Result<Flag40be, String>
+flag40le_is_set(flags: Flag40le, index: Int) -> Result<Bool, String>
+flag40le_set(flags: Flag40le, index: Int) -> Result<Flag40le, String>
+flag40le_bits(flags: Flag40le) -> Int
+flag40le_from_bits(bits: Int) -> Result<Flag40le, String>
 flag48be_is_set(flags: Flag48be, index: Int) -> Result<Bool, String>
 flag48be_set(flags: Flag48be, index: Int) -> Result<Flag48be, String>
 flag48be_bits(flags: Flag48be) -> Int
@@ -724,6 +732,14 @@ flag48le_is_set(flags: Flag48le, index: Int) -> Result<Bool, String>
 flag48le_set(flags: Flag48le, index: Int) -> Result<Flag48le, String>
 flag48le_bits(flags: Flag48le) -> Int
 flag48le_from_bits(bits: Int) -> Result<Flag48le, String>
+flag56be_is_set(flags: Flag56be, index: Int) -> Result<Bool, String>
+flag56be_set(flags: Flag56be, index: Int) -> Result<Flag56be, String>
+flag56be_bits(flags: Flag56be) -> Int
+flag56be_from_bits(bits: Int) -> Result<Flag56be, String>
+flag56le_is_set(flags: Flag56le, index: Int) -> Result<Bool, String>
+flag56le_set(flags: Flag56le, index: Int) -> Result<Flag56le, String>
+flag56le_bits(flags: Flag56le) -> Int
+flag56le_from_bits(bits: Int) -> Result<Flag56le, String>
 flag64be_is_set(flags: Flag64be, index: Int) -> Result<Bool, String>
 flag64be_set(flags: Flag64be, index: Int) -> Result<Flag64be, String>
 flag64be_bits(flags: Flag64be) -> Int
@@ -876,23 +892,32 @@ through `23`; `flag24le_is_set` and `flag24le_set` read and set `Flag24le`
 bit indexes `0` through `23`; `flag32be_is_set` and `flag32be_set` read and
 set `Flag32be` bit indexes `0` through `31`; `flag32le_is_set` and
 `flag32le_set` read and set `Flag32le` bit indexes `0` through `31`;
+`flag40be_is_set` and `flag40be_set` read and set `Flag40be` bit indexes `0`
+through `39`; `flag40le_is_set` and `flag40le_set` read and set `Flag40le`
+bit indexes `0` through `39`;
 `flag48be_is_set` and `flag48be_set` read and set `Flag48be` bit indexes `0`
 through `47`; `flag48le_is_set` and `flag48le_set` read and set `Flag48le`
 bit indexes `0` through `47`;
+`flag56be_is_set` and `flag56be_set` read and set `Flag56be` bit indexes `0`
+through `55`; `flag56le_is_set` and `flag56le_set` read and set `Flag56le`
+bit indexes `0` through `55`;
 `flag64be_is_set` and `flag64be_set` read and set `Flag64be` bit indexes `0`
 through `63`; `flag64le_is_set` and `flag64le_set` read and set `Flag64le`
 bit indexes `0` through `63`. Each
 checked flag helper returns `Err(String)` for indexes outside its supported
 range instead of masking or wrapping. `flag8_bits`, `flag16be_bits`,
 `flag16le_bits`, `flag24be_bits`, `flag24le_bits`, `flag32be_bits`,
-`flag32le_bits`, `flag48be_bits`, `flag48le_bits`, `flag64be_bits`, and
+`flag32le_bits`, `flag40be_bits`, `flag40le_bits`, `flag48be_bits`,
+`flag48le_bits`, `flag56be_bits`, `flag56le_bits`, `flag64be_bits`, and
 `flag64le_bits` expose the wrapped integer bits.
 `flag8_from_bits`, `flag16be_from_bits`, `flag16le_from_bits`,
 `flag24be_from_bits`, `flag24le_from_bits`, `flag32be_from_bits`,
-`flag32le_from_bits`, `flag48be_from_bits`, `flag48le_from_bits`,
-`flag64be_from_bits`, and `flag64le_from_bits` return `Err(String)` for
-integers outside the one-byte, two-byte, three-byte, four-byte, six-byte, or
-eight-byte flag range before an invalid flag value reaches generated schema
+`flag32le_from_bits`, `flag40be_from_bits`, `flag40le_from_bits`,
+`flag48be_from_bits`, `flag48le_from_bits`, `flag56be_from_bits`,
+`flag56le_from_bits`, `flag64be_from_bits`, and `flag64le_from_bits` return
+`Err(String)` for integers outside the one-byte, two-byte, three-byte,
+four-byte, five-byte, six-byte, seven-byte, or eight-byte flag range before
+an invalid flag value reaches generated schema
 encode helpers.
 `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the

@@ -1,0 +1,24 @@
+# Binary schema Flag40le fields decode as source-visible bitset values.
+use stdio
+
+schema FlagPacket
+	format binary
+
+	flags: Flag40le
+end
+
+fn flag_bits(flags: Flag40le) -> Int
+	match flags
+		Flag40le(bits) => bits
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("9a78563412")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(5)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {flags: Flag40le} = byte_decode_flag_packet(view)?
+	stdio::println(int_to_string(flag_bits(packet.flags)))
+	Ok(())
+end

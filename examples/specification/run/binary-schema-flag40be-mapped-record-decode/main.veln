@@ -1,0 +1,29 @@
+# Binary schema mapping can carry a Flag40be field into a target record.
+use stdio
+
+type FlagPacket
+	FlagPacket {target_flags: Flag40be}
+end
+
+schema FlagPacketWire
+	format binary
+
+	flags: Flag40be
+
+	map to FlagPacket
+		target_flags = flags
+end
+
+fn flag_bits(flags: Flag40be) -> Int
+	match flags
+		Flag40be(bits) => bits
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("123456789a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let packet: {target_flags: Flag40be} = byte_decode_flag_packet_wire(view)?
+	stdio::println(int_to_string(flag_bits(packet.target_flags)))
+	Ok(())
+end

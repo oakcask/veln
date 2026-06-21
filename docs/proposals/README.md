@@ -86,8 +86,10 @@ compare it with `../specification/` before changing behavior.
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
   two-byte little-endian, `Flag24be` three-byte big-endian, `Flag24le`
   three-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`
-  four-byte little-endian, `Flag48be` six-byte big-endian, `Flag48le`
-  six-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
+  four-byte little-endian, `Flag40be` five-byte big-endian, `Flag40le`
+  five-byte little-endian, `Flag48be` six-byte big-endian, `Flag48le`
+  six-byte little-endian, `Flag56be` seven-byte big-endian, `Flag56le`
+  seven-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
   structural mapping decode, projectable mapped-record encode, same-module

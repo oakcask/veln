@@ -790,6 +790,38 @@ against the built `veln` binary.
   command output.
 - `run/binary-schema-flag32le-bit-index-human/`: `flag32le_set` reports the
   same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag40be-decode/`: generated schema decode helpers read
+  a five-byte big-endian `Flag40be` field as a source-visible bitset value.
+- `run/binary-schema-flag40be-mapped-record-decode/`: direct structural decode
+  mapping carries a `Flag40be` field into the mapped target record shape.
+- `run/binary-schema-flag40be-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag40be` raw bits and bit positions, construct a new `Flag40be`
+  from raw bits and five-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag40be-from-bits-out-of-range-json/`:
+  `flag40be_from_bits` rejects an integer outside the five-byte range with the
+  checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag40be-bit-index-json/`: `flag40be_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag40be-bit-index-human/`: `flag40be_set` reports the
+  same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag40le-decode/`: generated schema decode helpers read
+  a five-byte little-endian `Flag40le` field as a source-visible bitset value.
+- `run/binary-schema-flag40le-mapped-record-decode/`: direct structural decode
+  mapping carries a `Flag40le` field into the mapped target record shape.
+- `run/binary-schema-flag40le-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag40le` raw bits and bit positions, construct a new `Flag40le`
+  from raw bits and five-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag40le-from-bits-out-of-range-json/`:
+  `flag40le_from_bits` rejects an integer outside the five-byte range with the
+  checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag40le-bit-index-json/`: `flag40le_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag40le-bit-index-human/`: `flag40le_set` reports the
+  same out-of-range bit-index failure through human command output.
 - `run/binary-schema-flag48be-decode/`: generated schema decode helpers read
   a six-byte big-endian `Flag48be` field as a source-visible bitset value.
 - `run/binary-schema-flag48be-mapped-record-decode/`: direct structural decode
@@ -821,6 +853,39 @@ against the built `veln` binary.
   out-of-range bit index with the checked runtime `Result` failure in JSON
   command output.
 - `run/binary-schema-flag48le-bit-index-human/`: `flag48le_set` reports the
+  same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag56be-decode/`: generated schema decode helpers read
+  a seven-byte big-endian `Flag56be` field as a source-visible bitset value.
+- `run/binary-schema-flag56be-mapped-record-decode/`: direct structural decode
+  mapping carries a `Flag56be` field into the mapped target record shape.
+- `run/binary-schema-flag56be-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag56be` raw bits and bit positions, construct a new `Flag56be`
+  from raw bits and seven-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag56be-from-bits-out-of-range-json/`:
+  `flag56be_from_bits` rejects an integer outside the seven-byte range with
+  the checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag56be-bit-index-json/`: `flag56be_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag56be-bit-index-human/`: `flag56be_set` reports the
+  same out-of-range bit-index failure through human command output.
+- `run/binary-schema-flag56le-decode/`: generated schema decode helpers read
+  a seven-byte little-endian `Flag56le` field as a source-visible bitset
+  value.
+- `run/binary-schema-flag56le-mapped-record-decode/`: direct structural decode
+  mapping carries a `Flag56le` field into the mapped target record shape.
+- `run/binary-schema-flag56le-bit-helpers/`: pure prelude helpers inspect
+  decoded `Flag56le` raw bits and bit positions, construct a new `Flag56le`
+  from raw bits and seven-byte bit indexes, and encode the result through the
+  generated schema helper.
+- `run/binary-schema-flag56le-from-bits-out-of-range-json/`:
+  `flag56le_from_bits` rejects an integer outside the seven-byte range with
+  the checked runtime `Result` failure in JSON command output.
+- `run/binary-schema-flag56le-bit-index-json/`: `flag56le_is_set` rejects an
+  out-of-range bit index with the checked runtime `Result` failure in JSON
+  command output.
+- `run/binary-schema-flag56le-bit-index-human/`: `flag56le_set` reports the
   same out-of-range bit-index failure through human command output.
 - `run/binary-schema-flag64be-decode/`: generated schema decode helpers read
   an eight-byte big-endian `Flag64be` field as a source-visible bitset value.
@@ -1112,6 +1177,22 @@ against the built `veln` binary.
 - `run/binary-schema-flag32le-encode-out-of-range/`: generated schema encode
   helpers reject `Flag32le(bits)` values outside the four-byte unsigned range
   with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag40be-encode/`: generated schema encode helpers write
+  a `Flag40be(bits)` field through the five-byte big-endian `UInt40be`
+  representation path.
+- `run/binary-schema-flag40be-mapped-record-encode/`: direct structural encode
+  mapping projects a `Flag40be` target field back to the schema-local field.
+- `run/binary-schema-flag40be-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag40be(bits)` values outside the five-byte unsigned range
+  with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag40le-encode/`: generated schema encode helpers write
+  a `Flag40le(bits)` field through the five-byte little-endian `UInt40le`
+  representation path.
+- `run/binary-schema-flag40le-mapped-record-encode/`: direct structural encode
+  mapping projects a `Flag40le` target field back to the schema-local field.
+- `run/binary-schema-flag40le-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag40le(bits)` values outside the five-byte unsigned range
+  with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-flag48be-encode/`: generated schema encode helpers write
   a `Flag48be(bits)` field through the six-byte big-endian `UInt48be`
   representation path.
@@ -1127,6 +1208,22 @@ against the built `veln` binary.
   mapping projects a `Flag48le` target field back to the schema-local field.
 - `run/binary-schema-flag48le-encode-out-of-range/`: generated schema encode
   helpers reject `Flag48le(bits)` values outside the six-byte unsigned range
+  with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag56be-encode/`: generated schema encode helpers write
+  a `Flag56be(bits)` field through the seven-byte big-endian `UInt56be`
+  representation path.
+- `run/binary-schema-flag56be-mapped-record-encode/`: direct structural encode
+  mapping projects a `Flag56be` target field back to the schema-local field.
+- `run/binary-schema-flag56be-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag56be(bits)` values outside the seven-byte unsigned range
+  with the usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-flag56le-encode/`: generated schema encode helpers write
+  a `Flag56le(bits)` field through the seven-byte little-endian `UInt56le`
+  representation path.
+- `run/binary-schema-flag56le-mapped-record-encode/`: direct structural encode
+  mapping projects a `Flag56le` target field back to the schema-local field.
+- `run/binary-schema-flag56le-encode-out-of-range/`: generated schema encode
+  helpers reject `Flag56le(bits)` values outside the seven-byte unsigned range
   with the usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-flag24-encode/`: generated schema encode helpers write
   `Flag24be(bits)` through the three-byte big-endian `UInt24be`

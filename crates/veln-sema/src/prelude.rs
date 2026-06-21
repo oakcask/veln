@@ -116,8 +116,12 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let flag24le = Type::named("Flag24le", Vec::new());
     let flag32be = Type::named("Flag32be", Vec::new());
     let flag32le = Type::named("Flag32le", Vec::new());
+    let flag40be = Type::named("Flag40be", Vec::new());
+    let flag40le = Type::named("Flag40le", Vec::new());
     let flag48be = Type::named("Flag48be", Vec::new());
     let flag48le = Type::named("Flag48le", Vec::new());
+    let flag56be = Type::named("Flag56be", Vec::new());
+    let flag56le = Type::named("Flag56le", Vec::new());
     let flag64be = Type::named("Flag64be", Vec::new());
     let flag64le = Type::named("Flag64le", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
@@ -221,6 +225,32 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![Type::int()],
             adt::result_type(flag32le.clone(), Type::string()),
         )),
+        "flag40be_is_set" => Some((
+            vec![flag40be.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag40be_set" => Some((
+            vec![flag40be.clone(), Type::int()],
+            adt::result_type(flag40be.clone(), Type::string()),
+        )),
+        "flag40be_bits" => Some((vec![flag40be.clone()], Type::int())),
+        "flag40be_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag40be.clone(), Type::string()),
+        )),
+        "flag40le_is_set" => Some((
+            vec![flag40le.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag40le_set" => Some((
+            vec![flag40le.clone(), Type::int()],
+            adt::result_type(flag40le.clone(), Type::string()),
+        )),
+        "flag40le_bits" => Some((vec![flag40le.clone()], Type::int())),
+        "flag40le_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag40le.clone(), Type::string()),
+        )),
         "flag48be_is_set" => Some((
             vec![flag48be.clone(), Type::int()],
             adt::result_type(Type::bool(), Type::string()),
@@ -246,6 +276,32 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "flag48le_from_bits" => Some((
             vec![Type::int()],
             adt::result_type(flag48le.clone(), Type::string()),
+        )),
+        "flag56be_is_set" => Some((
+            vec![flag56be.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag56be_set" => Some((
+            vec![flag56be.clone(), Type::int()],
+            adt::result_type(flag56be.clone(), Type::string()),
+        )),
+        "flag56be_bits" => Some((vec![flag56be.clone()], Type::int())),
+        "flag56be_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag56be.clone(), Type::string()),
+        )),
+        "flag56le_is_set" => Some((
+            vec![flag56le.clone(), Type::int()],
+            adt::result_type(Type::bool(), Type::string()),
+        )),
+        "flag56le_set" => Some((
+            vec![flag56le.clone(), Type::int()],
+            adt::result_type(flag56le.clone(), Type::string()),
+        )),
+        "flag56le_bits" => Some((vec![flag56le.clone()], Type::int())),
+        "flag56le_from_bits" => Some((
+            vec![Type::int()],
+            adt::result_type(flag56le.clone(), Type::string()),
         )),
         "flag64be_is_set" => Some((
             vec![flag64be.clone(), Type::int()],
@@ -1208,8 +1264,12 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
     let flag24le = CoreType::named("Flag24le", Vec::new());
     let flag32be = CoreType::named("Flag32be", Vec::new());
     let flag32le = CoreType::named("Flag32le", Vec::new());
+    let flag40be = CoreType::named("Flag40be", Vec::new());
+    let flag40le = CoreType::named("Flag40le", Vec::new());
     let flag48be = CoreType::named("Flag48be", Vec::new());
     let flag48le = CoreType::named("Flag48le", Vec::new());
+    let flag56be = CoreType::named("Flag56be", Vec::new());
+    let flag56le = CoreType::named("Flag56le", Vec::new());
     let flag64be = CoreType::named("Flag64be", Vec::new());
     let flag64le = CoreType::named("Flag64le", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
@@ -1313,6 +1373,32 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             vec![CoreType::int()],
             adt::core_result_type(flag32le.clone(), CoreType::string()),
         )),
+        "flag40be_is_set" => Some((
+            vec![flag40be.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag40be_set" => Some((
+            vec![flag40be.clone(), CoreType::int()],
+            adt::core_result_type(flag40be.clone(), CoreType::string()),
+        )),
+        "flag40be_bits" => Some((vec![flag40be.clone()], CoreType::int())),
+        "flag40be_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag40be.clone(), CoreType::string()),
+        )),
+        "flag40le_is_set" => Some((
+            vec![flag40le.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag40le_set" => Some((
+            vec![flag40le.clone(), CoreType::int()],
+            adt::core_result_type(flag40le.clone(), CoreType::string()),
+        )),
+        "flag40le_bits" => Some((vec![flag40le.clone()], CoreType::int())),
+        "flag40le_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag40le.clone(), CoreType::string()),
+        )),
         "flag48be_is_set" => Some((
             vec![flag48be.clone(), CoreType::int()],
             adt::core_result_type(CoreType::bool(), CoreType::string()),
@@ -1338,6 +1424,32 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "flag48le_from_bits" => Some((
             vec![CoreType::int()],
             adt::core_result_type(flag48le.clone(), CoreType::string()),
+        )),
+        "flag56be_is_set" => Some((
+            vec![flag56be.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag56be_set" => Some((
+            vec![flag56be.clone(), CoreType::int()],
+            adt::core_result_type(flag56be.clone(), CoreType::string()),
+        )),
+        "flag56be_bits" => Some((vec![flag56be.clone()], CoreType::int())),
+        "flag56be_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag56be.clone(), CoreType::string()),
+        )),
+        "flag56le_is_set" => Some((
+            vec![flag56le.clone(), CoreType::int()],
+            adt::core_result_type(CoreType::bool(), CoreType::string()),
+        )),
+        "flag56le_set" => Some((
+            vec![flag56le.clone(), CoreType::int()],
+            adt::core_result_type(flag56le.clone(), CoreType::string()),
+        )),
+        "flag56le_bits" => Some((vec![flag56le.clone()], CoreType::int())),
+        "flag56le_from_bits" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(flag56le.clone(), CoreType::string()),
         )),
         "flag64be_is_set" => Some((
             vec![flag64be.clone(), CoreType::int()],
