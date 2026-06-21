@@ -588,6 +588,9 @@ payload record with `ReservedBits(1, 0)`, `UInt31be`, and `UInt32be` fields,
 so outbound GOAWAY payload validation uses the general generated
 `byte_encode_<schema>` helper path and preserves schema field-path encode
 failures for both visible payload fields.
+The completed `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` flag bitset
+slice is recorded in
+[Binary Schema Flag40 And Flag56 Bitsets](../reference/implemented-proposals/binary-schema-flag40-and-flag56-bitsets.md).
 The implemented `Flag8` helper slice consumes and emits one-byte visible
 bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
 `UInt8` fields as ordinary `Int` values. The implemented `Flag16be` helper
