@@ -156,91 +156,13 @@ replacement for it.
 
 Implemented narrow slice: an executable specification case composes the
 fixture-backed socket boundary with the source-level event/action handler
-boundary. Adapter-owned code reads multiple `ByteChunk` values from one
-`NetStream` with `net::read_chunk`, wraps each chunk as an ordinary stream
-event value, routes those events through an existing channel under the
-`concurrency` effect, calls a plain handler while carrying explicit state
-across events, joins a spawned stream-handler task over the same event/action
-boundary with `task::spawn_with3` over separate event, state, and adapter
-context arguments, and translates ordered `SendBytes` response actions into
-`net::write_chunk` calls. The handler receives only ordinary event, state, and
-adapter context values; it does not receive socket handles and does not call
-`net` functions.
-
-The four-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with4.md`.
-The five-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with5.md`.
-The six-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with6.md`.
-The seven-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with7.md`.
-The eight-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with8.md`.
-The nine-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with9.md`.
-The ten-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with10.md`.
-The eleven-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with11.md`.
-The twelve-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with12.md`.
-The thirteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with13.md`.
-The fourteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with14.md`.
-The fifteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with15.md`.
-The sixteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with16.md`.
-The seventeen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with17.md`.
-The eighteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with18.md`.
-The nineteen-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with19.md`.
-The twenty-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with20.md`.
-The twenty-one-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with21.md`.
-The twenty-two-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with22.md`.
-The twenty-three-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with23.md`.
-The twenty-four-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with24.md`.
-The twenty-five-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with25.md`.
-The twenty-six-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with26.md`.
-The twenty-seven-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with27.md`.
-The twenty-eight-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with28.md`.
-The twenty-nine-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with29.md`.
-The thirty-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with30.md`.
-The thirty-one-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with31.md`.
-The thirty-two-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with32.md`.
-The thirty-three-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with33.md`.
-The thirty-four-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with34.md`.
-The thirty-five-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with35.md`.
-The thirty-six-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with36.md`.
-The thirty-seven-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with37.md`.
-The thirty-eight-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
-The thirty-nine-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with39.md`.
-The forty-argument stream-task slice is recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with40.md`.
+boundary. Adapter-owned code reads source values, wraps them as ordinary
+stream event values, routes those events through existing channel and task
+operations under the `concurrency` effect, carries event, state, route, and
+trace metadata as one context record through `task::spawn_with<Result, Context>`,
+joins the spawned handler task, and translates ordered response actions into
+adapter-owned socket output. The handler receives only one ordinary context
+value; it does not receive socket handles and does not call `net` functions.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -319,43 +241,8 @@ The two-receiver cancellable timeout-result selection slice, including
 `channel::select_timeout_cancellable`, is recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-timeout-cancellable.md`.
 
-The argument-carrying stream-task slices are recorded as implemented in
-`../reference/implemented-proposals/network-stream-task-spawn-with4.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with5.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with6.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with7.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with8.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with9.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with10.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with11.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with12.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with13.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with14.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with15.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with16.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with17.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with18.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with19.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with20.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with21.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with22.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with23.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with24.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with25.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with26.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with27.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with28.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with29.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with30.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with31.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with32.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with33.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with34.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with35.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with36.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with37.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with38.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with39.md`.
+The context-based stream-task slice is now part of the current task spawning
+specification instead of a planned arity-growth path.
 
 ## Discussion Result: Transport Error Boundary
 

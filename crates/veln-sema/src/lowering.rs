@@ -827,7 +827,8 @@ impl<'a> CoreLowerer<'a> {
             return None;
         }
         let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
-        let signature = core_concurrency_signature(segments, expected, handle_type.as_ref(), None);
+        let signature =
+            core_concurrency_signature(segments, expected, handle_type.as_ref(), None, None);
         Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
     }
 
@@ -842,8 +843,37 @@ impl<'a> CoreLowerer<'a> {
             && is_concurrency_call(segments)
             && matches!(callee.kind, ExprKind::TypeApply { .. })
         {
+            let type_args = type_args.unwrap_or(&[]);
+            if let Some(expected) = expected_concurrency_type_arg_count(segments)
+                && type_args.len() > expected
+            {
+                self.unsupported_expression(
+                    callee,
+                    "type_argument_count_mismatch",
+                    format!(
+                        "`{}` expects at most {expected} type argument(s), found {}",
+                        segments.join("::"),
+                        type_args.len()
+                    ),
+                    Some(JsonValue::object([
+                        (
+                            "expected_type_argument_count",
+                            JsonValue::Number(expected as i64),
+                        ),
+                        (
+                            "actual_type_argument_count",
+                            JsonValue::Number(type_args.len() as i64),
+                        ),
+                    ])),
+                );
+            }
             let explicit_item = type_args
-                .and_then(|type_args| type_args.first())
+                .first()
+                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+                .map(|ty| core_type(&ty));
+            let explicit_context = type_args
+                .get(1)
+                .filter(|_| matches!(segments, [module, name] if module == "task" && name == "spawn_with"))
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
                 .map(|ty| core_type(&ty));
             let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
@@ -852,6 +882,7 @@ impl<'a> CoreLowerer<'a> {
                 expected,
                 handle_type.as_ref(),
                 explicit_item.as_ref(),
+                explicit_context.as_ref(),
             );
             return Some(
                 self.lower_concurrency_call_with_signature(expr, segments, args, signature),
@@ -1430,6 +1461,14 @@ fn callee_name_path_and_type_args(callee: &Expr) -> Option<(&[String], Option<&[
             };
             Some((segments, Some(type_args.as_slice())))
         }
+        _ => None,
+    }
+}
+
+fn expected_concurrency_type_arg_count(segments: &[String]) -> Option<usize> {
+    match segments {
+        [module, name] if module == "task" && name == "spawn_with" => Some(2),
+        [module, _] if module == "channel" || module == "task" => Some(1),
         _ => None,
     }
 }

@@ -663,90 +663,16 @@ cooperative cancellation interrupts the waiting selection.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread. `task::spawn_with` starts a
-one-argument callable on a JVM thread after freezing the ordinary source value
-argument at the task boundary. `task::spawn_with2` starts a two-argument
-callable on a JVM thread after freezing both ordinary source values at the task
-boundary. `task::spawn_with3` starts a three-argument callable on a JVM thread
-after freezing all three ordinary source values at the task boundary.
-`task::spawn_with4` starts a four-argument callable on a JVM thread after
-freezing all four ordinary source values at the task boundary.
-`task::spawn_with5` starts a five-argument callable on a JVM thread after
-freezing all five ordinary source values at the task boundary.
-`task::spawn_with6` starts a six-argument callable on a JVM thread after
-freezing all six ordinary source values at the task boundary.
-`task::spawn_with7` starts a seven-argument callable on a JVM thread after
-freezing all seven ordinary source values at the task boundary.
-`task::spawn_with8` starts an eight-argument callable on a JVM thread after
-freezing all eight ordinary source values at the task boundary.
-`task::spawn_with9` starts a nine-argument callable on a JVM thread after
-freezing all nine ordinary source values at the task boundary.
-`task::spawn_with10` starts a ten-argument callable on a JVM thread after
-freezing all ten ordinary source values at the task boundary.
-`task::spawn_with11` starts an eleven-argument callable on a JVM thread after
-freezing all eleven ordinary source values at the task boundary.
-`task::spawn_with12` starts a twelve-argument callable on a JVM thread after
-freezing all twelve ordinary source values at the task boundary.
-`task::spawn_with13` starts a thirteen-argument callable on a JVM thread after
-freezing all thirteen ordinary source values at the task boundary.
-`task::spawn_with14` starts a fourteen-argument callable on a JVM thread after
-freezing all fourteen ordinary source values at the task boundary.
-`task::spawn_with15` starts a fifteen-argument callable on a JVM thread after
-freezing all fifteen ordinary source values at the task boundary.
-`task::spawn_with16` starts a sixteen-argument callable on a JVM thread after
-freezing all sixteen ordinary source values at the task boundary.
-`task::spawn_with17` starts a seventeen-argument callable on a JVM thread
-after freezing all seventeen ordinary source values at the task boundary.
-`task::spawn_with18` starts an eighteen-argument callable on a JVM thread
-after freezing all eighteen ordinary source values at the task boundary.
-`task::spawn_with19` starts a nineteen-argument callable on a JVM thread after
-freezing all nineteen ordinary source values at the task boundary.
-`task::spawn_with20` starts a twenty-argument callable on a JVM thread after
-freezing all twenty ordinary source values at the task boundary.
-`task::spawn_with21` starts a twenty-one-argument callable on a JVM thread
-after freezing all twenty-one ordinary source values at the task boundary.
-`task::spawn_with22` starts a twenty-two-argument callable on a JVM thread
-after freezing all twenty-two ordinary source values at the task boundary.
-`task::spawn_with23` starts a twenty-three-argument callable on a JVM thread
-after freezing all twenty-three ordinary source values at the task boundary.
-`task::spawn_with24` starts a twenty-four-argument callable on a JVM thread
-after freezing all twenty-four ordinary source values at the task boundary.
-`task::spawn_with25` starts a twenty-five-argument callable on a JVM thread
-after freezing all twenty-five ordinary source values at the task boundary.
-`task::spawn_with26` starts a twenty-six-argument callable on a JVM thread
-after freezing all twenty-six ordinary source values at the task boundary.
-`task::spawn_with27` starts a twenty-seven-argument callable on a JVM thread
-after freezing all twenty-seven ordinary source values at the task boundary.
-`task::spawn_with28` starts a twenty-eight-argument callable on a JVM thread
-after freezing all twenty-eight ordinary source values at the task boundary.
-`task::spawn_with29` starts a twenty-nine-argument callable on a JVM thread
-after freezing all twenty-nine ordinary source values at the task boundary.
-`task::spawn_with30` starts a thirty-argument callable on a JVM thread after
-freezing all thirty ordinary source values at the task boundary.
-`task::spawn_with31` starts a thirty-one-argument callable on a JVM thread
-after freezing all thirty-one ordinary source values at the task boundary.
-`task::spawn_with32` starts a thirty-two-argument callable on a JVM thread
-after freezing all thirty-two ordinary source values at the task boundary.
-`task::spawn_with33` starts a thirty-three-argument callable on a JVM thread
-after freezing all thirty-three ordinary source values at the task boundary.
-`task::spawn_with34` starts a thirty-four-argument callable on a JVM thread
-after freezing all thirty-four ordinary source values at the task boundary.
-`task::spawn_with35` starts a thirty-five-argument callable on a JVM thread
-after freezing all thirty-five ordinary source values at the task boundary.
-`task::spawn_with36` starts a thirty-six-argument callable on a JVM thread
-after freezing all thirty-six ordinary source values at the task boundary.
-`task::spawn_with37` starts a thirty-seven-argument callable on a JVM thread
-after freezing all thirty-seven ordinary source values at the task boundary.
-`task::spawn_with38` starts a thirty-eight-argument callable on a JVM thread
-after freezing all thirty-eight ordinary source values at the task boundary.
-`task::spawn_with39` starts a thirty-nine-argument callable on a JVM thread
-after freezing all thirty-nine ordinary source values at the task boundary.
-`task::spawn_with40` starts a forty-argument callable on a JVM thread after
-freezing all forty ordinary source values at the task boundary.
-All task spawn helpers freeze the returned value before it crosses back through the
-task handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
-completion or `Err(JoinError)` on interruption, cancellation, or runtime
-failure. `task::cancel` requests cooperative cancellation by interrupting the
-task.
+one-argument callable on a JVM thread after freezing the ordinary source
+context value at the task boundary. `task::spawn<Item>` and
+`task::spawn_with<Item>` use an explicit task item type.
+`task::spawn_with<Item, Context>` also uses the explicit `Context` type as the
+handler's one parameter type and the context argument's expected type. All
+task spawn helpers freeze the returned value before it crosses back through
+the task handle. `task::join` waits for that task and returns `Ok(value)` on
+ordinary completion or `Err(JoinError)` on interruption, cancellation, or
+runtime failure. `task::cancel` requests cooperative cancellation by
+interrupting the task.
 
 File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
 reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
@@ -823,170 +749,15 @@ streams, and declining work are represented as values for the adapter to
 interpret; the handler does not call `net::send_chunk`, own sockets, or add
 new listen, read, write, routing, or deadline effect labels.
 
-The socket stream adapter routing cases compose that handler boundary with the
-fixture-backed socket calls without adding a service interface or new effect
-labels. Adapter code owns the `NetListener` and `NetStream`, reads multiple
-immutable `ByteChunk` values with `net::read_chunk` or
-`net::read_chunk_or_end`, routes ordinary source values through a standard
-channel under `concurrency`, calls the plain handler with explicit state, and
-then walks the returned action list. Optional accept cases use
-`net::accept_or_end` to accept a usable stream as `Some(stream)` or observe a
-clean listener end as `None`. Deadline-aware optional accept cases use
-`net::accept_until` to accept a usable stream before the deadline or observe
-deadline expiry as `None`. Deadline-aware optional read cases use
-`net::read_chunk_until` to read bytes before the deadline or observe deadline
-expiry or clean stream end as `None`. The clean stream-end case translates
-`net::read_chunk_or_end` returning `None` into the standard `StreamInput.End`
-value before calling the pure handler. The owned-lifecycle case combines
-`net::listen`, `net::accept_or_end`, repeated `net::read_chunk_or_end`, channel
-routing, pure handler invocation, and ordered `net::write_chunk` projection in
-one adapter path. The deadline-aware lifecycle case combines
-`net::accept_until`, repeated `net::read_chunk_until` attempts, channel
-routing, pure handler invocation, and ordered write projection in one accepted
-stream adapter path, with deadline expiry becoming the ordinary stream
-boundary value before handler invocation. Close-lifecycle cases call
-`net::close_stream` after ordered writes or cancellation cleanup and record the
-close event at the fixture runtime boundary. The same checked boundary also joins
-a spawned stream-handler task that passes ordinary event, state, and adapter
-context values plus one routing metadata value and two additional ordinary
-metadata values directly through `task::spawn_with6` instead of bundling them
-into one adapter record first. The seven-argument stream-task case extends the
-same boundary with one more ordinary metadata value through
-`task::spawn_with7`, and the eight-argument stream-task case extends it with
-one additional ordinary metadata value through `task::spawn_with8`. The
-nine-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with9`. The ten-argument stream-task case
-extends it with one additional ordinary metadata value through
-`task::spawn_with10`. The eleven-argument stream-task case extends it with one
-additional ordinary metadata value through `task::spawn_with11`. The
-twelve-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with12`. The thirteen-argument stream-task
-case extends it with one additional ordinary metadata value through
-`task::spawn_with13`. The fourteen-argument stream-task case extends it with
-one additional ordinary metadata value through `task::spawn_with14`. The
-fifteen-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with15`. The sixteen-argument stream-task
-case extends it with one additional ordinary metadata value through
-`task::spawn_with16`. The seventeen-argument stream-task case extends it with
-one additional ordinary metadata value through `task::spawn_with17`. The
-eighteen-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with18`. The nineteen-argument stream-task
-case extends it with one additional ordinary metadata value through
-`task::spawn_with19`. The twenty-argument stream-task case extends it with one
-additional ordinary metadata value through `task::spawn_with20`. The
-twenty-one-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with21`. The twenty-two-argument
-stream-task case extends it with one additional ordinary metadata value through
-`task::spawn_with22`. The twenty-three-argument stream-task case extends it
-with one additional ordinary metadata value through `task::spawn_with23`. The
-twenty-four-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with24`. The twenty-five-argument
-stream-task case extends it with one additional ordinary metadata value
-through `task::spawn_with25`. The twenty-six-argument stream-task case
-extends it with one additional ordinary metadata value through
-`task::spawn_with26`. The twenty-seven-argument stream-task case extends it
-with one additional ordinary metadata value through `task::spawn_with27`.
-The twenty-eight-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with28`.
-The twenty-nine-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with29`.
-The thirty-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with30`.
-The thirty-one-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with31`.
-The thirty-two-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with32`.
-The thirty-three-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with33`.
-The thirty-four-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with34`.
-The thirty-five-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with35`.
-The thirty-six-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with36`.
-The thirty-seven-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with37`.
-The thirty-eight-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with38`.
-The thirty-nine-argument stream-task case extends it with one additional
-ordinary metadata value through `task::spawn_with39`.
-The forty-argument stream-task case extends it with one additional ordinary
-metadata value through `task::spawn_with40`.
-`SendBytes` actions are translated into ordered `net::write_chunk` calls by the
-adapter. Non-write response intents remain ordinary values for the adapter to
-interpret. The handler has no socket handle parameter and does not call `net`
-functions. Explicit adapter-owned stream close remains an adapter call. The
-checked examples are
-`examples/specification/run/socket-stream-adapter-routing/`,
-`examples/specification/check/socket-stream-adapter-routing-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn7/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn7-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn8/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn8-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn9/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn9-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn10/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn10-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn11/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn11-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn12/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn12-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn13/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn13-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn14/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn14-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn15/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn15-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn16/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn16-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn17/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn17-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn18/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn18-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn19/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn19-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn20/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn20-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn21/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn21-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn22/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn22-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn23/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn23-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn24/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn24-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn25/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn25-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn26/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn26-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn27/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn27-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn28/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn28-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn29/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn29-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn30/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn30-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn31/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn31-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn32/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn32-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn33/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn33-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn34/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn34-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn35/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn35-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn36/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn36-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn37/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn37-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn38/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn38-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn39/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn39-effects/`,
-`examples/specification/run/socket-stream-adapter-routing-spawn40/`,
-`examples/specification/check/socket-stream-adapter-routing-spawn40-effects/`,
+The socket stream adapter routing context case composes that handler boundary
+with the standard one-context task spawn API. The adapter collects the event,
+state, route metadata, and trace metadata into one anonymous record, passes
+that record to `task::spawn_with<Result, Context>(handler, context)`, joins the
+task, and projects the ordinary response value back to adapter-owned socket
+writes. The handler has one context parameter, has no socket handle parameter,
+and does not call `net` functions. Explicit adapter-owned stream close remains
+an adapter call. The checked examples are
+`examples/specification/run/socket-stream-adapter-routing-context/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,

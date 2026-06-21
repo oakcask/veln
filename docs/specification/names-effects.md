@@ -43,63 +43,15 @@ compiler-known calls.
   through the runtime-failure wait are runtime failures. Forced accept failure
   through the deadline-aware optional accept path and forced read failure
   through the deadline-aware optional read path also stay runtime failures.
-  The socket stream adapter routing examples compose existing `net` stream
-  calls with existing channel and task calls under `concurrency`, including
-  optional listener accept, multiple optional reads from an accepted stream,
-  clean end translated to `StreamInput.End`, argument-carrying spawned
-  handler tasks over ordinary event, state, adapter context, routing metadata,
-  and two additional ordinary metadata values using `task::spawn_with6`,
-  plus a seven-argument variant with one more ordinary metadata value using
-  `task::spawn_with7`, and an eight-argument variant with one additional
-  ordinary metadata value using `task::spawn_with8`, plus a nine-argument
-  variant with one additional ordinary metadata value using `task::spawn_with9`,
-  plus a ten-argument variant with one additional ordinary metadata value using
-  `task::spawn_with10`, plus an eleven-argument variant with one additional
-  ordinary metadata value using `task::spawn_with11`, plus a twelve-argument
-  variant with one additional ordinary metadata value using
-  `task::spawn_with12`, plus a thirteen-argument variant with one additional
-  ordinary metadata value using `task::spawn_with13`, plus a fourteen-argument
-  variant with one additional ordinary metadata value using
-  `task::spawn_with14`, plus a fifteen-argument variant with one additional
-  ordinary metadata value using `task::spawn_with15`, plus a sixteen-argument
-  variant with one additional ordinary metadata value using
-  `task::spawn_with16`, plus a seventeen-argument variant with one additional
-  ordinary metadata value using `task::spawn_with17`, plus an
-  eighteen-argument variant with one additional ordinary metadata value using
-  `task::spawn_with18`, plus a nineteen-argument variant with one additional
-  ordinary metadata value using `task::spawn_with19`, plus a twenty-argument
-  variant with one additional ordinary metadata value using
-  `task::spawn_with20`, plus a twenty-one-argument variant with one
-  additional ordinary metadata value using `task::spawn_with21`, plus a
-  twenty-two-argument variant with one additional ordinary metadata value
-  using `task::spawn_with22`, plus a twenty-three-argument variant with one
-  additional ordinary metadata value using `task::spawn_with23`, plus a
-  twenty-four-argument variant with one additional ordinary metadata value
-  using `task::spawn_with24`, plus a twenty-five-argument variant with one
-  additional ordinary metadata value using `task::spawn_with25`, plus a
-  twenty-six-argument variant with one additional ordinary metadata value
-  using `task::spawn_with26`, plus a twenty-seven-argument variant with one
-  additional ordinary metadata value using `task::spawn_with27`, plus a
-  twenty-eight-argument variant with one additional ordinary metadata value
-  using `task::spawn_with28`, plus a twenty-nine-argument variant with one
-  additional ordinary metadata value using `task::spawn_with29`, plus a
-  thirty-argument variant with one additional ordinary metadata value using
-  `task::spawn_with30`, plus a thirty-one-argument variant with one
-  additional ordinary metadata value using `task::spawn_with31`, plus
-  thirty-two-argument, thirty-three-argument, thirty-four-argument,
-  thirty-five-argument, thirty-six-argument, thirty-seven-argument,
-  thirty-eight-argument, thirty-nine-argument, and forty-argument variants
-  with one additional ordinary metadata value each using
-  `task::spawn_with32`, `task::spawn_with33`, `task::spawn_with34`,
-  `task::spawn_with35`, `task::spawn_with36`, `task::spawn_with37`, and
-  `task::spawn_with38`, `task::spawn_with39`, and `task::spawn_with40`,
-  deadline-aware accepted stream reads that stop on
-  `net::read_chunk_until` returning `None`, cancellable accepted-stream
-  routing that turns `WaitCancelled` into an ordinary cleanup action, and
-  ordered write projection. Dedicated close-lifecycle examples additionally
-  call `net::close_stream` after ordered writes or cancellation cleanup; they
-  add no new effect label or compiler-known routing call. The owned-lifecycle
-  and close-lifecycle adapters declare `net` and `concurrency`; the
+  The socket stream adapter routing context example composes an ordinary
+  event value, explicit state, route metadata, and trace metadata into one
+  anonymous record passed through `task::spawn_with<Result, Context>`. The
+  adapter side declares `concurrency`; the handler receives one context
+  parameter, returns ordinary action intent values, and stays free of
+  transport effects. Dedicated socket lifecycle examples additionally call
+  `net::close_stream` after ordered writes or cancellation cleanup; they add
+  no new effect label or compiler-known routing call. The owned-lifecycle and
+  close-lifecycle adapters declare `net` and `concurrency`; the
   deadline-aware, cancellable, and cancel-close lifecycle adapters declare
   `net`, `time`, and `concurrency`; the pure handler boundary remains free of
   transport effects.
