@@ -63,8 +63,8 @@ slices, and narrow deadline and cancellation slices, for:
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
   thirty-one-argument, thirty-two-argument, thirty-three-argument,
   thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, and thirty-eight-argument spawned handler task shapes
-  over ordinary source values
+  thirty-seven-argument, thirty-eight-argument, and thirty-nine-argument
+  spawned handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -237,6 +237,8 @@ The thirty-seven-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with37.md`.
 The thirty-eight-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
+The thirty-nine-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with39.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -349,8 +351,9 @@ The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with34.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with35.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with36.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with37.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
+`../reference/implemented-proposals/network-stream-task-spawn-with37.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with38.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with39.md`.
 
 ## Discussion Result: Transport Error Boundary
 
@@ -462,8 +465,10 @@ or the pure protocol core.
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, thirty-two-argument, and thirty-three-argument spawned
-  handler task, and adapter-level cancellable stream routing slices;
+  thirty-one-argument, thirty-two-argument, thirty-three-argument,
+  thirty-four-argument, thirty-five-argument, thirty-six-argument,
+  thirty-seven-argument, thirty-eight-argument, and thirty-nine-argument
+  spawned handler task, and adapter-level cancellable stream routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
