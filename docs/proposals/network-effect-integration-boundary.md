@@ -342,11 +342,11 @@ or the pure protocol core.
   timeout-result selection, two-receiver cancellable timeout-result selection,
   and receiver-list cancellable channel-first stream routing, deadline-aware
   accepted-stream lifecycle, cancellable accepted-stream lifecycle,
-  context-based spawned handler task, and adapter-level cancellable stream
-  routing slices;
-  remaining examples still need a general stream routing abstraction that
-  replaces route-count fixture growth, plus richer deadline and cancellation
-  APIs beyond the narrow relative `Deadline` boundary,
+  context-based spawned handler task, adapter-level cancellable stream
+  routing, and the general receiver-list stream routing abstraction that
+  replaces route-count fixture growth;
+  remaining examples still need richer deadline and cancellation APIs beyond
+  the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
   wait-outcome boundary.
 - Effect inference and diagnostics cover any new compiler-known network,

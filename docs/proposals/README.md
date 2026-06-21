@@ -227,7 +227,7 @@ compare it with `../specification/` before changing behavior.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
-  beyond the implemented transport, channel-first route-count, general
+  beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, deadline, cancellation, deadline-aware listener
   accept, deadline-aware stream read,
   adapter-owned listener-to-clean-stream-end lifecycle, context-based
