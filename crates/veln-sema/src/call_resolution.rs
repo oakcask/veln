@@ -142,7 +142,8 @@ fn type_effect_call_signature(
         });
     }
     if let Some(origin) = concurrency_origin(segments, callee) {
-        let (params, return_type) = concurrency_signature(segments, expected, handle_type, None)?;
+        let (params, return_type) =
+            concurrency_signature(segments, expected, handle_type, None, None)?;
         return Some(TypeCallSignature {
             params,
             variadic: None,
@@ -169,17 +170,41 @@ fn type_applied_call_signature(
 ) -> Option<TypeCallSignature> {
     let (segments, type_args) = type_applied_name_path(callee)?;
     let origin = concurrency_origin(segments, callee)?;
+    if type_args.len() > concurrency_type_arg_limit(segments)? {
+        return None;
+    }
     let explicit_item = type_args
         .first()
         .and_then(|type_arg| crate::types::parse_type_annotation(type_arg).ok());
-    let (params, return_type) =
-        concurrency_signature(segments, expected, handle_type, explicit_item.as_ref())?;
+    let explicit_context = type_args
+        .get(1)
+        .filter(|_| is_task_spawn_with(segments))
+        .and_then(|type_arg| crate::types::parse_type_annotation(type_arg).ok());
+    let (params, return_type) = concurrency_signature(
+        segments,
+        expected,
+        handle_type,
+        explicit_item.as_ref(),
+        explicit_context.as_ref(),
+    )?;
     Some(TypeCallSignature {
         params,
         variadic: None,
         return_type,
         origin,
     })
+}
+
+fn concurrency_type_arg_limit(segments: &[String]) -> Option<usize> {
+    match segments {
+        [module, name] if module == "task" && name == "spawn_with" => Some(2),
+        [module, _] if module == "channel" || module == "task" => Some(1),
+        _ => None,
+    }
+}
+
+fn is_task_spawn_with(segments: &[String]) -> bool {
+    matches!(segments, [module, name] if module == "task" && name == "spawn_with")
 }
 
 fn type_binding_call_signature(
@@ -228,7 +253,8 @@ fn core_name_path_call_signature(
         });
     }
     if concurrency_origin(segments, callee).is_some() {
-        let (params, return_type) = core_concurrency_signature(segments, expected, None, None)?;
+        let (params, return_type) =
+            core_concurrency_signature(segments, expected, None, None, None)?;
         return Some(CoreCallSignature {
             target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
             params,

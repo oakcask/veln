@@ -4,6 +4,7 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
+use crate::standard_symbols::qualified_symbol;
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -1471,7 +1472,9 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn infer_unresolved_call(&mut self, callee: &Expr, args: &[Expr]) -> Type {
-        if let Some((segments, _)) = callee_name_path_and_type_args(callee) {
+        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
+            && !known_concurrency_type_arg_overflow(segments, type_args)
+        {
             let symbol = segments.join("::");
             self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
         }
@@ -2878,4 +2881,19 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
+}
+
+fn known_concurrency_type_arg_overflow(segments: &[String], type_args: Option<&[String]>) -> bool {
+    let Some(type_args) = type_args else {
+        return false;
+    };
+    let limit = match segments {
+        [module, name] if module == "task" && name == "spawn_with" => 2,
+        [module, _] if module == "channel" || module == "task" => 1,
+        _ => return false,
+    };
+    if type_args.len() <= limit {
+        return false;
+    }
+    qualified_symbol(segments).is_some_and(|symbol| symbol.effects.contains(&"concurrency"))
 }

@@ -1,0 +1,40 @@
+use stdio
+
+type SocketEvent
+	Request(stream_id: Int, payload: ByteChunk)
+	Close(stream_id: Int)
+end
+
+fn route_socket_event(context: { event: SocketEvent, state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } }) -> { action_kind: String, stream_id: Int, byte_count: Int, next_state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } } effects [concurrency]
+	match context.event
+		Request(stream_id, payload) => { action_kind: "send", stream_id: stream_id, byte_count: byte_count_to_int(byte_chunk_count(payload)), next_state: { request_count: context.state.request_count + 1, marker: context.state.marker }, route: context.route, trace: context.trace }
+		Close(stream_id) => { action_kind: "end", stream_id: stream_id, byte_count: 0, next_state: { request_count: context.state.request_count, marker: context.state.marker }, route: context.route, trace: context.trace }
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let payload: ByteChunk = byte_chunk_from_hex("0a0b0c")?
+	let marker: ByteChunk = byte_chunk_from_hex("ff")?
+	let context = { event: Request(11, payload), state: { request_count: 40, marker: marker }, route: { peer: "socket-a", shard: "blue" }, trace: { request_id: "req-7", retry: 2 } }
+	let worker = task::spawn_with<{ action_kind: String, stream_id: Int, byte_count: Int, next_state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } }, { event: SocketEvent, state: { request_count: Int, marker: ByteChunk }, route: { peer: String, shard: String }, trace: { request_id: String, retry: Int } }>(route_socket_event, context)
+	let result = match task::join(worker)
+		Ok(value) => value
+		Err(_) => { action_kind: "join-failed", stream_id: 0, byte_count: 0, next_state: { request_count: 0, marker: byte_chunk_from_hex("")? }, route: { peer: "none", shard: "none" }, trace: { request_id: "none", retry: 0 } }
+	end
+	stdio::print(result.action_kind)
+	stdio::print(":")
+	stdio::print(int_to_string(result.stream_id))
+	stdio::print(":")
+	stdio::print(int_to_string(result.byte_count))
+	stdio::print(" count ")
+	stdio::print(int_to_string(result.next_state.request_count))
+	stdio::print(" route ")
+	stdio::print(result.route.peer)
+	stdio::print("/")
+	stdio::print(result.route.shard)
+	stdio::print("#")
+	stdio::print(result.trace.request_id)
+	stdio::print(":")
+	stdio::println(int_to_string(result.trace.retry))
+	Ok(())
+end

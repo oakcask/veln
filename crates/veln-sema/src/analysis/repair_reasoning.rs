@@ -3235,19 +3235,11 @@ pub(super) fn callee_name_path_and_type_args(
 ) -> Option<(&[String], Option<&[String]>)> {
     match &callee.kind {
         ExprKind::NamePath(segments) => Some((segments, None)),
-        ExprKind::TypeApply { callee, type_args } => type_applied_name_path(callee)
-            .map(|(segments, _)| (segments, Some(type_args.as_slice()))),
-        _ => None,
-    }
-}
-
-pub(super) fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
-    match &callee.kind {
         ExprKind::TypeApply { callee, type_args } => {
             let ExprKind::NamePath(segments) = &callee.kind else {
                 return None;
             };
-            Some((segments, type_args))
+            Some((segments, Some(type_args.as_slice())))
         }
         _ => None,
     }
