@@ -1,0 +1,68 @@
+# General channel-first stream routing accepts a receiver list and returns the selected route.
+use stdio
+
+fn route_ready_stream_input(receivers: List<Receiver<StreamInput>>) -> { index : Int, value : StreamInput } effects [concurrency]
+	match channel::select_many_priority(receivers)
+		Some(selected) => selected
+		None => { index: -1, value: End }
+	end
+end
+
+fn input_score(input: StreamInput) -> Int
+	match input
+		Chunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		End => 0
+	end
+end
+
+fn selected_score(selected: { index : Int, value : StreamInput }) -> Int
+	selected.index * 100 + input_score(selected.value)
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let first_value: ByteChunk = byte_chunk_from_hex("11")?
+	let first_next_value: ByteChunk = byte_chunk_from_hex("2233")?
+	let second_value: ByteChunk = byte_chunk_from_hex("445566")?
+	let third_value: ByteChunk = byte_chunk_from_hex("778899aa")?
+	let fourth_value: ByteChunk = byte_chunk_from_hex("bbccddee00")?
+	let fifth_value: ByteChunk = byte_chunk_from_hex("102030405060")?
+	let sixth_value: ByteChunk = byte_chunk_from_hex("708090a0b0c0d0")?
+	let first = channel::bounded<StreamInput>(2)
+	let second = channel::bounded<StreamInput>(1)
+	let third = channel::bounded<StreamInput>(1)
+	let fourth = channel::bounded<StreamInput>(1)
+	let fifth = channel::bounded<StreamInput>(1)
+	let sixth = channel::bounded<StreamInput>(1)
+	let _ = channel::send(first.tx, Chunk(first_value))
+	let _ = channel::send(first.tx, Chunk(first_next_value))
+	let _ = channel::send(second.tx, Chunk(second_value))
+	let _ = channel::send(third.tx, Chunk(third_value))
+	let _ = channel::send(fourth.tx, Chunk(fourth_value))
+	let _ = channel::send(fifth.tx, Chunk(fifth_value))
+	let _ = channel::send(sixth.tx, Chunk(sixth_value))
+	channel::close(first.tx)
+	channel::close(second.tx)
+	channel::close(third.tx)
+	channel::close(fourth.tx)
+	channel::close(fifth.tx)
+	channel::close(sixth.tx)
+	let receivers: List<Receiver<StreamInput>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_cons(fourth.rx, list_cons(fifth.rx, list_cons(sixth.rx, list_nil()))))))
+	let selected_first = route_ready_stream_input(receivers)
+	let selected_second = route_ready_stream_input(receivers)
+	let selected_third = route_ready_stream_input(receivers)
+	stdio::print("general-list ")
+	stdio::print(int_to_string(selected_first.index))
+	stdio::print("/")
+	stdio::print(int_to_string(input_score(selected_first.value)))
+	stdio::print(" ")
+	stdio::print(int_to_string(selected_second.index))
+	stdio::print("/")
+	stdio::print(int_to_string(input_score(selected_second.value)))
+	stdio::print(" ")
+	stdio::print(int_to_string(selected_third.index))
+	stdio::print("/")
+	stdio::print(int_to_string(input_score(selected_third.value)))
+	stdio::print(" score ")
+	stdio::println(int_to_string(selected_score(selected_first) + selected_score(selected_second) + selected_score(selected_third)))
+	Ok(())
+end

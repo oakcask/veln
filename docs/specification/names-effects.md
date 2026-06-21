@@ -75,9 +75,11 @@ compiler-known calls.
   declare `time` and `concurrency` while the handler boundary remains free of
   transport effects. Other routing adapters require `concurrency`, and socket
   wrappers around them require both `net` and `concurrency`.
-- Receiver-list channel-first routing effect coverage extends through the
-  thirty-route checked example: channel selection carries
+- Receiver-list channel-first routing effect coverage includes the general
+  helper shape over `List<Receiver<StreamInput>>`: channel selection carries
   `concurrency`, while the selected stream handler remains effect-free.
+  Earlier route-count examples remain bounded evidence, not a template for
+  adding further same-shaped fixtures.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).

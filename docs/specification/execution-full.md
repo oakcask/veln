@@ -768,113 +768,39 @@ an adapter call. The checked examples are
 and `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing
-ordinary `StreamInput` values through two, three, four, receiver-list
-five-route through thirty-route, and receiver-list timeout typed
-channel routes
-before handler invocation. Adapter
-code selects the ready route with existing channel selection and requires
-`concurrency`; the receiver-list priority cases use
-`channel::select_many_priority` on a non-empty `List<Receiver<StreamInput>>`
-and preserve the supplied list order as the priority order. The timeout case
-uses `channel::select_many_timeout` to keep that list priority while returning
-`None` when no receiver is ready before the timeout. Socket wrappers that read
-`NetStream` input and write response bytes require both `net` and
-`concurrency`. The plain handler receives stream input plus explicit
-per-stream state and remains free of transport effects. The checked examples
-are
+ordinary `StreamInput` values through typed channel routes before handler
+invocation. Adapter code selects the ready route with existing channel
+selection and requires `concurrency`; the general receiver-list helper
+example accepts a non-empty `List<Receiver<StreamInput>>`, returns the
+selected route index plus value, and shows that more-than-four-route
+selection preserves supplied list order as priority order. The receiver-list
+priority route uses `channel::select_many_priority`; the timeout route uses
+`channel::select_many_timeout`; and the result and cancellable variants keep
+the same selected value shape while adding their result or `CancelToken`
+boundary. Socket wrappers that read `NetStream` input and write response
+bytes require both `net` and `concurrency`. The plain handler receives stream
+input plus explicit per-stream state and remains free of transport effects.
+The primary checked examples are
+`examples/specification/run/channel-first-stream-routing-general-list/`,
 `examples/specification/run/channel-first-stream-routing/`,
 `examples/specification/run/channel-first-stream-routing-three-route/`,
 `examples/specification/run/channel-first-stream-routing-four-route/`,
-`examples/specification/run/channel-first-stream-routing-five-route/`,
-`examples/specification/run/channel-first-stream-routing-six-route/`,
-`examples/specification/run/channel-first-stream-routing-seven-route/`,
-`examples/specification/run/channel-first-stream-routing-eight-route/`,
-`examples/specification/run/channel-first-stream-routing-nine-route/`,
-`examples/specification/run/channel-first-stream-routing-ten-route/`,
-`examples/specification/run/channel-first-stream-routing-eleven-route/`,
-`examples/specification/run/channel-first-stream-routing-twelve-route/`,
-`examples/specification/run/channel-first-stream-routing-thirteen-route/`,
-`examples/specification/run/channel-first-stream-routing-fourteen-route/`,
-`examples/specification/run/channel-first-stream-routing-fifteen-route/`,
-`examples/specification/run/channel-first-stream-routing-sixteen-route/`,
-`examples/specification/run/channel-first-stream-routing-seventeen-route/`,
-`examples/specification/run/channel-first-stream-routing-eighteen-route/`,
-`examples/specification/run/channel-first-stream-routing-nineteen-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-one-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-two-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-three-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-four-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-five-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-six-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-seven-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-eight-route/`,
-`examples/specification/run/channel-first-stream-routing-twenty-nine-route/`,
-`examples/specification/run/channel-first-stream-routing-thirty-route/`,
 `examples/specification/run/channel-select-many-timeout/`,
 `examples/specification/run/channel-select-timeout-cancellable/`,
 `examples/specification/run/channel-select-many-timeout-cancellable/`,
 `examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
 `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
 `examples/specification/check/channel-first-stream-routing-effects/`,
+`examples/specification/check/channel-first-stream-routing-general-list-effects/`,
 `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
-and
 `examples/specification/check/channel-first-stream-routing-four-route-effects/`,
+`examples/specification/check/channel-select-many-timeout-effects/`,
+`examples/specification/check/channel-select-timeout-cancellable-effects/`,
+`examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
 and
-`examples/specification/check/channel-first-stream-routing-five-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-seven-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-eight-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-nine-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-ten-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-eleven-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twelve-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-thirteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-fourteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-fifteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-seventeen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-eighteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-nineteen-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-one-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-two-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-three-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-four-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-five-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-six-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-seven-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-eight-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`,
-and
-`examples/specification/check/channel-first-stream-routing-thirty-route-effects/`,
-and
-`examples/specification/check/channel-select-many-timeout-effects/`, and
-`examples/specification/check/channel-select-timeout-cancellable-effects/`, and
-`examples/specification/check/channel-select-many-timeout-cancellable-effects/`, and
 `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
+Earlier bounded route-count examples remain checked coverage, not a pattern
+for adding more same-shaped fixtures.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

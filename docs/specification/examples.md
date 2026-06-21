@@ -1487,150 +1487,46 @@ turns `WaitCancelled` into an ordinary cleanup response action, applies only
 treating cancellation as a runtime failure.
 
 The executable specification cases
-`../../examples/specification/run/channel-first-stream-routing/` and
-`../../examples/specification/run/channel-first-stream-routing-three-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-four-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-five-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-six-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-seven-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-eight-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-nine-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-ten-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-eleven-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twelve-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-thirteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-fourteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-fifteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-sixteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-seventeen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-eighteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-nineteen-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-one-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-two-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-three-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-four-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-five-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-six-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-seven-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-eight-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-twenty-nine-route/`
-and
-`../../examples/specification/run/channel-first-stream-routing-thirty-route/`
-and
-`../../examples/specification/run/channel-select-many-timeout/`
-and
-`../../examples/specification/run/channel-select-timeout-cancellable/`
+`../../examples/specification/run/channel-first-stream-routing-general-list/`,
+`../../examples/specification/run/channel-first-stream-routing/`,
+`../../examples/specification/run/channel-first-stream-routing-three-route/`,
+`../../examples/specification/run/channel-first-stream-routing-four-route/`,
+`../../examples/specification/run/channel-select-many-timeout/`,
+`../../examples/specification/run/channel-select-timeout-cancellable/`,
+`../../examples/specification/run/channel-select-many-timeout-cancellable/`,
+`../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
 and
 `../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`
 cover channel-first selection between ordinary `StreamInput` routes before
 handler invocation. They use existing typed channels and
 `channel::select_priority`, `channel::select_many_priority`, or
 `channel::select_many_timeout`, then call a plain stream handler with explicit
-per-stream state. The timeout case also pins ready receiver-list selection,
-`None` when no supplied receiver becomes ready before the timeout, and the
-matching `channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)`
-result boundary. The two-receiver cancellable timeout case pins
+per-stream state. The general receiver-list helper case uses more than four
+routes and checks that selected indexes and routed values remain stable. The
+timeout case also pins ready receiver-list selection, `None` when no supplied
+receiver becomes ready before the timeout, and the matching
+`channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)` result
+boundary. The two-receiver cancellable timeout case pins
 `channel::select_timeout_cancellable` ready selection, timeout, and
 `Err(SelectError)` cancellation paths. The receiver-list cancellable timeout
-cases pin the matching
-`channel::select_many_timeout_cancellable` `Ok(Some(...))`, `Ok(None)`, and
-`Err(SelectError)` paths with source-visible `CancelToken` observation. The
-matching
-`../../examples/specification/check/channel-first-stream-routing-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-three-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-four-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-ten-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-eleven-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twelve-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-thirteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-fourteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-fifteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-seventeen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-eighteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-nineteen-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-one-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-two-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-three-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-four-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-five-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-six-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-seven-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-eight-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`
-and
-`../../examples/specification/check/channel-first-stream-routing-thirty-route-effects/`
-and
-`../../examples/specification/check/channel-select-many-timeout-effects/`
-and
-`../../examples/specification/check/channel-select-timeout-cancellable-effects/`
-and
-`../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`
+cases pin the matching `channel::select_many_timeout_cancellable`
+`Ok(Some(...))`, `Ok(None)`, and `Err(SelectError)` paths with
+source-visible `CancelToken` observation. The matching
+`../../examples/specification/check/channel-first-stream-routing-effects/`,
+`../../examples/specification/check/channel-first-stream-routing-general-list-effects/`,
+`../../examples/specification/check/channel-first-stream-routing-three-route-effects/`,
+`../../examples/specification/check/channel-first-stream-routing-four-route-effects/`,
+`../../examples/specification/check/channel-select-many-timeout-effects/`,
+`../../examples/specification/check/channel-select-timeout-cancellable-effects/`,
+`../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
 and
 `../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,
 the cancellable channel-first adapter requires both `time` and `concurrency`,
 socket wrappers around the routing boundary require both `net` and
-`concurrency`, and the
-handler boundary remains free of transport effects.
+`concurrency`, and the handler boundary remains free of transport effects.
+Earlier bounded route-count examples remain checked coverage, not a pattern
+for adding more same-shaped fixtures.
 
 ## Pending Input Byte Chunks
 

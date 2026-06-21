@@ -1,0 +1,22 @@
+# General receiver-list routing keeps selection effects at the adapter boundary.
+fn route_ready_stream_input(receivers: List<Receiver<StreamInput>>) -> { index : Int, value : StreamInput } effects [concurrency]
+	match channel::select_many_priority(receivers)
+		Some(selected) => selected
+		None => { index: -1, value: End }
+	end
+end
+
+fn handle_selected(selected: { index : Int, value : StreamInput }, state: { chunks : Int, ended : Bool }) -> { actions : Int, next_state : { chunks : Int, ended : Bool } }
+	match selected.value
+		Chunk(_) => { actions: selected.index + 1, next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: selected.index, next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+pub fn route_general_list(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : Int, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	handle_selected(route_ready_stream_input(receivers), state)
+end
+
+pub fn route_general_list_missing_concurrency(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : Int, next_state : { chunks : Int, ended : Bool } }
+	route_general_list(receivers, state)
+end

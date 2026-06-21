@@ -6,129 +6,35 @@ This record preserves the completed receiver-list channel-first stream routing
 slice from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
-`../../../examples/specification/run/channel-first-stream-routing-five-route/`
-and `../../../examples/specification/run/channel-first-stream-routing-six-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-seven-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-eight-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-nine-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-ten-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-eleven-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twelve-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-thirteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-fourteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-fifteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-sixteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-seventeen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-eighteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-nineteen-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-one-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-two-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-three-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-four-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-five-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-six-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-seven-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-eight-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-twenty-nine-route/`
-and
-`../../../examples/specification/run/channel-first-stream-routing-thirty-route/`
+`../../../examples/specification/run/channel-first-stream-routing-general-list/case.toml`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`
 and
-`../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-nine-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-ten-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-eleven-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twelve-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-thirteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-fourteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-fifteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-sixteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-seventeen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-eighteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-nineteen-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-one-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-two-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-three-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-four-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-five-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-six-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-seven-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-eight-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`
-and
-`../../../examples/specification/check/channel-first-stream-routing-thirty-route-effects/`
+`../../../examples/specification/check/channel-first-stream-routing-general-list-effects/case.toml`
 and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
+Bounded five-route through thirty-route examples remain historical coverage,
+but the general-list examples are the primary scalable evidence.
 
 ## Outcome
 
-The completed route-count slices add checked five-, six-, seven-, eight-,
-nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, fifteen-, sixteen-,
-seventeen-, eighteen-, nineteen-, twenty-, twenty-one-, twenty-two-,
-twenty-three-, twenty-four-, twenty-five-, twenty-six-, twenty-seven-,
-twenty-eight-, twenty-nine-, and thirty-route evidence for
-the narrow `channel::select_many_priority(receivers)` standard-library
-boundary over a non-empty `List<Receiver<T>>`. It returns
-`Option<{index: Int, value: T}>`, where `index` is the zero-based receiver
-position in the supplied list. When multiple receivers are ready, selection
-uses the existing priority rule: the earliest ready receiver in the supplied
-list wins.
+The completed general receiver-list routing slice adds a source-visible helper
+shape that accepts a non-empty `List<Receiver<StreamInput>>`, calls
+`channel::select_many_priority`, and returns the selected route index plus
+ordinary `StreamInput` value. The executable example uses more than four
+routes and checks that repeated selection preserves lower-index priority and
+the selected value.
+
+Earlier bounded route-count slices keep historical coverage for the narrow
+`channel::select_many_priority(receivers)` standard-library boundary over a
+non-empty `List<Receiver<T>>`. They are not the primary evidence for larger
+receiver lists and should not be extended by adding more same-shaped route
+counts.
 
 The completed timeout slice adds
 `channel::select_many_timeout(receivers, timeout_ms)` with the same receiver
@@ -168,9 +74,9 @@ Missing effects on the adapter path are rejected by static checking.
 ## Remaining Work
 
 The broader network integration proposal remains open for production socket
-ownership, richer stream routing beyond the checked narrow route counts, richer
-deadline and cancellation APIs, channel and task ownership beyond the checked
-adapter slices, and HTTP/2 transport-adapter work.
+ownership, richer stream routing beyond the checked general receiver-list
+helper, richer deadline and cancellation APIs, channel and task ownership
+beyond the checked adapter slices, and HTTP/2 transport-adapter work.
 
 ## Read When
 
