@@ -255,6 +255,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-twenty-three-route/`,
   `examples/specification/run/channel-first-stream-routing-twenty-four-route/`,
   `examples/specification/run/channel-first-stream-routing-twenty-five-route/`,
+  `examples/specification/run/channel-first-stream-routing-twenty-six-route/`,
   `examples/specification/run/channel-first-stream-routing-twenty-seven-route/`,
   `examples/specification/run/channel-first-stream-routing-twenty-eight-route/`,
   `examples/specification/run/channel-first-stream-routing-twenty-nine-route/`,

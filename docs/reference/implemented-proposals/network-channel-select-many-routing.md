@@ -47,6 +47,8 @@ and
 and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-five-route/`
 and
+`../../../examples/specification/run/channel-first-stream-routing-twenty-six-route/`
+and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-seven-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-eight-route/`

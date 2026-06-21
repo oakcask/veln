@@ -2640,6 +2640,11 @@ against the built `veln` binary.
   routes, selects all ready routes in receiver-list priority order with
   `channel::select_many_priority`, and then invokes the same pure stream
   handler shape with explicit per-stream state.
+- `run/channel-first-stream-routing-twenty-six-route/`: adapter-owned source
+  routes ordinary `StreamInput` values through twenty-six typed channel
+  routes, selects all ready routes in receiver-list priority order with
+  `channel::select_many_priority`, and then invokes the same pure stream
+  handler shape with explicit per-stream state.
 - `run/channel-first-stream-routing-twenty-seven-route/`: adapter-owned source
   routes ordinary `StreamInput` values through twenty-seven typed channel
   routes, selects all ready routes in receiver-list priority order with
