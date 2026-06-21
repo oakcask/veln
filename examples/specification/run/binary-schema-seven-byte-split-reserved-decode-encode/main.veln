@@ -1,0 +1,77 @@
+use stdio
+
+schema SevenByteSplitReservedHeader
+	format binary
+
+	lead: UInt5
+	guard: ReservedBits(14, 10922)
+	mode: UInt7
+	gap: ReservedBits(23, 5614165)
+	tail: UInt7
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn emit_decoded(decoded: {lead: Int, mode: Int, tail: Int}) -> () effects [stdio]
+	stdio::println(int_to_string(decoded.lead))
+	stdio::println(int_to_string(decoded.mode))
+	stdio::println(int_to_string(decoded.tail))
+end
+
+fn emit_encoded_round_trip(chunk: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(7)?)?
+	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_seven_byte_split_reserved_header(view)?
+	emit_decoded(decoded)
+	Ok(())
+end
+
+fn emit_encode_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => emit_encoded_round_trip(chunk)
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
+	end
+end
+
+fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("ad55556ad52aea")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let decoded: {lead: Int, mode: Int, tail: Int} = byte_decode_seven_byte_split_reserved_header(view)?
+	emit_decoded(decoded)
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_seven_byte_split_reserved_header({lead: 21, mode: 85, tail: 106})
+	let ignored: () = emit_encode_result(encoded)?
+
+	let rejected: Result<ByteChunk, EncodeError> = byte_encode_seven_byte_split_reserved_header({lead: 21, mode: 128, tail: 106})
+	emit_encode_error(rejected)
+	Ok(())
+end

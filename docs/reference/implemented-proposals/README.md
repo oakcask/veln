@@ -72,6 +72,8 @@ behavior.
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
+- Binary schema seven-byte split reserved layouts:
+  [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema nested repeat payload helpers:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Network adapter ownership boundary:
