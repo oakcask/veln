@@ -4836,6 +4836,97 @@ fn task_spawn_with38_preserves_expected_item_type() {
 }
 
 #[test]
+fn task_spawn_with39_preserves_arguments_and_explicit_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn combine(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String, thirty_second: String, thirty_third: String, thirty_fourth: String, thirty_fifth: String, thirty_sixth: String, thirty_seventh: String, thirty_eighth: String, thirty_ninth: String) -> String effects [concurrency]\n",
+            "  thirty_ninth\n",
+            "end\n",
+            "pub fn main(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String, thirty_second: String, thirty_third: String, thirty_fourth: String, thirty_fifth: String, thirty_sixth: String, thirty_seventh: String, thirty_eighth: String, thirty_ninth: String) -> Result<String, JoinError> effects [concurrency]\n",
+            "  let task = task::spawn_with39<String>(combine, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first, twenty_second, twenty_third, twenty_fourth, twenty_fifth, twenty_sixth, twenty_seventh, twenty_eighth, twenty_ninth, thirtieth, thirty_first, thirty_second, thirty_third, thirty_fourth, thirty_fifth, thirty_sixth, thirty_seventh, thirty_eighth, thirty_ninth)\n",
+            "  task::join(task)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected task binding");
+    };
+    assert_eq!(expr.ty, CoreType::named("Task", vec![CoreType::string()]));
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected task call");
+    };
+    assert_eq!(args.len(), 40);
+    assert_eq!(args[1].ty, CoreType::string());
+    assert_eq!(args[39].ty, CoreType::string());
+    let ir = lowered.ir.expect("task calls should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to IR");
+    assert!(matches!(
+        &main.body[0].kind,
+        IrStmtKind::Let { value, .. }
+            if matches!(
+                &value.kind,
+                IrExprKind::Call {
+                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    args,
+                } if name == "task::spawn_with39" && args.len() == 40
+            )
+    ));
+}
+
+#[test]
+fn task_spawn_with39_preserves_expected_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn combine(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String, thirty_second: String, thirty_third: String, thirty_fourth: String, thirty_fifth: String, thirty_sixth: String, thirty_seventh: String, thirty_eighth: String, thirty_ninth: String) -> String effects [concurrency]\n",
+            "  first\n",
+            "end\n",
+            "pub fn main(first: String, second: String, third: String, fourth: String, fifth: String, sixth: String, seventh: String, eighth: String, ninth: String, tenth: String, eleventh: String, twelfth: String, thirteenth: String, fourteenth: String, fifteenth: String, sixteenth: String, seventeenth: String, eighteenth: String, nineteenth: String, twentieth: String, twenty_first: String, twenty_second: String, twenty_third: String, twenty_fourth: String, twenty_fifth: String, twenty_sixth: String, twenty_seventh: String, twenty_eighth: String, twenty_ninth: String, thirtieth: String, thirty_first: String, thirty_second: String, thirty_third: String, thirty_fourth: String, thirty_fifth: String, thirty_sixth: String, thirty_seventh: String, thirty_eighth: String, thirty_ninth: String) -> Task<String> effects [concurrency]\n",
+            "  task::spawn_with39(combine, first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth, seventeenth, eighteenth, nineteenth, twentieth, twenty_first, twenty_second, twenty_third, twenty_fourth, twenty_fifth, twenty_sixth, twenty_seventh, twenty_eighth, twenty_ninth, thirtieth, thirty_first, thirty_second, thirty_third, thirty_fourth, thirty_fifth, thirty_sixth, thirty_seventh, thirty_eighth, thirty_ninth)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("expected task return");
+    };
+    assert_eq!(expr.ty, CoreType::named("Task", vec![CoreType::string()]));
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected task call");
+    };
+    assert_eq!(args.len(), 40);
+    assert_eq!(args[39].ty, CoreType::string());
+}
+
+#[test]
 fn declared_concurrency_calls_lower_to_executable_ir() {
     let source = SourceFile::new(
         "main.veln",
