@@ -108,648 +108,637 @@ fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
 }
 
 fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
-    let byte = Type::named("Byte", Vec::new());
-    let flag8 = Type::named("Flag8", Vec::new());
-    let flag16be = Type::named("Flag16be", Vec::new());
-    let flag16le = Type::named("Flag16le", Vec::new());
-    let flag24be = Type::named("Flag24be", Vec::new());
-    let flag24le = Type::named("Flag24le", Vec::new());
-    let flag32be = Type::named("Flag32be", Vec::new());
-    let flag32le = Type::named("Flag32le", Vec::new());
-    let flag40be = Type::named("Flag40be", Vec::new());
-    let flag40le = Type::named("Flag40le", Vec::new());
-    let flag48be = Type::named("Flag48be", Vec::new());
-    let flag48le = Type::named("Flag48le", Vec::new());
-    let flag56be = Type::named("Flag56be", Vec::new());
-    let flag56le = Type::named("Flag56le", Vec::new());
-    let flag64be = Type::named("Flag64be", Vec::new());
-    let flag64le = Type::named("Flag64le", Vec::new());
-    let byte_chunk = Type::named("ByteChunk", Vec::new());
-    let byte_view = Type::named("ByteView", Vec::new());
-    let byte_count = Type::named("ByteCount", Vec::new());
-    let byte_offset = Type::named("ByteOffset", Vec::new());
+    byte_prelude_signature::<Type>(name)
+}
+
+type ByteSignature<T> = (Vec<T>, T);
+
+trait BytePreludeType: Clone {
+    fn named(name: &'static str) -> Self;
+    fn record(fields: Vec<(&'static str, Self)>) -> Self;
+    fn bool() -> Self;
+    fn int() -> Self;
+    fn string() -> Self;
+    fn unit() -> Self;
+    fn vec(item: Self) -> Self;
+    fn list(item: Self) -> Self;
+    fn result(value: Self, error: Self) -> Self;
+}
+
+impl BytePreludeType for Type {
+    fn named(name: &'static str) -> Self {
+        Type::named(name, Vec::new())
+    }
+
+    fn record(fields: Vec<(&'static str, Self)>) -> Self {
+        Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name.to_string(), ty))
+                .collect(),
+        )
+    }
+
+    fn bool() -> Self {
+        Type::bool()
+    }
+
+    fn int() -> Self {
+        Type::int()
+    }
+
+    fn string() -> Self {
+        Type::string()
+    }
+
+    fn unit() -> Self {
+        Type::unit()
+    }
+
+    fn vec(item: Self) -> Self {
+        Type::vec(item)
+    }
+
+    fn list(item: Self) -> Self {
+        adt::list_type(item)
+    }
+
+    fn result(value: Self, error: Self) -> Self {
+        adt::result_type(value, error)
+    }
+}
+
+impl BytePreludeType for CoreType {
+    fn named(name: &'static str) -> Self {
+        CoreType::named(name, Vec::new())
+    }
+
+    fn record(fields: Vec<(&'static str, Self)>) -> Self {
+        CoreType::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name.to_string(), ty))
+                .collect(),
+        )
+    }
+
+    fn bool() -> Self {
+        CoreType::bool()
+    }
+
+    fn int() -> Self {
+        CoreType::int()
+    }
+
+    fn string() -> Self {
+        CoreType::string()
+    }
+
+    fn unit() -> Self {
+        CoreType::unit()
+    }
+
+    fn vec(item: Self) -> Self {
+        CoreType::vec(item)
+    }
+
+    fn list(item: Self) -> Self {
+        adt::core_list_type(item)
+    }
+
+    fn result(value: Self, error: Self) -> Self {
+        adt::core_result_type(value, error)
+    }
+}
+
+struct BytePreludeTypes<T> {
+    byte: T,
+    flag8: T,
+    flag16be: T,
+    flag16le: T,
+    flag24be: T,
+    flag24le: T,
+    flag32be: T,
+    flag32le: T,
+    flag40be: T,
+    flag40le: T,
+    flag48be: T,
+    flag48le: T,
+    flag56be: T,
+    flag56le: T,
+    flag64be: T,
+    flag64le: T,
+    byte_chunk: T,
+    byte_view: T,
+    byte_count: T,
+    byte_offset: T,
+}
+
+impl<T: BytePreludeType> BytePreludeTypes<T> {
+    fn new() -> Self {
+        Self {
+            byte: T::named("Byte"),
+            flag8: T::named("Flag8"),
+            flag16be: T::named("Flag16be"),
+            flag16le: T::named("Flag16le"),
+            flag24be: T::named("Flag24be"),
+            flag24le: T::named("Flag24le"),
+            flag32be: T::named("Flag32be"),
+            flag32le: T::named("Flag32le"),
+            flag40be: T::named("Flag40be"),
+            flag40le: T::named("Flag40le"),
+            flag48be: T::named("Flag48be"),
+            flag48le: T::named("Flag48le"),
+            flag56be: T::named("Flag56be"),
+            flag56le: T::named("Flag56le"),
+            flag64be: T::named("Flag64be"),
+            flag64le: T::named("Flag64le"),
+            byte_chunk: T::named("ByteChunk"),
+            byte_view: T::named("ByteView"),
+            byte_count: T::named("ByteCount"),
+            byte_offset: T::named("ByteOffset"),
+        }
+    }
+
+    fn flags(&self) -> [(&'static str, &T); 15] {
+        [
+            ("flag8", &self.flag8),
+            ("flag16be", &self.flag16be),
+            ("flag16le", &self.flag16le),
+            ("flag24be", &self.flag24be),
+            ("flag24le", &self.flag24le),
+            ("flag32be", &self.flag32be),
+            ("flag32le", &self.flag32le),
+            ("flag40be", &self.flag40be),
+            ("flag40le", &self.flag40le),
+            ("flag48be", &self.flag48be),
+            ("flag48le", &self.flag48le),
+            ("flag56be", &self.flag56be),
+            ("flag56le", &self.flag56le),
+            ("flag64be", &self.flag64be),
+            ("flag64le", &self.flag64le),
+        ]
+    }
+}
+
+fn byte_prelude_signature<T: BytePreludeType>(name: &str) -> Option<ByteSignature<T>> {
+    let types = BytePreludeTypes::new();
+    byte_constructor_signature(name, &types)
+        .or_else(|| byte_flag_signature(name, &types))
+        .or_else(|| byte_chunk_signature(name, &types))
+        .or_else(|| byte_view_signature(name, &types))
+        .or_else(|| byte_chunk_list_signature(name, &types))
+        .or_else(|| byte_decode_sample_signature(name, &types))
+        .or_else(|| http2_protocol_preface_signature(name, &types))
+        .or_else(|| http2_protocol_frame_signature(name, &types))
+        .or_else(|| http2_peer_limit_signature(name, &types))
+        .or_else(|| hpack_fixture_signature(name, &types))
+        .or_else(|| byte_numeric_signature(name, &types))
+}
+
+fn result_string<T: BytePreludeType>(value: T) -> T {
+    T::result(value, T::string())
+}
+
+fn unit_result<T: BytePreludeType>() -> T {
+    result_string(T::unit())
+}
+
+fn byte_constructor_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
     match name {
-        "byte" => Some((
-            vec![Type::int()],
-            adt::result_type(byte.clone(), Type::string()),
-        )),
-        "byte_to_int" => Some((vec![byte.clone()], Type::int())),
-        "flag8_is_set" => Some((
-            vec![flag8.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag8_set" => Some((
-            vec![flag8.clone(), Type::int()],
-            adt::result_type(flag8.clone(), Type::string()),
-        )),
-        "flag8_bits" => Some((vec![flag8.clone()], Type::int())),
-        "flag8_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag8.clone(), Type::string()),
-        )),
-        "flag16be_is_set" => Some((
-            vec![flag16be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag16be_set" => Some((
-            vec![flag16be.clone(), Type::int()],
-            adt::result_type(flag16be.clone(), Type::string()),
-        )),
-        "flag16be_bits" => Some((vec![flag16be.clone()], Type::int())),
-        "flag16be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag16be.clone(), Type::string()),
-        )),
-        "flag16le_is_set" => Some((
-            vec![flag16le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag16le_set" => Some((
-            vec![flag16le.clone(), Type::int()],
-            adt::result_type(flag16le.clone(), Type::string()),
-        )),
-        "flag16le_bits" => Some((vec![flag16le.clone()], Type::int())),
-        "flag16le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag16le.clone(), Type::string()),
-        )),
-        "flag24be_is_set" => Some((
-            vec![flag24be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag24be_set" => Some((
-            vec![flag24be.clone(), Type::int()],
-            adt::result_type(flag24be.clone(), Type::string()),
-        )),
-        "flag24be_bits" => Some((vec![flag24be.clone()], Type::int())),
-        "flag24be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag24be.clone(), Type::string()),
-        )),
-        "flag24le_is_set" => Some((
-            vec![flag24le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag24le_set" => Some((
-            vec![flag24le.clone(), Type::int()],
-            adt::result_type(flag24le.clone(), Type::string()),
-        )),
-        "flag24le_bits" => Some((vec![flag24le.clone()], Type::int())),
-        "flag24le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag24le.clone(), Type::string()),
-        )),
-        "flag32be_is_set" => Some((
-            vec![flag32be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag32be_set" => Some((
-            vec![flag32be.clone(), Type::int()],
-            adt::result_type(flag32be.clone(), Type::string()),
-        )),
-        "flag32be_bits" => Some((vec![flag32be.clone()], Type::int())),
-        "flag32be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag32be.clone(), Type::string()),
-        )),
-        "flag32le_is_set" => Some((
-            vec![flag32le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag32le_set" => Some((
-            vec![flag32le.clone(), Type::int()],
-            adt::result_type(flag32le.clone(), Type::string()),
-        )),
-        "flag32le_bits" => Some((vec![flag32le.clone()], Type::int())),
-        "flag32le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag32le.clone(), Type::string()),
-        )),
-        "flag40be_is_set" => Some((
-            vec![flag40be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag40be_set" => Some((
-            vec![flag40be.clone(), Type::int()],
-            adt::result_type(flag40be.clone(), Type::string()),
-        )),
-        "flag40be_bits" => Some((vec![flag40be.clone()], Type::int())),
-        "flag40be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag40be.clone(), Type::string()),
-        )),
-        "flag40le_is_set" => Some((
-            vec![flag40le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag40le_set" => Some((
-            vec![flag40le.clone(), Type::int()],
-            adt::result_type(flag40le.clone(), Type::string()),
-        )),
-        "flag40le_bits" => Some((vec![flag40le.clone()], Type::int())),
-        "flag40le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag40le.clone(), Type::string()),
-        )),
-        "flag48be_is_set" => Some((
-            vec![flag48be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag48be_set" => Some((
-            vec![flag48be.clone(), Type::int()],
-            adt::result_type(flag48be.clone(), Type::string()),
-        )),
-        "flag48be_bits" => Some((vec![flag48be.clone()], Type::int())),
-        "flag48be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag48be.clone(), Type::string()),
-        )),
-        "flag48le_is_set" => Some((
-            vec![flag48le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag48le_set" => Some((
-            vec![flag48le.clone(), Type::int()],
-            adt::result_type(flag48le.clone(), Type::string()),
-        )),
-        "flag48le_bits" => Some((vec![flag48le.clone()], Type::int())),
-        "flag48le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag48le.clone(), Type::string()),
-        )),
-        "flag56be_is_set" => Some((
-            vec![flag56be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag56be_set" => Some((
-            vec![flag56be.clone(), Type::int()],
-            adt::result_type(flag56be.clone(), Type::string()),
-        )),
-        "flag56be_bits" => Some((vec![flag56be.clone()], Type::int())),
-        "flag56be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag56be.clone(), Type::string()),
-        )),
-        "flag56le_is_set" => Some((
-            vec![flag56le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag56le_set" => Some((
-            vec![flag56le.clone(), Type::int()],
-            adt::result_type(flag56le.clone(), Type::string()),
-        )),
-        "flag56le_bits" => Some((vec![flag56le.clone()], Type::int())),
-        "flag56le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag56le.clone(), Type::string()),
-        )),
-        "flag64be_is_set" => Some((
-            vec![flag64be.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag64be_set" => Some((
-            vec![flag64be.clone(), Type::int()],
-            adt::result_type(flag64be.clone(), Type::string()),
-        )),
-        "flag64be_bits" => Some((vec![flag64be.clone()], Type::int())),
-        "flag64be_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag64be.clone(), Type::string()),
-        )),
-        "flag64le_is_set" => Some((
-            vec![flag64le.clone(), Type::int()],
-            adt::result_type(Type::bool(), Type::string()),
-        )),
-        "flag64le_set" => Some((
-            vec![flag64le.clone(), Type::int()],
-            adt::result_type(flag64le.clone(), Type::string()),
-        )),
-        "flag64le_bits" => Some((vec![flag64le.clone()], Type::int())),
-        "flag64le_from_bits" => Some((
-            vec![Type::int()],
-            adt::result_type(flag64le.clone(), Type::string()),
-        )),
-        "byte_chunk" => Some((vec![Type::vec(byte.clone())], byte_chunk.clone())),
-        "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
-        "byte_append" => Some((
-            vec![byte_chunk.clone(), byte_chunk.clone()],
-            byte_chunk.clone(),
-        )),
-        "byte_chunk_from_hex" => Some((
-            vec![Type::string()],
-            adt::result_type(byte_chunk.clone(), Type::string()),
-        )),
-        "byte_chunk_to_visible_ascii_string" => Some((
-            vec![byte_chunk.clone()],
-            adt::result_type(Type::string(), Type::string()),
-        )),
-        "byte_chunk_from_visible_ascii_string" => Some((
-            vec![Type::string()],
-            adt::result_type(byte_chunk.clone(), Type::string()),
-        )),
-        "byte_take" | "byte_drop" => Some((
-            vec![byte_chunk.clone(), byte_count.clone()],
-            adt::result_type(byte_chunk.clone(), Type::string()),
-        )),
-        "byte_view" => Some((
-            vec![byte_chunk.clone(), byte_offset.clone(), byte_count.clone()],
-            adt::result_type(byte_view.clone(), Type::string()),
-        )),
-        "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
-        "byte_view_count" => Some((vec![byte_view.clone()], byte_count.clone())),
-        "byte_view_take" | "byte_view_drop" => Some((
-            vec![byte_view.clone(), byte_count.clone()],
-            adt::result_type(byte_view.clone(), Type::string()),
-        )),
-        "byte_view_slice" => Some((
-            vec![byte_view.clone(), byte_count.clone(), byte_count.clone()],
-            adt::result_type(byte_view.clone(), Type::string()),
-        )),
-        "byte_chunks_empty" => Some((Vec::new(), adt::list_type(byte_chunk.clone()))),
-        "byte_chunks_one" => Some((vec![byte_chunk.clone()], adt::list_type(byte_chunk.clone()))),
-        "byte_chunks_append" => Some((
-            vec![
-                adt::list_type(byte_chunk.clone()),
-                adt::list_type(byte_chunk.clone()),
-            ],
-            adt::list_type(byte_chunk.clone()),
-        )),
-        "byte_expect_fixed_u8_be" => Some((
-            vec![
-                byte_view.clone(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::int(), Type::string()),
-        )),
-        "byte_decode_http2_frame" => Some((
-            vec![byte_view.clone()],
-            adt::result_type(http2_frame_type(), Type::string()),
-        )),
-        "byte_decode_schema_width_sample" => Some((
-            vec![byte_view.clone()],
-            adt::result_type(schema_width_sample_type(), Type::string()),
-        )),
-        "byte_decode_schema_validation_sample" => Some((
-            vec![byte_view.clone()],
-            adt::result_type(schema_validation_sample_type(), Type::string()),
-        )),
-        "http2_protocol_closed_with_pending" => Some((
-            vec![Type::int(), Type::int(), Type::string()],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_partial_preface" => Some((
-            vec![Type::int(), Type::int(), byte_view.clone()],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_preface" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_continuation_expected" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_frame_kind" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_stream_id" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_payload_length" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_window_update_increment" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_data_padding" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_request_header_list" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_response_header_list" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_unexpected_settings_ack" => Some((
-            vec![
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_invalid_priority_dependency" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_protocol_stream_after_goaway" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_frame_size_exceeded" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_header_list_size_exceeded" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_header_table_size_exceeded" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_flow_control_window_exceeded" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_concurrent_streams_exceeded" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "http2_peer_limit_settings_value_out_of_range" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_unsupported_header_block" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_malformed_string_length" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_malformed_raw_string_value" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_malformed_huffman_padding" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_huffman_eos_symbol" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_huffman_non_visible_value" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "hpack_fixture_table_size_update_not_at_start" => Some((
-            vec![
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::int(),
-                Type::string(),
-                Type::string(),
-                Type::string(),
-                byte_view.clone(),
-            ],
-            adt::result_type(Type::unit(), Type::string()),
-        )),
-        "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
-        | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u64_be"
-        | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le" | "byte_read_u32_le"
-        | "byte_read_u40_le" | "byte_read_u48_le" | "byte_read_u64_le" => Some((
-            vec![byte_view.clone()],
-            adt::result_type(Type::int(), Type::string()),
-        )),
-        "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
-        | "byte_write_u32_be" | "byte_write_u40_be" | "byte_write_u48_be" | "byte_write_u64_be"
-        | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le" | "byte_write_u32_le"
-        | "byte_write_u40_le" | "byte_write_u48_le" | "byte_write_u64_le" => Some((
-            vec![Type::int()],
-            adt::result_type(byte_chunk.clone(), Type::string()),
-        )),
-        "byte_count" => Some((
-            vec![Type::int()],
-            adt::result_type(byte_count.clone(), Type::string()),
-        )),
-        "byte_count_to_int" => Some((vec![byte_count.clone()], Type::int())),
-        "byte_offset" => Some((
-            vec![Type::int()],
-            adt::result_type(byte_offset.clone(), Type::string()),
-        )),
-        "byte_offset_to_int" => Some((vec![byte_offset], Type::int())),
+        "byte" => Some((vec![T::int()], result_string(types.byte.clone()))),
+        "byte_to_int" => Some((vec![types.byte.clone()], T::int())),
         _ => None,
     }
 }
 
-fn http2_frame_type() -> Type {
-    Type::Record(vec![
-        ("length".to_string(), Type::int()),
-        ("kind".to_string(), Type::int()),
-        ("flags".to_string(), Type::int()),
-        ("stream_id".to_string(), Type::int()),
-        ("payload".to_string(), Type::named("ByteView", Vec::new())),
+fn byte_flag_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    for (prefix, flag) in types.flags() {
+        let Some(suffix) = name.strip_prefix(prefix) else {
+            continue;
+        };
+        return match suffix {
+            "_is_set" => Some((vec![flag.clone(), T::int()], result_string(T::bool()))),
+            "_set" => Some((vec![flag.clone(), T::int()], result_string(flag.clone()))),
+            "_bits" => Some((vec![flag.clone()], T::int())),
+            "_from_bits" => Some((vec![T::int()], result_string(flag.clone()))),
+            _ => None,
+        };
+    }
+    None
+}
+
+fn byte_chunk_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "byte_chunk" => Some((vec![T::vec(types.byte.clone())], types.byte_chunk.clone())),
+        "byte_chunk_count" => Some((vec![types.byte_chunk.clone()], types.byte_count.clone())),
+        "byte_append" => Some((
+            vec![types.byte_chunk.clone(), types.byte_chunk.clone()],
+            types.byte_chunk.clone(),
+        )),
+        "byte_chunk_from_hex" => Some((vec![T::string()], result_string(types.byte_chunk.clone()))),
+        "byte_chunk_to_visible_ascii_string" => {
+            Some((vec![types.byte_chunk.clone()], result_string(T::string())))
+        }
+        "byte_chunk_from_visible_ascii_string" => {
+            Some((vec![T::string()], result_string(types.byte_chunk.clone())))
+        }
+        "byte_take" | "byte_drop" => Some((
+            vec![types.byte_chunk.clone(), types.byte_count.clone()],
+            result_string(types.byte_chunk.clone()),
+        )),
+        _ => None,
+    }
+}
+
+fn byte_view_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "byte_view" => Some((
+            vec![
+                types.byte_chunk.clone(),
+                types.byte_offset.clone(),
+                types.byte_count.clone(),
+            ],
+            result_string(types.byte_view.clone()),
+        )),
+        "byte_view_to_chunk" => Some((vec![types.byte_view.clone()], types.byte_chunk.clone())),
+        "byte_view_count" => Some((vec![types.byte_view.clone()], types.byte_count.clone())),
+        "byte_view_take" | "byte_view_drop" => Some((
+            vec![types.byte_view.clone(), types.byte_count.clone()],
+            result_string(types.byte_view.clone()),
+        )),
+        "byte_view_slice" => Some((
+            vec![
+                types.byte_view.clone(),
+                types.byte_count.clone(),
+                types.byte_count.clone(),
+            ],
+            result_string(types.byte_view.clone()),
+        )),
+        _ => None,
+    }
+}
+
+fn byte_chunk_list_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "byte_chunks_empty" => Some((Vec::new(), T::list(types.byte_chunk.clone()))),
+        "byte_chunks_one" => Some((
+            vec![types.byte_chunk.clone()],
+            T::list(types.byte_chunk.clone()),
+        )),
+        "byte_chunks_append" => Some((
+            vec![
+                T::list(types.byte_chunk.clone()),
+                T::list(types.byte_chunk.clone()),
+            ],
+            T::list(types.byte_chunk.clone()),
+        )),
+        _ => None,
+    }
+}
+
+fn byte_decode_sample_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "byte_expect_fixed_u8_be" => Some((
+            vec![types.byte_view.clone(), T::int(), T::string(), T::string()],
+            result_string(T::int()),
+        )),
+        "byte_decode_http2_frame" => Some((
+            vec![types.byte_view.clone()],
+            result_string(http2_frame_type()),
+        )),
+        "byte_decode_schema_width_sample" => Some((
+            vec![types.byte_view.clone()],
+            result_string(schema_width_sample_type()),
+        )),
+        "byte_decode_schema_validation_sample" => Some((
+            vec![types.byte_view.clone()],
+            result_string(schema_validation_sample_type()),
+        )),
+        _ => None,
+    }
+}
+
+fn http2_protocol_preface_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "http2_protocol_closed_with_pending" => {
+            Some((vec![T::int(), T::int(), T::string()], unit_result()))
+        }
+        "http2_protocol_partial_preface" => Some((
+            vec![T::int(), T::int(), types.byte_view.clone()],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_preface" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_continuation_expected" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        _ => None,
+    }
+}
+
+fn http2_protocol_frame_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "http2_protocol_invalid_frame_kind" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_stream_id" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_payload_length" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_window_update_increment" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_data_padding" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_request_header_list"
+        | "http2_protocol_invalid_response_header_list" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+                T::string(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_unexpected_settings_ack" => Some((
+            vec![T::int(), T::string(), T::string(), types.byte_view.clone()],
+            unit_result(),
+        )),
+        "http2_protocol_invalid_priority_dependency" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_protocol_stream_after_goaway" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        _ => None,
+    }
+}
+
+fn http2_peer_limit_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "http2_peer_limit_frame_size_exceeded" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        "http2_peer_limit_header_list_size_exceeded"
+        | "http2_peer_limit_header_table_size_exceeded" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "http2_peer_limit_flow_control_window_exceeded" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        "http2_peer_limit_concurrent_streams_exceeded" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+            ],
+            unit_result(),
+        )),
+        "http2_peer_limit_settings_value_out_of_range" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::string(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        _ => None,
+    }
+}
+
+fn hpack_fixture_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "hpack_fixture_unsupported_header_block"
+        | "hpack_fixture_malformed_string_length"
+        | "hpack_fixture_malformed_raw_string_value"
+        | "hpack_fixture_malformed_huffman_padding"
+        | "hpack_fixture_huffman_eos_symbol"
+        | "hpack_fixture_huffman_non_visible_value" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        "hpack_fixture_table_size_update_not_at_start" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
+        _ => None,
+    }
+}
+
+fn byte_numeric_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    match name {
+        "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
+        | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u64_be"
+        | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le" | "byte_read_u32_le"
+        | "byte_read_u40_le" | "byte_read_u48_le" | "byte_read_u64_le" => {
+            Some((vec![types.byte_view.clone()], result_string(T::int())))
+        }
+        "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
+        | "byte_write_u32_be" | "byte_write_u40_be" | "byte_write_u48_be" | "byte_write_u64_be"
+        | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le" | "byte_write_u32_le"
+        | "byte_write_u40_le" | "byte_write_u48_le" | "byte_write_u64_le" => {
+            Some((vec![T::int()], result_string(types.byte_chunk.clone())))
+        }
+        "byte_count" => Some((vec![T::int()], result_string(types.byte_count.clone()))),
+        "byte_count_to_int" => Some((vec![types.byte_count.clone()], T::int())),
+        "byte_offset" => Some((vec![T::int()], result_string(types.byte_offset.clone()))),
+        "byte_offset_to_int" => Some((vec![types.byte_offset.clone()], T::int())),
+        _ => None,
+    }
+}
+
+fn http2_frame_type<T: BytePreludeType>() -> T {
+    T::record(vec![
+        ("length", T::int()),
+        ("kind", T::int()),
+        ("flags", T::int()),
+        ("stream_id", T::int()),
+        ("payload", T::named("ByteView")),
     ])
 }
 
-fn schema_width_sample_type() -> Type {
-    Type::Record(vec![
-        ("short_value".to_string(), Type::int()),
-        ("wide_value".to_string(), Type::int()),
-    ])
+fn schema_width_sample_type<T: BytePreludeType>() -> T {
+    T::record(vec![("short_value", T::int()), ("wide_value", T::int())])
 }
 
-fn schema_validation_sample_type() -> Type {
-    Type::Record(vec![
-        ("length".to_string(), Type::int()),
-        ("padding_length".to_string(), Type::int()),
-    ])
+fn schema_validation_sample_type<T: BytePreludeType>() -> T {
+    T::record(vec![("length", T::int()), ("padding_length", T::int())])
 }
 
 fn prelude_string_signature(name: &str) -> Option<(Vec<Type>, Type)> {
@@ -1271,654 +1260,7 @@ fn core_prelude_float_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)>
 }
 
 fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
-    let byte = CoreType::named("Byte", Vec::new());
-    let flag8 = CoreType::named("Flag8", Vec::new());
-    let flag16be = CoreType::named("Flag16be", Vec::new());
-    let flag16le = CoreType::named("Flag16le", Vec::new());
-    let flag24be = CoreType::named("Flag24be", Vec::new());
-    let flag24le = CoreType::named("Flag24le", Vec::new());
-    let flag32be = CoreType::named("Flag32be", Vec::new());
-    let flag32le = CoreType::named("Flag32le", Vec::new());
-    let flag40be = CoreType::named("Flag40be", Vec::new());
-    let flag40le = CoreType::named("Flag40le", Vec::new());
-    let flag48be = CoreType::named("Flag48be", Vec::new());
-    let flag48le = CoreType::named("Flag48le", Vec::new());
-    let flag56be = CoreType::named("Flag56be", Vec::new());
-    let flag56le = CoreType::named("Flag56le", Vec::new());
-    let flag64be = CoreType::named("Flag64be", Vec::new());
-    let flag64le = CoreType::named("Flag64le", Vec::new());
-    let byte_chunk = CoreType::named("ByteChunk", Vec::new());
-    let byte_view = CoreType::named("ByteView", Vec::new());
-    let byte_count = CoreType::named("ByteCount", Vec::new());
-    let byte_offset = CoreType::named("ByteOffset", Vec::new());
-    match name {
-        "byte" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(byte.clone(), CoreType::string()),
-        )),
-        "byte_to_int" => Some((vec![byte.clone()], CoreType::int())),
-        "flag8_is_set" => Some((
-            vec![flag8.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag8_set" => Some((
-            vec![flag8.clone(), CoreType::int()],
-            adt::core_result_type(flag8.clone(), CoreType::string()),
-        )),
-        "flag8_bits" => Some((vec![flag8.clone()], CoreType::int())),
-        "flag8_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag8.clone(), CoreType::string()),
-        )),
-        "flag16be_is_set" => Some((
-            vec![flag16be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag16be_set" => Some((
-            vec![flag16be.clone(), CoreType::int()],
-            adt::core_result_type(flag16be.clone(), CoreType::string()),
-        )),
-        "flag16be_bits" => Some((vec![flag16be.clone()], CoreType::int())),
-        "flag16be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag16be.clone(), CoreType::string()),
-        )),
-        "flag16le_is_set" => Some((
-            vec![flag16le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag16le_set" => Some((
-            vec![flag16le.clone(), CoreType::int()],
-            adt::core_result_type(flag16le.clone(), CoreType::string()),
-        )),
-        "flag16le_bits" => Some((vec![flag16le.clone()], CoreType::int())),
-        "flag16le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag16le.clone(), CoreType::string()),
-        )),
-        "flag24be_is_set" => Some((
-            vec![flag24be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag24be_set" => Some((
-            vec![flag24be.clone(), CoreType::int()],
-            adt::core_result_type(flag24be.clone(), CoreType::string()),
-        )),
-        "flag24be_bits" => Some((vec![flag24be.clone()], CoreType::int())),
-        "flag24be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag24be.clone(), CoreType::string()),
-        )),
-        "flag24le_is_set" => Some((
-            vec![flag24le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag24le_set" => Some((
-            vec![flag24le.clone(), CoreType::int()],
-            adt::core_result_type(flag24le.clone(), CoreType::string()),
-        )),
-        "flag24le_bits" => Some((vec![flag24le.clone()], CoreType::int())),
-        "flag24le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag24le.clone(), CoreType::string()),
-        )),
-        "flag32be_is_set" => Some((
-            vec![flag32be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag32be_set" => Some((
-            vec![flag32be.clone(), CoreType::int()],
-            adt::core_result_type(flag32be.clone(), CoreType::string()),
-        )),
-        "flag32be_bits" => Some((vec![flag32be.clone()], CoreType::int())),
-        "flag32be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag32be.clone(), CoreType::string()),
-        )),
-        "flag32le_is_set" => Some((
-            vec![flag32le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag32le_set" => Some((
-            vec![flag32le.clone(), CoreType::int()],
-            adt::core_result_type(flag32le.clone(), CoreType::string()),
-        )),
-        "flag32le_bits" => Some((vec![flag32le.clone()], CoreType::int())),
-        "flag32le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag32le.clone(), CoreType::string()),
-        )),
-        "flag40be_is_set" => Some((
-            vec![flag40be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag40be_set" => Some((
-            vec![flag40be.clone(), CoreType::int()],
-            adt::core_result_type(flag40be.clone(), CoreType::string()),
-        )),
-        "flag40be_bits" => Some((vec![flag40be.clone()], CoreType::int())),
-        "flag40be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag40be.clone(), CoreType::string()),
-        )),
-        "flag40le_is_set" => Some((
-            vec![flag40le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag40le_set" => Some((
-            vec![flag40le.clone(), CoreType::int()],
-            adt::core_result_type(flag40le.clone(), CoreType::string()),
-        )),
-        "flag40le_bits" => Some((vec![flag40le.clone()], CoreType::int())),
-        "flag40le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag40le.clone(), CoreType::string()),
-        )),
-        "flag48be_is_set" => Some((
-            vec![flag48be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag48be_set" => Some((
-            vec![flag48be.clone(), CoreType::int()],
-            adt::core_result_type(flag48be.clone(), CoreType::string()),
-        )),
-        "flag48be_bits" => Some((vec![flag48be.clone()], CoreType::int())),
-        "flag48be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag48be.clone(), CoreType::string()),
-        )),
-        "flag48le_is_set" => Some((
-            vec![flag48le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag48le_set" => Some((
-            vec![flag48le.clone(), CoreType::int()],
-            adt::core_result_type(flag48le.clone(), CoreType::string()),
-        )),
-        "flag48le_bits" => Some((vec![flag48le.clone()], CoreType::int())),
-        "flag48le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag48le.clone(), CoreType::string()),
-        )),
-        "flag56be_is_set" => Some((
-            vec![flag56be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag56be_set" => Some((
-            vec![flag56be.clone(), CoreType::int()],
-            adt::core_result_type(flag56be.clone(), CoreType::string()),
-        )),
-        "flag56be_bits" => Some((vec![flag56be.clone()], CoreType::int())),
-        "flag56be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag56be.clone(), CoreType::string()),
-        )),
-        "flag56le_is_set" => Some((
-            vec![flag56le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag56le_set" => Some((
-            vec![flag56le.clone(), CoreType::int()],
-            adt::core_result_type(flag56le.clone(), CoreType::string()),
-        )),
-        "flag56le_bits" => Some((vec![flag56le.clone()], CoreType::int())),
-        "flag56le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag56le.clone(), CoreType::string()),
-        )),
-        "flag64be_is_set" => Some((
-            vec![flag64be.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag64be_set" => Some((
-            vec![flag64be.clone(), CoreType::int()],
-            adt::core_result_type(flag64be.clone(), CoreType::string()),
-        )),
-        "flag64be_bits" => Some((vec![flag64be.clone()], CoreType::int())),
-        "flag64be_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag64be.clone(), CoreType::string()),
-        )),
-        "flag64le_is_set" => Some((
-            vec![flag64le.clone(), CoreType::int()],
-            adt::core_result_type(CoreType::bool(), CoreType::string()),
-        )),
-        "flag64le_set" => Some((
-            vec![flag64le.clone(), CoreType::int()],
-            adt::core_result_type(flag64le.clone(), CoreType::string()),
-        )),
-        "flag64le_bits" => Some((vec![flag64le.clone()], CoreType::int())),
-        "flag64le_from_bits" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(flag64le.clone(), CoreType::string()),
-        )),
-        "byte_chunk" => Some((vec![CoreType::vec(byte.clone())], byte_chunk.clone())),
-        "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
-        "byte_append" => Some((
-            vec![byte_chunk.clone(), byte_chunk.clone()],
-            byte_chunk.clone(),
-        )),
-        "byte_chunk_from_hex" => Some((
-            vec![CoreType::string()],
-            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
-        )),
-        "byte_chunk_to_visible_ascii_string" => Some((
-            vec![byte_chunk.clone()],
-            adt::core_result_type(CoreType::string(), CoreType::string()),
-        )),
-        "byte_chunk_from_visible_ascii_string" => Some((
-            vec![CoreType::string()],
-            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
-        )),
-        "byte_take" | "byte_drop" => Some((
-            vec![byte_chunk.clone(), byte_count.clone()],
-            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
-        )),
-        "byte_view" => Some((
-            vec![byte_chunk.clone(), byte_offset.clone(), byte_count.clone()],
-            adt::core_result_type(byte_view.clone(), CoreType::string()),
-        )),
-        "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
-        "byte_view_count" => Some((vec![byte_view.clone()], byte_count.clone())),
-        "byte_view_take" | "byte_view_drop" => Some((
-            vec![byte_view.clone(), byte_count.clone()],
-            adt::core_result_type(byte_view.clone(), CoreType::string()),
-        )),
-        "byte_view_slice" => Some((
-            vec![byte_view.clone(), byte_count.clone(), byte_count.clone()],
-            adt::core_result_type(byte_view.clone(), CoreType::string()),
-        )),
-        "byte_chunks_empty" => Some((Vec::new(), adt::core_list_type(byte_chunk.clone()))),
-        "byte_chunks_one" => Some((
-            vec![byte_chunk.clone()],
-            adt::core_list_type(byte_chunk.clone()),
-        )),
-        "byte_chunks_append" => Some((
-            vec![
-                adt::core_list_type(byte_chunk.clone()),
-                adt::core_list_type(byte_chunk.clone()),
-            ],
-            adt::core_list_type(byte_chunk.clone()),
-        )),
-        "byte_expect_fixed_u8_be" => Some((
-            vec![
-                byte_view.clone(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::int(), CoreType::string()),
-        )),
-        "byte_decode_http2_frame" => Some((
-            vec![byte_view.clone()],
-            adt::core_result_type(core_http2_frame_type(), CoreType::string()),
-        )),
-        "byte_decode_schema_width_sample" => Some((
-            vec![byte_view.clone()],
-            adt::core_result_type(core_schema_width_sample_type(), CoreType::string()),
-        )),
-        "byte_decode_schema_validation_sample" => Some((
-            vec![byte_view.clone()],
-            adt::core_result_type(core_schema_validation_sample_type(), CoreType::string()),
-        )),
-        "http2_protocol_closed_with_pending" => Some((
-            vec![CoreType::int(), CoreType::int(), CoreType::string()],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_partial_preface" => Some((
-            vec![CoreType::int(), CoreType::int(), byte_view.clone()],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_preface" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_continuation_expected" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_frame_kind" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_stream_id" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_payload_length" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_window_update_increment" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_data_padding" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_request_header_list" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_response_header_list" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_unexpected_settings_ack" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_invalid_priority_dependency" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_protocol_stream_after_goaway" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_frame_size_exceeded" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_header_list_size_exceeded" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_header_table_size_exceeded" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_flow_control_window_exceeded" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_concurrent_streams_exceeded" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "http2_peer_limit_settings_value_out_of_range" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_unsupported_header_block" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_malformed_string_length" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_malformed_raw_string_value" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_malformed_huffman_padding" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_huffman_eos_symbol" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_huffman_non_visible_value" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "hpack_fixture_table_size_update_not_at_start" => Some((
-            vec![
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::int(),
-                CoreType::string(),
-                CoreType::string(),
-                CoreType::string(),
-                byte_view.clone(),
-            ],
-            adt::core_result_type(CoreType::unit(), CoreType::string()),
-        )),
-        "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
-        | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u64_be"
-        | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le" | "byte_read_u32_le"
-        | "byte_read_u40_le" | "byte_read_u48_le" | "byte_read_u64_le" => Some((
-            vec![byte_view.clone()],
-            adt::core_result_type(CoreType::int(), CoreType::string()),
-        )),
-        "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
-        | "byte_write_u32_be" | "byte_write_u40_be" | "byte_write_u48_be" | "byte_write_u64_be"
-        | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le" | "byte_write_u32_le"
-        | "byte_write_u40_le" | "byte_write_u48_le" | "byte_write_u64_le" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
-        )),
-        "byte_count" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(byte_count.clone(), CoreType::string()),
-        )),
-        "byte_count_to_int" => Some((vec![byte_count.clone()], CoreType::int())),
-        "byte_offset" => Some((
-            vec![CoreType::int()],
-            adt::core_result_type(byte_offset.clone(), CoreType::string()),
-        )),
-        "byte_offset_to_int" => Some((vec![byte_offset], CoreType::int())),
-        _ => None,
-    }
-}
-
-fn core_http2_frame_type() -> CoreType {
-    CoreType::Record(vec![
-        ("length".to_string(), CoreType::int()),
-        ("kind".to_string(), CoreType::int()),
-        ("flags".to_string(), CoreType::int()),
-        ("stream_id".to_string(), CoreType::int()),
-        (
-            "payload".to_string(),
-            CoreType::named("ByteView", Vec::new()),
-        ),
-    ])
-}
-
-fn core_schema_width_sample_type() -> CoreType {
-    CoreType::Record(vec![
-        ("short_value".to_string(), CoreType::int()),
-        ("wide_value".to_string(), CoreType::int()),
-    ])
-}
-
-fn core_schema_validation_sample_type() -> CoreType {
-    CoreType::Record(vec![
-        ("length".to_string(), CoreType::int()),
-        ("padding_length".to_string(), CoreType::int()),
-    ])
+    byte_prelude_signature::<CoreType>(name)
 }
 
 fn core_prelude_string_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
