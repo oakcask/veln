@@ -196,7 +196,8 @@ compare it with `../specification/` before changing behavior.
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
-  rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
+  rejection, server-side outbound `PUSH_PROMISE` send-intent, and
+  half-closed-by-peer outbound DATA send-intent slices
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
   header-list validation slice, the source-visible `te` header value rule,

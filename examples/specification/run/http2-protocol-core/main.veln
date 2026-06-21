@@ -1273,6 +1273,13 @@ fn outbound_receive_credit_with_reset_stream(connection_window: Int, stream_id: 
 	OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code))
 end
 
+fn outbound_receive_credit_for_closed_by_peer_stream(state: Http2DecodeState) -> OutboundReceiveCredit
+	match state
+		State(_, _, _, _, _, _, peer_settings, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _))) => outbound_receive_credit_with_open_stream(65535, stream_id, active_peer_initial_window_size(peer_settings))
+		State(_, _, _, _, _, _, _, _, _) => outbound_receive_credit_without_stream(0)
+	end
+end
+
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	let length: Int = byte_count_to_int(byte_chunk_count(payload))
 	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
@@ -6577,6 +6584,22 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	print_outbound_data("outbound-data-connection-window", outbound_data_connection_window)
 	let outbound_data_stream_window: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(65533, 1, 1))?
 	print_outbound_data("outbound-data-stream-window", outbound_data_stream_window)
+	let peer_closed_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), frame_state())?
+	let peer_closed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_closed_settings))?
+	let peer_closed_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000100000001aa")?), step_state(peer_closed_headers))?
+	print_closed_by_peer_stream("peer-closed-data-end-stream", step_state(peer_closed_data_end_stream))
+	let peer_closed_outbound_settings: PeerSettingsState = small_peer_max_frame_size_settings(1)
+	let peer_closed_outbound_credit: OutboundReceiveCredit = outbound_receive_credit_for_closed_by_peer_stream(step_state(peer_closed_data_end_stream))
+	let peer_closed_outbound_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aabb")?, false, peer_closed_outbound_settings, peer_closed_outbound_credit)?
+	print_outbound_data("peer-closed-outbound-data", peer_closed_outbound_data)
+	let ignored_peer_closed_data_chunk: () = print_outbound_data_chunk("http2-peer-closed-data", peer_closed_outbound_data, "000001000000000001aa000001000000000001bb")?
+	let peer_closed_outbound_end_stream: OutboundDataDecision = send_data(1, byte_chunk_from_hex("cc")?, true, peer_closed_outbound_settings, outbound_data_receive_credit(peer_closed_outbound_data))?
+	print_outbound_data("peer-closed-outbound-end-stream", peer_closed_outbound_end_stream)
+	let ignored_peer_closed_data_end_stream_chunk: () = print_outbound_data_chunk("http2-peer-closed-data-end-stream", peer_closed_outbound_end_stream, "000001000100000001cc")?
+	let peer_closed_outbound_then_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("dd")?, false, peer_closed_outbound_settings, outbound_data_receive_credit(peer_closed_outbound_end_stream))?
+	print_outbound_data("peer-closed-outbound-end-stream-then-data", peer_closed_outbound_then_data)
+	let peer_closed_outbound_then_window_update: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_data_receive_credit(peer_closed_outbound_end_stream))?
+	print_outbound_window_update("peer-closed-outbound-end-stream-then-window-update", peer_closed_outbound_then_window_update)
 	let outbound_data_end_stream: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aa")?, true, outbound_peer_settings, outbound_receive_credit_with_open_stream(10, 1, 20))?
 	print_outbound_data("outbound-data-end-stream", outbound_data_end_stream)
 	let ignored_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-end-stream", outbound_data_end_stream, "000001000100000001aa")?
