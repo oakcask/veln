@@ -1651,11 +1651,15 @@ and
 and
 `../../examples/specification/run/channel-first-stream-routing-twenty-five-route/`
 and
+`../../examples/specification/run/channel-first-stream-routing-twenty-six-route/`
+and
 `../../examples/specification/run/channel-first-stream-routing-twenty-seven-route/`
 and
 `../../examples/specification/run/channel-first-stream-routing-twenty-eight-route/`
 and
 `../../examples/specification/run/channel-first-stream-routing-twenty-nine-route/`
+and
+`../../examples/specification/run/channel-first-stream-routing-thirty-route/`
 and
 `../../examples/specification/run/channel-select-many-timeout/`
 and
@@ -1729,6 +1733,8 @@ and
 `../../examples/specification/check/channel-first-stream-routing-twenty-eight-route-effects/`
 and
 `../../examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`
+and
+`../../examples/specification/check/channel-first-stream-routing-thirty-route-effects/`
 and
 `../../examples/specification/check/channel-select-many-timeout-effects/`
 and

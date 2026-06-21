@@ -233,7 +233,7 @@ compare it with `../specification/` before changing behavior.
   thirty-four-argument, thirty-five-argument, and thirty-six-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
-  twenty-nine-route channel-first routing, receiver-list cancellable
+  thirty-route channel-first routing, receiver-list cancellable
   channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, and two-receiver cancellable timeout-result selection slices
