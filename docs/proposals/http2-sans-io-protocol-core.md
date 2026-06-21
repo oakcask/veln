@@ -508,6 +508,9 @@ accepted inbound DATA with peer `END_STREAM` transitions the stream to
 closed-by-peer. Generated frame-header
 representation failures stay on the `codec.encode_value_unrepresentable`
 encode-error path.
+The completed half-closed-by-peer outbound DATA send-intent slice is archived
+under
+`../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
 The implemented outbound HEADERS send-intent slice also observes received
 GOAWAY graceful-shutdown state. It accepts an open stream at the recorded
 last-stream-id boundary, rejects an open stream above that boundary with
