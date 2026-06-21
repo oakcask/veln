@@ -202,6 +202,10 @@ fn request_headers_with_regular_header() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,host"), 9)
 end
 
+fn request_headers_with_scheme_value(value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", value), HpackHeader(":request", "method,path"), 9)
+end
+
 fn request_headers_missing_method() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":path", "/"), 9)
 end
@@ -352,6 +356,10 @@ end
 
 fn decoded_request_headers_with_regular_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_with_regular_header(), next_state(state)))
+end
+
+fn decoded_request_headers_with_scheme_value(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_scheme_value(value_label), next_state(state)))
 end
 
 fn decoded_request_headers_missing_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1212,11 +1220,15 @@ fn encode_huffman_literal_header_with_prefix(name: String, value: String, prefix
 end
 
 fn encode_request_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == "scheme,path"
-		true => encoded_hex_or_failure("303132", headers, offset)
-		false => match value == "method,scheme,path"
-			true => encoded_hex_or_failure("32333435", headers, offset)
-			false => unsupported_header_list_encoding(headers, offset)
+	match headers
+		HpackHeaderList(HpackHeader(":scheme", "http"), HpackHeader(":request", "method,path"), _) => encoded_hex_or_failure("5b5c5d5e", headers, offset)
+		HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":request", "method,path"), _) => encoded_hex_or_failure("5c5d5e5f", headers, offset)
+		_ => match value == "scheme,path"
+			true => encoded_hex_or_failure("303132", headers, offset)
+			false => match value == "method,scheme,path"
+				true => encoded_hex_or_failure("32333435", headers, offset)
+				false => unsupported_header_list_encoding(headers, offset)
+			end
 		end
 	end
 end
@@ -2140,6 +2152,18 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_regular_header(state)
 				false => unsupported(block, offset)
 			end
+			91 => match observed_size == 4
+				true => decoded_request_headers_with_scheme_value("http", state)
+				false => unsupported(block, offset)
+			end
+			92 => match observed_size == 4
+				true => decoded_request_headers_with_scheme_value("https", state)
+				false => unsupported(block, offset)
+			end
+			94 => match observed_size == 4
+				true => decoded_request_headers_with_scheme_value("ftp", state)
+				false => unsupported(block, offset)
+			end
 			49 => match observed_size == 2
 				true => decoded_request_headers_missing_method(state)
 				false => unsupported(block, offset)
@@ -2449,6 +2473,7 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => true
+		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => true
@@ -2499,6 +2524,7 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,connection"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,keep-alive"), _) => true
@@ -2538,6 +2564,7 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":path", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":path", _), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,host"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
@@ -2599,6 +2626,13 @@ pub fn header_list_has_invalid_te_header_value(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_invalid_scheme_value(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":scheme", value), HpackHeader(":request", "method,path"), _) => value != "http" and value != "https"
 		_ => false
 	end
 end
@@ -2682,6 +2716,7 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"
+		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => ":method,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => "host,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => ":scheme,:path"
