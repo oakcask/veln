@@ -51,9 +51,10 @@ slices, and narrow deadline and cancellation slices, for:
   receiver-list timeout, receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
   cancellable timeout-result selection, and receiver-list cancellable
-  channel-first fixture shapes. Additional work should add a more general
-  routing abstraction or a concrete routing feature, not the next route-count
-  fixture.
+  channel-first fixture shapes. Additional work should replace route-count
+  fixture growth with a general routing abstraction. A concrete routing
+  feature is acceptable only when it exercises that abstraction or removes the
+  need for further same-shaped route-count fixtures.
 - richer per-stream task handling beyond the context-based
   `task::spawn_with<Result, Context>` handler boundary. Additional work should
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
@@ -342,8 +343,9 @@ or the pure protocol core.
   accepted-stream lifecycle, cancellable accepted-stream lifecycle,
   context-based spawned handler task, and adapter-level cancellable stream
   routing slices;
-  remaining examples still need richer stream routing and richer deadline and
-  cancellation APIs beyond the narrow relative `Deadline` boundary,
+  remaining examples still need a general stream routing abstraction that
+  replaces route-count fixture growth, plus richer deadline and cancellation
+  APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
   wait-outcome boundary.
 - Effect inference and diagnostics cover any new compiler-known network,
