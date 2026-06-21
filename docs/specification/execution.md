@@ -1781,6 +1781,13 @@ execution reference.
   rejected before output bytes or credit changes. Accepted outbound DATA with
   `END_STREAM` records local closed-stream state for outbound send-intents
   while the receive core keeps the stream half-closed-local for inbound DATA.
+  After accepted inbound DATA carries peer `END_STREAM`, the same example
+  keeps local outbound DATA send-intents available for that closed-by-peer
+  stream until local `END_STREAM` is sent. Those DATA send-intents still use
+  peer-advertised outbound stream credit and peer maximum frame size; accepted
+  local `END_STREAM` then records closed-stream state so later outbound DATA
+  and stream-level outbound `WINDOW_UPDATE` use the closed stream-state
+  rejection boundary.
   Later outbound DATA, outbound HEADERS, and stream-level outbound
   `WINDOW_UPDATE` for that stream follow the existing closed stream-state
   rejection boundary.

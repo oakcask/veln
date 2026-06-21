@@ -174,6 +174,8 @@ behavior.
   [http2-hpack-decoder-foundation.md](http2-hpack-decoder-foundation.md).
 - HTTP/2 outbound HPACK fixture encoder:
   [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
+- HTTP/2 half-closed-by-peer outbound DATA:
+  [http2-half-closed-by-peer-outbound-data.md](http2-half-closed-by-peer-outbound-data.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
 - HTTP/2 response header validation:

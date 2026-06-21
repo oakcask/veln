@@ -196,7 +196,8 @@ compare it with `../specification/` before changing behavior.
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
-  rejection, and server-side outbound `PUSH_PROMISE` send-intent slices
+  rejection, server-side outbound `PUSH_PROMISE` send-intent, and
+  half-closed-by-peer outbound DATA send-intent slices
   plus the request-side header-list validation slice including
   connection-specific ordinary header rejection, the response-side
   header-list validation slice, the source-visible `te` header value rule,
@@ -215,6 +216,9 @@ compare it with `../specification/` before changing behavior.
   unbounded dynamic-table behavior, and HPACK Huffman behavior beyond
   visible-ASCII fixture string literal decoding and encoding and beyond the
   focused malformed Huffman fixture diagnostics.
+  The completed half-closed-by-peer outbound DATA send-intent slice is archived
+  under
+  [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
