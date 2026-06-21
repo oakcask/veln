@@ -63,8 +63,8 @@ slices, and narrow deadline and cancellation slices, for:
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
   thirty-one-argument, thirty-two-argument, thirty-three-argument,
   thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, thirty-eight-argument, and thirty-nine-argument
-  spawned handler task shapes over ordinary source values
+  thirty-seven-argument, thirty-eight-argument, thirty-nine-argument, and
+  forty-argument spawned handler task shapes over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -239,6 +239,8 @@ The thirty-eight-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
 The thirty-nine-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with39.md`.
+The forty-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with40.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -467,8 +469,9 @@ or the pure protocol core.
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
   thirty-one-argument, thirty-two-argument, thirty-three-argument,
   thirty-four-argument, thirty-five-argument, thirty-six-argument,
-  thirty-seven-argument, thirty-eight-argument, and thirty-nine-argument
-  spawned handler task, and adapter-level cancellable stream routing slices;
+  thirty-seven-argument, thirty-eight-argument, thirty-nine-argument, and
+  forty-argument spawned handler task, and adapter-level cancellable stream
+  routing slices;
   remaining examples still need richer stream routing and richer deadline and
   cancellation APIs beyond the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
