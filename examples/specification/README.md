@@ -671,6 +671,18 @@ against the built `veln` binary.
 - `run/binary-schema-seven-byte-split-reserved-human/`: the same seven-byte
   reserved-bit mismatch is projected through human `run` stderr with the
   reserved field path and nearby bytes.
+- `run/binary-schema-eight-byte-split-reserved-decode-encode/`: generated
+  schema helpers decode and encode one shared eight-byte big-endian storage
+  unit containing visible `UIntN` fields before and after reserved fields,
+  omit the reserved fields from the value record, and reject an out-of-range
+  visible encode value.
+- `run/binary-schema-eight-byte-split-reserved-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for an eight-byte consecutive
+  reserved-bit group with stable field path, byte offset, bit width, expected
+  value, actual value, and byte preview details.
+- `run/binary-schema-eight-byte-split-reserved-human/`: the same eight-byte
+  reserved-bit mismatch is projected through human `run` stderr with the
+  reserved field path and nearby bytes.
 - `run/binary-schema-packed-reserved-two-byte-truncated-json/`: generated
   schema decode helpers report `schema.truncated_field` at the reserved field
   path when input ends before the two-byte packed storage unit is complete.
@@ -1473,6 +1485,11 @@ against the built `veln` binary.
 - `run/binary-schema-seven-byte-split-reserved-decode-encode/`: generated
   schema encode helpers write declared reserved values and visible `UIntN`
   fields in declaration order across one seven-byte big-endian storage unit
+  and report `codec.encode_value_unrepresentable` against an out-of-range
+  visible field.
+- `run/binary-schema-eight-byte-split-reserved-decode-encode/`: generated
+  schema encode helpers write declared reserved values and visible `UIntN`
+  fields in declaration order across one eight-byte big-endian storage unit
   and report `codec.encode_value_unrepresentable` against an out-of-range
   visible field.
 - `run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`:

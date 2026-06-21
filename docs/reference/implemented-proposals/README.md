@@ -76,6 +76,8 @@ behavior.
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
 - Binary schema seven-byte split reserved layouts:
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
+- Binary schema eight-byte split reserved layouts:
+  [binary-schema-eight-byte-split-reserved-layouts.md](binary-schema-eight-byte-split-reserved-layouts.md).
 - Binary schema nested repeat payload helpers:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Network adapter ownership boundary:

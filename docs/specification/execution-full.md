@@ -190,7 +190,7 @@ covers consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` fields when the group contains at least one
 visible field and at least one reserved field, every visible field is a
 big-endian sub-byte `UIntN`, and the declared widths complete one byte or the
-same two-byte, three-byte, four-byte, five-byte, six-byte, or seven-byte
+same two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit.
 Reserved fields in the group remain representation-only, each reserved value is
 validated at its own field path, and visible fields are decoded from their
@@ -522,7 +522,7 @@ The same shared-storage encode rule also covers consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` fields when the group contains at
 least one visible field and at least one reserved field, every visible field
 is a big-endian sub-byte `UIntN`, and the declared widths complete one byte or
-the same two-byte, three-byte, four-byte, five-byte, six-byte, or seven-byte
+the same two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit.
 The helper writes visible and reserved values in declaration order, omits
 reserved fields from the encoder value record, and reports

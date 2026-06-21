@@ -4197,14 +4197,14 @@ fn supported_bit_packed_reserved_group(fields: &[veln_ast::SchemaField], index: 
             total_bit_width += bit_width;
             has_reserved |= reserved_bits_schema_primitive(&field.ty).is_some();
             has_visible |= reserved_bits_schema_primitive(&field.ty).is_none();
-            if matches!(total_bit_width, 8 | 16 | 24 | 32 | 40 | 48 | 56) {
+            if matches!(total_bit_width, 8 | 16 | 24 | 32 | 40 | 48 | 56 | 64) {
                 let end = start + offset;
                 if has_reserved && has_visible && start <= index && index <= end {
                     return true;
                 }
                 break;
             }
-            if total_bit_width > 56 {
+            if total_bit_width > 64 {
                 break;
             }
         }
@@ -4214,10 +4214,10 @@ fn supported_bit_packed_reserved_group(fields: &[veln_ast::SchemaField], index: 
 
 fn bit_packed_group_field_width(field: &veln_ast::SchemaField) -> Option<i64> {
     if let Some((bit_width, expected_value)) = reserved_bits_schema_primitive(&field.ty) {
-        if bit_width <= 0 || bit_width >= 56 || bit_width % 8 == 0 {
+        if bit_width <= 0 || bit_width >= 64 || bit_width % 8 == 0 {
             return None;
         }
-        let max_value = (1_i64 << bit_width) - 1;
+        let max_value = reserved_bits_max_value(bit_width)?;
         return (expected_value <= max_value).then_some(bit_width);
     }
     if exact_width_schema_primitive_little_endian(&field.ty)
@@ -4227,6 +4227,16 @@ fn bit_packed_group_field_width(field: &veln_ast::SchemaField) -> Option<i64> {
     }
     let bit_width = i64::from(exact_width_schema_primitive_bit_width(&field.ty)?);
     (bit_width % 8 != 0).then_some(bit_width)
+}
+
+fn reserved_bits_max_value(bit_width: i64) -> Option<i64> {
+    if !(1..=63).contains(&bit_width) {
+        return None;
+    }
+    if bit_width == 63 {
+        return Some(i64::MAX);
+    }
+    Some((1_i64 << bit_width) - 1)
 }
 
 fn supported_prefix_reserved_group(
