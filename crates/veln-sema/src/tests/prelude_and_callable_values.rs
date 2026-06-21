@@ -2634,6 +2634,69 @@ fn generated_schema_helpers_accept_six_byte_split_reserved_bit_groups() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_seven_byte_split_reserved_bit_groups() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SevenByteSplitReservedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  lead: UInt5\n",
+            "  guard: ReservedBits(14, 10922)\n",
+            "  mode: UInt7\n",
+            "  gap: ReservedBits(23, 5614165)\n",
+            "  tail: UInt7\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{lead: Int, mode: Int, tail: Int}, String>\n",
+            "  byte_decode_seven_byte_split_reserved_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {lead: Int, mode: Int, tail: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_seven_byte_split_reserved_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "seven-byte split reserved bit groups should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("lead", 1, 31, None),
+            ("guard", 0, 0, Some((14, 10922))),
+            ("mode", 1, 127, None),
+            ("gap", 0, 0, Some((23, 5614165))),
+            ("tail", 1, 127, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_all_two_byte_packed_reserved_suffix_widths() {
     for visible_width in 1..=7 {
         let reserved_width = 16 - visible_width;
