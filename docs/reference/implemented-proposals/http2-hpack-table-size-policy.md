@@ -28,6 +28,14 @@ id, receive-limit provenance, and rule provenance. Peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` remains outbound peer state and is not cited as
 the inbound receive-limit provenance.
 
+The same completed behavior keeps dynamic table-size updates valid only at the
+start of a completed header block. A complete table-size update that appears
+after a decoded header field is rejected through
+`hpack.fixture.table_size_update_not_at_start` on both completed HEADERS and
+final CONTINUATION paths, with requested table size, frame kind, stream id,
+active HPACK fixture state, expected fixture boundary, codec module, and a
+bounded header-block byte preview.
+
 ## Evidence
 
 - `../../../examples/specification/run/http2-protocol-core/case.toml` checks
@@ -39,6 +47,11 @@ the inbound receive-limit provenance.
   limit.
 - `../../../examples/specification/run/http2-protocol-core-header-table-json/case.toml`
   checks the structured `run --json` protocol diagnostic fields.
+- `../../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`
+  and
+  `../../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-json/case.toml`
+  check the human and structured diagnostic projection for table-size update
+  placement after a decoded header field.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/case.toml`
   remains the focused HPACK fixture evidence for integer decoding and bounded
   dynamic table eviction independent of the HTTP/2 policy boundary.

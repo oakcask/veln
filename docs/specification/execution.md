@@ -1766,6 +1766,12 @@ execution reference.
   size, frame kind, stream id, receive-limit provenance, and rule provenance.
   The diagnostic carries a bounded structured preview of the inspected
   header-block bytes separately from those facts.
+  A complete dynamic table-size update after a decoded header field in the
+  same completed header block is rejected through
+  `hpack.fixture.table_size_update_not_at_start` on both completed HEADERS and
+  final CONTINUATION paths. That diagnostic records the requested table size,
+  frame kind, stream id, active HPACK fixture state, expected fixture
+  boundary, codec module, and bounded header-block preview.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte

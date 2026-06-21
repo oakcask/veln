@@ -4274,6 +4274,46 @@
         return err(message);
     }
 
+    public static Object hpackFixtureTableSizeUpdateNotAtStart(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object observedUpdateSize,
+        Object frameKind,
+        Object streamId,
+        Object activeState,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        long updateSize = asLong(observedUpdateSize);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String state = asString(activeState);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
+        String message = "HPACK fixture table-size update after header field at byte offset "
+            + byteOffset;
+        registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            updateSize,
+            kind,
+            stream,
+            state,
+            expected,
+            module,
+            nearbyContext
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_be", false);
     }

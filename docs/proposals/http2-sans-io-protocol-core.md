@@ -417,6 +417,12 @@ blocks are decoded, and rejects larger decoded updates, including an update
 that repeats the current fixture table size, through
 `http2.peer_limit.header_table_size_exceeded` with observed size, allowed
 size, frame kind, stream id, receive-limit provenance, and rule provenance.
+It also rejects a complete dynamic table-size update that appears after a
+decoded header field in the same completed header block through
+`hpack.fixture.table_size_update_not_at_start` on both completed HEADERS and
+final CONTINUATION paths, while preserving accepted table-size updates at the
+start of a header block and preserving unsupported behavior for malformed or
+trailing-byte table-size update encodings.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates and table-size updates with trailing bytes after a complete integer,
 remain on `hpack.fixture.unsupported_header_block`. Malformed string lengths,
@@ -774,7 +780,9 @@ under `../specification/` and
 rejects decoded dynamic table-size updates above the active local
 header-table receive limit on both completed HEADERS and final CONTINUATION
 paths, including updates that repeat the current fixture table size, while
-preserving accepted table-size updates at or below that limit.
+preserving accepted table-size updates at or below that limit. The completed
+placement slice also rejects dynamic table-size updates after a decoded header
+field through `hpack.fixture.table_size_update_not_at_start`.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

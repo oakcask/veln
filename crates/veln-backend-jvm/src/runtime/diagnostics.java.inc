@@ -791,6 +791,40 @@
         );
     }
 
+    private static void registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        long observedUpdateSize,
+        long frameKind,
+        long streamId,
+        String activeState,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "hpack.fixture.table_size_update_not_at_start",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_header_block_size", observedSize),
+                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                    DiagnosticDetail.number("observed_header_table_size", observedUpdateSize),
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("expected_fixture", expectedFixture),
+                    DiagnosticDetail.string("codec_module", codecModule),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerHpackFixtureHeaderBlockDiagnostic(
         String message,
         String id,

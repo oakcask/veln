@@ -212,7 +212,8 @@ compare it with `../specification/` before changing behavior.
   stateful dynamic-table fixture encoder path, focused unsupported-Huffman EOS
   and non-visible decoded-byte diagnostics, focused malformed string-length
   and raw string value fixture diagnostics, inbound fixture dynamic-table
-  eviction, and checked outbound dynamic table-size update encoding,
+  eviction, checked inbound table-size update placement diagnostics, and
+  checked outbound dynamic table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
