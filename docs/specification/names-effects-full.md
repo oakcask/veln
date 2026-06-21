@@ -294,10 +294,12 @@ labels or any compiler-known routing symbol beyond the socket, channel, task,
 and deadline calls listed here.
 
 The channel-first stream routing examples route ordinary `StreamInput` values
-through two, three, four, receiver-list five-route through thirty-route, and
-receiver-list timeout typed channel routes,
-select a ready route with existing channel selection, and then invoke a plain
-handler with explicit per-stream state. The receiver-list priority routes use
+through typed channel routes, select a ready route with existing channel
+selection, and then invoke a plain handler with explicit per-stream state. The
+general receiver-list helper example accepts a non-empty
+`List<Receiver<StreamInput>>` and returns the selected route index plus value,
+so route-count fixtures are no longer the way to demonstrate larger receiver
+lists. The receiver-list priority routes use
 `channel::select_many_priority` on a non-empty
 `List<Receiver<StreamInput>>` and preserve supplied list order as priority
 order. The timeout route uses `channel::select_many_timeout` with the same

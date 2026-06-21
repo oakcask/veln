@@ -6,6 +6,8 @@ This record preserves the completed receiver-list channel-first stream routing
 slice from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
+`../../../examples/specification/run/channel-first-stream-routing-general-list/case.toml`
+and
 `../../../examples/specification/run/channel-first-stream-routing-five-route/`
 and `../../../examples/specification/run/channel-first-stream-routing-six-route/`
 and
@@ -64,6 +66,8 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-five-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-general-list-effects/case.toml`
+and
 `../../../examples/specification/check/channel-first-stream-routing-seven-route-effects/`
 and
 `../../../examples/specification/check/channel-first-stream-routing-eight-route-effects/`
@@ -118,6 +122,13 @@ and
 
 ## Outcome
 
+The completed general receiver-list routing slice adds a source-visible helper
+shape that accepts a non-empty `List<Receiver<StreamInput>>`, calls
+`channel::select_many_priority`, and returns the selected route index plus
+ordinary `StreamInput` value. The executable example uses more than four
+routes and checks that repeated selection preserves lower-index priority and
+the selected value.
+
 The completed route-count slices add checked five-, six-, seven-, eight-,
 nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, fifteen-, sixteen-,
 seventeen-, eighteen-, nineteen-, twenty-, twenty-one-, twenty-two-,
@@ -168,9 +179,10 @@ Missing effects on the adapter path are rejected by static checking.
 ## Remaining Work
 
 The broader network integration proposal remains open for production socket
-ownership, richer stream routing beyond the checked narrow route counts, richer
-deadline and cancellation APIs, channel and task ownership beyond the checked
-adapter slices, and HTTP/2 transport-adapter work.
+ownership, richer stream routing beyond the checked general receiver-list
+helper and bounded route-count evidence, richer deadline and cancellation
+APIs, channel and task ownership beyond the checked adapter slices, and HTTP/2
+transport-adapter work.
 
 ## Read When
 

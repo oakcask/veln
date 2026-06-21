@@ -2541,6 +2541,10 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-cancel-close-lifecycle/`: one adapter function
   turns `WaitCancelled` into cleanup, applies ordered writes, and then records
   explicit stream close without treating cancellation as a runtime failure.
+- `run/channel-first-stream-routing-general-list/`: a source-visible helper
+  accepts a receiver list with more than four `StreamInput` routes, returns
+  the selected route index plus value, and preserves lower-index priority
+  when multiple receivers are ready.
 - `run/channel-first-stream-routing/`: adapter-owned source routes ordinary
   `StreamInput` values through two typed channel routes, selects between them
   with existing channel selection, and then invokes a pure stream handler with
@@ -2704,6 +2708,9 @@ against the built `veln` binary.
   must declare `concurrency`, socket wrappers around that routing must declare
   both `net` and `concurrency`, and the plain handler boundary stays free of
   transport effects.
+- `check/channel-first-stream-routing-general-list-effects/`: general
+  receiver-list channel-first routing declares `concurrency`, and the handler
+  receiving the selected stream input remains effect-free.
 - `check/channel-first-stream-routing-three-route-effects/`: three-route
   channel-first stream routing keeps the same effect boundary as the two-route
   case: routing declares `concurrency`, socket wrappers declare `net` and

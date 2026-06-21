@@ -90,11 +90,12 @@ execution reference.
   close after clean end or cancellation cleanup, deadline-aware accepted-stream
   ownership, and cancellation-to-action routing for an accepted stream.
 - The channel-first stream routing examples route ordinary `StreamInput`
-  values through two, three, four, receiver-list five-route through
-  thirty-route, and receiver-list timeout typed channel
-  routes, select the next ready route with the existing channel selection
-  vocabulary, and only then invoke a plain handler with explicit per-stream
-  state. The receiver-list priority examples use
+  values through typed channel routes, select the next ready route with the
+  existing channel selection vocabulary, and only then invoke a plain handler
+  with explicit per-stream state. The general receiver-list helper example
+  accepts a non-empty `List<Receiver<StreamInput>>` and returns the selected
+  route index plus value, so additional route-count fixtures are not required
+  to demonstrate larger receiver lists. The receiver-list priority examples use
   `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`; the timeout example uses
   `channel::select_many_timeout` and
@@ -111,6 +112,7 @@ execution reference.
   list wins. The handler remains an ordinary source function over stream input
   and state; adapter code owns channel routing, and socket wrappers around the
   same boundary own `NetStream` handles and writes. The checked examples are
+  `examples/specification/run/channel-first-stream-routing-general-list/`,
   `examples/specification/run/channel-first-stream-routing/`,
   `examples/specification/run/channel-first-stream-routing-three-route/`,
   `examples/specification/run/channel-first-stream-routing-four-route/`,
@@ -145,7 +147,9 @@ execution reference.
   `examples/specification/run/channel-select-many-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
   `examples/specification/run/stream-adapter-cancellable-channel-first-routing/`,
-  `examples/specification/check/channel-first-stream-routing-effects/`, and
+  `examples/specification/check/channel-first-stream-routing-effects/`,
+  `examples/specification/check/channel-first-stream-routing-general-list-effects/`,
+  and
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
   and
   `examples/specification/check/channel-first-stream-routing-four-route-effects/`,

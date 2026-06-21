@@ -1,0 +1,17 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "effect.missing_public"
+message = "public function uses undeclared effect `concurrency`"
+severity = "error"

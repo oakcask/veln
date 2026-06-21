@@ -48,13 +48,14 @@ slices, and narrow deadline and cancellation slices, for:
   cancellable lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list select-many route-count fixtures,
-  receiver-list timeout, receiver-list timeout-result selection,
+  general receiver-list routing helper, receiver-list timeout,
+  receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
   cancellable timeout-result selection, and receiver-list cancellable
-  channel-first fixture shapes. Additional work should replace route-count
-  fixture growth with a general routing abstraction. A concrete routing
-  feature is acceptable only when it exercises that abstraction or removes the
-  need for further same-shaped route-count fixtures.
+  channel-first fixture shapes. Additional work should improve routing
+  ownership, lifecycle, cancellation, transport integration, or adapter APIs;
+  adding another same-shaped route-count fixture is not remaining proposal
+  work.
 - richer per-stream task handling beyond the context-based
   `task::spawn_with<Result, Context>` handler boundary. Additional work should
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
@@ -224,8 +225,8 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The bounded receiver-list select-many, timeout, timeout-result, and
 cancellable timeout-result channel-first stream routing slices, including the
-`channel::select_many_priority` and
-`channel::select_many_timeout` helpers plus
+general receiver-list routing helper example, the
+`channel::select_many_priority` and `channel::select_many_timeout` helpers plus
 `channel::select_many_timeout_result` and
 `channel::select_many_timeout_cancellable`, are recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
