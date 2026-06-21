@@ -52,6 +52,8 @@ and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-eight-route/`
 and
 `../../../examples/specification/run/channel-first-stream-routing-twenty-nine-route/`
+and
+`../../../examples/specification/run/channel-first-stream-routing-thirty-route/`
 and `../../../examples/specification/run/channel-select-many-timeout/`
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable/`
@@ -106,6 +108,8 @@ and
 and
 `../../../examples/specification/check/channel-first-stream-routing-twenty-nine-route-effects/`
 and
+`../../../examples/specification/check/channel-first-stream-routing-thirty-route-effects/`
+and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
@@ -116,7 +120,7 @@ The completed route-count slices add checked five-, six-, seven-, eight-,
 nine-, ten-, eleven-, twelve-, thirteen-, fourteen-, fifteen-, sixteen-,
 seventeen-, eighteen-, nineteen-, twenty-, twenty-one-, twenty-two-,
 twenty-three-, twenty-four-, twenty-five-, twenty-six-, twenty-seven-,
-twenty-eight-, and twenty-nine-route evidence for
+twenty-eight-, twenty-nine-, and thirty-route evidence for
 the narrow `channel::select_many_priority(receivers)` standard-library
 boundary over a non-empty `List<Receiver<T>>`. It returns
 `Option<{index: Int, value: T}>`, where `index` is the zero-based receiver
