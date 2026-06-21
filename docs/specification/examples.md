@@ -1987,7 +1987,10 @@ remain addressable when the table has room. After `:method: PUT` and
 newest `:scheme: https` entry, `0xbf` decodes the second `:method: PUT`
 entry, and `0xc0` decodes the third retained `:path: /target` entry.
 Completed HEADERS and final CONTINUATION paths both carry that HPACK state
-before later header blocks are decoded. The checked dynamic-name
+before later header blocks are decoded. The HTTP/2 example also prints the
+fixture decode count before and after a split header block, showing that a
+pending CONTINUATION frame leaves HPACK state unchanged until the final
+accepted header-block decode. The checked dynamic-name
 literal-with-indexing form `0x7e 0x06 "/again"` reuses the newest dynamic
 entry name `:path`, inserts `:path: /again` as the newest entry, and leaves
 the older `:path: /target` entry readable while the bounded fixture table has
@@ -2020,8 +2023,12 @@ literal-never-indexed decode without a prior
 dynamic entry still
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state
-remains unsupported. Missing, malformed, and out-of-range dynamic-name
-continuations remain unsupported. The fixture also accepts dynamic
+remains unsupported. The case also checks a `0xbe` dynamic-indexed lookup
+without any prior dynamic entry at the HTTP/2 boundary: the unsupported
+fixture failure leaves the carried decode count unchanged, and a later
+accepted literal-with-indexing block inserts `:path: /target` so the following
+`0xbe` reads through the returned state. Missing, malformed, and out-of-range
+dynamic-name continuations remain unsupported. The fixture also accepts dynamic
 table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table

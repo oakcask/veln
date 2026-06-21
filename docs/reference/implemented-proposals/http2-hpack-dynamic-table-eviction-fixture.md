@@ -58,7 +58,10 @@ retained entry remains addressable through `0xff`, and keeps the next newest
 dynamic indexed read pointed at the inserted `:path: /deep` entry. The HTTP/2
 protocol-core example carries the same deep dynamic state through a completed
 HEADERS block and through a final CONTINUATION block before later dynamic
-indexed reads observe the inserted value.
+indexed reads observe the inserted value. It also prints the carried fixture
+decode count before and after a split header block, showing that HPACK state
+does not advance while the CONTINUATION block is still pending and advances
+only after the final accepted header-block decode.
 
 Literal-without-indexing and literal-never-indexed dynamic-name forms reuse
 the same dynamic-table name lookup through saturated four-bit indexed-name
@@ -81,7 +84,11 @@ out-of-range, and unsupported dynamic-name continuations remain on the
 unsupported fixture path, including dynamic index `128` for the deep
 literal-with-indexing form.
 The HTTP/2 protocol-core example continues to cover dynamic HPACK state carry
-through completed HEADERS and final CONTINUATION paths.
+through completed HEADERS and final CONTINUATION paths. It also checks the
+HTTP/2 boundary for a dynamic indexed `0xbe` lookup without any prior dynamic
+entry: the unsupported fixture failure leaves the carried decode count
+unchanged, and a later accepted literal-with-indexing block inserts
+`:path: /target` so the following `0xbe` reads through the returned state.
 
 The same fixture boundary accepts dynamic table-size update bytes `0x3e`,
 `0x3f`, `0x3f 0x01`, and the fixture-boundary slice of general multi-byte
@@ -118,8 +125,11 @@ unsupported fixture path.
   replacement insertion, dynamic-index `127` literal-without-indexing and
   literal-never-indexed forms without replacement insertion,
   generalized dynamic indexed lookup, oldest-first table-size eviction,
-  insertion-caused eviction, the accepted-entry-size eviction case, and the
-  fixture-boundary table-size update slice.
+  insertion-caused eviction, the accepted-entry-size eviction case, pending
+  CONTINUATION state not advancing HPACK decode count before final acceptance,
+  missing dynamic indexed state not advancing the carried decode count before
+  a later accepted insertion and lookup, and the fixture-boundary table-size
+  update slice.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

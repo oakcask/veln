@@ -376,8 +376,11 @@ dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
-indexed representation without prior state stays unsupported. A later
-literal-with-indexing `:method: PUT` block and a later
+indexed representation without prior state stays unsupported without
+advancing the carried fixture decode count. The state output also shows that
+a split header block leaves the HPACK fixture state unchanged until the final
+CONTINUATION block is accepted. A later literal-with-indexing `:method: PUT`
+block and a later
 literal-with-indexing `:scheme: https` block are inserted as newest-first
 bounded fixture dynamic-table entries while older entries remain addressable
 when the table has room. The fixture carries that state through both completed

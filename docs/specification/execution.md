@@ -1673,10 +1673,16 @@ execution reference.
   `:path: /target` entries, while later `0xff` reads still observe
   `:path: /a` after the index `127` forms. Completed HEADERS and final
   CONTINUATION paths both carry that HPACK state before later header blocks
-  are decoded. A literal-never-indexed decode without a prior dynamic entry
-  still inserts no dynamic table entry, so a later `0xbe` lookup from that
-  returned state remains unsupported. Missing, malformed, and out-of-range
-  dynamic-name continuations remain on
+  are decoded, and the checked state output shows the decode count is
+  unchanged while a CONTINUATION block is still pending and advances only
+  after the final accepted header-block decode. A dynamic indexed `0xbe`
+  lookup without prior state remains unsupported and leaves the carried HPACK
+  fixture decode count unchanged; a later accepted literal-with-indexing
+  block then inserts `:path: /target` and makes the following `0xbe` readable
+  through the returned state. A literal-never-indexed decode without a prior
+  dynamic entry still inserts no dynamic table entry, so a later `0xbe`
+  lookup from that returned state remains unsupported. Missing, malformed,
+  and out-of-range dynamic-name continuations remain on
   `hpack.fixture.unsupported_header_block`. It also
   accepts dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
