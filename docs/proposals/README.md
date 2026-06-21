@@ -229,8 +229,8 @@ compare it with `../specification/` before changing behavior.
   twenty-two-argument, twenty-three-argument, twenty-four-argument,
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
-  thirty-one-argument, thirty-two-argument, thirty-three-argument, and
-  thirty-four-argument, and thirty-five-argument spawn,
+  thirty-one-argument, thirty-two-argument, thirty-three-argument,
+  thirty-four-argument, thirty-five-argument, and thirty-six-argument spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, receiver-list five-route through
   twenty-nine-route channel-first routing, receiver-list cancellable
