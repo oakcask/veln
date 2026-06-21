@@ -1,4 +1,4 @@
-# Thirty-six-argument socket-to-handler task routing must declare effects.
+# Thirty-seven-argument socket-to-handler task routing must declare effects.
 type StreamEvent
 	Request {stream_id: Int, payload: ByteChunk}
 	PeerClosed {stream_id: Int}
