@@ -916,6 +916,10 @@
         return new Task((Fn) fn, new Object[] { firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg, twentyFirstArg, twentySecondArg, twentyThirdArg, twentyFourthArg, twentyFifthArg, twentySixthArg, twentySeventhArg, twentyEighthArg, twentyNinthArg, thirtiethArg, thirtyFirstArg, thirtySecondArg, thirtyThirdArg, thirtyFourthArg, thirtyFifthArg, thirtySixthArg, thirtySeventhArg });
     }
 
+    public static Object taskSpawnWith38(Object fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg, Object twentiethArg, Object twentyFirstArg, Object twentySecondArg, Object twentyThirdArg, Object twentyFourthArg, Object twentyFifthArg, Object twentySixthArg, Object twentySeventhArg, Object twentyEighthArg, Object twentyNinthArg, Object thirtiethArg, Object thirtyFirstArg, Object thirtySecondArg, Object thirtyThirdArg, Object thirtyFourthArg, Object thirtyFifthArg, Object thirtySixthArg, Object thirtySeventhArg, Object thirtyEighthArg) {
+        return new Task((Fn) fn, new Object[] { firstArg, secondArg, thirdArg, fourthArg, fifthArg, sixthArg, seventhArg, eighthArg, ninthArg, tenthArg, eleventhArg, twelfthArg, thirteenthArg, fourteenthArg, fifteenthArg, sixteenthArg, seventeenthArg, eighteenthArg, nineteenthArg, twentiethArg, twentyFirstArg, twentySecondArg, twentyThirdArg, twentyFourthArg, twentyFifthArg, twentySixthArg, twentySeventhArg, twentyEighthArg, twentyNinthArg, thirtiethArg, thirtyFirstArg, thirtySecondArg, thirtyThirdArg, thirtyFourthArg, thirtyFifthArg, thirtySixthArg, thirtySeventhArg, thirtyEighthArg });
+    }
+
     public static Object taskJoin(Object task) {
         Task handle = (Task) task;
         try {
