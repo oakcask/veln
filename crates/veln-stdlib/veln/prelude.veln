@@ -576,6 +576,10 @@ pub fn hpack_fixture_huffman_non_visible_value(offset: Int, observed_size: Int, 
 	prelude_builtin::hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
 end
 
+pub fn hpack_fixture_table_size_update_not_at_start(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

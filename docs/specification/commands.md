@@ -53,6 +53,8 @@ requiring the full command reference on the first read.
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, header-list and header-table receive-limit
   peer-limits with bounded header-block byte previews,
+  HPACK dynamic table-size update placement failures with frame and stream
+  context,
   SETTINGS value range peer-limit, stream id domain
   failures with bounded frame-header byte previews, invalid connection-state
   and stream-state frame-kind failures with bounded frame-header byte

@@ -8556,6 +8556,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
             "hpack_eos: hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
             "hpack_visible: hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",
+            "hpack_table_update_placement: hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update at header block start\", \"hpack_fixture\", view), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",
             "read_u40: byte_read_u40_be(view), read_u48: byte_read_u48_be(view), ",

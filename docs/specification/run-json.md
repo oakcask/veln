@@ -487,6 +487,12 @@ the fixture's visible-ASCII header-value boundary. These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.
+When a dynamic table-size update appears after a decoded header field in the
+same completed header block, the HPACK fixture boundary uses id
+`hpack.fixture.table_size_update_not_at_start` and also records
+`observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`, and
+`active_state` before the same expected fixture, codec module, and byte
+preview fields.
 Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
 typed HPACK fixture results in program stdout; they are not converted into
 `details.protocol_diagnostic`.

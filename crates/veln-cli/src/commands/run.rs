@@ -1355,6 +1355,38 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Expected {expected_fixture}.")));
             Some(diagnostic)
         }
+        "hpack.fixture.table_size_update_not_at_start" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let observed_update_size = json_number(protocol_entries, "observed_header_table_size")?;
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!(
+                    "HPACK table-size update appears after a header field at byte offset {byte_offset}"
+                ),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} requested HPACK header table size {observed_update_size} after a decoded header field."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size}, first byte {observed_first_byte}, and active state {active_state}."
+            )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
         _ => None,
     }
 }
@@ -4369,6 +4401,76 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("04 82 ff c7 (showing 4 of 4 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_table_size_update_placement_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.table_size_update_not_at_start"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(10)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(2)),
+            ("observed_first_byte", JsonValue::Number(62)),
+            ("observed_header_table_size", JsonValue::Number(30)),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("active_state", JsonValue::string("hpack-fixture")),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK table-size update at header block start"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("823e")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture table-size update after header field at byte offset 10".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "hpack.fixture.table_size_update_not_at_start"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "HPACK table-size update appears after a header field at byte offset 10"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("requested HPACK header table size 30")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("active state hpack-fixture")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("82 3e (showing 2 of 2 byte(s), complete)")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("fixture HPACK table-size update at header block start")
         );
     }
 

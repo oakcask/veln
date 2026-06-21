@@ -2127,6 +2127,13 @@ accessor, and the HTTP/2 example covers both completed HEADERS blocks and
 final CONTINUATION blocks carrying accepted updated immutable states into
 later header block decodes or rejecting updates above the local header-table
 receive policy, including `0x3f 0xe1 0x1f` for the current fixture table size.
+If a complete dynamic table-size update appears after an already decoded
+header field in the same completed header block, the HTTP/2 example rejects
+it on both completed HEADERS and final CONTINUATION paths with
+`hpack.fixture.table_size_update_not_at_start`; the diagnostic reports the
+update byte offset, requested table size, frame kind, stream id, active HPACK
+fixture state, codec module, expected fixture boundary, and bounded preview
+bytes.
 Malformed non-terminating table-size updates and table-size updates with
 trailing bytes after a complete integer remain unsupported.
 Reducing the fixture table size below the supported entries
@@ -2150,6 +2157,8 @@ values for supported literal names, malformed Huffman padding, Huffman EOS,
 and Huffman strings whose decoded bytes are not visible ASCII stay on the
 HPACK fixture boundary but use focused `hpack.fixture.*` ids, and the focused
 JSON and human examples assert their bounded header-block byte previews.
+The table-size placement diagnostic has matching focused human and
+`run --json` examples.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
 full payload fits available outbound connection and stream windows. Payloads
@@ -2304,6 +2313,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
@@ -2334,6 +2344,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-json/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-json/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,

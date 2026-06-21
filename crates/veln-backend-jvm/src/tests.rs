@@ -3134,6 +3134,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureHuffmanNonVisibleValue",
         ),
         (
+            "hpack_fixture_table_size_update_not_at_start",
+            "hpackFixtureTableSizeUpdateNotAtStart",
+        ),
+        (
             "http2_protocol_invalid_frame_kind",
             "http2ProtocolInvalidFrameKind",
         ),

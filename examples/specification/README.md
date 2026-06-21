@@ -1826,6 +1826,11 @@ against the built `veln` binary.
   `run/http2-protocol-core-hpack-huffman-non-visible-json/`: focused HPACK
   fixture Huffman failures project through stable human and JSON runtime
   diagnostics with bounded header-block previews.
+- `run/http2-protocol-core-hpack-table-size-placement-human/` and
+  `run/http2-protocol-core-hpack-table-size-placement-json/`: a dynamic
+  table-size update after a decoded header field projects
+  `hpack.fixture.table_size_update_not_at_start` with frame, stream,
+  requested table-size, fixture state, and byte-preview details.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded`, `Partial`, and
@@ -2063,6 +2068,8 @@ against the built `veln` binary.
   table-size update through `http2.peer_limit.header_table_size_exceeded` on
   both paths, reject malformed non-terminating table-size updates and
   table-size updates with trailing bytes after a complete integer,
+  reject a complete table-size update after a decoded header field through
+  `hpack.fixture.table_size_update_not_at_start` on both paths,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
   completion through both single-frame HEADERS and final CONTINUATION paths,
   continuation ordering failures for a different frame kind

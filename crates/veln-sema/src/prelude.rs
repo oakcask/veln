@@ -685,6 +685,21 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "hpack_fixture_table_size_update_not_at_start" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+                byte_view.clone(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u64_be"
         | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le" | "byte_read_u32_le"
@@ -1830,6 +1845,21 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
+                byte_view.clone(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "hpack_fixture_table_size_update_not_at_start" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
                 CoreType::string(),
                 CoreType::string(),
                 byte_view.clone(),
