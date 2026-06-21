@@ -736,6 +736,8 @@ after freezing all thirty-five ordinary source values at the task boundary.
 after freezing all thirty-six ordinary source values at the task boundary.
 `task::spawn_with37` starts a thirty-seven-argument callable on a JVM thread
 after freezing all thirty-seven ordinary source values at the task boundary.
+`task::spawn_with38` starts a thirty-eight-argument callable on a JVM thread
+after freezing all thirty-eight ordinary source values at the task boundary.
 All task spawn helpers freeze the returned value before it crosses back through the
 task handle. `task::join` waits for that task and returns `Ok(value)` on ordinary
 completion or `Err(JoinError)` on interruption, cancellation, or runtime
@@ -900,6 +902,8 @@ The thirty-six-argument stream-task case extends it with one additional
 ordinary metadata value through `task::spawn_with36`.
 The thirty-seven-argument stream-task case extends it with one additional
 ordinary metadata value through `task::spawn_with37`.
+The thirty-eight-argument stream-task case extends it with one additional
+ordinary metadata value through `task::spawn_with38`.
 `SendBytes` actions are translated into ordered `net::write_chunk` calls by the
 adapter. Non-write response intents remain ordinary values for the adapter to
 interpret. The handler has no socket handle parameter and does not call `net`
@@ -969,6 +973,8 @@ checked examples are
 `examples/specification/check/socket-stream-adapter-routing-spawn36-effects/`,
 `examples/specification/run/socket-stream-adapter-routing-spawn37/`,
 `examples/specification/check/socket-stream-adapter-routing-spawn37-effects/`,
+`examples/specification/run/socket-stream-adapter-routing-spawn38/`,
+`examples/specification/check/socket-stream-adapter-routing-spawn38-effects/`,
 `examples/specification/run/socket-stream-adapter-clean-end/`,
 `examples/specification/run/socket-stream-adapter-owned-lifecycle/`,
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,

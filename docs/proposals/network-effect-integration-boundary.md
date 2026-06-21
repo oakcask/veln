@@ -62,9 +62,9 @@ slices, and narrow deadline and cancellation slices, for:
   twenty-five-argument, twenty-six-argument, twenty-seven-argument,
   twenty-eight-argument, twenty-nine-argument, thirty-argument,
   thirty-one-argument, thirty-two-argument, thirty-three-argument,
-  thirty-four-argument, thirty-five-argument, thirty-six-argument, and
-  thirty-seven-argument spawned handler task shapes over ordinary source
-  values
+  thirty-four-argument, thirty-five-argument, thirty-six-argument,
+  thirty-seven-argument, and thirty-eight-argument spawned handler task shapes
+  over ordinary source values
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
@@ -235,6 +235,8 @@ The thirty-six-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with36.md`.
 The thirty-seven-argument stream-task slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with37.md`.
+The thirty-eight-argument stream-task slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
 
 This slice keeps the effect model unchanged. The adapter function composes the
 existing `net` and `concurrency` effects because it owns socket I/O, channel
@@ -346,8 +348,9 @@ The argument-carrying stream-task slices are recorded as implemented in
 `../reference/implemented-proposals/network-stream-task-spawn-with33.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with34.md`,
 `../reference/implemented-proposals/network-stream-task-spawn-with35.md`,
-`../reference/implemented-proposals/network-stream-task-spawn-with36.md`, and
-`../reference/implemented-proposals/network-stream-task-spawn-with37.md`.
+`../reference/implemented-proposals/network-stream-task-spawn-with36.md`,
+`../reference/implemented-proposals/network-stream-task-spawn-with37.md`, and
+`../reference/implemented-proposals/network-stream-task-spawn-with38.md`.
 
 ## Discussion Result: Transport Error Boundary
 
