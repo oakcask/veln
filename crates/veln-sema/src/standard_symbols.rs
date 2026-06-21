@@ -12,8 +12,35 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
+    pub(crate) signature: Option<StandardSignature>,
     pub(crate) source: Option<veln_stdlib::StdlibSource>,
     pub(crate) stability: StandardSymbolStability,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct StandardSignature {
+    pub(crate) params: &'static [StandardType],
+    pub(crate) return_type: StandardType,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum StandardType {
+    Bool,
+    Int,
+    String,
+    Unit,
+    Path,
+    FsError,
+    ProcessError,
+    ByteChunk,
+    NetListener,
+    NetStream,
+    Deadline,
+    CancelToken,
+    CancellableWaitOutcome,
+    Vec(&'static StandardType),
+    Option(&'static StandardType),
+    Result(&'static StandardType, &'static StandardType),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +58,44 @@ const NET_TIME_EFFECTS: &[&str] = &["net", "time"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const TIME_EFFECTS: &[&str] = &["time"];
 const PURE_EFFECTS: &[&str] = &[];
+const STRING_TYPE: StandardType = StandardType::String;
+const UNIT_TYPE: StandardType = StandardType::Unit;
+const BOOL_TYPE: StandardType = StandardType::Bool;
+const PATH_TYPE: StandardType = StandardType::Path;
+const FS_ERROR_TYPE: StandardType = StandardType::FsError;
+const PROCESS_ERROR_TYPE: StandardType = StandardType::ProcessError;
+const BYTE_CHUNK_TYPE: StandardType = StandardType::ByteChunk;
+const NET_STREAM_TYPE: StandardType = StandardType::NetStream;
+const RESULT_STRING_FS_ERROR_TYPE: StandardType =
+    StandardType::Result(&STRING_TYPE, &FS_ERROR_TYPE);
+const RESULT_UNIT_FS_ERROR_TYPE: StandardType = StandardType::Result(&UNIT_TYPE, &FS_ERROR_TYPE);
+const RESULT_BOOL_FS_ERROR_TYPE: StandardType = StandardType::Result(&BOOL_TYPE, &FS_ERROR_TYPE);
+const VEC_PATH_TYPE: StandardType = StandardType::Vec(&PATH_TYPE);
+const RESULT_VEC_PATH_FS_ERROR_TYPE: StandardType =
+    StandardType::Result(&VEC_PATH_TYPE, &FS_ERROR_TYPE);
+const OPTION_NET_STREAM_TYPE: StandardType = StandardType::Option(&NET_STREAM_TYPE);
+const OPTION_BYTE_CHUNK_TYPE: StandardType = StandardType::Option(&BYTE_CHUNK_TYPE);
+const VEC_STRING_TYPE: StandardType = StandardType::Vec(&STRING_TYPE);
+const OPTION_STRING_TYPE: StandardType = StandardType::Option(&STRING_TYPE);
+const RESULT_PATH_PROCESS_ERROR_TYPE: StandardType =
+    StandardType::Result(&PATH_TYPE, &PROCESS_ERROR_TYPE);
+const PARAM_PATH: &[StandardType] = &[StandardType::Path];
+const PARAM_PATH_STRING: &[StandardType] = &[StandardType::Path, StandardType::String];
+const PARAM_BYTE_CHUNK: &[StandardType] = &[StandardType::ByteChunk];
+const PARAM_STRING: &[StandardType] = &[StandardType::String];
+const PARAM_NET_LISTENER: &[StandardType] = &[StandardType::NetListener];
+const PARAM_NET_LISTENER_DEADLINE: &[StandardType] =
+    &[StandardType::NetListener, StandardType::Deadline];
+const PARAM_NET_STREAM: &[StandardType] = &[StandardType::NetStream];
+const PARAM_NET_STREAM_DEADLINE: &[StandardType] =
+    &[StandardType::NetStream, StandardType::Deadline];
+const PARAM_NET_STREAM_BYTE_CHUNK: &[StandardType] =
+    &[StandardType::NetStream, StandardType::ByteChunk];
+const PARAM_INT: &[StandardType] = &[StandardType::Int];
+const PARAM_DEADLINE: &[StandardType] = &[StandardType::Deadline];
+const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::CancelToken];
+const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] =
+    &[StandardType::Deadline, StandardType::CancelToken];
 #[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
@@ -162,102 +227,275 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol("task", "join", CONCURRENCY_EFFECTS, "runtime.task.join"),
     runtime_symbol("task", "cancel", CONCURRENCY_EFFECTS, "runtime.task.cancel"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "fs",
         "read_to_string",
         FS_EFFECTS,
         "runtime.fs.read_to_string",
+        StandardSignature {
+            params: PARAM_PATH,
+            return_type: RESULT_STRING_FS_ERROR_TYPE,
+        },
     ),
-    runtime_symbol("fs", "write_string", FS_EFFECTS, "runtime.fs.write_string"),
-    runtime_symbol("fs", "exists", FS_EFFECTS, "runtime.fs.exists"),
-    runtime_symbol("fs", "read_dir", FS_EFFECTS, "runtime.fs.read_dir"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "fs",
+        "write_string",
+        FS_EFFECTS,
+        "runtime.fs.write_string",
+        StandardSignature {
+            params: PARAM_PATH_STRING,
+            return_type: RESULT_UNIT_FS_ERROR_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "fs",
+        "exists",
+        FS_EFFECTS,
+        "runtime.fs.exists",
+        StandardSignature {
+            params: PARAM_PATH,
+            return_type: RESULT_BOOL_FS_ERROR_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "fs",
+        "read_dir",
+        FS_EFFECTS,
+        "runtime.fs.read_dir",
+        StandardSignature {
+            params: PARAM_PATH,
+            return_type: RESULT_VEC_PATH_FS_ERROR_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
         "net",
         "receive_chunk",
         NET_EFFECTS,
         "runtime.net.receive_chunk",
+        StandardSignature {
+            params: &[],
+            return_type: StandardType::ByteChunk,
+        },
     ),
-    runtime_symbol("net", "send_chunk", NET_EFFECTS, "runtime.net.send_chunk"),
-    runtime_symbol("net", "listen", NET_EFFECTS, "runtime.net.listen"),
-    runtime_symbol("net", "accept", NET_EFFECTS, "runtime.net.accept"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "net",
+        "send_chunk",
+        NET_EFFECTS,
+        "runtime.net.send_chunk",
+        StandardSignature {
+            params: PARAM_BYTE_CHUNK,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "listen",
+        NET_EFFECTS,
+        "runtime.net.listen",
+        StandardSignature {
+            params: PARAM_STRING,
+            return_type: StandardType::NetListener,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "accept",
+        NET_EFFECTS,
+        "runtime.net.accept",
+        StandardSignature {
+            params: PARAM_NET_LISTENER,
+            return_type: StandardType::NetStream,
+        },
+    ),
+    runtime_symbol_with_signature(
         "net",
         "accept_or_end",
         NET_EFFECTS,
         "runtime.net.accept_or_end",
+        StandardSignature {
+            params: PARAM_NET_LISTENER,
+            return_type: OPTION_NET_STREAM_TYPE,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "net",
         "accept_until",
         NET_TIME_EFFECTS,
         "runtime.net.accept_until",
+        StandardSignature {
+            params: PARAM_NET_LISTENER_DEADLINE,
+            return_type: OPTION_NET_STREAM_TYPE,
+        },
     ),
-    runtime_symbol("net", "read_chunk", NET_EFFECTS, "runtime.net.read_chunk"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "net",
+        "read_chunk",
+        NET_EFFECTS,
+        "runtime.net.read_chunk",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::ByteChunk,
+        },
+    ),
+    runtime_symbol_with_signature(
         "net",
         "read_chunk_until",
         NET_TIME_EFFECTS,
         "runtime.net.read_chunk_until",
+        StandardSignature {
+            params: PARAM_NET_STREAM_DEADLINE,
+            return_type: OPTION_BYTE_CHUNK_TYPE,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "net",
         "read_chunk_or_end",
         NET_EFFECTS,
         "runtime.net.read_chunk_or_end",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: OPTION_BYTE_CHUNK_TYPE,
+        },
     ),
-    runtime_symbol("net", "write_chunk", NET_EFFECTS, "runtime.net.write_chunk"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "net",
+        "write_chunk",
+        NET_EFFECTS,
+        "runtime.net.write_chunk",
+        StandardSignature {
+            params: PARAM_NET_STREAM_BYTE_CHUNK,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
         "net",
         "close_stream",
         NET_EFFECTS,
         "runtime.net.close_stream",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::Unit,
+        },
     ),
-    runtime_symbol("process", "args", PROCESS_EFFECTS, "runtime.process.args"),
-    runtime_symbol("process", "env", PROCESS_EFFECTS, "runtime.process.env"),
-    runtime_symbol("process", "cwd", PROCESS_EFFECTS, "runtime.process.cwd"),
-    runtime_symbol("process", "exit", PROCESS_EFFECTS, "runtime.process.exit"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "process",
+        "args",
+        PROCESS_EFFECTS,
+        "runtime.process.args",
+        StandardSignature {
+            params: &[],
+            return_type: VEC_STRING_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "process",
+        "env",
+        PROCESS_EFFECTS,
+        "runtime.process.env",
+        StandardSignature {
+            params: PARAM_STRING,
+            return_type: OPTION_STRING_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "process",
+        "cwd",
+        PROCESS_EFFECTS,
+        "runtime.process.cwd",
+        StandardSignature {
+            params: &[],
+            return_type: RESULT_PATH_PROCESS_ERROR_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "process",
+        "exit",
+        PROCESS_EFFECTS,
+        "runtime.process.exit",
+        StandardSignature {
+            params: PARAM_INT,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
         "time",
         "timeout_ms",
         TIME_EFFECTS,
         "runtime.time.timeout_ms",
+        StandardSignature {
+            params: PARAM_INT,
+            return_type: StandardType::Unit,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "time",
         "deadline_after_ms",
         TIME_EFFECTS,
         "runtime.time.deadline_after_ms",
+        StandardSignature {
+            params: PARAM_INT,
+            return_type: StandardType::Deadline,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "time",
         "wait_until",
         TIME_EFFECTS,
         "runtime.time.wait_until",
+        StandardSignature {
+            params: PARAM_DEADLINE,
+            return_type: StandardType::Unit,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "time",
         "cancel_token",
         TIME_EFFECTS,
         "runtime.time.cancel_token",
+        StandardSignature {
+            params: &[],
+            return_type: StandardType::CancelToken,
+        },
     ),
-    runtime_symbol("time", "cancel", TIME_EFFECTS, "runtime.time.cancel"),
-    runtime_symbol(
+    runtime_symbol_with_signature(
+        "time",
+        "cancel",
+        TIME_EFFECTS,
+        "runtime.time.cancel",
+        StandardSignature {
+            params: PARAM_CANCEL_TOKEN,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
         "time",
         "is_cancelled",
         TIME_EFFECTS,
         "runtime.time.is_cancelled",
+        StandardSignature {
+            params: PARAM_CANCEL_TOKEN,
+            return_type: StandardType::Bool,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "time",
         "wait_until_cancellable",
         TIME_EFFECTS,
         "runtime.time.wait_until_cancellable",
+        StandardSignature {
+            params: PARAM_DEADLINE_CANCEL_TOKEN,
+            return_type: StandardType::Unit,
+        },
     ),
-    runtime_symbol(
+    runtime_symbol_with_signature(
         "time",
         "wait_until_cancellable_outcome",
         TIME_EFFECTS,
         "runtime.time.wait_until_cancellable_outcome",
+        StandardSignature {
+            params: PARAM_DEADLINE_CANCEL_TOKEN,
+            return_type: StandardType::CancellableWaitOutcome,
+        },
     ),
 ];
 
@@ -464,6 +702,26 @@ const fn runtime_symbol(
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
+        signature: None,
+        source: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }
+}
+
+const fn runtime_symbol_with_signature(
+    module: &'static str,
+    name: &'static str,
+    effects: &'static [&'static str],
+    lowering: &'static str,
+    signature: StandardSignature,
+) -> StandardSymbolDescriptor {
+    StandardSymbolDescriptor {
+        module: Some(module),
+        name,
+        kind: StandardSymbolKind::Runtime,
+        effects,
+        lowering: Some(lowering),
+        signature: Some(signature),
         source: None,
         stability: StandardSymbolStability::RequiredForSelfHosting,
     }
@@ -476,6 +734,7 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
+        signature: None,
         source: None,
         stability: StandardSymbolStability::CompatibilityOnly,
     }
@@ -491,6 +750,7 @@ const fn source_prelude_symbol_descriptor(
         kind: StandardSymbolKind::Veln,
         effects: PURE_EFFECTS,
         lowering: None,
+        signature: None,
         source: Some(source),
         stability: StandardSymbolStability::CompatibilityOnly,
     }

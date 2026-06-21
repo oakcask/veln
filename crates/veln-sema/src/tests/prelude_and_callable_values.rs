@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::repeat_schema_primitive;
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {

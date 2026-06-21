@@ -3,7 +3,7 @@ use veln_ast::Expr;
 use veln_core::CoreType;
 
 use crate::adt;
-use crate::standard_symbols::{effect_strings, qualified_symbol};
+use crate::standard_symbols::{StandardSignature, StandardType, effect_strings, qualified_symbol};
 use crate::types::{CallOrigin, Type};
 
 pub(crate) const KNOWN_EFFECT_LABELS: &[&str] = &[
@@ -72,70 +72,43 @@ pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Opt
 
 pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Type>, Type)> {
     let symbol = qualified_symbol(segments)?;
-    let module = symbol.module?;
-    match (module, symbol.name) {
-        ("fs", "read_to_string") => Some((
-            vec![path_type()],
-            adt::result_type(Type::string(), Type::named("FsError", Vec::new())),
-        )),
-        ("fs", "write_string") => Some((
-            vec![path_type(), Type::string()],
-            adt::result_type(Type::unit(), Type::named("FsError", Vec::new())),
-        )),
-        ("fs", "exists") => Some((
-            vec![path_type()],
-            adt::result_type(Type::bool(), Type::named("FsError", Vec::new())),
-        )),
-        ("fs", "read_dir") => Some((
-            vec![path_type()],
-            adt::result_type(Type::vec(path_type()), Type::named("FsError", Vec::new())),
-        )),
-        ("net", "receive_chunk") => Some((Vec::new(), byte_chunk_type())),
-        ("net", "send_chunk") => Some((vec![byte_chunk_type()], Type::unit())),
-        ("net", "listen") => Some((vec![Type::string()], net_listener_type())),
-        ("net", "accept") => Some((vec![net_listener_type()], net_stream_type())),
-        ("net", "accept_or_end") => Some((
-            vec![net_listener_type()],
-            adt::option_type(net_stream_type()),
-        )),
-        ("net", "accept_until") => Some((
-            vec![net_listener_type(), Type::named("Deadline", Vec::new())],
-            adt::option_type(net_stream_type()),
-        )),
-        ("net", "read_chunk") => Some((vec![net_stream_type()], byte_chunk_type())),
-        ("net", "read_chunk_until") => Some((
-            vec![net_stream_type(), Type::named("Deadline", Vec::new())],
-            adt::option_type(byte_chunk_type()),
-        )),
-        ("net", "read_chunk_or_end") => {
-            Some((vec![net_stream_type()], adt::option_type(byte_chunk_type())))
+    standard_signature_types(symbol.signature?)
+}
+
+fn standard_signature_types(signature: StandardSignature) -> Option<(Vec<Type>, Type)> {
+    Some((
+        signature
+            .params
+            .iter()
+            .map(standard_type)
+            .collect::<Option<Vec<_>>>()?,
+        standard_type(&signature.return_type)?,
+    ))
+}
+
+fn standard_type(spec: &StandardType) -> Option<Type> {
+    match spec {
+        StandardType::Bool => Some(Type::bool()),
+        StandardType::Int => Some(Type::int()),
+        StandardType::String => Some(Type::string()),
+        StandardType::Unit => Some(Type::unit()),
+        StandardType::Path => Some(path_type()),
+        StandardType::FsError => Some(Type::named("FsError", Vec::new())),
+        StandardType::ProcessError => Some(Type::named("ProcessError", Vec::new())),
+        StandardType::ByteChunk => Some(byte_chunk_type()),
+        StandardType::NetListener => Some(net_listener_type()),
+        StandardType::NetStream => Some(net_stream_type()),
+        StandardType::Deadline => Some(Type::named("Deadline", Vec::new())),
+        StandardType::CancelToken => Some(cancel_token_type()),
+        StandardType::CancellableWaitOutcome => {
+            Some(Type::named("CancellableWaitOutcome", Vec::new()))
         }
-        ("net", "write_chunk") => Some((vec![net_stream_type(), byte_chunk_type()], Type::unit())),
-        ("net", "close_stream") => Some((vec![net_stream_type()], Type::unit())),
-        ("process", "args") => Some((Vec::new(), Type::vec(Type::string()))),
-        ("process", "env") => Some((vec![Type::string()], adt::option_type(Type::string()))),
-        ("process", "cwd") => Some((
-            Vec::new(),
-            adt::result_type(path_type(), Type::named("ProcessError", Vec::new())),
+        StandardType::Vec(item) => Some(Type::vec(standard_type(item)?)),
+        StandardType::Option(value) => Some(adt::option_type(standard_type(value)?)),
+        StandardType::Result(value, error) => Some(adt::result_type(
+            standard_type(value)?,
+            standard_type(error)?,
         )),
-        ("process", "exit") => Some((vec![Type::int()], Type::unit())),
-        ("time", "timeout_ms") => Some((vec![Type::int()], Type::unit())),
-        ("time", "deadline_after_ms") => {
-            Some((vec![Type::int()], Type::named("Deadline", Vec::new())))
-        }
-        ("time", "wait_until") => Some((vec![Type::named("Deadline", Vec::new())], Type::unit())),
-        ("time", "cancel_token") => Some((Vec::new(), cancel_token_type())),
-        ("time", "cancel") => Some((vec![cancel_token_type()], Type::unit())),
-        ("time", "is_cancelled") => Some((vec![cancel_token_type()], Type::bool())),
-        ("time", "wait_until_cancellable") => Some((
-            vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
-            Type::unit(),
-        )),
-        ("time", "wait_until_cancellable_outcome") => Some((
-            vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
-            Type::named("CancellableWaitOutcome", Vec::new()),
-        )),
-        _ => None,
     }
 }
 
