@@ -323,6 +323,13 @@ pub type StreamInput
 	End
 end
 
+pub type AcceptOutcome
+	AcceptStream(stream: NetStream)
+	AcceptEnd
+	AcceptDeadlineExpired
+	AcceptCancelled
+end
+
 pub type StreamReadOutcome
 	ReadChunk(bytes: ByteChunk)
 	ReadEnd

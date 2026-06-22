@@ -239,6 +239,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::accept" => "netAccept",
         "net::accept_or_end" => "netAcceptOrEnd",
         "net::accept_until" => "netAcceptUntil",
+        "net::accept_until_cancellable" => "netAcceptUntilCancellable",
         "net::read_chunk" => "netReadChunk",
         "net::read_chunk_until" => "netReadChunkUntil",
         "net::read_chunk_until_cancellable" => "netReadChunkUntilCancellable",

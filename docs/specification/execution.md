@@ -53,9 +53,9 @@ execution reference.
   descriptor chunk receive/send, listener creation, accept, optional
   clean-end listener accept, deadline-aware optional listener accept, stream
   read, optional clean-end stream read, deadline-aware optional stream read,
-  cancellable deadline-aware stream read, stream write, stream close, timeout,
-  deadline waits, and cancellable deadline waits execute outside the pure
-  protocol core.
+  cancellable deadline-aware listener accept, cancellable deadline-aware
+  stream read, stream write, stream close, timeout, deadline waits, and
+  cancellable deadline waits execute outside the pure protocol core.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -75,10 +75,13 @@ execution reference.
   codec, or peer protocol diagnostics. `net::accept_until` turns accept
   deadline expiry into `None`, and `net::read_chunk_until` turns read deadline
   expiry into `None`, while forced host accept or read failure through those
-  paths remains a runtime failure. `net::read_chunk_until_cancellable` returns
-  ordinary `StreamReadOutcome` values for chunk arrival, clean end, read
-  deadline expiry, and token cancellation while preserving forced host read
-  failures as runtime failures.
+  paths remains a runtime failure. `net::accept_until_cancellable` returns
+  ordinary `AcceptOutcome` values for accepted stream, clean listener end,
+  accept deadline expiry, and token cancellation while preserving forced host
+  accept failures as runtime failures. `net::read_chunk_until_cancellable`
+  returns ordinary `StreamReadOutcome` values for chunk arrival, clean end,
+  read deadline expiry, and token cancellation while preserving forced host
+  read failures as runtime failures.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

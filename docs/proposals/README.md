@@ -236,8 +236,9 @@ compare it with `../specification/` before changing behavior.
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, deadline, cancellation, deadline-aware listener
-  accept, deadline-aware stream read, cancellable deadline-aware stream read,
-  adapter-owned listener-to-clean-stream-end lifecycle, context-based
+  accept, cancellable deadline-aware listener accept, deadline-aware stream
+  read, cancellable deadline-aware stream read, adapter-owned
+  listener-to-clean-stream-end lifecycle, context-based
   `task::spawn_with<Result, Context>` handler spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
   lifecycle, stream close lifecycle, bounded receiver-list channel-first

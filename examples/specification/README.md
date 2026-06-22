@@ -2383,6 +2383,18 @@ against the built `veln` binary.
 - `run/transport-socket-accept-until-deadline/`: deadline-aware socket accept
   observes fixture-reported accept deadline expiry as `None` without a
   runtime failure.
+- `run/transport-socket-accept-until-cancellable-boundary/`: cancellable
+  deadline-aware socket accept returns `AcceptStream(stream)` when the fixture
+  accepts before the deadline and before cancellation.
+- `run/transport-socket-accept-until-cancellable-clean-end/`: cancellable
+  deadline-aware socket accept observes clean listener end as `AcceptEnd`
+  without a runtime failure.
+- `run/transport-socket-accept-until-cancellable-deadline/`: cancellable
+  deadline-aware socket accept observes fixture-reported accept deadline
+  expiry as `AcceptDeadlineExpired` without a runtime failure.
+- `run/transport-socket-accept-until-cancellable-cancelled/`: cancellable
+  deadline-aware socket accept observes token cancellation as `AcceptCancelled`
+  without a runtime failure.
 - `run/transport-socket-read-until-boundary/`: deadline-aware socket read
   returns `Some(bytes)` when the fixture stream yields a chunk before the
   deadline.
@@ -2413,6 +2425,9 @@ against the built `veln` binary.
   listener accept directly infers the `net` effect for public effect checking.
 - `check/transport-socket-accept-until-effects/`: deadline-aware listener
   accept directly infers both `net` and `time` for public effect checking.
+- `check/transport-socket-accept-until-cancellable-effects/`: cancellable
+  deadline-aware listener accept directly infers both `net` and `time` for
+  public effect checking.
 - `check/transport-socket-read-until-effects/`: deadline-aware stream read
   directly infers both `net` and `time` for public effect checking.
 - `check/transport-socket-read-until-cancellable-effects/`: cancellable
@@ -2496,6 +2511,9 @@ against the built `veln` binary.
 - `run/transport-socket-accept-until-failure-json/`: forced socket accept
   failure through the deadline-aware optional accept path uses the same run
   JSON runtime error shape.
+- `run/transport-socket-accept-until-cancellable-failure-json/`: forced
+  socket accept failure through the cancellable deadline-aware accept path uses
+  the same run JSON runtime error shape.
 - `run/transport-socket-read-until-failure-json/`: forced socket read failure
   through the deadline-aware optional read path uses the same run JSON
   runtime error shape.

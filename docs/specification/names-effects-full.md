@@ -42,6 +42,8 @@ The `StreamInput` standard ADT constructors are available as `Chunk(bytes)`,
 `End`, `StreamInput::Chunk(bytes)`, `StreamInput::End`,
 `prelude::Chunk(bytes)`, `prelude::End`,
 `prelude::StreamInput::Chunk(bytes)`, and `prelude::StreamInput::End`.
+The `AcceptOutcome` standard ADT constructors are available through the same
+bare, type-qualified, prelude-qualified, and prelude-type-qualified forms.
 
 A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
@@ -193,6 +195,7 @@ net::listen(address: String) -> NetListener effects [net]
 net::accept(listener: NetListener) -> NetStream effects [net]
 net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
 net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
+net::accept_until_cancellable(listener: NetListener, deadline: Deadline, token: CancelToken) -> AcceptOutcome effects [net, time]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net, time]
 net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
@@ -263,7 +266,11 @@ host-fed receive or read bytes, failed outgoing send or write event recording,
 forced listen, accept, read, write, timeout, deadline expiry through
 runtime-failure waits, or cancellable-wait cancellation failures through the
 runtime-failure wait are transport runtime failures, not schema, codec, or
-peer protocol diagnostics. Forced accept failure through `net::accept_until`
+peer protocol diagnostics. `net::accept_until_cancellable` returns
+`AcceptStream(stream)` for an accepted stream, `AcceptEnd` for clean listener
+end, `AcceptDeadlineExpired` for accept deadline expiry, and `AcceptCancelled`
+for token cancellation. Forced accept failure through `net::accept_until`
+or `net::accept_until_cancellable`
 and forced read failure through `net::read_chunk_until` or
 `net::read_chunk_until_cancellable` remain runtime failures; only deadline
 expiry reported by those optional paths becomes `None` or
@@ -499,6 +506,13 @@ helpers are part of this public helper set; names such as `list_to_vec` or
 type StreamInput
 	Chunk(bytes: ByteChunk)
 	End
+end
+
+type AcceptOutcome
+	AcceptStream(stream: NetStream)
+	AcceptEnd
+	AcceptDeadlineExpired
+	AcceptCancelled
 end
 
 type DecodeError

@@ -65,8 +65,9 @@ slices, and narrow deadline and cancellation slices, for:
   `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
   `time::cancel_token`, `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
-  `time::wait_until_cancellable_outcome`, deadline-aware listener accept, and
-  deadline-aware and cancellable deadline-aware stream read
+  `time::wait_until_cancellable_outcome`, deadline-aware listener accept,
+  cancellable deadline-aware listener accept, and deadline-aware and
+  cancellable deadline-aware stream read
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -187,6 +188,16 @@ the fixture accepts before the deadline and `None` when the fixture reports
 deadline expiry before accepting or the supplied deadline has already expired.
 The call infers both `net` and `time` under the existing coarse effect labels.
 Forced accept failure on the same optional accept path remains a runtime
+transport failure, not a protocol diagnostic.
+
+Implemented cancellable deadline-aware listener accept slice: executable
+specification cases use
+`net::accept_until_cancellable(listener, deadline, token)` to return
+`AcceptStream(stream)` when the fixture accepts before the deadline and before
+cancellation, `AcceptEnd` for clean listener end, `AcceptDeadlineExpired` for
+fixture-reported or supplied accept deadline expiry, and `AcceptCancelled` for
+source-visible token cancellation. The call infers the existing coarse `net`
+and `time` effects. Forced accept failure on the same path remains a runtime
 transport failure, not a protocol diagnostic.
 
 Implemented deadline-aware stream read slice: executable specification cases
@@ -359,7 +370,8 @@ or the pure protocol core.
   remaining examples still need richer deadline and cancellation APIs beyond
   the narrow relative `Deadline` boundary,
   `CancelToken` boundary, cancellation status-query boundary, and cancellable
-  wait-outcome boundary.
+  wait-outcome boundary, and the cancellable deadline-aware listener accept
+  boundary.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

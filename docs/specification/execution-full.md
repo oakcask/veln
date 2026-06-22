@@ -548,6 +548,10 @@ payload count, available payload count, and structured byte preview fields.
 Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
 and `End` is a separate nullary variant.
+Standard `AcceptOutcome` values execute as ordinary immutable source ADT
+values: `AcceptStream(stream)` carries the accepted `NetStream`, `AcceptEnd`
+marks clean listener end, `AcceptDeadlineExpired` marks accept deadline
+expiry, and `AcceptCancelled` marks source-visible token cancellation.
 
 The pending-input byte chunk example appends `StreamInput.Chunk` bytes into an
 ordinary immutable retained `ByteChunk`, rejects appends that would exceed the
@@ -720,10 +724,12 @@ close, timeout, or deadline expiry, or cancellable-wait cancellation through
 the runtime-failure wait stop the entry as runtime failures. Clean listener end
 observed through
 `net::accept_or_end`, accept deadline expiry observed through
-`net::accept_until`, clean stream end observed through `net::read_chunk_or_end`,
-read deadline expiry or clean stream end observed through
-`net::read_chunk_until`, and value-returning cancellable wait outcomes are
-successful source values. Forced accept failure through `net::accept_until`
+`net::accept_until`, clean listener end, accept deadline expiry, and
+cancellation observed through `net::accept_until_cancellable`, clean stream
+end observed through `net::read_chunk_or_end`, read deadline expiry or clean
+stream end observed through `net::read_chunk_until`, and value-returning
+cancellable wait outcomes are successful source values. Forced accept failure
+through `net::accept_until` or `net::accept_until_cancellable`
 and forced read failure through `net::read_chunk_until` stay runtime failures.
 They do not produce schema, codec, or HTTP/2 peer protocol diagnostics. The
 deadline boundary does not add a source timer handle beyond the returned

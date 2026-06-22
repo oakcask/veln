@@ -777,6 +777,47 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "AcceptOutcome".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "AcceptStream".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "stream".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("NetStream", Vec::new())),
+                    }],
+                    coverage_case: "AcceptStream(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "AcceptEnd".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "AcceptEnd".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "AcceptDeadlineExpired".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "AcceptDeadlineExpired".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "AcceptCancelled".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "AcceptCancelled".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "acceptoutcome".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "StreamReadOutcome".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
