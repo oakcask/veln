@@ -24,10 +24,11 @@ compare it with `../specification/` before changing behavior.
   public representation conversion hooks that take one, two, or three
   arguments from schema-local fields or structural mapping expressions, field
   selection from record-shaped structural mapping expressions, decoded-field,
-  integer-literal, and `Int` converter-call mapping arithmetic including integer division,
-  decoded-field and integer-literal equality or inequality mapping comparisons
-  for `Bool` target fields, narrow boolean mapping selection, focused mapping selection diagnostics, and the generated-helper schema validation
-  diagnostic boundary,
+  integer-literal, and `Int` converter-call mapping arithmetic including
+  integer division, decoded-field and integer-literal equality or inequality
+  mapping comparisons for `Bool` target fields composed with `and`, `or`, and
+  `not`, narrow boolean mapping selection, focused mapping selection
+  diagnostics, and the generated-helper schema validation diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, plus
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time

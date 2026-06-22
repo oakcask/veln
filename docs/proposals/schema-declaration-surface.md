@@ -438,10 +438,13 @@ Implemented:
   arguments through a written `use` path or alias, field
   selection from record-shaped structural mapping expressions, and
   decoded-field, integer-literal, and `Int` converter-call `+`, `-`, `*`,
-  and `/` mapping arithmetic. Converter calls may take one, two, or three arguments. Arguments may be
-  schema-local field references or structural mapping expressions. Generated
-  decode mapping accepts nested ADT constructor payload expressions when every
-  leaf argument remains in that implemented schema-local expression vocabulary.
+  and `/` mapping arithmetic, plus decoded-field and integer-literal `==` and
+  `!=` mapping comparisons composed with `and`, `or`, and `not` for `Bool`
+  target fields. Converter calls may take one, two, or three arguments.
+  Arguments may be schema-local field references or structural mapping
+  expressions. Generated decode mapping accepts nested ADT constructor payload
+  expressions when every leaf argument remains in that implemented
+  schema-local expression vocabulary.
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=
   literal`, or narrow decoded-field boolean selector expressions, when
@@ -469,8 +472,9 @@ Remaining:
   same-module or imported public converter call whose one, two, or three
   arguments may be schema-local fields or structural mapping expressions, field selection from
   record-shaped structural mapping expressions, decoded-field and
-  converter-call integer arithmetic, and narrow decoded-field integer boolean
-  selection slices.
+  converter-call integer arithmetic, decoded-field integer boolean mapping
+  assignment composition, and narrow decoded-field integer boolean selection
+  slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

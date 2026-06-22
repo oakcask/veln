@@ -269,6 +269,9 @@ against the built `veln` binary.
 - `run/binary-schema-mapping-bool-comparison-decode/`: generated binary schema
   decode computes `Bool` target fields with decoded-field and integer-literal
   `==` and `!=` mapping comparisons.
+- `run/binary-schema-mapping-bool-composition-decode/`: generated binary
+  schema decode composes supported `Bool` mapping comparisons with `and`,
+  `or`, and `not`.
 - `run/binary-schema-mapping-converter-arithmetic-decode/`: generated binary
   schema decode computes `Int` target fields with same-module converter calls
   as mapping arithmetic operands.
@@ -288,7 +291,7 @@ against the built `veln` binary.
   when they exceed the implemented structural expression slice.
 - `check/schema-mapping-bool-comparison-diagnostics/`: Bool comparison schema
   mapping assignment values report non-`Int` operands, non-`Bool` targets, and
-  unsupported comparison operand diagnostics.
+  unsupported comparison and boolean-composition operand diagnostics.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter argument expression
