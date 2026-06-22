@@ -113,8 +113,19 @@ execution reference.
   for two independent adapter-owned streams accepted from one listener through
   the same ordinary handler/action boundary with ordered writes, explicit
   closes, captured client bytes, and clean listener end,
+  `examples/specification/run/socket-stream-adapter-production-drain-lifecycle/`
+  for a listener-draining adapter that recursively accepts configured
+  production streams until clean listener end while reusing the same ordinary
+  handler/action boundary for every accepted stream,
+  `examples/specification/run/socket-stream-adapter-production-drain-read-failure-json/`
+  for a forced read failure after adapter-owned production accept but before
+  response writes or stream close,
+  `examples/specification/run/socket-stream-adapter-production-close-failure-json/`
+  for a forced close failure after an adapter-routed production stream has
+  already projected ordered response writes,
   and `examples/specification/run/transport-socket-production-two-streams/`;
-  production listen failures remain runtime failures and are checked by
+  production listen and close failures remain runtime failures and are checked
+  by that close-failure case and
   `examples/specification/run/transport-socket-production-listen-failure-json/`.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through typed channel routes, select the next ready route with the

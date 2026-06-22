@@ -74,7 +74,11 @@ compiler-known calls.
   lifecycle accepts two independent production streams from one listener,
   routes each stream through the same ordinary handler/action boundary, writes
   only ordered `SendBytes` actions, closes each stream, and observes clean
-  listener end without adding public calls or effect labels.
+  listener end without adding public calls or effect labels. The
+  listener-drain adapter uses the same public calls and effect declarations
+  while recursively accepting configured production streams until
+  `net::accept_or_end` reports clean listener end; forced production read
+  failure on that path remains a runtime transport failure.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route through thirty-route examples use

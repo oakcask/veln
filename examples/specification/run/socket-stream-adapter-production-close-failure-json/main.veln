@@ -1,0 +1,67 @@
+# Production loopback adapter reports close failures after ordered writes.
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	Ignore
+end
+
+fn handle_stream_input(input: StreamInput) -> List<ResponseAction>
+	match input
+		Chunk(bytes) => list_cons(SendBytes(bytes), list_nil())
+		End => list_cons(Ignore, list_nil())
+	end
+end
+
+fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
+	match net::read_chunk_or_end(stream)
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
+			Ignore => apply_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	apply_response_actions(stream, tail)
+end
+
+fn run_stream(stream: NetStream) -> () effects [net, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	let input = route_input(route, read_stream_input(stream))
+	let actions = handle_stream_input(input)
+	apply_response_actions(stream, actions)
+	net::close_stream(stream)
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let first_stream: NetStream = accept_next(listener)?
+	run_stream(first_stream)
+	let second_stream: NetStream = accept_next(listener)?
+	run_stream(second_stream)
+	Ok(())
+end

@@ -251,7 +251,9 @@ compare it with `../specification/` before changing behavior.
   cancellable deadline-aware adapters, stream close lifecycle,
   source-visible ordered `net::write_chunks` chunk-list writes,
   production-loopback listen, sequential accept, read, write, clean listener
-  end, close lifecycle, and two-stream adapter handler/action lifecycle,
+  end, close lifecycle, two-stream adapter handler/action lifecycle, and
+  listener-drain adapter lifecycle, listener-drain read-failure runtime
+  boundary, and adapter close-failure runtime boundary,
   bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
