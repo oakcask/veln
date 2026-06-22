@@ -226,8 +226,9 @@ compare it with `../specification/` before changing behavior.
   and non-visible decoded-byte diagnostics, focused malformed string-length
   and raw string value fixture diagnostics, general visible-ASCII raw literal
   values, raw field-name validation through header-list diagnostics, inbound
-  fixture dynamic-table eviction, checked inbound table-size update placement
-  diagnostics, and checked outbound dynamic table-size update encoding,
+  fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
+  and eviction, checked inbound table-size update placement diagnostics, and
+  checked outbound dynamic table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

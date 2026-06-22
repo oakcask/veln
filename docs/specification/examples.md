@@ -2013,8 +2013,9 @@ the newest `:scheme: https` and second `:method: PUT` entries while evicting
 the third `:path: /target` entry; table size `42` retains the newest
 `:method: PUT` entry when that entry is followed by `:path: /target`, evicts
 the older `:path: /target` entry, and also evicts `:authority: abc.test`;
-table size
-`30` evicts both supported `:method: PUT` and `:path: /target` dynamic
+table size `40` evicts the raw new-name ordinary `x-trace: ok` entry after a
+checked `0xbe` reuse; table size `30` evicts both supported `:method: PUT` and
+`:path: /target` dynamic
 entries and leaves later dynamic indexed representations on the unsupported
 fixture path. A later literal-with-indexing insertion that exceeds remaining
 capacity keeps the inserted `:path: /target` entry readable at `0xbe` and

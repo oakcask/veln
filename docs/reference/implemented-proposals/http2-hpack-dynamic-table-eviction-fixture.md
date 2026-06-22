@@ -16,6 +16,10 @@ value. A literal-with-indexing `:path: /target` block returns a next
 `HpackFixtureState` with that dynamic entry, and a later `0xbe` indexed block
 decodes the carried entry through that state. The same indexed block without a
 prior dynamic entry remains unsupported.
+The HTTP/2 protocol-core example also inserts raw new-name
+literal-with-indexing `x-trace: ok`, carries the returned immutable dynamic
+entry state through a later `0xbe` lookup, then reduces the table to `40` so
+that ordinary entry is evicted and the next `0xbe` lookup stays unsupported.
 
 Later literal-with-indexing blocks prepend bounded fixture dynamic-table
 entries in newest-first order. After `:method: PUT` and `:scheme: https` are
@@ -124,7 +128,9 @@ unsupported fixture path.
   literal-without-indexing and literal-never-indexed forms without
   replacement insertion, dynamic-index `127` literal-without-indexing and
   literal-never-indexed forms without replacement insertion,
-  generalized dynamic indexed lookup, oldest-first table-size eviction,
+  generalized dynamic indexed lookup, ordinary raw new-name
+  literal-with-indexing insertion and dynamic-indexed reuse, oldest-first
+  table-size eviction of that ordinary entry,
   insertion-caused eviction, the accepted-entry-size eviction case, pending
   CONTINUATION state not advancing HPACK decode count before final acceptance,
   missing dynamic indexed state not advancing the carried decode count before

@@ -394,9 +394,12 @@ literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
 indexed representation without prior state stays unsupported without
-advancing the carried fixture decode count. The state output also shows that
-a split header block leaves the HPACK fixture state unchanged until the final
-CONTINUATION block is accepted. A later literal-with-indexing `:method: PUT`
+advancing the carried fixture decode count. The same completed HEADERS path
+also inserts raw new-name literal-with-indexing `x-trace: ok`, reuses it
+through a later `0xbe`, and evicts it with a table-size `40` reduction so the
+following dynamic indexed reference stays unsupported. The state output also
+shows that a split header block leaves the HPACK fixture state unchanged until
+the final CONTINUATION block is accepted. A later literal-with-indexing `:method: PUT`
 block and a later
 literal-with-indexing `:scheme: https` block are inserted as newest-first
 bounded fixture dynamic-table entries while older entries remain addressable
@@ -417,7 +420,8 @@ keeps the newest two supported entries and evicts the third retained entry;
 reducing the fixture table size to `42` keeps the newest supported
 `:method: PUT` entry when that entry is followed by `:path: /target` and
 evicts the older `:path: /target` entry; reducing the fixture table size to
-`30` evicts both supported entries. The
+`40` evicts the raw new-name ordinary `x-trace: ok` entry; reducing the
+fixture table size to `30` evicts both supported entries. The
 fixture also
 accepts dynamic table-size update bytes `0x3e`, `0x3f`, one-byte
 continuations such as `0x3f 0x01`, and the fixture-boundary slice of general
