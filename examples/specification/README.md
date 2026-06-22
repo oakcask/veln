@@ -2561,6 +2561,9 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-close-lifecycle/`: one adapter path reads until
   clean stream end, applies ordered `SendBytes` writes, then records explicit
   stream close through `net::close_stream`.
+- `run/transport-socket-production-two-streams/`: one production loopback
+  listener accepts two independent streams, reads, writes, and closes each
+  stream, and then observes clean listener end through optional accept.
 - `run/socket-stream-adapter-deadline-lifecycle/`: one adapter function owns
   an accepted stream, reads deadline-aware chunks with `net::read_chunk_until`
   until a read attempt returns `None` for deadline expiry, routes ordinary

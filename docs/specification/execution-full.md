@@ -712,12 +712,15 @@ fixture-only stream ids: `net::listen` binds the requested address,
 and `net::accept_or_end` accept a loopback client, `net::read_chunk` and
 `net::read_chunk_or_end` read bytes from the accepted stream,
 `net::write_chunk` writes response bytes to that stream, and
-`net::close_stream` closes it. The checked lifecycle keeps the application
-handler on ordinary `StreamInput` and response-action values, routes through
-the existing `concurrency` boundary, captures the client-observed bytes, and
-uses the same `net` and `concurrency` effect declarations as fixture-backed
-close-lifecycle adapters. Invalid production listen addresses and other host
-transport failures are runtime transport failures.
+`net::close_stream` closes it. A configured production loopback sequence can
+accept multiple independent streams from one listener, and a following
+optional accept observes clean listener end after those streams are exhausted.
+The checked adapter lifecycle keeps the application handler on ordinary
+`StreamInput` and response-action values, routes through the existing
+`concurrency` boundary, captures the client-observed bytes, and uses the same
+`net` and `concurrency` effect declarations as fixture-backed close-lifecycle
+adapters. Invalid production listen addresses and other host transport
+failures are runtime transport failures.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative

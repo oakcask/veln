@@ -58,8 +58,9 @@ execution reference.
   cancellable deadline waits execute outside the pure protocol core. The
   default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
   `production-loopback`, the same public listen, accept, read, write, and
-  close calls own a host loopback listener and accepted stream for one
-  deterministic production lifecycle path.
+  close calls own a host loopback listener and deterministic accepted stream
+  sequence; optional accept can observe clean listener end after the planned
+  loopback streams are exhausted.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -102,8 +103,9 @@ execution reference.
   close after clean end or cancellation cleanup, deadline-aware accepted-stream
   ownership, cancellation-to-action routing for an accepted stream, and the
   cancellable deadline-aware accept/read lifecycle boundary. The checked
-  production loopback lifecycle is
-  `examples/specification/run/socket-stream-adapter-production-lifecycle/`;
+  production loopback lifecycles are
+  `examples/specification/run/socket-stream-adapter-production-lifecycle/`
+  and `examples/specification/run/transport-socket-production-two-streams/`;
   production listen failures remain runtime failures and are checked by
   `examples/specification/run/transport-socket-production-listen-failure-json/`.
 - The channel-first stream routing examples route ordinary `StreamInput`

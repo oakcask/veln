@@ -27,9 +27,9 @@ compiler-known calls.
   expiry or clean stream end, cancellable deadline-aware stream reads that
   return `ReadChunk`, `ReadEnd`, `ReadDeadlineExpired`, or `ReadCancelled`
   values, fixture-backed stream writes and stream close recording,
-  opt-in production loopback socket ownership for listen, accept, read,
-  write, and close under the same public calls, relative deadline calls, and
-  cancellable deadline waits through
+  opt-in production loopback socket ownership for listen, sequential accepts,
+  reads, writes, clean listener end, and close under the same public calls,
+  relative deadline calls, and cancellable deadline waits through
   source-visible `CancelToken` handles. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
   cancellation. The value-returning cancellable wait returns
@@ -66,9 +66,10 @@ compiler-known calls.
   deadline-aware, cancellable, cancellable deadline-aware, and cancel-close
   lifecycle adapters declare `net`, `time`, and `concurrency`; the pure
   handler boundary remains free of transport effects.
-  The production loopback lifecycle case uses the same `net` and
+  The production loopback lifecycle cases use the same `net` and
   `concurrency` declarations as the close-lifecycle adapter; the runtime path
-  changes from fixture events to owned host streams without adding public
+  changes from fixture events to owned host streams, including a deterministic
+  two-stream accept sequence and clean listener end, without adding public
   calls or effect labels.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list

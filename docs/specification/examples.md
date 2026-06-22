@@ -1497,7 +1497,11 @@ covers the opt-in production-loopback lifecycle on the same public socket
 calls. Adapter-owned source listens, accepts, reads, routes ordinary
 `StreamInput` values through a channel, calls a pure handler, writes ordered
 response bytes, and closes the stream while the runtime captures the
-client-observed bytes. The matching
+client-observed bytes. The executable specification case
+`../../examples/specification/run/transport-socket-production-two-streams/`
+uses one production loopback listener to accept two independent streams, read,
+write, and close each stream, and then observe clean listener end through
+`net::accept_or_end`. The matching
 `../../examples/specification/run/transport-socket-production-listen-failure-json/`
 case pins invalid production listen addresses as runtime transport failures.
 

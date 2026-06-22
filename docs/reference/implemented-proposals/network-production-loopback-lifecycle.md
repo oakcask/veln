@@ -7,7 +7,8 @@ from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
-`../../../examples/specification/run/socket-stream-adapter-production-lifecycle/`
+`../../../examples/specification/run/socket-stream-adapter-production-lifecycle/`,
+`../../../examples/specification/run/transport-socket-production-two-streams/`,
 and
 `../../../examples/specification/run/transport-socket-production-listen-failure-json/`.
 
@@ -21,12 +22,14 @@ loopback transport path by setting `VELN_NET_RUNTIME` to
 It adds no public call and no effect label beyond the existing coarse `net`
 and `concurrency` declarations used by the adapter lifecycle.
 
-The checked lifecycle binds a loopback listener, accepts one stream, reads
-client bytes into ordinary `StreamInput` values, routes those values through
-the existing channel boundary, calls a pure handler, writes ordered
-`SendBytes` response actions to the accepted stream, and closes the stream.
-The runtime captures the bytes observed by the loopback client, so the example
-pins both source-visible output and host transport output.
+The checked lifecycle binds a loopback listener, accepts streams, reads client
+bytes into ordinary `StreamInput` values or direct `ByteChunk` values, routes
+adapter-owned values through the existing channel boundary where applicable,
+calls a pure handler where applicable, writes ordered response bytes to each
+accepted stream, and closes each stream. The runtime captures the bytes
+observed by loopback clients, so the examples pin both source-visible output
+and host transport output. A checked two-stream case also pins clean listener
+end after the planned accepted streams are exhausted.
 
 Invalid production listen addresses remain runtime transport failures. The
 failure example checks the JSON command surface and keeps transport failure

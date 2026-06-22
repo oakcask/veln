@@ -13,34 +13,49 @@
         private final String address;
         private final java.net.ServerSocket server;
         private final LoopbackClient loopbackClient;
-        private final InMemoryLoopback inMemoryLoopback;
+        private final java.util.List<InMemoryLoopback> inMemoryLoopbacks;
+        private final int productionStreamCount;
+        private final java.util.concurrent.atomic.AtomicInteger productionAcceptIndex =
+            new java.util.concurrent.atomic.AtomicInteger(0);
 
         private NetListener(String address) {
-            this(address, null, null, null);
+            this(address, null, null, null, 0);
         }
 
         private NetListener(String address, java.net.ServerSocket server, LoopbackClient loopbackClient) {
-            this(address, server, loopbackClient, null);
+            this(
+                address,
+                server,
+                loopbackClient,
+                null,
+                loopbackClient == null ? 1 : loopbackClient.streamCount()
+            );
         }
 
-        private NetListener(String address, InMemoryLoopback inMemoryLoopback) {
-            this(address, null, null, inMemoryLoopback);
+        private NetListener(String address, java.util.List<InMemoryLoopback> inMemoryLoopbacks) {
+            this(address, null, null, inMemoryLoopbacks, inMemoryLoopbacks.size());
         }
 
         private NetListener(
             String address,
             java.net.ServerSocket server,
             LoopbackClient loopbackClient,
-            InMemoryLoopback inMemoryLoopback
+            java.util.List<InMemoryLoopback> inMemoryLoopbacks,
+            int productionStreamCount
         ) {
             this.address = address;
             this.server = server;
             this.loopbackClient = loopbackClient;
-            this.inMemoryLoopback = inMemoryLoopback;
+            this.inMemoryLoopbacks = inMemoryLoopbacks;
+            this.productionStreamCount = productionStreamCount;
         }
 
         private boolean isProductionSocket() {
-            return server != null || inMemoryLoopback != null;
+            return server != null || inMemoryLoopbacks != null;
+        }
+
+        private int nextProductionAcceptIndex() {
+            return productionAcceptIndex.getAndIncrement();
         }
 
         @Override
@@ -54,29 +69,32 @@
         private final java.net.Socket socket;
         private final LoopbackClient loopbackClient;
         private final InMemoryLoopback inMemoryLoopback;
+        private final boolean lastProductionStream;
         private final java.io.InputStream input;
         private final java.io.OutputStream output;
 
         private NetStream(String id) {
-            this(id, null, null, null, null, null);
+            this(id, null, null, null, false, null, null);
         }
 
         private NetStream(
             String id,
             java.net.Socket socket,
             LoopbackClient loopbackClient,
+            boolean lastProductionStream,
             java.io.InputStream input,
             java.io.OutputStream output
         ) {
-            this(id, socket, loopbackClient, null, input, output);
+            this(id, socket, loopbackClient, null, lastProductionStream, input, output);
         }
 
-        private NetStream(String id, InMemoryLoopback inMemoryLoopback) {
+        private NetStream(String id, InMemoryLoopback inMemoryLoopback, boolean lastProductionStream) {
             this(
                 id,
                 null,
                 null,
                 inMemoryLoopback,
+                lastProductionStream,
                 inMemoryLoopback.serverInput(),
                 inMemoryLoopback.serverOutput()
             );
@@ -87,6 +105,7 @@
             java.net.Socket socket,
             LoopbackClient loopbackClient,
             InMemoryLoopback inMemoryLoopback,
+            boolean lastProductionStream,
             java.io.InputStream input,
             java.io.OutputStream output
         ) {
@@ -94,6 +113,7 @@
             this.socket = socket;
             this.loopbackClient = loopbackClient;
             this.inMemoryLoopback = inMemoryLoopback;
+            this.lastProductionStream = lastProductionStream;
             this.input = input;
             this.output = output;
         }
@@ -110,11 +130,15 @@
 
     private static final class InMemoryLoopback {
         private final byte[] clientInput;
+        private final int index;
+        private final ProductionWriteCapture capture;
         private final java.io.ByteArrayOutputStream clientWrites =
             new java.io.ByteArrayOutputStream();
 
-        private InMemoryLoopback(byte[] clientInput) {
+        private InMemoryLoopback(byte[] clientInput, int index, ProductionWriteCapture capture) {
             this.clientInput = clientInput;
+            this.index = index;
+            this.capture = capture;
         }
 
         private java.io.InputStream serverInput() {
@@ -126,6 +150,24 @@
         }
 
         private void capture() {
+            capture.record(index, clientWrites.toByteArray());
+        }
+    }
+
+    private static final class ProductionWriteCapture {
+        private final byte[][] writes;
+
+        private ProductionWriteCapture(int count) {
+            this.writes = new byte[count][];
+        }
+
+        private synchronized void record(int index, byte[] bytes) {
+            writes[index] = bytes;
+            for (byte[] write : writes) {
+                if (write == null) {
+                    return;
+                }
+            }
             String capture = System.getenv("VELN_NET_PRODUCTION_CLIENT_WRITES");
             if (capture == null || capture.isEmpty()) {
                 return;
@@ -133,7 +175,7 @@
             try {
                 java.nio.file.Files.write(
                     java.nio.file.Paths.get(capture),
-                    hexBytes(clientWrites.toByteArray()).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                    joinedHexBytes(writes).getBytes(java.nio.charset.StandardCharsets.UTF_8)
                 );
             } catch (java.io.IOException error) {
                 throw new RuntimeFailure("transport close failed: could not capture loopback writes", error);
@@ -144,12 +186,20 @@
     private static final class LoopbackClient implements Runnable {
         private final String host;
         private final int port;
+        private final java.util.List<byte[]> outboundChunks;
+        private final ProductionWriteCapture capture;
         private volatile RuntimeException failure;
         private Thread thread;
 
-        private LoopbackClient(String host, int port) {
+        private LoopbackClient(String host, int port, java.util.List<byte[]> outboundChunks) {
             this.host = host;
             this.port = port;
+            this.outboundChunks = outboundChunks;
+            this.capture = new ProductionWriteCapture(outboundChunks.size());
+        }
+
+        private int streamCount() {
+            return outboundChunks.size();
         }
 
         private void start() {
@@ -168,27 +218,18 @@
         }
 
         private void runClient() {
-            Object chunk = byteChunkFromHex(loopbackClientReadHex());
-            if (isErr(chunk)) {
-                throw new RuntimeException("malformed VELN_NET_PRODUCTION_READ_HEX");
-            }
-            byte[] outbound = byteChunkToByteArray(unwrapOk(chunk));
-            try (java.net.Socket socket = new java.net.Socket()) {
-                socket.connect(new java.net.InetSocketAddress(host, port), productionTimeoutMillis());
-                java.io.OutputStream output = socket.getOutputStream();
-                output.write(outbound);
-                output.flush();
-                socket.shutdownOutput();
-                byte[] received = readAllBytes(socket.getInputStream());
-                String capture = System.getenv("VELN_NET_PRODUCTION_CLIENT_WRITES");
-                if (capture != null && !capture.isEmpty()) {
-                    java.nio.file.Files.write(
-                        java.nio.file.Paths.get(capture),
-                        hexBytes(received).getBytes(java.nio.charset.StandardCharsets.UTF_8)
-                    );
+            for (int index = 0; index < outboundChunks.size(); index += 1) {
+                byte[] outbound = outboundChunks.get(index);
+                try (java.net.Socket socket = new java.net.Socket()) {
+                    socket.connect(new java.net.InetSocketAddress(host, port), productionTimeoutMillis());
+                    java.io.OutputStream output = socket.getOutputStream();
+                    output.write(outbound);
+                    output.flush();
+                    socket.shutdownOutput();
+                    capture.record(index, readAllBytes(socket.getInputStream()));
+                } catch (java.io.IOException error) {
+                    throw new RuntimeException(error);
                 }
-            } catch (java.io.IOException error) {
-                throw new RuntimeException(error);
             }
         }
 
@@ -322,7 +363,11 @@
             server.setSoTimeout(productionTimeoutMillis());
             LoopbackClient client = null;
             if (loopbackClientEnabled()) {
-                client = new LoopbackClient(loopbackConnectHost(server), server.getLocalPort());
+                client = new LoopbackClient(
+                    loopbackConnectHost(server),
+                    server.getLocalPort(),
+                    loopbackClientReadChunks()
+                );
                 client.start();
             }
             writeNetEvent("listen-production " + address);
@@ -334,9 +379,11 @@
     }
 
     private static Object netListenProductionInMemory(String address) {
-        Object chunk = byteChunkFromHex(loopbackClientReadHex());
-        if (isErr(chunk)) {
-            throw new RuntimeFailure("transport listen failed: malformed VELN_NET_PRODUCTION_READ_HEX");
+        java.util.List<byte[]> inputs = loopbackClientReadChunks();
+        ProductionWriteCapture capture = new ProductionWriteCapture(inputs.size());
+        java.util.ArrayList<InMemoryLoopback> loopbacks = new java.util.ArrayList<InMemoryLoopback>();
+        for (int index = 0; index < inputs.size(); index += 1) {
+            loopbacks.add(new InMemoryLoopback(inputs.get(index), index, capture));
         }
         try {
             writeNetEvent("listen-production " + address);
@@ -346,7 +393,7 @@
                 error
             );
         }
-        return new NetListener(address, new InMemoryLoopback(byteChunkToByteArray(unwrapOk(chunk))));
+        return new NetListener(address, loopbacks);
     }
 
     public static Object netAccept(Object listener) {
@@ -378,7 +425,8 @@
         }
         NetListener value = asNetListener(listener);
         if (value.isProductionSocket()) {
-            return some(acceptProduction(value, true));
+            NetStream stream = acceptProduction(value, true);
+            return stream == null ? none() : some(stream);
         }
         String streamId = acceptedNetStreamIdOrNull();
         if (streamId == null) {
@@ -420,7 +468,8 @@
             return none();
         }
         if (value.isProductionSocket()) {
-            return some(acceptProduction(value, true));
+            NetStream stream = acceptProduction(value, true);
+            return stream == null ? none() : some(stream);
         }
         String streamId = acceptedNetStreamIdOrNull();
         if (streamId == null) {
@@ -474,7 +523,10 @@
             return acceptOutcome("AcceptDeadlineExpired");
         }
         if (value.isProductionSocket()) {
-            return acceptOutcome("AcceptStream", acceptProduction(value, true));
+            NetStream stream = acceptProduction(value, true);
+            return stream == null
+                ? acceptOutcome("AcceptEnd")
+                : acceptOutcome("AcceptStream", stream);
         }
         String streamId = acceptedNetStreamIdOrNull();
         if (streamId == null) {
@@ -501,8 +553,25 @@
     }
 
     private static NetStream acceptProduction(NetListener listener, boolean optional) {
-        if (listener.inMemoryLoopback != null) {
-            String streamId = "production-stream";
+        int index = listener.nextProductionAcceptIndex();
+        if (index >= listener.productionStreamCount) {
+            closeQuietly(listener.server);
+            try {
+                writeNetEvent("accept-end-production " + listener.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            if (optional) {
+                return null;
+            }
+            throw new RuntimeFailure("transport accept failed: production listener ended");
+        }
+        String streamId = productionStreamId(index, listener.productionStreamCount);
+        boolean last = index + 1 >= listener.productionStreamCount;
+        if (listener.inMemoryLoopbacks != null) {
             try {
                 writeNetEvent("accept-production " + listener.address + " " + streamId);
             } catch (java.io.IOException | RuntimeException error) {
@@ -511,18 +580,20 @@
                     error
                 );
             }
-            return new NetStream(streamId, listener.inMemoryLoopback);
+            return new NetStream(streamId, listener.inMemoryLoopbacks.get(index), last);
         }
         try {
             java.net.Socket socket = listener.server.accept();
             socket.setSoTimeout(productionTimeoutMillis());
-            closeQuietly(listener.server);
-            String streamId = "production-stream";
+            if (last) {
+                closeQuietly(listener.server);
+            }
             writeNetEvent("accept-production " + listener.address + " " + streamId);
             return new NetStream(
                 streamId,
                 socket,
                 listener.loopbackClient,
+                last,
                 socket.getInputStream(),
                 socket.getOutputStream()
             );
@@ -862,7 +933,7 @@
         if (stream.inMemoryLoopback != null) {
             stream.inMemoryLoopback.capture();
         }
-        if (stream.loopbackClient != null) {
+        if (stream.loopbackClient != null && stream.lastProductionStream) {
             stream.loopbackClient.await();
         }
     }
@@ -1037,9 +1108,29 @@
         return productionSocketRuntime();
     }
 
-    private static String loopbackClientReadHex() {
-        String input = System.getenv("VELN_NET_PRODUCTION_READ_HEX");
-        return input == null ? "" : input;
+    private static java.util.List<byte[]> loopbackClientReadChunks() {
+        String inputs = System.getenv("VELN_NET_PRODUCTION_READS_HEX");
+        String sourceName = "VELN_NET_PRODUCTION_READS_HEX";
+        String[] parts;
+        if (inputs == null) {
+            String input = System.getenv("VELN_NET_PRODUCTION_READ_HEX");
+            sourceName = "VELN_NET_PRODUCTION_READ_HEX";
+            parts = new String[] { input == null ? "" : input };
+        } else {
+            parts = inputs.split(",", -1);
+            if (parts.length == 0) {
+                parts = new String[] { "" };
+            }
+        }
+        java.util.ArrayList<byte[]> chunks = new java.util.ArrayList<byte[]>();
+        for (String part : parts) {
+            Object chunk = byteChunkFromHex(part.trim());
+            if (isErr(chunk)) {
+                throw new RuntimeFailure("transport listen failed: malformed " + sourceName);
+            }
+            chunks.add(byteChunkToByteArray(unwrapOk(chunk)));
+        }
+        return chunks;
     }
 
     private static int productionTimeoutMillis() {
@@ -1079,6 +1170,13 @@
             return "127.0.0.1";
         }
         return address.getHostAddress();
+    }
+
+    private static String productionStreamId(int index, int count) {
+        if (count <= 1) {
+            return "production-stream";
+        }
+        return "production-stream-" + (index + 1);
     }
 
     private static byte[] byteChunkToByteArray(Object chunk) {
@@ -1123,6 +1221,17 @@
             encoded[index * 2 + 1] = digits[value & 0x0f];
         }
         return new String(encoded);
+    }
+
+    private static String joinedHexBytes(byte[][] byteGroups) {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < byteGroups.length; index += 1) {
+            if (index > 0) {
+                builder.append('\n');
+            }
+            builder.append(hexBytes(byteGroups[index]));
+        }
+        return builder.toString();
     }
 
     private static void closeQuietly(java.net.ServerSocket server) {
