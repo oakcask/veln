@@ -357,7 +357,7 @@ struct SchemaMappingExprContext<'a> {
     schema_fields: &'a BTreeMap<String, Type>,
 }
 
-const SCHEMA_MAPPING_CONVERTER_ARITY: std::ops::RangeInclusive<usize> = 1..=3;
+const SCHEMA_MAPPING_CONVERTER_ARITY: std::ops::RangeInclusive<usize> = 1..=4;
 
 pub(crate) struct SchemaMappingTyper<'a> {
     module: &'a SurfaceModule,

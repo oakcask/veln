@@ -570,6 +570,10 @@ pin same-module and imported public two-argument converter calls.
 and
 `../../examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`
 pin same-module and imported public three-argument converter calls.
+`../../examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`
+pin same-module and imported public four-argument converter calls.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`

@@ -1,15 +1,15 @@
 use helpers
 
 type Header
-	Header {too_many: Int, unsupported_third: Int, nested_converter: Int, imported_bad_third: Int}
+	Header {too_many: Int, unsupported_fourth: Int, nested_converter: Int, imported_bad_fourth: Int}
 end
 
-fn four(value: Int, extra: Int, another: Int, final: Int) -> Int
+fn five(value: Int, extra: Int, another: Int, final: Int, overflow: Int) -> Int
+	value + extra + another + final + overflow
+end
+
+fn combine(value: Int, extra: Int, another: Int, final: Int) -> Int
 	value + extra + another + final
-end
-
-fn combine(value: Int, extra: Int, another: Int) -> Int
-	value + extra + another
 end
 
 fn identity(value: Int) -> Int
@@ -23,8 +23,8 @@ schema HeaderWire
 	length: UInt8
 
 	map to Header
-		too_many = four(kind, length, kind, length)
-		unsupported_third = combine(kind, length, kind == 1)
-		nested_converter = combine(kind, length, identity(kind))
-		imported_bad_third = helpers::combine_text(kind, length, kind)
+		too_many = five(kind, length, kind, length, kind)
+		unsupported_fourth = combine(kind, length, kind, kind == 1)
+		nested_converter = combine(kind, length, kind, identity(kind))
+		imported_bad_fourth = helpers::combine_text(kind, length, kind, length)
 end

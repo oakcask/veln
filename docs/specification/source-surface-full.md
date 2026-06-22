@@ -203,7 +203,7 @@ whose operands are decoded schema-local `Int` fields, integer literals,
 mapping expressions. A `Bool` target field may use `==` and `!=` between
 decoded schema-local `Int` fields and integer literals, and may compose those
 supported comparisons with `and`, `or`, and `not`. Converter calls take one,
-two, or three arguments. Each argument is either a schema-local field
+two, three, or four arguments. Each argument is either a schema-local field
 reference or an already implemented structural mapping expression made from
 schema-local fields, records, ADT constructors, supported integer arithmetic
 mapping expressions, and nested combinations of those forms.
@@ -263,10 +263,16 @@ two-argument converter calls executable.
 `../../examples/specification/check/schema-three-argument-mapping-converters/`
 keeps same-module and imported public three-argument converter calls
 executable.
+The executable runtime cases
+`../../examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`
+keep same-module and imported public four-argument converter calls executable
+through generated decode mapping.
 The executable diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-keeps unsupported four-argument converter calls, rejected third arguments, and
-nested converter calls inside three-argument converter calls executable.
+keeps unsupported five-argument converter calls, rejected fourth arguments, and
+nested converter calls inside four-argument converter calls executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose

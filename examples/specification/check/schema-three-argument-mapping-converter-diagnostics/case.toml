@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `four` expects 3 argument(s), but got 4", "schema mapping expression `kind == 1` is not supported", "schema mapping expression `identity(kind)` is not supported", "schema mapping converter `combine_text` expects `String`, but source field `kind` decodes as `Int`", "\"source_field\":\"helpers::combine_text(kind, length, kind)\"", "\"input_source_field\":\"kind\""]
+contains = ["\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `five` expects 4 argument(s), but got 5", "schema mapping expression `kind == 1` is not supported", "schema mapping expression `identity(kind)` is not supported", "schema mapping converter `combine_text` expects `String`, but source field `length` decodes as `Int`", "\"source_field\":\"helpers::combine_text(kind, length, kind, length)\"", "\"input_source_field\":\"length\""]
 
 [stderr]
 format = "empty"
@@ -30,4 +30,4 @@ equals = "schema.mapping_converter_input"
 
 [[json_assert]]
 path = "diagnostics.3.details.input_source_field"
-equals = "kind"
+equals = "length"

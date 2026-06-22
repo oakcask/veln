@@ -21,7 +21,7 @@ compare it with `../specification/` before changing behavior.
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions including nested constructor
   payloads in generated decode mappings, pure same-module and imported
-  public representation conversion hooks that take one, two, or three
+  public representation conversion hooks that take one, two, three, or four
   arguments from schema-local fields or structural mapping expressions, field
   selection from record-shaped structural mapping expressions, decoded-field,
   integer-literal, and `Int` converter-call mapping arithmetic including
