@@ -1928,11 +1928,12 @@ pins fixture-encoded Huffman-marked `:path: test` and
 rejects stream id `0`, missing streams, closed
 streams, already reset streams, mismatched open streams, and generated
 frame-header representation failures before accepted bytes are produced.
-After receiving GOAWAY, the same slice accepts outbound HEADERS at the
-recorded last-stream-id boundary and rejects a higher open stream through the
-existing `http2.protocol.stream_after_goaway` diagnostic before frame
-splitting or encode checks. Stream id zero and closed stream cases keep their
-narrower existing failures.
+After receiving GOAWAY or after locally sending GOAWAY, the same slice accepts
+outbound HEADERS at the recorded last-stream-id boundary and rejects a higher
+open stream through the existing `http2.protocol.stream_after_goaway`
+diagnostic before frame splitting or encode checks. The checked output keeps
+the endpoint role visible for the local-GOAWAY rejection. Stream id zero and
+closed stream cases keep their narrower existing failures.
 The outbound `PUSH_PROMISE` send-intent slice accepts a currently open
 client-created associated stream, a server-initiated promised stream id, and
 already-encoded opaque header-block bytes. It pins a single-frame
@@ -1973,6 +1974,7 @@ frame-header-plus-item chunks for `SETTINGS_HEADER_TABLE_SIZE`,
 payload, accepted PRIORITY frame-header-plus-priority-payload chunks,
 accepted HEADERS frame-header-plus-header-block chunks with and without
 `END_STREAM`, an accepted post-GOAWAY HEADERS frame at the recorded boundary,
+an accepted post-local-GOAWAY HEADERS frame at the recorded boundary,
 accepted outbound HPACK dynamic table-size update HEADERS chunks for the
 one-byte and saturated-prefix continuation integer forms, a later HEADERS
 chunk that observes the reduced outbound HPACK table capacity, an empty chunk
@@ -2019,6 +2021,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-push-promise-human/`,
+`../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
@@ -2052,6 +2055,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-state-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-push-promise-json/`,
+`../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,

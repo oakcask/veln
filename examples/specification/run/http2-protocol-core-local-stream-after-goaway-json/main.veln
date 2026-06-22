@@ -1,0 +1,38 @@
+# HTTP/2 local streams opened after GOAWAY project structured runtime details.
+
+type Http2ProtocolFailure
+	StreamAfterGoaway(Int, Int, Int)
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String, String)
+end
+
+fn context_shutdown_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(shutdown_state, _, _) => shutdown_state
+	end
+end
+
+fn context_endpoint_role(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, endpoint_role, _) => endpoint_role
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, _, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+	match failure
+		StreamAfterGoaway(offset, stream_id, last_stream_id) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, context_shutdown_state(context), context_endpoint_role(context), context_rule_provenance(context))
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let context: Http2DiagnosticContext = DiagnosticContext("graceful_shutdown", "local", "goaway_last_stream_id")
+	http2_protocol_diagnostic(StreamAfterGoaway(0, 7, 5), context)
+end

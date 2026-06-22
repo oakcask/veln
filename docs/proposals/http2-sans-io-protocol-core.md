@@ -43,7 +43,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
   slice, outbound DATA local closed-stream send-intent slice, GOAWAY
   last-stream-id enforcement for later peer-created HEADERS, outbound
-  HEADERS send-intent rejection above a received GOAWAY boundary,
+  HEADERS send-intent rejection above received or locally sent GOAWAY
+  boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
 - remaining outbound flow control and broader stream-window interactions
@@ -54,7 +55,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `SETTINGS_INITIAL_WINDOW_SIZE` two-open-stream receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
-  and outbound HEADERS send-intent rejection above a received GOAWAY boundary
+  and outbound HEADERS send-intent rejection above received or locally sent
+  GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -517,12 +519,12 @@ encode-error path.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
 under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
-The implemented outbound HEADERS send-intent slice also observes received
-GOAWAY graceful-shutdown state. It accepts an open stream at the recorded
-last-stream-id boundary, rejects an open stream above that boundary with
-`http2.protocol.stream_after_goaway` before frame splitting or encode checks, and
-keeps stream id zero plus closed-stream failures on their narrower existing
-paths.
+The implemented outbound HEADERS send-intent slice also observes received and
+locally sent GOAWAY graceful-shutdown state. It accepts an open stream at the
+recorded last-stream-id boundary, rejects an open stream above that boundary
+with `http2.protocol.stream_after_goaway` before frame splitting or encode
+checks, and keeps stream id zero plus closed-stream failures on their narrower
+existing paths.
 The implemented slice also includes the outbound `WINDOW_UPDATE`
 receive-credit intent. Ordinary source accepts connection-level and
 currently open stream-level increments, emits exactly one immutable frame
@@ -651,7 +653,9 @@ the schema-declared GOAWAY payload record, encodes a nine-byte header with
 length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
 GOAWAY payload, and records local graceful-shutdown state. A later
 peer-created HEADERS stream greater than the sent last stream id uses the
-same post-GOAWAY stream rejection boundary as received GOAWAY state.
+same post-GOAWAY stream rejection boundary as received GOAWAY state, and a
+later local outbound HEADERS send-intent above the sent last stream id is
+rejected before frame splitting or encode checks.
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.
