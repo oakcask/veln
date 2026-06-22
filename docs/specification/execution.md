@@ -54,8 +54,9 @@ execution reference.
   clean-end listener accept, deadline-aware optional listener accept, stream
   read, optional clean-end stream read, deadline-aware optional stream read,
   cancellable deadline-aware listener accept, cancellable deadline-aware
-  stream read, stream write, stream close, timeout, deadline waits, and
-  cancellable deadline waits execute outside the pure protocol core. The
+  stream read, stream write, ordered stream chunk-list write, stream close,
+  timeout, deadline waits, and cancellable deadline waits execute outside the
+  pure protocol core. The
   default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
   `production-loopback`, the same public listen, accept, read, write, and
   close calls own a host loopback listener and deterministic accepted stream
@@ -71,6 +72,8 @@ execution reference.
   deadline-aware accepted streams, and ordinary response actions in fixture
   output so completed waits, deadline expiry, and cancellation become adapter
   routing decisions.
+  `net::write_chunks` writes a `List<ByteChunk>` to the selected stream in
+  source list order through the same stream write path as `net::write_chunk`.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.

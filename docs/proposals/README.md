@@ -242,6 +242,7 @@ compare it with `../specification/` before changing behavior.
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
+  source-visible ordered `net::write_chunks` chunk-list writes,
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, and two-stream adapter handler/action lifecycle,
   bounded

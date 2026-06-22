@@ -44,7 +44,8 @@ slices, and narrow deadline and cancellation slices, for:
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
-  cancellable deadline-aware lifecycle slices
+  cancellable deadline-aware lifecycle slices, plus the source-visible
+  ordered `net::write_chunks` chunk-list boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -252,6 +253,13 @@ ordinary response actions, and projects only ordered `SendBytes` response
 actions to `net::write_chunk`. The adapter declares the existing `net`,
 `time`, and `concurrency` effects; the handler receives no `NetStream` handle
 and performs no transport, time, or concurrency calls.
+
+Implemented outgoing chunk-list write slice: executable specification cases
+use `net::write_chunks(stream, chunks)` to write a source-owned
+`List<ByteChunk>` to a `NetStream` in list order under the existing coarse
+`net` effect. The call uses the same stream write path and transport-failure
+surface as `net::write_chunk`, and pure protocol handlers remain free of
+`net` calls.
 
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in

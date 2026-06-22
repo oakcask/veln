@@ -44,7 +44,9 @@ compiler-known calls.
   lifecycle adapter composes `net::accept_until_cancellable`,
   `net::read_chunk_until_cancellable`, ordinary channel routing, and ordered
   `net::write_chunk` projection under the same `net`, `time`, and
-  `concurrency` boundary. The cancellable channel-first routing case uses
+  `concurrency` boundary. `net::write_chunks` writes a source-owned
+  `List<ByteChunk>` to a `NetStream` in list order under the same coarse
+  `net` effect. The cancellable channel-first routing case uses
   receiver-list selection before the wait outcome and keeps the same adapter
   effect boundary.
   Malformed receive fixtures, failed send, write, or close recording, forced

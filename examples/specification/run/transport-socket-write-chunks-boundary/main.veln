@@ -1,0 +1,10 @@
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let first: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let second: ByteChunk = byte_chunk_from_hex("cafe")?
+	let chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
+	net::write_chunks(stream, chunks)
+	stdio::println("written")
+	Ok(())
+end
