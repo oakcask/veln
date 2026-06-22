@@ -730,6 +730,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
