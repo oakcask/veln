@@ -38,9 +38,13 @@ compiler-known calls.
   calls stays free of transport effects. Socket lifecycle routing can combine
   an accepted `NetStream`, ordinary `net::read_chunk` input, channel routing,
   and a value-returning cancellable wait under `net`, `time`, and
-  `concurrency` while keeping the handler pure. The cancellable channel-first
-  routing case uses receiver-list selection before the wait outcome and keeps
-  the same adapter effect boundary.
+  `concurrency` while keeping the handler pure. A cancellable deadline-aware
+  lifecycle adapter composes `net::accept_until_cancellable`,
+  `net::read_chunk_until_cancellable`, ordinary channel routing, and ordered
+  `net::write_chunk` projection under the same `net`, `time`, and
+  `concurrency` boundary. The cancellable channel-first routing case uses
+  receiver-list selection before the wait outcome and keeps the same adapter
+  effect boundary.
   Malformed receive fixtures, failed send, write, or close recording, forced
   accept, read, write, or close failures, forced timeout or deadline expiry
   through runtime-failure waits, and forced cancellable-wait cancellation
@@ -57,9 +61,9 @@ compiler-known calls.
   `net::close_stream` after ordered writes or cancellation cleanup; they add
   no new effect label or compiler-known routing call. The owned-lifecycle and
   close-lifecycle adapters declare `net` and `concurrency`; the
-  deadline-aware, cancellable, and cancel-close lifecycle adapters declare
-  `net`, `time`, and `concurrency`; the pure handler boundary remains free of
-  transport effects.
+  deadline-aware, cancellable, cancellable deadline-aware, and cancel-close
+  lifecycle adapters declare `net`, `time`, and `concurrency`; the pure
+  handler boundary remains free of transport effects.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route through thirty-route examples use

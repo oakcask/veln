@@ -300,10 +300,19 @@ deadline-aware lifecycle case accepts with `net::accept_until`, owns the
 accepted stream through repeated `net::read_chunk_until` attempts, translates
 deadline expiry into the ordinary stream boundary value before calling the
 plain handler, and projects only `SendBytes` actions to ordered writes. The
+cancellable deadline-aware lifecycle case accepts with
+`net::accept_until_cancellable`, owns the accepted stream in adapter code,
+reads through `net::read_chunk_until_cancellable`, translates accept and read
+clean-end, deadline, and cancellation outcomes into adapter decisions or
+ordinary response actions, and projects only `SendBytes` actions to ordered
+writes. The
 matching owned-lifecycle effect check rejects adapter paths that omit either
-`net` or `concurrency`. The non-deadline adapter functions declare both `net`
-and `concurrency`; the deadline-aware lifecycle adapter declares `net`,
-`time`, and `concurrency`.
+`net` or `concurrency`; the matching cancellable deadline-aware lifecycle
+effect check rejects adapter paths that omit `net`, `time`, or
+`concurrency`. The non-deadline adapter functions declare both `net` and
+`concurrency`; the deadline-aware lifecycle adapter declares `net`, `time`,
+and `concurrency`, and the cancellable deadline-aware lifecycle adapter
+declares the same three effects.
 The plain handlers they call remain free of socket handles and `net` calls.
 This composition does not add any effect label beyond the existing coarse
 labels or any compiler-known routing symbol beyond the socket, channel, task,

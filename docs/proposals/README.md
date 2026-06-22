@@ -241,9 +241,10 @@ compare it with `../specification/` before changing behavior.
   listener-to-clean-stream-end lifecycle, context-based
   `task::spawn_with<Result, Context>` handler spawn,
   deadline-aware accepted-stream lifecycle, cancellable accepted-stream
-  lifecycle, stream close lifecycle, bounded receiver-list channel-first
-  routing through the current checked select-many boundary, receiver-list
-  cancellable channel-first routing,
+  lifecycle, cancellable deadline-aware accepted-stream lifecycle, stream
+  close lifecycle, bounded receiver-list channel-first routing through the
+  current checked select-many boundary, receiver-list cancellable
+  channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, and two-receiver cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
