@@ -1745,26 +1745,9 @@ against the built `veln` binary.
   projects `codec.incomplete_input` through focused human diagnostics and
   `run --json` `details.byte_diagnostic`.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
-  deterministic header-block byte fixtures and the static indexed `0x81`
-  `:authority` with an empty value, `0x83` `:method: POST`, `0x8f`
-  `accept-charset:`, `0x90`
-  `accept-encoding: gzip, deflate`, `0x91` `accept-language:`, `0x99`
-  `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
-  `content-language:`, `0x9c` `content-length:`, `0x9d`
-  `content-location:`, `0x9e` `content-range:`, `0x9f`
-	  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
-	  `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
-	  `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
-	  `if-none-match:`, `0xa9` `if-range:`, `0xaa`
-	  `if-unmodified-since:`, `0xab` `last-modified:`, `0xac` `link:`,
-	  `0xad` `location:`, `0xae` `max-forwards:`, `0xaf`
-	  `proxy-authenticate:`, `0xb0` `proxy-authorization:`, `0xb1`
-	  `range:`, `0xb2` `referer:`, `0xb3` `refresh:`, `0xb4`
-	  `retry-after:`, `0xb5` `server:`, `0xb6` `set-cookie:`, `0xb7`
-	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
-	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
-	  `www-authenticate:`
-	  bytes, plus the two-byte static-indexed block `0x82 0x84` as
+  deterministic header-block byte fixtures and every static indexed HPACK
+  table entry from `0x81` `:authority` through `0xbd`
+  `www-authenticate:`, plus the two-byte static-indexed block `0x82 0x84` as
 	  `:method: GET` followed by `:path: /` with both headers preserved in
 	  the fixture header list, plus literal-without-indexing,
 	  literal-with-indexing, and literal-never-indexed fixtures whose
@@ -1991,33 +1974,11 @@ against the built `veln` binary.
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
   header block with preserved payload bytes across multiple non-final
   CONTINUATION frames, single-frame HEADERS completion when `END_HEADERS` is
-  combined with `END_STREAM`, completed HEADERS blocks that carry the HPACK
-  static indexed `0x81` `:authority` with an empty value, `0x82`
-  `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
-  `:path: /index.html`, `0x86` `:scheme: http`, and
-  `0x87` `:scheme: https`, plus `0x88` `:status: 200`, `0x89`
-  `:status: 204`, `0x8a` `:status: 206`, `0x8b` `:status: 304`, `0x8c`
-  `:status: 400`, `0x8d` `:status: 404`, `0x8e` `:status: 500`, `0x8f`
-  `accept-charset:`, `0x90` `accept-encoding: gzip, deflate`, `0x91`
-  `accept-language:`, `0x92` `accept-ranges:`, `0x93` `accept:`, `0x94`
-  `access-control-allow-origin:`, `0x95` `age:`, `0x96` `allow:`, `0x97`
-  `authorization:`, `0x98` `cache-control:`, `0x99`
-  `content-disposition:`, `0x9a` `content-encoding:`, `0x9b`
-  `content-language:`, `0x9c` `content-length:`, `0x9d`
-  `content-location:`, `0x9e` `content-range:`, `0x9f`
-	  `content-type:`, `0xa0` `cookie:`, `0xa1` `date:`, `0xa2` `etag:`,
-	  `0xa3` `expect:`, `0xa4` `from:`, `0xa5` `host:`, `0xa6`
-	  `if-match:`, `0xa7` `if-modified-since:`, `0xa8`
-	  `if-none-match:`, `0xa9` `if-range:`, `0xaa`
-	  `if-unmodified-since:`, `0xab` `last-modified:`, `0xac` `link:`,
-	  `0xad` `location:`, `0xae` `max-forwards:`, `0xaf`
-	  `proxy-authenticate:`, `0xb0` `proxy-authorization:`, `0xb1`
-	  `range:`, `0xb2` `referer:`, `0xb3` `refresh:`, `0xb4`
-	  `retry-after:`, `0xb5` `server:`, `0xb6` `set-cookie:`, `0xb7`
-	  `strict-transport-security:`, `0xb8` `transfer-encoding:`, `0xb9`
-	  `user-agent:`, `0xba` `vary:`, `0xbb` `via:`, and `0xbc`
-	  `www-authenticate:`
-	  bytes, plus a completed HEADERS block carrying `0x82 0x84`
+  combined with `END_STREAM`, completed HEADERS blocks that carry every HPACK
+  static indexed table entry from `0x81` `:authority` through `0xbd`
+  `www-authenticate:`, a completed final CONTINUATION path that carries
+  static indexed `0x85` `:path: /index.html`, plus a completed HEADERS block
+	  carrying `0x82 0x84`
 	  through the HPACK fixture boundary as `:method: GET` followed by
 	  `:path: /` with both headers preserved in the fixture header list,
 	  plus literal-without-indexing, literal-with-indexing, and

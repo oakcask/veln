@@ -16,11 +16,10 @@ block `0x81`. The decoded header list exposes that fixture as ordinary
 header-list data: `HpackHeader(":authority", "")`, followed by the existing
 `HpackHeader(":fixture", "static-indexed")` marker.
 
-The same fixture boundary accepts the checked HPACK static table subset through
-ordinary header-list data. The supported regular header-name entries include
-`0xa4` `expires:`, `0xa5` `from:`, `0xa6` `host:`, the `if-*` names from
-`0xa7` through `0xab`, `0xac` `last-modified:`, and the remaining checked
-regular names through `0xbd` `www-authenticate:`. The transition advances the
+The same fixture boundary accepts every HPACK static indexed table entry from
+`0x81` through `0xbd` through ordinary header-list data, including the
+request pseudo-header entries, response `:status` entries, and all regular
+header-name entries through `www-authenticate:`. The transition advances the
 immutable `HpackFixtureState` through the same path for each static indexed
 fixture.
 
@@ -37,15 +36,15 @@ still project through
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the focused `authority` decode, the two-header `method-path` decode, the
-  corrected `expires` entry, and the shifted later static indexed entries
-  through `www-authenticate`.
+  complete static indexed table from `0x81` through `0xbd`, and the later
+  dynamic-table interactions after those decodes.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   completed HEADERS frame cases named `hpack-static-indexed-authority`,
-  `hpack-static-indexed-method-path`, `hpack-static-indexed-expires`,
-  `hpack-static-indexed-from`, and the later entries through
-  `hpack-static-indexed-www-authenticate`; the checked output emits `8284` for
-  the two-header block, `a4` for `expires`, `a5` for `from`, and `bd` for
-  `www-authenticate`.
+  `hpack-static-indexed-method-path`, the full static table through
+  `hpack-static-indexed-www-authenticate`, and a final CONTINUATION path for
+  `hpack-static-indexed-path-index-continuation`; the checked output emits
+  `8284` for the two-header block, `85` for the continuation block, and `bd`
+  for `www-authenticate`.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

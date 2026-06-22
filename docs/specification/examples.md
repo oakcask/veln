@@ -1682,7 +1682,10 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	`www-authenticate:`
 	header-block bytes. It also checks `0x82 0x84` as a two-header static
 	indexed block that preserves `:method: GET` followed by `:path: /` in
-	the source-visible header list, plus literal-without-indexing,
+	the source-visible header list. The HTTP/2 protocol-core example also
+	carries static indexed `0x85` `:path: /index.html` through a completed
+	final CONTINUATION frame before HPACK decode. It also checks
+	literal-without-indexing,
 	literal-with-indexing,
 	and literal-never-indexed fixtures whose indexed-name form names a
 supported static-table header name already accepted by the static-indexed
