@@ -1340,6 +1340,9 @@ case covers `net::accept_until_cancellable` returning
 covers clean listener end returning `AcceptEnd`,
 `../../examples/specification/run/transport-socket-accept-until-cancellable-deadline/`
 covers fixture-reported accept deadline expiry returning
+`AcceptDeadlineExpired`,
+`../../examples/specification/run/transport-socket-accept-until-cancellable-expired/`
+covers an already expired supplied deadline returning
 `AcceptDeadlineExpired`, and
 `../../examples/specification/run/transport-socket-accept-until-cancellable-cancelled/`
 covers token cancellation returning `AcceptCancelled`.

@@ -2392,6 +2392,9 @@ against the built `veln` binary.
 - `run/transport-socket-accept-until-cancellable-deadline/`: cancellable
   deadline-aware socket accept observes fixture-reported accept deadline
   expiry as `AcceptDeadlineExpired` without a runtime failure.
+- `run/transport-socket-accept-until-cancellable-expired/`: cancellable
+  deadline-aware socket accept observes an already expired supplied deadline
+  as `AcceptDeadlineExpired` without a runtime failure.
 - `run/transport-socket-accept-until-cancellable-cancelled/`: cancellable
   deadline-aware socket accept observes token cancellation as `AcceptCancelled`
   without a runtime failure.

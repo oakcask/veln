@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_ACCEPT_STREAM = "fixture-stream"
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "deadline\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen 127.0.0.1:0\naccept-deadline 127.0.0.1:0\n"
