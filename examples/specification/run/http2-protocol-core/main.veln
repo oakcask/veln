@@ -185,7 +185,7 @@ type Http2ProtocolFailure
 	InvalidPriorityDependency(Int, Int, Int, String, String, ByteView)
 	StreamAfterGoaway(Int, Int, Int, String, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
-	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
+	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String, ByteChunk)
 	ConcurrentStreamsExceeded(Int, Int, Int, Int, String, String, String, String)
 	HeaderListSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int, String, ByteChunk)
 	HeaderTableSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int, String, ByteChunk)
@@ -2000,15 +2000,15 @@ end
 
 fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	match receive_credit
-		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => validate_open_stream_outbound_data_window(stream_id, open_stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
-			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
-			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		end
 	end
 end
@@ -2017,7 +2017,7 @@ fn validate_open_stream_outbound_data_window(stream_id: Int, open_stream_id: Int
 	match shutdown_state
 		OpenConnection => validate_open_connection_outbound_data_window(stream_id, open_stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 		GracefulShutdown(_, _) => match stream_id == open_stream_id
-			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 			true => validate_outbound_data_after_goaway(stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
 		end
 	end
@@ -2025,11 +2025,11 @@ end
 
 fn validate_open_connection_outbound_data_window(stream_id: Int, open_stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
 	match length > connection_window
-		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window")))
+		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 		false => match stream_id == open_stream_id
-			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 			true => match length > stream_window
-				true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
+				true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 				false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 			end
 		end
@@ -2048,9 +2048,9 @@ end
 
 fn validate_outbound_data_windows(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
 	match length > connection_window
-		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window")))
+		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 		false => match length > stream_window
-			true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
+			true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 			false => validate_data_frame_size(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 		end
 	end
@@ -2065,24 +2065,24 @@ end
 
 fn consume_outbound_padded_data_window(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	match receive_credit
-		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match encoded_length > connection_window
-			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window")))
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 			false => match stream_id == open_stream_id
-				false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+				false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 				true => match encoded_length > stream_window
-					true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window")))
+					true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 					false => encode_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, connection_window, stream_window)
 				end
 			end
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
-			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
-			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window")))
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 		end
 	end
 end
@@ -2248,7 +2248,7 @@ end
 fn validate_connection_window_update_bound(increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, stream_credit) => match connection_window + increment > max_receive_flow_control_window()
-			true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_receive_window")))
+			true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_receive_window", empty_header_block())))
 			false => encode_window_update_intent(0, increment, OutboundReceiveCredit(connection_window + increment, stream_credit))
 		end
 	end
@@ -2274,18 +2274,18 @@ end
 
 fn validate_stream_window_update_bound(stream_id: Int, increment: Int, connection_window: Int, open_stream_id: Int, stream_window: Int) -> Result<OutboundWindowUpdateDecision, String>
 	match stream_window + increment > max_receive_flow_control_window()
-		true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_receive_window")))
+		true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_receive_window", empty_header_block())))
 		false => encode_window_update_intent(stream_id, increment, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window + increment)))
 	end
 end
 
 fn validate_outbound_window_update_increment(stream_id: Int, increment: Int, active_state: String) -> OutboundWindowUpdateIncrementDecision
 	match increment == 0
-		true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero"))
+		true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero", empty_header_block()))
 		false => match increment < 0
-			true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_range"))
+			true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_range", empty_header_block()))
 			false => match increment > max_receive_flow_control_window()
-				true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window(), active_state, "window_update_increment_range"))
+				true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window(), active_state, "window_update_increment_range", empty_header_block()))
 				false => OutboundWindowUpdateIncrementOk
 			end
 		end
@@ -2555,7 +2555,7 @@ fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kin
 	match kind == 1
 		true => Ok(open_receive_stream(offset, stream_id, completed_end_stream, shutdown_state, receive_flow_control))
 		false => match kind == 0
-			true => Ok(consume_data_receive_window(offset, stream_id, length, data_end_stream_set(flags), receive_flow_control))
+			true => Ok(consume_data_receive_window(offset, stream_id, length, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control))
 			false => match kind == 3
 				true => reset_receive_stream(pending, offset, stream_id, receive_flow_control)
 				false => match kind == 8
@@ -2677,13 +2677,13 @@ fn validate_new_stream_after_goaway(offset: Int, stream_id: Int, shutdown_state:
 	end
 end
 
-fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, end_stream: Bool, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, end_stream: Bool, preview: ByteChunk, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window"))
+			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
 			false => match length > stream_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window"))
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window", preview))
 				false => match end_stream
 					true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length)))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, OpenStreamReceiveWindow(open_stream_id, stream_window - length, priority)))
@@ -2691,15 +2691,15 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, end_str
 			end
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window"))
+			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
 			false => match stream_id == first_stream_id
 				true => match length > first_stream_window
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window"))
+					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window", preview))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window - length, first_priority, second_stream_id, second_stream_window, second_priority)))
 				end
 				false => match stream_id == second_stream_id
 					true => match length > second_stream_window
-						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window"))
+						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window", preview))
 						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window - length, second_priority)))
 					end
 					false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
@@ -2707,9 +2707,9 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, end_str
 			end
 		end
 		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window"))
+			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
 			false => match length > stream_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "half-closed-local-stream", "stream_receive_window"))
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "half-closed-local-stream", "stream_receive_window", preview))
 				false => match end_stream
 					true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length)))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window - length, priority)))
@@ -2793,7 +2793,7 @@ fn update_connection_receive_credit(offset: Int, increment: Int, preview: ByteVi
 		ReceiveFlowControl(connection_window, open_stream) => match increment == 0
 			true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, 0, increment, 1, max_receive_flow_control_window(), "connection-flow-control", "window_update_increment_nonzero", preview))
 			false => match increment > max_receive_flow_control_window() - connection_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window"))
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window", byte_view_to_chunk(preview)))
 				false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window + increment, open_stream))
 			end
 		end
@@ -2808,7 +2808,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 			true => match increment == 0
 				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 				false => match increment > max_receive_flow_control_window() - stream_window
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window"))
+					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window + increment, priority)))
 				end
 			end
@@ -2817,7 +2817,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 			true => match increment == 0
 				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 				false => match increment > max_receive_flow_control_window() - first_stream_window
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - first_stream_window, "open-stream", "stream_receive_window"))
+					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - first_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
 					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window + increment, first_priority, second_stream_id, second_stream_window, second_priority)))
 				end
 			end
@@ -2825,7 +2825,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 				true => match increment == 0
 					true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
 					false => match increment > max_receive_flow_control_window() - second_stream_window
-						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - second_stream_window, "open-stream", "stream_receive_window"))
+						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - second_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
 						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window + increment, second_priority)))
 					end
 				end
@@ -3408,7 +3408,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3891,7 +3891,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(_, _, _, _, _, _) => failure_rule_provenance(error)
 		StreamAfterGoaway(_, _, _, _, _, _) => failure_rule_provenance(error)
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -4302,7 +4302,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(_, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => "http2.peer_limit.concurrent_streams_exceeded"
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.header_list_size_exceeded"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.header_table_size_exceeded"
@@ -4351,7 +4351,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(offset, _, _, _, _, _) => offset
 		StreamAfterGoaway(offset, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
-		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
+		FlowControlWindowExceeded(offset, _, _, _, _, _, _, _) => offset
 		ConcurrentStreamsExceeded(offset, _, _, _, _, _, _, _) => offset
 		HeaderListSizeExceeded(offset, _, _, _, _, _, _) => offset
 		HeaderTableSizeExceeded(offset, _, _, _, _, _, _) => offset
@@ -4378,7 +4378,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4405,7 +4405,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
-		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
+		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _, _) => actual_kind
 		HeaderTableSizeExceeded(_, _, _, actual_kind, _, _, _) => actual_kind
@@ -4432,7 +4432,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, stream_id, _, _, _, _) => stream_id
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
-		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
+		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _, _) => actual_stream
 		ConcurrentStreamsExceeded(_, stream_id, _, _, _, _, _, _) => stream_id
 		HeaderListSizeExceeded(_, _, _, _, actual_stream, _, _) => actual_stream
 		HeaderTableSizeExceeded(_, _, _, _, actual_stream, _, _) => actual_stream
@@ -4459,7 +4459,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4486,7 +4486,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _, _) => actual_kind
 		HeaderTableSizeExceeded(_, _, _, actual_kind, _, _, _) => actual_kind
@@ -4513,7 +4513,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4540,7 +4540,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4567,7 +4567,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
-		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
+		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _, _) => observed_length
 		ConcurrentStreamsExceeded(_, _, attempted_count, _, _, _, _, _) => attempted_count
 		HeaderListSizeExceeded(_, observed_size, _, _, _, _, _) => observed_size
 		HeaderTableSizeExceeded(_, observed_size, _, _, _, _, _) => observed_size
@@ -4594,7 +4594,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
-		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
+		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _, _) => allowed_length
 		ConcurrentStreamsExceeded(_, _, _, allowed_count, _, _, _, _) => allowed_count
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _, _) => receive_limit_value(receive_limit)
 		HeaderTableSizeExceeded(_, _, receive_limit, _, _, _, _) => receive_limit_value(receive_limit)
@@ -4621,7 +4621,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, active_state, _, _) => active_state
 		StreamAfterGoaway(_, _, _, shutdown_state, _, _) => shutdown_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
+		FlowControlWindowExceeded(_, _, _, _, _, active_state, _, _) => active_state
 		ConcurrentStreamsExceeded(_, _, _, _, _, active_state, _, _) => active_state
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "header-list"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "hpack-dynamic-table"
@@ -4718,7 +4718,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, rule_provenance, _) => rule_provenance
 		StreamAfterGoaway(_, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
+		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, rule_provenance) => rule_provenance
 		HeaderListSizeExceeded(_, _, _, _, _, rule_provenance, _) => rule_provenance
 		HeaderTableSizeExceeded(_, _, _, _, _, rule_provenance, _) => rule_provenance
@@ -4745,7 +4745,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, receive_limit_provenance, _) => receive_limit_provenance
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _, _) => receive_limit_provenance_label(receive_limit)
 		HeaderTableSizeExceeded(_, _, receive_limit, _, _, _, _) => receive_limit_provenance_label(receive_limit)
@@ -4772,7 +4772,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4799,7 +4799,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "none"
@@ -4826,7 +4826,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4853,7 +4853,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4880,7 +4880,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0
@@ -4907,7 +4907,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "none"
@@ -5023,7 +5023,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => http2_peer_limit_frame_size_exceeded(offset, observed_length, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit))
-		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance)
+		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance, preview_chunk) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, byte_chunk_view(preview_chunk)?)
 		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance) => http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => http2_peer_limit_header_list_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
@@ -5066,7 +5066,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "none"
@@ -5093,7 +5093,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidPriorityDependency(_, _, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, endpoint_role, _) => endpoint_role
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => "none"
 		ConcurrentStreamsExceeded(_, _, _, _, endpoint_role, _, _, _) => endpoint_role
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => "none"
@@ -5120,7 +5120,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _, _) => 0
 		HeaderTableSizeExceeded(_, _, _, _, _, _, _) => 0

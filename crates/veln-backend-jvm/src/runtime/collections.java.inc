@@ -4027,7 +4027,8 @@
         Object frameKind,
         Object streamId,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long observed = asLong(observedLength);
@@ -4036,6 +4037,7 @@
         long stream = asLong(streamId);
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 flow-control window exceeded at byte offset "
             + byteOffset;
         registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
@@ -4046,7 +4048,8 @@
             kind,
             stream,
             state,
-            provenance
+            provenance,
+            nearbyContext
         );
         return err(message);
     }

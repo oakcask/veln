@@ -589,8 +589,8 @@ remains `http2.protocol.invalid_frame_kind`, and DATA payloads that exceed the
 available stream or connection receive-window credit use
 `http2.peer_limit.flow_control_window_exceeded` with byte offset, stream
 reference, observed payload length, allowed window credit, active state, and
-rule provenance in executable output, human diagnostics, and JSON
-`protocol_diagnostic` details.
+rule provenance in executable output, plus protocol-owned DATA payload byte
+previews in human diagnostics and JSON `protocol_diagnostic` details.
 When accepted inbound DATA carries `END_STREAM`, the same receive-window
 accounting is applied before the tracked peer-created stream transitions to a
 closed-by-peer state. Later DATA and stream-level `WINDOW_UPDATE` frames for

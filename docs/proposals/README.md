@@ -53,10 +53,11 @@ compare it with `../specification/` before changing behavior.
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
   protocol byte previews, plus the HPACK fixture unsupported-header-block
-  and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value range protocol byte preview,
-  HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, and HTTP/2
-  unexpected SETTINGS ACK protocol byte preview, plus HTTP/2 header-list and
-  header-table receive-limit protocol byte previews.
+  and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
+  range protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
+  preview, HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, and
+  HTTP/2 unexpected SETTINGS ACK protocol byte preview, plus HTTP/2
+  header-list and header-table receive-limit protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
@@ -177,9 +178,10 @@ compare it with `../specification/` before changing behavior.
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
   truncation, reserved-bit mismatch, payload length boundary, field-local
   schema validation details, structured schema byte previews, and the HTTP/2
-  client connection preface failures, frame-size, header-list-size, and
-  flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
-  failures with protocol-owned frame-header byte previews, invalid
+  client connection preface failures, frame-size and header-list-size
+  peer-limits, flow-control peer-limits with protocol-owned DATA payload byte
+  previews, SETTINGS value range peer-limit, stream id domain failures with
+  protocol-owned frame-header byte previews, invalid
   connection-state and stream-state frame-kind failures with protocol-owned
   frame-header byte previews, fixed payload-length protocol projections with
   protocol-owned payload byte previews, the explicit

@@ -948,7 +948,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s).",
                     frame.stream_ref, frame.stream_id
                 )));
-                self.push_state_and_provenance(&mut diagnostic)?;
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
                 Some(diagnostic)
             }
             "http2.peer_limit.concurrent_streams_exceeded" => {
@@ -3310,6 +3310,7 @@ mod tests {
                 "rule_provenance",
                 JsonValue::string("stream_receive_window"),
             ),
+            ("byte_preview", byte_preview("01020304")),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 flow-control window exceeded at byte offset 0".to_string(),
@@ -3329,7 +3330,7 @@ mod tests {
             diagnostic.message,
             "flow-control window exceeded at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3340,9 +3341,14 @@ mod tests {
                 .to_json()
                 .contains("available receive window credit is 3 byte(s)")
         );
-        assert!(diagnostic.related[1].to_json().contains("open-stream"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[1]
+                .to_json()
+                .contains("01 02 03 04 (showing 4 of 4 byte(s), complete)")
+        );
+        assert!(diagnostic.related[2].to_json().contains("open-stream"));
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("stream_receive_window")
         );

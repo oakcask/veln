@@ -46,6 +46,7 @@ diagnostics, and the HPACK fixture unsupported-header-block protocol-facing
 diagnostic, plus HTTP/2 SETTINGS value range protocol-owned byte diagnostics,
 HTTP/2 `WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and
 HTTP/2 unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2
+DATA receive flow-control protocol-owned byte diagnostics, and HTTP/2
 header-list and header-table receive-limit protocol-owned byte diagnostics.
 Current behavior belongs to the specification pages, not this proposal.
 
@@ -154,8 +155,9 @@ bounded by default.
   slice, HTTP/2 invalid stream-id domain slice, HTTP/2 PRIORITY
   self-dependency slice, HPACK fixture unsupported-header-block and
   SETTINGS value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment
-  slice, the HTTP/2 unexpected SETTINGS ACK slice, and the HTTP/2 header-list
-  and header-table receive-limit slice cover
+  slice, the HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive
+  flow-control slice, and the HTTP/2 header-list and header-table
+  receive-limit slice cover
   protocol-owned byte previews,
   field paths,
   expected and actual counts, and absolute offsets where those diagnostics

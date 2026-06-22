@@ -2265,12 +2265,24 @@ against the built `veln` binary.
 - `run/http2-protocol-core-flow-control-human/`: a DATA payload that exceeds
   available stream receive-window credit reports
   `http2.peer_limit.flow_control_window_exceeded` through human `run` stderr
-  with focused window-credit, active-state, and provenance notes.
+  with focused window-credit, bounded payload byte-preview, active-state, and
+  provenance notes.
 - `run/http2-protocol-core-flow-control-json/`: the same flow-control
   peer-limit failure reports
   `http2.peer_limit.flow_control_window_exceeded` through `run --json` with
   byte offset, observed payload length, allowed window credit, frame kind,
-  stream reference, active state, and rule provenance.
+  stream reference, active state, rule provenance, and structured bounded byte
+  preview fields.
+- `run/http2-protocol-core-flow-control-connection-human/`: a DATA payload
+  that exceeds available connection receive-window credit reports
+  `http2.peer_limit.flow_control_window_exceeded` through human `run` stderr
+  with the same bounded payload byte-preview note shape and connection
+  flow-control context.
+- `run/http2-protocol-core-flow-control-connection-json/`: the same
+  connection receive-window failure reports
+  `http2.peer_limit.flow_control_window_exceeded` through `run --json` with
+  structured bounded byte preview fields and connection receive-window
+  provenance.
 - `run/http2-protocol-core-data-padding-human/`: invalid PADDED DATA reports
   `http2.protocol.invalid_data_padding` through human `run` stderr with pad
   length, remaining payload length, byte preview, active state, and provenance
