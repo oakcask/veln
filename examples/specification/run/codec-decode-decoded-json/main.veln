@@ -1,0 +1,13 @@
+# Source-visible DecodeStep Decoded entries remain ordinary successful values.
+
+use stdio
+
+pub fn main() -> DecodeStep<Int> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("01020304")?
+	let base: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, base, count)?
+	let chunk: ByteChunk = byte_view_to_chunk(view)
+	stdio::println("decoded entry")
+	Decoded(byte_count_to_int(byte_chunk_count(chunk)), byte_chunk_count(chunk))
+end

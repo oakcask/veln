@@ -1783,6 +1783,9 @@ against the built `veln` binary.
   boundary's stable `codec.consumed_count_invalid` decode failure projects
   through focused human diagnostics and `run --json`
   `details.byte_diagnostic` without being treated as retryable readiness.
+- `run/codec-decode-decoded-json/`: a source-visible `Decoded(...)` entry
+  result remains an ordinary successful `run --json` value with stdout,
+  `status = passed`, and `error = null`, without byte diagnostic projection.
 - `run/codec-decode-invalid-boundary-human/` and
   `run/codec-decode-invalid-boundary-json/`: a hand-written codec boundary
   returns a codec-owned `Invalid(DecodeErrorWithReason(...))`, and `veln run`
@@ -1804,6 +1807,11 @@ against the built `veln` binary.
   `NeedMore(NeedBytes(...))` at a closed-input reporting boundary, `veln run`
   projects `codec.incomplete_input` through focused human diagnostics and
   `run --json` `details.byte_diagnostic`.
+- `run/codec-decode-need-end-human/` and
+  `run/codec-decode-need-end-json/`: when a `veln run` entry returns
+  `NeedMore(NeedEnd)` at a closed-input reporting boundary, `veln run`
+  projects `codec.incomplete_input` through focused human diagnostics and
+  `run --json` `details.byte_diagnostic` without requested-byte context.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
   deterministic header-block byte fixtures and every static indexed HPACK
   table entry from `0x81` `:authority` through `0xbd`

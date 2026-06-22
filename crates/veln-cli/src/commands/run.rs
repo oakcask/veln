@@ -2033,6 +2033,44 @@ mod tests {
     }
 
     #[test]
+    fn byte_result_failure_diagnostic_projects_decode_need_end_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.incomplete_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("field_path", JsonValue::array([])),
+            ("readiness", JsonValue::string("need_end")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "NeedMore(NeedEnd)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.incomplete_input");
+        assert_eq!(diagnostic.message, "incomplete input at byte offset 0");
+        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(
+            diagnostic.related[0].to_json(),
+            "{\"message\":\"Decode readiness is `need_end` because input is closed.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"DecodeStep value: NeedMore(NeedEnd).\"}"
+        );
+    }
+
+    #[test]
     fn byte_result_failure_diagnostic_projects_fixed_field_mismatch_context() {
         let byte_diagnostic = JsonValue::object([
             ("kind", JsonValue::string("byte_diagnostic")),

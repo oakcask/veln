@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(NeedMore(NeedBytes(ByteCount(3))))"
+equals = "runtime result failure: Err(NeedMore(NeedEnd))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "NeedMore(NeedBytes(ByteCount(3)))"
+equals = "NeedMore(NeedEnd)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"
@@ -55,8 +55,12 @@ path = "error.details.byte_diagnostic.id"
 equals = "codec.incomplete_input"
 
 [[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
 path = "error.details.byte_diagnostic.byte_offset.value"
-equals = 3
+equals = 0
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
@@ -64,12 +68,8 @@ equals = []
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.readiness"
-equals = "need_bytes"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.needed_count"
-equals = 3
+equals = "need_end"
 
 [[json_assert]]
 path = "stderr"
-equals = "Err(NeedMore(NeedBytes(ByteCount(3))))\n"
+equals = "Err(NeedMore(NeedEnd))\n"

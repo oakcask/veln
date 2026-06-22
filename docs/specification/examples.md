@@ -153,6 +153,11 @@ and
 cover command-facing projection of the hand-written codec boundary's stable
 `codec.consumed_count_invalid` decode failure without treating it as retryable
 readiness.
+The executable specification case
+`../../examples/specification/run/codec-decode-decoded-json/` covers the
+successful `Decoded(...)` entry boundary in `run --json`: a decoded entry
+returns ordinary stdout, `status = passed`, and `error = null` without a byte
+diagnostic failure projection.
 The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-boundary-human/` and
 `../../examples/specification/run/codec-decode-invalid-boundary-json/` cover
@@ -184,6 +189,11 @@ command-facing projection when a `veln run` entry returns
 `NeedMore(NeedBytes(...))` at a closed-input reporting boundary: human output
 reports `codec.incomplete_input` with readiness and requested-byte context in
 related notes, and `run --json` attaches `details.byte_diagnostic`.
+The executable specification cases
+`../../examples/specification/run/codec-decode-need-end-human/` and
+`../../examples/specification/run/codec-decode-need-end-json/` cover the
+same command-facing projection for `NeedMore(NeedEnd)` without requested-byte
+context.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

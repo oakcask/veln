@@ -275,8 +275,10 @@ includes:
 - `needed_count`: the source-visible `ByteCount`
 
 `DecodeStep::NeedMore(NeedEnd)` uses the same diagnostic id and readiness
-field without `needed_count`. `DecodeStep::Decoded(...)` entry results do not
-populate `error` or `details.byte_diagnostic`.
+field without `needed_count`. The checked
+`examples/specification/run/codec-decode-decoded-json/` case covers that
+`DecodeStep::Decoded(...)` entry results do not populate `error` or
+`details.byte_diagnostic`.
 
 When the result value is a binary schema closed dispatch unknown tag failure,
 `details.byte_diagnostic` includes:
