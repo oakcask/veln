@@ -2226,11 +2226,8 @@ pub(crate) fn supported_encode_reserved_bits(
     {
         return Some((1, 0));
     }
-    if bit_width == 2
-        && expected_value == 0
-        && next_field.is_some_and(|field| field.ty.trim() == "UInt8")
-    {
-        return Some((2, 0));
+    if supported_reserved_byte_prefix(bit_width, expected_value, next_field) {
+        return Some((bit_width as u8, expected_value));
     }
     let packed_storage_bit_width = if (1..=7).contains(&bit_width) {
         Some(8)
@@ -2406,6 +2403,16 @@ fn supported_packed_reserved_prefix(
             i64::from(visible_bit_width) + bit_width == storage_bit_width
         }) && expected_value < (1_i64 << bit_width)
     })
+}
+
+fn supported_reserved_byte_prefix(
+    bit_width: i64,
+    expected_value: i64,
+    visible_field: Option<&veln_ast::SchemaField>,
+) -> bool {
+    matches!(bit_width, 2 | 9)
+        && expected_value == 0
+        && visible_field.is_some_and(|field| field.ty.trim() == "UInt8")
 }
 
 fn supported_middle_reserved_bits(

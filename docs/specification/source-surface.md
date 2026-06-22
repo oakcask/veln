@@ -309,7 +309,8 @@ one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
 `Flag56be`, `Flag56le`, `Flag64be`, and `Flag64le` bitset fields, supported
 byte-aligned `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, the supported
-`ReservedBits(2, 0)` before `UInt8` byte-prefix layout, supported
+`ReservedBits(2, 0)` and `ReservedBits(9, 0)` before `UInt8` byte-prefix
+layouts, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,

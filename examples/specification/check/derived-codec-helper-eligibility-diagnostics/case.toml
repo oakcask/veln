@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"codec.derive_helper_unsupported\"", "\"direction\":\"decode\"", "\"direction\":\"encode\"", "\"reason\":\"generated_decode_helper_unavailable\"", "\"reason\":\"generated_encode_helper_unavailable\"", "\"expected_helper\":\"byte_decode_step_unsupported_packed_header\"", "\"expected_helper\":\"byte_encode_unsupported_packed_header\"", "outside the generated decode helper slice", "outside the generated encode helper slice"]
+contains = ["\"id\":\"codec.derive_helper_unsupported\"", "\"direction\":\"decode\"", "\"direction\":\"encode\"", "\"reason\":\"generated_decode_helper_unavailable\"", "\"reason\":\"generated_encode_helper_unavailable\"", "\"expected_helper\":\"byte_decode_step_unsupported_record_header\"", "\"expected_helper\":\"byte_encode_unsupported_record_header\"", "outside the generated decode helper slice", "outside the generated encode helper slice"]
 
 [stderr]
 format = "empty"

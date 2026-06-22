@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "42\n0\n171\ndecoded\n42\n2\nencoded\noutput_chunk_list reserved-nine-bit-prefix count 1\noutput_chunk reserved-nine-bit-prefix index 0 hex \"00ab\" count 2\ninvalid\ncodec.encode_value_unrepresentable\nReservedNineBitPrefixHeader.control\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "reserved-nine-bit-prefix"
+chunks = ["00ab"]

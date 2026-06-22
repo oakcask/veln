@@ -445,7 +445,7 @@
         if (reserved == null
             || visible == null
             || !reserved.isReserved()
-            || reserved.reservedBitWidth != 2
+            || (reserved.reservedBitWidth != 2 && reserved.reservedBitWidth != 9)
             || reserved.reservedValue != 0L
             || visible.isReserved()
             || visible.dispatch != null
@@ -3108,9 +3108,11 @@
                     ));
                 }
                 int lowPaddingBitWidth =
-                    reservedBytePrefixStorageByteWidth * 8
-                        - field.reservedBitWidth
-                        - visibleBitWidth;
+                    field.reservedBitWidth == 9
+                        ? 0
+                        : reservedBytePrefixStorageByteWidth * 8
+                            - field.reservedBitWidth
+                            - visibleBitWidth;
                 long combined =
                     (field.reservedValue << (visibleBitWidth + lowPaddingBitWidth))
                         | (visibleValue << lowPaddingBitWidth);
@@ -4739,9 +4741,12 @@
                 (combined << 8)
                     | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
         }
+        int reservedShift =
+            reserved.reservedBitWidth == 9
+                ? 8
+                : storageByteWidth * 8 - reserved.reservedBitWidth;
         long actualReserved =
-            (combined >> (storageByteWidth * 8 - reserved.reservedBitWidth))
-                & reservedMaxValue(reserved.reservedBitWidth);
+            (combined >> reservedShift) & reservedMaxValue(reserved.reservedBitWidth);
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
@@ -4758,7 +4763,10 @@
             return err(message);
         }
         int visibleBitWidth = reservedBytePrefixVisibleBitWidth(reserved, visible);
-        int lowPaddingBitWidth = storageByteWidth * 8 - reserved.reservedBitWidth - visibleBitWidth;
+        int lowPaddingBitWidth =
+            reserved.reservedBitWidth == 9
+                ? 0
+                : storageByteWidth * 8 - reserved.reservedBitWidth - visibleBitWidth;
         long value = (combined >> lowPaddingBitWidth) & reservedMaxValue(visibleBitWidth);
         return ok(Long.valueOf(value));
     }
