@@ -1,0 +1,105 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.reserved_bits_encode\"", "\"supported_layout_family\":\"packed_reserved_suffix\"", "\"supported_layout_family\":\"packed_reserved_prefix\"", "\"supported_layout_family\":\"bit_packed_reserved_group\"", "\"previous_visible_bit_width\":8", "\"next_visible_bit_width\":5"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "schema.reserved_bits_encode"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "`ReservedBits(9, 0)` is outside the supported binary schema field layouts"
+
+[[json_assert]]
+path = "diagnostics.0.details.schema"
+equals = "UnsupportedReservedSuffix"
+
+[[json_assert]]
+path = "diagnostics.0.details.field"
+equals = "control_padding"
+
+[[json_assert]]
+path = "diagnostics.0.details.bit_width"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_value"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "unsupported_encode_shape"
+
+[[json_assert]]
+path = "diagnostics.0.details.supported_layout_family"
+equals = "packed_reserved_suffix"
+
+[[json_assert]]
+path = "diagnostics.0.details.previous_visible_bit_width"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "`ReservedBits(10, 0)` is outside the supported binary schema field layouts"
+
+[[json_assert]]
+path = "diagnostics.1.details.schema"
+equals = "UnsupportedReservedPrefix"
+
+[[json_assert]]
+path = "diagnostics.1.details.field"
+equals = "control_reserved"
+
+[[json_assert]]
+path = "diagnostics.1.details.bit_width"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_value"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.details.supported_layout_family"
+equals = "packed_reserved_prefix"
+
+[[json_assert]]
+path = "diagnostics.1.details.next_visible_bit_width"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.2.message"
+equals = "`ReservedBits(15, 0)` is outside the supported binary schema field layouts"
+
+[[json_assert]]
+path = "diagnostics.2.details.schema"
+equals = "UnsupportedStandaloneReserved"
+
+[[json_assert]]
+path = "diagnostics.2.details.field"
+equals = "control_reserved"
+
+[[json_assert]]
+path = "diagnostics.2.details.bit_width"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_value"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.2.details.supported_layout_family"
+equals = "bit_packed_reserved_group"

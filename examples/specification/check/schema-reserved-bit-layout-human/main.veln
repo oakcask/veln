@@ -1,0 +1,19 @@
+schema UnsupportedReservedSuffix
+	format binary
+
+	control: UInt8
+	control_padding: ReservedBits(9, 0)
+end
+
+schema UnsupportedReservedPrefix
+	format binary
+
+	control_reserved: ReservedBits(10, 0)
+	control: UInt5
+end
+
+schema UnsupportedStandaloneReserved
+	format binary
+
+	control_reserved: ReservedBits(15, 0)
+end

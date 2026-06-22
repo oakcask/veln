@@ -145,9 +145,10 @@ Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward, uses an unbounded
 or otherwise ineligible recursive form, uses a schema outside the generated
-helper slice such as unsupported standalone or suffix `ReservedBits` layouts,
-uses a field-reference-ineligible `ByteView` payload layout, or decodes to an
-incompatible payload shape. Helper-slice payload diagnostics name the expected
+helper slice such as unsupported standalone, prefix, or suffix `ReservedBits`
+layouts, uses a field-reference-ineligible `ByteView` payload layout, or
+decodes to an incompatible payload shape. Helper-slice payload diagnostics name
+the expected
 generated decode and encode helpers in structured fields and keep the payload
 schema declaration in related notes. Closed dispatch
 cases with mixed
@@ -371,6 +372,10 @@ decoded shapes, selected equality mappings on the dispatch tag field can make
 the helper accept the shared target record when the mappings cover every case
 exactly once and each branch projects the case-local payload shape back to the
 dispatch payload field.
+`ReservedBits(width, value)` field layouts outside those helper slices are
+rejected before typed IR is emitted; checked JSON and human diagnostics are in
+`../../examples/specification/check/schema-reserved-bit-layout-diagnostics/`
+and `../../examples/specification/check/schema-reserved-bit-layout-human/`.
 Projectable expressions for the one-clause form are direct schema-local field
 references, record expressions whose fields are direct schema-local visible
 field references, field selection from such a record expression when the

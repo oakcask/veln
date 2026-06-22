@@ -948,7 +948,12 @@ execution reference.
   diagnostic projection. `Encoded` and `Partial` remain ordinary successful
   source-visible values.
   Unsupported non-byte-aligned reserved-bit encode shapes report
-  `schema.reserved_bits_encode`.
+  `schema.reserved_bits_encode` at the reserved field span before typed IR is
+  emitted. The diagnostic message names the rejected
+  `ReservedBits(width, value)` layout; details name the schema, field,
+  reserved width, expected value, supported layout family, and adjacent visible
+  field widths when an exact-width visible field is adjacent. Human output
+  keeps the same facts in related notes.
   Multiple selected mapping clauses selected by `when field == literal` or
   `when field != literal` are eligible when all clauses resolve to the same
   target record shape and every schema-local encode field, including the

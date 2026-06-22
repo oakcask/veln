@@ -167,8 +167,9 @@ positions report `schema.exact_width_primitive`. Missing
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
 unbounded recursive, outside the generated helper slice such as an unsupported
-standalone or suffix `ReservedBits` layout, field-reference-ineligible
-`ByteView` payload layout, or incompatible report `schema.dispatch_payload`.
+standalone, prefix, or suffix `ReservedBits` layout,
+field-reference-ineligible `ByteView` payload layout, or incompatible report
+`schema.dispatch_payload`.
 Helper-slice payload diagnostics name the expected generated decode and
 encode helpers in structured fields and keep the payload schema declaration
 in related notes. The checked field-reference diagnostics case is
@@ -317,7 +318,12 @@ dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
 payloads or eligible nested binary schema payloads, expose generated
-`byte_encode_<schema>` helpers routed from `execution.md`. General schema
+`byte_encode_<schema>` helpers routed from `execution.md`.
+`ReservedBits(width, value)` field layouts outside those helper slices are
+rejected before typed IR is emitted; checked JSON and human diagnostics are in
+`../../examples/specification/check/schema-reserved-bit-layout-diagnostics/`
+and `../../examples/specification/check/schema-reserved-bit-layout-human/`.
+General schema
 encode execution beyond those helper slices and schema decode outside the
 narrow generated binary helper slices are not implemented. The narrow
 primitive, field-local validation, mapped-record decode, dispatch decode, and
