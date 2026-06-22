@@ -1982,6 +1982,19 @@ fn decode_hpack_string_literal_at(block: ByteChunk, observed_size: Int, index: I
 	end
 end
 
+fn decode_hpack_raw_string_literal_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match decode_hpack_string_length_at(block, observed_size, index, offset)
+		Ok(length) => match string_length_huffman_marked(length)
+			true => unsupported_string_literal(block, offset)
+			false => match observed_size >= string_length_prefix_size(length) + string_length_encoded_count(length)
+				true => decode_hpack_string_literal_value(block, length, offset)
+				false => malformed_raw_string_literal(block, offset)
+			end
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
 fn decoded_literal_for_indexing(indexing: HpackLiteralIndexing, name: String, literal: HpackStringLiteral, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match indexing
 		LiteralWithoutIndexing => decoded_literal_without_indexing(name, string_literal_value(literal), string_literal_wire_size(literal), state)
@@ -1994,6 +2007,16 @@ fn decode_literal_header_with_name(indexing: HpackLiteralIndexing, name: String,
 	match value_index < observed_size
 		true => match decode_hpack_string_literal_at(block, observed_size, value_index, offset)
 			Ok(literal) => decoded_literal_for_indexing(indexing, name, literal, state)
+			Err(failure) => Err(failure)
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_raw_name_literal_header_block(indexing: HpackLiteralIndexing, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size >= 3
+		true => match decode_hpack_raw_string_literal_prefix_at(block, observed_size, 1, offset)
+			Ok(name) => decode_literal_header_with_name(indexing, string_literal_value(name), observed_size, state, block, offset, string_literal_wire_size(name))
 			Err(failure) => Err(failure)
 		end
 		false => unsupported(block, offset)
@@ -2332,7 +2355,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			64 => match observed_size == 4
 				true => decoded_response_headers_with_regular_header(state)
-				false => unsupported(block, offset)
+				false => decode_raw_name_literal_header_block(LiteralWithIndexing, observed_size, state, block, offset)
 			end
 			54 => match observed_size == 2
 				true => decoded_response_headers_missing_status(state)
@@ -2442,7 +2465,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			127 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
 			16 => match observed_size == 3
 				true => decoded("single-headers", 8, state)
-				false => unsupported(block, offset)
+				false => decode_raw_name_literal_header_block(LiteralNeverIndexed, observed_size, state, block, offset)
 			end
 			170 => match observed_size == 9
 				true => decoded("continuation", 9, state)
@@ -2453,13 +2476,16 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 					true => decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
 					false => unsupported(block, offset)
 				end
-				false => match first_byte > 0 and first_byte < 16
-					true => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
-					false => match first_byte > 16 and first_byte < 32
-						true => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
-						false => match first_byte >= 65 and first_byte <= 127
-							true => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
-							false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
+				false => match first_byte == 0
+					true => decode_raw_name_literal_header_block(LiteralWithoutIndexing, observed_size, state, block, offset)
+					false => match first_byte > 0 and first_byte < 16
+						true => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+						false => match first_byte > 16 and first_byte < 32
+							true => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+							false => match first_byte >= 65 and first_byte <= 127
+								true => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+								false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
+							end
 						end
 					end
 				end
@@ -2691,6 +2717,7 @@ end
 
 pub fn header_list_has_uppercase_ordinary_header(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader("Server", _), HpackHeader(":fixture", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => true
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "Server"), _) => true
@@ -2700,6 +2727,8 @@ end
 
 pub fn header_list_has_invalid_token_ordinary_header(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader("bad header", _), HpackHeader(":fixture", _), _) => true
+		HpackHeaderList(HpackHeader("bad@name", _), HpackHeader(":fixture", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "bad header"), _) => true
@@ -2709,6 +2738,11 @@ end
 
 pub fn header_list_has_connection_specific_header(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader("connection", _), HpackHeader(":fixture", _), _) => true
+		HpackHeaderList(HpackHeader("keep-alive", _), HpackHeader(":fixture", _), _) => true
+		HpackHeaderList(HpackHeader("proxy-connection", _), HpackHeader(":fixture", _), _) => true
+		HpackHeaderList(HpackHeader("transfer-encoding", _), HpackHeader(":fixture", _), _) => true
+		HpackHeaderList(HpackHeader("upgrade", _), HpackHeader(":fixture", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
@@ -2721,6 +2755,7 @@ end
 
 pub fn header_list_connection_specific_header_name(headers: HpackHeaderList) -> String
 	match headers
+		HpackHeaderList(HpackHeader(name, _), HpackHeader(":fixture", _), _) => name
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,connection"), _) => "connection"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,keep-alive"), _) => "keep-alive"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => "proxy-connection"
@@ -2733,6 +2768,7 @@ end
 
 pub fn header_list_has_invalid_te_header_value(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader("te", value), HpackHeader(":fixture", _), _) => value != "trailers"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "te:gzip"), _) => true
@@ -2773,6 +2809,7 @@ end
 
 pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> String
 	match headers
+		HpackHeaderList(HpackHeader(name, _), HpackHeader(":fixture", _), _) => name
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => "Host"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => "bad header"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => "Server"

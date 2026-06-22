@@ -1800,7 +1800,10 @@ supported static-table header name already accepted by the static-indexed
 fixture set, including ordinary names such as `server`, `content-type`, and
 `user-agent`. Those literal fixtures share the HPACK string literal decoder
 for visible-ASCII raw values and Huffman-marked values decoded by the HPACK
-static Huffman table rather than a fixed decoded-value allowlist. The same
+static Huffman table rather than a fixed decoded-value allowlist. The fixture
+also accepts raw new-name literal forms whose field-name string is a raw
+visible-ASCII HPACK string literal, and sends those decoded names through the
+same HTTP/2 header-list validation paths as indexed-name literals. The same
 decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
 through all three literal forms, including a 129-byte raw `:authority` value
@@ -1835,7 +1838,11 @@ literal-without-indexing `server: ok` as `0x0f 0x27 0x02 "ok"`, raw
 literal-with-indexing `content-type: text` as `0x5f 0x04 "text"` followed
 by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
 `user-agent: agent` through a final CONTINUATION as
-`0x1f 0x2b 0x05 "agent"`. Completed HEADERS and final CONTINUATION paths reach
+`0x1f 0x2b 0x05 "agent"`. It also covers raw new-name
+literal-with-indexing `x-trace: ok` followed by dynamic-indexed reuse, plus
+raw new-name trailers that accept lower-case `x-trace` and reject uppercase
+`Server` and token-invalid `bad@name` through the existing trailer diagnostics.
+Completed HEADERS and final CONTINUATION paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. Malformed string length including
 non-terminating string-length continuations has

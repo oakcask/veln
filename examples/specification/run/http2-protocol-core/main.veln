@@ -4592,7 +4592,13 @@ fn request_header_failure_is_trailer(failed_header_fact: String, decoded_header_
 				true => true
 				false => match decoded_header_names == "server,connection"
 					true => true
-					false => decoded_header_names == "server,te"
+					false => match decoded_header_names == "server,te"
+						true => true
+						false => match decoded_header_names == "Server"
+							true => true
+							false => decoded_header_names == "bad@name"
+						end
+					end
 				end
 			end
 		end
@@ -6685,6 +6691,18 @@ fn print_trailing_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_trailers_accepted: () = emit_header_block("http2-trailers-accepted", accepted_trailers, "21222324")?
 	print_hpack_transition("trailers-accepted", accepted_trailers)
 	print_closed_by_peer_stream("trailers-accepted", step_state(accepted_trailers))
+	let raw_name_initial_request: Http2Step = request_headers_open_stream()?
+	let raw_name_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0105000000010007782d7472616365026f6b")?), step_state(raw_name_initial_request))?
+	print_step("trailers-raw-name-accepted", raw_name_trailers)
+	let ignored_raw_name_trailers: () = emit_header_block("http2-trailers-raw-name-accepted", raw_name_trailers, "0007782d7472616365026f6b")?
+	print_hpack_transition("trailers-raw-name-accepted", raw_name_trailers)
+	print_closed_by_peer_stream("trailers-raw-name-accepted", step_state(raw_name_trailers))
+	let raw_name_indexed_initial_request: Http2Step = request_headers_open_stream()?
+	let raw_name_indexed_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0105000000014007782d7472616365026f6b")?), step_state(raw_name_indexed_initial_request))?
+	print_step("trailers-raw-name-indexed-accepted", raw_name_indexed_trailers)
+	let ignored_raw_name_indexed_trailers: () = emit_header_block("http2-trailers-raw-name-indexed-accepted", raw_name_indexed_trailers, "4007782d7472616365026f6b")?
+	print_hpack_transition("trailers-raw-name-indexed-accepted", raw_name_indexed_trailers)
+	print_closed_by_peer_stream("trailers-raw-name-indexed-accepted", step_state(raw_name_indexed_trailers))
 	let data_after_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(accepted_trailers))?
 	print_failure("trailers-then-data", data_after_trailers)
 	let missing_end_stream_initial_request: Http2Step = request_headers_open_stream()?
@@ -6704,9 +6722,15 @@ fn print_trailing_headers_cases() -> Result<(), String> effects [stdio]
 	let uppercase_initial_request: Http2Step = request_headers_open_stream()?
 	let uppercase_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000122232425")?), step_state(uppercase_initial_request))?
 	print_request_header_failure("trailers-uppercase-ordinary", uppercase_trailers)
+	let raw_uppercase_initial_request: Http2Step = request_headers_open_stream()?
+	let raw_uppercase_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000b0105000000011006536572766572026f6b")?), step_state(raw_uppercase_initial_request))?
+	print_request_header_failure("trailers-raw-name-uppercase", raw_uppercase_trailers)
 	let token_initial_request: Http2Step = request_headers_open_stream()?
 	let token_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000123242526")?), step_state(token_initial_request))?
 	print_request_header_failure("trailers-bad-token-ordinary", token_trailers)
+	let raw_token_initial_request: Http2Step = request_headers_open_stream()?
+	let raw_token_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d0105000000010008626164406e616d65026f6b")?), step_state(raw_token_initial_request))?
+	print_request_header_failure("trailers-raw-name-bad-token", raw_token_trailers)
 	let connection_initial_request: Http2Step = request_headers_open_stream()?
 	let connection_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000124252627")?), step_state(connection_initial_request))?
 	print_request_header_failure("trailers-connection-specific", connection_trailers)
