@@ -30,7 +30,9 @@ slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the checked
   production-loopback listen, sequential accept, read, write, clean listener
-  end, close lifecycle, and two-stream adapter handler/action lifecycle, the
+  end, close lifecycle, two-stream adapter handler/action lifecycle,
+  listener-drain adapter lifecycle, and listener-drain read-failure boundary,
+  the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, ordered write lifecycle slice, and checked
@@ -272,8 +274,10 @@ The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
 
 The production-loopback listen, sequential accept, read, write, clean listener
-end, close lifecycle, two-stream adapter handler/action lifecycle, and focused
-adapter close-failure runtime boundary slices are recorded as implemented in
+end, close lifecycle, two-stream adapter handler/action lifecycle,
+listener-drain adapter lifecycle, listener-drain read-failure runtime
+boundary, and focused adapter close-failure runtime boundary slices are
+recorded as implemented in
 `../reference/implemented-proposals/network-production-loopback-lifecycle.md`.
 
 The bounded receiver-list select-many, timeout, timeout-result, and
@@ -386,8 +390,9 @@ or the pure protocol core.
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
 - The checked production-loopback lifecycle, including the two-stream
-  listener sequence, two-stream adapter handler/action boundary, and clean
-  listener end, remains current evidence for deterministic host-owned
+  listener sequence, two-stream adapter handler/action boundary,
+  listener-drain lifecycle, listener-drain read-failure runtime boundary, and
+  clean listener end, remains current evidence for deterministic host-owned
   loopback streams. Remaining examples still need richer production adapter
   socket ownership beyond those deterministic loopback lifecycle slices, first
   fixture-backed listener/stream handles,

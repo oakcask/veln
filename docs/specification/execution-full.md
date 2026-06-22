@@ -739,7 +739,11 @@ The checked adapter lifecycles keep the application handler on ordinary
 stream, and use the same `net` and `concurrency` effect declarations as
 fixture-backed close-lifecycle adapters. The two-stream adapter lifecycle
 handles each accepted production stream independently through that same
-handler/action boundary and then observes clean listener end. Invalid
+handler/action boundary and then observes clean listener end. The
+listener-drain adapter lifecycle reuses the same boundary while accepting
+configured production streams until optional accept reports clean listener
+end; a forced read failure on that path remains a runtime transport failure.
+Invalid
 production listen addresses and other host transport failures are runtime
 transport failures.
 `time::timeout_ms` waits for a

@@ -9,6 +9,8 @@ behavior is specified by `../../specification/names-effects.md`,
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-lifecycle/`,
 `../../../examples/specification/run/socket-stream-adapter-production-two-streams/`,
+`../../../examples/specification/run/socket-stream-adapter-production-drain-lifecycle/`,
+`../../../examples/specification/run/socket-stream-adapter-production-drain-read-failure-json/`,
 `../../../examples/specification/run/socket-stream-adapter-production-close-failure-json/`,
 `../../../examples/specification/run/transport-socket-production-two-streams/`,
 and
@@ -37,12 +39,21 @@ the same ordinary `StreamInput` handler/action boundary independently, with
 only ordered `SendBytes` actions projected to socket writes before each stream
 is closed.
 
+The listener-drain adapter slice uses the same public calls and effect
+declarations without hard-coding a separate accept path for each stream. It
+recursively accepts configured production streams until `net::accept_or_end`
+reports clean listener end, routes every accepted stream through the existing
+ordinary handler/action boundary, writes only ordered `SendBytes` actions,
+closes each stream, and captures all client-observed byte sequences.
+
 Invalid production listen addresses and forced production close failures
 remain runtime transport failures. The failure examples check the JSON command
 surface and keep transport failure classification separate from protocol
 diagnostics. The close-failure case also pins that adapter-routed ordered
 writes happen before the failed close and that no successful close event is
-recorded after the forced failure.
+recorded after the forced failure. The listener-drain read-failure case pins a
+forced production read failure after accept and before response writes or
+stream close.
 
 ## Remaining Work
 
