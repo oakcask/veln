@@ -702,16 +702,19 @@ yields a chunk before the supplied `Deadline` and `None` when the fixture
 reports deadline expiry before a chunk is read, the supplied `Deadline` has
 already expired, or the fixture stream reaches clean end before a chunk is
 read, `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream
-read and `None` for clean end of the fixture stream, and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream. `net::close_stream` records a
-fixture-backed close event for an adapter-owned stream and returns `()`.
+read and `None` for clean end of the fixture stream, `net::write_chunk`
+writes one immutable `ByteChunk` to that stream, and `net::write_chunks`
+writes each chunk from a source-owned `List<ByteChunk>` to that stream in
+list order. `net::close_stream` records a fixture-backed close event for an
+adapter-owned stream and returns `()`.
 When the runtime environment selects `production-loopback`, those same
 listener and stream calls use a host-owned loopback transport rather than
 fixture-only stream ids: `net::listen` binds the requested address,
 `net::accept`
 and `net::accept_or_end` accept a loopback client, `net::read_chunk` and
 `net::read_chunk_or_end` read bytes from the accepted stream,
-`net::write_chunk` writes response bytes to that stream, and
+`net::write_chunk` writes response bytes to that stream, `net::write_chunks`
+writes response chunks to that stream in source list order, and
 `net::close_stream` closes it. A configured production loopback sequence can
 accept multiple independent streams from one listener, and a following
 optional accept observes clean listener end after those streams are exhausted.

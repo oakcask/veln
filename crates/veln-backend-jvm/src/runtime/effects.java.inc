@@ -863,6 +863,15 @@
         return UNIT;
     }
 
+    public static Object netWriteChunks(Object stream, Object chunks) {
+        ListValue current = asListValue(chunks);
+        while (current.cons) {
+            netWriteChunk(stream, current.head);
+            current = asListValue(current.tail);
+        }
+        return UNIT;
+    }
+
     public static Object netCloseStream(Object stream) {
         if (forced("VELN_NET_CLOSE_FAILED")) {
             throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");

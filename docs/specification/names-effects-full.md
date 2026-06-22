@@ -201,6 +201,7 @@ net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk
 net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
+net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
@@ -215,8 +216,9 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
-`net::write_chunk`, and `net::close_stream` also infer the same coarse `net`
-effect. Direct calls to `net::accept_until`, `net::read_chunk_until`, and
+`net::write_chunk`, `net::write_chunks`, and `net::close_stream` also infer
+the same coarse `net` effect. Direct calls to `net::accept_until`,
+`net::read_chunk_until`, and
 `net::read_chunk_until_cancellable` infer both `net` and `time` because the
 adapter-owned accept or read attempt observes a `Deadline` or `CancelToken`.
 Direct calls to `time::timeout_ms`,
@@ -250,21 +252,24 @@ fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
 `CancelToken` has been cancelled;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream. `net::close_stream` records
-fixture-backed adapter-owned stream cleanup and returns `()`.
+writes one immutable `ByteChunk` to that stream. `net::write_chunks` writes a
+source-owned `List<ByteChunk>` to the same stream in list order.
+`net::close_stream` records fixture-backed adapter-owned stream cleanup and
+returns `()`.
 When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
 host loopback listener and deterministic loopback stream sequence:
 `net::listen` binds the requested host and port, `net::accept` and
 `net::accept_or_end` accept a loopback client as a `NetStream`,
 `net::read_chunk` and `net::read_chunk_or_end` read bytes from that stream,
-`net::write_chunk` writes bytes back to the stream, `net::close_stream`
-closes the owned stream, and a following optional accept can observe clean
-listener end. Adapter-owned production loopback examples can handle two
+`net::write_chunk` writes bytes back to the stream, `net::write_chunks`
+writes each chunk in source list order, `net::close_stream` closes the owned
+stream, and a following optional accept can observe clean listener end.
+Adapter-owned production loopback examples can handle two
 accepted streams independently through ordinary `StreamInput` and
 response-action values, route them through the existing `concurrency`
 boundary, project only ordered `SendBytes` actions to `net::write_chunk`, and
-close each stream. This path adds no public call and uses the same coarse
-`net` effect as the fixture-backed path.
+close each stream. This production path uses the same coarse `net` effect as
+the fixture-backed path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;

@@ -1322,6 +1322,11 @@ fixture-backed socket API slice. It creates a source-visible `NetListener`,
 accepts a distinct `NetStream`, reads one immutable `ByteChunk`, writes one
 immutable `ByteChunk`, and records host transport events while keeping all
 calls under the coarse `net` effect. The
+`../../examples/specification/run/transport-socket-write-chunks-boundary/`
+case writes a source-owned `List<ByteChunk>` to the same stream in list order
+with `net::write_chunks`. The matching
+`../../examples/specification/check/transport-socket-write-chunks-effects/`
+case pins that `net::write_chunks` requires the same `net` effect. The
 `../../examples/specification/run/transport-socket-optional-accept-boundary/`
 case covers `net::accept_or_end` returning `Some(stream)` and using that
 stream with the existing read behavior, while

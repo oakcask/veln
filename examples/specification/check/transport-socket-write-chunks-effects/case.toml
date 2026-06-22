@@ -1,0 +1,35 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.provenance.0.symbol"
+equals = "net::write_chunks"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_effects.0"
+equals = "net"
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `net`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 1

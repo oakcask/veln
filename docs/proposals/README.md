@@ -242,6 +242,7 @@ compare it with `../specification/` before changing behavior.
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
+  source-visible ordered `net::write_chunks` chunk-list writes,
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, and two-stream adapter handler/action lifecycle,
   bounded
@@ -252,6 +253,9 @@ compare it with `../specification/` before changing behavior.
   selection, and two-receiver cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.
+  The completed source-visible ordered `net::write_chunks` chunk-list write
+  slice is archived under
+  [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
 
 ## Update When
 
