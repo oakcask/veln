@@ -1332,6 +1332,20 @@ covers `net::accept_until` returning `Some(stream)` when a fixture accepts
 before the deadline, while
 `../../examples/specification/run/transport-socket-accept-until-deadline/`
 covers fixture-reported accept deadline expiry returning `None`.
+The matching
+`../../examples/specification/run/transport-socket-accept-until-cancellable-boundary/`
+case covers `net::accept_until_cancellable` returning
+`AcceptStream(stream)`,
+`../../examples/specification/run/transport-socket-accept-until-cancellable-clean-end/`
+covers clean listener end returning `AcceptEnd`,
+`../../examples/specification/run/transport-socket-accept-until-cancellable-deadline/`
+covers fixture-reported accept deadline expiry returning
+`AcceptDeadlineExpired`,
+`../../examples/specification/run/transport-socket-accept-until-cancellable-expired/`
+covers an already expired supplied deadline returning
+`AcceptDeadlineExpired`, and
+`../../examples/specification/run/transport-socket-accept-until-cancellable-cancelled/`
+covers token cancellation returning `AcceptCancelled`.
 `../../examples/specification/run/transport-socket-read-until-boundary/`
 covers `net::read_chunk_until` returning `Some(bytes)` when a fixture stream
 yields a chunk before the deadline,
@@ -1357,6 +1371,9 @@ clean-end listener accept and stream read,
 pins the optional accept directly, and
 `../../examples/specification/check/transport-socket-accept-until-effects/`
 pins that deadline-aware accept requires both `net` and `time`, and
+`../../examples/specification/check/transport-socket-accept-until-cancellable-effects/`
+pins that cancellable deadline-aware accept requires both `net` and `time`,
+and
 `../../examples/specification/check/transport-socket-read-until-effects/`
 pins that deadline-aware read requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-read-until-cancellable-effects/`
@@ -1370,6 +1387,7 @@ that explicit stream close requires the `net` effect. The
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
 `../../examples/specification/run/transport-socket-optional-accept-failure-json/`,
 `../../examples/specification/run/transport-socket-accept-until-failure-json/`,
+`../../examples/specification/run/transport-socket-accept-until-cancellable-failure-json/`,
 `../../examples/specification/run/transport-socket-read-until-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases

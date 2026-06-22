@@ -100,6 +100,7 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
         StandardType::NetStream => Some(net_stream_type()),
         StandardType::Deadline => Some(Type::named("Deadline", Vec::new())),
         StandardType::CancelToken => Some(cancel_token_type()),
+        StandardType::AcceptOutcome => Some(Type::named("AcceptOutcome", Vec::new())),
         StandardType::StreamReadOutcome => Some(Type::named("StreamReadOutcome", Vec::new())),
         StandardType::CancellableWaitOutcome => {
             Some(Type::named("CancellableWaitOutcome", Vec::new()))
@@ -876,6 +877,19 @@ mod tests {
             vec![net_listener_type(), Type::named("Deadline", Vec::new())]
         );
         assert_eq!(return_type, adt::option_type(net_stream_type()));
+
+        let (params, return_type) =
+            standard_library_signature(&path("net", "accept_until_cancellable"))
+                .expect("net signature");
+        assert_eq!(
+            params,
+            vec![
+                net_listener_type(),
+                Type::named("Deadline", Vec::new()),
+                cancel_token_type()
+            ]
+        );
+        assert_eq!(return_type, Type::named("AcceptOutcome", Vec::new()));
 
         let (params, return_type) =
             standard_library_signature(&path("net", "read_chunk_or_end")).expect("net signature");

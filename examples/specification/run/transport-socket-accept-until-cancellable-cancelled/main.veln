@@ -1,0 +1,18 @@
+# Cancellable deadline-aware socket accept reports token cancellation as a value.
+fn emit_accept_outcome(outcome: AcceptOutcome) -> () effects [stdio]
+	match outcome
+		AcceptStream(_) => stdio::println("accepted")
+		AcceptEnd => stdio::println("end")
+		AcceptDeadlineExpired => stdio::println("deadline")
+		AcceptCancelled => stdio::println("cancelled")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	time::cancel(token)
+	emit_accept_outcome(net::accept_until_cancellable(listener, deadline, token))
+	Ok(())
+end

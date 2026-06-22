@@ -216,6 +216,58 @@
         return some(new NetStream(streamId));
     }
 
+    public static Object netAcceptUntilCancellable(Object listener, Object deadline, Object token) {
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        CancelToken cancelToken = asCancelToken(token);
+        if (waitCancelled(cancelToken)) {
+            try {
+                writeNetEvent("accept-cancelled " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return acceptOutcome("AcceptCancelled");
+        }
+        if (acceptDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("accept-deadline " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return acceptOutcome("AcceptDeadlineExpired");
+        }
+        String streamId = acceptedNetStreamIdOrNull();
+        if (streamId == null) {
+            try {
+                writeNetEvent("accept-end " + value.address);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return acceptOutcome("AcceptEnd");
+        }
+        NetStream stream = new NetStream(streamId);
+        try {
+            writeNetEvent("accept " + value.address + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport accept failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return acceptOutcome("AcceptStream", stream);
+    }
+
     private static boolean acceptDeadlineExpired(Object deadline) {
         long target = asLong(deadline);
         return forced("VELN_NET_ACCEPT_DEADLINE_EXPIRED")
@@ -692,6 +744,18 @@
 
     private static Object waitOutcome(String name) {
         return adt(name, new Object[] {});
+    }
+
+    private static Object acceptOutcome(String name) {
+        return acceptOutcome(name, new Object[] {});
+    }
+
+    private static Object acceptOutcome(String name, Object payload) {
+        return acceptOutcome(name, new Object[] { payload });
+    }
+
+    private static Object acceptOutcome(String name, Object[] payloads) {
+        return adt("AcceptOutcome::" + name, payloads);
     }
 
     private static Object streamReadOutcome(String name) {
