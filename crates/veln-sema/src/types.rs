@@ -1793,7 +1793,9 @@ fn schema_encode_mapping_expr_sources(
                 exact_width_field_names,
             )
         }
-        SchemaDecodeMappingExpr::Literal(_) | SchemaDecodeMappingExpr::Binary { .. } => None,
+        SchemaDecodeMappingExpr::Literal(_)
+        | SchemaDecodeMappingExpr::Prefix { .. }
+        | SchemaDecodeMappingExpr::Binary { .. } => None,
     }
 }
 

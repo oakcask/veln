@@ -98,7 +98,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `Int` fields, integer literals, `Int`-returning converter calls, and
   nested supported mapping arithmetic expressions into an `Int` target field,
   and `==` or `!=` comparisons over decoded schema-local `Int` fields and
-  integer literals into a `Bool` target field
+  integer literals, composed with `and`, `or`, and `not`, into a `Bool` target
+  field
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -113,8 +114,9 @@ This proposal remains open for:
   payload expressions, pure same-module or imported public representation
   conversion hooks that take one, two, or three arguments, field
   selection from record-shaped structural mapping expressions, decoded-field
-  and converter-call integer mapping arithmetic, and narrow decoded-field
-  integer boolean mapping selection
+  and converter-call integer mapping arithmetic, decoded-field integer
+  boolean mapping assignment composition, and narrow decoded-field integer
+  boolean mapping selection
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition surfaces beyond codec
@@ -163,7 +165,8 @@ field selection from record-shaped structural mapping expressions. An `Int`
 target field may also use `+`, `-`, `*`, and `/` over decoded schema-local
 `Int` fields, integer literals, `Int`-returning converter calls, and nested
 supported mapping arithmetic expressions. A `Bool` target field may use `==`
-and `!=` over decoded schema-local `Int` fields and integer literals.
+and `!=` over decoded schema-local `Int` fields and integer literals, and
+may compose those supported comparisons with `and`, `or`, and `not`.
 
 The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
@@ -173,7 +176,7 @@ call through a written `use` path or alias, and field selection from
 record-shaped structural mapping expressions, plus decoded-field,
 integer-literal, and `Int` converter-call mapping arithmetic for `Int` target
 fields, plus decoded-field and integer-literal equality or inequality mapping
-comparisons for `Bool` target fields. Converter
+comparisons composed with `and`, `or`, and `not` for `Bool` target fields. Converter
 calls may take one, two, or three arguments. Arguments may be schema-local field
 references or structural mapping expressions made from schema-local fields,
 records, ADT constructors, and nested combinations of those forms, including
@@ -202,7 +205,7 @@ record construction, ADT construction, one pure same-module converter call,
 and one imported public pure converter call through a written `use` path or
 alias with one, two, or three supported arguments, plus decoded-field integer `+`,
 `-`, `*`, and `/` mapping arithmetic, and decoded-field integer `==` and `!=`
-mapping comparisons for `Bool` target fields, are
+mapping comparisons composed with `and`, `or`, and `not` for `Bool` target fields, are
 implemented. Arbitrary function calls, bare imported converter
 names, private imported converters, runtime settings, stream state, and
 recovery behavior belong in explicit codec functions rather than in schema

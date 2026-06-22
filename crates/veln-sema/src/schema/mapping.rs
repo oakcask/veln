@@ -238,6 +238,10 @@ pub(crate) enum SchemaDecodeMappingExpr {
         inverse_function: Option<String>,
         args: Vec<SchemaDecodeMappingConverterArg>,
     },
+    Prefix {
+        op: PrefixOp,
+        expr: Box<SchemaDecodeMappingExpr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<SchemaDecodeMappingExpr>,
@@ -944,6 +948,9 @@ fn schema_mapping_expr_typed_unchecked(
         ExprKind::Binary { op, left, right } => {
             schema_mapping_binary_expr(context, expr, *op, left, right, allow_converter_calls)
         }
+        ExprKind::Prefix { op, expr: inner } => {
+            schema_mapping_prefix_expr(context, expr, *op, inner, allow_converter_calls)
+        }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
@@ -1080,6 +1087,9 @@ fn schema_mapping_expr_inferred(
         ExprKind::Binary { op, left, right } => {
             schema_mapping_binary_expr(context, expr, *op, left, right, allow_converter_calls)
         }
+        ExprKind::Prefix { op, expr: inner } => {
+            schema_mapping_prefix_expr(context, expr, *op, inner, allow_converter_calls)
+        }
         _ => Err(Box::new(SchemaMappingExprError::Unsupported {
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
@@ -1120,6 +1130,12 @@ fn schema_mapping_binary_expr(
             let right = schema_mapping_comparison_operand(context, expr, right, &operand_ty)?;
             (Type::bool(), left, right)
         }
+        BinaryOp::And | BinaryOp::Or => {
+            let expected = Type::bool();
+            let left = schema_mapping_bool_operand(context, expr, left, allow_converter_calls)?;
+            let right = schema_mapping_bool_operand(context, expr, right, allow_converter_calls)?;
+            (expected, left, right)
+        }
         _ => {
             return Err(Box::new(SchemaMappingExprError::Unsupported {
                 text: schema_mapping_expr_render(expr),
@@ -1135,6 +1151,72 @@ fn schema_mapping_binary_expr(
             right: Box::new(right.expr),
         },
     })
+}
+
+fn schema_mapping_prefix_expr(
+    context: &SchemaMappingExprContext<'_>,
+    expr: &Expr,
+    op: PrefixOp,
+    inner: &Expr,
+    allow_converter_calls: bool,
+) -> SchemaMappingExprResult {
+    if op != PrefixOp::Not {
+        return Err(Box::new(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        }));
+    }
+    let typed = schema_mapping_bool_operand(context, expr, inner, allow_converter_calls)?;
+    Ok(SchemaMappingTypedExpr {
+        ty: Type::bool(),
+        expr: SchemaDecodeMappingExpr::Prefix {
+            op,
+            expr: Box::new(typed.expr),
+        },
+    })
+}
+
+fn schema_mapping_bool_operand(
+    context: &SchemaMappingExprContext<'_>,
+    whole_expr: &Expr,
+    operand: &Expr,
+    allow_converter_calls: bool,
+) -> SchemaMappingExprResult {
+    match &operand.kind {
+        ExprKind::Binary {
+            op: op @ (BinaryOp::Equal | BinaryOp::NotEqual | BinaryOp::And | BinaryOp::Or),
+            left,
+            right,
+        } => schema_mapping_binary_expr(context, operand, *op, left, right, allow_converter_calls)
+            .map_err(|error| match *error {
+                SchemaMappingExprError::Unsupported { .. } => {
+                    Box::new(SchemaMappingExprError::Unsupported {
+                        text: schema_mapping_expr_render(whole_expr),
+                        span: whole_expr.span.clone(),
+                    })
+                }
+                other => Box::new(other),
+            }),
+        ExprKind::Prefix {
+            op: PrefixOp::Not,
+            expr,
+        } => {
+            schema_mapping_prefix_expr(context, operand, PrefixOp::Not, expr, allow_converter_calls)
+                .map_err(|error| match *error {
+                    SchemaMappingExprError::Unsupported { .. } => {
+                        Box::new(SchemaMappingExprError::Unsupported {
+                            text: schema_mapping_expr_render(whole_expr),
+                            span: whole_expr.span.clone(),
+                        })
+                    }
+                    other => Box::new(other),
+                })
+        }
+        _ => Err(Box::new(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(whole_expr),
+            span: whole_expr.span.clone(),
+        })),
+    }
 }
 
 fn schema_mapping_arithmetic_operand(
@@ -1568,6 +1650,17 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
         {
             Type::bool()
         }
+        ExprKind::Binary { op, left, right }
+            if matches!(op, BinaryOp::And | BinaryOp::Or)
+                && schema_mapping_expr_actual_type(context, left) == Type::bool()
+                && schema_mapping_expr_actual_type(context, right) == Type::bool() =>
+        {
+            Type::bool()
+        }
+        ExprKind::Prefix {
+            op: PrefixOp::Not,
+            expr,
+        } if schema_mapping_expr_actual_type(context, expr) == Type::bool() => Type::bool(),
         _ => Type::Unknown,
     }
 }

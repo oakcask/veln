@@ -5483,6 +5483,118 @@ fn generated_schema_decode_helpers_keep_integer_arithmetic_mapping_expressions()
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_bool_composition_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {active: Bool, safe_length: Bool, not_kind_two: Bool}\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  flags: UInt8\n",
+            "  length: UInt8\n",
+            "  copy_length: UInt8\n",
+            "\n",
+            "  map to Packet\n",
+            "    active = kind == 1 and flags != 0\n",
+            "    safe_length = length == copy_length or not (flags != 0)\n",
+            "    not_kind_two = not (kind == 2)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{active: Bool, safe_length: Bool, not_kind_two: Bool}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet decoder should be emitted");
+    let active = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "active")
+        .expect("active mapping should be emitted");
+    assert!(matches!(
+        &active.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Binary {
+            op: veln_ast::BinaryOp::And,
+            left,
+            right,
+        } if matches!(
+                left.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                    op: veln_ast::BinaryOp::Equal,
+                    ..
+                }
+            )
+            && matches!(
+                right.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                    op: veln_ast::BinaryOp::NotEqual,
+                    ..
+                }
+            )
+    ));
+    let safe_length = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "safe_length")
+        .expect("safe_length mapping should be emitted");
+    assert!(matches!(
+        &safe_length.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Binary {
+            op: veln_ast::BinaryOp::Or,
+            left,
+            right,
+        } if matches!(
+                left.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                    op: veln_ast::BinaryOp::Equal,
+                    ..
+                }
+            )
+            && matches!(
+                right.as_ref(),
+                veln_ir::IrSchemaDecodeMappingExpr::Prefix {
+                    op: veln_ast::PrefixOp::Not,
+                    ..
+                }
+            )
+    ));
+    let not_kind_two = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "not_kind_two")
+        .expect("not_kind_two mapping should be emitted");
+    assert!(matches!(
+        &not_kind_two.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Prefix {
+            op: veln_ast::PrefixOp::Not,
+            expr,
+        } if matches!(
+            expr.as_ref(),
+            veln_ir::IrSchemaDecodeMappingExpr::Binary {
+                op: veln_ast::BinaryOp::Equal,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_imported_converter_mapping_expressions() {
     let app_source = SourceFile::new(
         "app.veln",

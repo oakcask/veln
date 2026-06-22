@@ -104,6 +104,10 @@ pub enum IrSchemaDecodeMappingExpr {
         inverse_function: Option<String>,
         args: Vec<IrSchemaDecodeMappingExpr>,
     },
+    Prefix {
+        op: PrefixOp,
+        expr: Box<IrSchemaDecodeMappingExpr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<IrSchemaDecodeMappingExpr>,

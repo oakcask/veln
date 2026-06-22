@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_type\"", "schema mapping target field `bad_operand` expects `Int`, but expression `payload` has type `ByteView`", "schema mapping target field `bad_target` expects `Int`, but source field `kind != length` decodes as `Bool`", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `kind + 1 == length` is not supported"]
+contains = ["\"id\":\"schema.mapping_type\"", "schema mapping target field `bad_operand` expects `Int`, but expression `payload` has type `ByteView`", "schema mapping target field `bad_target` expects `Int`, but source field `kind != length` decodes as `Bool`", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `kind + 1 == length` is not supported", "schema mapping expression `kind == 1 and payload` is not supported"]
 
 [stderr]
 format = "empty"
@@ -22,4 +22,8 @@ equals = "schema.mapping_type"
 
 [[json_assert]]
 path = "diagnostics.2.id"
+equals = "schema.mapping_expression_unsupported"
+
+[[json_assert]]
+path = "diagnostics.3.id"
 equals = "schema.mapping_expression_unsupported"
