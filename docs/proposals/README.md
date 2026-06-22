@@ -74,11 +74,12 @@ compare it with `../specification/` before changing behavior.
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode, including the narrow two-byte byte-interleaved
   middle layout,
-  one-byte, two-byte, three-byte, and four-byte reserved prefix groups
-  followed by two visible `UIntN` fields, including two-byte reserved prefix
-  widths one through fourteen and three-byte reserved prefix widths seventeen
-  through twenty-three and four-byte reserved prefix widths twenty-five
-  through thirty-one, and consecutive non-byte-aligned
+  one-byte, two-byte, three-byte, four-byte, and five-byte reserved prefix
+  groups followed by two visible `UIntN` fields, including two-byte reserved
+  prefix widths one through fourteen, three-byte reserved prefix widths
+  seventeen through twenty-three, four-byte reserved prefix widths
+  twenty-five through thirty-one, and five-byte reserved prefix width
+  thirty-three, and consecutive non-byte-aligned
   `UIntN` and
   `ReservedBits(width, value)` groups that complete one byte or one
   two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
