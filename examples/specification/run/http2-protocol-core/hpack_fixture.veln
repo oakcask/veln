@@ -311,6 +311,26 @@ fn response_headers_with_content_length(value_label: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", value_label), 9)
 end
 
+fn trailer_headers_with_regular_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":trailers", "ok"), 9)
+end
+
+fn trailer_headers_uppercase_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":trailers", "Server"), 9)
+end
+
+fn trailer_headers_bad_token_regular() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":trailers", "bad header"), 9)
+end
+
+fn trailer_headers_with_connection_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":trailers", "connection"), 9)
+end
+
+fn trailer_headers_with_bad_te_header() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":trailers", "te:gzip"), 9)
+end
+
 pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
@@ -465,6 +485,26 @@ end
 
 fn decoded_response_headers_with_content_length(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(response_headers_with_content_length(value_label), next_state(state)))
+end
+
+fn decoded_trailer_headers_with_regular_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(trailer_headers_with_regular_header(), next_state(state)))
+end
+
+fn decoded_trailer_headers_uppercase_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(trailer_headers_uppercase_regular(), next_state(state)))
+end
+
+fn decoded_trailer_headers_bad_token_regular(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(trailer_headers_bad_token_regular(), next_state(state)))
+end
+
+fn decoded_trailer_headers_with_connection_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(trailer_headers_with_connection_header(), next_state(state)))
+end
+
+fn decoded_trailer_headers_with_bad_te_header(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(trailer_headers_with_bad_te_header(), next_state(state)))
 end
 
 fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -2362,6 +2402,26 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_response_headers_with_content_length("ok,content-length:-5", state)
 				false => unsupported(block, offset)
 			end
+			33 => match observed_size == 4
+				true => decoded_trailer_headers_with_regular_header(state)
+				false => unsupported(block, offset)
+			end
+			34 => match observed_size == 4
+				true => decoded_trailer_headers_uppercase_regular(state)
+				false => unsupported(block, offset)
+			end
+			35 => match observed_size == 4
+				true => decoded_trailer_headers_bad_token_regular(state)
+				false => unsupported(block, offset)
+			end
+			36 => match observed_size == 4
+				true => decoded_trailer_headers_with_connection_header(state)
+				false => unsupported(block, offset)
+			end
+			37 => match observed_size == 4
+				true => decoded_trailer_headers_with_bad_te_header(state)
+				false => unsupported(block, offset)
+			end
 			1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
 			4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
@@ -2551,6 +2611,13 @@ pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 	end
 end
 
+pub fn header_list_is_trailer(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(_, HpackHeader(":trailers", _), _) => true
+		_ => false
+	end
+end
+
 pub fn header_list_has_authority(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":authority", _), _, _) => true
@@ -2626,6 +2693,7 @@ pub fn header_list_has_uppercase_ordinary_header(headers: HpackHeaderList) -> Bo
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,Host"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "Server"), _) => true
 		_ => false
 	end
 end
@@ -2634,6 +2702,7 @@ pub fn header_list_has_invalid_token_ordinary_header(headers: HpackHeaderList) -
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "bad header"), _) => true
 		_ => false
 	end
 end
@@ -2645,6 +2714,7 @@ pub fn header_list_has_connection_specific_header(headers: HpackHeaderList) -> B
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "connection"), _) => true
 		_ => false
 	end
 end
@@ -2656,6 +2726,7 @@ pub fn header_list_connection_specific_header_name(headers: HpackHeaderList) -> 
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,proxy-connection"), _) => "proxy-connection"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,transfer-encoding"), _) => "transfer-encoding"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,upgrade"), _) => "upgrade"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "connection"), _) => "connection"
 		_ => ""
 	end
 end
@@ -2664,6 +2735,7 @@ pub fn header_list_has_invalid_te_header_value(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,te:gzip"), _) => true
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "te:gzip"), _) => true
 		_ => false
 	end
 end
@@ -2705,7 +2777,32 @@ pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> Str
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,bad header"), _) => "bad header"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,Server"), _) => "Server"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response-error", "ok,bad header"), _) => "bad header"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "Server"), _) => "Server"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "bad header"), _) => "bad header"
 		_ => ""
+	end
+end
+
+pub fn header_list_has_pseudo_header(headers: HpackHeaderList) -> Bool
+	header_list_has_authority(headers) or header_list_has_method(headers) or header_list_has_scheme(headers) or header_list_has_path(headers) or header_list_has_status(headers)
+end
+
+pub fn header_list_first_pseudo_header_name(headers: HpackHeaderList) -> String
+	match header_list_has_authority(headers)
+		true => ":authority"
+		false => match header_list_has_method(headers)
+			true => ":method"
+			false => match header_list_has_scheme(headers)
+				true => ":scheme"
+				false => match header_list_has_path(headers)
+					true => ":path"
+					false => match header_list_has_status(headers)
+						true => ":status"
+						false => ""
+					end
+				end
+			end
+		end
 	end
 end
 
@@ -2795,6 +2892,11 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":response", "status"), _) => ":method,:status"
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":response", "status"), _) => ":authority,:status"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":response", "status-after-regular"), _) => "server,:status"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "ok"), _) => "server"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "Server"), _) => "server,Server"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "bad header"), _) => "server,bad header"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "connection"), _) => "server,connection"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "te:gzip"), _) => "server,te"
 		HpackHeaderList(HpackHeader(first_name, _), _, _) => first_name
 	end
 end
