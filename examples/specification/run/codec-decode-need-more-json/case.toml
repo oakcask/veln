@@ -15,8 +15,24 @@ path = "status"
 equals = "failed"
 
 [[json_assert]]
+path = "schema_version"
+equals = "veln-run-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "run"
+
+[[json_assert]]
+path = "exit_code"
+equals = 1
+
+[[json_assert]]
 path = "error.kind"
 equals = "result"
+
+[[json_assert]]
+path = "error.message"
+equals = "runtime result failure: Err(NeedMore(NeedBytes(ByteCount(3))))"
 
 [[json_assert]]
 path = "error.details.phase"
