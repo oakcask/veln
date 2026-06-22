@@ -251,10 +251,18 @@ the combined opaque header-block payload bytes from that completed block,
 single-frame HEADERS completion when `END_HEADERS` is set alongside
 `END_STREAM`, closed-by-peer stream lifecycle after accepted HEADERS
 `END_STREAM` completion through both single-frame HEADERS and final
-CONTINUATION paths, continuation failures for a different frame kind, a
-different stream id, and closed input while a header block remains pending,
-one incoming frame-size peer-limit failure, one completed header-list-size
-peer-limit failure at the fixture-codec boundary, plus one invalid
+CONTINUATION paths, inbound request trailers on an already-open stream when
+the trailing HEADERS sequence carries `END_STREAM`, accepted ordinary
+trailer fields through both completed HEADERS and final CONTINUATION paths,
+closed-by-peer state after accepted trailers without receive-window credit
+consumption, trailer state rejection when the second HEADERS block lacks
+peer `END_STREAM`, and trailer rejection for pseudo-headers, uppercase
+ordinary names, invalid field-name tokens, connection-specific ordinary
+names, and invalid `te` values, continuation failures for a different frame
+kind, a different stream id, and closed input while a header block remains
+pending, one incoming frame-size peer-limit failure, one completed
+header-list-size peer-limit failure at the fixture-codec boundary, plus one
+invalid
 idle-stream frame kind and stream id domain failures for zero, even, and
 connection-only stream ids. The stream id domain slice rejects HEADERS and
 CONTINUATION on the connection stream before opening stream state or changing
@@ -730,8 +738,8 @@ full HPACK compression, unbounded dynamic-table behavior, HPACK Huffman
 behavior beyond visible-ASCII fixture string literal decoding and encoding
 and beyond the focused fixture diagnostics for malformed Huffman inputs,
 outbound table-size behavior beyond the checked fixture encoder update
-boundary, and production header validation beyond ordinary request and
-response header-name shape, the source-visible `te` value rule, and the
+boundary, and production header validation beyond ordinary request, response,
+and trailer header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
@@ -764,6 +772,17 @@ identical valid decimal values; reject empty, non-decimal, signed,
 whitespace-padded, and negative-looking values with failed fact
 `content_length_invalid`; and reject mismatched repeated valid decimal values
 with failed fact `content_length_mismatch`.
+The completed inbound request trailer slice is also current behavior under
+`../specification/`: after an initial request HEADERS opens a stream, a later
+HEADERS sequence on that stream is treated as trailers only when it carries
+peer `END_STREAM`. Accepted ordinary trailer fields close the stream by peer
+without consuming receive-window credit on both completed HEADERS and final
+CONTINUATION paths. A second HEADERS block without peer `END_STREAM` is
+rejected in request-trailer state. Trailer validation rejects pseudo-headers,
+uppercase ordinary names, ordinary names outside the HTTP field-name token
+shape, connection-specific ordinary names, and invalid `te` values through
+the same structured request header-list diagnostic fields with trailer
+active-state context.
 The completed outbound HPACK fixture encoder slice is current behavior under
 `../specification/` and
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.

@@ -206,8 +206,9 @@ compare it with `../specification/` before changing behavior.
   boundary, server-side `PUSH_PROMISE` rejection, server-side outbound
   `PUSH_PROMISE` send-intent, and
   half-closed-by-peer outbound DATA send-intent slices,
-  request-side and response-side header-list validation, the source-visible
-  `te` header value rule, the `content-length` header-list consistency slice,
+  request-side, response-side, and request-trailer header-list validation,
+  the source-visible `te` header value rule, the `content-length`
+  header-list consistency slice,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
   visible-ASCII Huffman-marked string literal encoding, and the bounded

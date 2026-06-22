@@ -2111,7 +2111,16 @@ connection-specific ordinary request header names `connection`, `keep-alive`,
 value. It accepts one and repeated matching valid decimal
 `content-length` request values and rejects mismatched, empty, non-decimal,
 signed, whitespace-padded, and negative-looking request values. It also
-checks accepted fixture-marked response header lists including a final
+checks inbound request trailers on an already-open stream: ordinary trailer
+fields are accepted through completed HEADERS and final CONTINUATION paths,
+accepted trailers close the stream by peer without consuming receive-window
+credit, a second HEADERS block without peer `END_STREAM` is rejected as a
+request-trailer state failure, pseudo-header trailers are rejected with active
+state `request-trailers`, and uppercase ordinary names, invalid
+ordinary-name tokens, connection-specific ordinary names, and invalid `te`
+values keep the same structured request header-list failure fields.
+The same larger case checks accepted fixture-marked response header lists
+including a final
 CONTINUATION path for `te: trailers`, a final
 CONTINUATION path missing `:status`, duplicate `:status`, request-only
 `:method` and `:authority`, and `:status` after a regular `server` header,

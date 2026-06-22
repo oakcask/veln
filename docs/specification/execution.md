@@ -1640,6 +1640,17 @@ execution reference.
   values are exactly identical. Empty, non-decimal, signed, whitespace-padded,
   and negative-looking values fail with `content_length_invalid`; repeated
   valid decimal values that differ fail with `content_length_mismatch`.
+  A second inbound HEADERS block on an already-open request stream is treated
+  as request trailers only when the HEADERS sequence carries peer
+  `END_STREAM`; accepted trailers close the stream by peer without consuming
+  connection or stream receive-window credit. The checked fixture accepts
+  ordinary trailer fields through both completed HEADERS and final
+  CONTINUATION paths, rejects a second HEADERS block without peer
+  `END_STREAM` as a request-trailer state failure, rejects pseudo-headers
+  with active state `request-trailers`, and rejects uppercase ordinary names,
+  invalid field-name tokens, connection-specific ordinary names, and invalid
+  `te` values through the same structured request header-list diagnostic
+  fields.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers
