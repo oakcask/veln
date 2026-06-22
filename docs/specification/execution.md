@@ -1358,11 +1358,11 @@ execution reference.
   PING, and GOAWAY require stream id zero; HEADERS, DATA, PRIORITY, `RST_STREAM`,
   `PUSH_PROMISE`, CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
   client-initiated stream id. The receive flow-control state opens admitted
-  idle peer-created HEADERS streams and, in the checked fixture boundary,
-  tracks two open client streams with independent receive-window credit for
-  stream `1` and stream `3`. It counts those open peer-created streams for
-  the active concurrent-stream receive limit and reports rejected stream
-  creation with the endpoint role, active state, receive-limit provenance,
+  idle peer-created HEADERS streams only when the active concurrent-stream
+  receive limit allows the new stream. With one peer-created stream already
+  open in the checked fixture boundary, a second idle HEADERS stream is
+  rejected before admission through the concurrent-stream peer-limit
+  diagnostic, with the endpoint role, active state, receive-limit provenance,
   and rule provenance kept as diagnostic context. It consumes DATA payload
   length from the shared connection window and the targeted stream window, accepts
   PADDED DATA by consuming the pad-length byte and padding as receive-window
@@ -1380,7 +1380,7 @@ execution reference.
   received `WINDOW_UPDATE` increments through
   `http2.protocol.invalid_window_update_increment` with a bounded preview of
   the inspected four-byte increment payload, applies
-  received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to each tracked open stream's
+  received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open stream's
   receive-window credit, and keeps wrong-length, idle-stream, zero,
   half-closed-local stream, closed-by-peer stream, reset-stream,
   concurrent-stream-limit,

@@ -926,6 +926,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             }
             "http2.peer_limit.concurrent_streams_exceeded" => {
                 let frame = self.frame_ref()?;
+                let current_count = self.number("current_open_peer_created_stream_count")?;
                 let attempted_count = self.number("attempted_concurrent_stream_count")?;
                 let allowed_count = self.number("allowed_concurrent_stream_count")?;
                 let endpoint_role = self.string("endpoint_role")?;
@@ -936,7 +937,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     self.byte_offset
                 ));
                 diagnostic.related.push(note_json(format!(
-                    "Opening {} {} would make {attempted_count} concurrent peer-created stream(s); active receive limit is {allowed_count}.",
+                    "Opening {} {} would make {attempted_count} concurrent peer-created stream(s); {current_count} peer-created stream(s) are currently open and the active receive limit is {allowed_count}.",
                     frame.stream_ref, frame.stream_id
                 )));
                 self.push_active_state(&mut diagnostic)?;
@@ -3162,6 +3163,10 @@ mod tests {
             ),
             ("stream_id", JsonValue::Number(3)),
             ("stream_ref", JsonValue::string("stream")),
+            (
+                "current_open_peer_created_stream_count",
+                JsonValue::Number(1),
+            ),
             ("attempted_concurrent_stream_count", JsonValue::Number(2)),
             ("allowed_concurrent_stream_count", JsonValue::Number(1)),
             ("endpoint_role", JsonValue::string("server")),
@@ -3198,6 +3203,11 @@ mod tests {
             diagnostic.related[0]
                 .to_json()
                 .contains("make 2 concurrent peer-created stream(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("1 peer-created stream(s) are currently open")
         );
         assert!(
             diagnostic.related[0]

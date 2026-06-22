@@ -627,6 +627,10 @@
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("stream_id", streamId),
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number(
+                        "current_open_peer_created_stream_count",
+                        attemptedCount - 1
+                    ),
                     DiagnosticDetail.number("attempted_concurrent_stream_count", attemptedCount),
                     DiagnosticDetail.number("allowed_concurrent_stream_count", allowedCount),
                     DiagnosticDetail.string("endpoint_role", endpointRole),

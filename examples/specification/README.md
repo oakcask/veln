@@ -2101,9 +2101,9 @@ against the built `veln` binary.
   checked as complete lowercase hex output, while active continuation state
   still reports the existing continuation protocol failure for an unknown
   frame. The
-  case also admits an idle peer-created stream on HEADERS, counts the tracked
-  open peer-created stream against the active concurrent-stream receive limit,
-  and reports limit exhaustion as
+  case also admits one idle peer-created stream on HEADERS, keeps that stream
+  open when a later peer-created stream would exceed the active
+  concurrent-stream receive limit, and reports limit exhaustion as
   `http2.peer_limit.concurrent_streams_exceeded`. It also accepts
   peer-created HEADERS at or below the recorded GOAWAY last stream id and
   rejects larger later HEADERS with `http2.protocol.stream_after_goaway`.
@@ -2218,13 +2218,14 @@ against the built `veln` binary.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
-  with focused concurrent-stream count, endpoint role, state,
+  with focused concurrent-stream counts, endpoint role, state,
   receive-limit provenance, and rule provenance notes.
 - `run/http2-protocol-core-concurrent-streams-json/`: the same
   concurrent-stream peer-limit failure reports
   `http2.peer_limit.concurrent_streams_exceeded` through `run --json` with
-  byte offset, stream reference, attempted and allowed counts, endpoint role,
-  active state, receive-limit provenance, and rule provenance.
+  byte offset, stream reference, current open count, attempted and allowed
+  counts, endpoint role, active state, receive-limit provenance, and rule
+  provenance.
 - `run/http2-protocol-core-header-table-human/`: an HPACK dynamic table-size
   update above the active local receive limit reports
   `http2.peer_limit.header_table_size_exceeded` through human `run` stderr
