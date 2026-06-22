@@ -1,0 +1,9 @@
+# Cancellable deadline-aware socket read host failures stay runtime failures.
+pub fn main() -> Result<(), String> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	let outcome: StreamReadOutcome = net::read_chunk_until_cancellable(stream, deadline, token)
+	Ok(())
+end

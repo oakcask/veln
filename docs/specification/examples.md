@@ -1334,6 +1334,15 @@ covers an already expired supplied deadline returning `None`,
 covers fixture-reported read deadline expiry returning `None`, and
 `../../examples/specification/run/transport-socket-read-until-clean-end/`
 covers clean stream end returning `None`. The matching
+`../../examples/specification/run/transport-socket-read-until-cancellable-boundary/`
+case covers `net::read_chunk_until_cancellable` returning `ReadChunk(bytes)`,
+`../../examples/specification/run/transport-socket-read-until-cancellable-clean-end/`
+covers clean stream end returning `ReadEnd`,
+`../../examples/specification/run/transport-socket-read-until-cancellable-deadline/`
+covers fixture-reported read deadline expiry returning `ReadDeadlineExpired`,
+and
+`../../examples/specification/run/transport-socket-read-until-cancellable-cancelled/`
+covers token cancellation returning `ReadCancelled`. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
 missing-effect diagnostics for the socket calls, including the optional
 clean-end listener accept and stream read,
@@ -1343,6 +1352,8 @@ pins the optional accept directly, and
 pins that deadline-aware accept requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-read-until-effects/`
 pins that deadline-aware read requires both `net` and `time`, and
+`../../examples/specification/check/transport-socket-read-until-cancellable-effects/`
+pins the same effect boundary for cancellable deadline-aware reads, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
 `../../examples/specification/check/socket-stream-close-effects/` case pins

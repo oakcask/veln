@@ -22,8 +22,10 @@ compiler-known calls.
   and stream calls, optional clean-end listener accepts and stream reads,
   deadline-aware listener accepts that return `None` on accept deadline
   expiry, deadline-aware stream reads that return `None` on read deadline
-  expiry or clean stream end, fixture-backed stream writes and stream close
-  recording, relative deadline calls, and cancellable deadline waits through
+  expiry or clean stream end, cancellable deadline-aware stream reads that
+  return `ReadChunk`, `ReadEnd`, `ReadDeadlineExpired`, or `ReadCancelled`
+  values, fixture-backed stream writes and stream close recording, relative
+  deadline calls, and cancellable deadline waits through
   source-visible `CancelToken` handles. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
   cancellation. The value-returning cancellable wait returns
@@ -42,7 +44,8 @@ compiler-known calls.
   through runtime-failure waits, and forced cancellable-wait cancellation
   through the runtime-failure wait are runtime failures. Forced accept failure
   through the deadline-aware optional accept path and forced read failure
-  through the deadline-aware optional read path also stay runtime failures.
+  through the deadline-aware optional and cancellable read paths also stay
+  runtime failures.
   The socket stream adapter routing context example composes an ordinary
   event value, explicit state, route metadata, and trace metadata into one
   anonymous record passed through `task::spawn_with<Result, Context>`. The

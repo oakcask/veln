@@ -195,6 +195,7 @@ net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
 net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net, time]
+net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
@@ -212,9 +213,10 @@ Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
 `net::write_chunk`, and `net::close_stream` also infer the same coarse `net`
-effect. Direct calls to `net::accept_until` and `net::read_chunk_until` infer
-both `net` and `time` because the adapter-owned accept or read attempt
-observes a `Deadline`. Direct calls to `time::timeout_ms`,
+effect. Direct calls to `net::accept_until`, `net::read_chunk_until`, and
+`net::read_chunk_until_cancellable` infer both `net` and `time` because the
+adapter-owned accept or read attempt observes a `Deadline` or `CancelToken`.
+Direct calls to `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`,
 `time::cancel_token`,
 `time::cancel`, `time::is_cancelled`, and
@@ -237,6 +239,11 @@ reads one immutable `ByteChunk` from that stream;
 a chunk before the deadline and `None` when the deadline has already expired,
 the fixture reports deadline expiry before a chunk is read, or the fixture
 stream reaches a clean end before a chunk is read;
+`net::read_chunk_until_cancellable` returns `ReadChunk(bytes)` when the
+fixture stream yields a chunk before the deadline and before cancellation,
+`ReadEnd` for clean stream end, `ReadDeadlineExpired` for supplied or
+fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
+`CancelToken` has been cancelled;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream. `net::close_stream` records
@@ -257,9 +264,11 @@ forced listen, accept, read, write, timeout, deadline expiry through
 runtime-failure waits, or cancellable-wait cancellation failures through the
 runtime-failure wait are transport runtime failures, not schema, codec, or
 peer protocol diagnostics. Forced accept failure through `net::accept_until`
-and forced read failure through `net::read_chunk_until` remain runtime
-failures; only deadline expiry reported by those optional paths becomes
-`None`.
+and forced read failure through `net::read_chunk_until` or
+`net::read_chunk_until_cancellable` remain runtime failures; only deadline
+expiry reported by those optional paths becomes `None` or
+`ReadDeadlineExpired`, and token cancellation through the cancellable read
+path becomes `ReadCancelled`.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
 The checked stream adapter cancellable routing cases use

@@ -1,0 +1,23 @@
+# Cancellable deadline-aware socket read returns a chunk before the deadline.
+fn emit_read_outcome(outcome: StreamReadOutcome) -> () effects [stdio]
+	match outcome
+		ReadChunk(bytes) => emit_chunk(bytes)
+		ReadEnd => stdio::println("end")
+		ReadDeadlineExpired => stdio::println("deadline")
+		ReadCancelled => stdio::println("cancelled")
+	end
+end
+
+fn emit_chunk(bytes: ByteChunk) -> () effects [stdio]
+	stdio::print("chunk ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	emit_read_outcome(net::read_chunk_until_cancellable(stream, deadline, token))
+	Ok(())
+end

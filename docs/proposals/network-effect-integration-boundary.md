@@ -30,10 +30,11 @@ slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   optional accept, deadline-aware optional accept, optional stream-read,
-  deadline-aware optional stream-read, ordered write lifecycle slice, and
-  checked adapter-owned listener-to-clean-stream-end, deadline-aware
-  accepted-stream lifecycle, cancellable accepted-stream lifecycle, and
-  explicit stream close lifecycle slices
+  deadline-aware optional stream-read, cancellable deadline-aware stream-read,
+  ordered write lifecycle slice, and checked adapter-owned
+  listener-to-clean-stream-end, deadline-aware accepted-stream lifecycle,
+  cancellable accepted-stream lifecycle, and explicit stream close lifecycle
+  slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle, and
   cancellable lifecycle fixtures
@@ -65,7 +66,7 @@ slices, and narrow deadline and cancellation slices, for:
   `time::cancel_token`, `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
   `time::wait_until_cancellable_outcome`, deadline-aware listener accept, and
-  deadline-aware stream read
+  deadline-aware and cancellable deadline-aware stream read
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -196,6 +197,16 @@ already expired, or the fixture stream reaches clean end before a chunk is
 read. The call infers both `net` and `time` under the existing coarse effect
 labels. Forced read failure on the same optional read path remains a runtime
 transport failure, not a protocol diagnostic.
+
+Implemented cancellable deadline-aware stream read slice: executable
+specification cases use
+`net::read_chunk_until_cancellable(stream, deadline, token)` to return
+`ReadChunk(bytes)` when a fixture stream yields a chunk before the deadline
+and before cancellation, `ReadEnd` for clean stream end,
+`ReadDeadlineExpired` for fixture-reported or supplied read deadline expiry,
+and `ReadCancelled` for source-visible token cancellation. The call infers
+the existing coarse `net` and `time` effects. Forced read failure on the same
+path remains a runtime transport failure, not a protocol diagnostic.
 
 Implemented deadline-aware accepted-stream lifecycle slice: an executable
 specification case accepts a stream with `net::accept_until`, owns that

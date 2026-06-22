@@ -340,6 +340,64 @@
         return some(unwrapOk(chunk));
     }
 
+    public static Object netReadChunkUntilCancellable(Object stream, Object deadline, Object token) {
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        CancelToken cancelToken = asCancelToken(token);
+        if (waitCancelled(cancelToken)) {
+            try {
+                writeNetEvent("read-cancelled " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamReadOutcome("ReadCancelled");
+        }
+        if (readDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("read-deadline " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamReadOutcome("ReadDeadlineExpired");
+        }
+        String input = nextNetReadChunkHexOrNull(value.id);
+        if (input == null) {
+            try {
+                writeNetEvent("read-end " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamReadOutcome("ReadEnd");
+        }
+        String sourceName = System.getenv("VELN_NET_READ_CHUNKS_HEX") != null
+            ? "VELN_NET_READ_CHUNKS_HEX"
+            : "VELN_NET_READ_CHUNK_HEX";
+        Object chunk = byteChunkFromHex(input);
+        if (isErr(chunk)) {
+            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+        }
+        try {
+            writeNetEvent("read " + value.id + " " + input);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport read failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return streamReadOutcome("ReadChunk", unwrapOk(chunk));
+    }
+
     private static boolean readDeadlineExpired(Object deadline) {
         long target = asLong(deadline);
         return forced("VELN_NET_READ_DEADLINE_EXPIRED")
@@ -634,6 +692,18 @@
 
     private static Object waitOutcome(String name) {
         return adt(name, new Object[] {});
+    }
+
+    private static Object streamReadOutcome(String name) {
+        return streamReadOutcome(name, new Object[] {});
+    }
+
+    private static Object streamReadOutcome(String name, Object payload) {
+        return streamReadOutcome(name, new Object[] { payload });
+    }
+
+    private static Object streamReadOutcome(String name, Object[] payloads) {
+        return adt("StreamReadOutcome::" + name, payloads);
     }
 
     private static NetListener asNetListener(Object value) {

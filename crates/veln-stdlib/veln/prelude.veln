@@ -323,6 +323,13 @@ pub type StreamInput
 	End
 end
 
+pub type StreamReadOutcome
+	ReadChunk(bytes: ByteChunk)
+	ReadEnd
+	ReadDeadlineExpired
+	ReadCancelled
+end
+
 pub type CancellableWaitOutcome
 	WaitCompleted
 	WaitDeadlineExpired

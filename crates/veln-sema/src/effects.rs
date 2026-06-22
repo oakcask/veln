@@ -100,6 +100,7 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
         StandardType::NetStream => Some(net_stream_type()),
         StandardType::Deadline => Some(Type::named("Deadline", Vec::new())),
         StandardType::CancelToken => Some(cancel_token_type()),
+        StandardType::StreamReadOutcome => Some(Type::named("StreamReadOutcome", Vec::new())),
         StandardType::CancellableWaitOutcome => {
             Some(Type::named("CancellableWaitOutcome", Vec::new()))
         }
