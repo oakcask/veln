@@ -3472,7 +3472,8 @@
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,
-        Object activeContinuation
+        Object activeContinuation,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long pending = asLong(pendingCount);
@@ -3483,7 +3484,8 @@
             message,
             byteOffset,
             pending,
-            continuation
+            continuation,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }
@@ -3537,7 +3539,8 @@
         Object expectedStream,
         Object startedKind,
         Object startedOffset,
-        Object activeContinuation
+        Object activeContinuation,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long frameKind = asLong(actualKind);
@@ -3555,7 +3558,8 @@
             expectedStreamId,
             startedFrameKind,
             startedByteOffset,
-            continuation
+            continuation,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }

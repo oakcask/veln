@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 expected CONTINUATION frame at byte offset 9"
+equals = "HTTP/2 input ended with 4 pending byte(s) at byte offset 0"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -28,35 +28,23 @@ equals = "protocol_diagnostic"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"
-equals = "http2.protocol.continuation_expected"
+equals = "http2.protocol.closed_with_pending"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_offset.value"
-equals = 9
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.actual_frame_kind"
 equals = 0
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.actual_stream_id"
-equals = 1
+path = "error.details.protocol_diagnostic.pending_count"
+equals = 4
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.expected_stream_id"
-equals = 1
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.started_frame_kind"
-equals = 1
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.started_byte_offset"
-equals = 0
+path = "error.details.protocol_diagnostic.input_event"
+equals = "end"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_continuation"
-equals = "headers"
+equals = "none"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.encoding"
@@ -64,16 +52,16 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "0000000000000000"
+equals = "01020304"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
-equals = 8
+equals = 4
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
-equals = 9
+equals = 4
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
-equals = true
+equals = false

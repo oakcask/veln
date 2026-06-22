@@ -687,10 +687,10 @@ byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, fiel
 byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
 byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
 byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
-http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
+http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
 http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), String>
-http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
+http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>

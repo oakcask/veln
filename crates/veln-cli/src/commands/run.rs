@@ -621,6 +621,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 diagnostic.related.push(note_json(format!(
                     "Input end arrived while {pending_count} byte(s) remained undecoded."
                 )));
+                push_byte_preview_note(&mut diagnostic, self.entries);
                 diagnostic.related.push(note_json(format!(
                     "Active continuation state: {active_continuation}."
                 )));
@@ -671,6 +672,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 diagnostic.related.push(note_json(format!(
                     "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}."
                 )));
+                push_byte_preview_note(&mut diagnostic, self.entries);
                 Some(diagnostic)
             }
             _ => None,
@@ -2737,6 +2739,7 @@ mod tests {
             ("pending_count", JsonValue::Number(4)),
             ("input_event", JsonValue::string("end")),
             ("active_continuation", JsonValue::string("none")),
+            ("byte_preview", byte_preview("01020304")),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 input ended with 4 pending byte(s) at byte offset 0".to_string(),
@@ -2753,13 +2756,18 @@ mod tests {
             diagnostic.message,
             "input ended with pending bytes at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(diagnostic.related.len(), 3);
         assert!(
             diagnostic.related[0]
                 .to_json()
                 .contains("4 byte(s) remained undecoded")
         );
-        assert!(diagnostic.related[1].to_json().contains("none"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("01 02 03 04 (showing 4 of 4 byte(s), complete)")
+        );
+        assert!(diagnostic.related[2].to_json().contains("none"));
     }
 
     #[test]
@@ -2915,6 +2923,10 @@ mod tests {
             ("started_frame_kind", JsonValue::Number(1)),
             ("started_byte_offset", JsonValue::Number(0)),
             ("active_continuation", JsonValue::string("headers")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000000000000", 9, true),
+            ),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 expected CONTINUATION frame at byte offset 9".to_string(),
@@ -2931,7 +2943,7 @@ mod tests {
             diagnostic.message,
             "expected CONTINUATION frame at byte offset 9"
         );
-        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(diagnostic.related.len(), 3);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -2941,6 +2953,11 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("frame kind 1 at byte offset 0")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("00 00 00 00 00 00 00 00 (showing 8 of 9 byte(s), truncated)")
         );
     }
 

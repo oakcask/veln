@@ -185,6 +185,9 @@ compare it with `../specification/` before changing behavior.
   HTTP/2 invalid DATA padding projection, the HTTP/2 PRIORITY self-dependency
   projection with protocol-owned payload byte preview, the HTTP/2 unexpected
   SETTINGS ACK projection with protocol-owned frame-header byte preview, the
+  HTTP/2 continuation-ordering projection with protocol-owned frame-header
+  byte preview, the HTTP/2 pending-byte close projection with retained-byte
+  preview, the
   explicit
   HTTP/2 protocol diagnostic projection boundary for focused protocol and
   peer-limit failures, including post-GOAWAY stream rejection, fixed

@@ -442,9 +442,10 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
     types: &BytePreludeTypes<T>,
 ) -> Option<ByteSignature<T>> {
     match name {
-        "http2_protocol_closed_with_pending" => {
-            Some((vec![T::int(), T::int(), T::string()], unit_result()))
-        }
+        "http2_protocol_closed_with_pending" => Some((
+            vec![T::int(), T::int(), T::string(), types.byte_view.clone()],
+            unit_result(),
+        )),
         "http2_protocol_partial_preface" => Some((
             vec![T::int(), T::int(), types.byte_view.clone()],
             unit_result(),
@@ -468,6 +469,7 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
                 T::int(),
                 T::int(),
                 T::string(),
+                types.byte_view.clone(),
             ],
             unit_result(),
         )),

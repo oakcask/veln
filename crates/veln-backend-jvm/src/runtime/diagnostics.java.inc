@@ -116,7 +116,8 @@
         String message,
         long byteOffset,
         long pendingCount,
-        String activeContinuation
+        String activeContinuation,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -126,7 +127,8 @@
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("pending_count", pendingCount),
                     DiagnosticDetail.string("input_event", "end"),
-                    DiagnosticDetail.string("active_continuation", activeContinuation)
+                    DiagnosticDetail.string("active_continuation", activeContinuation),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );
@@ -189,7 +191,8 @@
         long expectedStream,
         long startedKind,
         long startedOffset,
-        String activeContinuation
+        String activeContinuation,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -202,7 +205,8 @@
                     DiagnosticDetail.number("expected_stream_id", expectedStream),
                     DiagnosticDetail.number("started_frame_kind", startedKind),
                     DiagnosticDetail.number("started_byte_offset", startedOffset),
-                    DiagnosticDetail.string("active_continuation", activeContinuation)
+                    DiagnosticDetail.string("active_continuation", activeContinuation),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
                 )
             )
         );

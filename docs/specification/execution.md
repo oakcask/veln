@@ -1332,8 +1332,10 @@ execution reference.
   outstanding local SETTINGS state, and graceful shutdown state. It validates the
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
-  failures for different frame kinds and stream ids, closed input while a
-  header block remains pending, completed HEADERS and multi-frame
+  failures for different frame kinds and stream ids with the inspected frame
+  header available for diagnostics, closed input while a header block remains
+  pending with retained pending bytes available for diagnostics, completed
+  HEADERS and multi-frame
   CONTINUATION header-block output, incoming frame payloads that exceed the
   active receive maximum frame size, received `SETTINGS_ENABLE_PUSH`,
   `SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,

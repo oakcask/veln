@@ -58,18 +58,20 @@ requiring the full command reference on the first read.
   SETTINGS value range peer-limit, stream id domain
   failures with bounded frame-header byte previews, invalid connection-state
   and stream-state frame-kind failures with bounded frame-header byte
-  previews, unexpected SETTINGS ACK failures with bounded frame-header byte
-  previews, and fixed payload-length failures
+  previews, continuation-ordering and pending-byte close failures with
+  bounded protocol-owned byte previews, unexpected SETTINGS ACK failures with
+  bounded frame-header byte previews, and fixed payload-length failures
   including SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`,
   plus invalid DATA padding, with bounded payload byte-preview notes,
   and run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
   command rules. Human schema-owned byte diagnostics and HTTP/2 client
-  connection preface protocol diagnostics render preview bytes as bounded
-  lowercase hex pairs grouped with spaces and keep byte offsets, field paths,
-  expected counts, actual counts, accepted ranges, actual values, matched
-  prefix counts, byte values, and rule provenance in separate notes or
+  connection preface, continuation-ordering, and pending-byte close protocol
+  diagnostics render preview bytes as bounded lowercase hex pairs grouped
+  with spaces and keep byte offsets, field paths, expected counts, actual
+  counts, accepted ranges, actual values, matched prefix counts, byte values,
+  active continuation state, and rule provenance in separate notes or
   structured details. Generated binary schema encode diagnostics and
   `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
   message on the failed encode fact and put field path, reason or predicate
