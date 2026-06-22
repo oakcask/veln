@@ -1299,6 +1299,8 @@ execution reference.
   `examples/specification/run/codec-decode-invalid-boundary-json/`,
   `examples/specification/run/codec-decode-invalid-step-human/`,
   `examples/specification/run/codec-decode-invalid-step-json/`,
+  `examples/specification/run/codec-decode-need-end-human/`,
+  `examples/specification/run/codec-decode-need-end-json/`,
   `examples/specification/run/codec-decode-need-more-human/`, and
   `examples/specification/run/codec-decode-need-more-json/`.
 - A codec declaration with a valid hand-written `encode with function_name`

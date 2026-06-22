@@ -1,0 +1,5 @@
+# Source-visible DecodeStep NeedEnd entries project focused human diagnostics.
+
+pub fn main() -> DecodeStep<Int>
+	NeedMore(NeedEnd)
+end

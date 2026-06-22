@@ -184,6 +184,11 @@ command-facing projection when a `veln run` entry returns
 `NeedMore(NeedBytes(...))` at a closed-input reporting boundary: human output
 reports `codec.incomplete_input` with readiness and requested-byte context in
 related notes, and `run --json` attaches `details.byte_diagnostic`.
+The executable specification cases
+`../../examples/specification/run/codec-decode-need-end-human/` and
+`../../examples/specification/run/codec-decode-need-end-json/` cover the
+same command-facing projection for `NeedMore(NeedEnd)` without requested-byte
+context.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

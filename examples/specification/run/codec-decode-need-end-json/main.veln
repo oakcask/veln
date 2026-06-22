@@ -1,0 +1,5 @@
+# Source-visible DecodeStep NeedEnd entries populate incomplete-input JSON.
+
+pub fn main() -> DecodeStep<Int>
+	NeedMore(NeedEnd)
+end

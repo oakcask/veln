@@ -339,6 +339,8 @@ ordinary successful entry value. The checked examples are
 `examples/specification/run/codec-decode-consumed-count-invalid-json/`,
 `examples/specification/run/codec-decode-invalid-step-human/`,
 `examples/specification/run/codec-decode-invalid-step-json/`,
+`examples/specification/run/codec-decode-need-end-human/`,
+`examples/specification/run/codec-decode-need-end-json/`,
 `examples/specification/run/codec-decode-need-more-human/`, and
 `examples/specification/run/codec-decode-need-more-json/`.
 

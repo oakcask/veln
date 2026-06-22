@@ -90,7 +90,10 @@ implemented as `codec.incomplete_input` at the closed-input reporting
 boundary, with readiness and requested byte count details in `run --json` and
 focused human diagnostics checked by
 `../../examples/specification/run/codec-decode-need-more-json/` and
-`../../examples/specification/run/codec-decode-need-more-human/`.
+`../../examples/specification/run/codec-decode-need-more-human/`, plus the
+`NeedEnd` readiness cases in
+`../../examples/specification/run/codec-decode-need-end-json/` and
+`../../examples/specification/run/codec-decode-need-end-human/`.
 Successful `Decoded(...)` entry values remain ordinary values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
