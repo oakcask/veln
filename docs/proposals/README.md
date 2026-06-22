@@ -240,9 +240,9 @@ compare it with `../specification/` before changing behavior.
   read, cancellable deadline-aware stream read, adapter-owned
   listener-to-clean-stream-end lifecycle, context-based
   `task::spawn_with<Result, Context>` handler spawn,
-  deadline-aware accepted-stream lifecycle, cancellable accepted-stream
-  lifecycle, cancellable deadline-aware accepted-stream lifecycle, stream
-  close lifecycle, bounded receiver-list channel-first routing through the
+  accepted-stream lifecycle variants for deadline-aware, cancellable, and
+  cancellable deadline-aware adapters, stream close lifecycle, bounded
+  receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result

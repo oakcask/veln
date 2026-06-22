@@ -380,11 +380,11 @@ or the pure protocol core.
   handler task, adapter-level cancellable stream routing, and the general
   receiver-list stream routing abstraction that replaces route-count fixture
   growth;
-  remaining examples still need richer deadline and cancellation APIs beyond
-  the narrow relative `Deadline` boundary,
-  `CancelToken` boundary, cancellation status-query boundary, and cancellable
-  wait-outcome boundary, and the cancellable deadline-aware listener accept,
-  stream read, and accepted-stream lifecycle boundaries.
+  remaining examples still need production lifecycle coverage and richer
+  deadline and cancellation APIs beyond the current relative `Deadline`,
+  `CancelToken`, cancellation status-query, cancellable wait-outcome,
+  cancellable deadline-aware listener accept, stream read, and accepted-stream
+  lifecycle boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
