@@ -1780,6 +1780,11 @@ against the built `veln` binary.
   boundary's stable `codec.consumed_count_invalid` decode failure projects
   through focused human diagnostics and `run --json`
   `details.byte_diagnostic` without being treated as retryable readiness.
+- `run/codec-decode-invalid-boundary-human/` and
+  `run/codec-decode-invalid-boundary-json/`: a hand-written codec boundary
+  returns a codec-owned `Invalid(DecodeErrorWithReason(...))`, and `veln run`
+  projects the contained decode error and reason through focused human
+  diagnostics and `run --json` `details.byte_diagnostic`.
 - `run/codec-decode-invalid-step-human/` and
   `run/codec-decode-invalid-step-json/`: when a `veln run` entry returns
   `Invalid(DecodeError(...))`, `veln run` projects the contained decode error

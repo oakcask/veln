@@ -9120,6 +9120,7 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "    NeedMore(prelude::DecodeReadiness::NeedBytes(count)) => int_to_string(byte_count_to_int(count))\n",
             "    NeedMore(prelude::NeedEnd) => \"end\"\n",
             "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
+            "    prelude::DecodeStep::Invalid(DecodeErrorWithReason(id, _, _, _)) => id\n",
             "  end\n",
             "end\n",
             "fn encode_label(step: EncodeStep<String>) -> String\n",

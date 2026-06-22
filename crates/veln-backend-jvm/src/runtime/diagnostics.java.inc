@@ -1379,15 +1379,19 @@
     }
 
     public static void registerDecodeErrorByteDiagnostic(Object value, String message) {
-        if (!isAdtNamed(value, "DecodeError::DecodeError")) {
+        if (!isAdtNamed(value, "DecodeError::DecodeError")
+            && !isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
             return;
         }
-        Adt error = asAdt(value, "DecodeError::DecodeError");
+        Adt error = (Adt) value;
         String id = asString(error.payloads[0]);
         long byteOffset = byteOffsetLong(error.payloads[1]);
         String fieldPath = asString(error.payloads[2]);
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
+        if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
+            details.add(DiagnosticDetail.string("reason", asString(error.payloads[3])));
+        }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
         byteDiagnostics.get().put(
             message,

@@ -545,6 +545,7 @@ end
 
 type DecodeError
 	DecodeError(id: String, offset: ByteOffset, field_path: String)
+	DecodeErrorWithReason(id: String, offset: ByteOffset, field_path: String, reason: String)
 end
 
 type DecodeReadiness

@@ -82,6 +82,7 @@ fn error_id(step: DecodeStep<{count: Int, item_length: Int, items: List<ByteView
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
 		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
 	end
 end
 
@@ -90,6 +91,7 @@ fn error_offset(step: DecodeStep<{count: Int, item_length: Int, items: List<Byte
 		Decoded(_, _) => -1
 		NeedMore(_) => -1
 		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
 	end
 end
 
@@ -98,6 +100,7 @@ fn error_path(step: DecodeStep<{count: Int, item_length: Int, items: List<ByteVi
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
 		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
 	end
 end
 

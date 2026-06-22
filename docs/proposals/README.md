@@ -197,7 +197,8 @@ compare it with `../specification/` before changing behavior.
   for `EncodeStep::Invalid(EncodeError(...))` entry results,
   command-facing projection for
   `DecodeStep::Invalid(DecodeError(...))` and `DecodeStep::NeedMore(...)`
-  entry results, generated binary
+  entry results, reason-carrying hand-written codec invalid-input decode
+  projection, generated binary
   schema decode integer range failures, generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures and their

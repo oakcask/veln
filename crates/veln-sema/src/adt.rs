@@ -862,26 +862,52 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "DecodeError".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
-            variants: vec![AdtVariantDescriptor {
-                name: "DecodeError".to_string(),
-                kind: AdtVariantKind::Source,
-                payload_fields: vec![
-                    AdtPayloadField {
-                        name: "id".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::string()),
-                    },
-                    AdtPayloadField {
-                        name: "offset".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
-                    },
-                    AdtPayloadField {
-                        name: "field_path".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::string()),
-                    },
-                ],
-                coverage_case: "DecodeError(_)".to_string(),
-                visibility: Visibility::Public,
-            }],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "DecodeError".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
+                        },
+                        AdtPayloadField {
+                            name: "field_path".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                    ],
+                    coverage_case: "DecodeError(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "DecodeErrorWithReason".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
+                        },
+                        AdtPayloadField {
+                            name: "field_path".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "reason".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                    ],
+                    coverage_case: "DecodeErrorWithReason(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
             diagnostic_name: "decodeerror".to_string(),
             propagation: None,
             visibility: Visibility::Public,

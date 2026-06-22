@@ -1,0 +1,55 @@
+# Hand-written codec invalid-input failures project focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+end
+
+codec ManualPacketCodec for ManualPacketWire decode
+	decode with decode_manual_packet
+end
+
+fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
+	match byte_offset(byte_offset_to_int(base) + local)
+		Ok(offset) => offset
+		Err(_) => base
+	end
+end
+
+fn decode_manual_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	match byte_count(3)
+		Ok(consumed) => match byte_read_u16_be(input)
+			Ok(length) => decode_kind(input, base, consumed, length)
+			Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.length"))
+		end
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire"))
+	end
+end
+
+fn decode_kind(input: ByteView, base: ByteOffset, consumed: ByteCount, length: Int) -> DecodeStep<{length: Int, kind: Int}>
+	match byte_count(2)
+		Ok(local_kind) => match byte_view_drop(input, local_kind)
+			Ok(kind_view) => decode_validated_kind(base, consumed, length, kind_view)
+			Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.kind"))
+		end
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.kind"))
+	end
+end
+
+fn decode_validated_kind(base: ByteOffset, consumed: ByteCount, length: Int, kind_view: ByteView) -> DecodeStep<{length: Int, kind: Int}>
+	match byte_read_u8_be(kind_view)
+		Ok(kind) => match kind <= length
+			true => Decoded({length: length, kind: kind}, consumed)
+			false => Invalid(DecodeErrorWithReason("codec.invalid_input", absolute_offset(base, 2), "ManualPacketWire.kind", "kind value exceeds declared length"))
+		end
+		Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.kind"))
+	end
+end
+
+pub fn main() -> DecodeStep<{length: Int, kind: Int}>
+	let bytes: ByteChunk = byte_chunk_from_hex("000107")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	ManualPacketCodec(view, byte_offset(60)?)
+end

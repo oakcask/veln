@@ -69,12 +69,15 @@ implemented when a `veln run` entry returns
 remain ordinary values. Command-facing projection for
 `DecodeStep::Invalid(DecodeError(...))` entry results is implemented;
 `veln run` human output reports a focused runtime diagnostic at the contained
-byte offset with field-path and source-visible value notes, and
-`veln run --json` attaches
-`details.byte_diagnostic` with the contained id, byte offset, and field path
+byte offset with field-path, optional reason, and source-visible value notes,
+and `veln run --json` attaches
+`details.byte_diagnostic` with the contained id, byte offset, field path, and
+optional reason
 as specified under `../specification/run-json.md`,
 `../specification/commands.md`, and `../specification/execution.md` and
 checked by
+`../../examples/specification/run/codec-decode-invalid-boundary-json/`,
+`../../examples/specification/run/codec-decode-invalid-boundary-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/` and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
