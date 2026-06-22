@@ -268,6 +268,9 @@ implemented in
 The explicit stream close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-close-boundary.md`.
 
+The source-visible ordered chunk-list write slice is recorded as implemented
+in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
+
 The production-loopback listen, sequential accept, read, write, clean listener
 end, close lifecycle, and two-stream adapter handler/action lifecycle slices
 are recorded as implemented in

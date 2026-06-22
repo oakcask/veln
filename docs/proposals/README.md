@@ -253,6 +253,9 @@ compare it with `../specification/` before changing behavior.
   selection, and two-receiver cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.
+  The completed source-visible ordered `net::write_chunks` chunk-list write
+  slice is archived under
+  [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
 
 ## Update When
 
