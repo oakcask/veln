@@ -2078,11 +2078,11 @@ against the built `veln` binary.
   `http2.peer_limit.concurrent_streams_exceeded`. It also accepts
   peer-created HEADERS at or below the recorded GOAWAY last stream id and
   rejects larger later HEADERS with `http2.protocol.stream_after_goaway`.
-  The outbound HEADERS send-intent slice also accepts an open stream at the
-  recorded GOAWAY boundary and rejects a higher open stream with the same
-  diagnostic before frame-size or encode checks. Stream id domain failures
-  and closed stream-state failures still report before the GOAWAY-specific
-  check. It also accepts
+  The outbound HEADERS send-intent slice also accepts an open stream at a
+  recorded received or locally sent GOAWAY boundary and rejects a higher open
+  stream with the same diagnostic before frame-size or encode checks. Stream
+  id domain failures and closed stream-state failures still report before the
+  GOAWAY-specific check. It also accepts
   `RST_STREAM` on the tracked open stream, records the reset error code,
   clears the open stream, and rejects later DATA or stream-level
   `WINDOW_UPDATE` for that reset stream through the existing invalid
@@ -2297,6 +2297,10 @@ against the built `veln` binary.
   stream-state failure reports `http2.protocol.stream_after_goaway` through
   `run --json` with byte offset, stream reference, last stream id, shutdown
   state, endpoint role, active state, and rule provenance.
+- `run/http2-protocol-core-local-stream-after-goaway-human/` and
+  `run/http2-protocol-core-local-stream-after-goaway-json/`: the same
+  post-GOAWAY diagnostic preserves `endpoint_role` as `local` for the
+  outbound send-intent boundary after a locally sent GOAWAY.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

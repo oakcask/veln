@@ -1766,8 +1766,8 @@ execution reference.
   follows the existing closed stream-state boundary. Stream id `0`, missing
   streams, closed streams, already reset streams, mismatched open streams, and
   generated frame-header representation failures are rejected before accepted
-  output bytes are produced. After receiving GOAWAY,
-  outbound HEADERS for an open stream id greater than the recorded
+  output bytes are produced. After receiving GOAWAY or after locally sending
+  GOAWAY, outbound HEADERS for an open stream id greater than the recorded
   last-stream-id are rejected with `http2.protocol.stream_after_goaway`
   before frame splitting or encode checks; HEADERS for an open stream at the
   boundary remain accepted, and stream id zero plus closed stream cases keep
@@ -1803,7 +1803,9 @@ execution reference.
   accepted intent
   records local graceful-shutdown state so a later peer-created HEADERS stream
   greater than the sent last stream id is rejected through the post-GOAWAY
-  stream rule. Last-stream-id and error-code values outside the generated
+  stream rule, and later local outbound HEADERS above the sent last stream id
+  are rejected through the same rule before frame splitting or encode checks.
+  Last-stream-id and error-code values outside the generated
   schema payload helper's representable ranges stay as
   `codec.encode_value_unrepresentable` failures with the generated field path
   before accepted output bytes are produced.

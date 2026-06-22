@@ -3873,6 +3873,14 @@ fn outbound_headers_receive_credit(decision: OutboundHeadersDecision) -> Outboun
 	end
 end
 
+fn outbound_headers_failure(decision: OutboundHeadersDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundHeadersAccepted(_, _, _, _, _) => ClosedWithPending(0, 0)
+		OutboundHeadersRejected(_, _, _, failure) => failure
+		OutboundHeadersEncodeFailed(_, _, _, _) => ClosedWithPending(0, 0)
+	end
+end
+
 fn outbound_headers_encode_path(decision: OutboundHeadersDecision) -> String
 	match decision
 		OutboundHeadersAccepted(_, _, _, _, _) => "none"
@@ -6879,6 +6887,14 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	print_outbound_headers("outbound-headers-after-goaway-zero", outbound_headers_after_goaway_zero)
 	let outbound_headers_after_goaway_closed: OutboundHeadersDecision = send_headers_with_shutdown(7, byte_chunk_from_hex("82")?, false, empty_peer_settings(), state_shutdown_state_value(step_state(received_goaway)), outbound_receive_credit_with_closed_stream(10, 7))?
 	print_outbound_headers("outbound-headers-after-goaway-closed", outbound_headers_after_goaway_closed)
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
+	let outbound_headers_after_local_goaway_allowed: OutboundHeadersDecision = send_headers_with_shutdown(5, byte_chunk_from_hex("82")?, false, empty_peer_settings(), local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_headers("outbound-headers-after-local-goaway-allowed", outbound_headers_after_local_goaway_allowed)
+	let ignored_headers_after_local_goaway_allowed_chunk: () = print_outbound_headers_chunk("http2-headers-after-local-goaway-allowed", outbound_headers_after_local_goaway_allowed, "00000101040000000582")?
+	let outbound_headers_after_local_goaway_late: OutboundHeadersDecision = send_headers_with_shutdown(7, byte_chunk_from_hex("82848687")?, false, small_peer_max_frame_size_settings(3), local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_headers("outbound-headers-after-local-goaway-late", outbound_headers_after_local_goaway_late)
+	print_goaway_stream_failure("outbound-headers-after-local-goaway-late", Failed(frame_state(), outbound_headers_failure(outbound_headers_after_local_goaway_late)))
 	Ok(())
 end
 

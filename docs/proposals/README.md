@@ -201,8 +201,9 @@ compare it with `../specification/` before changing behavior.
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, two-open-stream receive flow-control, send-intent,
-  `RST_STREAM`, PRIORITY, PING, GOAWAY, server-side `PUSH_PROMISE`
-  rejection, server-side outbound `PUSH_PROMISE` send-intent, and
+  `RST_STREAM`, PRIORITY, PING, GOAWAY, local GOAWAY outbound HEADERS
+  boundary, server-side `PUSH_PROMISE` rejection, server-side outbound
+  `PUSH_PROMISE` send-intent, and
   half-closed-by-peer outbound DATA send-intent slices,
   request-side and response-side header-list validation, the source-visible
   `te` header value rule, the `content-length` header-list consistency slice,

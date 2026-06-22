@@ -446,11 +446,11 @@ frame-kind and stream-state facts stay in their own fields; the checked HTTP/2
 examples cover connection-control, idle-stream, reset-stream, and
 closed-by-peer stream state failures, plus peer-sent `PUSH_PROMISE` rejection
 on a nonzero stream.
-After receiving GOAWAY, a peer-created HEADERS stream or local outbound
-HEADERS send-intent greater than the recorded last stream id uses id
-`http2.protocol.stream_after_goaway` and records `byte_offset.value`,
-`stream_id`, `stream_ref`, `last_stream_id`, `shutdown_state`,
-`endpoint_role`, `active_state`, and `rule_provenance`.
+After receiving GOAWAY or after locally sending GOAWAY, a peer-created
+HEADERS stream or local outbound HEADERS send-intent greater than the recorded
+last stream id uses id `http2.protocol.stream_after_goaway` and records
+`byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
+`shutdown_state`, `endpoint_role`, `active_state`, and `rule_provenance`.
 Wrong-length protocol payloads use id
 `http2.protocol.invalid_payload_length` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,
