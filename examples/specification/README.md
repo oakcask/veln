@@ -272,6 +272,12 @@ against the built `veln` binary.
 - `run/binary-schema-mapping-bool-composition-decode/`: generated binary
   schema decode composes supported `Bool` mapping comparisons with `and`,
   `or`, and `not`.
+- `run/binary-schema-mapping-ordered-comparison-decode/`: generated binary
+  schema decode computes `Bool` target fields with ordered `Int` mapping
+  comparisons, including converter-call and arithmetic operands.
+- `run/binary-schema-mapping-ordered-selection-decode/`: generated binary
+  schema decode selects structural mappings with ordered decoded-field
+  selector comparisons.
 - `run/binary-schema-mapping-converter-arithmetic-decode/`: generated binary
   schema decode computes `Int` target fields with same-module converter calls
   as mapping arithmetic operands.
@@ -292,6 +298,9 @@ against the built `veln` binary.
 - `check/schema-mapping-bool-comparison-diagnostics/`: Bool comparison schema
   mapping assignment values report non-`Int` operands, non-`Bool` targets, and
   unsupported comparison and boolean-composition operand diagnostics.
+- `check/schema-mapping-ordered-comparison-diagnostics/`: ordered comparison
+  schema mapping assignment values report non-`Int` operands, non-`Bool`
+  targets, and unsupported ordered-comparison operand diagnostics.
 - `check/schema-mapping-converter-diagnostics/`: converter-shaped schema
   mapping assignment values report unresolved converter, arity, input type,
   return type, purity, and unsupported converter argument expression
