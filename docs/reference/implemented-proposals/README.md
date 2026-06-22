@@ -122,6 +122,8 @@ behavior.
   [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
 - HTTP/2 outbound DATA flow control:
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
+- HTTP/2 outbound DATA GOAWAY boundary:
+  [http2-outbound-data-goaway-boundary.md](http2-outbound-data-goaway-boundary.md).
 - HTTP/2 half-closed-by-peer outbound DATA:
   [http2-half-closed-by-peer-outbound-data.md](http2-half-closed-by-peer-outbound-data.md).
 - HTTP/2 request header validation:

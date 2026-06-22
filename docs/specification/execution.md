@@ -1786,6 +1786,13 @@ execution reference.
   local `END_STREAM` then records closed-stream state so later outbound DATA
   and stream-level outbound `WINDOW_UPDATE` use the closed stream-state
   rejection boundary.
+  After receiving GOAWAY or after locally sending GOAWAY, outbound DATA for
+  an open stream id greater than the recorded last-stream-id is rejected with
+  `http2.protocol.stream_after_goaway` before frame-size splitting, encode
+  checks, or outbound credit changes. DATA for an open stream at the recorded
+  boundary remains accepted, while missing-stream, closed-stream,
+  reset-stream, and mismatched-stream intents keep their narrower existing
+  failures.
   Later outbound DATA, outbound HEADERS, and stream-level outbound
   `WINDOW_UPDATE` for that stream follow the existing closed stream-state
   rejection boundary.
