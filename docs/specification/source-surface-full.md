@@ -712,7 +712,9 @@ Implemented expressions:
   `task::spawn_with<Item, Context>(job, context)`, `task::join(task)`,
   and `task::cancel(task)`
 - network and time boundary calls: `net::receive_chunk()`,
-  `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,
+  `net::send_chunk(bytes)`,
+  `net::read_chunk_until_cancellable(stream, deadline, token)`,
+  `time::timeout_ms(milliseconds)`,
   `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
   `time::cancel_token()`, `time::cancel(token)`, and
   `time::is_cancelled(token)`, `time::wait_until_cancellable(deadline, token)`,

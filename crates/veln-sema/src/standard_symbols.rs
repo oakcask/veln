@@ -37,6 +37,7 @@ pub(crate) enum StandardType {
     NetStream,
     Deadline,
     CancelToken,
+    StreamReadOutcome,
     CancellableWaitOutcome,
     Vec(&'static StandardType),
     Option(&'static StandardType),
@@ -66,6 +67,7 @@ const FS_ERROR_TYPE: StandardType = StandardType::FsError;
 const PROCESS_ERROR_TYPE: StandardType = StandardType::ProcessError;
 const BYTE_CHUNK_TYPE: StandardType = StandardType::ByteChunk;
 const NET_STREAM_TYPE: StandardType = StandardType::NetStream;
+const STREAM_READ_OUTCOME_TYPE: StandardType = StandardType::StreamReadOutcome;
 const RESULT_STRING_FS_ERROR_TYPE: StandardType =
     StandardType::Result(&STRING_TYPE, &FS_ERROR_TYPE);
 const RESULT_UNIT_FS_ERROR_TYPE: StandardType = StandardType::Result(&UNIT_TYPE, &FS_ERROR_TYPE);
@@ -89,6 +91,11 @@ const PARAM_NET_LISTENER_DEADLINE: &[StandardType] =
 const PARAM_NET_STREAM: &[StandardType] = &[StandardType::NetStream];
 const PARAM_NET_STREAM_DEADLINE: &[StandardType] =
     &[StandardType::NetStream, StandardType::Deadline];
+const PARAM_NET_STREAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
+    StandardType::NetStream,
+    StandardType::Deadline,
+    StandardType::CancelToken,
+];
 const PARAM_NET_STREAM_BYTE_CHUNK: &[StandardType] =
     &[StandardType::NetStream, StandardType::ByteChunk];
 const PARAM_INT: &[StandardType] = &[StandardType::Int];
@@ -345,6 +352,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         StandardSignature {
             params: PARAM_NET_STREAM_DEADLINE,
             return_type: OPTION_BYTE_CHUNK_TYPE,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "read_chunk_until_cancellable",
+        NET_TIME_EFFECTS,
+        "runtime.net.read_chunk_until_cancellable",
+        StandardSignature {
+            params: PARAM_NET_STREAM_DEADLINE_CANCEL_TOKEN,
+            return_type: STREAM_READ_OUTCOME_TYPE,
         },
     ),
     runtime_symbol_with_signature(

@@ -777,6 +777,47 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "StreamReadOutcome".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "ReadChunk".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "bytes".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                    }],
+                    coverage_case: "ReadChunk(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "ReadEnd".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "ReadEnd".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "ReadDeadlineExpired".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "ReadDeadlineExpired".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "ReadCancelled".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "ReadCancelled".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "streamreadoutcome".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "DecodeError".to_string(),
             module_name: None,
             type_parameters: Vec::new(),

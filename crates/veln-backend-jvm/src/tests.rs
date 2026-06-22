@@ -2020,6 +2020,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::accept_until", "netAcceptUntil"),
         ("net::read_chunk", "netReadChunk"),
         ("net::read_chunk_until", "netReadChunkUntil"),
+        (
+            "net::read_chunk_until_cancellable",
+            "netReadChunkUntilCancellable",
+        ),
         ("net::read_chunk_or_end", "netReadChunkOrEnd"),
         ("net::write_chunk", "netWriteChunk"),
         ("net::close_stream", "netCloseStream"),

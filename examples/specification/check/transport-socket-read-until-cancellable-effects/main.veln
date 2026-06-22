@@ -1,0 +1,8 @@
+# Cancellable deadline-aware socket reads require both net and time effects.
+pub fn read_until_cancellable_missing_time(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net]
+	net::read_chunk_until_cancellable(stream, deadline, token)
+end
+
+pub fn read_until_cancellable_missing_net(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [time]
+	net::read_chunk_until_cancellable(stream, deadline, token)
+end

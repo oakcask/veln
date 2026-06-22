@@ -11,8 +11,9 @@ Implemented type annotations:
 - built-in and descriptor-backed type constructors: `Option<T>`,
   `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
 - standard prelude byte and codec vocabulary names: `Byte`, `ByteChunk`,
-  `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, `DecodeStep<T>`,
-  `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
+  `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
+  `StreamReadOutcome`, `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`,
+  `EncodeStep<TState>`, and `EncodeError`
 - records: `{name: Type, ...}`
 - function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
   with optional `effects [name, ...]`
@@ -37,10 +38,13 @@ The standard prelude byte vocabulary uses `Byte` for one byte value,
 `ByteChunk` for an immutable owned byte sequence, `ByteView` for a bounded
 immutable view into byte data, `ByteCount` for byte lengths and consumed or
 produced counts, `ByteOffset` for absolute byte offsets, `StreamInput` for
-incremental input events, and `DecodeStep<T>` and `EncodeStep<TState>` for
-ordinary source-visible codec boundary values. `StreamInput` is a public ADT
-with `Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk`
-inside `Chunk` remains a chunk arrival and is not equivalent to `End`.
+incremental input events, `StreamReadOutcome` for adapter-owned stream read
+decisions, and `DecodeStep<T>` and `EncodeStep<TState>` for ordinary
+source-visible codec boundary values. `StreamInput` is a public ADT with
+`Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk` inside
+`Chunk` remains a chunk arrival and is not equivalent to `End`.
+`StreamReadOutcome` is a public ADT with `ReadChunk(bytes: ByteChunk)`,
+`ReadEnd`, `ReadDeadlineExpired`, and `ReadCancelled` variants.
 `EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
 variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
 carries the encoder state as `TState`. Prelude helpers also construct and
