@@ -118,7 +118,8 @@ spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported packed
 reserved prefix or suffix paired with a visible unsigned field, and supported
 reserved prefix groups followed by two visible sub-byte or byte-width
-unsigned fields in one-byte, two-byte, or three-byte big-endian storage.
+unsigned fields in one-byte, two-byte, three-byte, four-byte, or five-byte
+big-endian storage.
 Binary schema
 fields
 also accept `Repeat(count_field, Payload)` when `count_field` names a
@@ -276,7 +277,7 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 `UIntN`,
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
-twenty-four, or thirty-two bits,
+twenty-four, thirty-two, or forty bits,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
