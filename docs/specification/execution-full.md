@@ -252,7 +252,7 @@ with the schema and target-field path. A `Bool` mapping assignment may use
 may compose those supported comparisons with `and`, `or`, and `not`. A mapping
 assignment may also call one pure same-module converter
 function or one imported public pure converter function through a written
-`use` path or alias with one, two, or three arguments. Each argument must be
+`use` path or alias with one, two, three, or four arguments. Each argument must be
 either one decoded schema-local field or an already implemented structural
 mapping expression made from decoded schema fields, records, ADT constructors,
 integer arithmetic mapping expressions, and nested combinations of those forms

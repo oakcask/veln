@@ -184,7 +184,7 @@ literals, `Int`-returning converter calls, or nested supported integer
 arithmetic mapping expressions. A `Bool` target field may use `==` and `!=`
 between decoded schema-local `Int` fields and integer literals, and may
 compose those supported comparisons with `and`, `or`, and `not`. Converter
-calls take one, two, or three
+calls take one, two, three, or four
 arguments. Each argument is either a schema-local field reference or an
 already implemented structural mapping expression made from schema-local
 fields, records, ADT constructors, supported integer arithmetic mapping
@@ -291,10 +291,16 @@ two-argument converter calls.
 The checked acceptance case
 `../../examples/specification/check/schema-three-argument-mapping-converters/`
 pins same-module and imported public three-argument converter calls.
+The checked runtime cases
+`../../examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`
+pin same-module and imported public four-argument converter calls through
+generated decode mapping.
 The checked diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-pins unsupported four-argument converter calls, rejected third arguments, and
-nested converter calls inside three-argument converter calls.
+pins unsupported five-argument converter calls, rejected fourth arguments, and
+nested converter calls inside four-argument converter calls.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
