@@ -1,0 +1,13 @@
+schema FiveBytePrefixReservedGroupHeader
+	format binary
+
+	prefix: ReservedBits(33, 5726623061)
+	high: UInt3
+	low: UInt4
+end
+
+pub fn main() -> Result<{high: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaaaaab5a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	byte_decode_five_byte_prefix_reserved_group_header(view)
+end

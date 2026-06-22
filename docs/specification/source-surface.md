@@ -84,7 +84,12 @@ values only when the supplied integer is inside the corresponding one-byte,
 two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
 eight-byte range.
 `ReservedBits` arguments must be literal
-non-negative integers. `Repeat(count_field, Payload)` is accepted as a
+non-negative integers. `ReservedBits(width, value)` may start a supported
+reserved prefix group followed by two visible sub-byte or byte-width `UIntN`
+fields whose widths complete one byte or the same two-byte, three-byte,
+four-byte, or five-byte big-endian storage unit; the five-byte form accepts
+reserved prefix width thirty-three when the two visible fields complete the
+remaining bits. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
 Payload)`, `Repeat(left_count + right_count, Payload)`,
@@ -295,7 +300,7 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 `UIntN`,
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
-twenty-four, or thirty-two bits,
+twenty-four, thirty-two, or forty bits,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,

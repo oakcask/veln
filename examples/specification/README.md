@@ -592,6 +592,11 @@ against the built `veln` binary.
   prefix group where `ReservedBits(25, value)` is followed by two visible
   sub-byte `UIntN` fields, omit the reserved field from the value record, and
   preserve both visible fields in declaration order.
+- `run/binary-schema-prefix-reserved-five-byte-group-decode-encode/`:
+  generated schema helpers decode and encode a five-byte big-endian reserved
+  prefix group where `ReservedBits(33, value)` is followed by two visible
+  sub-byte `UIntN` fields, omit the reserved field from the value record, and
+  preserve both visible fields in declaration order.
 - `run/binary-schema-prefix-reserved-three-byte-group-json/`: generated
   schema decode helpers report `schema.reserved_bits_mismatch` for the
   three-byte reserved prefix group with stable field path, byte offset, bit
@@ -600,6 +605,13 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for the four-byte
   reserved prefix group with stable field path, byte offset, bit width,
   expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-five-byte-group-json/`: generated schema
+  decode helpers report `schema.reserved_bits_mismatch` for the five-byte
+  reserved prefix group with stable field path, byte offset, bit width,
+  expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-five-byte-group-human/`: the same
+  five-byte reserved prefix group mismatch renders stable human output with
+  the field path and nearby byte preview notes.
 - `run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`:
   generated schema decode helpers report `schema.truncated_field` at the
   reserved field path when the four-byte reserved prefix group has only three
@@ -1454,10 +1466,18 @@ against the built `veln` binary.
   generated schema encode helpers write a declared twenty-five-bit reserved
   prefix before two visible `UIntN` fields in one shared four-byte big-endian
   storage unit.
+- `run/binary-schema-prefix-reserved-five-byte-group-decode-encode/`:
+  generated schema encode helpers write a declared thirty-three-bit reserved
+  prefix before two visible `UIntN` fields in one shared five-byte big-endian
+  storage unit.
 - `run/binary-schema-prefix-reserved-four-byte-group-high-encode-out-of-range/`
   and `run/binary-schema-prefix-reserved-four-byte-group-low-encode-out-of-range/`:
   generated schema encode helpers report `codec.encode_value_unrepresentable`
   against each out-of-range visible field in that four-byte reserved prefix
+  group.
+- `run/binary-schema-prefix-reserved-five-byte-group-encode-out-of-range/`:
+  generated schema encode helpers report `codec.encode_value_unrepresentable`
+  against an out-of-range visible field in that five-byte reserved prefix
   group.
 - `run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`:
   generated schema encode helpers write a declared `ReservedBits(8, value)`

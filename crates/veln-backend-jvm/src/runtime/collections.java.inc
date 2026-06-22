@@ -675,10 +675,13 @@
             reserved.reservedBitWidth >= 25
                 && reserved.reservedBitWidth <= 31
                 && totalBitWidth == 32;
+        boolean supportedFiveByteGroup =
+            reserved.reservedBitWidth == 33 && totalBitWidth == 40;
         return (supportedOneByteGroup
                 || supportedTwoByteGroup
                 || supportedThreeByteGroup
-                || supportedFourByteGroup)
+                || supportedFourByteGroup
+                || supportedFiveByteGroup)
             ? totalBitWidth / 8
             : 0;
     }
