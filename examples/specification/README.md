@@ -2600,6 +2600,10 @@ against the built `veln` binary.
   ordinary adapter handler/action boundary, writes ordered response bytes,
   closes both streams, captures both client-observed byte sequences, and then
   observes clean listener end through optional accept.
+- `run/socket-stream-adapter-production-close-failure-json/`: one production
+  loopback adapter routes a stream through the ordinary handler/action
+  boundary, writes the ordered response bytes, and then reports a forced close
+  failure as a runtime transport failure without recording a close event.
 - `run/transport-socket-production-two-streams/`: one production loopback
   listener accepts two independent streams, reads, writes, and closes each
   stream, and then observes clean listener end through optional accept.

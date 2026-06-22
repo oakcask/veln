@@ -272,8 +272,8 @@ The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
 
 The production-loopback listen, sequential accept, read, write, clean listener
-end, close lifecycle, and two-stream adapter handler/action lifecycle slices
-are recorded as implemented in
+end, close lifecycle, two-stream adapter handler/action lifecycle, and focused
+adapter close-failure runtime boundary slices are recorded as implemented in
 `../reference/implemented-proposals/network-production-loopback-lifecycle.md`.
 
 The bounded receiver-list select-many, timeout, timeout-result, and

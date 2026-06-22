@@ -1540,6 +1540,13 @@ ordinary `StreamInput` handler path with independent state, only ordered
 `SendBytes` actions become socket writes, both streams close, both
 client-observed byte sequences are captured, and a final optional accept
 observes clean listener end. The executable specification case
+`../../examples/specification/run/socket-stream-adapter-production-close-failure-json/`
+uses the same production-loopback handler/action boundary and forces a close
+failure after the adapter has accepted a stream, routed the ordinary
+`StreamInput` value, and projected the handler's ordered `SendBytes` response
+to the stream. The JSON result stays a runtime transport failure, and the
+event log pins that no close event is recorded after the forced failure. The
+executable specification case
 `../../examples/specification/run/transport-socket-production-two-streams/`
 uses one production loopback listener to accept two independent streams, read,
 write, and close each stream, and then observe clean listener end through

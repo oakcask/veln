@@ -9,6 +9,7 @@ behavior is specified by `../../specification/names-effects.md`,
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-lifecycle/`,
 `../../../examples/specification/run/socket-stream-adapter-production-two-streams/`,
+`../../../examples/specification/run/socket-stream-adapter-production-close-failure-json/`,
 `../../../examples/specification/run/transport-socket-production-two-streams/`,
 and
 `../../../examples/specification/run/transport-socket-production-listen-failure-json/`.
@@ -36,9 +37,12 @@ the same ordinary `StreamInput` handler/action boundary independently, with
 only ordered `SendBytes` actions projected to socket writes before each stream
 is closed.
 
-Invalid production listen addresses remain runtime transport failures. The
-failure example checks the JSON command surface and keeps transport failure
-classification separate from protocol diagnostics.
+Invalid production listen addresses and forced production close failures
+remain runtime transport failures. The failure examples check the JSON command
+surface and keep transport failure classification separate from protocol
+diagnostics. The close-failure case also pins that adapter-routed ordered
+writes happen before the failed close and that no successful close event is
+recorded after the forced failure.
 
 ## Remaining Work
 
