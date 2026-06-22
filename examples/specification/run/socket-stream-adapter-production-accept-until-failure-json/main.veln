@@ -1,0 +1,8 @@
+# Production loopback deadline accept forced failures stay runtime failures.
+
+pub fn main() -> Result<(), String> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let _ = net::accept_until(listener, deadline)
+	Ok(())
+end

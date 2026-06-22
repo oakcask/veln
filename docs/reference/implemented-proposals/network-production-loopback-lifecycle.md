@@ -11,6 +11,9 @@ checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-two-streams/`,
 `../../../examples/specification/run/socket-stream-adapter-production-drain-lifecycle/`,
 `../../../examples/specification/run/socket-stream-adapter-production-drain-read-failure-json/`,
+`../../../examples/specification/run/socket-stream-adapter-production-deadline-lifecycle/`,
+`../../../examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`,
+`../../../examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`,
 `../../../examples/specification/run/socket-stream-adapter-production-close-failure-json/`,
 `../../../examples/specification/run/transport-socket-production-two-streams/`,
 and
@@ -46,6 +49,15 @@ reports clean listener end, routes every accepted stream through the existing
 ordinary handler/action boundary, writes only ordered `SendBytes` actions,
 closes each stream, and captures all client-observed byte sequences.
 
+The deadline-aware production adapter slice uses the same deterministic
+loopback event recording with the existing `net::accept_until` and
+`net::read_chunk_until` calls. The adapter accepts a production stream before
+the deadline, reads until clean stream end becomes `None`, routes ordinary
+`StreamInput` values through the handler/action boundary, writes the ordered
+response bytes, closes the stream, and observes clean listener end through a
+following deadline-aware accept. This slice adds no public call and preserves
+the coarse `net`, `time`, and `concurrency` effect labels.
+
 Invalid production listen addresses and forced production close failures
 remain runtime transport failures. The failure examples check the JSON command
 surface and keep transport failure classification separate from protocol
@@ -53,7 +65,9 @@ diagnostics. The close-failure case also pins that adapter-routed ordered
 writes happen before the failed close and that no successful close event is
 recorded after the forced failure. The listener-drain read-failure case pins a
 forced production read failure after accept and before response writes or
-stream close.
+stream close. The deadline-aware accept and read failure cases pin the same
+runtime transport-failure surface for forced production failures through
+`net::accept_until` and `net::read_chunk_until`.
 
 ## Remaining Work
 

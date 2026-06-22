@@ -60,8 +60,9 @@ execution reference.
   default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
   `production-loopback`, the same public listen, accept, read, write, and
   close calls own a host loopback listener and deterministic accepted stream
-  sequence; optional accept can observe clean listener end after the planned
-  loopback streams are exhausted.
+  sequence; optional and deadline-aware accept can observe clean listener end
+  after the planned loopback streams are exhausted, and deadline-aware reads
+  observe clean stream end through the same `None` result as the fixture path.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -117,6 +118,13 @@ execution reference.
   for a listener-draining adapter that recursively accepts configured
   production streams until clean listener end while reusing the same ordinary
   handler/action boundary for every accepted stream,
+  `examples/specification/run/socket-stream-adapter-production-deadline-lifecycle/`
+  for the same production handler/action boundary through deadline-aware
+  accept and read calls, followed by explicit close and clean listener end,
+  `examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
+  and
+  `examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`
+  for forced deadline-aware production accept and read failures,
   `examples/specification/run/socket-stream-adapter-production-drain-read-failure-json/`
   for a forced read failure after adapter-owned production accept but before
   response writes or stream close,

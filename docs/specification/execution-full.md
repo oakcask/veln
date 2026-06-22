@@ -726,13 +726,16 @@ When the runtime environment selects `production-loopback`, those same
 listener and stream calls use a host-owned loopback transport rather than
 fixture-only stream ids: `net::listen` binds the requested address,
 `net::accept`
-and `net::accept_or_end` accept a loopback client, `net::read_chunk` and
-`net::read_chunk_or_end` read bytes from the accepted stream,
-`net::write_chunk` writes response bytes to that stream, `net::write_chunks`
-writes response chunks to that stream in source list order, and
-`net::close_stream` closes it. A configured production loopback sequence can
-accept multiple independent streams from one listener, and a following
-optional accept observes clean listener end after those streams are exhausted.
+and `net::accept_or_end` accept a loopback client, `net::accept_until`
+accepts before the supplied deadline or reports clean listener end as `None`,
+`net::read_chunk` and `net::read_chunk_or_end` read bytes from the accepted
+stream, `net::read_chunk_until` reads bytes before the supplied deadline or
+reports clean stream end as `None`, `net::write_chunk` writes response bytes
+to that stream, `net::write_chunks` writes response chunks to that stream in
+source list order, and `net::close_stream` closes it. A configured production
+loopback sequence can accept multiple independent streams from one listener,
+and a following optional or deadline-aware accept observes clean listener end
+after those streams are exhausted.
 The checked adapter lifecycles keep the application handler on ordinary
 `StreamInput` and response-action values, route through the existing
 `concurrency` boundary, capture the client-observed bytes, close each accepted
@@ -742,7 +745,13 @@ handles each accepted production stream independently through that same
 handler/action boundary and then observes clean listener end. The
 listener-drain adapter lifecycle reuses the same boundary while accepting
 configured production streams until optional accept reports clean listener
-end; a forced read failure on that path remains a runtime transport failure.
+end. The deadline-aware production adapter reuses the same handler/action
+boundary under `net`, `time`, and `concurrency`: it accepts with
+`net::accept_until`, reads with `net::read_chunk_until` until clean stream end
+becomes `None`, writes ordered response bytes, closes the stream, and observes
+clean listener end with a following deadline-aware accept. Forced read failure
+on the listener-drain path, and forced accept or read failure through the
+deadline-aware production paths, remain runtime transport failures.
 Invalid
 production listen addresses and other host transport failures are runtime
 transport failures.
