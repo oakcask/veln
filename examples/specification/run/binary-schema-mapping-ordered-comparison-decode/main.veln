@@ -1,0 +1,51 @@
+# Binary schema mapping can compute Bool fields with ordered Int comparisons.
+use stdio
+
+type Packet
+	Packet {short_length: Bool, ordered_length: Bool, converted_length: Bool, composed: Bool}
+end
+
+fn add_one(value: Int) -> Int
+	value + 1
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	length: UInt8
+	copy_length: UInt8
+
+	map to Packet
+		short_length = length < 5
+		ordered_length = length >= copy_length
+		converted_length = add_one(length) > copy_length
+		composed = (length + 1 > copy_length) and not (kind <= 1)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_bytes: ByteChunk = byte_chunk_from_hex("020403")?
+	let first_view: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(3)?)?
+	let first: {short_length: Bool, ordered_length: Bool, converted_length: Bool, composed: Bool} = byte_decode_packet_wire(first_view)?
+	stdio::println(bool_text(first.short_length))
+	stdio::println(bool_text(first.ordered_length))
+	stdio::println(bool_text(first.converted_length))
+	stdio::println(bool_text(first.composed))
+
+	let second_bytes: ByteChunk = byte_chunk_from_hex("010507")?
+	let second_view: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(3)?)?
+	let second: {short_length: Bool, ordered_length: Bool, converted_length: Bool, composed: Bool} = byte_decode_packet_wire(second_view)?
+	stdio::println(bool_text(second.short_length))
+	stdio::println(bool_text(second.ordered_length))
+	stdio::println(bool_text(second.converted_length))
+	stdio::println(bool_text(second.composed))
+
+	Ok(())
+end

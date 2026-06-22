@@ -3497,6 +3497,10 @@ fn schema_mapping_selector_op_text(op: SchemaMappingSelectorComparison) -> &'sta
     match op {
         SchemaMappingSelectorComparison::Equal => "==",
         SchemaMappingSelectorComparison::NotEqual => "!=",
+        SchemaMappingSelectorComparison::Less => "<",
+        SchemaMappingSelectorComparison::LessEqual => "<=",
+        SchemaMappingSelectorComparison::Greater => ">",
+        SchemaMappingSelectorComparison::GreaterEqual => ">=",
     }
 }
 

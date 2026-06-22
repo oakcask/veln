@@ -575,6 +575,10 @@ cases pin same-module and imported public `Int` converter calls as supported
 arithmetic operands. The
 `../../examples/specification/run/binary-schema-mapping-division-by-zero-json/`
 case pins the division-by-zero diagnostic shape.
+`../../examples/specification/run/binary-schema-mapping-ordered-comparison-decode/`
+pins ordered `Int` mapping comparisons into `Bool` target fields, including
+composition with `and` and `not`, an `Int`-returning converter-call operand,
+and nested integer arithmetic operands.
 `../../examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`
 and
 `../../examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`
@@ -600,6 +604,9 @@ pins inequality mapping selection by the same decoded field value.
 `../../examples/specification/run/binary-schema-boolean-selected-mapping-decode/`
 pins boolean mapping selection with `and`, `or`, and `not` over decoded
 schema-local `Int` fields.
+`../../examples/specification/run/binary-schema-mapping-ordered-selection-decode/`
+pins selected mapping clauses that use ordered comparisons over decoded
+schema-local `Int` fields and integer literals.
 `../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
 pins mapping assignment field selection from a decoded nested record value.
 `../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`
@@ -613,6 +620,9 @@ mapping selection.
 `../../examples/specification/check/schema-mapping-boolean-selector-diagnostics/`
 pins JSON diagnostics for unsupported boolean selector expressions, unknown
 selector fields, non-`Int` selector fields, and boolean-selector overlap.
+`../../examples/specification/check/schema-mapping-ordered-comparison-diagnostics/`
+pins JSON diagnostics for ordered comparison non-`Int` operands, non-`Bool`
+target shapes, and unsupported ordered-comparison operand forms.
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, direct and nested constructor payload type, non-`Int` arithmetic

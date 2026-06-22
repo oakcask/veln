@@ -319,6 +319,10 @@ fn ir_schema_mapping_selector(
                 match op {
                     SchemaMappingSelectorComparison::Equal => "==",
                     SchemaMappingSelectorComparison::NotEqual => "!=",
+                    SchemaMappingSelectorComparison::Less => "<",
+                    SchemaMappingSelectorComparison::LessEqual => "<=",
+                    SchemaMappingSelectorComparison::Greater => ">",
+                    SchemaMappingSelectorComparison::GreaterEqual => ">=",
                 }
                 .to_string(),
                 value,

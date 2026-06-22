@@ -7496,6 +7496,18 @@
             if (op.equals("!=")) {
                 return notEqual(left, right);
             }
+            if (op.equals("<")) {
+                return less(left, right);
+            }
+            if (op.equals("<=")) {
+                return lessEqual(left, right);
+            }
+            if (op.equals(">")) {
+                return greater(left, right);
+            }
+            if (op.equals(">=")) {
+                return greaterEqual(left, right);
+            }
             throw new IllegalStateException("unsupported schema mapping binary operator");
         }
         throw new IllegalStateException("unsupported schema mapping expression metadata");

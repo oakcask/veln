@@ -13,6 +13,6 @@ schema PacketWire
 	map to Packet
 		bad_operand = payload == 1
 		bad_target = kind != length
-		unsupported_left = (kind + 1) == length
+		unsupported_left = {value: kind} == length
 		unsupported_bool_operand = kind == 1 and payload
 end

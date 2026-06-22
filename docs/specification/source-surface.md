@@ -181,9 +181,9 @@ an already supported structural mapping expression whose type has the selected
 record field. An `Int` target field may also use `+`, `-`, `*`, and `/`
 expressions whose operands are decoded schema-local `Int` fields, integer
 literals, `Int`-returning converter calls, or nested supported integer
-arithmetic mapping expressions. A `Bool` target field may use `==` and `!=`
-between decoded schema-local `Int` fields and integer literals, and may
-compose those supported comparisons with `and`, `or`, and `not`. Converter
+arithmetic mapping expressions. A `Bool` target field may use `==`, `!=`,
+`<`, `<=`, `>`, and `>=` between those supported `Int` mapping operands, and
+may compose those supported comparisons with `and`, `or`, and `not`. Converter
 calls take one, two, three, or four
 arguments. Each argument is either a schema-local field reference or an
 already implemented structural mapping expression made from schema-local
@@ -203,9 +203,9 @@ Mapping clauses are parsed, formatted, lowered, exposed to editor support,
 and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has one structural mapping, or
 multiple structural mappings selected by `when field == literal` or
-`when field != literal`, or by boolean selector expressions built from decoded
-schema-local `Int` fields, integer literals, `==`, `!=`, `and`, `or`, and
-`not`, and all
+`when field != literal`, ordered field-literal comparisons, or by boolean
+selector expressions built from decoded schema-local `Int` fields, integer
+literals, `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, and all
 assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
 `Flag16be` fields as `Flag16be`, `Flag16le` fields as `Flag16le`,
@@ -228,11 +228,12 @@ the matching selector branch, closed recursive dispatch payload fields as the
 selected mapping target record shape, and extension dispatch payload fields as
 `SchemaDispatchPayload<T>`. Multiple selected mappings must all resolve to the
 same decoded record shape. Selector comparisons may only compare a decoded
-schema-local `Int` field with an integer literal; arbitrary calls, converter
-calls, record expressions, schema-local payload values, runtime settings,
-stream state, imported names, and unsupported arithmetic are rejected as
-unsupported selectors. Selector clauses must not overlap for any concrete
-assignment of their referenced `Int` fields.
+schema-local `Int` field with an integer literal using `==`, `!=`, `<`, `<=`,
+`>`, or `>=`; arbitrary calls, converter calls, record expressions,
+schema-local payload values, runtime settings, stream state, imported names,
+and unsupported arithmetic are rejected as unsupported selectors. Selector
+clauses must not overlap for any concrete assignment of their referenced
+`Int` fields.
 Missing, duplicate, ambiguous, unknown-field, non-`Int`, and unsupported
 selectors report
 `schema.mapping_selection_required`, `schema.mapping_selection_ambiguous`,

@@ -2510,8 +2510,12 @@ fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
         BinaryOp::Divide => "/",
         BinaryOp::Equal => "==",
         BinaryOp::NotEqual => "!=",
+        BinaryOp::Less => "<",
+        BinaryOp::LessEqual => "<=",
+        BinaryOp::Greater => ">",
+        BinaryOp::GreaterEqual => ">=",
         _ => unreachable!(
-            "schema mapping binary expressions only support boolean, arithmetic, and equality operators"
+            "schema mapping binary expressions only support boolean, arithmetic, and comparison operators"
         ),
     }
 }

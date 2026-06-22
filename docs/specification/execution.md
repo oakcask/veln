@@ -588,8 +588,9 @@ execution reference.
   `map to Target` clause, or multiple structural mapping clauses selected by
   `when field == literal`, `when field != literal`, or boolean selector
   expressions built from decoded schema-local `Int` fields, integer literals,
-  `==`, `!=`, `and`, `or`, and `not`, and each target resolves to the same
-  decoded record shape whose mapped expressions match the target field types,
+  `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, and each target
+  resolves to the same decoded record shape whose mapped expressions match
+  the target field types,
   the helper returns the selected mapped ordinary record shape instead of the
   schema-local field shape. Mapping selection reads the already decoded `Int`
   selector fields after field-local validation succeeds; selector clauses must
@@ -606,9 +607,9 @@ execution reference.
   record-shaped type with the selected field. An `Int` target field may also
   use `+`, `-`, `*`, and `/` over decoded schema-local `Int` fields, integer
   literals, `Int`-returning converter calls, and nested supported mapping
-  arithmetic expressions. A `Bool` target field may use `==` and `!=` over
-  decoded schema-local `Int` fields and integer literals, and may compose
-  those supported comparisons with `and`, `or`, and `not`. Division by zero returns
+  arithmetic expressions. A `Bool` target field may use `==`, `!=`, `<`,
+  `<=`, `>`, and `>=` over those supported `Int` mapping operands, and may
+  compose those supported comparisons with `and`, `or`, and `not`. Division by zero returns
   `schema.mapping_division_by_zero` at the offset after the decoded schema
   body with the schema and target-field path. Converter calls
   take one, two, three, or four arguments. Each argument is either one decoded
@@ -666,6 +667,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapping-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapping-bool-comparison-decode/`,
   `examples/specification/run/binary-schema-mapping-bool-composition-decode/`,
+  `examples/specification/run/binary-schema-mapping-ordered-comparison-decode/`,
   `examples/specification/run/binary-schema-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-imported-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
@@ -680,6 +682,7 @@ execution reference.
   `examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
+  `examples/specification/run/binary-schema-mapping-ordered-selection-decode/`,
   `examples/specification/run/binary-schema-mapped-field-selection-decode/`,
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`,
   and
