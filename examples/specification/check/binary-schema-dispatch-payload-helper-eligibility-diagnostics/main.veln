@@ -1,0 +1,39 @@
+# Nested dispatch payload helper eligibility reports helper boundaries.
+
+schema ForwardByteViewPayload
+	format binary
+
+	payload: ByteView(later_length)
+	later_length: UInt8
+end
+
+schema ClosedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => ForwardByteViewPayload)
+end
+
+schema ExtensionPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => ForwardByteViewPayload)
+end
+
+codec ClosedPacketDecode for ClosedPacket decode
+	derive decode
+end
+
+codec ClosedPacketEncode for ClosedPacket encode
+	derive encode
+end
+
+codec ExtensionPacketDecode for ExtensionPacket decode
+	derive decode
+end
+
+codec ExtensionPacketEncode for ExtensionPacket encode
+	derive encode
+end

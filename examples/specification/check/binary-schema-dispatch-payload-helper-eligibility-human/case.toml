@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.dispatch_payload]: dispatch payload schema `ForwardByteViewPayload` is outside the generated binary schema helper slice", "note: main.veln:3:1: Schema `ForwardByteViewPayload` is declared here and does not expose the generated `byte_decode_step_forward_byte_view_payload` helper required for dispatch payload decoding.", "note: Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`."]
+
+[stderr]
+format = "empty"

@@ -1,0 +1,15 @@
+# Nested dispatch payload helper eligibility reports human related notes.
+
+schema ForwardByteViewPayload
+	format binary
+
+	payload: ByteView(later_length)
+	later_length: UInt8
+end
+
+schema ClosedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => ForwardByteViewPayload)
+end

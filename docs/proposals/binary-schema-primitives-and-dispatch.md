@@ -138,7 +138,11 @@ payload byte count against the earlier length field, and extension-dispatch
 unknown tags preserve bounded raw payload bytes. Imported private, missing,
 wrong-kind, non-binary, forward, unbounded recursive, or otherwise ineligible
 payload schemas, including schemas outside the generated helper slice, use the
-existing `schema.dispatch_payload` diagnostic shape.
+existing `schema.dispatch_payload` diagnostic shape. Resolved binary payload
+schemas outside that helper slice include structured expected decode and
+encode helper fields plus related notes for the payload declaration; checked
+coverage includes a nested payload whose `ByteView` length field is not an
+earlier decoded `Int` field.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching
@@ -840,6 +844,6 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
-  beyond the checked unsupported `ReservedBits` and imported recursive
-  diagnostics, and schema value mapping beyond the implemented structural
-  slices remain proposal work.
+  beyond the checked unsupported `ReservedBits`, forward `ByteView` length,
+  and imported recursive diagnostics, and schema value mapping beyond the
+  implemented structural slices remain proposal work.

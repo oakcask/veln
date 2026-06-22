@@ -2555,17 +2555,12 @@ fn check_schema_dispatch_field(
                         None
                     } else {
                         schema_recursive_dispatch_payload_type(module, schema).or_else(|| {
-                            diagnostics.push(schema_dispatch_payload_diagnostic(
+                            diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
                                 schema,
                                 field,
                                 case.tag,
                                 schema_name,
-                                "incompatible_payload_schema",
-                                format!(
-                                    "dispatch payload schema `{}` is not a supported decoded binary schema",
-                                    schema_payload_name_last_segment(schema_name)
-                                ),
-                                [],
+                                schema,
                             ));
                             None
                         })
@@ -2603,17 +2598,12 @@ fn check_schema_dispatch_field(
                             return None;
                         }
                         schema_decode_value_type(module, payload_schema).or_else(|| {
-                            diagnostics.push(schema_dispatch_payload_diagnostic(
+                            diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
                                 schema,
                                 field,
                                 case.tag,
                                 schema_name,
-                                "incompatible_payload_schema",
-                                format!(
-                                    "dispatch payload schema `{}` is not a supported decoded binary schema",
-                                    schema_payload_name_last_segment(schema_name)
-                                ),
-                                [],
+                                payload_schema,
                             ));
                             None
                         })
@@ -3069,6 +3059,66 @@ fn schema_dispatch_payload_diagnostic<const N: usize>(
         Some(field.span.clone()),
         JsonValue::object(fields),
     )
+}
+
+fn incompatible_schema_dispatch_payload_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    tag: i64,
+    payload_name: &str,
+    payload_schema: &SchemaDecl,
+) -> Diagnostic {
+    let payload_schema_name = schema_payload_name_last_segment(payload_name);
+    let decode_helper = schema_decode_step_function_name(payload_schema_name);
+    let encode_helper = schema_encode_function_name(payload_schema_name);
+    let mut diagnostic = schema_dispatch_payload_diagnostic(
+        schema,
+        field,
+        tag,
+        payload_name,
+        "incompatible_payload_schema",
+        format!(
+            "dispatch payload schema `{payload_schema_name}` is outside the generated binary schema helper slice"
+        ),
+        [
+            (
+                "expected_decode_helper",
+                JsonValue::string(decode_helper.clone()),
+            ),
+            (
+                "decode_helper_boundary",
+                JsonValue::string("generated_binary_schema_decode_step"),
+            ),
+            (
+                "expected_encode_helper",
+                JsonValue::string(encode_helper.clone()),
+            ),
+            (
+                "encode_helper_boundary",
+                JsonValue::string("generated_binary_schema_encode"),
+            ),
+        ],
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_declaration")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Schema `{payload_schema_name}` is declared here and does not expose the generated `{decode_helper}` helper required for dispatch payload decoding."
+            )),
+        ),
+        ("span", span_json(&payload_schema.span)),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("helper_boundary")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `{decode_helper}` and `{encode_helper}`."
+            )),
+        ),
+    ]));
+    diagnostic
 }
 
 fn schema_dispatch_details(

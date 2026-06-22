@@ -167,13 +167,18 @@ positions report `schema.exact_width_primitive`. Missing
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
 unbounded recursive, outside the generated helper slice such as an unsupported
-standalone or suffix `ReservedBits` layout, or incompatible report
-`schema.dispatch_payload`. The
-checked
-field-reference diagnostics case is
+standalone or suffix `ReservedBits` layout, field-reference-ineligible
+`ByteView` payload layout, or incompatible report `schema.dispatch_payload`.
+Helper-slice payload diagnostics name the expected generated decode and
+encode helpers in structured fields and keep the payload schema declaration
+in related notes. The checked field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
-`../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
+`../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
+the checked helper-eligibility detail cases are
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
+and
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`.
 
 A schema may end with one or more structural mapping clauses:
 

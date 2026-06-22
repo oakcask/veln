@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `UnsupportedReservedPayload` is not a supported decoded binary schema", "dispatch payload schema `UnsupportedReservedSuffixPayload` is not a supported decoded binary schema", "\"reason\":\"incompatible_payload_schema\"", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
+contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `UnsupportedReservedPayload` is outside the generated binary schema helper slice", "dispatch payload schema `UnsupportedReservedSuffixPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_unsupported_reserved_payload\"", "\"expected_encode_helper\":\"byte_encode_unsupported_reserved_payload\"", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
 
 [stderr]
 format = "empty"
@@ -46,13 +46,13 @@ message = "dispatch payload `wire::WireShape` resolves to a type, not a schema"
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `UnsupportedReservedPayload` is not a supported decoded binary schema"
+message = "dispatch payload schema `UnsupportedReservedPayload` is outside the generated binary schema helper slice"
 
 [[diagnostics]]
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `UnsupportedReservedSuffixPayload` is not a supported decoded binary schema"
+message = "dispatch payload schema `UnsupportedReservedSuffixPayload` is outside the generated binary schema helper slice"
 
 [[diagnostics]]
 id = "schema.dispatch_payload"

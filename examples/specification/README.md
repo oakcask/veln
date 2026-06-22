@@ -1679,6 +1679,15 @@ against the built `veln` binary.
   schemas outside the generated helper slice, self references outside the
   eligible recursive length-bounded dispatch slice, forward references, and
   incompatible payload shapes.
+- `check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`:
+  a resolved binary nested payload schema whose `ByteView` length refers
+  forward remains outside generated decode and encode helper eligibility;
+  the JSON diagnostics preserve `schema.dispatch_payload`, name the expected
+  generated helpers, and reject derived codec helpers for the parent dispatch
+  schemas.
+- `check/binary-schema-dispatch-payload-helper-eligibility-human/`: the same
+  dispatch payload helper-slice rejection projects the payload schema
+  declaration and helper requirement as human related notes.
 - `check/binary-schema-dispatch-reserved-payload-eligibility/`: same-module
   nested dispatch payload schemas with supported representation-only
   `ReservedBits` layouts expose both decode and encode helper signatures.

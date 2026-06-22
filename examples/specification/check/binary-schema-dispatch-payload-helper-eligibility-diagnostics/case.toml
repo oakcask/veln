@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.dispatch_payload\"", "dispatch payload schema `ForwardByteViewPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_forward_byte_view_payload\"", "\"decode_helper_boundary\":\"generated_binary_schema_decode_step\"", "\"expected_encode_helper\":\"byte_encode_forward_byte_view_payload\"", "\"encode_helper_boundary\":\"generated_binary_schema_encode\"", "Schema `ForwardByteViewPayload` is declared here and does not expose the generated `byte_decode_step_forward_byte_view_payload` helper required for dispatch payload decoding.", "Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`.", "\"id\":\"codec.derive_helper_unsupported\"", "\"expected_helper\":\"byte_decode_step_closed_packet\"", "\"expected_helper\":\"byte_encode_closed_packet\"", "\"expected_helper\":\"byte_decode_step_extension_packet\"", "\"expected_helper\":\"byte_encode_extension_packet\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
