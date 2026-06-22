@@ -68,9 +68,11 @@ compiler-known calls.
   handler boundary remains free of transport effects.
   The production loopback lifecycle cases use the same `net` and
   `concurrency` declarations as the close-lifecycle adapter; the runtime path
-  changes from fixture events to owned host streams, including a deterministic
-  two-stream accept sequence and clean listener end, without adding public
-  calls or effect labels.
+  changes from fixture events to owned host streams. The two-stream adapter
+  lifecycle accepts two independent production streams from one listener,
+  routes each stream through the same ordinary handler/action boundary, writes
+  only ordered `SendBytes` actions, closes each stream, and observes clean
+  listener end without adding public calls or effect labels.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route through thirty-route examples use

@@ -259,8 +259,12 @@ host loopback listener and deterministic loopback stream sequence:
 `net::read_chunk` and `net::read_chunk_or_end` read bytes from that stream,
 `net::write_chunk` writes bytes back to the stream, `net::close_stream`
 closes the owned stream, and a following optional accept can observe clean
-listener end. This path adds no public call and uses the same coarse `net`
-effect as the fixture-backed path.
+listener end. Adapter-owned production loopback examples can handle two
+accepted streams independently through ordinary `StreamInput` and
+response-action values, route them through the existing `concurrency`
+boundary, project only ordered `SendBytes` actions to `net::write_chunk`, and
+close each stream. This path adds no public call and uses the same coarse
+`net` effect as the fixture-backed path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;

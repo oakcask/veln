@@ -715,12 +715,15 @@ and `net::accept_or_end` accept a loopback client, `net::read_chunk` and
 `net::close_stream` closes it. A configured production loopback sequence can
 accept multiple independent streams from one listener, and a following
 optional accept observes clean listener end after those streams are exhausted.
-The checked adapter lifecycle keeps the application handler on ordinary
-`StreamInput` and response-action values, routes through the existing
-`concurrency` boundary, captures the client-observed bytes, and uses the same
-`net` and `concurrency` effect declarations as fixture-backed close-lifecycle
-adapters. Invalid production listen addresses and other host transport
-failures are runtime transport failures.
+The checked adapter lifecycles keep the application handler on ordinary
+`StreamInput` and response-action values, route through the existing
+`concurrency` boundary, capture the client-observed bytes, close each accepted
+stream, and use the same `net` and `concurrency` effect declarations as
+fixture-backed close-lifecycle adapters. The two-stream adapter lifecycle
+handles each accepted production stream independently through that same
+handler/action boundary and then observes clean listener end. Invalid
+production listen addresses and other host transport failures are runtime
+transport failures.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative

@@ -8,6 +8,7 @@ behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-lifecycle/`,
+`../../../examples/specification/run/socket-stream-adapter-production-two-streams/`,
 `../../../examples/specification/run/transport-socket-production-two-streams/`,
 and
 `../../../examples/specification/run/transport-socket-production-listen-failure-json/`.
@@ -29,7 +30,11 @@ calls a pure handler where applicable, writes ordered response bytes to each
 accepted stream, and closes each stream. The runtime captures the bytes
 observed by loopback clients, so the examples pin both source-visible output
 and host transport output. A checked two-stream case also pins clean listener
-end after the planned accepted streams are exhausted.
+end after the planned accepted streams are exhausted. The checked two-stream
+adapter case additionally proves that two accepted production streams can use
+the same ordinary `StreamInput` handler/action boundary independently, with
+only ordered `SendBytes` actions projected to socket writes before each stream
+is closed.
 
 Invalid production listen addresses remain runtime transport failures. The
 failure example checks the JSON command surface and keeps transport failure

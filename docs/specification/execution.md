@@ -105,6 +105,11 @@ execution reference.
   cancellable deadline-aware accept/read lifecycle boundary. The checked
   production loopback lifecycles are
   `examples/specification/run/socket-stream-adapter-production-lifecycle/`
+  for one adapter-owned stream,
+  `examples/specification/run/socket-stream-adapter-production-two-streams/`
+  for two independent adapter-owned streams accepted from one listener through
+  the same ordinary handler/action boundary with ordered writes, explicit
+  closes, captured client bytes, and clean listener end,
   and `examples/specification/run/transport-socket-production-two-streams/`;
   production listen failures remain runtime failures and are checked by
   `examples/specification/run/transport-socket-production-listen-failure-json/`.

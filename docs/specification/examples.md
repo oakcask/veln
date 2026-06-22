@@ -1498,6 +1498,13 @@ calls. Adapter-owned source listens, accepts, reads, routes ordinary
 `StreamInput` values through a channel, calls a pure handler, writes ordered
 response bytes, and closes the stream while the runtime captures the
 client-observed bytes. The executable specification case
+`../../examples/specification/run/socket-stream-adapter-production-two-streams/`
+uses the same adapter handler/action boundary for two independent production
+loopback streams accepted from one listener. Each stream is routed through the
+ordinary `StreamInput` handler path with independent state, only ordered
+`SendBytes` actions become socket writes, both streams close, both
+client-observed byte sequences are captured, and a final optional accept
+observes clean listener end. The executable specification case
 `../../examples/specification/run/transport-socket-production-two-streams/`
 uses one production loopback listener to accept two independent streams, read,
 write, and close each stream, and then observe clean listener end through

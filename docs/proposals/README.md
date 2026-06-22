@@ -243,7 +243,8 @@ compare it with `../specification/` before changing behavior.
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
   production-loopback listen, sequential accept, read, write, clean listener
-  end, and close lifecycle, bounded
+  end, close lifecycle, and two-stream adapter handler/action lifecycle,
+  bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,
