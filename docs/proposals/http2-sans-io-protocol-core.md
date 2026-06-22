@@ -332,8 +332,9 @@ form names a supported static-table header name already accepted by the
 static-indexed fixture set, including ordinary names such as `server`,
 `content-type`, and `user-agent`.
 Those literal fixtures share the HPACK string literal decoder for
-visible-ASCII raw values and Huffman-marked values decoded by
-the HPACK static Huffman table. The same fixture decoder accepts one
+visible-ASCII raw values and Huffman-marked values decoded by scanning
+the HPACK static Huffman table rather than matching a fixed decoded-value
+allowlist. The same fixture decoder accepts one
 continuation byte after a saturated seven-bit string-length prefix for checked
 long raw and Huffman-marked values on supported literal names, through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed

@@ -226,8 +226,8 @@ compare it with `../specification/` before changing behavior.
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture boundary, including full HPACK compression,
   unbounded dynamic-table behavior, and HPACK Huffman behavior beyond
-  visible-ASCII fixture string literal decoding and encoding and beyond the
-  focused malformed Huffman fixture diagnostics.
+  the implemented visible-ASCII fixture string literal decoding and encoding
+  slice and beyond the focused malformed Huffman fixture diagnostics.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
