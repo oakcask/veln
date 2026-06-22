@@ -260,9 +260,11 @@ reports the failed integer range fact at the field byte offset and puts byte
 width, accepted range, actual value, bounded nearby byte preview, and field
 path in related notes.
 When a `veln run` entry returns
-`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, human mode
-reports the failed decode fact at the contained byte offset and puts field
-path plus the source-visible `DecodeError` value in related notes. When an
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
+`DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`,
+human mode reports the failed decode fact at the contained byte offset and
+puts field path plus the source-visible `DecodeError` value in related notes.
+For `DecodeErrorWithReason`, the reason is also a related note. When an
 entry returns `DecodeStep::NeedMore(readiness)`, human mode reports
 `codec.incomplete_input` at the closed-input byte boundary and puts readiness,
 requested count when present, and the source-visible `DecodeStep` value in

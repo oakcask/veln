@@ -227,7 +227,8 @@ as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
 populate `error` or `details.value_diagnostic`.
 
 When a `veln run` entry returns
-`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`,
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
+`DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`,
 `details.byte_diagnostic` includes:
 
 - `kind: "byte_diagnostic"`
@@ -236,6 +237,12 @@ When a `veln run` entry returns
 - `field_path`: schema-local path segment objects with `kind` and `name`,
   derived from the source-visible field path
 - `field_path_display`: the source-visible field path string
+- `reason`: the source-visible decode failure reason when the value is
+  `DecodeErrorWithReason`
+
+This shape also covers codec-owned invalid-input facts returned by a
+hand-written `decode with` codec boundary, such as
+`codec.invalid_input`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from a
 hand-written `decode with` codec boundary whose returned `Decoded` consumed

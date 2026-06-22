@@ -490,7 +490,9 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
 fn is_decode_error_result_failure(failure: &TestFailure) -> bool {
     result_failure_value(failure)
         .as_deref()
-        .is_some_and(|value| value.starts_with("DecodeError("))
+        .is_some_and(|value| {
+            value.starts_with("DecodeError(") || value.starts_with("DecodeErrorWithReason(")
+        })
 }
 
 fn is_decode_need_more_result_failure(failure: &TestFailure) -> bool {
@@ -524,6 +526,11 @@ fn decode_error_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Decode failure reason: {reason}.")));
     }
     if let Some(value) = result_failure_value(failure) {
         diagnostic
@@ -1837,6 +1844,63 @@ mod tests {
         assert_eq!(
             diagnostic.related[1].to_json(),
             "{\"message\":\"DecodeError value: DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_decode_error_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.invalid_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(62)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("kind")),
+                    ]),
+                ]),
+            ),
+            (
+                "reason",
+                JsonValue::string("kind value exceeds declared length"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.kind"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.invalid_input");
+        assert_eq!(diagnostic.message, "decode error at byte offset 62");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Decode failure reason: kind value exceeds declared length.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length).\"}"
         );
     }
 

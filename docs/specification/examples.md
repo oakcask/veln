@@ -133,7 +133,7 @@ source-visible incremental decode transition vocabulary. Ordinary source
 functions construct `DecodeStep<T>` values for a successful `Decoded` outcome
 with a decoded value and consumed `ByteCount`, a `NeedMore` outcome with
 `NeedBytes` readiness that consumes no input, and an `Invalid` outcome carrying
-a structured `DecodeError` with id, byte offset, and field path.
+the base `DecodeError(...)` constructor with id, byte offset, and field path.
 The executable specification case
 `../../examples/specification/run/binary-schema-decode-step/` covers the
 generated schema-derived decode-step helper: complete buffered input returns
@@ -153,6 +153,14 @@ and
 cover command-facing projection of the hand-written codec boundary's stable
 `codec.consumed_count_invalid` decode failure without treating it as retryable
 readiness.
+The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-boundary-human/` and
+`../../examples/specification/run/codec-decode-invalid-boundary-json/` cover
+command-facing projection when a hand-written `decode with` codec boundary
+returns a codec-owned reason-carrying `Invalid(DecodeErrorWithReason(...))`:
+human output reports the failed decode fact at the contained byte offset with
+related field-path, reason, and source-visible value notes, and `run --json`
+attaches `details.byte_diagnostic.reason`.
 The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-step-human/` and
 `../../examples/specification/run/codec-decode-invalid-step-json/` cover

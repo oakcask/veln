@@ -79,7 +79,11 @@ requiring the full command reference on the first read.
   notes.
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
-  path plus the source-visible `DecodeError` value in related notes. A
+  path plus the source-visible `DecodeError` value in related notes. When the
+  value is `DecodeErrorWithReason(...)`, the decode failure reason is also a
+  related note and `details.byte_diagnostic.reason`. The same projection
+  applies when a hand-written `decode with` codec boundary returns a
+  codec-owned `Invalid(DecodeError(...))` result. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

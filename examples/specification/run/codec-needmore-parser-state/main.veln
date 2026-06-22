@@ -20,6 +20,7 @@ fn decode_once(state: { pending : ByteChunk, base : ByteOffset }) -> Result<{ ki
 		NeedMore(NeedBytes(expected)) => Ok({ kind: "need_more", value: -1, consumed: 0, expected: byte_count_to_int(expected), pending: state.pending, base: state.base })
 		NeedMore(NeedEnd) => Ok({ kind: "need_end", value: -1, consumed: 0, expected: 0, pending: state.pending, base: state.base })
 		Invalid(DecodeError(id, _, _)) => Ok({ kind: id, value: -1, consumed: 0, expected: 0, pending: state.pending, base: state.base })
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => Ok({ kind: id, value: -1, consumed: 0, expected: 0, pending: state.pending, base: state.base })
 	end
 end
 

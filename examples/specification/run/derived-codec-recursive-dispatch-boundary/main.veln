@@ -120,6 +120,7 @@ fn closed_invalid_id(step: DecodeStep<{ length : Int, kind : Int, payload : Clos
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
 		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
 	end
 end
 
