@@ -6460,6 +6460,27 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	print_step("hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced)
 	let ignored_http2_referenced: () = emit_header_block("http2-hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced, step_state(http2_inserted))
+	let http2_ordinary_inserted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000014007782d7472616365026f6b")?), frame_state())?
+	print_step("hpack-stateful-literal-indexed-ordinary-x-trace", http2_ordinary_inserted)
+	let ignored_http2_ordinary_inserted: () = emit_header_block("http2-hpack-stateful-literal-indexed-ordinary-x-trace", http2_ordinary_inserted, "4007782d7472616365026f6b")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-ordinary-x-trace", http2_ordinary_inserted, frame_state())
+	let ignored_http2_ordinary_inserted_header: () = require_hpack_transition_header(http2_ordinary_inserted, frame_state(), "x-trace", "ok")?
+	let http2_ordinary_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_ordinary_inserted))
+	let http2_ordinary_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001be")?), http2_ordinary_state)?
+	print_step("hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced)
+	let ignored_http2_ordinary_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, http2_ordinary_state)
+	let ignored_http2_ordinary_referenced_header: () = require_hpack_transition_header(http2_ordinary_referenced, http2_ordinary_state, "x-trace", "ok")?
+	let http2_ordinary_reduced: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000013f09")?), http2_ordinary_state)?
+	print_step("hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced)
+	let ignored_http2_ordinary_reduced: () = emit_header_block("http2-hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced, "3f09")?
+	print_hpack_transition_from_state("hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced, http2_ordinary_state)
+	let http2_ordinary_reduced_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_ordinary_reduced))
+	print_hpack_state("hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced_state)
+	let ignored_http2_ordinary_table_size: () = require_hpack_state_table_size(http2_ordinary_reduced_state, 40)?
+	let http2_ordinary_evicted: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000003be")?), http2_ordinary_reduced_state)?
+	print_failure("hpack-stateful-ordinary-after-table-size-eviction", http2_ordinary_evicted)
+	let ignored_http2_ordinary_evicted: () = require_hpack_fixture_failure(http2_ordinary_evicted)?
 	Ok(())
 end
 

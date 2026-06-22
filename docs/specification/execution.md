@@ -1690,9 +1690,11 @@ execution reference.
   retained entry, a reduction to `42` keeps the newest supported
   `:method: PUT` entry while evicting the older `:path: /target` entry when
   those two entries are retained, the same table size evicts a supported
-  `:authority: abc.test` entry, and a reduction to `30` drops both supported
-  `:method: PUT` and `:path: /target` entries so later dynamic indexed
-  representations stay on the unsupported fixture path. The checked fixture
+  `:authority: abc.test` entry, a reduction to `40` evicts the raw new-name
+  ordinary `x-trace: ok` entry after its checked `0xbe` reuse path, and a
+  reduction to `30` drops both supported `:method: PUT` and `:path: /target`
+  entries so later dynamic indexed representations stay on the unsupported
+  fixture path. The checked fixture
   boundary also covers eviction caused by a later literal-with-indexing
   insertion: after a reduced table keeps `:scheme: https` and `:method: PUT`,
   inserting `:path: /target` keeps that new entry as the newest dynamic entry
