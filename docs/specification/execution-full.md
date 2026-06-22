@@ -152,14 +152,19 @@ and widths twenty-five through thirty-one may be followed by the visible
 unit. A supported prefix group may also place `ReservedBits(width, value)`
 before two visible sub-byte or byte-width `UIntN` fields when all three widths
 complete one byte, a two-byte big-endian storage unit, a three-byte
-big-endian storage unit, or a four-byte big-endian storage unit. In the
+big-endian storage unit, a four-byte big-endian storage unit, a five-byte
+big-endian storage unit, or a six-byte big-endian storage unit. In the
 two-byte form, reserved prefix widths one
 through fourteen are accepted when the two visible fields complete the
 remaining bits in declaration order; in the three-byte form, reserved prefix
 widths seventeen through twenty-three are accepted when the two visible fields
 complete the remaining bits in declaration order; in the four-byte form,
 reserved prefix widths twenty-five through thirty-one are accepted when the
-two visible fields complete the remaining bits in declaration order.
+two visible fields complete the remaining bits in declaration order; in the
+five-byte form, a reserved prefix width thirty-three is accepted when the two
+visible fields complete the remaining bits in declaration order; in the
+six-byte form, a reserved prefix width forty-one is accepted when the two
+visible fields complete the remaining bits in declaration order.
 The narrow `ReservedBits(2, 0)` prefix followed by `UInt8` also uses a
 two-byte big-endian bitstream slice: the reserved bits are validated first,
 the visible byte is decoded from the following bits, trailing low padding bits
@@ -491,14 +496,19 @@ high reserved bits from the declared value and the low visible bits from the
 encoder input record. A supported prefix group with
 `ReservedBits(width, value)` followed by two visible sub-byte or byte-width
 `UIntN` fields whose widths complete one byte, a two-byte big-endian storage
-unit, a three-byte big-endian storage unit, or a four-byte big-endian storage
+unit, a three-byte big-endian storage unit, a four-byte big-endian storage
+unit, a five-byte big-endian storage unit, or a six-byte big-endian storage
 unit writes the declared reserved value first, then the two visible values in
 declaration order. The two-byte encode form accepts reserved prefix widths
 one through fourteen when the visible fields complete the remaining bits, the
 three-byte encode form accepts reserved prefix widths seventeen through
 twenty-three when the visible fields complete the remaining bits, the
 four-byte encode form accepts reserved prefix widths twenty-five through
-thirty-one when the visible fields complete the remaining bits, and reports
+thirty-one when the visible fields complete the remaining bits, the five-byte
+encode form accepts reserved prefix width thirty-three when the visible
+fields complete the remaining bits, the six-byte encode form accepts reserved
+prefix width forty-one when the visible fields complete the remaining bits,
+and reports
 `codec.encode_value_unrepresentable`
 at the out-of-range visible field. The narrow `ReservedBits(2, 0)` prefix
 followed by `UInt8` emits a two-byte big-endian bitstream slice with the

@@ -1,0 +1,41 @@
+use stdio
+
+schema SixBytePrefixReservedGroupHeader
+	format binary
+
+	prefix: ReservedBits(41, 1466015503701)
+	high: UInt3
+	low: UInt4
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let rejected: Result<ByteChunk, EncodeError> = byte_encode_six_byte_prefix_reserved_group_header({high: 8, low: 10})
+	match rejected
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end

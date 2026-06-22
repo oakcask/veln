@@ -1006,6 +1006,24 @@ path, and keep `schema.reserved_bits_mismatch` on the reserved field path
 when the high reserved bits differ. The truncated case keeps
 `schema.truncated_field` on the reserved field path when the shared storage
 unit is incomplete.
+`../../examples/specification/run/binary-schema-prefix-reserved-five-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-five-byte-group-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-five-byte-group-human/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-five-byte-group-encode-out-of-range/`
+pin the five-byte big-endian reserved prefix group with a thirty-three-bit
+reserved prefix followed by two visible sub-byte `UIntN` fields. The cases
+cover decode and encode, JSON and human reserved-bit mismatch diagnostics,
+and visible-field encode range failures.
+`../../examples/specification/run/binary-schema-prefix-reserved-six-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-six-byte-group-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-six-byte-group-human/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-six-byte-group-encode-out-of-range/`
+pin the six-byte big-endian reserved prefix group with a forty-one-bit
+reserved prefix followed by two visible sub-byte `UIntN` fields. The cases
+mirror the five-byte coverage and keep the reserved prefix representation-only
+while preserving visible-field order.
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
 and
