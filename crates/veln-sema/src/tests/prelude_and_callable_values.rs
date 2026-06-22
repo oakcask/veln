@@ -1911,6 +1911,60 @@ fn generated_schema_helpers_accept_reserved_byte_prefix_bits() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_reserved_nine_bit_prefix_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ReservedNineBitPrefixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  guard: ReservedBits(9, 0)\n",
+            "  payload: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{payload: Int}, String>\n",
+            "  byte_decode_reserved_nine_bit_prefix_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {payload: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_reserved_nine_bit_prefix_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "reserved nine-bit prefix bits should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![("guard", 0, 0, Some((9, 0))), ("payload", 1, 0xff, None),]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_one_byte_packed_reserved_suffix_bits() {
     let source = SourceFile::new(
         "main.veln",
@@ -3548,7 +3602,7 @@ fn generated_schema_helpers_reject_unsupported_two_byte_packed_reserved_shapes()
             "  format binary\n",
             "\n",
             "  control_reserved: ReservedBits(9, 0)\n",
-            "  control: UInt8\n",
+            "  control: UInt16be\n",
             "end\n",
             "\n",
             "schema TooNarrowPackedHeader\n",

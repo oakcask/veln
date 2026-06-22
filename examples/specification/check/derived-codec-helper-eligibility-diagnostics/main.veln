@@ -1,14 +1,13 @@
-schema UnsupportedPackedHeader
+schema UnsupportedRecordHeader
 	format binary
 
-	control_reserved: ReservedBits(9, 0)
-	control: UInt8
+	control: String
 end
 
-codec UnsupportedDecode for UnsupportedPackedHeader decode
+codec UnsupportedDecode for UnsupportedRecordHeader decode
 	derive decode
 end
 
-codec UnsupportedEncode for UnsupportedPackedHeader encode
+codec UnsupportedEncode for UnsupportedRecordHeader encode
 	derive encode
 end

@@ -433,11 +433,12 @@ execution reference.
   two visible fields complete the remaining bits in declaration order. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
-  advances by the shared storage width. The narrow `ReservedBits(2, 0)`
-  prefix followed by `UInt8` also uses a two-byte big-endian bitstream slice:
-  the reserved bits are validated first, the visible byte is decoded from the
-  following bits, trailing low padding bits are ignored, and the reserved
-  field is omitted from decoded records and mapping source values. The same
+  advances by the shared storage width. The narrow `ReservedBits(2, 0)` and
+  `ReservedBits(9, 0)` prefixes followed by `UInt8` also use a two-byte
+  big-endian bitstream slice: the reserved prefix is validated first, the
+  visible byte is decoded from the following byte position, trailing low
+  padding bits are ignored when present, and the reserved field is omitted
+  from decoded records and mapping source values. The same
   shared-storage rule also covers
   consecutive non-byte-aligned `UIntN` and `ReservedBits(width, value)`
   fields when the group contains at least one visible field and at least one
@@ -858,11 +859,12 @@ execution reference.
   six-byte encode form accepts reserved prefix width forty-one when the
   visible fields complete the remaining bits,
   and reports `codec.encode_value_unrepresentable` at the
-  out-of-range visible field. The narrow `ReservedBits(2, 0)` prefix followed
-  by `UInt8` emits a two-byte big-endian bitstream slice with the declared
-  reserved bits first, the visible byte immediately after them, and zero low
-  padding bits; the reserved field remains omitted from the encoder value
-  record. The same shared-storage encode rule also covers
+  out-of-range visible field. The narrow `ReservedBits(2, 0)` and
+  `ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte
+  big-endian bitstream slice with the declared reserved prefix first, the
+  visible byte after it, and zero low padding bits when present; the reserved
+  field remains omitted from the encoder value record. The same
+  shared-storage encode rule also covers
   consecutive
   non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
   group contains at least one visible field and at least one reserved field,
@@ -1081,6 +1083,9 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-reserved-byte-prefix-decode-encode/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-json/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-truncated-json/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-four-byte-encode-out-of-range/`,

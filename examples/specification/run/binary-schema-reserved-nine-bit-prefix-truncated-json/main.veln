@@ -1,0 +1,13 @@
+schema ReservedNineBitPrefixHeader
+	format binary
+
+	control_reserved: ReservedBits(9, 0)
+	control: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("00")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let ignored: {control: Int} = byte_decode_reserved_nine_bit_prefix_header(view)?
+	Ok(())
+end

@@ -165,11 +165,11 @@ five-byte form, a reserved prefix width thirty-three is accepted when the two
 visible fields complete the remaining bits in declaration order; in the
 six-byte form, a reserved prefix width forty-one is accepted when the two
 visible fields complete the remaining bits in declaration order.
-The narrow `ReservedBits(2, 0)` prefix followed by `UInt8` also uses a
-two-byte big-endian bitstream slice: the reserved bits are validated first,
-the visible byte is decoded from the following bits, trailing low padding bits
-are ignored, and the reserved field is omitted from decoded records and
-mapping source values.
+The narrow `ReservedBits(2, 0)` and `ReservedBits(9, 0)` prefixes followed by
+`UInt8` also use a two-byte big-endian bitstream slice: the reserved prefix is
+validated first, the visible byte is decoded from the following byte position,
+trailing low padding bits are ignored when present, and the reserved field is
+omitted from decoded records and mapping source values.
 The helper validates the high reserved bits, decodes the following visible
 bits from their declared high-to-low positions as ordinary `Int` values,
 omits the reserved field from decoded records and mapping source values, and
@@ -518,11 +518,11 @@ fields complete the remaining bits, the six-byte encode form accepts reserved
 prefix width forty-one when the visible fields complete the remaining bits,
 and reports
 `codec.encode_value_unrepresentable`
-at the out-of-range visible field. The narrow `ReservedBits(2, 0)` prefix
-followed by `UInt8` emits a two-byte big-endian bitstream slice with the
-declared reserved bits first, the visible byte immediately after them, and
-zero low padding bits; the reserved field remains omitted from the encoder
-value record. A
+at the out-of-range visible field. The narrow `ReservedBits(2, 0)` and
+`ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte big-endian
+bitstream slice with the declared reserved prefix first, the visible byte
+after it, and zero low padding bits when present; the reserved field remains
+omitted from the encoder value record. A
 visible `UIntN` field followed by a
 `ReservedBits(width, value)` suffix that completes the same one-byte,
 two-byte, three-byte, or four-byte big-endian storage unit is

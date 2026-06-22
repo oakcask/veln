@@ -151,7 +151,7 @@ compare it with `../specification/` before changing behavior.
   The completed `Flag48be` and `Flag48le` flag bitset slice is archived under
   [Binary Schema Flag48 Bitsets](../reference/implemented-proposals/binary-schema-flag48-bitsets.md).
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
-  followed by `UInt8` is archived under
+  and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec

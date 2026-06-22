@@ -11,9 +11,10 @@ checked executable examples under `../../../examples/specification/`.
 ## Outcome
 
 Generated binary schema decode and encode helpers accept the narrow
-`ReservedBits(2, 0)` followed by `UInt8` layout as a two-byte big-endian
-bitstream slice. The reserved field is representation-only: it is omitted from
-decoded result records, encoder value records, and mapping source values.
+`ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` layouts as
+two-byte big-endian bitstream slices. The reserved field is
+representation-only: it is omitted from decoded result records, encoder value
+records, and mapping source values.
 
 Decode validates the declared high reserved bits, decodes the following visible
 byte into an ordinary `Int` field, ignores the low padding bits, and advances by
@@ -31,12 +32,16 @@ slices continue to report `schema.reserved_bits_encode` during `check`.
 - `../../../examples/specification/run/binary-schema-reserved-byte-prefix-decode-encode/`
   checks direct helper decode and encode, derived codec decode and encode,
   lowercase hex output, omitted reserved fields, and visible-field range
-  failure behavior.
+  failure behavior for `ReservedBits(2, 0)` followed by `UInt8`.
+- `../../../examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`
+  checks the same helper and derived codec route for `ReservedBits(9, 0)`
+  followed by `UInt8`; the adjacent JSON cases check truncation and
+  reserved-bit mismatch details.
 - `../../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
   checks that an adjacent unsupported non-byte-aligned reserved-bit encode
   layout still reports `schema.reserved_bits_encode`.
 - `crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks helper
-  eligibility for the accepted reserved-byte-prefix layout and rejection for
+  eligibility for the accepted reserved-byte-prefix layouts and rejection for
   unsupported reserved-bit encode groups.
 
 ## Remaining Work

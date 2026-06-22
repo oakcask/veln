@@ -79,6 +79,12 @@ mapping source values, validate or emit the declared reserved bits at the
 middle field position, include the layout in derived codec eligibility, and
 report the same reserved-bit mismatch, truncation, and
 `codec.encode_value_unrepresentable` diagnostic shapes.
+Generated schema helpers also consume and encode the narrow
+`ReservedBits(9, 0)` plus `UInt8` byte-prefix layout as a two-byte
+big-endian bitstream slice, omitting the reserved field from decoded records,
+mapping source values, and encoder input records while preserving the visible
+byte field and existing reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
 group contains at least one visible field and at least one reserved field and
@@ -173,7 +179,8 @@ checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. Broader unsupported field layouts
 and schema value mapping beyond the implemented structural slices remain
 proposal work. The completed reserved-byte-prefix encode slice for
-`ReservedBits(2, 0)` followed by `UInt8` is archived under
+`ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is
+archived under
 `../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md`.
 The narrow one-byte visible flag bitset slice is implemented as `Flag8` for
 generated binary schema decode and encode helpers. `Flag8` consumes and emits
@@ -706,7 +713,8 @@ layout with a sub-byte visible field, a sub-byte reserved field, `UInt8`, and
 a final sub-byte visible field, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
 two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
-big-endian storage unit are implemented under
+big-endian storage unit, plus the narrow `ReservedBits(9, 0)` plus `UInt8`
+byte-prefix layout, are implemented under
 `../specification/execution.md`. Completed split reserved layout slices are
 recorded in
 [Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md)
