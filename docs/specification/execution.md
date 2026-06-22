@@ -49,13 +49,17 @@ execution reference.
   consumed views as owned `ByteChunk` values that remain readable after
   retained input advances, and collect outgoing immutable `ByteChunk` values
   without socket calls.
-- Fixture-backed `net` and `time` calls are host runtime boundaries:
+- `net` and `time` calls are host runtime boundaries:
   descriptor chunk receive/send, listener creation, accept, optional
   clean-end listener accept, deadline-aware optional listener accept, stream
   read, optional clean-end stream read, deadline-aware optional stream read,
   cancellable deadline-aware listener accept, cancellable deadline-aware
   stream read, stream write, stream close, timeout, deadline waits, and
-  cancellable deadline waits execute outside the pure protocol core.
+  cancellable deadline waits execute outside the pure protocol core. The
+  default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
+  `production-loopback`, the same public listen, accept, read, write, and
+  close calls own a host loopback listener and accepted stream for one
+  deterministic production lifecycle path.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -97,7 +101,11 @@ execution reference.
   Socket lifecycle examples still cover accepted-stream ownership, explicit
   close after clean end or cancellation cleanup, deadline-aware accepted-stream
   ownership, cancellation-to-action routing for an accepted stream, and the
-  cancellable deadline-aware accept/read lifecycle boundary.
+  cancellable deadline-aware accept/read lifecycle boundary. The checked
+  production loopback lifecycle is
+  `examples/specification/run/socket-stream-adapter-production-lifecycle/`;
+  production listen failures remain runtime failures and are checked by
+  `examples/specification/run/transport-socket-production-listen-failure-json/`.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through typed channel routes, select the next ready route with the
   existing channel selection vocabulary, and only then invoke a plain handler

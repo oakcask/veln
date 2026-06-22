@@ -1492,6 +1492,16 @@ actions as ordered `net::write_chunk` calls, and then calls
 write while the pure handler remains free of socket handles and `net` calls.
 
 The executable specification case
+`../../examples/specification/run/socket-stream-adapter-production-lifecycle/`
+covers the opt-in production-loopback lifecycle on the same public socket
+calls. Adapter-owned source listens, accepts, reads, routes ordinary
+`StreamInput` values through a channel, calls a pure handler, writes ordered
+response bytes, and closes the stream while the runtime captures the
+client-observed bytes. The matching
+`../../examples/specification/run/transport-socket-production-listen-failure-json/`
+case pins invalid production listen addresses as runtime transport failures.
+
+The executable specification case
 `../../examples/specification/run/socket-stream-adapter-deadline-lifecycle/`
 covers the deadline-aware accepted-stream ownership boundary. The adapter
 accepts a stream with `net::accept_until`, reads chunks with

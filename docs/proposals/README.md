@@ -232,7 +232,7 @@ compare it with `../specification/` before changing behavior.
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  define remaining transport adapter, production socket lifecycle, richer
+  define remaining transport adapter, richer production socket APIs, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, deadline, cancellation, deadline-aware listener
@@ -241,7 +241,8 @@ compare it with `../specification/` before changing behavior.
   listener-to-clean-stream-end lifecycle, context-based
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
-  cancellable deadline-aware adapters, stream close lifecycle, bounded
+  cancellable deadline-aware adapters, stream close lifecycle,
+  production-loopback listen, accept, read, write, close lifecycle, bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,

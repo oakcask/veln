@@ -28,13 +28,15 @@ boundary calls, first fixture-backed listener/stream calls, narrow socket and
 stream routing slices, checked channel-first route-count slices, checked task
 slices, and narrow deadline and cancellation slices, for:
 
-- production socket ownership and lifecycle beyond the fixture-backed listen,
-  optional accept, deadline-aware optional accept, optional stream-read,
-  deadline-aware optional stream-read, cancellable deadline-aware stream-read,
-  ordered write lifecycle slice, and checked adapter-owned
-  listener-to-clean-stream-end, deadline-aware accepted-stream lifecycle,
-  cancellable accepted-stream lifecycle, cancellable deadline-aware
-  accepted-stream lifecycle, and explicit stream close lifecycle slices
+- production socket ownership and lifecycle beyond the checked
+  production-loopback listen, accept, read, write, close lifecycle, the
+  fixture-backed listen, optional accept, deadline-aware optional accept,
+  optional stream-read, deadline-aware optional stream-read, cancellable
+  deadline-aware stream-read, ordered write lifecycle slice, and checked
+  adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
+  lifecycle, cancellable accepted-stream lifecycle, cancellable
+  deadline-aware accepted-stream lifecycle, and explicit stream close
+  lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle,
   cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
@@ -257,6 +259,10 @@ implemented in
 The explicit stream close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-close-boundary.md`.
 
+The production-loopback listen, accept, read, write, close lifecycle slice is
+recorded as implemented in
+`../reference/implemented-proposals/network-production-loopback-lifecycle.md`.
+
 The bounded receiver-list select-many, timeout, timeout-result, and
 cancellable timeout-result channel-first stream routing slices, including the
 general receiver-list routing helper example, the
@@ -366,12 +372,12 @@ or the pure protocol core.
 
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
-- Examples show production adapter socket ownership beyond the first
-  fixture-backed listener/stream handles, narrow multi-event
-  socket-to-handler routing, stream-task handler, clean stream-end, optional
-  accept, deadline-aware optional accept, adapter-owned lifecycle, two-route,
-  three-route, four-route, receiver-list select-many routing through the
-  current checked boundary, receiver-list timeout,
+- Examples show richer production adapter socket ownership beyond the checked
+  production-loopback lifecycle, first fixture-backed listener/stream handles,
+  narrow multi-event socket-to-handler routing, stream-task handler, clean
+  stream-end, optional accept, deadline-aware optional accept, adapter-owned
+  lifecycle, two-route, three-route, four-route, receiver-list select-many
+  routing through the current checked boundary, receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, two-receiver cancellable timeout-result selection,
   and receiver-list cancellable channel-first stream routing, deadline-aware
@@ -380,7 +386,7 @@ or the pure protocol core.
   handler task, adapter-level cancellable stream routing, and the general
   receiver-list stream routing abstraction that replaces route-count fixture
   growth;
-  remaining examples still need production lifecycle coverage and richer
+  remaining examples still need richer production socket APIs and richer
   deadline and cancellation APIs beyond the current relative `Deadline`,
   `CancelToken`, cancellation status-query, cancellable wait-outcome,
   cancellable deadline-aware listener accept, stream read, and accepted-stream
