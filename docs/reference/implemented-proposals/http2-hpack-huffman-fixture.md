@@ -26,6 +26,15 @@ for zero-length `:path`, `0x04 0x83 0x49 0x50 0x9f` for `:path: test`,
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`
 for `:authority: www.example.com`.
 
+The HTTP/2 protocol-core fixture feeds those decoded header fields through the
+same completed HEADERS and final CONTINUATION paths as raw string literals, so
+header-list validation and protocol-state projection run after the HPACK
+fixture decoder has produced ordinary header-list data. The checked invalid
+Huffman cases exercise real table decode failures: malformed EOS-prefix
+padding, EOS decoded as a data symbol, and decoded bytes outside the
+visible-ASCII fixture boundary stay on focused HPACK fixture diagnostics
+rather than widening the boundary to full HPACK compression.
+
 The transition returns the same immutable `HpackFixtureState` shape and
 advances the decode count through the existing transition accessors.
 Huffman EOS and decoded non-visible bytes stay outside full HPACK support but

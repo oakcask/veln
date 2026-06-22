@@ -332,8 +332,9 @@ form names a supported static-table header name already accepted by the
 static-indexed fixture set, including ordinary names such as `server`,
 `content-type`, and `user-agent`.
 Those literal fixtures share the HPACK string literal decoder for
-visible-ASCII raw values and Huffman-marked values decoded by
-the HPACK static Huffman table. The same fixture decoder accepts one
+visible-ASCII raw values and Huffman-marked values decoded by scanning
+the HPACK static Huffman table rather than matching a fixed decoded-value
+allowlist. The same fixture decoder accepts one
 continuation byte after a saturated seven-bit string-length prefix for checked
 long raw and Huffman-marked values on supported literal names, through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
@@ -729,6 +730,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-authority-static-indexed-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
