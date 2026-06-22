@@ -200,8 +200,8 @@ supported structural mapping expression whose type has the selected record
 field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions
 whose operands are decoded schema-local `Int` fields, integer literals,
 `Int`-returning converter calls, or nested supported integer arithmetic
-mapping expressions. A `Bool` target field may use `==` and `!=` between
-decoded schema-local `Int` fields and integer literals, and may compose those
+mapping expressions. A `Bool` target field may use `==`, `!=`, `<`, `<=`,
+`>`, and `>=` between supported `Int` mapping operands, and may compose those
 supported comparisons with `and`, `or`, and `not`. Converter calls take one,
 two, three, or four arguments. Each argument is either a schema-local field
 reference or an already implemented structural mapping expression made from
@@ -212,9 +212,9 @@ lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
 editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
-multiple eligible mapping clauses selected by `when field == literal` or
-`when field != literal`, or by narrow boolean selector expressions over
-decoded schema-local `Int` fields, when all
+multiple eligible mapping clauses selected by `when field == literal`,
+`when field != literal`, ordered field-literal comparisons, or by narrow
+boolean selector expressions over decoded schema-local `Int` fields, when all
 schema fields are implemented exact-width unsigned primitives, supported
 reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
 fields, or extension dispatch fields and the target resolves to matching
@@ -228,9 +228,9 @@ or target-shape boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
 record slice, arbitrary calls, non-`Int` converter arithmetic operands,
 value-dependent mapping beyond decoded-field and converter-call integer
-arithmetic and decoded-field integer equality or inequality composed for
-`Bool` target fields, and encode-side mapping outside the selected structural
-slice are not implemented.
+arithmetic and supported `Int` comparisons composed for `Bool` target fields,
+and encode-side mapping outside the selected structural slice are not
+implemented.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 keeps the mapping-selection boundary executable.

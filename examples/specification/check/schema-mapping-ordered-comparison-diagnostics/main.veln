@@ -1,0 +1,18 @@
+# Schema mapping ordered comparisons reject non-Int operands and non-Bool targets.
+type Packet
+	Packet {bad_operand: Bool, bad_target: Int, unsupported_left: Bool, unsupported_bool_operand: Bool}
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	length: UInt8
+	payload: ByteView(length)
+
+	map to Packet
+		bad_operand = payload < 1
+		bad_target = kind < length
+		unsupported_left = {value: kind} < length
+		unsupported_bool_operand = kind < 1 and payload
+end

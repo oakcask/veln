@@ -49,6 +49,10 @@ pub(crate) enum SchemaMappingSelectorPredicate {
 pub(crate) enum SchemaMappingSelectorComparison {
     Equal,
     NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -99,6 +103,10 @@ impl SchemaMappingSelectorPredicate {
                 match op {
                     SchemaMappingSelectorComparison::Equal => candidate == *value,
                     SchemaMappingSelectorComparison::NotEqual => candidate != *value,
+                    SchemaMappingSelectorComparison::Less => candidate < *value,
+                    SchemaMappingSelectorComparison::LessEqual => candidate <= *value,
+                    SchemaMappingSelectorComparison::Greater => candidate > *value,
+                    SchemaMappingSelectorComparison::GreaterEqual => candidate >= *value,
                 }
             }
             Self::And(left, right) => left.eval(assignment) && right.eval(assignment),
@@ -175,20 +183,18 @@ fn schema_mapping_selector_expr_predicate(
                 Box::new(schema_mapping_selector_expr_predicate(left)?),
                 Box::new(schema_mapping_selector_expr_predicate(right)?),
             )),
-            BinaryOp::Equal | BinaryOp::NotEqual => {
-                let Some((field, value)) = schema_mapping_selector_comparison_operands(left, right)
+            BinaryOp::Equal
+            | BinaryOp::NotEqual
+            | BinaryOp::Less
+            | BinaryOp::LessEqual
+            | BinaryOp::Greater
+            | BinaryOp::GreaterEqual => {
+                let Some((field, op, value)) =
+                    schema_mapping_selector_comparison_operands(left, *op, right)
                 else {
                     return Err(SchemaMappingSelectorError::Unsupported);
                 };
-                Ok(SchemaMappingSelectorPredicate::Comparison {
-                    field,
-                    op: if *op == BinaryOp::Equal {
-                        SchemaMappingSelectorComparison::Equal
-                    } else {
-                        SchemaMappingSelectorComparison::NotEqual
-                    },
-                    value,
-                })
+                Ok(SchemaMappingSelectorPredicate::Comparison { field, op, value })
             }
             _ => Err(SchemaMappingSelectorError::Unsupported),
         },
@@ -202,8 +208,49 @@ fn schema_mapping_selector_expr_predicate(
     }
 }
 
-fn schema_mapping_selector_comparison_operands(left: &Expr, right: &Expr) -> Option<(String, i64)> {
-    schema_mapping_selector_field(left).zip(schema_mapping_selector_int_literal(right))
+fn schema_mapping_selector_comparison_operands(
+    left: &Expr,
+    op: BinaryOp,
+    right: &Expr,
+) -> Option<(String, SchemaMappingSelectorComparison, i64)> {
+    if let Some((field, value)) =
+        schema_mapping_selector_field(left).zip(schema_mapping_selector_int_literal(right))
+    {
+        return Some((field, schema_mapping_selector_comparison(op)?, value));
+    }
+    let (value, field) =
+        schema_mapping_selector_int_literal(left).zip(schema_mapping_selector_field(right))?;
+    Some((
+        field,
+        schema_mapping_selector_comparison_inverse(op)?,
+        value,
+    ))
+}
+
+fn schema_mapping_selector_comparison(op: BinaryOp) -> Option<SchemaMappingSelectorComparison> {
+    match op {
+        BinaryOp::Equal => Some(SchemaMappingSelectorComparison::Equal),
+        BinaryOp::NotEqual => Some(SchemaMappingSelectorComparison::NotEqual),
+        BinaryOp::Less => Some(SchemaMappingSelectorComparison::Less),
+        BinaryOp::LessEqual => Some(SchemaMappingSelectorComparison::LessEqual),
+        BinaryOp::Greater => Some(SchemaMappingSelectorComparison::Greater),
+        BinaryOp::GreaterEqual => Some(SchemaMappingSelectorComparison::GreaterEqual),
+        _ => None,
+    }
+}
+
+fn schema_mapping_selector_comparison_inverse(
+    op: BinaryOp,
+) -> Option<SchemaMappingSelectorComparison> {
+    match op {
+        BinaryOp::Equal => Some(SchemaMappingSelectorComparison::Equal),
+        BinaryOp::NotEqual => Some(SchemaMappingSelectorComparison::NotEqual),
+        BinaryOp::Less => Some(SchemaMappingSelectorComparison::Greater),
+        BinaryOp::LessEqual => Some(SchemaMappingSelectorComparison::GreaterEqual),
+        BinaryOp::Greater => Some(SchemaMappingSelectorComparison::Less),
+        BinaryOp::GreaterEqual => Some(SchemaMappingSelectorComparison::LessEqual),
+        _ => None,
+    }
 }
 
 fn schema_mapping_selector_field(expr: &Expr) -> Option<String> {
@@ -1124,10 +1171,27 @@ fn schema_mapping_binary_expr(
             )?;
             (expected, left, right)
         }
-        BinaryOp::Equal | BinaryOp::NotEqual => {
+        BinaryOp::Equal
+        | BinaryOp::NotEqual
+        | BinaryOp::Less
+        | BinaryOp::LessEqual
+        | BinaryOp::Greater
+        | BinaryOp::GreaterEqual => {
             let operand_ty = Type::int();
-            let left = schema_mapping_comparison_operand(context, expr, left, &operand_ty)?;
-            let right = schema_mapping_comparison_operand(context, expr, right, &operand_ty)?;
+            let left = schema_mapping_comparison_operand(
+                context,
+                expr,
+                left,
+                &operand_ty,
+                allow_converter_calls,
+            )?;
+            let right = schema_mapping_comparison_operand(
+                context,
+                expr,
+                right,
+                &operand_ty,
+                allow_converter_calls,
+            )?;
             (Type::bool(), left, right)
         }
         BinaryOp::And | BinaryOp::Or => {
@@ -1184,7 +1248,15 @@ fn schema_mapping_bool_operand(
 ) -> SchemaMappingExprResult {
     match &operand.kind {
         ExprKind::Binary {
-            op: op @ (BinaryOp::Equal | BinaryOp::NotEqual | BinaryOp::And | BinaryOp::Or),
+            op:
+                op @ (BinaryOp::Equal
+                | BinaryOp::NotEqual
+                | BinaryOp::Less
+                | BinaryOp::LessEqual
+                | BinaryOp::Greater
+                | BinaryOp::GreaterEqual
+                | BinaryOp::And
+                | BinaryOp::Or),
             left,
             right,
         } => schema_mapping_binary_expr(context, operand, *op, left, right, allow_converter_calls)
@@ -1266,16 +1338,30 @@ fn schema_mapping_arithmetic_operand(
             })
         }
         ExprKind::Binary { op, left, right } => {
-            schema_mapping_binary_expr(context, operand, *op, left, right, allow_converter_calls)
-                .map_err(|error| match *error {
-                    SchemaMappingExprError::Unsupported { .. } => {
-                        Box::new(SchemaMappingExprError::Unsupported {
-                            text: schema_mapping_expr_render(whole_expr),
-                            span: whole_expr.span.clone(),
-                        })
-                    }
-                    other => Box::new(other),
-                })
+            let typed = schema_mapping_binary_expr(
+                context,
+                operand,
+                *op,
+                left,
+                right,
+                allow_converter_calls,
+            )
+            .map_err(|error| match *error {
+                SchemaMappingExprError::Unsupported { .. } => {
+                    Box::new(SchemaMappingExprError::Unsupported {
+                        text: schema_mapping_expr_render(whole_expr),
+                        span: whole_expr.span.clone(),
+                    })
+                }
+                other => Box::new(other),
+            })?;
+            if !is_assignable(expected, &typed.ty) {
+                return Err(Box::new(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(whole_expr),
+                    span: whole_expr.span.clone(),
+                }));
+            }
+            Ok(typed)
         }
         ExprKind::Call { callee, args } if allow_converter_calls => {
             let ExprKind::NamePath(segments) = &callee.kind else {
@@ -1321,51 +1407,15 @@ fn schema_mapping_comparison_operand(
     whole_expr: &Expr,
     operand: &Expr,
     expected: &Type,
+    allow_converter_calls: bool,
 ) -> SchemaMappingExprResult {
-    match &operand.kind {
-        ExprKind::NamePath(segments) => {
-            let [name] = segments.as_slice() else {
-                return Err(Box::new(SchemaMappingExprError::Unsupported {
-                    text: schema_mapping_expr_render(whole_expr),
-                    span: whole_expr.span.clone(),
-                }));
-            };
-            let Some(ty) = context.schema_fields.get(name) else {
-                return Err(Box::new(SchemaMappingExprError::UnknownSchemaField {
-                    name: name.clone(),
-                    span: operand.span.clone(),
-                }));
-            };
-            if !is_assignable(expected, ty) {
-                return Err(Box::new(SchemaMappingExprError::TypeMismatch {
-                    expected: Box::new(expected.clone()),
-                    actual: Box::new(ty.clone()),
-                    text: schema_mapping_expr_render(operand),
-                    span: operand.span.clone(),
-                }));
-            }
-            Ok(SchemaMappingTypedExpr {
-                ty: ty.clone(),
-                expr: SchemaDecodeMappingExpr::Field(name.clone()),
-            })
-        }
-        ExprKind::IntLiteral(value) => {
-            let Some(value) = parse_schema_mapping_integer(value) else {
-                return Err(Box::new(SchemaMappingExprError::Unsupported {
-                    text: schema_mapping_expr_render(operand),
-                    span: operand.span.clone(),
-                }));
-            };
-            Ok(SchemaMappingTypedExpr {
-                ty: Type::int(),
-                expr: SchemaDecodeMappingExpr::Literal(value),
-            })
-        }
-        _ => Err(Box::new(SchemaMappingExprError::Unsupported {
-            text: schema_mapping_expr_render(whole_expr),
-            span: whole_expr.span.clone(),
-        })),
-    }
+    schema_mapping_arithmetic_operand(
+        context,
+        whole_expr,
+        operand,
+        expected,
+        allow_converter_calls,
+    )
 }
 
 fn parse_schema_mapping_integer(text: &str) -> Option<i64> {
@@ -1586,7 +1636,12 @@ fn schema_mapping_is_comparison_expr(expr: &Expr) -> bool {
     matches!(
         expr.kind,
         ExprKind::Binary {
-            op: BinaryOp::Equal | BinaryOp::NotEqual,
+            op: BinaryOp::Equal
+                | BinaryOp::NotEqual
+                | BinaryOp::Less
+                | BinaryOp::LessEqual
+                | BinaryOp::Greater
+                | BinaryOp::GreaterEqual,
             ..
         }
     )
@@ -1644,8 +1699,15 @@ fn schema_mapping_expr_actual_type(context: &SchemaMappingExprContext<'_>, expr:
             Type::int()
         }
         ExprKind::Binary { op, left, right }
-            if matches!(op, BinaryOp::Equal | BinaryOp::NotEqual)
-                && schema_mapping_expr_actual_type(context, left) == Type::int()
+            if matches!(
+                op,
+                BinaryOp::Equal
+                    | BinaryOp::NotEqual
+                    | BinaryOp::Less
+                    | BinaryOp::LessEqual
+                    | BinaryOp::Greater
+                    | BinaryOp::GreaterEqual
+            ) && schema_mapping_expr_actual_type(context, left) == Type::int()
                 && schema_mapping_expr_actual_type(context, right) == Type::int() =>
         {
             Type::bool()
