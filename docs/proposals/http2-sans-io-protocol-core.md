@@ -48,9 +48,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented outbound DATA send-intent splitting and PADDED DATA
-  send-intent slices, outbound `RST_STREAM` reset send intent, inbound DATA,
-  stream-level `WINDOW_UPDATE`, outbound `WINDOW_UPDATE` receive-credit
-  intent, and `SETTINGS_INITIAL_WINDOW_SIZE` receive-window accounting
+  send-intent slices, outbound DATA send-window accounting, outbound
+  `RST_STREAM` reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`,
+  outbound `WINDOW_UPDATE` receive-credit intent, and
+  `SETTINGS_INITIAL_WINDOW_SIZE` receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
   and outbound HEADERS send-intent rejection above received or locally sent
@@ -501,11 +502,13 @@ requested zero padding bytes. The frame-size and outbound credit checks count
 the pad-length byte and padding as part of each encoded DATA payload.
 `END_STREAM` appears only on the final DATA frame when requested, and
 accepted DATA consumes outbound connection and stream credit by the full
-encoded DATA payload length after all split frames encode. DATA intents
-larger than available outbound connection credit or available outbound stream
-credit, and PADDED DATA intents whose padding cannot fit in the selected
-frame payload, are rejected in source-level fixture output before output
-bytes or credit changes. Accepted DATA with `END_STREAM` records local
+encoded DATA payload length after all split frames encode, including the
+boundary where either window is exactly consumed. DATA intents larger than
+available outbound connection credit or available outbound stream credit,
+zero-credit connection and stream cases, and PADDED DATA intents whose padding
+cannot fit in the selected frame payload, are rejected in source-level fixture
+output before output bytes or credit changes. Accepted DATA with `END_STREAM`
+records local
 closed-stream state so later outbound DATA, outbound HEADERS, and
 stream-level outbound `WINDOW_UPDATE` for that stream use the existing closed
 stream-state rejection boundary. After accepted inbound DATA with peer
@@ -526,6 +529,8 @@ encode-error path.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
 under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
+The completed outbound DATA flow-control send-window slice is archived under
+`../reference/implemented-proposals/http2-outbound-data-flow-control.md`.
 The implemented outbound HEADERS send-intent slice also observes received and
 locally sent GOAWAY graceful-shutdown state. It accepts an open stream at the
 recorded last-stream-id boundary, rejects an open stream above that boundary

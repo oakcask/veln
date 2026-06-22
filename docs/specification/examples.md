@@ -1961,8 +1961,10 @@ The table-size placement diagnostic has matching focused human and
 `run --json` examples.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent whose
-full payload fits available outbound connection and stream windows. Payloads
-larger than the peer-advertised maximum frame size are emitted in one
+full payload fits available outbound connection and stream windows, including
+the boundary where either available window is exactly consumed and the other
+window still has credit. Payloads larger than the peer-advertised maximum
+frame size are emitted in one
 immutable output chunk containing multiple DATA frames, each no larger than
 that maximum, then both outbound credits are consumed by the full encoded
 DATA payload length after all frames encode. `END_STREAM` appears only on the
@@ -1974,6 +1976,8 @@ each encoded DATA payload. Padding that cannot fit in the selected frame
 payload, DATA intents that exceed available outbound connection credit, and
 DATA intents that exceed peer-advertised stream credit derived from received
 `SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
+The checked case also pins zero available connection credit and zero available
+stream credit as stable rejected no-output outcomes.
 Accepted DATA with `END_STREAM` records local closed-stream state; later
 outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
 that stream use the same closed stream-state rejection boundary. The receive
