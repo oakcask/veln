@@ -1470,6 +1470,10 @@ execution reference.
   decoder: raw values must be visible ASCII, and Huffman-marked values
   decode by scanning the HPACK static Huffman table into decoded
   visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
+  The fixture also accepts raw new-name literal forms when the field-name
+  string itself is a raw visible-ASCII HPACK string literal; the decoded
+  field name then flows into the same HTTP/2 header-list validation used for
+  static-name and dynamic-name literal fixtures.
   HPACK-prefixed integers for table-size updates, dynamic-name indexes, and
   string literal lengths are decoded by the same bounded fixture foundation,
   so the checked saturated-prefix forms take the same continuation-byte path
@@ -1527,7 +1531,16 @@ execution reference.
   literal-with-indexing `content-type: text` as `0x5f 0x04 "text"` followed
   by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
   `user-agent: agent` through a final CONTINUATION as
-  `0x1f 0x2b 0x05 "agent"`. Checked bytes also include zero-length `:path`
+  `0x1f 0x2b 0x05 "agent"`. It also checks raw new-name literal-with-indexing
+  `x-trace: ok` as `0x40 0x07 "x-trace" 0x02 "ok"` followed by dynamic-indexed
+  reuse, and raw new-name trailers through the HTTP/2 trailer validation
+  path, including accepted lower-case `x-trace`, rejected uppercase `Server`,
+  and rejected token-invalid `bad@name`. Focused human and JSON examples pin
+  those raw field-name failures on the existing
+  `http2.protocol.invalid_request_header_list` projection. Checked bytes also
+  include literal-without-indexing `:authority: odd` as `0x01 0x03 "odd"`,
+  literal-with-indexing `:method: raw` as `0x42 0x03 "raw"`,
+  literal-never-indexed `:path: bot` as `0x14 0x03 "bot"`, and zero-length `:path`
   as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as

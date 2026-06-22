@@ -36,6 +36,10 @@ inserted dynamic entry, so later indexed lookup and fixture table-size
 eviction keep the same state behavior as the earlier dynamic-table slice.
 Literal-never-indexed advances the fixture decode count without inserting a
 dynamic-table entry.
+Raw new-name literal forms use the same raw string literal helper for their
+field-name bytes. Lower-case token names flow into the accepted HTTP/2
+header-list paths, while uppercase or token-invalid raw names fail through
+the same request or trailer header-list diagnostics as indexed-name literals.
 
 Malformed string lengths including non-terminating string-length
 continuations use `hpack.fixture.malformed_string_length`. Malformed raw
@@ -49,7 +53,9 @@ visible ASCII remain unsupported but use focused HPACK fixture diagnostics.
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
-  raw and Huffman-marked literal-without-indexing values, Huffman-marked
+  raw and Huffman-marked literal-without-indexing values, non-allowlist raw
+  values `:authority: odd`, `:method: raw`, and
+  `:path: bot` across the three literal indexing forms,
   `:path: test`, Huffman-marked `:method: bad` through all three literal
   forms, Huffman-marked `:status: 200`, Huffman-marked
   `:authority: www.example.com`, Huffman-marked
@@ -71,6 +77,11 @@ visible ASCII remain unsupported but use focused HPACK fixture diagnostics.
   final CONTINUATION case, while malformed string lengths, malformed raw
   string values on supported literal names, Huffman padding, EOS, and
   non-visible decoded-byte diagnostics use focused HPACK fixture ids.
+- `../../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-hpack-raw-name-uppercase-json/`
+  pin raw field-name validation on the existing HTTP/2 header-list diagnostic
+  style.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented fixture boundary and route readers to the checked
   examples.
