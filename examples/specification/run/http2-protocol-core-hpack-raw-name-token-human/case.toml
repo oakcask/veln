@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[http2.protocol.invalid_request_header_list]: request header list contains invalid ordinary header name bad@name at byte offset 12", "note: Frame kind 1 on stream 1 decoded request header names: bad@name.", "note: Active protocol state: request-trailers.", "note: Rule provenance: rfc9110_field_name_token."]

@@ -1535,7 +1535,12 @@ execution reference.
   `x-trace: ok` as `0x40 0x07 "x-trace" 0x02 "ok"` followed by dynamic-indexed
   reuse, and raw new-name trailers through the HTTP/2 trailer validation
   path, including accepted lower-case `x-trace`, rejected uppercase `Server`,
-  and rejected token-invalid `bad@name`. Checked bytes also include zero-length `:path`
+  and rejected token-invalid `bad@name`. Focused human and JSON examples pin
+  those raw field-name failures on the existing
+  `http2.protocol.invalid_request_header_list` projection. Checked bytes also
+  include literal-without-indexing `:authority: odd` as `0x01 0x03 "odd"`,
+  literal-with-indexing `:method: raw` as `0x42 0x03 "raw"`,
+  literal-never-indexed `:path: bot` as `0x14 0x03 "bot"`, and zero-length `:path`
   as `0x04 0x80`,
   `:path: test` as `0x04 0x83 0x49 0x50 0x9f`, `:scheme: https` as
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as

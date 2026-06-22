@@ -1823,7 +1823,10 @@ fixture allowlist, a long raw `a` literal that uses the same
 one-continuation HPACK integer length boundary, and a non-visible raw byte
 value that remains on the fixture-owned unsupported-header-block failure path
 with expected fixture `fixture raw string encoding`. The example
-covers `:authority: abc.test` through completed HEADERS and final
+covers additional non-allowlist visible-ASCII raw values through
+literal-without-indexing `:authority: odd`,
+literal-with-indexing `:method: raw`, and literal-never-indexed
+`:path: bot`, plus `:authority: abc.test` through completed HEADERS and final
 CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
 `:path: test` through completed HEADERS, Huffman `:method: PUT` through both
 literal-without-indexing and literal-with-indexing, Huffman `:method: bad`
@@ -1842,6 +1845,9 @@ by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
 literal-with-indexing `x-trace: ok` followed by dynamic-indexed reuse, plus
 raw new-name trailers that accept lower-case `x-trace` and reject uppercase
 `Server` and token-invalid `bad@name` through the existing trailer diagnostics.
+Focused human and JSON examples pin those raw field-name failures on the same
+`http2.protocol.invalid_request_header_list` projection as indexed-name
+header-list failures.
 Completed HEADERS and final CONTINUATION paths reach
 the long-value HPACK boundary before the protocol-core header-list receive
 limit rejects the decoded size. Malformed string length including
@@ -2128,6 +2134,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,
@@ -2160,6 +2167,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-name-uppercase-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-json/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-json/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`,

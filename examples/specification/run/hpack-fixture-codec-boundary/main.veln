@@ -239,6 +239,9 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	let ignored_literal_indexed_method_bad_huffman: HpackFixtureState = print_required_header("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107), ":method", "bad")?
 	let ignored_literal_indexed_scheme_https_huffman: HpackFixtureState = print_required_header("literal-indexed-scheme-https-huffman", decode_header_block(byte_chunk_from_hex("46849d29ad1f")?, initial, 87), ":scheme", "https")?
 	print_transition("literal-indexed-status", decode_header_block(byte_chunk_from_hex("4803323031")?, initial, 85))
+	let ignored_literal_authority_raw_odd: HpackFixtureState = print_required_header("literal-authority-raw-odd", decode_header_block(byte_chunk_from_hex("01036f6464")?, initial, 113), ":authority", "odd")?
+	let ignored_literal_indexed_method_raw_raw: HpackFixtureState = print_required_header("literal-indexed-method-raw-raw", decode_header_block(byte_chunk_from_hex("4203726177")?, initial, 114), ":method", "raw")?
+	let ignored_literal_never_indexed_path_raw_bot: HpackFixtureState = print_required_header("literal-never-indexed-path-raw-bot", decode_header_block(byte_chunk_from_hex("1403626f74")?, initial, 115), ":path", "bot")?
 	let ignored_literal_raw_name: HpackFixtureState = print_required_header("literal-raw-name-x-trace", decode_header_block(byte_chunk_from_hex("0007782d7472616365026f6b")?, initial, 109), "x-trace", "ok")?
 	let literal_indexed_raw_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("4007782d7472616365026f6b")?, initial, 110)
 	print_transition("literal-indexed-raw-name-x-trace", literal_indexed_raw_name)
