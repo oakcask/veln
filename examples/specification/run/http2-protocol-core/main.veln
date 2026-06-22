@@ -1344,8 +1344,14 @@ fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, peer_settings
 	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
 	match max_frame_size < 1
 		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FrameSizeExceeded(0, length, ReceiveLimit(max_frame_size, LocalConfiguration), 0, stream_id)))
-		false => consume_outbound_data_window(stream_id, payload, length, end_stream, max_frame_size, receive_credit)
+		false => consume_outbound_data_window(stream_id, payload, length, end_stream, max_frame_size, OpenConnection, receive_credit)
 	end
+end
+
+fn send_data_with_shutdown(stream_id: Int, payload: ByteChunk, end_stream: Bool, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+	let length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let max_frame_size: Int = active_peer_max_frame_size(peer_settings)
+	consume_outbound_data_window(stream_id, payload, length, end_stream, max_frame_size, shutdown_state, receive_credit)
 end
 
 fn send_padded_data(stream_id: Int, payload: ByteChunk, padding_length: Int, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
@@ -1992,19 +1998,10 @@ fn encode_final_push_promise_continuation(stream_id: Int, promised_stream_id: In
 	end
 end
 
-fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
+fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundDataDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
-		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match length > connection_window
-			true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window")))
-			false => match stream_id == open_stream_id
-				false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
-				true => match length > stream_window
-					true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
-					false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
-				end
-			end
-		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => validate_open_stream_outbound_data_window(stream_id, open_stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
 			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
@@ -2013,6 +2010,56 @@ fn consume_outbound_data_window(stream_id: Int, payload: ByteChunk, length: Int,
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, InvalidFrameKind(0, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
 			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
 		end
+	end
+end
+
+fn validate_open_stream_outbound_data_window(stream_id: Int, open_stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, shutdown_state: ConnectionShutdownState, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match shutdown_state
+		OpenConnection => validate_open_connection_outbound_data_window(stream_id, open_stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		GracefulShutdown(_, _) => match stream_id == open_stream_id
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			true => validate_outbound_data_after_goaway(stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
+		end
+	end
+end
+
+fn validate_open_connection_outbound_data_window(stream_id: Int, open_stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match length > connection_window
+		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window")))
+		false => match stream_id == open_stream_id
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window")))
+			true => match length > stream_window
+				true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
+				false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+			end
+		end
+	end
+end
+
+fn validate_outbound_data_after_goaway(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, shutdown_state: ConnectionShutdownState, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match shutdown_state
+		OpenConnection => validate_outbound_data_windows(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundDataRejected(stream_id, length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id")))
+			false => validate_outbound_data_windows(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		end
+	end
+end
+
+fn validate_outbound_data_windows(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match length > connection_window
+		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window")))
+		false => match length > stream_window
+			true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window")))
+			false => validate_data_frame_size(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		end
+	end
+end
+
+fn validate_data_frame_size(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
+	match max_frame_size < 1
+		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FrameSizeExceeded(0, length, ReceiveLimit(max_frame_size, LocalConfiguration), 0, stream_id)))
+		false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 	end
 end
 
@@ -3456,6 +3503,14 @@ fn outbound_data_receive_credit(decision: OutboundDataDecision) -> OutboundRecei
 		OutboundDataAccepted(_, _, _, receive_credit, _) => receive_credit
 		OutboundDataRejected(_, _, _, _) => outbound_receive_credit_without_stream(0)
 		OutboundDataEncodeFailed(_, _, _, _) => outbound_receive_credit_without_stream(0)
+	end
+end
+
+fn outbound_data_failure(decision: OutboundDataDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundDataAccepted(_, _, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
+		OutboundDataRejected(_, _, _, failure) => failure
+		OutboundDataEncodeFailed(_, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
 	end
 end
 
@@ -6834,6 +6889,23 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	print_outbound_headers("outbound-data-end-stream-then-headers", outbound_data_then_headers)
 	let outbound_data_then_window_update: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_data_receive_credit(outbound_data_end_stream))?
 	print_outbound_window_update("outbound-data-end-stream-then-window-update", outbound_data_then_window_update)
+	let received_goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
+	let outbound_data_after_goaway_allowed: OutboundDataDecision = send_data_with_shutdown(5, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, state_shutdown_state_value(step_state(received_goaway)), outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_data("outbound-data-after-goaway-allowed", outbound_data_after_goaway_allowed)
+	let ignored_data_after_goaway_allowed_chunk: () = print_outbound_data_chunk("http2-data-after-goaway-allowed", outbound_data_after_goaway_allowed, "0000020000000000050102")?
+	let outbound_data_after_goaway_late: OutboundDataDecision = send_data_with_shutdown(7, byte_chunk_from_hex("01020304")?, false, small_peer_max_frame_size_settings(3), state_shutdown_state_value(step_state(received_goaway)), outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_data("outbound-data-after-goaway-late", outbound_data_after_goaway_late)
+	let ignored_data_after_goaway_late_chunk: () = print_outbound_data_chunk("http2-data-after-goaway-late", outbound_data_after_goaway_late, "")?
+	print_goaway_stream_failure("outbound-data-after-goaway-late", Failed(frame_state(), outbound_data_failure(outbound_data_after_goaway_late)))
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
+	let outbound_data_after_local_goaway_allowed: OutboundDataDecision = send_data_with_shutdown(5, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_data("outbound-data-after-local-goaway-allowed", outbound_data_after_local_goaway_allowed)
+	let ignored_data_after_local_goaway_allowed_chunk: () = print_outbound_data_chunk("http2-data-after-local-goaway-allowed", outbound_data_after_local_goaway_allowed, "0000020000000000050102")?
+	let outbound_data_after_local_goaway_late: OutboundDataDecision = send_data_with_shutdown(7, byte_chunk_from_hex("01020304")?, false, small_peer_max_frame_size_settings(3), local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_data("outbound-data-after-local-goaway-late", outbound_data_after_local_goaway_late)
+	let ignored_data_after_local_goaway_late_chunk: () = print_outbound_data_chunk("http2-data-after-local-goaway-late", outbound_data_after_local_goaway_late, "")?
+	print_goaway_stream_failure("outbound-data-after-local-goaway-late", Failed(frame_state(), outbound_data_failure(outbound_data_after_local_goaway_late)))
 	let outbound_data_encode_error: OutboundDataDecision = send_data(2147483648, byte_chunk_from_hex("cc")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(10, 2147483648, 20))?
 	print_outbound_data("outbound-data-id-encode-error", outbound_data_encode_error)
 	Ok(())

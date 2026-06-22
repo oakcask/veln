@@ -2048,6 +2048,12 @@ DATA intents that exceed peer-advertised stream credit derived from received
 `SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
 The checked case also pins zero available connection credit and zero available
 stream credit as stable rejected no-output outcomes.
+After receiving GOAWAY or after locally sending GOAWAY, the outbound DATA
+send-intent slice accepts DATA at the recorded last-stream-id boundary and
+rejects a higher open stream with `http2.protocol.stream_after_goaway` before
+frame-size splitting, encode checks, or outbound credit changes. Missing,
+closed, reset, and mismatched stream cases keep their narrower existing
+failures, and rejected post-GOAWAY DATA emits no output chunk.
 Accepted DATA with `END_STREAM` records local closed-stream state; later
 outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE` for
 that stream use the same closed stream-state rejection boundary. The receive
@@ -2157,6 +2163,8 @@ payload, accepted PRIORITY frame-header-plus-priority-payload chunks,
 accepted HEADERS frame-header-plus-header-block chunks with and without
 `END_STREAM`, an accepted post-GOAWAY HEADERS frame at the recorded boundary,
 an accepted post-local-GOAWAY HEADERS frame at the recorded boundary,
+accepted post-GOAWAY and post-local-GOAWAY DATA frames at the recorded
+boundary, empty chunk lists for above-boundary post-GOAWAY DATA rejections,
 accepted outbound HPACK dynamic table-size update HEADERS chunks for the
 one-byte and saturated-prefix continuation integer forms, a later HEADERS
 chunk that observes the reduced outbound HPACK table capacity, an empty chunk

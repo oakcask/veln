@@ -31,8 +31,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining DATA behavior not covered by the implemented receive-window
   accounting, inbound PADDED DATA handling, inbound `END_STREAM`
   closed-by-peer lifecycle, outbound PADDED DATA send-intent slice,
-  half-closed-local inbound DATA receive after local `END_STREAM`, and
-  outbound DATA on a closed-by-peer stream before local `END_STREAM`
+  half-closed-local inbound DATA receive after local `END_STREAM`, outbound
+  DATA on a closed-by-peer stream before local `END_STREAM`, and outbound
+  DATA send-intent rejection above received or locally sent GOAWAY boundaries
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -42,7 +43,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
   slice, outbound DATA local closed-stream send-intent slice, GOAWAY
   last-stream-id enforcement for later peer-created HEADERS, outbound
-  HEADERS send-intent rejection above received or locally sent GOAWAY
+  HEADERS and DATA send-intent rejection above received or locally sent GOAWAY
   boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
@@ -54,8 +55,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `SETTINGS_INITIAL_WINDOW_SIZE` receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
-  and outbound HEADERS send-intent rejection above received or locally sent
-  GOAWAY boundaries
+  and outbound HEADERS and DATA send-intent rejection above received or
+  locally sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -527,7 +528,11 @@ PADDED DATA keeps exposing only application bytes, invalid padding and
 stream-window failures report the half-closed-local active state,
 connection-window failures remain connection-flow-control failures, and
 accepted inbound DATA with peer `END_STREAM` transitions the stream to
-closed-by-peer. Generated frame-header
+closed-by-peer. After received or locally sent GOAWAY, outbound DATA for an
+open stream above the recorded last stream id is rejected before frame-size
+splitting, encode checks, or outbound credit changes; the recorded boundary
+remains accepted, and missing, closed, reset, or mismatched stream cases keep
+their narrower failures. Generated frame-header
 representation failures stay on the `codec.encode_value_unrepresentable`
 encode-error path.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
@@ -535,6 +540,8 @@ under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
 The completed outbound DATA flow-control send-window slice is archived under
 `../reference/implemented-proposals/http2-outbound-data-flow-control.md`.
+The completed outbound DATA post-GOAWAY send-intent boundary is archived under
+`../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md`.
 The implemented outbound HEADERS send-intent slice also observes received and
 locally sent GOAWAY graceful-shutdown state. It accepts an open stream at the
 recorded last-stream-id boundary, rejects an open stream above that boundary
@@ -670,8 +677,8 @@ length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
 GOAWAY payload, and records local graceful-shutdown state. A later
 peer-created HEADERS stream greater than the sent last stream id uses the
 same post-GOAWAY stream rejection boundary as received GOAWAY state, and a
-later local outbound HEADERS send-intent above the sent last stream id is
-rejected before frame splitting or encode checks.
+later local outbound HEADERS or DATA send-intent above the sent last stream
+id is rejected before frame splitting or encode checks.
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.

@@ -2159,7 +2159,12 @@ against the built `veln` binary.
   recorded received or locally sent GOAWAY boundary and rejects a higher open
   stream with the same diagnostic before frame-size or encode checks. Stream
   id domain failures and closed stream-state failures still report before the
-  GOAWAY-specific check. It also accepts
+  GOAWAY-specific check. The outbound DATA send-intent slice applies the same
+  received and locally sent GOAWAY boundary to open streams before frame-size
+  splitting, encode checks, or outbound credit changes; accepted boundary
+  DATA emits the pinned DATA frame bytes, and above-boundary DATA emits no
+  output chunk while reporting `http2.protocol.stream_after_goaway`. It also
+  accepts
   `RST_STREAM` on the tracked open stream, records the reset error code,
   clears the open stream, and rejects later DATA or stream-level
   `WINDOW_UPDATE` for that reset stream through the existing invalid

@@ -238,6 +238,9 @@ compare it with `../specification/` before changing behavior.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
+  The completed outbound DATA post-GOAWAY send-intent boundary is archived
+  under
+  [HTTP/2 Outbound DATA GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, richer production socket APIs, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
