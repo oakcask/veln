@@ -4049,6 +4049,7 @@
         Object streamId,
         Object attemptedCount,
         Object allowedCount,
+        Object endpointRole,
         Object activeState,
         Object receiveLimitProvenance,
         Object ruleProvenance
@@ -4057,6 +4058,7 @@
         long stream = asLong(streamId);
         long attempted = asLong(attemptedCount);
         long allowed = asLong(allowedCount);
+        String role = asString(endpointRole);
         String state = asString(activeState);
         String limitProvenance = asString(receiveLimitProvenance);
         String rule = asString(ruleProvenance);
@@ -4068,6 +4070,7 @@
             stream,
             attempted,
             allowed,
+            role,
             state,
             limitProvenance,
             rule

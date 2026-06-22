@@ -43,12 +43,20 @@ path = "error.details.protocol_diagnostic.stream_ref"
 equals = "stream"
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.current_open_peer_created_stream_count"
+equals = 1
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.attempted_concurrent_stream_count"
 equals = 2
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.allowed_concurrent_stream_count"
 equals = 1
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.endpoint_role"
+equals = "server"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"

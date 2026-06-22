@@ -1670,10 +1670,12 @@ closed-input continuation failure projects that context into the stable output.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
-tracked open stream receive-window credit. The checked fixture boundary can
-track two open client streams, stream `1` and stream `3`, with independent
-receive-window credit. DATA consumes the shared connection window and the
-targeted stream's own window by payload length. PADDED DATA consumes
+tracked open stream receive-window credit. The checked fixture boundary admits
+the first idle peer-created HEADERS stream and rejects a second peer-created
+HEADERS stream while the first remains open through
+`http2.peer_limit.concurrent_streams_exceeded`. DATA consumes the shared
+connection window and the targeted stream's own window by payload length.
+PADDED DATA consumes
 receive-window credit for the full DATA payload, including the pad-length byte
 and padding bytes, while the exposed DATA content contains only application
 data bytes. A pad length that exceeds the remaining DATA payload is reported as
@@ -1685,10 +1687,10 @@ other non-open stream states. `WINDOW_UPDATE` on the connection stream
 increases connection receive-window credit, and `WINDOW_UPDATE` on an open
 stream increases that stream's receive-window credit. A received
 `SETTINGS_INITIAL_WINDOW_SIZE` item applies the delta from the previous active
-peer setting to each tracked open stream's receive-window credit; adjusted
+peer setting to the tracked open stream's receive-window credit; adjusted
 credit can become negative, and DATA remains blocked on the targeted stream
 until `WINDOW_UPDATE` restores enough credit for that stream. A flow-control
-rejection on one open stream does not borrow credit from another open stream.
+rejection does not borrow credit from any unrelated stream state.
 Wrong-length `WINDOW_UPDATE` payloads remain typed payload-length failures,
 idle-stream `WINDOW_UPDATE` remains the existing stream-state frame-kind
 failure, zero increments remain typed protocol failures with inspected payload
@@ -2195,7 +2197,9 @@ general schema helper path as well as the larger protocol-core fixture. The
 preface and PRIORITY dependency human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
-projection, and the flow-control command fixtures cover stream
+projection, including endpoint-role context, while the ordinary protocol-core
+case covers the receive-core rejection when a second peer-created stream would
+exceed the active limit. The flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers
 connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
 slice.

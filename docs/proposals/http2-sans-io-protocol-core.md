@@ -29,11 +29,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
   two-item local SETTINGS batch, and the narrow outbound SETTINGS ACK
   send-intent slices
 - remaining DATA behavior not covered by the implemented receive-window
-  accounting, two-open-stream receive-credit boundary, inbound PADDED DATA
-  handling, inbound `END_STREAM` closed-by-peer lifecycle, outbound PADDED
-  DATA send-intent slice, half-closed-local inbound DATA receive after local
-  `END_STREAM`, and outbound DATA on a closed-by-peer stream before local
-  `END_STREAM`
+  accounting, inbound PADDED DATA handling, inbound `END_STREAM`
+  closed-by-peer lifecycle, outbound PADDED DATA send-intent slice,
+  half-closed-local inbound DATA receive after local `END_STREAM`, and
+  outbound DATA on a closed-by-peer stream before local `END_STREAM`
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -51,8 +50,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   beyond the implemented outbound DATA send-intent splitting and PADDED DATA
   send-intent slices, outbound `RST_STREAM` reset send intent, inbound DATA,
   stream-level `WINDOW_UPDATE`, outbound `WINDOW_UPDATE` receive-credit
-  intent, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` two-open-stream receive-window accounting
+  intent, and `SETTINGS_INITIAL_WINDOW_SIZE` receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
   and outbound HEADERS send-intent rejection above received or locally sent
@@ -290,8 +288,8 @@ frame-size failures, stores received `SETTINGS_ENABLE_PUSH`,
 that those peer-advertised values are not used as inbound frame-size or
 concurrent-stream receive limits. For `SETTINGS_INITIAL_WINDOW_SIZE`, it
 applies the delta from the previous active value to the tracked open stream
-receive-window credit, including the two-open-stream fixture boundary, while
-keeping that setting out of receive-limit provenance. It ignores unknown
+receive-window credit while keeping that setting out of receive-limit
+provenance. It ignores unknown
 received SETTINGS identifiers for
 peer-advertised state and range diagnostics, while still applying or diagnosing
 known SETTINGS items in the same frame at their own item byte offsets. It
@@ -669,22 +667,23 @@ or error-code payload are preserved before accepted bytes
 are produced.
 The implemented slice also applies received `SETTINGS_INITIAL_WINDOW_SIZE`
 values to tracked open stream receive-window credit by the delta between the
-previous active peer setting and the new value. The checked two-open-stream
-boundary records streams `1` and `3` separately, applies the same SETTINGS
-delta to both open stream windows, and keeps later DATA and stream-level
-`WINDOW_UPDATE` accounting on the targeted stream's own adjusted credit. The
-adjusted stream credit can become negative, in which case later DATA remains
-blocked by `http2.peer_limit.flow_control_window_exceeded` until stream-level
+previous active peer setting and the new value. The checked boundary keeps
+later DATA and stream-level `WINDOW_UPDATE` accounting on the tracked stream's
+own adjusted credit. The adjusted stream credit can become negative, in which
+case later DATA remains blocked by
+`http2.peer_limit.flow_control_window_exceeded` until stream-level
 `WINDOW_UPDATE` restores enough credit on that stream.
 The implemented slice also admits peer-created streams narrowly. HEADERS
 frames on idle, nonzero streams open tracked peer-created streams when the
 active concurrent-stream receive limit allows them. A HEADERS frame that
 would open another peer-created stream beyond that receive limit fails as
 `http2.peer_limit.concurrent_streams_exceeded`, with byte offset, stream
-reference, attempted and allowed concurrent-stream counts, active protocol
-state, receive-limit provenance, and rule provenance in ordinary output, human
-diagnostics, and JSON `protocol_diagnostic` details. Non-HEADERS frames on
-idle streams keep using the existing invalid frame-kind failure.
+reference, current open peer-created stream count, attempted and allowed
+concurrent-stream counts, endpoint role, active protocol state,
+receive-limit provenance, and rule provenance in ordinary output, human
+diagnostics, and JSON `protocol_diagnostic` details.
+Non-HEADERS frames on idle streams keep using the existing invalid frame-kind
+failure.
 The implemented slice also receives `RST_STREAM` frames on the tracked open
 peer-created stream. It decodes the four-byte error-code payload into
 source-visible reset state, clears the open stream, and rejects later DATA or

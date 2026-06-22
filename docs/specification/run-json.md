@@ -340,9 +340,8 @@ SETTINGS. Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
 belong to peer-advertised state for outbound decisions and are not reported as
 the receive-limit provenance for later inbound frame-size, concurrent-stream,
 or DATA receive-window failures. A received `SETTINGS_INITIAL_WINDOW_SIZE`
-delta can still change each tracked open stream's allowed receive-window
-credit in the two-open-stream fixture boundary, and later DATA failures report
-the targeted stream's adjusted credit instead of another open stream's credit.
+delta can still change the tracked open stream's allowed receive-window
+credit, and later DATA failures report that adjusted credit.
 Unknown SETTINGS identifiers do not update peer-advertised state and do not produce
 `http2.peer_limit.settings_value_out_of_range`; known SETTINGS items in the
 same frame are still applied or diagnosed at their own item byte offset.
@@ -372,8 +371,10 @@ payload byte preview. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
+`current_open_peer_created_stream_count`,
 `attempted_concurrent_stream_count`, `allowed_concurrent_stream_count`,
-`active_state`, `receive_limit_provenance`, and `rule_provenance`. Received
+`endpoint_role`, `active_state`, `receive_limit_provenance`, and
+`rule_provenance`. Received
 HEADERS or a completed CONTINUATION header block whose fixture-decoded header
 list size exceeds the active local receive policy uses id
 `http2.peer_limit.header_list_size_exceeded` and records

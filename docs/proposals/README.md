@@ -205,7 +205,7 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
   HPACK behavior beyond the checked fixture boundary,
-  unknown extension-frame, two-open-stream receive flow-control, send-intent,
+  unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, local GOAWAY outbound HEADERS
   boundary, server-side `PUSH_PROMISE` rejection, server-side outbound
   `PUSH_PROMISE` send-intent, and
