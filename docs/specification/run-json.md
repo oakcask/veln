@@ -373,7 +373,8 @@ peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
 `attempted_concurrent_stream_count`, `allowed_concurrent_stream_count`,
-`active_state`, `receive_limit_provenance`, and `rule_provenance`. Received
+`endpoint_role`, `active_state`, `receive_limit_provenance`, and
+`rule_provenance`. Received
 HEADERS or a completed CONTINUATION header block whose fixture-decoded header
 list size exceeds the active local receive policy uses id
 `http2.peer_limit.header_list_size_exceeded` and records

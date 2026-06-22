@@ -614,6 +614,7 @@
         long streamId,
         long attemptedCount,
         long allowedCount,
+        String endpointRole,
         String activeState,
         String receiveLimitProvenance,
         String ruleProvenance
@@ -628,6 +629,7 @@
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                     DiagnosticDetail.number("attempted_concurrent_stream_count", attemptedCount),
                     DiagnosticDetail.number("allowed_concurrent_stream_count", allowedCount),
+                    DiagnosticDetail.string("endpoint_role", endpointRole),
                     DiagnosticDetail.string("active_state", activeState),
                     DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
                     DiagnosticDetail.string("rule_provenance", ruleProvenance)

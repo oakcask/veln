@@ -51,6 +51,10 @@ path = "error.details.protocol_diagnostic.allowed_concurrent_stream_count"
 equals = 1
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.endpoint_role"
+equals = "server"
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
 equals = "open-stream"
 

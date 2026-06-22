@@ -2195,8 +2195,9 @@ general schema helper path as well as the larger protocol-core fixture. The
 preface and PRIORITY dependency human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
-projection, and the flow-control command fixtures cover stream
-receive-window provenance while the ordinary protocol-core case also covers
+projection, including endpoint-role context, and the flow-control command
+fixtures cover stream receive-window provenance while the ordinary
+protocol-core case also covers
 connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
 slice.
 The frame-size command fixtures cover local-configuration provenance while the

@@ -928,6 +928,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 let frame = self.frame_ref()?;
                 let attempted_count = self.number("attempted_concurrent_stream_count")?;
                 let allowed_count = self.number("allowed_concurrent_stream_count")?;
+                let endpoint_role = self.string("endpoint_role")?;
                 let limit_provenance = self.string("receive_limit_provenance")?;
                 let rule_provenance = self.string("rule_provenance")?;
                 let mut diagnostic = self.diagnostic(format!(
@@ -939,6 +940,9 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     frame.stream_ref, frame.stream_id
                 )));
                 self.push_active_state(&mut diagnostic)?;
+                diagnostic
+                    .related
+                    .push(note_json(format!("Endpoint role: {endpoint_role}.")));
                 diagnostic.related.push(note_json(format!(
                     "Receive limit provenance: {limit_provenance}."
                 )));
@@ -3160,6 +3164,7 @@ mod tests {
             ("stream_ref", JsonValue::string("stream")),
             ("attempted_concurrent_stream_count", JsonValue::Number(2)),
             ("allowed_concurrent_stream_count", JsonValue::Number(1)),
+            ("endpoint_role", JsonValue::string("server")),
             ("active_state", JsonValue::string("open-stream")),
             (
                 "receive_limit_provenance",
@@ -3188,7 +3193,7 @@ mod tests {
             diagnostic.message,
             "concurrent stream receive limit exceeded at byte offset 9"
         );
-        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(diagnostic.related.len(), 5);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3203,10 +3208,15 @@ mod tests {
         assert!(
             diagnostic.related[2]
                 .to_json()
-                .contains("local_configuration")
+                .contains("Endpoint role: server")
         );
         assert!(
             diagnostic.related[3]
+                .to_json()
+                .contains("local_configuration")
+        );
+        assert!(
+            diagnostic.related[4]
                 .to_json()
                 .contains("peer_created_stream_receive_limit")
         );

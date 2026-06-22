@@ -2218,13 +2218,13 @@ against the built `veln` binary.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
-  with focused concurrent-stream count, state, receive-limit provenance, and
-  rule provenance notes.
+  with focused concurrent-stream count, endpoint role, state,
+  receive-limit provenance, and rule provenance notes.
 - `run/http2-protocol-core-concurrent-streams-json/`: the same
   concurrent-stream peer-limit failure reports
   `http2.peer_limit.concurrent_streams_exceeded` through `run --json` with
-  byte offset, stream reference, attempted and allowed counts, active state,
-  receive-limit provenance, and rule provenance.
+  byte offset, stream reference, attempted and allowed counts, endpoint role,
+  active state, receive-limit provenance, and rule provenance.
 - `run/http2-protocol-core-header-table-human/`: an HPACK dynamic table-size
   update above the active local receive limit reports
   `http2.peer_limit.header_table_size_exceeded` through human `run` stderr

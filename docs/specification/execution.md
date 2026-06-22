@@ -1361,8 +1361,10 @@ execution reference.
   idle peer-created HEADERS streams and, in the checked fixture boundary,
   tracks two open client streams with independent receive-window credit for
   stream `1` and stream `3`. It counts those open peer-created streams for
-  the active concurrent-stream receive limit, consumes DATA payload length
-  from the shared connection window and the targeted stream window, accepts
+  the active concurrent-stream receive limit and reports rejected stream
+  creation with the endpoint role, active state, receive-limit provenance,
+  and rule provenance kept as diagnostic context. It consumes DATA payload
+  length from the shared connection window and the targeted stream window, accepts
   PADDED DATA by consuming the pad-length byte and padding as receive-window
   credit while exposing only application data bytes as DATA content, moves
   the stream to

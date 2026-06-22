@@ -638,6 +638,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::string(),
                 T::string(),
                 T::string(),
+                T::string(),
             ],
             unit_result(),
         )),

@@ -681,10 +681,11 @@ frames on idle, nonzero streams open tracked peer-created streams when the
 active concurrent-stream receive limit allows them. A HEADERS frame that
 would open another peer-created stream beyond that receive limit fails as
 `http2.peer_limit.concurrent_streams_exceeded`, with byte offset, stream
-reference, attempted and allowed concurrent-stream counts, active protocol
-state, receive-limit provenance, and rule provenance in ordinary output, human
-diagnostics, and JSON `protocol_diagnostic` details. Non-HEADERS frames on
-idle streams keep using the existing invalid frame-kind failure.
+reference, attempted and allowed concurrent-stream counts, endpoint role,
+active protocol state, receive-limit provenance, and rule provenance in
+ordinary output, human diagnostics, and JSON `protocol_diagnostic` details.
+Non-HEADERS frames on idle streams keep using the existing invalid frame-kind
+failure.
 The implemented slice also receives `RST_STREAM` frames on the tracked open
 peer-created stream. It decodes the four-byte error-code payload into
 source-visible reset state, clears the open stream, and rejects later DATA or
