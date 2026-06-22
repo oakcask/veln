@@ -1278,8 +1278,11 @@ execution reference.
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
   projected to a focused human runtime diagnostic and
   `details.byte_diagnostic` JSON using the contained diagnostic id, byte
-  offset, field path, and optional reason, including codec-owned invalid-input
-  facts returned by a hand-written `decode with` codec boundary and the
+  offset, field path, optional reason, and optional byte-helper context
+  carried by the reason. The carried context includes local byte offset,
+  expected and available byte counts, and bounded byte preview when the helper
+  produced those facts. This includes codec-owned invalid-input facts returned
+  by a hand-written `decode with` codec boundary and the
   `codec.consumed_count_invalid` result produced by the hand-written codec
   boundary when a decoded consumed count is outside the supplied `ByteView`.
   A returned
@@ -1290,6 +1293,8 @@ execution reference.
   ordinary successful entry value. The checked examples are
   `examples/specification/run/codec-decode-consumed-count-invalid-human/`,
   `examples/specification/run/codec-decode-consumed-count-invalid-json/`,
+  `examples/specification/run/codec-decode-invalid-byte-context-human/`,
+  `examples/specification/run/codec-decode-invalid-byte-context-json/`,
   `examples/specification/run/codec-decode-invalid-boundary-human/`,
   `examples/specification/run/codec-decode-invalid-boundary-json/`,
   `examples/specification/run/codec-decode-invalid-step-human/`,

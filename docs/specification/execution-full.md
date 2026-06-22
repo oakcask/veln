@@ -326,8 +326,9 @@ For `veln run` entries, a returned
 `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`
 is projected to a focused human runtime diagnostic and
 `details.byte_diagnostic` JSON using the contained diagnostic id, byte offset,
-field path, and optional reason, including codec-owned invalid-input facts and
-the `codec.consumed_count_invalid` result produced by the hand-written codec
+field path, optional reason, and optional byte-helper context carried by that
+reason, including codec-owned invalid-input facts and the
+`codec.consumed_count_invalid` result produced by the hand-written codec
 boundary when a decoded consumed count is outside the supplied `ByteView`. A
 returned
 `DecodeStep::NeedMore(readiness)` is projected at the closed-input reporting

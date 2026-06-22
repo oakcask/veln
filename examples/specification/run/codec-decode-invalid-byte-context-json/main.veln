@@ -1,0 +1,48 @@
+# Hand-written codec invalid-input reasons can carry byte context.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	payload: ByteView(length)
+end
+
+codec ManualPacketCodec for ManualPacketWire decode
+	decode with decode_manual_packet
+end
+
+fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
+	match byte_offset(byte_offset_to_int(base) + local)
+		Ok(offset) => offset
+		Err(_) => base
+	end
+end
+
+fn decode_manual_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, payload: ByteView}>
+	match byte_read_u16_be(input)
+		Ok(length) => decode_payload(input, base, length)
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.length"))
+	end
+end
+
+fn decode_payload(input: ByteView, base: ByteOffset, length: Int) -> DecodeStep<{length: Int, payload: ByteView}>
+	match byte_count(2)
+		Ok(local_payload) => match byte_count(length)
+			Ok(payload_count) => match byte_view_slice(input, local_payload, payload_count)
+				Ok(payload) => match byte_count(length + 2)
+					Ok(consumed) => Decoded({length: length, payload: payload}, consumed)
+					Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.payload"))
+				end
+				Err(message) => Invalid(DecodeErrorWithReason("codec.invalid_input", absolute_offset(base, 2), "ManualPacketWire.payload", message))
+			end
+			Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.payload"))
+		end
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.payload"))
+	end
+end
+
+pub fn main() -> DecodeStep<{length: Int, payload: ByteView}>
+	let bytes: ByteChunk = byte_chunk_from_hex("000407")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	ManualPacketCodec(view, byte_offset(60)?)
+end

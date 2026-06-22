@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.invalid_input]: decode error at byte offset 62", "note: Field path: schema `ManualPacketWire` / field `payload`.", "note: Decode failure reason: byte view range exceeds view length.", "note: Local byte offset: 2.", "note: Decoder expected 4 byte(s); 1 byte(s) were available.", "note: Nearby bytes: 07 (showing 1 of 1 byte(s), complete).", "note: DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length)."]

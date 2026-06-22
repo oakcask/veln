@@ -239,10 +239,21 @@ When a `veln run` entry returns
 - `field_path_display`: the source-visible field path string
 - `reason`: the source-visible decode failure reason when the value is
   `DecodeErrorWithReason`
+- `local_byte_offset`: the byte offset reported by helper context carried by
+  the reason when present
+- `expected_count`: the byte count expected by helper context carried by the
+  reason when present
+- `available_count`: the byte count available to helper context carried by the
+  reason when present
+- `byte_preview`: a structured bounded byte preview object for helper context
+  carried by the reason when present
 
 This shape also covers codec-owned invalid-input facts returned by a
 hand-written `decode with` codec boundary, such as
-`codec.invalid_input`.
+`codec.invalid_input`. If the reason is a byte-helper failure message with
+registered helper context, the command-facing projection keeps the reason text
+and adds the carried helper counts, local byte offset, and byte preview to the
+same `details.byte_diagnostic`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from a
 hand-written `decode with` codec boundary whose returned `Decoded` consumed
