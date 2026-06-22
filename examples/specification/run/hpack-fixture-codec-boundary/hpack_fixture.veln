@@ -133,6 +133,22 @@ fn static_indexed_path_root_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
 end
 
+fn static_indexed_path_index_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/index.html"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_scheme_http_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "http"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn static_indexed_scheme_https_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_status_headers(value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", value), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 fn static_indexed_two_headers(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
 	HpackHeaderList(first, second, wire_size)
 end
@@ -163,6 +179,22 @@ end
 
 fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(static_indexed_path_root_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_index(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_index_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_http(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_http_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_https(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_https_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_status(value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_status_headers(value), next_state(state)))
 end
 
 fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -1221,9 +1253,26 @@ fn static_indexed_header_value(byte: Int) -> Option<HpackHeader>
 		130 => Some(HpackHeader(":method", "GET"))
 		131 => Some(HpackHeader(":method", "POST"))
 		132 => Some(HpackHeader(":path", "/"))
+		133 => Some(HpackHeader(":path", "/index.html"))
+		134 => Some(HpackHeader(":scheme", "http"))
+		135 => Some(HpackHeader(":scheme", "https"))
+		136 => Some(HpackHeader(":status", "200"))
+		137 => Some(HpackHeader(":status", "204"))
+		138 => Some(HpackHeader(":status", "206"))
+		139 => Some(HpackHeader(":status", "304"))
+		140 => Some(HpackHeader(":status", "400"))
+		141 => Some(HpackHeader(":status", "404"))
+		142 => Some(HpackHeader(":status", "500"))
 		143 => Some(HpackHeader("accept-charset", ""))
 		144 => Some(HpackHeader("accept-encoding", "gzip, deflate"))
 		145 => Some(HpackHeader("accept-language", ""))
+		146 => Some(HpackHeader("accept-ranges", ""))
+		147 => Some(HpackHeader("accept", ""))
+		148 => Some(HpackHeader("access-control-allow-origin", ""))
+		149 => Some(HpackHeader("age", ""))
+		150 => Some(HpackHeader("allow", ""))
+		151 => Some(HpackHeader("authorization", ""))
+		152 => Some(HpackHeader("cache-control", ""))
 		153 => Some(HpackHeader("content-disposition", ""))
 		154 => Some(HpackHeader("content-encoding", ""))
 		155 => Some(HpackHeader("content-language", ""))
@@ -1285,9 +1334,26 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			130 => decoded_static_indexed_method_get(state)
 			131 => decoded_static_indexed_method_post(state)
 			132 => decoded_static_indexed_path_root(state)
+			133 => decoded_static_indexed_path_index(state)
+			134 => decoded_static_indexed_scheme_http(state)
+			135 => decoded_static_indexed_scheme_https(state)
+			136 => decoded_static_indexed_status("200", state)
+			137 => decoded_static_indexed_status("204", state)
+			138 => decoded_static_indexed_status("206", state)
+			139 => decoded_static_indexed_status("304", state)
+			140 => decoded_static_indexed_status("400", state)
+			141 => decoded_static_indexed_status("404", state)
+			142 => decoded_static_indexed_status("500", state)
 			143 => decoded_static_indexed_header("accept-charset", "", state)
 			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
 			145 => decoded_static_indexed_header("accept-language", "", state)
+			146 => decoded_static_indexed_header("accept-ranges", "", state)
+			147 => decoded_static_indexed_header("accept", "", state)
+			148 => decoded_static_indexed_header("access-control-allow-origin", "", state)
+			149 => decoded_static_indexed_header("age", "", state)
+			150 => decoded_static_indexed_header("allow", "", state)
+			151 => decoded_static_indexed_header("authorization", "", state)
+			152 => decoded_static_indexed_header("cache-control", "", state)
 			153 => decoded_static_indexed_header("content-disposition", "", state)
 			154 => decoded_static_indexed_header("content-encoding", "", state)
 			155 => decoded_static_indexed_header("content-language", "", state)

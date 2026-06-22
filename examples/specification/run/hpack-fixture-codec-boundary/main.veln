@@ -339,7 +339,17 @@ fn print_initial_static_indexed_cases(initial: HpackFixtureState) -> Result<Hpac
 	let method_post: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(method_post_block, authority_state, 26)
 	print_transition("method-post", method_post)
 	print_two_header_transition("method-path", decode_header_block(byte_chunk_from_hex("8284")?, initial, 26))
-	let accept_charset_state: HpackFixtureState = next_state_or(method_post, authority_state)
+	let path_index_state: HpackFixtureState = print_static_indexed_decode("path-index", "85", next_state_or(method_post, authority_state), 27)?
+	let scheme_http_state: HpackFixtureState = print_static_indexed_decode("scheme-http", "86", path_index_state, 28)?
+	let scheme_https_state: HpackFixtureState = print_static_indexed_decode("scheme-https", "87", scheme_http_state, 29)?
+	let status_200_state: HpackFixtureState = print_static_indexed_decode("status-200", "88", scheme_https_state, 30)?
+	let status_204_state: HpackFixtureState = print_static_indexed_decode("status-204", "89", status_200_state, 31)?
+	let status_206_state: HpackFixtureState = print_static_indexed_decode("status-206", "8a", status_204_state, 32)?
+	let status_304_state: HpackFixtureState = print_static_indexed_decode("status-304", "8b", status_206_state, 33)?
+	let status_400_state: HpackFixtureState = print_static_indexed_decode("status-400", "8c", status_304_state, 34)?
+	let status_404_state: HpackFixtureState = print_static_indexed_decode("status-404", "8d", status_400_state, 35)?
+	let status_500_state: HpackFixtureState = print_static_indexed_decode("status-500", "8e", status_404_state, 36)?
+	let accept_charset_state: HpackFixtureState = status_500_state
 	let accept_charset_block: ByteChunk = byte_chunk_from_hex("8f")?
 	let accept_charset: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_charset_block, accept_charset_state, 27)
 	print_transition("accept-charset", accept_charset)
@@ -351,7 +361,13 @@ fn print_initial_static_indexed_cases(initial: HpackFixtureState) -> Result<Hpac
 	let accept_language_block: ByteChunk = byte_chunk_from_hex("91")?
 	let accept_language: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(accept_language_block, accept_language_state, 29)
 	print_transition("accept-language", accept_language)
-	let content_disposition_state: HpackFixtureState = next_state_or(accept_language, accept_language_state)
+	let accept_ranges_state: HpackFixtureState = print_static_indexed_decode("accept-ranges", "92", next_state_or(accept_language, accept_language_state), 30)?
+	let accept_state: HpackFixtureState = print_static_indexed_decode("accept", "93", accept_ranges_state, 31)?
+	let access_control_allow_origin_state: HpackFixtureState = print_static_indexed_decode("access-control-allow-origin", "94", accept_state, 32)?
+	let age_state: HpackFixtureState = print_static_indexed_decode("age", "95", access_control_allow_origin_state, 33)?
+	let allow_state: HpackFixtureState = print_static_indexed_decode("allow", "96", age_state, 34)?
+	let authorization_state: HpackFixtureState = print_static_indexed_decode("authorization", "97", allow_state, 35)?
+	let content_disposition_state: HpackFixtureState = print_static_indexed_decode("cache-control", "98", authorization_state, 36)?
 	let content_disposition_block: ByteChunk = byte_chunk_from_hex("99")?
 	let content_disposition: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(content_disposition_block, content_disposition_state, 30)
 	print_transition("content-disposition", content_disposition)

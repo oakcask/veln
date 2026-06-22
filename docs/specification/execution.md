@@ -1371,7 +1371,7 @@ execution reference.
   `protocol_diagnostic` details.
 - The HTTP/2 protocol-core HPACK fixture boundary models HPACK as an imported
   ordinary source module, not as schema syntax. The fixture module accepts a
-  small deterministic set of header-block byte fixtures, including the HPACK
+  bounded deterministic set of header-block byte fixtures, including every HPACK
   static indexed `0x81` `:authority` with an empty value, `0x82`
   `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
   `:path: /index.html`, `0x86` `:scheme: http`, and
@@ -1399,7 +1399,10 @@ execution reference.
 	  `www-authenticate:` bytes. The same fixture boundary accepts the
 	  two-byte static-indexed block `0x82 0x84` as `:method: GET` followed
 	  by `:path: /`, preserving both headers in the source-visible
-	  `HpackHeaderList`, plus literal-without-indexing,
+	  `HpackHeaderList`. The HTTP/2 protocol-core case also carries
+	  static indexed `0x85` `:path: /index.html` through a completed final
+	  CONTINUATION frame before HPACK decode. The fixture boundary also
+	  accepts literal-without-indexing,
 	  literal-with-indexing, and literal-never-indexed fixtures whose
 	  indexed-name form names a supported static-table header name already
 	  accepted by the static-indexed fixture set, including ordinary names

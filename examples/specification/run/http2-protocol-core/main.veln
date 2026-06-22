@@ -7042,8 +7042,19 @@ fn print_hpack_static_indexed_case(state: Http2DecodeState, label: String, outpu
 	print_hpack_header_block_case(state, label, output_label, frame_hex, block_hex)
 end
 
+fn print_hpack_static_indexed_continuation_case(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010000000001")?), state)?
+	print_step("hpack-static-indexed-path-index-continuation-start", start)
+	let done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000185")?), step_state(start))?
+	print_step("hpack-static-indexed-path-index-continuation-done", done)
+	let ignored_header_block: () = emit_header_block("http2-hpack-static-indexed-path-index-continuation", done, "85")?
+	print_hpack_transition("hpack-static-indexed-path-index-continuation-done", done)
+	Ok(())
+end
+
 fn print_extended_hpack_static_indexed_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let ignored_hpack_static_indexed_authority: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-authority", "http2-hpack-static-indexed-authority", "00000101040000000181", "81")?
+	let ignored_hpack_static_indexed_path_index_continuation: () = print_hpack_static_indexed_continuation_case(state)?
 	let ignored_hpack_static_indexed_last_modified: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-last-modified", "http2-hpack-static-indexed-last-modified", "000001010400000001ac", "ac")?
 	let ignored_hpack_static_indexed_link: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-link", "http2-hpack-static-indexed-link", "000001010400000001ad", "ad")?
 	let ignored_hpack_static_indexed_location: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-location", "http2-hpack-static-indexed-location", "000001010400000001ae", "ae")?
