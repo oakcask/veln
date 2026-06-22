@@ -75,6 +75,12 @@ execution reference.
   routing decisions.
   `net::write_chunks` writes a `List<ByteChunk>` to the selected stream in
   source list order through the same stream write path as `net::write_chunk`.
+  The checked adapter-owned outbound ordering example is
+  `examples/specification/run/socket-stream-adapter-write-chunks-ordering/`;
+  it accepts deterministic loopback streams, routes ordinary inputs through a
+  channel, calls multiple pure handlers, combines their response actions into
+  one explicit outbound order, and writes only the ordered `SendBytes` chunks
+  with `net::write_chunks`.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.

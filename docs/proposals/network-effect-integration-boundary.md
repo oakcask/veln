@@ -48,14 +48,16 @@ slices, and narrow deadline and cancellation slices, for:
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
-  cancellable deadline-aware lifecycle slices, plus the source-visible
-  ordered `net::write_chunks` chunk-list boundary
+  cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
+  ordered `net::write_chunks` projection slice, plus the source-visible
+  ordered chunk-list boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
   cancellable timeout-result selection, two-receiver cancellable
   timeout-result selection, socket/channel routing, deadline-aware lifecycle,
-  cancellable lifecycle, and cancellable deadline-aware lifecycle slices
+  cancellable lifecycle, cancellable deadline-aware lifecycle, and
+  multi-handler outbound write-ordering slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list select-many route-count fixtures,
   general receiver-list routing helper, receiver-list timeout,
@@ -265,6 +267,17 @@ use `net::write_chunks(stream, chunks)` to write a source-owned
 surface as `net::write_chunk`, and pure protocol handlers remain free of
 `net` calls.
 
+Implemented adapter-owned outbound write-ordering slice: an executable
+specification case accepts deterministic production-loopback streams, reads
+ordinary `StreamInput` values through adapter-owned socket calls, routes those
+values through an existing channel, calls multiple pure handler functions that
+receive no `NetStream` handles, combines their ordinary `ResponseAction`
+values into one explicit adapter-owned order, projects only ordered
+`SendBytes` actions to a `List<ByteChunk>`, and writes that list through
+`net::write_chunks`. The matching effect-checking case keeps the handlers
+transport-free and requires the adapter boundary to declare the existing
+`net` and `concurrency` effects.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -274,6 +287,10 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
+
+The adapter-owned multi-handler outbound write-ordering slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-adapter-outbound-write-ordering.md`.
 
 The production-loopback listen, sequential accept, read, write, clean listener
 end, close lifecycle, two-stream adapter handler/action lifecycle,

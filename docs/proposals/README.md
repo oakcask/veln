@@ -250,6 +250,8 @@ compare it with `../specification/` before changing behavior.
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
   source-visible ordered `net::write_chunks` chunk-list writes,
+  adapter-owned multi-handler outbound write ordering through
+  `net::write_chunks`,
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
@@ -266,6 +268,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
+  The completed adapter-owned multi-handler outbound write-ordering slice is
+  archived under
+  [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
 
 ## Update When
 
