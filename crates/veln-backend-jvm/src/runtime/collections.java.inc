@@ -7460,10 +7460,24 @@
             }
             return call(spec.get(1), values);
         }
+        if (tag.equals("prefix")) {
+            Object value = schemaMappingExprValue(decoded, spec.get(2));
+            String op = asString(spec.get(1));
+            if (op.equals("not")) {
+                return not(value);
+            }
+            throw new IllegalStateException("unsupported schema mapping prefix operator");
+        }
         if (tag.equals("binary")) {
             Object left = schemaMappingExprValue(decoded, spec.get(2));
             Object right = schemaMappingExprValue(decoded, spec.get(3));
             String op = asString(spec.get(1));
+            if (op.equals("and")) {
+                return and(left, right);
+            }
+            if (op.equals("or")) {
+                return or(left, right);
+            }
             if (op.equals("+")) {
                 return add(left, right);
             }

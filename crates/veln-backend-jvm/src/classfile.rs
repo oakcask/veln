@@ -1810,6 +1810,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     _ => unreachable!(),
                 });
             }
+            IrSchemaDecodeMappingExpr::Prefix { op, expr } => {
+                self.emit_object_array(code, 3, |this, code, index| match index {
+                    0 => code.ldc_string("prefix"),
+                    1 => code.ldc_string(schema_mapping_prefix_op_text(*op)),
+                    2 => this.emit_schema_mapping_expr_spec(code, expr),
+                    _ => unreachable!(),
+                });
+            }
             IrSchemaDecodeMappingExpr::Binary { op, left, right } => {
                 self.emit_object_array(code, 4, |this, code, index| match index {
                     0 => code.ldc_string("binary"),
@@ -2494,6 +2502,8 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
 fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
     match op {
+        BinaryOp::Or => "or",
+        BinaryOp::And => "and",
         BinaryOp::Add => "+",
         BinaryOp::Subtract => "-",
         BinaryOp::Multiply => "*",
@@ -2501,8 +2511,15 @@ fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
         BinaryOp::Equal => "==",
         BinaryOp::NotEqual => "!=",
         _ => unreachable!(
-            "schema mapping binary expressions only support arithmetic and equality operators"
+            "schema mapping binary expressions only support boolean, arithmetic, and equality operators"
         ),
+    }
+}
+
+fn schema_mapping_prefix_op_text(op: PrefixOp) -> &'static str {
+    match op {
+        PrefixOp::Not => "not",
+        _ => unreachable!("schema mapping prefix expressions only support `not`"),
     }
 }
 

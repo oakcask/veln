@@ -197,9 +197,12 @@ construction resolved through ordinary source module rules, one pure
 same-module converter call, and one imported public pure converter call
 through a written `use` path or alias, and field selection from an already
 supported structural mapping expression whose type has the selected record
-field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions whose
-operands are decoded schema-local `Int` fields, integer literals, or nested
-supported integer arithmetic mapping expressions. Converter calls take one,
+field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions
+whose operands are decoded schema-local `Int` fields, integer literals,
+`Int`-returning converter calls, or nested supported integer arithmetic
+mapping expressions. A `Bool` target field may use `==` and `!=` between
+decoded schema-local `Int` fields and integer literals, and may compose those
+supported comparisons with `and`, `or`, and `not`. Converter calls take one,
 two, or three arguments. Each argument is either a schema-local field
 reference or an already implemented structural mapping expression made from
 schema-local fields, records, ADT constructors, supported integer arithmetic
@@ -225,8 +228,9 @@ or target-shape boundaries report `schema.mapping_selection` or
 `schema.mapping_selection_unsupported`. Target-field resolution outside that
 record slice, arbitrary calls, non-`Int` converter arithmetic operands,
 value-dependent mapping beyond decoded-field and converter-call integer
-arithmetic and equality or inequality, and encode-side mapping outside the
-selected structural slice are not implemented.
+arithmetic and decoded-field integer equality or inequality composed for
+`Bool` target fields, and encode-side mapping outside the selected structural
+slice are not implemented.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 keeps the mapping-selection boundary executable.

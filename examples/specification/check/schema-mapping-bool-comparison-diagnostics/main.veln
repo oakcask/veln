@@ -1,6 +1,6 @@
 # Schema mapping Bool comparisons reject non-Int operands and non-Bool targets.
 type Packet
-	Packet {bad_operand: Bool, bad_target: Int, unsupported_left: Bool}
+	Packet {bad_operand: Bool, bad_target: Int, unsupported_left: Bool, unsupported_bool_operand: Bool}
 end
 
 schema PacketWire
@@ -14,4 +14,5 @@ schema PacketWire
 		bad_operand = payload == 1
 		bad_target = kind != length
 		unsupported_left = (kind + 1) == length
+		unsupported_bool_operand = kind == 1 and payload
 end
