@@ -1,0 +1,17 @@
+# Production loopback deadline read forced failures stay runtime failures.
+
+fn read_until(stream: NetStream) -> () effects [net, time]
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let _ = net::read_chunk_until(stream, deadline)
+	()
+end
+
+pub fn main() -> Result<(), String> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let handled: () = match net::accept_until(listener, deadline)
+		Some(stream) => read_until(stream)
+		None => ()
+	end
+	Ok(())
+end

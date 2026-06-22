@@ -260,17 +260,26 @@ When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
 host loopback listener and deterministic loopback stream sequence:
 `net::listen` binds the requested host and port, `net::accept` and
 `net::accept_or_end` accept a loopback client as a `NetStream`,
-`net::read_chunk` and `net::read_chunk_or_end` read bytes from that stream,
-`net::write_chunk` writes bytes back to the stream, `net::write_chunks`
-writes each chunk in source list order, `net::close_stream` closes the owned
-stream, and a following optional accept can observe clean listener end.
+`net::accept_until` accepts before the supplied deadline or reports clean
+listener end as `None`, `net::read_chunk` and `net::read_chunk_or_end` read
+bytes from that stream, `net::read_chunk_until` reads bytes before the
+supplied deadline or reports clean stream end as `None`, `net::write_chunk`
+writes bytes back to the stream, `net::write_chunks` writes each chunk in
+source list order, `net::close_stream` closes the owned stream, and a
+following optional or deadline-aware accept can observe clean listener end.
 Adapter-owned production loopback examples can handle multiple accepted
 streams independently through ordinary `StreamInput` and response-action
 values, route them through the existing `concurrency` boundary, project only
 ordered `SendBytes` actions to `net::write_chunk`, close each stream, and
-drain the listener until clean end. Forced production read failure on that
-path remains a runtime transport failure. This production path uses the same
-coarse `net` effect as the fixture-backed path.
+drain the listener until clean end. The deadline-aware production adapter
+uses the same handler/action boundary through `net::accept_until` and
+`net::read_chunk_until`, adds only the existing coarse `time` effect label,
+writes ordered response bytes, closes the stream, and then observes clean
+listener end through a following deadline-aware accept. Forced production read
+failure on the listener-drain path, and forced production accept or read
+failure through the deadline-aware paths, remain runtime transport failures.
+This production path uses the same coarse `net` and `time` effects as the
+fixture-backed deadline-aware path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;

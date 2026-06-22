@@ -2609,6 +2609,19 @@ against the built `veln` binary.
   listener-drain adapter boundary reports a forced production read failure as
   a runtime transport failure after accept and before response writes or stream
   close.
+- `run/socket-stream-adapter-production-deadline-lifecycle/`: the
+  production loopback adapter accepts with `net::accept_until`, reads with
+  `net::read_chunk_until` until clean stream end becomes `None`, routes the
+  accepted stream through the ordinary handler/action boundary, writes the
+  ordered response bytes, closes the stream, captures client-observed bytes,
+  and observes clean listener end through a following deadline-aware accept.
+- `run/socket-stream-adapter-production-accept-until-failure-json/`:
+  production loopback keeps forced deadline-aware accept failure as a runtime
+  transport failure after listener creation.
+- `run/socket-stream-adapter-production-read-until-failure-json/`:
+  production loopback keeps forced deadline-aware read failure as a runtime
+  transport failure after deadline-aware accept and before response writes or
+  stream close.
 - `run/socket-stream-adapter-production-close-failure-json/`: one production
   loopback adapter routes a stream through the ordinary handler/action
   boundary, writes the ordered response bytes, and then reports a forced close

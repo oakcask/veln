@@ -1550,6 +1550,17 @@ listener end. The matching
 case forces a production read failure after accept and checks that the command
 surface remains a runtime transport failure without response writes or stream
 close. The executable specification case
+`../../examples/specification/run/socket-stream-adapter-production-deadline-lifecycle/`
+uses the same production-loopback handler/action boundary through
+deadline-aware `net::accept_until` and `net::read_chunk_until` calls. The
+adapter accepts, reads until clean stream end becomes `None`, writes the
+ordered response, closes the stream, and then observes clean listener end
+through a following deadline-aware accept. The matching
+`../../examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
+and
+`../../examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`
+cases keep forced deadline-aware production accept and read failures on the
+runtime transport-failure surface. The executable specification case
 `../../examples/specification/run/socket-stream-adapter-production-close-failure-json/`
 uses the same production-loopback handler/action boundary and forces a close
 failure after the adapter has accepted a stream, routed the ordinary

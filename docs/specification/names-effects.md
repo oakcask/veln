@@ -69,7 +69,10 @@ compiler-known calls.
   lifecycle adapters declare `net`, `time`, and `concurrency`; the pure
   handler boundary remains free of transport effects.
   The production loopback lifecycle cases use the same `net` and
-  `concurrency` declarations as the close-lifecycle adapter; the runtime path
+  `concurrency` declarations as the close-lifecycle adapter, and the
+  production deadline-aware lifecycle adds the existing coarse `time` label
+  because it composes `net::accept_until`, `net::read_chunk_until`, ordinary
+  channel routing, ordered writes, and explicit close. The runtime path
   changes from fixture events to owned host streams. The two-stream adapter
   lifecycle accepts two independent production streams from one listener,
   routes each stream through the same ordinary handler/action boundary, writes
@@ -78,7 +81,9 @@ compiler-known calls.
   listener-drain adapter uses the same public calls and effect declarations
   while recursively accepting configured production streams until
   `net::accept_or_end` reports clean listener end; forced production read
-  failure on that path remains a runtime transport failure.
+  failure on that path remains a runtime transport failure. Forced production
+  accept or read failures through the deadline-aware calls remain runtime
+  transport failures under the same coarse effect labels.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route through thirty-route examples use
