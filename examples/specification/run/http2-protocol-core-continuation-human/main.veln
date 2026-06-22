@@ -1,4 +1,4 @@
-# HTTP/2 continuation ordering failures project structured runtime details.
+# HTTP/2 continuation ordering failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
 	ContinuationExpected(Int, Int, Int, Int, Int, Int, ByteView)

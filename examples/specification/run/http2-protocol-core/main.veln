@@ -170,10 +170,10 @@ type Http2Frame
 end
 
 type Http2ProtocolFailure
-	ClosedWithPending(Int, Int)
+	ClosedWithPending(Int, Int, ByteChunk)
 	ClosedWithPartialPreface(Int, Int)
 	InvalidPreface(Int, Int, Int, Int)
-	ContinuationExpected(Int, Int, Int, Int, Int, Int)
+	ContinuationExpected(Int, Int, Int, Int, Int, Int, ByteChunk)
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
@@ -405,11 +405,11 @@ fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState
 	match available == 0
 		true => match continuation
 			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-			Continuation(_, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
+			Continuation(_, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
 		end
 		false => match preface_state
 			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPartialPreface(next_offset, available)))
-			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
+			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
 		end
 	end
 end
@@ -556,7 +556,7 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let max_frame_size: Int = receive_limit_value(receive_limit)
 	match header.length > max_frame_size
 		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
-		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, available, header.length, header.kind, header.flags, header.stream_id)
+		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, available, header.length, header.kind, header.flags, header.stream_id, byte_view_to_chunk(view))
 	end
 end
 
@@ -602,34 +602,34 @@ fn header_table_receive_limit() -> ReceiveLimitEntry
 	ReceiveLimit(160, LocalConfiguration)
 end
 
-fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Step, String>
+fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
 		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, frame_count_int)
+		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, frame_count_int, header_preview)
 	end
 end
 
-fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int) -> Result<Http2Step, String>
+fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
 	let payload: ByteChunk = frame_payload_chunk(pending, length)?
 	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	let stream_id_decision: ProtocolStreamIdDecision = validate_stream_id_domain(next_offset, kind, stream_id)
 	match stream_id_decision
-		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, consumed_state)
+		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, consumed_state, header_preview)
 		ProtocolStreamIdFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
 
-fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags)?
 	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, stream_id)?
 	let payload_decision: ProtocolPayloadDecision = validate_protocol_payload(next_offset, payload, length, kind, flags, stream_id)?
 	match settings_decision
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
-				PriorityDependencyOk => match validate_continuation(continuation, next_offset, payload, kind, flags, stream_id, receive_flow_control)
+				PriorityDependencyOk => match validate_continuation(continuation, next_offset, payload, kind, flags, stream_id, receive_flow_control, header_preview)
 					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, consumed_state, payload)
 					Err(error) => Ok(Failed(consumed_state, error))
 				end
@@ -2303,10 +2303,10 @@ fn decode_goaway_state(pending: ByteChunk) -> Result<ConnectionShutdownState, St
 	Ok(GracefulShutdown(last_stream_id, error_code))
 end
 
-fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match continuation
 		NoContinuation => validate_without_continuation(offset, payload, kind, flags, stream_id, receive_flow_control)
-		Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated, offset, payload, kind, flags, stream_id)
+		Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated, offset, payload, kind, flags, stream_id, header_preview)
 	end
 end
 
@@ -2487,20 +2487,20 @@ fn validate_data_stream_state(offset: Int, kind: Int, stream_id: Int, receive_fl
 	end
 end
 
-fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 9
-		true => validate_continuation_stream(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated, offset, payload, kind, flags, stream_id)
-		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
+		true => validate_continuation_stream(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, accumulated, offset, payload, kind, flags, stream_id, header_preview)
+		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
 	end
 end
 
-fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match stream_id == expected_stream
 		true => match end_headers_set(flags)
 			true => Ok(Decision(NoContinuation, byte_append(accumulated, payload), data_end_stream_set(started_flags), started_is_trailer))
 			false => Ok(Decision(Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, byte_append(accumulated, payload)), empty_header_block(), false, false))
 		end
-		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
+		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
 	end
 end
 
@@ -2849,8 +2849,8 @@ end
 
 fn step_failure(step: Http2Step) -> Http2ProtocolFailure
 	match step
-		FrameDecoded(_, _, _, _, _, _, _, _) => ClosedWithPending(0, 0)
-		Waiting(_) => ClosedWithPending(0, 0)
+		FrameDecoded(_, _, _, _, _, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
+		Waiting(_) => ClosedWithPending(0, 0, byte_chunk([]))
 		Failed(_, failure) => failure
 	end
 end
@@ -3111,8 +3111,8 @@ end
 
 fn connection_step_failure(step: Http2ConnectionStep) -> Http2ProtocolFailure
 	match step
-		ConnectionFrameDecoded(_, _) => ClosedWithPending(0, 0)
-		ConnectionWaiting(_) => ClosedWithPending(0, 0)
+		ConnectionFrameDecoded(_, _) => ClosedWithPending(0, 0, byte_chunk([]))
+		ConnectionWaiting(_) => ClosedWithPending(0, 0, byte_chunk([]))
 		ConnectionFailed(_, failure) => failure
 	end
 end
@@ -3347,10 +3347,10 @@ end
 fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 	match error
 		FrameSizeExceeded(_, _, _, _, _) => "peer_max_frame_size"
-		ClosedWithPending(_, _) => failure_rule_provenance(error)
+		ClosedWithPending(_, _, _) => failure_rule_provenance(error)
 		ClosedWithPartialPreface(_, _) => failure_rule_provenance(error)
 		InvalidPreface(_, _, _, _) => failure_rule_provenance(error)
-		ContinuationExpected(_, _, _, _, _, _) => failure_rule_provenance(error)
+		ContinuationExpected(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidFrameKind(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3822,10 +3822,10 @@ end
 fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 	match error
 		FrameSizeExceeded(_, _, _, _, _) => "peer_max_frame_size"
-		ClosedWithPending(_, _) => failure_rule_provenance(error)
+		ClosedWithPending(_, _, _) => failure_rule_provenance(error)
 		ClosedWithPartialPreface(_, _) => failure_rule_provenance(error)
 		InvalidPreface(_, _, _, _) => failure_rule_provenance(error)
-		ContinuationExpected(_, _, _, _, _, _) => failure_rule_provenance(error)
+		ContinuationExpected(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidFrameKind(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidStreamId(_, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
@@ -3936,9 +3936,9 @@ end
 
 fn outbound_headers_failure(decision: OutboundHeadersDecision) -> Http2ProtocolFailure
 	match decision
-		OutboundHeadersAccepted(_, _, _, _, _) => ClosedWithPending(0, 0)
+		OutboundHeadersAccepted(_, _, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
 		OutboundHeadersRejected(_, _, _, failure) => failure
-		OutboundHeadersEncodeFailed(_, _, _, _) => ClosedWithPending(0, 0)
+		OutboundHeadersEncodeFailed(_, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
 	end
 end
 
@@ -4215,9 +4215,9 @@ end
 
 fn outbound_settings_failure(decision: OutboundSettingsDecision) -> Http2ProtocolFailure
 	match decision
-		OutboundSettingsAccepted(_, _, _, _) => ClosedWithPending(0, 0)
+		OutboundSettingsAccepted(_, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
 		OutboundSettingsRejected(failure) => failure
-		OutboundSettingsEncodeFailed(_) => ClosedWithPending(0, 0)
+		OutboundSettingsEncodeFailed(_) => ClosedWithPending(0, 0, byte_chunk([]))
 	end
 end
 
@@ -4232,10 +4232,10 @@ end
 
 fn failure_id(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "http2.protocol.closed_with_pending"
+		ClosedWithPending(_, _, _) => "http2.protocol.closed_with_pending"
 		ClosedWithPartialPreface(_, _) => "http2.protocol.partial_preface"
 		InvalidPreface(_, _, _, _) => "http2.protocol.invalid_preface"
-		ContinuationExpected(_, _, _, _, _, _) => "http2.protocol.continuation_expected"
+		ContinuationExpected(_, _, _, _, _, _, _) => "http2.protocol.continuation_expected"
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 			InvalidStreamId(_, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
@@ -4281,10 +4281,10 @@ end
 
 fn failure_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(offset, _) => offset
+		ClosedWithPending(offset, _, _) => offset
 		ClosedWithPartialPreface(offset, _) => offset
 		InvalidPreface(offset, _, _, _) => offset
-		ContinuationExpected(offset, _, _, _, _, _) => offset
+		ContinuationExpected(offset, _, _, _, _, _, _) => offset
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidStreamId(offset, _, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _, _) => offset
@@ -4308,10 +4308,10 @@ end
 
 fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, pending_count) => pending_count
+		ClosedWithPending(_, pending_count, _) => pending_count
 		ClosedWithPartialPreface(_, pending_count) => pending_count
 		InvalidPreface(_, _, _, matched_count) => matched_count
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4335,10 +4335,10 @@ end
 
 fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, actual_byte, _) => actual_byte
-		ContinuationExpected(_, actual_kind, _, _, _, _) => actual_kind
+		ContinuationExpected(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
@@ -4362,10 +4362,10 @@ end
 
 fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, actual_stream, _, _, _) => actual_stream
+		ContinuationExpected(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidStreamId(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _, _) => actual_stream
@@ -4389,10 +4389,10 @@ end
 
 fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, expected_stream, _, _) => expected_stream
+		ContinuationExpected(_, _, _, expected_stream, _, _, _) => expected_stream
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4416,10 +4416,10 @@ end
 
 fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, expected_byte, _, _) => expected_byte
-		ContinuationExpected(_, _, _, _, _, _) => 9
+		ContinuationExpected(_, _, _, _, _, _, _) => 9
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
@@ -4443,10 +4443,10 @@ end
 
 fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, started_kind, _) => started_kind
+		ContinuationExpected(_, _, _, _, started_kind, _, _) => started_kind
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4470,10 +4470,10 @@ end
 
 fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, started_offset) => started_offset
+		ContinuationExpected(_, _, _, _, _, started_offset, _) => started_offset
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 			InvalidStreamId(_, _, _, _, _, _, _) => 0
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4497,10 +4497,10 @@ end
 
 fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
@@ -4524,10 +4524,10 @@ end
 
 fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => client_connection_preface_count()
 		InvalidPreface(_, _, _, _) => client_connection_preface_count()
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
@@ -4551,10 +4551,10 @@ end
 
 fn failure_active_state(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "connection-preface"
 		InvalidPreface(_, _, _, _) => "connection-preface"
-		ContinuationExpected(_, _, _, _, _, _) => "headers"
+		ContinuationExpected(_, _, _, _, _, _, _) => "headers"
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidStreamId(_, _, _, _, _, active_state, _) => active_state
 			InvalidPayloadLength(_, _, _, _, _, active_state, _, _) => active_state
@@ -4642,10 +4642,10 @@ end
 
 fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "rfc9113_client_connection_preface"
 		InvalidPreface(_, _, _, _) => "rfc9113_client_connection_preface"
-		ContinuationExpected(_, _, _, _, _, _) => "rfc9113_continuation_sequence"
+		ContinuationExpected(_, _, _, _, _, _, _) => "rfc9113_continuation_sequence"
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidStreamId(_, _, _, _, _, _, rule_provenance) => rule_provenance
 			InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
@@ -4669,10 +4669,10 @@ end
 
 fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
-		ContinuationExpected(_, _, _, _, _, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
@@ -4696,10 +4696,10 @@ end
 
 fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4723,10 +4723,10 @@ end
 
 fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
-		ContinuationExpected(_, _, _, _, _, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
@@ -4750,10 +4750,10 @@ end
 
 fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4777,10 +4777,10 @@ end
 
 fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4804,10 +4804,10 @@ end
 
 fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 	match failure
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
@@ -4831,10 +4831,10 @@ end
 
 fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
-		ContinuationExpected(_, _, _, _, _, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
@@ -4939,15 +4939,19 @@ end
 
 fn diagnostic_context_pending_view(context: Http2DiagnosticContext) -> Result<ByteView, String>
 	let pending: ByteChunk = state_pending_chunk(diagnostic_context_state(context))
-	byte_view(pending, byte_offset(0)?, byte_chunk_count(pending))
+	byte_chunk_view(pending)
+end
+
+fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
+	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
 end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		ClosedWithPending(offset, pending_count) => http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)))
+		ClosedWithPending(offset, pending_count, preview_chunk) => http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)
 		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count, diagnostic_context_pending_view(context)?)
 		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, diagnostic_context_pending_view(context)?)
-		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)))
+		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?)
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?)
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
@@ -4986,10 +4990,10 @@ end
 
 fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
-		ContinuationExpected(_, _, _, _, _, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 			InvalidStreamId(_, _, _, required_domain, _, _, _) => required_domain
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
@@ -5013,10 +5017,10 @@ end
 
 fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 	match failure
-		ClosedWithPending(_, _) => "none"
+		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
-		ContinuationExpected(_, _, _, _, _, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 			InvalidStreamId(_, _, _, _, endpoint_role, _, _) => endpoint_role
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
@@ -5041,10 +5045,10 @@ end
 fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 	match failure
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
-		ClosedWithPending(_, _) => 0
+		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
-		ContinuationExpected(_, _, _, _, _, _) => 0
+		ContinuationExpected(_, _, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0

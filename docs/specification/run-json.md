@@ -329,13 +329,22 @@ raw input bytes. A mismatched client connection preface byte uses id
 `http2.protocol.invalid_preface` and records `byte_offset.value`,
 `expected_byte`, `actual_byte`, `matched_prefix_count`, `expected_count`,
 `active_state`, and `rule_provenance`, plus a structured bounded
-`byte_preview` for the raw input bytes inspected by the preface check. These
-protocol-owned byte previews use the same `encoding`, `data`,
+`byte_preview` for the raw input bytes inspected by the preface check. Input
+end with pending bytes after the preface uses id
+`http2.protocol.closed_with_pending` and records `byte_offset.value`,
+`pending_count`, `input_event`, and `active_continuation`, plus a structured
+bounded `byte_preview` for the retained pending bytes. A frame that violates
+an active header-block continuation sequence uses id
+`http2.protocol.continuation_expected` and records `byte_offset.value`,
+`actual_frame_kind`, `actual_stream_id`, `expected_stream_id`,
+`started_frame_kind`, `started_byte_offset`, and `active_continuation`, plus a
+structured bounded `byte_preview` for the inspected incoming frame header
+bytes. These protocol-owned byte previews use the same `encoding`, `data`,
 `preview_byte_count`, `total_byte_count`, and `truncated` object shape as
 schema-owned byte diagnostics, while byte offset, expected byte count, actual
 pending count, matched prefix count, expected byte, actual byte, active
-protocol state, and rule provenance stay in their own fields. The frame-size
-peer-limit slice uses id
+protocol state, active continuation state, and rule provenance stay in their
+own fields. The frame-size peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The

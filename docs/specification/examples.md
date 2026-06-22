@@ -1664,8 +1664,9 @@ header-block hex/count output, single-frame HEADERS completion when
 END_HEADERS is set alongside `END_STREAM`, closed-by-peer stream lifecycle
 after accepted HEADERS `END_STREAM` completion through both single-frame
 HEADERS and final CONTINUATION paths, continuation ordering failures for a
-different frame kind and a different stream id, closed input while a header
-block remains pending, an
+different frame kind and a different stream id with inspected frame-header
+bytes retained for diagnostics, closed input while a header block remains
+pending with pending bytes retained for diagnostics, an
 accepted unknown extension frame after the client preface gate that preserves
 flags, stream id, and bounded payload bytes in an ordinary `UnknownFrame`
 value, with the preserved payload also pinned as complete lowercase hex output,
@@ -2097,8 +2098,10 @@ and increment-payload representation failure cases. Rejected intents keep
 output chunks empty.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
+`../../examples/specification/run/http2-protocol-core-closed-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-invalid-human/`,
+`../../examples/specification/run/http2-protocol-core-continuation-human/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,

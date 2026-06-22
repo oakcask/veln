@@ -4033,12 +4033,13 @@ mod tests {
             "result\t",
             "485454502f3220657870656374656420434f4e54494e554154494f4e206672616d652061742062797465206f66667365742039",
             "\tprotocol_diagnostic\thttp2.protocol.continuation_expected\t9",
-            "\t6\tactual_frame_kind\tnumber\t0",
+            "\t7\tactual_frame_kind\tnumber\t0",
             "\tactual_stream_id\tnumber\t1",
             "\texpected_stream_id\tnumber\t1",
             "\tstarted_frame_kind\tnumber\t1",
             "\tstarted_byte_offset\tnumber\t0",
-            "\tactive_continuation\tstring\t68656164657273\n",
+            "\tactive_continuation\tstring\t68656164657273",
+            "\tbyte_preview\tbyte_preview_v2\t30303030303030303030303030303030:8:9:true\n",
         );
 
         let failure = result_failure_from_trace(trace).expect("trace should decode");
@@ -4057,7 +4058,12 @@ mod tests {
                 "\"expected_stream_id\":1,",
                 "\"started_frame_kind\":1,",
                 "\"started_byte_offset\":0,",
-                "\"active_continuation\":\"headers\"}}"
+                "\"active_continuation\":\"headers\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"0000000000000000\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true}}}"
             )
         );
     }

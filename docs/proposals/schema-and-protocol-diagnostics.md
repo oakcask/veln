@@ -125,9 +125,12 @@ preserving the same human diagnostics and `details.protocol_diagnostic` JSON
 shape, including the PRIORITY self-dependency payload byte preview. Focused
 HTTP/2 protocol examples for stream-id domains, post-GOAWAY stream rejection,
 fixed payload lengths, invalid DATA padding, SETTINGS ACK state, preface
-failures, continuation ordering, and remaining invalid frame-kind slices also
-route through that projection boundary. The remaining proposal work covers
-broader schema and codec diagnostics beyond these implemented slices.
+failures, continuation ordering, pending-byte close, and remaining invalid
+frame-kind slices also route through that projection boundary. The
+continuation-ordering and pending-byte close diagnostics carry structured
+protocol-owned byte previews for the inspected incoming frame header and
+retained pending bytes. The remaining proposal work covers broader schema and
+codec diagnostics beyond these implemented slices.
 
 ## Problem
 

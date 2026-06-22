@@ -1,4 +1,4 @@
-# HTTP/2 protocol-state failures project to human runtime diagnostics.
+# HTTP/2 protocol-state failures project structured runtime details.
 
 type Http2ProtocolFailure
 	ClosedWithPending(Int, Int, ByteView)
