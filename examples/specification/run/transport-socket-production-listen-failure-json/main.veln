@@ -1,0 +1,5 @@
+# Production socket listen host failures stay runtime transport failures.
+pub fn main() -> Result<(), String> effects [net]
+	let _ = net::listen("not-a-socket-address")
+	Ok(())
+end

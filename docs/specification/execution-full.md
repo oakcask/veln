@@ -705,6 +705,19 @@ read, `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream
 read and `None` for clean end of the fixture stream, and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream. `net::close_stream` records a
 fixture-backed close event for an adapter-owned stream and returns `()`.
+When the runtime environment selects `production-loopback`, those same
+listener and stream calls use a host-owned loopback transport rather than
+fixture-only stream ids: `net::listen` binds the requested address,
+`net::accept`
+and `net::accept_or_end` accept a loopback client, `net::read_chunk` and
+`net::read_chunk_or_end` read bytes from the accepted stream,
+`net::write_chunk` writes response bytes to that stream, and
+`net::close_stream` closes it. The checked lifecycle keeps the application
+handler on ordinary `StreamInput` and response-action values, routes through
+the existing `concurrency` boundary, captures the client-observed bytes, and
+uses the same `net` and `concurrency` effect declarations as fixture-backed
+close-lifecycle adapters. Invalid production listen addresses and other host
+transport failures are runtime transport failures.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative

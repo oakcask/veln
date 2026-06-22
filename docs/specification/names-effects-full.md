@@ -228,12 +228,13 @@ Direct calls to `time::timeout_ms`,
 function or test that calls one of them directly or through a private helper
 must declare the matching effect in its `effects [...]` list.
 
-This boundary is intentionally fixture-backed and narrow. `net::receive_chunk`
+This boundary is intentionally narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
-`NetListener`; `net::accept` returns a distinct source-visible `NetStream`;
-`net::accept_or_end` returns `Some(stream)` for a fixture-accepted stream and
-`None` when the fixture listener reaches a clean end; `net::accept_until`
+`NetListener`; `net::accept` returns a distinct source-visible `NetStream`.
+The default runtime path remains fixture-backed: `net::accept_or_end`
+returns `Some(stream)` for a fixture-accepted stream and `None` when the
+fixture listener reaches a clean end; `net::accept_until`
 returns `Some(stream)` when a fixture accepts before the deadline and `None`
 when the deadline has already expired or the fixture reports deadline expiry
 before accepting; `net::read_chunk`
@@ -251,6 +252,14 @@ fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream. `net::close_stream` records
 fixture-backed adapter-owned stream cleanup and returns `()`.
+When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
+host loopback listener and stream for one deterministic lifecycle:
+`net::listen` binds the requested host and port, `net::accept` and
+`net::accept_or_end` accept a loopback client as a `NetStream`,
+`net::read_chunk` and `net::read_chunk_or_end` read bytes from that stream,
+`net::write_chunk` writes bytes back to the stream, and `net::close_stream`
+closes the owned stream. This path adds no public call and uses the same
+coarse `net` effect as the fixture-backed path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;
