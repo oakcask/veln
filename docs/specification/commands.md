@@ -83,9 +83,14 @@ requiring the full command reference on the first read.
   message on the failed decode fact at the reported byte offset and put field
   path plus the source-visible `DecodeError` value in related notes. When the
   value is `DecodeErrorWithReason(...)`, the decode failure reason is also a
-  related note and `details.byte_diagnostic.reason`. The same projection
-  applies when a hand-written `decode with` codec boundary returns a
-  codec-owned `Invalid(DecodeError(...))` result. A
+  related note and `details.byte_diagnostic.reason`. When that reason is a
+  byte-helper failure message with registered helper context, related notes
+  also include local byte offset, expected and available byte counts, and a
+  bounded nearby-byte preview when available; `run --json` carries the same
+  context as `details.byte_diagnostic.local_byte_offset`, `expected_count`,
+  `available_count`, and `byte_preview`. The same projection applies when a
+  hand-written `decode with` codec boundary returns a codec-owned
+  `Invalid(DecodeError(...))` result. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

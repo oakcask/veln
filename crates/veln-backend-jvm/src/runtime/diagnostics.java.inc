@@ -1394,13 +1394,40 @@
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
         if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
-            details.add(DiagnosticDetail.string("reason", asString(error.payloads[3])));
+            String reason = asString(error.payloads[3]);
+            details.add(DiagnosticDetail.string("reason", reason));
+            mergeDecodeErrorReasonByteContext(details, reason);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
         byteDiagnostics.get().put(
             message,
             new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details)
         );
+    }
+
+    private static void mergeDecodeErrorReasonByteContext(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        ByteDiagnostic carried = byteDiagnostics.get().remove(reason);
+        if (carried == null) {
+            return;
+        }
+        details.add(DiagnosticDetail.number("local_byte_offset", carried.byteOffset));
+        for (DiagnosticDetail detail : carried.details) {
+            if (detail.key.equals("expected_count")
+                || detail.key.equals("available_count")
+                || detail.key.equals("byte_preview")) {
+                details.add(detail);
+            } else if (detail.key.equals("requested_count")
+                && detail.valueKind.equals("number")) {
+                details.add(new DiagnosticDetail(
+                    "expected_count",
+                    detail.valueKind,
+                    detail.encodedValue
+                ));
+            }
+        }
     }
 
     public static void registerDecodeNeedMoreByteDiagnostic(Object value, String message) {

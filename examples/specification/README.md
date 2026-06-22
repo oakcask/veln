@@ -1788,6 +1788,13 @@ against the built `veln` binary.
   returns a codec-owned `Invalid(DecodeErrorWithReason(...))`, and `veln run`
   projects the contained decode error and reason through focused human
   diagnostics and `run --json` `details.byte_diagnostic`.
+- `run/codec-decode-invalid-byte-context-human/` and
+  `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
+  boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose
+  reason is a byte-helper failure message with registered byte context, and
+  `veln run` projects local byte offset, expected and available byte counts,
+  and bounded byte preview through related human notes and `run --json`
+  `details.byte_diagnostic`.
 - `run/codec-decode-invalid-step-human/` and
   `run/codec-decode-invalid-step-json/`: when a `veln run` entry returns
   `Invalid(DecodeError(...))`, `veln run` projects the contained decode error

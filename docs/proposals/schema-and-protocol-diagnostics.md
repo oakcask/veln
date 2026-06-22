@@ -72,10 +72,15 @@ remain ordinary values. Command-facing projection for
 byte offset with field-path, optional reason, and source-visible value notes,
 and `veln run --json` attaches
 `details.byte_diagnostic` with the contained id, byte offset, field path, and
-optional reason
+optional reason. For hand-written codec invalid-input failures, a
+`DecodeErrorWithReason` reason that is a byte-helper failure message with
+registered helper context also projects local byte offset, expected and
+available byte counts, and bounded byte preview
 as specified under `../specification/run-json.md`,
 `../specification/commands.md`, and `../specification/execution.md` and
 checked by
+`../../examples/specification/run/codec-decode-invalid-byte-context-json/`,
+`../../examples/specification/run/codec-decode-invalid-byte-context-human/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-json/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/` and

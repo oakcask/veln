@@ -162,6 +162,15 @@ human output reports the failed decode fact at the contained byte offset with
 related field-path, reason, and source-visible value notes, and `run --json`
 attaches `details.byte_diagnostic.reason`.
 The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-byte-context-human/`
+and
+`../../examples/specification/run/codec-decode-invalid-byte-context-json/`
+cover the same hand-written codec boundary when the reason is a byte-helper
+failure message with registered byte context: human output adds local byte
+offset, expected and available byte counts, and bounded nearby bytes as
+related notes, and `run --json` attaches the same fields under
+`details.byte_diagnostic`.
+The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-step-human/` and
 `../../examples/specification/run/codec-decode-invalid-step-json/` cover
 command-facing projection when a `veln run` entry returns
