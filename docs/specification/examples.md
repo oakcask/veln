@@ -989,6 +989,11 @@ and truncation projections for that layout. The adjacent checker case
 `../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
 asserts `schema.reserved_bits_encode` for a non-byte-aligned reserved-bit
 shape outside the supported encode layouts.
+`../../examples/specification/check/schema-reserved-bit-layout-diagnostics/`
+and `../../examples/specification/check/schema-reserved-bit-layout-human/`
+pin unsupported suffix, prefix, and standalone `ReservedBits(width, value)`
+layout diagnostics with schema, field, reserved width, adjacent visible width,
+and supported layout family context.
 `../../examples/specification/run/binary-schema-byte-aligned-reserved-encode/`
 pins byte-aligned reserved-bit encode: the helper omits the reserved field
 from the source value record and writes the declared fixed bytes in

@@ -1555,6 +1555,11 @@ against the built `veln` binary.
   syntax outside the supported reserved-bit encode layouts reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected
   value.
+- `check/schema-reserved-bit-layout-diagnostics/` and
+  `check/schema-reserved-bit-layout-human/`: unsupported reserved-bit suffix,
+  prefix, and standalone layouts report `schema.reserved_bits_encode` with
+  schema, field, reserved width, adjacent visible width, and supported layout
+  family context in JSON and human output.
 - `run/binary-schema-closed-dispatch-encode/`: a generated binary schema
   encode helper selects a closed dispatch primitive payload from an earlier
   tag field, writes the selected big-endian or little-endian payload width,

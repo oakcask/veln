@@ -10,11 +10,11 @@ use crate::schema::mapping::{
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
-    recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
-    repeat_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
-    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
-    schema_encode_value_type, schema_has_recursive_dispatch_payload,
+    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
+    flag_schema_primitive, recursive_dispatch_payload_case_is_eligible,
+    recursive_dispatch_payload_is_eligible, repeat_schema_primitive, schema_decode_record_type,
+    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_encode_function_name, schema_encode_value_type, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, schema_recursive_dispatch_payload_type,
     selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
@@ -1891,7 +1891,10 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                             .is_none()
                         {
                             diagnostics.push(reserved_bits_encode_shape_diagnostic(
-                                schema, field, reserved,
+                                schema,
+                                field,
+                                field_index,
+                                reserved,
                             ));
                         }
                     }
@@ -4017,26 +4020,183 @@ fn reserved_bits_argument_diagnostic(
 fn reserved_bits_encode_shape_diagnostic(
     schema: &SchemaDecl,
     field: &SchemaField,
+    field_index: Option<usize>,
     reserved: (i64, i64),
 ) -> Diagnostic {
-    Diagnostic::new(
+    let layout = reserved_bits_unsupported_layout_context(schema, field_index, reserved.0);
+    let mut details = vec![
+        (
+            "schema",
+            JsonValue::string(schema.name.clone().unwrap_or_default()),
+        ),
+        ("field", JsonValue::string(field.name.clone())),
+        ("primitive", JsonValue::string("ReservedBits")),
+        ("bit_width", JsonValue::Number(reserved.0)),
+        ("expected_value", JsonValue::Number(reserved.1)),
+        ("reason", JsonValue::string("unsupported_encode_shape")),
+        (
+            "supported_layout_family",
+            JsonValue::string(layout.supported_layout_family),
+        ),
+    ];
+    if let Some(previous_width) = layout.previous_visible_bit_width {
+        details.push((
+            "previous_visible_bit_width",
+            JsonValue::Number(i64::from(previous_width)),
+        ));
+    }
+    if let Some(next_width) = layout.next_visible_bit_width {
+        details.push((
+            "next_visible_bit_width",
+            JsonValue::Number(i64::from(next_width)),
+        ));
+    }
+
+    let mut diagnostic = Diagnostic::new(
         "schema.reserved_bits_encode",
         Severity::Error,
         DiagnosticKind::Type,
-        "`ReservedBits` encode support does not cover this field layout",
+        format!(
+            "`ReservedBits({}, {})` is outside the supported binary schema field layouts",
+            reserved.0, reserved.1
+        ),
         Some(field.span.clone()),
-        JsonValue::object([
-            (
-                "schema",
-                JsonValue::string(schema.name.clone().unwrap_or_default()),
-            ),
-            ("field", JsonValue::string(field.name.clone())),
-            ("primitive", JsonValue::string("ReservedBits")),
-            ("bit_width", JsonValue::Number(reserved.0)),
-            ("expected_value", JsonValue::Number(reserved.1)),
-            ("reason", JsonValue::string("unsupported_encode_shape")),
-        ]),
+        JsonValue::object(details),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(format!(
+            "Schema `{}` field `{}` declares ReservedBits({}, {}).",
+            schema.name.clone().unwrap_or_default(),
+            field.name,
+            reserved.0,
+            reserved.1
+        )),
+    )]));
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(layout.human_adjacent_note),
+    )]));
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(format!(
+            "Supported layout family: {}; {}",
+            layout.supported_layout_family, layout.human_supported_note
+        )),
+    )]));
+    diagnostic
+}
+
+struct ReservedBitsUnsupportedLayoutContext {
+    supported_layout_family: &'static str,
+    previous_visible_bit_width: Option<u8>,
+    next_visible_bit_width: Option<u8>,
+    human_adjacent_note: String,
+    human_supported_note: &'static str,
+}
+
+fn reserved_bits_unsupported_layout_context(
+    schema: &SchemaDecl,
+    field_index: Option<usize>,
+    bit_width: i64,
+) -> ReservedBitsUnsupportedLayoutContext {
+    let previous_field = field_index
+        .and_then(|index| index.checked_sub(1))
+        .and_then(|index| schema.fields.get(index));
+    let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
+    let previous_visible_bit_width =
+        previous_field.and_then(|field| exact_width_schema_primitive_bit_width(&field.ty));
+    let next_visible_bit_width =
+        next_field.and_then(|field| exact_width_schema_primitive_bit_width(&field.ty));
+
+    let (supported_layout_family, human_supported_note) = reserved_bits_supported_layout_family(
+        bit_width,
+        previous_visible_bit_width,
+        next_visible_bit_width,
+    );
+    ReservedBitsUnsupportedLayoutContext {
+        supported_layout_family,
+        previous_visible_bit_width,
+        next_visible_bit_width,
+        human_adjacent_note: reserved_bits_adjacent_width_note(
+            previous_field,
+            previous_visible_bit_width,
+            next_field,
+            next_visible_bit_width,
+        ),
+        human_supported_note,
+    }
+}
+
+fn reserved_bits_supported_layout_family(
+    bit_width: i64,
+    previous_visible_bit_width: Option<u8>,
+    next_visible_bit_width: Option<u8>,
+) -> (&'static str, &'static str) {
+    if previous_visible_bit_width.is_some() && next_visible_bit_width.is_some() {
+        return (
+            "middle_reserved_bits",
+            "visible and reserved widths must complete one supported big-endian storage unit.",
+        );
+    }
+    if previous_visible_bit_width.is_some()
+        && packed_reserved_storage_bit_width(bit_width).is_some()
+    {
+        return (
+            "packed_reserved_suffix",
+            "the previous visible width plus the reserved width must complete one supported big-endian storage unit.",
+        );
+    }
+    if next_visible_bit_width.is_some() && packed_reserved_storage_bit_width(bit_width).is_some() {
+        return (
+            "packed_reserved_prefix",
+            "the reserved width plus the next visible width must complete one supported big-endian storage unit.",
+        );
+    }
+    if bit_width > 0 && bit_width <= 32 && bit_width % 8 == 0 {
+        return (
+            "byte_aligned_reserved_bits",
+            "byte-aligned reserved fields are supported up to four bytes when the value fits the width.",
+        );
+    }
+    (
+        "bit_packed_reserved_group",
+        "a bit-packed group must contain at least one visible field and complete one supported big-endian storage unit.",
     )
+}
+
+fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
+    if (1..=7).contains(&bit_width) {
+        Some(8)
+    } else if (9..=15).contains(&bit_width) {
+        Some(16)
+    } else if (17..=23).contains(&bit_width) {
+        Some(24)
+    } else if (25..=31).contains(&bit_width) {
+        Some(32)
+    } else {
+        None
+    }
+}
+
+fn reserved_bits_adjacent_width_note(
+    previous_field: Option<&SchemaField>,
+    previous_visible_bit_width: Option<u8>,
+    next_field: Option<&SchemaField>,
+    next_visible_bit_width: Option<u8>,
+) -> String {
+    let mut parts = Vec::new();
+    if let (Some(field), Some(width)) = (previous_field, previous_visible_bit_width) {
+        parts.push(format!("previous `{}` is {} bit(s)", field.name, width));
+    }
+    if let (Some(field), Some(width)) = (next_field, next_visible_bit_width) {
+        parts.push(format!("next `{}` is {} bit(s)", field.name, width));
+    }
+    if parts.is_empty() {
+        "No adjacent visible exact-width field participates in this unsupported layout.".to_string()
+    } else {
+        format!("Adjacent visible field widths: {}.", parts.join("; "))
+    }
 }
 
 fn function_target<'a>(

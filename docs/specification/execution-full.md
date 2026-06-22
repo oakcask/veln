@@ -546,7 +546,12 @@ The helper writes visible and reserved values in declaration order, omits
 reserved fields from the encoder value record, and reports
 `codec.encode_value_unrepresentable` at the out-of-range visible field.
 Unsupported non-byte-aligned reserved-bit encode shapes report
-`schema.reserved_bits_encode`.
+`schema.reserved_bits_encode` at the reserved field span before typed IR is
+emitted. The diagnostic message names the rejected `ReservedBits(width,
+value)` layout; details name the schema, field, reserved width, expected
+value, supported layout family, and adjacent visible field widths when an
+exact-width visible field is adjacent. Human output keeps the same facts in
+related notes.
 This slice excludes selected mappings that cannot reconstruct all schema-local
 encode fields through direct source-field assignments, mapping expressions
 that cannot be projected back to schema-local fields, recursive dispatch
