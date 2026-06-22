@@ -242,7 +242,9 @@ compare it with `../specification/` before changing behavior.
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
-  production-loopback listen, accept, read, write, close lifecycle, bounded
+  production-loopback listen, sequential accept, read, write, clean listener
+  end, close lifecycle, and two-stream adapter handler/action lifecycle,
+  bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,

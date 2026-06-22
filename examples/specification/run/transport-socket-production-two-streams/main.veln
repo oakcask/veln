@@ -1,0 +1,46 @@
+# Production loopback listener accepts two independent streams and then ends.
+use stdio
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn round_trip_stream(stream: NetStream) -> Int effects [net]
+	let incoming: ByteChunk = net::read_chunk(stream)
+	net::write_chunk(stream, incoming)
+	net::close_stream(stream)
+	byte_count_to_int(byte_chunk_count(incoming))
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let first: NetStream = accept_next(listener)?
+	let first_count: Int = round_trip_stream(first)
+	let second: NetStream = accept_next(listener)?
+	let second_count: Int = round_trip_stream(second)
+	let clean_end: Bool = listener_ended(listener)
+	stdio::print("first ")
+	stdio::print(int_to_string(first_count))
+	stdio::print(" second ")
+	stdio::print(int_to_string(second_count))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end

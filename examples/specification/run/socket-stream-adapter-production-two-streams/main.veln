@@ -1,0 +1,164 @@
+# Production loopback adapter handles two streams through ordinary stream values.
+use stdio
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	Ignore
+end
+
+fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, append_actions(tail, right))
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => 1 + write_count(tail)
+			EndStream => write_count(tail)
+			Ignore => write_count(tail)
+		end
+	end
+end
+
+fn end_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => end_count(tail)
+			EndStream => 1 + end_count(tail)
+			Ignore => end_count(tail)
+		end
+	end
+end
+
+fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
+	match net::read_chunk_or_end(stream)
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+	let input = route_input(route, read_stream_input(stream))
+	let handled = handle_stream_input(input, state)
+	match input
+		Chunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state))
+		End => handled
+	end
+end
+
+fn append_collected_actions(left: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, right: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	{ actions: append_actions(left.actions, right.actions), next_state: right.next_state }
+end
+
+fn collect_stream_actions(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	collect_stream_actions_until_end(stream, route, state)
+end
+
+fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
+			EndStream => apply_response_actions(stream, tail)
+			Ignore => apply_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	apply_response_actions(stream, tail)
+end
+
+fn close_after_apply(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	apply_response_actions(stream, actions)
+	net::close_stream(stream)
+end
+
+fn accepted_lifecycle(stream: NetStream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, concurrency]
+	let routed = collect_stream_actions(stream, { chunks: 0, ended: false })
+	close_after_apply(stream, routed.actions)
+	Ok(routed)
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let first_stream: NetStream = accept_next(listener)?
+	let first: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = accepted_lifecycle(first_stream)?
+	let second_stream: NetStream = accept_next(listener)?
+	let second: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = accepted_lifecycle(second_stream)?
+	let clean_end: Bool = listener_ended(listener)
+	stdio::print("first-actions ")
+	stdio::print(int_to_string(action_count(first.actions)))
+	stdio::print(" first-chunks ")
+	stdio::print(int_to_string(first.next_state.chunks))
+	stdio::print(" first-ended ")
+	stdio::print(bool_text(first.next_state.ended))
+	stdio::print(" first-writes ")
+	stdio::print(int_to_string(write_count(first.actions)))
+	stdio::print(" first-end-actions ")
+	stdio::print(int_to_string(end_count(first.actions)))
+	stdio::print(" second-actions ")
+	stdio::print(int_to_string(action_count(second.actions)))
+	stdio::print(" second-chunks ")
+	stdio::print(int_to_string(second.next_state.chunks))
+	stdio::print(" second-ended ")
+	stdio::print(bool_text(second.next_state.ended))
+	stdio::print(" second-writes ")
+	stdio::print(int_to_string(write_count(second.actions)))
+	stdio::print(" second-end-actions ")
+	stdio::print(int_to_string(end_count(second.actions)))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end
