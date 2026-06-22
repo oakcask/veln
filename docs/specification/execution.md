@@ -1291,6 +1291,7 @@ execution reference.
   `codec.incomplete_input`, with readiness and requested byte count details
   from the source-visible `DecodeReadiness` value. `Decoded` remains an
   ordinary successful entry value. The checked examples are
+  `examples/specification/run/codec-decode-decoded-json/`,
   `examples/specification/run/codec-decode-consumed-count-invalid-human/`,
   `examples/specification/run/codec-decode-consumed-count-invalid-json/`,
   `examples/specification/run/codec-decode-invalid-byte-context-human/`,

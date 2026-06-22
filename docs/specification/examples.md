@@ -153,6 +153,11 @@ and
 cover command-facing projection of the hand-written codec boundary's stable
 `codec.consumed_count_invalid` decode failure without treating it as retryable
 readiness.
+The executable specification case
+`../../examples/specification/run/codec-decode-decoded-json/` covers the
+successful `Decoded(...)` entry boundary in `run --json`: a decoded entry
+returns ordinary stdout, `status = passed`, and `error = null` without a byte
+diagnostic failure projection.
 The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-boundary-human/` and
 `../../examples/specification/run/codec-decode-invalid-boundary-json/` cover
