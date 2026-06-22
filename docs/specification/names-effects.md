@@ -46,7 +46,13 @@ compiler-known calls.
   `net::write_chunk` projection under the same `net`, `time`, and
   `concurrency` boundary. `net::write_chunks` writes a source-owned
   `List<ByteChunk>` to a `NetStream` in list order under the same coarse
-  `net` effect. The cancellable channel-first routing case uses
+  `net` effect. The adapter-owned outbound ordering example accepts
+  deterministic loopback streams, routes ordinary `StreamInput` values
+  through a channel, calls multiple pure handler functions, combines their
+  ordinary `ResponseAction` values into one adapter-owned order, and projects
+  only `SendBytes` actions to ordered `net::write_chunks` calls while
+  declaring `net` and `concurrency`; the handlers stay free of transport
+  effects. The cancellable channel-first routing case uses
   receiver-list selection before the wait outcome and keeps the same adapter
   effect boundary.
   Malformed receive fixtures, failed send, write, or close recording, forced
