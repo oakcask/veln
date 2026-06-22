@@ -1262,6 +1262,13 @@ missing names, non-schema names, private imported schemas, self references
 outside the eligible recursive length-bounded dispatch slice, schemas outside
 the generated helper slice, forward references, and incompatible payload
 shapes.
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
+and
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`
+pin a resolved binary payload schema whose forward `ByteView` length reference
+keeps the nested payload outside generated decode and encode helper
+eligibility, including structured helper-boundary fields, human related notes,
+and derived codec helper rejection for the parent dispatch schemas.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
 is not length-bounded, or when an imported recursive payload is referenced

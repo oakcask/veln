@@ -2347,6 +2347,73 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
 }
 
 #[test]
+fn dispatch_payload_schema_incompatible_helper_reports_helper_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ForwardByteViewPayload\n",
+            "  format binary\n",
+            "  payload: ByteView(later_length)\n",
+            "  later_length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema ClosedPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => ForwardByteViewPayload)\n",
+            "end\n",
+            "\n",
+            "schema ExtensionPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => ForwardByteViewPayload)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let payload_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.dispatch_payload")
+        .collect::<Vec<_>>();
+    assert_eq!(payload_diagnostics.len(), 2, "{diagnostics:#?}");
+    for diagnostic in payload_diagnostics {
+        assert_eq!(
+            diagnostic.message,
+            "dispatch payload schema `ForwardByteViewPayload` is outside the generated binary schema helper slice"
+        );
+        let details = diagnostic.details.to_json();
+        assert!(details.contains("\"reason\":\"incompatible_payload_schema\""));
+        assert!(
+            details.contains(
+                "\"expected_decode_helper\":\"byte_decode_step_forward_byte_view_payload\""
+            )
+        );
+        assert!(
+            details.contains("\"decode_helper_boundary\":\"generated_binary_schema_decode_step\"")
+        );
+        assert!(
+            details
+                .contains("\"expected_encode_helper\":\"byte_encode_forward_byte_view_payload\"")
+        );
+        assert!(details.contains("\"encode_helper_boundary\":\"generated_binary_schema_encode\""));
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(diagnostic.related[0].to_json().contains(
+            "does not expose the generated `byte_decode_step_forward_byte_view_payload` helper"
+        ));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`")
+        );
+    }
+}
+
+#[test]
 fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
     let app_source = SourceFile::new(
         "app.veln",

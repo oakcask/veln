@@ -145,7 +145,10 @@ payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward, uses an unbounded
 or otherwise ineligible recursive form, uses a schema outside the generated
 helper slice such as unsupported standalone or suffix `ReservedBits` layouts,
-or decodes to an incompatible payload shape. Closed dispatch
+uses a field-reference-ineligible `ByteView` payload layout, or decodes to an
+incompatible payload shape. Helper-slice payload diagnostics name the expected
+generated decode and encode helpers in structured fields and keep the payload
+schema declaration in related notes. Closed dispatch
 cases with mixed
 primitive and
 nested payload shapes are accepted only at an eligible selected mapping
@@ -159,7 +162,11 @@ field-reference
 diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
-`../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
+`../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
+the checked helper-eligibility detail cases are
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
+and
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`.
 A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = expression` to map schema-local fields into an ordinary
