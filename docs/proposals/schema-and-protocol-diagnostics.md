@@ -395,7 +395,8 @@ SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
 plus fixed payload-length failures for SETTINGS ACK, PING, GOAWAY,
-`RST_STREAM`, and `WINDOW_UPDATE`, plus invalid DATA padding, with
+`RST_STREAM`, and `WINDOW_UPDATE`, plus invalid DATA padding. DATA receive
+flow-control, fixed payload-length failures, and invalid DATA padding include
 protocol-owned payload byte previews.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples

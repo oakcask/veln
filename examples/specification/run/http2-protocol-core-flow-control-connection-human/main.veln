@@ -1,4 +1,4 @@
-# HTTP/2 flow-control failures project structured runtime details.
+# HTTP/2 connection flow-control failures project human byte-preview notes.
 
 type Http2ProtocolFailure
 	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String, ByteView)
@@ -13,5 +13,5 @@ end
 pub fn main() -> Result<(), String>
 	let bytes: ByteChunk = byte_chunk_from_hex("01020304")?
 	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?
-	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", preview))
+	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "connection-flow-control", "connection_receive_window", preview))
 end

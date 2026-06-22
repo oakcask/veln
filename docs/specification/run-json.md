@@ -381,8 +381,9 @@ growth, use id
 `http2.peer_limit.flow_control_window_exceeded` and record
 `byte_offset.value`, `observed_payload_length`, `allowed_window_credit`,
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
-`rule_provenance`; the checked HTTP/2 examples cover both stream-window and
-connection-window receive credit failures.
+`rule_provenance`, plus a structured bounded `byte_preview` for the inspected
+payload bytes. The checked HTTP/2 examples cover both stream-window and
+connection-window DATA receive credit failures.
 Zero received `WINDOW_UPDATE` increments use id
 `http2.protocol.invalid_window_update_increment` and record
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,

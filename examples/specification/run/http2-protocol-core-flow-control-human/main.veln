@@ -1,15 +1,17 @@
 # HTTP/2 flow-control failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
+	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String, ByteView)
 end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		FlowControlWindowExceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance)
+		FlowControlWindowExceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "open-stream", "stream_receive_window"))
+	let bytes: ByteChunk = byte_chunk_from_hex("01020304")?
+	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?
+	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", preview))
 end

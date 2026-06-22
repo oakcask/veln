@@ -1445,7 +1445,9 @@ execution reference.
   half-closed-local stream, closed-by-peer stream, reset-stream,
   concurrent-stream-limit,
   header-list-size, invalid DATA padding, negative-credit DATA, and overflow
-  cases as typed protocol failures.
+  cases as typed protocol failures. Stream-window and connection-window
+  inbound DATA overflow diagnostics carry a bounded preview of the inspected
+  DATA payload bytes.
   Closed-by-peer streams reject later DATA and stream-level `WINDOW_UPDATE`
   through the same stream-state protocol failure shape used by other
   non-open stream states. A received `RST_STREAM` on the open stream
