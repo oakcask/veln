@@ -2442,6 +2442,65 @@ fn generated_schema_helpers_accept_five_byte_prefix_reserved_group_bits() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_six_byte_prefix_reserved_group_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SixBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(41, 1466015503701)\n",
+            "  high: UInt3\n",
+            "  low: UInt4\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{high: Int, low: Int}, String>\n",
+            "  byte_decode_six_byte_prefix_reserved_group_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_six_byte_prefix_reserved_group_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "six-byte prefix reserved group bits should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("prefix", 0, 0, Some((41, 1466015503701))),
+            ("high", 1, 7, None),
+            ("low", 1, 15, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_reject_malformed_three_byte_prefix_reserved_group_bits() {
     let source = SourceFile::new(
         "main.veln",
@@ -8155,6 +8214,106 @@ fn codec_derive_resolves_five_byte_prefix_reserved_group_boundaries() {
             target: IrCallTarget::SchemaEncodeStep(name),
             ..
         } if name == "FiveBytePrefixReservedGroupHeader"
+    ));
+}
+
+#[test]
+fn codec_derive_resolves_six_byte_prefix_reserved_group_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SixBytePrefixReservedGroupHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: ReservedBits(41, 1466015503701)\n",
+            "  high: UInt3\n",
+            "  low: UInt4\n",
+            "end\n",
+            "\n",
+            "codec SixBytePrefixReservedCodec for SixBytePrefixReservedGroupHeader decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
+            "  SixBytePrefixReservedCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
+            "  SixBytePrefixReservedCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let read_header = core
+        .functions
+        .iter()
+        .find(|function| function.name == "read_header")
+        .expect("read_header should be lowered");
+    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "SixBytePrefixReservedGroupHeader"
+    ));
+
+    let write_header = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write_header")
+        .expect("write_header should be lowered");
+    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "SixBytePrefixReservedGroupHeader"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let read_header = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "read_header")
+        .expect("read_header should be in IR");
+    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "SixBytePrefixReservedGroupHeader"
+    ));
+
+    let write_header = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "write_header")
+        .expect("write_header should be in IR");
+    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "SixBytePrefixReservedGroupHeader"
     ));
 }
 

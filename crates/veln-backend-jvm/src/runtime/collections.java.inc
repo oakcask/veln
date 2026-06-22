@@ -677,11 +677,14 @@
                 && totalBitWidth == 32;
         boolean supportedFiveByteGroup =
             reserved.reservedBitWidth == 33 && totalBitWidth == 40;
+        boolean supportedSixByteGroup =
+            reserved.reservedBitWidth == 41 && totalBitWidth == 48;
         return (supportedOneByteGroup
                 || supportedTwoByteGroup
                 || supportedThreeByteGroup
                 || supportedFourByteGroup
-                || supportedFiveByteGroup)
+                || supportedFiveByteGroup
+                || supportedSixByteGroup)
             ? totalBitWidth / 8
             : 0;
     }
