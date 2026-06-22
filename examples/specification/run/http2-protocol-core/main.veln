@@ -6727,6 +6727,12 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_data_accepted: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_initial)?
 	print_outbound_data("outbound-data-accepted", outbound_data_accepted)
 	let ignored_data_chunk: () = print_outbound_data_chunk("http2-data", outbound_data_accepted, "0000020000000000010102")?
+	let outbound_data_connection_boundary: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(2, 1, 5))?
+	print_outbound_data("outbound-data-connection-boundary", outbound_data_connection_boundary)
+	let ignored_data_connection_boundary_chunk: () = print_outbound_data_chunk("http2-data-connection-boundary", outbound_data_connection_boundary, "0000020000000000010102")?
+	let outbound_data_stream_boundary: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(5, 1, 2))?
+	print_outbound_data("outbound-data-stream-boundary", outbound_data_stream_boundary)
+	let ignored_data_stream_boundary_chunk: () = print_outbound_data_chunk("http2-data-stream-boundary", outbound_data_stream_boundary, "0000020000000000010102")?
 	let outbound_data_frame_size: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, small_peer_max_frame_size_settings(1), outbound_initial)?
 	print_outbound_data("outbound-data-frame-size", outbound_data_frame_size)
 	let ignored_split_data_chunk: () = print_outbound_data_chunk("http2-data-split", outbound_data_frame_size, "0000010000000000010100000100000000000102")?
@@ -6747,8 +6753,14 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let ignored_split_data_end_stream_chunk: () = print_outbound_data_chunk("http2-data-split-end-stream", outbound_data_split_end_stream, "000002000000000001aabb000001000100000001cc")?
 	let outbound_data_connection_window: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(1, 1, 3))?
 	print_outbound_data("outbound-data-connection-window", outbound_data_connection_window)
+	let outbound_data_connection_zero: OutboundDataDecision = send_data(1, byte_chunk_from_hex("01")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(0, 1, 3))?
+	print_outbound_data("outbound-data-connection-zero", outbound_data_connection_zero)
+	let ignored_data_connection_zero_chunk: () = print_outbound_data_chunk("http2-data-connection-zero", outbound_data_connection_zero, "")?
 	let outbound_data_stream_window: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(65533, 1, 1))?
 	print_outbound_data("outbound-data-stream-window", outbound_data_stream_window)
+	let outbound_data_stream_zero: OutboundDataDecision = send_data(1, byte_chunk_from_hex("01")?, false, outbound_peer_settings, outbound_receive_credit_with_open_stream(65533, 1, 0))?
+	print_outbound_data("outbound-data-stream-zero", outbound_data_stream_zero)
+	let ignored_data_stream_zero_chunk: () = print_outbound_data_chunk("http2-data-stream-zero", outbound_data_stream_zero, "")?
 	let peer_closed_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), frame_state())?
 	let peer_closed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_closed_settings))?
 	let peer_closed_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000100000001aa")?), step_state(peer_closed_headers))?
