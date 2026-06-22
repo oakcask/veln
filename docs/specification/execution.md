@@ -62,9 +62,10 @@ execution reference.
   `CancellableWaitOutcome` values let adapter-owned waits observe completion,
   deadline expiry, or cancellation without stopping the entry. Stream adapter
   examples compose those outcomes with channel-routed `StreamInput` values,
-  receiver-list channel-first selection, accepted socket streams, and ordinary
-  response actions in fixture output so completed waits, deadline expiry, and
-  cancellation become adapter routing decisions.
+  receiver-list channel-first selection, accepted socket streams, cancellable
+  deadline-aware accepted streams, and ordinary response actions in fixture
+  output so completed waits, deadline expiry, and cancellation become adapter
+  routing decisions.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
@@ -95,7 +96,8 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-routing-context/`.
   Socket lifecycle examples still cover accepted-stream ownership, explicit
   close after clean end or cancellation cleanup, deadline-aware accepted-stream
-  ownership, and cancellation-to-action routing for an accepted stream.
+  ownership, cancellation-to-action routing for an accepted stream, and the
+  cancellable deadline-aware accept/read lifecycle boundary.
 - The channel-first stream routing examples route ordinary `StreamInput`
   values through typed channel routes, select the next ready route with the
   existing channel selection vocabulary, and only then invoke a plain handler

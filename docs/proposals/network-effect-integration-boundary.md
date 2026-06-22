@@ -33,20 +33,21 @@ slices, and narrow deadline and cancellation slices, for:
   deadline-aware optional stream-read, cancellable deadline-aware stream-read,
   ordered write lifecycle slice, and checked adapter-owned
   listener-to-clean-stream-end, deadline-aware accepted-stream lifecycle,
-  cancellable accepted-stream lifecycle, and explicit stream close lifecycle
-  slices
+  cancellable accepted-stream lifecycle, cancellable deadline-aware
+  accepted-stream lifecycle, and explicit stream close lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  the checked adapter-owned multi-event routing, deadline-aware lifecycle, and
-  cancellable lifecycle fixtures
+  the checked adapter-owned multi-event routing, deadline-aware lifecycle,
+  cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
-  owned-lifecycle, deadline-aware lifecycle, and cancellable lifecycle slices
+  owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
+  cancellable deadline-aware lifecycle slices
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
   cancellable timeout-result selection, two-receiver cancellable
-  timeout-result selection, socket/channel routing, and deadline-aware and
-  cancellable lifecycle slices
+  timeout-result selection, socket/channel routing, deadline-aware lifecycle,
+  cancellable lifecycle, and cancellable deadline-aware lifecycle slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list select-many route-count fixtures,
   general receiver-list routing helper, receiver-list timeout,
@@ -238,6 +239,17 @@ response actions to `net::write_chunk`. The adapter declares the existing
 `net`, `time`, and `concurrency` effects; the handler receives no `NetStream`
 handle and performs no transport, time, or concurrency calls.
 
+Implemented cancellable deadline-aware accepted-stream lifecycle slice: an
+executable specification case accepts a stream with
+`net::accept_until_cancellable`, owns that `NetStream` in adapter code, reads
+input through `net::read_chunk_until_cancellable`, routes ordinary
+`StreamInput` values through an existing channel, translates accept and read
+clean-end, deadline, and cancellation outcomes into adapter decisions or
+ordinary response actions, and projects only ordered `SendBytes` response
+actions to `net::write_chunk`. The adapter declares the existing `net`,
+`time`, and `concurrency` effects; the handler receives no `NetStream` handle
+and performs no transport, time, or concurrency calls.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -364,14 +376,15 @@ or the pure protocol core.
   timeout-result selection, two-receiver cancellable timeout-result selection,
   and receiver-list cancellable channel-first stream routing, deadline-aware
   accepted-stream lifecycle, cancellable accepted-stream lifecycle,
-  context-based spawned handler task, adapter-level cancellable stream
-  routing, and the general receiver-list stream routing abstraction that
-  replaces route-count fixture growth;
-  remaining examples still need richer deadline and cancellation APIs beyond
-  the narrow relative `Deadline` boundary,
-  `CancelToken` boundary, cancellation status-query boundary, and cancellable
-  wait-outcome boundary, and the cancellable deadline-aware listener accept
-  boundary.
+  cancellable deadline-aware accepted-stream lifecycle, context-based spawned
+  handler task, adapter-level cancellable stream routing, and the general
+  receiver-list stream routing abstraction that replaces route-count fixture
+  growth;
+  remaining examples still need production lifecycle coverage and richer
+  deadline and cancellation APIs beyond the current relative `Deadline`,
+  `CancelToken`, cancellation status-query, cancellable wait-outcome,
+  cancellable deadline-aware listener accept, stream read, and accepted-stream
+  lifecycle boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

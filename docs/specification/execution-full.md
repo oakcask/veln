@@ -743,6 +743,13 @@ completed wait, deadline-expired, and cancelled outcomes into response action
 values. Completed waits keep the handler-produced actions, deadline expiry
 prepends a retry action, and cancellation prepends a cleanup action without
 exposing timer handles or transport effects to the handler.
+The cancellable deadline-aware socket lifecycle case composes
+`net::accept_until_cancellable`, `net::read_chunk_until_cancellable`,
+ordinary channel routing, and ordered `net::write_chunk` projection. The
+adapter owns the accepted `NetStream`, translates accept and read clean-end,
+deadline, and cancellation outcomes into adapter decisions or ordinary
+response action values, and still exposes only `StreamInput` values to the
+handler.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model
@@ -771,6 +778,7 @@ an adapter call. The checked examples are
 `examples/specification/check/socket-stream-close-effects/`,
 `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`,
 `examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`,
+`examples/specification/run/socket-stream-adapter-cancellable-deadline-lifecycle/`,
 and `examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`.
 
 The channel-first stream routing cases keep that boundary while routing

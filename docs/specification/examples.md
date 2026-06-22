@@ -1515,6 +1515,19 @@ case pins the composed `net`, `time`, and `concurrency` effect boundary while
 the handler stays free of transport effects.
 
 The executable specification case
+`../../examples/specification/run/socket-stream-adapter-cancellable-deadline-lifecycle/`
+covers the cancellable deadline-aware accepted-stream ownership boundary. The
+adapter accepts with `net::accept_until_cancellable`, owns the accepted
+`NetStream`, reads through `net::read_chunk_until_cancellable`, routes ordinary
+`StreamInput` values through a channel, translates accept and read clean-end,
+deadline, and cancellation outcomes into adapter decisions or response action
+values, and projects only `SendBytes` actions back to ordered
+`net::write_chunk` calls. The matching
+`../../examples/specification/check/socket-stream-adapter-cancellable-deadline-lifecycle-effects/`
+case pins the composed `net`, `time`, and `concurrency` effect boundary while
+the handler stays free of transport effects.
+
+The executable specification case
 `../../examples/specification/run/socket-stream-adapter-cancel-close-lifecycle/`
 covers cancellation cleanup followed by explicit stream close. The adapter
 turns `WaitCancelled` into an ordinary cleanup response action, applies only
