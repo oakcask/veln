@@ -1,0 +1,21 @@
+# Cancellable deadline-aware socket chunk-list write reports token cancellation as a value.
+fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+	match outcome
+		WriteCompleted => "written"
+		WriteDeadlineExpired => "deadline"
+		WriteCancelled => "cancelled"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let first: ByteChunk = byte_chunk_from_hex("0a0b")?
+	let second: ByteChunk = byte_chunk_from_hex("cafe")?
+	let chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	time::cancel(token)
+	stdio::println(write_outcome_text(net::write_chunks_until_cancellable(stream, chunks, deadline, token)))
+	Ok(())
+end

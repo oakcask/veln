@@ -39,7 +39,8 @@ slices, and narrow deadline and cancellation slices, for:
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, cancellable deadline-aware stream-write,
-  ordered write lifecycle slice, and checked
+  cancellable deadline-aware chunk-list stream-write, ordered write lifecycle
+  slice, and checked
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
@@ -53,8 +54,8 @@ slices, and narrow deadline and cancellation slices, for:
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, plus the source-visible
-  ordered chunk-list boundary and cancellable deadline-aware stream-write
-  boundary
+  ordered chunk-list boundary, cancellable deadline-aware stream-write
+  boundary, and cancellable deadline-aware chunk-list stream-write boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -247,6 +248,18 @@ transport failure, not a protocol diagnostic. The completion record is
 archived under
 `../reference/implemented-proposals/network-write-until-cancellable-boundary.md`.
 
+Implemented cancellable deadline-aware chunk-list stream write slice:
+executable specification cases use
+`net::write_chunks_until_cancellable(stream, chunks, deadline, token)` to
+write a source-owned `List<ByteChunk>` in list order and return
+`WriteCompleted` when the full list is written before deadline expiry and
+before cancellation. The same boundary returns `WriteDeadlineExpired` or
+`WriteCancelled` when either outcome wins before the list is fully written.
+The call infers the existing coarse `net` and `time` effects. Forced write
+failure on the same path remains a runtime transport failure, not a protocol
+diagnostic. The completion record is archived under
+`../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md`.
+
 Implemented deadline-aware accepted-stream lifecycle slice: an executable
 specification case accepts a stream with `net::accept_until`, owns that
 `NetStream` in adapter code, repeatedly reads with `net::read_chunk_until`
@@ -316,6 +329,10 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
+
+The source-visible cancellable deadline-aware chunk-list write slice is
+recorded as implemented in
+`../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md`.
 
 The explicit listener-close boundary is recorded as implemented in
 `../reference/implemented-proposals/network-listener-close-boundary.md`.

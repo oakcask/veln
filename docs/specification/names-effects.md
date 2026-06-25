@@ -53,7 +53,11 @@ compiler-known calls.
   while exposing deadline expiry and cancellation as ordinary write outcome
   values. `net::write_chunks` writes a source-owned
   `List<ByteChunk>` to a `NetStream` in list order under the same coarse
-  `net` effect. The adapter-owned outbound ordering example accepts
+  `net` effect. `net::write_chunks_until_cancellable` combines those
+  boundaries under `net` and `time`, writing the source list in order and
+  returning ordinary write outcomes for full completion, deadline expiry, or
+  cancellation before the list is fully written. The adapter-owned outbound
+  ordering example accepts
   deterministic loopback streams, routes ordinary `StreamInput` values
   through a channel, calls multiple pure handler functions, combines their
   ordinary `ResponseAction` values into one adapter-owned order, and projects
