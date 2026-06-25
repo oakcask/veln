@@ -742,10 +742,12 @@ the supplied `Deadline` and before cancellation and returns
 `WriteDeadlineExpired`, and reports token cancellation as `WriteCancelled`,
 and `net::write_chunks`
 writes each chunk from a source-owned `List<ByteChunk>` to that stream in
-list order, and `net::write_chunks_until_cancellable` writes each chunk in
-list order until the full list completes, deadline expiry wins, or
-cancellation wins. `net::close_stream` records a fixture-backed close event
-for an adapter-owned stream and returns `()`. `net::close_listener` records a
+list order, `net::write_chunks_until` writes each chunk in list order until
+the full list completes or deadline expiry wins, and
+`net::write_chunks_until_cancellable` writes each chunk in list order until
+the full list completes, deadline expiry wins, or cancellation wins.
+`net::close_stream` records a fixture-backed close event for an adapter-owned
+stream and returns `()`. `net::close_listener` records a
 fixture-backed listener close event and returns `()`. After explicit listener
 close, later `net::accept`, `net::accept_or_end`, `net::accept_until`, and
 `net::accept_until_cancellable` calls on the same listener fail as runtime
@@ -766,6 +768,8 @@ supplied deadline or returns a write outcome value for deadline expiry,
 supplied deadline and before cancellation or returns write outcome values for
 deadline expiry and cancellation, `net::write_chunks` writes
 response chunks to that stream in source list order,
+`net::write_chunks_until` writes response chunks in source list order before
+the supplied deadline or returns a write outcome value for deadline expiry,
 `net::write_chunks_until_cancellable` applies that outcome boundary to a
 source-owned `List<ByteChunk>` in list order, and `net::close_stream` closes
 it. `net::close_listener`
@@ -819,13 +823,15 @@ cancellation observed through `net::accept_until_cancellable`, clean stream
 end observed through `net::read_chunk_or_end`, read deadline expiry or clean
 stream end observed through `net::read_chunk_until`, and value-returning
 cancellable wait outcomes are successful source values. Deadline expiry and
-cancellation observed through `net::write_chunk_until_cancellable` are also
-successful source values, and deadline expiry observed through
-`net::write_chunk_until` is also a successful source value. Forced accept
+cancellation observed through `net::write_chunk_until_cancellable` or
+`net::write_chunks_until_cancellable` are also successful source values, and
+deadline expiry observed through `net::write_chunk_until` or
+`net::write_chunks_until` is also a successful source value. Forced accept
 failure through `net::accept_until` or `net::accept_until_cancellable`,
 forced read failure through `net::read_chunk_until`, and forced write failure
-through `net::write_chunk_until` or `net::write_chunk_until_cancellable` stay
-runtime failures.
+through `net::write_chunk_until`, `net::write_chunks_until`,
+`net::write_chunk_until_cancellable`, or
+`net::write_chunks_until_cancellable` stay runtime failures.
 They do not produce schema, codec, or HTTP/2 peer protocol diagnostics. The
 deadline boundary does not add a source timer handle beyond the returned
 `Deadline`, cancellation handle beyond `CancelToken`, routing API, or new

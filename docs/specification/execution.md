@@ -78,11 +78,12 @@ execution reference.
   routing decisions.
   `net::write_chunks` writes a `List<ByteChunk>` to the selected stream in
   source list order through the same stream write path as `net::write_chunk`.
-  `net::write_chunks_until_cancellable` writes the same list shape in source
-  order while observing a `Deadline` and `CancelToken`, returning
-  `WriteCompleted` only when the full list is written and returning
-  `WriteDeadlineExpired` or `WriteCancelled` when that outcome wins before
-  the list is fully written.
+  `net::write_chunks_until` writes the same list shape in source order while
+  observing a `Deadline`, returning `WriteCompleted` only when the full list
+  is written and returning `WriteDeadlineExpired` when deadline expiry wins
+  before the list is fully written. `net::write_chunks_until_cancellable`
+  extends that boundary with a `CancelToken` and also returns
+  `WriteCancelled` when cancellation wins before the list is fully written.
   The checked adapter-owned outbound ordering example is
   `examples/specification/run/socket-stream-adapter-write-chunks-ordering/`;
   it accepts deterministic loopback streams, routes ordinary inputs through a
@@ -120,6 +121,8 @@ execution reference.
   `net::write_chunk_until_cancellable` returns ordinary `StreamWriteOutcome`
   values for completed write, write deadline expiry, and token cancellation
   while preserving forced host write failures as runtime failures.
+  `net::write_chunks_until` and `net::write_chunks_until_cancellable` apply
+  the same outcome and failure boundary to source-owned chunk lists.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

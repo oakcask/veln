@@ -204,6 +204,7 @@ net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
 net::write_chunk_until(stream: NetStream, bytes: ByteChunk, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
 net::write_chunk_until_cancellable(stream: NetStream, bytes: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
+net::write_chunks_until(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
 net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
@@ -226,7 +227,8 @@ to `net::accept_until`,
 `net::read_chunk_until`, and
 `net::read_chunk_until_cancellable`,
 `net::write_chunk_until`,
-`net::write_chunk_until_cancellable`, and
+`net::write_chunk_until_cancellable`,
+`net::write_chunks_until`, and
 `net::write_chunks_until_cancellable` infer both `net` and `time` because
 the adapter-owned accept, read, or write attempt observes a `Deadline` or
 `CancelToken`.
@@ -271,6 +273,10 @@ one immutable `ByteChunk` before the deadline and before cancellation,
 and `WriteCancelled` when the supplied `CancelToken` has been cancelled.
 `net::write_chunks` writes a
 source-owned `List<ByteChunk>` to the same stream in list order.
+`net::write_chunks_until` writes that list in source order, returns
+`WriteCompleted` after every chunk is written before the deadline, and returns
+`WriteDeadlineExpired` when deadline expiry wins before the list is fully
+written.
 `net::write_chunks_until_cancellable` writes that list in source order,
 returns `WriteCompleted` after every chunk is written before the deadline and
 before cancellation, returns `WriteDeadlineExpired` when deadline expiry wins

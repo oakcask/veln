@@ -2553,6 +2553,15 @@ against the built `veln` binary.
 - `run/transport-socket-write-until-cancellable-production-outcomes/`:
   production loopback cancellable deadline-aware writes return completed,
   deadline-expired, and cancelled write outcomes as adapter values.
+- `run/transport-socket-write-chunks-until-boundary/`: deadline-aware socket
+  chunk-list writes return `WriteCompleted` after writing every chunk in
+  source list order.
+- `run/transport-socket-write-chunks-until-deadline/`: deadline-aware socket
+  chunk-list writes observe fixture-reported write deadline expiry as
+  `WriteDeadlineExpired` before the list is fully written.
+- `run/transport-socket-write-chunks-until-failure-json/`: forced host write
+  failure through the deadline-aware chunk-list write path remains a runtime
+  transport failure.
 - `run/transport-socket-write-chunks-until-cancellable-boundary/`:
   cancellable deadline-aware socket chunk-list writes return `WriteCompleted`
   after writing every chunk in source list order.
@@ -2586,6 +2595,9 @@ against the built `veln` binary.
 - `check/transport-socket-write-until-cancellable-effects/`: cancellable
   deadline-aware stream write directly infers both `net` and `time` for
   public effect checking.
+- `check/transport-socket-write-chunks-until-effects/`: deadline-aware
+  chunk-list stream write directly infers both `net` and `time` for public
+  effect checking.
 - `check/transport-socket-write-chunks-until-cancellable-effects/`:
   cancellable deadline-aware chunk-list stream write directly infers both
   `net` and `time` for public effect checking.
