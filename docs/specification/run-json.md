@@ -519,10 +519,10 @@ encodings,
 `hpack.fixture.malformed_raw_string_value` for malformed raw string values on
 supported literal-name forms,
 `hpack.fixture.malformed_huffman_padding` for malformed Huffman padding,
-`hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a symbol,
-and `hpack.fixture.huffman_non_visible_value` for multi-byte non-visible
-Huffman decoded strings outside the supported checked single-byte
-`hpack-byte-xx` labels and the bounded `hpack-bytes-00-ff` label. These
+and `hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a
+symbol. Multi-byte non-visible Huffman decoded strings are ordinary checked
+fixture values represented by `hpack-bytes-xx-...-xx` labels rather than this
+diagnostic surface. These
 diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a

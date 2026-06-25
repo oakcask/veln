@@ -2110,10 +2110,10 @@ against the built `veln` binary.
   the unsupported fixture path. The outbound fixture encoder in this case uses
   the same static Huffman table for checked Huffman-marked string literals,
   pins `:authority: abc.test` as a non-allowlist encoded value, accepts
-  line-feed, single-NUL, and `hpack-byte-ff` `:path` fixture values, reports
-  `hpack.fixture.huffman_non_visible_value` for the checked two-NUL
-  Huffman-marked decode fixture, and keeps the outbound raw-string encoder's
-  multi-byte non-visible value on the raw string encoding failure path.
+  line-feed, single-NUL, `hpack-byte-ff`, and `hpack-bytes-*` `:path`
+  fixture values, decodes the checked two-NUL Huffman-marked fixture as
+  `hpack-bytes-00-00`, and keeps the outbound raw-string encoder's multi-byte
+  non-visible value on the raw string encoding failure path.
   Request and response header-list validation also covers fixture-marked
   `content-length` values: absence is accepted, one valid decimal value is
   accepted, repeated identical valid decimal values are accepted, mismatched

@@ -17,11 +17,11 @@ unsupported Huffman inputs away from the generic
 identify the failed fact.
 
 Huffman EOS used as a decoded symbol projects as
-`hpack.fixture.huffman_eos_symbol`. After the later bounded fixture label
-slice, a Huffman string whose decoded value is a multi-byte non-visible fixture
-string outside the supported single-byte `hpack-byte-xx` labels and bounded
-`hpack-bytes-00-ff` label projects as
-`hpack.fixture.huffman_non_visible_value`.
+`hpack.fixture.huffman_eos_symbol`. Later fixture label work moved
+multi-byte non-visible decoded values onto deterministic `hpack-bytes-*`
+fixture labels, so this focused diagnostic record now covers EOS and the
+source-visible projection helpers for historical non-visible diagnostic
+shapes rather than the ordinary HPACK fixture decode path.
 
 Both diagnostics carry the same HPACK fixture detail shape as unsupported
 header blocks and malformed Huffman padding: header-block byte offset,
@@ -43,9 +43,10 @@ boundary, unbounded dynamic-table behavior, or production header validation.
   and `../../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`
   check the direct HPACK fixture human and JSON projections for non-visible
   decoded bytes.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
-  focused diagnostics through completed HEADERS and final CONTINUATION paths
-  in the aggregate HTTP/2 protocol-core fixture output.
+- `../../../examples/specification/run/http2-protocol-core/` keeps focused
+  malformed Huffman and EOS diagnostics in the aggregate HTTP/2 protocol-core
+  fixture output while multi-byte non-visible decoded values are checked as
+  labels.
 - `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/`
   and `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/`
   check the HTTP/2 command-facing human and JSON projections for EOS-as-symbol

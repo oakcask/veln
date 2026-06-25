@@ -422,6 +422,14 @@ pub fn byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, St
 	prelude_builtin::byte_chunk_to_visible_ascii_string(chunk)
 end
 
+pub fn hpack_fixture_huffman_bytes_label(chunk: ByteChunk) -> String
+	prelude_builtin::hpack_fixture_huffman_bytes_label(chunk)
+end
+
+pub fn hpack_fixture_huffman_label_bytes(label: String) -> Option<ByteChunk>
+	prelude_builtin::hpack_fixture_huffman_label_bytes(label)
+end
+
 pub fn byte_chunk_from_visible_ascii_string(text: String) -> Result<ByteChunk, String>
 	prelude_builtin::byte_chunk_from_visible_ascii_string(text)
 end

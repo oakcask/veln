@@ -122,6 +122,7 @@ trait BytePreludeType: Clone {
     fn unit() -> Self;
     fn vec(item: Self) -> Self;
     fn list(item: Self) -> Self;
+    fn option(item: Self) -> Self;
     fn result(value: Self, error: Self) -> Self;
 }
 
@@ -161,6 +162,10 @@ impl BytePreludeType for Type {
 
     fn list(item: Self) -> Self {
         adt::list_type(item)
+    }
+
+    fn option(item: Self) -> Self {
+        adt::option_type(item)
     }
 
     fn result(value: Self, error: Self) -> Self {
@@ -204,6 +209,10 @@ impl BytePreludeType for CoreType {
 
     fn list(item: Self) -> Self {
         adt::core_list_type(item)
+    }
+
+    fn option(item: Self) -> Self {
+        adt::core_option_type(item)
     }
 
     fn result(value: Self, error: Self) -> Self {
@@ -348,6 +357,10 @@ fn byte_chunk_signature<T: BytePreludeType>(
         "byte_chunk_from_hex" => Some((vec![T::string()], result_string(types.byte_chunk.clone()))),
         "byte_chunk_to_visible_ascii_string" => {
             Some((vec![types.byte_chunk.clone()], result_string(T::string())))
+        }
+        "hpack_fixture_huffman_bytes_label" => Some((vec![types.byte_chunk.clone()], T::string())),
+        "hpack_fixture_huffman_label_bytes" => {
+            Some((vec![T::string()], T::option(types.byte_chunk.clone())))
         }
         "byte_chunk_from_visible_ascii_string" => {
             Some((vec![T::string()], result_string(types.byte_chunk.clone())))

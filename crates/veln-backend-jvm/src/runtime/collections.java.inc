@@ -2119,6 +2119,44 @@
         return ok(out.toString());
     }
 
+    public static Object hpackFixtureHuffmanBytesLabel(Object chunk) {
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        StringBuilder out = new StringBuilder("hpack-bytes");
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (Object byteValue : bytes) {
+            int value = (int) byteValueLong(byteValue);
+            out.append('-');
+            out.append(digits[(value >>> 4) & 0x0f]);
+            out.append(digits[value & 0x0f]);
+        }
+        return out.toString();
+    }
+
+    public static Object hpackFixtureHuffmanLabelBytes(Object label) {
+        String input = asString(label);
+        String prefix = "hpack-bytes-";
+        if (!input.startsWith(prefix)) {
+            return none();
+        }
+        String rest = input.substring(prefix.length());
+        if (rest.length() < 5 || rest.length() % 3 != 2) {
+            return none();
+        }
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        for (int index = 0; index < rest.length(); index += 3) {
+            if (index > 0 && rest.charAt(index - 1) != '-') {
+                return none();
+            }
+            int high = hexNibble(rest.charAt(index));
+            int low = hexNibble(rest.charAt(index + 1));
+            if (high < 0 || low < 0) {
+                return none();
+            }
+            bytes.add(byteObject((high << 4) | low));
+        }
+        return some(byteChunkObject(bytes));
+    }
+
     public static Object byteChunkFromVisibleAsciiString(Object text) {
         String input = asString(text);
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
