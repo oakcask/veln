@@ -90,6 +90,8 @@ behavior.
   [network-write-chunks-boundary.md](network-write-chunks-boundary.md).
 - Network adapter outbound write ordering:
   [network-adapter-outbound-write-ordering.md](network-adapter-outbound-write-ordering.md).
+- Network adapter clean shutdown:
+  [network-adapter-clean-shutdown.md](network-adapter-clean-shutdown.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
 - Network channel select-many routing:

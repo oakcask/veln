@@ -1,0 +1,168 @@
+# Clean shutdown keeps transport handles adapter-owned.
+use stdio
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	RetryAfterDeadline
+	CleanupAfterCancel
+end
+
+fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn wait_response(outcome: CancellableWaitOutcome, state: { chunks : Int, ended : Bool }) -> { decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match outcome
+		WaitCompleted => { decision: "completed", actions: list_nil(), next_state: state }
+		WaitDeadlineExpired => { decision: "deadline-expired", actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		WaitCancelled => { decision: "cancelled", actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+	end
+end
+
+fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, append_actions(tail, right))
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => 1 + write_count(tail)
+			EndStream => write_count(tail)
+			RetryAfterDeadline => write_count(tail)
+			CleanupAfterCancel => write_count(tail)
+		end
+	end
+end
+
+fn retry_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => retry_count(tail)
+			EndStream => retry_count(tail)
+			RetryAfterDeadline => 1 + retry_count(tail)
+			CleanupAfterCancel => retry_count(tail)
+		end
+	end
+end
+
+fn cleanup_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => cleanup_count(tail)
+			EndStream => cleanup_count(tail)
+			RetryAfterDeadline => cleanup_count(tail)
+			CleanupAfterCancel => 1 + cleanup_count(tail)
+		end
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: StreamReadOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	match outcome
+		ReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
+		ReadEnd => handle_stream_input(route_input(route, End), state)
+		ReadDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		ReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+	end
+end
+
+fn collect_shutdown_actions(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	let handled = read_response(route, net::read_chunk_until_cancellable(stream, deadline, token), state)
+	let cancelled = wait_response(time::wait_until_cancellable_outcome(deadline, token), handled.next_state)
+	let expired = wait_response(time::wait_until_cancellable_outcome(deadline, token), cancelled.next_state)
+	{ first_decision: cancelled.decision, second_decision: expired.decision, actions: append_actions(handled.actions, append_actions(cancelled.actions, expired.actions)), next_state: expired.next_state }
+end
+
+fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
+			EndStream => apply_response_actions(stream, tail)
+			RetryAfterDeadline => apply_response_actions(stream, tail)
+			CleanupAfterCancel => apply_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	apply_response_actions(stream, tail)
+end
+
+fn close_owned_transport(listener: NetListener, stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	apply_response_actions(stream, actions)
+	net::close_stream(stream)
+	net::close_listener(listener)
+end
+
+fn clean_shutdown_lifecycle(listener: NetListener, stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<{ first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
+	let routed = collect_shutdown_actions(stream, { chunks: 0, ended: false }, deadline, token)
+	close_owned_transport(listener, stream, routed.actions)
+	Ok(routed)
+end
+
+fn lifecycle_result(address: String) -> Result<{ first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
+	let listener: NetListener = net::listen(address)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	match net::accept_until_cancellable(listener, deadline, token)
+		AcceptStream(stream) => clean_shutdown_lifecycle(listener, stream, deadline, token)
+		AcceptEnd => Ok({ first_decision: "accept-end", second_decision: "none", actions: list_nil(), next_state: { chunks: 0, ended: true } })
+		AcceptDeadlineExpired => Ok({ first_decision: "accept-deadline", second_decision: "none", actions: list_nil(), next_state: { chunks: 0, ended: false } })
+		AcceptCancelled => Ok({ first_decision: "accept-cancelled", second_decision: "none", actions: list_nil(), next_state: { chunks: 0, ended: false } })
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let routed: { first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } = lifecycle_result("127.0.0.1:0")?
+	stdio::print("decisions ")
+	stdio::print(routed.first_decision)
+	stdio::print(",")
+	stdio::print(routed.second_decision)
+	stdio::print(" actions ")
+	stdio::print(int_to_string(action_count(routed.actions)))
+	stdio::print(" chunks ")
+	stdio::print(int_to_string(routed.next_state.chunks))
+	stdio::print(" ended ")
+	stdio::print(bool_text(routed.next_state.ended))
+	stdio::print(" writes ")
+	stdio::print(int_to_string(write_count(routed.actions)))
+	stdio::print(" retries ")
+	stdio::print(int_to_string(retry_count(routed.actions)))
+	stdio::print(" cleanup ")
+	stdio::println(int_to_string(cleanup_count(routed.actions)))
+	Ok(())
+end

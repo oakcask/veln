@@ -1675,6 +1675,19 @@ turns `WaitCancelled` into an ordinary cleanup response action, applies only
 `net::close_stream`. The run still passes and records a close event rather than
 treating cancellation as a runtime failure.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-clean-shutdown/`
+covers adapter-owned clean shutdown after cancellation and deadline-expiry
+decisions. The adapter accepts with `net::accept_until_cancellable`, routes an
+ordinary `StreamInput` through an existing channel, keeps the handler free of
+transport handles, translates cancellation and deadline expiry into ordinary
+response actions, applies only `SendBytes` actions as ordered
+`net::write_chunk` calls, and then records `net::close_stream` followed by
+`net::close_listener`. The matching
+`../../examples/specification/check/socket-stream-adapter-clean-shutdown-effects/`
+case pins the composed `net`, `time`, and `concurrency` effect boundary while
+the handler remains callable without transport effects.
+
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing-general-list/`,
 `../../examples/specification/run/channel-first-stream-routing/`,
