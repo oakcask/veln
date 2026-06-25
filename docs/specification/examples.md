@@ -183,6 +183,14 @@ command-facing projection when a `veln run` entry returns
 the contained byte offset with related field-path and source-visible value
 notes, and `run --json` attaches `details.byte_diagnostic`.
 The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-reason-step-human/`
+and
+`../../examples/specification/run/codec-decode-invalid-reason-step-json/`
+cover the same source-visible entry projection for
+`Invalid(DecodeErrorWithReason(...))`: human output adds the decode failure
+reason as a related note, and `run --json` attaches
+`details.byte_diagnostic.reason`.
+The executable specification cases
 `../../examples/specification/run/codec-decode-need-more-human/` and
 `../../examples/specification/run/codec-decode-need-more-json/` cover
 command-facing projection when a `veln run` entry returns

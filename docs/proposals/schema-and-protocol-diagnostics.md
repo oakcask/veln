@@ -83,7 +83,9 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-byte-context-human/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-json/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
-`../../examples/specification/run/codec-decode-invalid-step-json/` and
+`../../examples/specification/run/codec-decode-invalid-reason-step-json/`,
+`../../examples/specification/run/codec-decode-invalid-reason-step-human/`,
+`../../examples/specification/run/codec-decode-invalid-step-json/`, and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
 implemented as `codec.incomplete_input` at the closed-input reporting
@@ -163,7 +165,8 @@ Define diagnostic support for:
 
 - schema structural failures
 - codec incomplete-input reports
-- codec invalid-input reports
+- codec invalid-input reports beyond the implemented hand-written
+  `DecodeError(...)` and `DecodeErrorWithReason(...)` command-facing slice
 - integer conversion overflow at byte boundaries
 - schema field paths
 - byte offsets and bounded-buffer offsets
@@ -420,5 +423,6 @@ The implemented protocol-state diagnostic projection slice covers:
 
 The proposal remains open for broader schema and codec diagnostics that are not
 specified as current behavior under `../specification/`, including additional
-codec diagnostic ids outside the implemented `EncodeError` and
-`codec.consumed_count_invalid` command-facing slices.
+codec diagnostic ids outside the implemented `EncodeError`,
+`codec.invalid_input`, and `codec.consumed_count_invalid` command-facing
+slices.
