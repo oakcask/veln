@@ -139,6 +139,12 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-production-deadline-lifecycle/`
   for the same production handler/action boundary through deadline-aware
   accept and read calls, followed by explicit close and clean listener end,
+  `examples/specification/run/socket-stream-adapter-production-cancellable-deadline-lifecycle/`
+  and
+  `examples/specification/run/socket-stream-adapter-production-cancellable-deadline-outcomes/`
+  for the same production handler/action boundary through cancellable
+  deadline-aware accept/read outcomes, explicit stream close, clean listener
+  end, and explicit listener close,
   `examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
   and
   `examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`

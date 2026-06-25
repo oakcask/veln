@@ -1,0 +1,87 @@
+# Production loopback cancellable deadline outcomes remain adapter decisions.
+use stdio
+
+fn accept_outcome_text(outcome: AcceptOutcome) -> String
+	match outcome
+		AcceptStream(_) => "accepted"
+		AcceptEnd => "accept-end"
+		AcceptDeadlineExpired => "accept-deadline"
+		AcceptCancelled => "accept-cancelled"
+	end
+end
+
+fn read_outcome_text(outcome: StreamReadOutcome) -> String
+	match outcome
+		ReadChunk(_) => "read-chunk"
+		ReadEnd => "read-end"
+		ReadDeadlineExpired => "read-deadline"
+		ReadCancelled => "read-cancelled"
+	end
+end
+
+fn accept_deadline_decision() -> String effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(0)
+	let token: CancelToken = time::cancel_token()
+	let decision = accept_outcome_text(net::accept_until_cancellable(listener, deadline, token))
+	net::close_listener(listener)
+	decision
+end
+
+fn accept_cancel_decision() -> String effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	time::cancel(token)
+	let decision = accept_outcome_text(net::accept_until_cancellable(listener, deadline, token))
+	net::close_listener(listener)
+	decision
+end
+
+fn close_and_return(listener: NetListener, stream: NetStream, decision: String) -> String effects [net]
+	net::close_stream(stream)
+	net::close_listener(listener)
+	decision
+end
+
+fn read_deadline_decision() -> Result<String, String> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let accept_deadline: Deadline = time::deadline_after_ms(100)
+	let read_deadline: Deadline = time::deadline_after_ms(0)
+	let token: CancelToken = time::cancel_token()
+	match net::accept_until_cancellable(listener, accept_deadline, token)
+		AcceptStream(stream) => Ok(close_and_return(listener, stream, read_outcome_text(net::read_chunk_until_cancellable(stream, read_deadline, token))))
+		AcceptEnd => Ok("accept-end")
+		AcceptDeadlineExpired => Ok("accept-deadline")
+		AcceptCancelled => Ok("accept-cancelled")
+	end
+end
+
+fn read_cancel_decision() -> Result<String, String> effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	match net::accept_until_cancellable(listener, deadline, token)
+		AcceptStream(stream) => read_cancel_from_stream(listener, stream, deadline, token)
+		AcceptEnd => Ok("accept-end")
+		AcceptDeadlineExpired => Ok("accept-deadline")
+		AcceptCancelled => Ok("accept-cancelled")
+	end
+end
+
+fn read_cancel_from_stream(listener: NetListener, stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<String, String> effects [net, time]
+	time::cancel(token)
+	Ok(close_and_return(listener, stream, read_outcome_text(net::read_chunk_until_cancellable(stream, deadline, token))))
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	stdio::print("accept ")
+	stdio::print(accept_deadline_decision())
+	stdio::print(",")
+	stdio::print(accept_cancel_decision())
+	stdio::print(" read ")
+	stdio::print(read_deadline_decision()?)
+	stdio::print(",")
+	stdio::println(read_cancel_decision()?)
+	Ok(())
+end

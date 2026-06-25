@@ -88,8 +88,13 @@ compiler-known calls.
   `concurrency` declarations as the close-lifecycle adapter, and the
   production deadline-aware lifecycle adds the existing coarse `time` label
   because it composes `net::accept_until`, `net::read_chunk_until`, ordinary
-  channel routing, ordered writes, and explicit close. The runtime path
-  changes from fixture events to owned host streams. The two-stream adapter
+  channel routing, ordered writes, and explicit close. The production
+  cancellable deadline-aware lifecycle uses the same `net`, `time`, and
+  `concurrency` boundary with `net::accept_until_cancellable`,
+  `net::read_chunk_until_cancellable`, ordinary channel-routed `StreamInput`
+  values, ordered `SendBytes` projection, explicit stream close, clean
+  listener end, and explicit listener close. The runtime path changes from
+  fixture events to owned host streams. The two-stream adapter
   lifecycle accepts two independent production streams from one listener,
   routes each stream through the same ordinary handler/action boundary, writes
   only ordered `SendBytes` actions, closes each stream, and observes clean

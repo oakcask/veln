@@ -33,8 +33,9 @@ slices, and narrow deadline and cancellation slices, for:
   end, close lifecycle, two-stream adapter handler/action lifecycle,
   listener-drain adapter lifecycle, listener-drain read-failure boundary,
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
-  deadline-aware read-failure boundary, and explicit listener-close boundary,
-  the
+  deadline-aware read-failure boundary, production cancellable deadline-aware
+  adapter lifecycle and outcome boundary, and explicit listener-close
+  boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, ordered write lifecycle slice, and checked
@@ -319,6 +320,10 @@ boundary, deadline-aware adapter lifecycle, deadline-aware accept-failure
 runtime boundary, deadline-aware read-failure runtime boundary, and focused
 adapter close-failure runtime boundary slices are recorded as implemented in
 `../reference/implemented-proposals/network-production-loopback-lifecycle.md`.
+
+The production-loopback cancellable deadline-aware adapter lifecycle and
+accept/read outcome boundary slice is recorded as implemented in
+`../reference/implemented-proposals/network-production-cancellable-deadline-lifecycle.md`.
 
 The bounded receiver-list select-many, timeout, timeout-result, and
 cancellable timeout-result channel-first stream routing slices, including the

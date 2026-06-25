@@ -1,0 +1,71 @@
+# Production cancellable deadline adapter lifecycle requires transport, time, and channel effects.
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	RetryAfterDeadline
+	CleanupAfterCancel
+end
+
+fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: StreamReadOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	match outcome
+		ReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
+		ReadEnd => handle_stream_input(route_input(route, End), state)
+		ReadDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		ReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+	end
+end
+
+fn collect_lifecycle_actions(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	read_response(route, net::read_chunk_until_cancellable(stream, deadline, token), state)
+end
+
+fn close_after_collect(stream: NetStream, routed: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+	net::close_stream(stream)
+	routed
+end
+
+fn lifecycle_from_listener(listener: NetListener, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+	match net::accept_until_cancellable(listener, deadline, token)
+		AcceptStream(stream) => close_after_collect(stream, collect_lifecycle_actions(stream, state, deadline, token))
+		AcceptEnd => close_listener_end(listener, state)
+		AcceptDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		AcceptCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+	end
+end
+
+fn close_listener_end(listener: NetListener, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+	net::close_listener(listener)
+	{ actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+end
+
+pub fn handler_boundary(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(input, state)
+end
+
+pub fn adapter_missing_time(listener: NetListener, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+	lifecycle_from_listener(listener, state, deadline, token)
+end
+
+pub fn adapter_missing_concurrency(listener: NetListener, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time]
+	lifecycle_from_listener(listener, state, deadline, token)
+end
+
+pub fn adapter_missing_net(listener: NetListener, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	lifecycle_from_listener(listener, state, deadline, token)
+end
