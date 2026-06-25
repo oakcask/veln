@@ -309,6 +309,9 @@ The adapter-owned multi-handler outbound write-ordering slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-outbound-write-ordering.md`.
 
+The adapter-owned clean shutdown slice is recorded as implemented in
+`../reference/implemented-proposals/network-adapter-clean-shutdown.md`.
+
 The production-loopback listen, sequential accept, read, write, clean listener
 end, close lifecycle, two-stream adapter handler/action lifecycle,
 listener-drain adapter lifecycle, listener-drain read-failure runtime

@@ -283,6 +283,8 @@ compare it with `../specification/` before changing behavior.
   The completed adapter-owned multi-handler outbound write-ordering slice is
   archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
+  The completed adapter-owned clean shutdown slice is archived under
+  [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).
 
 ## Update When
 
