@@ -2,8 +2,12 @@ type Settings
 	Settings {code: Int, value: Int}
 end
 
+type FrameKind
+	FrameKind(Int)
+end
+
 type Packet
-	Packet {missing: Int, non_record: Int}
+	Packet {missing: Int, non_record: Int, bad_constructor: FrameKind}
 end
 
 schema SettingsPayload
@@ -26,4 +30,5 @@ schema PacketWire
 	map to Packet
 		missing = payload.missing
 		non_record = kind.code
+		bad_constructor = FrameKind({code: kind}.missing)
 end

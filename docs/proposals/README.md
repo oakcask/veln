@@ -96,10 +96,12 @@ compare it with `../specification/` before changing behavior.
   seven-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
-  structural mapping decode, projectable mapped-record encode, same-module
-  and imported converter-call mapped encode with explicitly named inverse converters,
-  and direct or nested ADT constructor mapped encode boundaries for supported
-  schema-local fields plus record-payload constructor slices,
+  structural mapping decode including constructor payload field selection
+  from record-shaped mapping expressions, projectable mapped-record encode,
+  same-module and imported converter-call mapped encode with explicitly named
+  inverse converters, and direct or nested ADT constructor mapped encode
+  boundaries for supported schema-local fields plus record-payload
+  constructor slices,
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte group decode and
   encode,

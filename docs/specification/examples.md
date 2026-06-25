@@ -639,6 +639,9 @@ pins selected mapping clauses that use ordered comparisons over decoded
 schema-local `Int` fields and integer literals.
 `../../examples/specification/run/binary-schema-mapped-field-selection-decode/`
 pins mapping assignment field selection from a decoded nested record value.
+`../../examples/specification/run/binary-schema-mapped-constructor-field-selection-decode/`
+pins ADT constructor mapping when the constructor payload is selected from a
+record-shaped mapping expression.
 `../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`
 pins selected mapping branches that wrap mixed primitive and nested closed
 dispatch payloads into one target record shape.

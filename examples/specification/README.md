@@ -260,6 +260,9 @@ against the built `veln` binary.
   schema decode selects a structural mapping with `when field != literal`.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
+- `run/binary-schema-mapped-constructor-field-selection-decode/`: generated
+  binary schema decode passes a selected field from a record-shaped mapping
+  expression to an ADT constructor target field.
 - `run/binary-schema-mixed-dispatch-selected-mapping-decode/`: generated
   binary schema decode accepts a closed dispatch whose primitive and nested
   payload cases are wrapped by selected mappings into one target record shape.

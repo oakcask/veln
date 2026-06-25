@@ -182,9 +182,13 @@ payload fields, same-module representation-only reserved-bit payload
 round trips, extension-tolerant known payloads, recursive extension known
 payloads, unknown payload preservation, and nested helper diagnostics. A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
-in one generated decode-and-encode schema. Broader unsupported field layouts
-and schema value mapping beyond the implemented structural slices remain
-proposal work. The completed reserved-byte-prefix encode slice for
+in one generated decode-and-encode schema. The mapping slice also accepts an
+ADT constructor target field whose constructor payload is selected from a
+record-shaped schema mapping expression and keeps malformed selections rejected
+through the existing `schema.mapping_expression_unsupported` diagnostic.
+Broader unsupported field layouts and schema value mapping beyond the
+implemented structural and constructor field-selection slices remain proposal
+work. The completed reserved-byte-prefix encode slice for
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is
 archived under
 `../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md`.
@@ -866,4 +870,5 @@ author likely referred to an earlier field with a compatible role.
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond the checked unsupported `ReservedBits`, forward `ByteView` length,
   and imported recursive diagnostics, and schema value mapping beyond the
-  implemented structural slices remain proposal work.
+  implemented structural and constructor field-selection slices remain
+  proposal work.
