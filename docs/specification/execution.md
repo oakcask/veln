@@ -1488,7 +1488,11 @@ execution reference.
   and rule provenance kept as diagnostic context. It consumes DATA payload
   length from the shared connection window and the targeted stream window, accepts
   PADDED DATA by consuming the pad-length byte and padding as receive-window
-  credit while exposing only application data bytes as DATA content, moves
+  credit while exposing only application data bytes as DATA content, compares
+  the total exposed DATA application byte count with the accepted
+  `content-length` value when a fixture-marked request or response header
+  list provided one, rejects an over-length DATA frame immediately, rejects an
+  early peer `END_STREAM` shortfall, moves
   the stream to
   a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, moves
   completed inbound HEADERS or CONTINUATION header blocks to the same

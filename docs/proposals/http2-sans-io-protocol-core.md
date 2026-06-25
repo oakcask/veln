@@ -808,7 +808,14 @@ also accept absent `content-length`, one valid decimal value, and repeated
 identical valid decimal values; reject empty, non-decimal, signed,
 whitespace-padded, and negative-looking values with failed fact
 `content_length_invalid`; and reject mismatched repeated valid decimal values
-with failed fact `content_length_mismatch`.
+with failed fact `content_length_mismatch`. Accepted fixture-marked
+`content-length` values are also carried into the tracked stream body state:
+received DATA application byte counts must match the accepted value by peer
+`END_STREAM`, over-length DATA fails immediately, and PADDED DATA counts only
+application bytes for the body length while still consuming receive-window
+credit for the full DATA payload.
+The completed body accounting slice is archived under
+[HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
 The completed inbound request trailer slice is also current behavior under
 `../specification/`: after an initial request HEADERS opens a stream, a later
 HEADERS sequence on that stream is treated as trailers only when it carries

@@ -3578,6 +3578,16 @@ pub fn header_list_has_mismatched_content_length(headers: HpackHeaderList) -> Bo
 	end
 end
 
+pub fn header_list_accepted_content_length(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5"), _) => 5
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:5"), _) => 5
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5"), _) => 5
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:5"), _) => 5
+		_ => -1
+	end
+end
+
 pub fn header_list_invalid_ordinary_header_name(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(name, _), HpackHeader(":fixture", _), _) => name

@@ -1885,6 +1885,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidDataPadding",
         ),
         (
+            "http2_protocol_content_length_mismatch",
+            "http2ProtocolContentLengthMismatch",
+        ),
+        (
             "http2_protocol_invalid_request_header_list",
             "http2ProtocolInvalidRequestHeaderList",
         ),

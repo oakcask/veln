@@ -791,6 +791,22 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 self.push_preview_state_and_provenance(&mut diagnostic)?;
                 Some(diagnostic)
             }
+            "http2.protocol.content_length_mismatch" => {
+                let frame_kind = self.number("frame_kind")?;
+                let expected_length = self.number("expected_content_length")?;
+                let observed_length = self.number("observed_body_length")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "content-length body length mismatch at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} observed {observed_length} DATA application byte(s); accepted content-length is {expected_length} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
             _ => None,
         }
     }
@@ -4815,6 +4831,68 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_data_padding")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_content_length_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.content_length_mismatch"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("expected_content_length", JsonValue::Number(5)),
+            ("observed_body_length", JsonValue::Number(3)),
+            ("byte_preview", byte_preview("aabbcc")),
+            ("active_state", JsonValue::string("open-stream")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_content_length_body"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 content-length body length mismatch at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.content_length_mismatch");
+        assert_eq!(
+            diagnostic.message,
+            "content-length body length mismatch at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("observed 3 DATA application byte(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("accepted content-length is 5 byte(s)")
+        );
+        assert!(diagnostic.related[1].to_json().contains("aa bb cc"));
+        assert!(diagnostic.related[2].to_json().contains("open-stream"));
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9113_content_length_body")
         );
     }
 

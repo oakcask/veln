@@ -400,7 +400,11 @@ fields. Invalid
 PADDED DATA uses id `http2.protocol.invalid_data_padding` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `pad_length`,
 `remaining_payload_length`, `active_state`, `rule_provenance`, and a bounded
-payload byte preview. A
+payload byte preview. Accepted `content-length` body-length mismatches use id
+`http2.protocol.content_length_mismatch` and record `byte_offset.value`,
+`frame_kind`, `stream_id`, `stream_ref`, `expected_content_length`,
+`observed_body_length`, `active_state`, `rule_provenance`, and a bounded DATA
+application-byte preview. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,

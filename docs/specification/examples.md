@@ -1871,7 +1871,15 @@ PADDED DATA consumes
 receive-window credit for the full DATA payload, including the pad-length byte
 and padding bytes, while the exposed DATA content contains only application
 data bytes. A pad length that exceeds the remaining DATA payload is reported as
-`http2.protocol.invalid_data_padding`. Accepted DATA with `END_STREAM`, and
+`http2.protocol.invalid_data_padding`. When an accepted fixture-marked
+`content-length` value is present, the focused
+`http2-protocol-core-content-length-body` case checks exact DATA application
+byte matches and PADDED DATA whose padding consumes window credit but is not
+counted toward the body length. The focused
+`http2-protocol-core-content-length-over-json` and
+`http2-protocol-core-content-length-early-human` cases project over-length
+DATA and early peer `END_STREAM` shortfalls through
+`http2.protocol.content_length_mismatch`. Accepted DATA with `END_STREAM`, and
 accepted HEADERS sequences with `END_STREAM` after header-block completion,
 move the tracked stream to closed-by-peer state. Later DATA or stream-level
 `WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
@@ -2411,6 +2419,10 @@ connection-specific ordinary request header names `connection`, `keep-alive`,
 value. It accepts one and repeated matching valid decimal
 `content-length` request values and rejects mismatched, empty, non-decimal,
 signed, whitespace-padded, and negative-looking request values. It also
+checks focused body-length accounting for an accepted `content-length`
+request: exact body length is accepted, PADDED DATA excludes padding from the
+application-byte count, over-length DATA projects JSON details, and early
+`END_STREAM` projects human related context. It also
 checks inbound request trailers on an already-open stream: ordinary trailer
 fields are accepted through completed HEADERS and final CONTINUATION paths,
 accepted trailers close the stream by peer without consuming receive-window

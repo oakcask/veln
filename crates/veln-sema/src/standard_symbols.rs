@@ -714,6 +714,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
     "http2_protocol_invalid_window_update_increment" => veln_stdlib::prelude_source("http2_protocol_invalid_window_update_increment"),
     "http2_protocol_invalid_data_padding" => veln_stdlib::prelude_source("http2_protocol_invalid_data_padding"),
+    "http2_protocol_content_length_mismatch" => veln_stdlib::prelude_source("http2_protocol_content_length_mismatch"),
     "http2_protocol_invalid_request_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_request_header_list"),
     "http2_protocol_invalid_response_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_response_header_list"),
     "http2_protocol_unexpected_settings_ack" => veln_stdlib::prelude_source("http2_protocol_unexpected_settings_ack"),

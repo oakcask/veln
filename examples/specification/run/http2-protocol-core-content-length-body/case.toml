@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln", "hpack_fixture.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "content-length-exact expected 5 observed 5 connection_window 65530 stream_window 65530\ncontent-length-padded expected 5 observed 5 connection_window 65527 stream_window 65527\n"
+
+[[json_assert]]
+path = "error"
+equals = null
