@@ -31,7 +31,10 @@ The same fixture module also exposes a raw string-literal encoder for values
 accepted by `byte_chunk_from_visible_ascii_string`. It emits HPACK string
 literal bytes with the Huffman flag cleared, including the same
 one-continuation length boundary for the long raw `a` fixture, and keeps
-non-visible input on the fixture-owned unsupported-header-block failure path.
+non-visible raw encoder input on the fixture-owned unsupported-header-block
+failure path. The decode path keeps multi-byte non-visible Huffman fixture
+values outside the accepted string boundary but reports them through
+`hpack.fixture.huffman_non_visible_value`.
 
 The shared decoder is used by literal-without-indexing,
 literal-with-indexing, and literal-never-indexed header blocks.
@@ -70,8 +73,10 @@ fixture diagnostics.
   Huffman-marked literal-never-indexed `:scheme: https`, long raw and
   Huffman-marked string-length continuation fixtures through all three
   literal forms, 129-byte raw values through all three literal forms,
-  malformed string-length continuation, malformed Huffman
-  padding, short and long raw string-literal encoding, unsupported and
+  a checked two-NUL Huffman-marked decode fixture that reports
+  `hpack.fixture.huffman_non_visible_value`, malformed string-length
+  continuation, malformed Huffman padding, short and long raw string-literal
+  encoding, unsupported and
   non-visible raw string-literal encoding failures, dynamic-table behavior
   after literal-with-indexing insertions, and no dynamic-table insertion after
   literal-never-indexed decoding.

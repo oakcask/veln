@@ -53,6 +53,20 @@ fn print_decode_failure(label: String, failure: HpackFixtureFailure) -> () effec
 	stdio::println(failure_expected_fixture(failure))
 end
 
+fn print_decode_failure_with_id(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failed id ")
+	stdio::print(failure_diagnostic_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(failure_observed_first_byte(failure)))
+	stdio::print(" expected ")
+	stdio::println(failure_expected_fixture(failure))
+end
+
 fn encoded_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
 	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
@@ -231,6 +245,14 @@ fn print_required_unsupported(label: String, result: Result<HpackDecodeTransitio
 	require_unsupported(result)
 end
 
+fn print_required_unsupported_with_id(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	let ignored_print: () = match result
+		Ok(transition) => print_decoded_transition(label, transition)
+		Err(failure) => print_decode_failure_with_id(label, failure)
+	end
+	require_unsupported(result)
+end
+
 fn require_table_size(state: HpackFixtureState, expected_table_size: Int) -> Result<(), String>
 	match state_table_size(state) == expected_table_size
 		true => Ok(())
@@ -247,7 +269,7 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	let ignored_literal_path_linefeed_huffman: HpackFixtureState = print_required_header("literal-path-linefeed-huffman", decode_header_block(byte_chunk_from_hex("0484fffffff3")?, initial, 116), ":path", "\n")?
 	let ignored_literal_path_nul_huffman: HpackFixtureState = print_required_header("literal-path-nul-huffman", decode_header_block(byte_chunk_from_hex("0482ffc7")?, initial, 117), ":path", "hpack-byte-00")?
 	let ignored_literal_path_ff_huffman: HpackFixtureState = print_required_header("literal-path-ff-huffman", decode_header_block(byte_chunk_from_hex("0484fffffbbf")?, initial, 119), ":path", "hpack-byte-ff")?
-	let ignored_literal_path_two_nul_huffman: () = print_required_unsupported("literal-path-two-nul-huffman-unsupported", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118))?
+	let ignored_literal_path_two_nul_huffman: () = print_required_unsupported_with_id("literal-path-two-nul-huffman-unsupported", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118))?
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
 	let ignored_literal_indexed_method_put_huffman: HpackFixtureState = print_required_header("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84), ":method", "PUT")?
 	let ignored_literal_indexed_method_bad_huffman: HpackFixtureState = print_required_header("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107), ":method", "bad")?

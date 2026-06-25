@@ -238,8 +238,8 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the
   full-table single-byte checked fixture boundary, including full HPACK
-  compression, unbounded dynamic-table behavior, and multi-byte non-visible
-  fixture strings beyond the focused malformed Huffman fixture diagnostics.
+  compression, unbounded dynamic-table behavior, and accepting multi-byte
+  non-visible fixture strings beyond the focused HPACK fixture diagnostics.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
