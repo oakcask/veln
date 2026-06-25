@@ -19,9 +19,9 @@ introduced the helper for `:authority`, `:method`, `:path`, `:scheme`, and
 ordinary static-table names accepted by the static-indexed fixture set. The
 helper accepts visible-ASCII raw string literals and checked Huffman-marked
 values decoded by the HPACK static Huffman table. The checked Huffman boundary
-accepts visible ASCII plus the line-feed fixture value and the single-NUL
-`hpack-byte-00` fixture value while other decoded non-visible byte strings
-remain outside the supported fixture boundary.
+accepts visible ASCII, the line-feed fixture value, and single-byte
+`hpack-byte-xx` labels for every byte value while multi-byte decoded
+non-visible byte strings remain outside the supported fixture boundary.
 It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for

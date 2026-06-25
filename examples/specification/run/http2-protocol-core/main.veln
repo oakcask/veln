@@ -7104,6 +7104,10 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_nul_huffman_print: () = print_outbound_headers_from_list("outbound-headers-hpack-nul-huffman", outbound_headers_hpack_nul_huffman)?
 	let outbound_headers_hpack_nul_huffman_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_nul_huffman)?
 	let ignored_headers_hpack_nul_huffman_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-nul-huffman", outbound_headers_hpack_nul_huffman_decision, "0000040104000000010482ffc7")?
+	let outbound_headers_hpack_ff_huffman: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_ff_huffman_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_ff_huffman_print: () = print_outbound_headers_from_list("outbound-headers-hpack-ff-huffman", outbound_headers_hpack_ff_huffman)?
+	let outbound_headers_hpack_ff_huffman_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_ff_huffman)?
+	let ignored_headers_hpack_ff_huffman_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-ff-huffman", outbound_headers_hpack_ff_huffman_decision, "0000060104000000010484fffffbbf")?
 	let outbound_headers_hpack_huffman_non_visible: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_non_visible_huffman_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_huffman_non_visible_print: () = print_outbound_headers_from_list("outbound-headers-hpack-huffman-non-visible", outbound_headers_hpack_huffman_non_visible)?
 	let outbound_headers_hpack_unsupported: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_unsupported_static_headers(), false, empty_peer_settings(), outbound_receive_credit)?
@@ -7389,6 +7393,7 @@ fn print_hpack_general_string_literal_cases(state: Http2DecodeState) -> Result<(
 	let ignored_hpack_literal_status_200_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-status-200-huffman", "http2-hpack-literal-status-200-huffman", "00000401040000000108821001", "08821001", ":status", "200")?
 	let ignored_hpack_literal_path_linefeed_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-path-linefeed-huffman", "http2-hpack-literal-path-linefeed-huffman", "0000060104000000010484fffffff3", "0484fffffff3", ":path", "\n")?
 	let ignored_hpack_literal_path_nul_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-path-nul-huffman", "http2-hpack-literal-path-nul-huffman", "0000040104000000010482ffc7", "0482ffc7", ":path", "hpack-byte-00")?
+	let ignored_hpack_literal_path_ff_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-path-ff-huffman", "http2-hpack-literal-path-ff-huffman", "0000060104000000010484fffffbbf", "0484fffffbbf", ":path", "hpack-byte-ff")?
 	let hpack_literal_status_200_huffman_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000010882")?), state)?
 	print_step("hpack-literal-status-200-huffman-continuation-start", hpack_literal_status_200_huffman_continuation_start)
 	let hpack_literal_status_200_huffman_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000011001")?), step_state(hpack_literal_status_200_huffman_continuation_start))?
