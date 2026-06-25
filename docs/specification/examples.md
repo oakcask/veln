@@ -253,6 +253,11 @@ combines `Flag8`, bounded repeat fields, representation-only reserved fields,
 checks successful decode, short-input `NeedMore(NeedBytes(...))`, and helper
 failure projection to `Invalid(DecodeError)`.
 The executable specification case
+`../../examples/specification/run/derived-codec-general-helper-boundary/`
+covers the derived codec decode boundary over the same general generated
+helper shape through the codec item name, including successful decode and
+short-input readiness.
+The executable specification case
 `../../examples/specification/run/codec-selected-mapping-decode-boundary/`
 covers codec item calls over a schema with multiple decoded-field selected
 mappings that resolve to one target record shape, including both derived and
@@ -340,6 +345,11 @@ covers the same derived codec encode boundary over the combined non-HTTP
 schema shape listed above and checks that helper `Ok(ByteChunk)` output
 projects to one `Encoded(List<ByteChunk>)` chunk, while helper
 `Err(EncodeError)` output projects to `Invalid(EncodeError)`.
+The executable specification case
+`../../examples/specification/run/derived-codec-general-helper-boundary/`
+covers the derived codec encode boundary over the same general generated
+helper shape through the codec item name, including successful encode and
+helper-projected encode failure.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.derive_helper_unsupported` rejection for generated encode boundaries.
 

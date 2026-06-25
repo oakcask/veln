@@ -1259,6 +1259,7 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
+  `examples/specification/run/derived-codec-general-helper-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The recursive dispatch boundary case covers same-module recursive closed and
@@ -1305,6 +1306,7 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
+  `examples/specification/run/derived-codec-general-helper-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The recursive dispatch boundary case covers same-module recursive closed and
