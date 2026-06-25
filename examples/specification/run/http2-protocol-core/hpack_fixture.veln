@@ -363,6 +363,10 @@ pub fn outbound_literal_path_ff_huffman_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "hpack-byte-ff"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 6)
 end
 
+pub fn outbound_literal_path_bytes_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "hpack-bytes-00-ff"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 7)
+end
+
 pub fn outbound_literal_path_linefeed_huffman_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "\n"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 6)
 end
@@ -866,6 +870,7 @@ end
 
 fn hpack_fixture_huffman_label_bytes(value: String) -> Option<ByteChunk>
 	match value
+		"hpack-bytes-00-ff" => hpack_fixture_huffman_label_hex("00ff")
 		"hpack-byte-00" => hpack_fixture_huffman_label_hex("00")
 		"hpack-byte-01" => hpack_fixture_huffman_label_hex("01")
 		"hpack-byte-02" => hpack_fixture_huffman_label_hex("02")
@@ -2324,7 +2329,10 @@ fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk
 				Some(label) => Ok(label)
 				None => hpack_huffman_unsupported_non_visible_string(block, offset)
 			end
-			false => hpack_huffman_unsupported_non_visible_string(block, offset)
+			false => match hpack_fixture_huffman_bytes_label(decoded)
+				Some(label) => Ok(label)
+				None => hpack_huffman_unsupported_non_visible_string(block, offset)
+			end
 		end
 	end
 end
@@ -2333,6 +2341,13 @@ fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -
 	match huffman_non_visible_value(block, offset)
 		Ok(_) => Ok("")
 		Err(failure) => Err(failure)
+	end
+end
+
+fn hpack_fixture_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
+	match byte_count_to_int(byte_chunk_count(decoded)) == 2 and byte_at_or_missing(decoded, 0) == 0 and byte_at_or_missing(decoded, 1) == 255
+		true => Some("hpack-bytes-00-ff")
+		false => None
 	end
 end
 

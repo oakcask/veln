@@ -17,9 +17,10 @@ unsupported Huffman inputs away from the generic
 identify the failed fact.
 
 Huffman EOS used as a decoded symbol projects as
-`hpack.fixture.huffman_eos_symbol`. A Huffman string whose decoded value is a
-multi-byte non-visible fixture string beyond the supported single-byte
-`hpack-byte-xx` labels projects as
+`hpack.fixture.huffman_eos_symbol`. After the later bounded fixture label
+slice, a Huffman string whose decoded value is a multi-byte non-visible fixture
+string outside the supported single-byte `hpack-byte-xx` labels and bounded
+`hpack-bytes-00-ff` label projects as
 `hpack.fixture.huffman_non_visible_value`.
 
 Both diagnostics carry the same HPACK fixture detail shape as unsupported

@@ -1570,8 +1570,10 @@ execution reference.
   symbol range into decoded fixture strings rather than by matching a fixed
   decoded-value allowlist. The checked Huffman string boundary accepts visible
   ASCII, the line-feed fixture value, and single-byte `hpack-byte-xx` labels
-  for every byte value, while multi-byte decoded non-visible byte strings stay
-  outside the supported fixture boundary.
+  for every byte value. It also accepts the bounded multi-byte
+  `hpack-bytes-00-ff` label for the decoded byte sequence `0x00 0xff`, while
+  other multi-byte decoded non-visible byte strings stay outside the supported
+  fixture boundary.
   The fixture also accepts raw new-name literal forms when the field-name
   string itself is a raw visible-ASCII HPACK string literal; the decoded
   field name then flows into the same HTTP/2 header-list validation used for
@@ -1617,9 +1619,11 @@ execution reference.
   `0x04 0x84 0xff 0xff 0xff 0xf3`, a checked Huffman-marked single-NUL
   `:path` literal encodes to `0x04 0x82 0xff 0xc7`, and a checked
   Huffman-marked `hpack-byte-ff` `:path` literal encodes to
-  `0x04 0x84 0xff 0xff 0xfb 0xbf`, proving the fixture encoder can leave the
-  former visible-ASCII boundary for supported fixture values. The checked
-  raw-string encoder failure path keeps a multi-byte Huffman-marked
+  `0x04 0x84 0xff 0xff 0xfb 0xbf`. The bounded multi-byte
+  `hpack-bytes-00-ff` `:path` literal encodes to
+  `0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`, proving the fixture encoder can
+  leave the former visible-ASCII boundary for supported fixture values. The
+  checked raw-string encoder failure path keeps a multi-byte Huffman-marked
   non-visible outbound value on the fixture-owned raw string encoding failure,
   while the fixture decode path reports the focused
   `hpack.fixture.huffman_non_visible_value` id for the checked two-NUL
@@ -1630,7 +1634,9 @@ execution reference.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
   completed HEADERS, Huffman `:path: test`, `:path` line feed, `:path`
-  single NUL, and `:path` `hpack-byte-ff` through completed HEADERS,
+  single NUL, `:path` `hpack-byte-ff`, and `:path` `hpack-bytes-00-ff`
+  through completed HEADERS, plus `:path` `hpack-bytes-00-ff` through a final
+  CONTINUATION,
   Huffman `:status: 200` through completed HEADERS and final CONTINUATION,
   Huffman `:method: PUT` through both literal-without-indexing and
   literal-with-indexing, Huffman `:method: bad` through
@@ -1658,7 +1664,9 @@ execution reference.
   `0x06 0x84 0x9d 0x29 0xad 0x1f`, `:status: 200` as
   `0x08 0x82 0x10 0x01`, `:method: bad` as `0x02 0x83 0x8c 0x72 0x7f`,
   `0x42 0x83 0x8c 0x72 0x7f`, and `0x12 0x83 0x8c 0x72 0x7f`,
-  `:path` `hpack-byte-ff` as `0x04 0x84 0xff 0xff 0xfb 0xbf`, and
+  `:path` `hpack-byte-ff` as `0x04 0x84 0xff 0xff 0xfb 0xbf`,
+  `:path` `hpack-bytes-00-ff` as
+  `0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`, and
   `:authority: www.example.com` as
   `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`.
   The focused HPACK boundary also checks raw literal-never-indexed
@@ -1679,7 +1687,8 @@ execution reference.
   the focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS used
   as a decoded symbol uses `hpack.fixture.huffman_eos_symbol`, and a Huffman
   string whose decoded bytes are a multi-byte non-visible fixture value outside
-  the supported checked single-byte labels uses
+  the supported checked single-byte labels and bounded `hpack-bytes-00-ff`
+  label uses
   `hpack.fixture.huffman_non_visible_value`. Each
   focused HPACK fixture diagnostic records the same header-block byte offset,
   observed size, observed first byte, codec module, expected fixture, and
@@ -1786,7 +1795,8 @@ execution reference.
   module, and bounded header-block byte preview. Malformed HPACK string
   lengths, malformed raw string values for supported literal names, malformed
   Huffman padding, Huffman EOS, and multi-byte non-visible Huffman strings
-  outside the supported checked single-byte labels stay on the HPACK fixture boundary but project through
+  outside the supported checked single-byte labels and bounded
+  `hpack-bytes-00-ff` label stay on the HPACK fixture boundary but project through
   their focused `hpack.fixture.*` ids with the same fixture diagnostic shape.
   That
   diagnostic path is

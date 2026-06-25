@@ -120,6 +120,8 @@ behavior.
   [http2-hpack-huffman-padding-diagnostic.md](http2-hpack-huffman-padding-diagnostic.md).
 - HTTP/2 HPACK focused Huffman diagnostics:
   [http2-hpack-huffman-focused-diagnostics.md](http2-hpack-huffman-focused-diagnostics.md).
+- HTTP/2 HPACK multi-byte non-visible fixture:
+  [http2-hpack-multibyte-non-visible-fixture.md](http2-hpack-multibyte-non-visible-fixture.md).
 - HTTP/2 HPACK malformed string diagnostics:
   [http2-hpack-malformed-string-diagnostics.md](http2-hpack-malformed-string-diagnostics.md).
 - HTTP/2 HPACK string literal fixture:

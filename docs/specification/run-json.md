@@ -518,7 +518,8 @@ supported literal-name forms,
 `hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a symbol,
 and `hpack.fixture.huffman_non_visible_value` for multi-byte non-visible
 Huffman decoded strings outside the supported checked single-byte
-`hpack-byte-xx` labels. These diagnostics record
+`hpack-byte-xx` labels and the bounded `hpack-bytes-00-ff` label. These
+diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.
