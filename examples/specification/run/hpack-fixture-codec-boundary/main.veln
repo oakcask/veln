@@ -4,7 +4,10 @@ use stdio
 fn display_header_value(value: String) -> String
 	match value == "\n"
 		true => "<lf>"
-		false => value
+		false => match value == "hpack-byte-00"
+			true => "<nul>"
+			false => value
+		end
 	end
 end
 
@@ -242,6 +245,8 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	let ignored_literal_status_200_huffman: HpackFixtureState = print_required_header("literal-status-200-huffman", decode_header_block(byte_chunk_from_hex("08821001")?, initial, 89), ":status", "200")?
 	let ignored_literal_authority_www_example_huffman: HpackFixtureState = print_required_header("literal-authority-www-example-huffman", decode_header_block(byte_chunk_from_hex("018cf1e3c2e5f23a6ba0ab90f4ff")?, initial, 90), ":authority", "www.example.com")?
 	let ignored_literal_path_linefeed_huffman: HpackFixtureState = print_required_header("literal-path-linefeed-huffman", decode_header_block(byte_chunk_from_hex("0484fffffff3")?, initial, 116), ":path", "\n")?
+	let ignored_literal_path_nul_huffman: HpackFixtureState = print_required_header("literal-path-nul-huffman", decode_header_block(byte_chunk_from_hex("0482ffc7")?, initial, 117), ":path", "hpack-byte-00")?
+	let ignored_literal_path_two_nul_huffman: () = print_required_unsupported("literal-path-two-nul-huffman-unsupported", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118))?
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
 	let ignored_literal_indexed_method_put_huffman: HpackFixtureState = print_required_header("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84), ":method", "PUT")?
 	let ignored_literal_indexed_method_bad_huffman: HpackFixtureState = print_required_header("literal-indexed-method-bad-huffman", decode_header_block(byte_chunk_from_hex("42838c727f")?, initial, 107), ":method", "bad")?

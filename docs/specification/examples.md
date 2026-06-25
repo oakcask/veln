@@ -1898,9 +1898,9 @@ fixture set, including ordinary names such as `server`, `content-type`, and
 `user-agent`. Those literal fixtures share the HPACK string literal decoder
 for visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table rather than a fixed decoded-value allowlist.
-The checked Huffman fixture boundary accepts visible ASCII plus the single
-line-feed fixture value; other decoded non-visible byte strings remain
-unsupported fixture inputs. The fixture
+The checked Huffman fixture boundary accepts visible ASCII plus the line-feed
+fixture value and the single-NUL `hpack-byte-00` fixture value; other decoded
+non-visible byte strings remain unsupported fixture inputs. The fixture
 also accepts raw new-name literal forms whose field-name string is a raw
 visible-ASCII HPACK string literal, and sends those decoded names through the
 same HTTP/2 header-list validation paths as indexed-name literals. The same
@@ -1914,9 +1914,10 @@ HTTP/2 protocol-core example
 uses the same static Huffman table to encode checked Huffman-marked outbound
 fixture string literals, including a non-allowlist
 `:authority: abc.test` value whose
-checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f` and a line-feed
+checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, a line-feed
 `:path` value whose checked bytes are
-`0x04 0x84 0xff 0xff 0xff 0xf3`. It keeps a multi-byte Huffman-marked
+`0x04 0x84 0xff 0xff 0xff 0xf3`, and a single-NUL `:path` value whose checked
+bytes are `0x04 0x82 0xff 0xc7`. It keeps a multi-byte Huffman-marked
 non-visible value on the raw string encoding failure path. The
 boundary example also checks
 `encode_hpack_raw_string_literal` for a short raw `PUT` literal that keeps its
@@ -1930,7 +1931,8 @@ literal-without-indexing `:authority: odd`,
 literal-with-indexing `:method: raw`, and literal-never-indexed
 `:path: bot`, plus `:authority: abc.test` through completed HEADERS and final
 CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
-`:path: test` and `:path` line feed through completed HEADERS, Huffman `:method: PUT` through both
+`:path: test`, `:path` line feed, and `:path` single NUL through completed
+HEADERS, Huffman `:method: PUT` through both
 literal-without-indexing and literal-with-indexing, Huffman `:method: bad`
 through literal-without-indexing, literal-with-indexing, and
 literal-never-indexed, Huffman `:status: 200` through completed HEADERS and
@@ -1959,7 +1961,7 @@ supported literal names, including non-visible raw bytes and malformed raw
 `:status` literals, have `hpack.fixture.malformed_raw_string_value`.
 Malformed Huffman padding has `hpack.fixture.malformed_huffman_padding`.
 Huffman EOS used as a decoded symbol has `hpack.fixture.huffman_eos_symbol`,
-and Huffman decoded bytes outside the checked fixture string boundary have
+and Huffman decoded bytes outside the supported checked fixture string values have
 `hpack.fixture.huffman_non_visible_value`. The focused failures
 are checked through completed HEADERS or final CONTINUATION paths as
 appropriate.
@@ -2070,7 +2072,7 @@ accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including unsupported
 literal-without-indexing forms. Malformed string lengths, malformed raw string
 values for supported literal names, malformed Huffman padding, Huffman EOS,
-and Huffman strings whose decoded bytes are outside the checked fixture string boundary stay on the
+and Huffman strings whose decoded bytes are outside the supported checked fixture string values stay on the
 HPACK fixture boundary but use focused `hpack.fixture.*` ids, and the focused
 JSON and human examples assert their bounded header-block byte previews.
 The table-size placement diagnostic has matching focused human and

@@ -52,9 +52,10 @@ before the send-intent path emits header-block bytes.
 
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
-The checked Huffman-marked non-visible value remains on the raw string
-encoding failure path. Those failures are not projected as HTTP/2 protocol
-diagnostics by the outbound send-intent helpers.
+The checked Huffman-marked single-NUL `:path` fixture value encodes to
+`0x04 0x82 0xff 0xc7`, while a multi-byte Huffman-marked non-visible value
+remains on the raw string encoding failure path. Those failures are not
+projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
 
 ## Evidence
 

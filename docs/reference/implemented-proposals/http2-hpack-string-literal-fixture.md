@@ -19,8 +19,9 @@ introduced the helper for `:authority`, `:method`, `:path`, `:scheme`, and
 ordinary static-table names accepted by the static-indexed fixture set. The
 helper accepts visible-ASCII raw string literals and checked Huffman-marked
 values decoded by the HPACK static Huffman table. The checked Huffman boundary
-accepts visible ASCII plus the single line-feed fixture value while other
-decoded non-visible byte strings remain outside the supported fixture boundary.
+accepts visible ASCII plus the line-feed fixture value and the single-NUL
+`hpack-byte-00` fixture value while other decoded non-visible byte strings
+remain outside the supported fixture boundary.
 It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
@@ -51,7 +52,7 @@ use `hpack.fixture.malformed_raw_string_value`. Unsupported names continue to
 project through `hpack.fixture.unsupported_header_block`. Malformed Huffman
 padding keeps the established `hpack.fixture.malformed_huffman_padding`
 diagnostic. Huffman EOS and Huffman strings whose decoded bytes fall outside
-the checked fixture string boundary remain unsupported but use focused HPACK
+the supported checked fixture string values remain unsupported but use focused HPACK
 fixture diagnostics.
 
 ## Evidence

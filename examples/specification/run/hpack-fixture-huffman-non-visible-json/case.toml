@@ -36,7 +36,7 @@ equals = 9
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.observed_header_block_size"
-equals = 4
+equals = 6
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.observed_first_byte"
@@ -56,15 +56,15 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "0482ffc7"
+equals = "0484ffc7fe3f"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
-equals = 4
+equals = 6
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
-equals = 4
+equals = 6
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"

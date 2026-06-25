@@ -1850,7 +1850,7 @@ against the built `veln` binary.
 	  fixtures share the HPACK string literal decoder for visible-ASCII raw
 	  values and Huffman-marked values decoded by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
-  `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
+  `:path` line feed, `:path` single NUL, `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
   literal-with-indexing `:method: bad` and `:scheme: https`, raw
@@ -2081,7 +2081,7 @@ against the built `veln` binary.
 	  `user-agent`. Those literal fixtures share the HPACK string literal
 	  decoder for visible-ASCII raw values and Huffman-marked values decoded
 	  by the HPACK static Huffman table into checked fixture strings, including
-  zero-length `:path`, `:path: test`, `:path` line feed,
+  zero-length `:path`, `:path: test`, `:path` line feed, `:path` single NUL,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
@@ -2095,9 +2095,9 @@ against the built `veln` binary.
   length, non-visible raw bytes, and a malformed raw `:status` literal stay on
   the unsupported fixture path. The outbound fixture encoder in this case uses
   the same static Huffman table for checked Huffman-marked string literals,
-  pins `:authority: abc.test` as a non-allowlist encoded value, accepts a
-  line-feed `:path` fixture value, and keeps a multi-byte Huffman-marked
-  non-visible value on the raw string encoding failure path.
+  pins `:authority: abc.test` as a non-allowlist encoded value, accepts
+  line-feed and single-NUL `:path` fixture values, and keeps a multi-byte
+  Huffman-marked non-visible value on the raw string encoding failure path.
   Request and response header-list validation also covers fixture-marked
   `content-length` values: absence is accepted, one valid decimal value is
   accepted, repeated identical valid decimal values are accepted, mismatched

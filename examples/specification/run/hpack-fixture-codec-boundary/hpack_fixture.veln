@@ -364,7 +364,13 @@ fn hpack_raw_string_unsupported_preview(value: String) -> ByteChunk
 				Ok(preview) => preview
 				Err(_) => byte_chunk([])
 			end
-			false => byte_chunk([])
+			false => match value == "hpack-byte-00"
+				true => match byte_chunk_from_hex("00")
+					Ok(preview) => preview
+					Err(_) => byte_chunk([])
+				end
+				false => byte_chunk([])
+			end
 		end
 	end
 end
@@ -1023,9 +1029,12 @@ end
 fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
 	match byte_count_to_int(byte_chunk_count(decoded)) == 1 and byte_at_or_missing(decoded, 0) == 10
 		true => Ok("\n")
-		false => match unsupported_string_literal(block, offset)
-			Ok(_) => Ok("")
-			Err(failure) => Err(failure)
+		false => match byte_count_to_int(byte_chunk_count(decoded)) == 1 and byte_at_or_missing(decoded, 0) == 0
+			true => Ok("hpack-byte-00")
+			false => match unsupported_string_literal(block, offset)
+				Ok(_) => Ok("")
+				Err(failure) => Err(failure)
+			end
 		end
 	end
 end
