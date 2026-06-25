@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.invalid_input]: decode error at byte offset 5", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: Decode failure reason: kind value exceeds declared length.", "note: DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind, kind value exceeds declared length)."]

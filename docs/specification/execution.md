@@ -1369,6 +1369,8 @@ execution reference.
   `examples/specification/run/codec-decode-invalid-byte-context-json/`,
   `examples/specification/run/codec-decode-invalid-boundary-human/`,
   `examples/specification/run/codec-decode-invalid-boundary-json/`,
+  `examples/specification/run/codec-decode-invalid-reason-step-human/`,
+  `examples/specification/run/codec-decode-invalid-reason-step-json/`,
   `examples/specification/run/codec-decode-invalid-step-human/`,
   `examples/specification/run/codec-decode-invalid-step-json/`,
   `examples/specification/run/codec-decode-need-end-human/`,
