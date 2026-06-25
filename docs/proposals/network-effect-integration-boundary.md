@@ -38,7 +38,8 @@ slices, and narrow deadline and cancellation slices, for:
   boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
-  deadline-aware stream-read, ordered write lifecycle slice, and checked
+  deadline-aware stream-read, cancellable deadline-aware stream-write,
+  ordered write lifecycle slice, and checked
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
@@ -52,7 +53,8 @@ slices, and narrow deadline and cancellation slices, for:
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, plus the source-visible
-  ordered chunk-list boundary
+  ordered chunk-list boundary and cancellable deadline-aware stream-write
+  boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -232,6 +234,16 @@ and before cancellation, `ReadEnd` for clean stream end,
 and `ReadCancelled` for source-visible token cancellation. The call infers
 the existing coarse `net` and `time` effects. Forced read failure on the same
 path remains a runtime transport failure, not a protocol diagnostic.
+
+Implemented cancellable deadline-aware stream write slice: executable
+specification cases use
+`net::write_chunk_until_cancellable(stream, chunk, deadline, token)` to
+return `WriteCompleted` when a fixture or production-loopback stream writes
+before the deadline and before cancellation, `WriteDeadlineExpired` for
+fixture-reported or supplied write deadline expiry, and `WriteCancelled` for
+source-visible token cancellation. The call infers the existing coarse `net`
+and `time` effects. Forced write failure on the same path remains a runtime
+transport failure, not a protocol diagnostic.
 
 Implemented deadline-aware accepted-stream lifecycle slice: an executable
 specification case accepts a stream with `net::accept_until`, owns that
@@ -459,8 +471,8 @@ or the pure protocol core.
   remaining examples still need richer production socket APIs and richer
   deadline and cancellation APIs beyond the current relative `Deadline`,
   `CancelToken`, cancellation status-query, cancellable wait-outcome,
-  cancellable deadline-aware listener accept, stream read, and accepted-stream
-  lifecycle boundaries.
+  cancellable deadline-aware listener accept, stream read, stream write, and
+  accepted-stream lifecycle boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

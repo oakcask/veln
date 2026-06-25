@@ -1441,6 +1441,16 @@ covers fixture-reported read deadline expiry returning `ReadDeadlineExpired`,
 and
 `../../examples/specification/run/transport-socket-read-until-cancellable-cancelled/`
 covers token cancellation returning `ReadCancelled`. The matching
+`../../examples/specification/run/transport-socket-write-until-cancellable-boundary/`
+case covers `net::write_chunk_until_cancellable` returning `WriteCompleted`,
+`../../examples/specification/run/transport-socket-write-until-cancellable-deadline/`
+covers fixture-reported write deadline expiry returning
+`WriteDeadlineExpired`, and
+`../../examples/specification/run/transport-socket-write-until-cancellable-cancelled/`
+covers token cancellation returning `WriteCancelled`.
+`../../examples/specification/run/transport-socket-write-until-cancellable-production-outcomes/`
+covers the same success, deadline, and cancellation outcomes in the
+production-loopback runtime. The matching
 `../../examples/specification/check/transport-socket-effects/` case pins
 missing-effect diagnostics for the socket calls, including the optional
 clean-end listener accept and stream read,
@@ -1455,6 +1465,8 @@ and
 pins that deadline-aware read requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-read-until-cancellable-effects/`
 pins the same effect boundary for cancellable deadline-aware reads, and
+`../../examples/specification/check/transport-socket-write-until-cancellable-effects/`
+pins the same effect boundary for cancellable deadline-aware writes, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
 `../../examples/specification/check/transport-socket-listener-close-effects/`
@@ -1476,6 +1488,7 @@ case keeps listener-close event-recording failure on the same surface.
 `../../examples/specification/run/transport-socket-accept-until-failure-json/`,
 `../../examples/specification/run/transport-socket-accept-until-cancellable-failure-json/`,
 `../../examples/specification/run/transport-socket-read-until-failure-json/`,
+`../../examples/specification/run/transport-socket-write-until-cancellable-failure-json/`,
 `../../examples/specification/run/transport-socket-write-failure-human/`, and
 `../../examples/specification/run/transport-socket-write-failure-json/` cases
 show accept, read, and write failures as runtime transport failures, not

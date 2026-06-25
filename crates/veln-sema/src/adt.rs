@@ -859,6 +859,37 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "StreamWriteOutcome".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "WriteCompleted".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "WriteCompleted".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "WriteDeadlineExpired".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "WriteDeadlineExpired".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "WriteCancelled".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "WriteCancelled".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "streamwriteoutcome".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "DecodeError".to_string(),
             module_name: None,
             type_parameters: Vec::new(),

@@ -245,6 +245,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::read_chunk_until_cancellable" => "netReadChunkUntilCancellable",
         "net::read_chunk_or_end" => "netReadChunkOrEnd",
         "net::write_chunk" => "netWriteChunk",
+        "net::write_chunk_until_cancellable" => "netWriteChunkUntilCancellable",
         "net::write_chunks" => "netWriteChunks",
         "net::close_stream" => "netCloseStream",
         "net::close_listener" => "netCloseListener",

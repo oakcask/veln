@@ -886,6 +886,45 @@
         return UNIT;
     }
 
+    public static Object netWriteChunkUntilCancellable(Object stream, Object bytes, Object deadline, Object token) {
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        CancelToken cancelToken = asCancelToken(token);
+        if (waitCancelled(cancelToken)) {
+            try {
+                writeNetEvent("write-cancelled " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport write failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamWriteOutcome("WriteCancelled");
+        }
+        if (writeDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("write-deadline " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport write failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamWriteOutcome("WriteDeadlineExpired");
+        }
+        netWriteChunk(stream, bytes);
+        return streamWriteOutcome("WriteCompleted");
+    }
+
+    private static boolean writeDeadlineExpired(Object deadline) {
+        long target = asLong(deadline);
+        return forced("VELN_NET_WRITE_DEADLINE_EXPIRED")
+            || forced("VELN_TIME_DEADLINE_EXPIRED")
+            || target <= System.nanoTime();
+    }
+
     public static Object netWriteChunks(Object stream, Object chunks) {
         ListValue current = asListValue(chunks);
         while (current.cons) {
@@ -1409,6 +1448,14 @@
 
     private static Object streamReadOutcome(String name, Object[] payloads) {
         return adt("StreamReadOutcome::" + name, payloads);
+    }
+
+    private static Object streamWriteOutcome(String name) {
+        return streamWriteOutcome(name, new Object[] {});
+    }
+
+    private static Object streamWriteOutcome(String name, Object[] payloads) {
+        return adt("StreamWriteOutcome::" + name, payloads);
     }
 
     private static NetListener asNetListener(Object value) {

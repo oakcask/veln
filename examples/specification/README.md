@@ -2519,6 +2519,18 @@ against the built `veln` binary.
 - `run/transport-socket-read-until-cancellable-cancelled/`: cancellable
   deadline-aware socket read observes token cancellation as `ReadCancelled`
   without a runtime failure.
+- `run/transport-socket-write-until-cancellable-boundary/`: cancellable
+  deadline-aware socket write returns `WriteCompleted` when the fixture stream
+  writes before the deadline and before cancellation.
+- `run/transport-socket-write-until-cancellable-deadline/`: cancellable
+  deadline-aware socket write observes fixture-reported write deadline expiry
+  as `WriteDeadlineExpired` without a runtime failure.
+- `run/transport-socket-write-until-cancellable-cancelled/`: cancellable
+  deadline-aware socket write observes token cancellation as `WriteCancelled`
+  without a runtime failure.
+- `run/transport-socket-write-until-cancellable-production-outcomes/`:
+  production loopback cancellable deadline-aware writes return completed,
+  deadline-expired, and cancelled write outcomes as adapter values.
 - `check/transport-socket-effects/`: listener creation, accept, stream read,
   optional clean-end listener accept and stream read, and stream write infer
   the `net` effect for public effect checking.
@@ -2534,6 +2546,9 @@ against the built `veln` binary.
 - `check/transport-socket-read-until-cancellable-effects/`: cancellable
   deadline-aware stream read directly infers both `net` and `time` for public
   effect checking.
+- `check/transport-socket-write-until-cancellable-effects/`: cancellable
+  deadline-aware stream write directly infers both `net` and `time` for
+  public effect checking.
 - `check/transport-socket-clean-end-effects/`: optional clean-end stream read
   directly infers the `net` effect for public effect checking.
 - `check/socket-stream-close-effects/`: explicit stream close directly infers

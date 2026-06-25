@@ -26,8 +26,10 @@ compiler-known calls.
   values, deadline-aware stream reads that return `None` on read deadline
   expiry or clean stream end, cancellable deadline-aware stream reads that
   return `ReadChunk`, `ReadEnd`, `ReadDeadlineExpired`, or `ReadCancelled`
-  values, fixture-backed stream writes, stream close recording, and listener
-  close recording,
+  values, cancellable deadline-aware stream writes that return
+  `WriteCompleted`, `WriteDeadlineExpired`, or `WriteCancelled` values,
+  fixture-backed stream writes, stream close recording, and listener close
+  recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
   reads, writes, clean listener end, stream close, and listener close under
   the same public calls,
@@ -46,7 +48,10 @@ compiler-known calls.
   lifecycle adapter composes `net::accept_until_cancellable`,
   `net::read_chunk_until_cancellable`, ordinary channel routing, and ordered
   `net::write_chunk` projection under the same `net`, `time`, and
-  `concurrency` boundary. `net::write_chunks` writes a source-owned
+  `concurrency` boundary. `net::write_chunk_until_cancellable` requires
+  `net` and `time` and preserves host write failures as runtime failures
+  while exposing deadline expiry and cancellation as ordinary write outcome
+  values. `net::write_chunks` writes a source-owned
   `List<ByteChunk>` to a `NetStream` in list order under the same coarse
   `net` effect. The adapter-owned outbound ordering example accepts
   deterministic loopback streams, routes ordinary `StreamInput` values
@@ -67,8 +72,8 @@ compiler-known calls.
   `net::accept_until_cancellable` call on that listener fails as a runtime
   transport failure. Forced accept failure
   through the deadline-aware optional and cancellable accept paths and forced
-  read failure through the deadline-aware optional and cancellable read paths
-  also stay runtime failures.
+  read or write failure through the deadline-aware optional and cancellable
+  stream paths also stay runtime failures.
   The socket stream adapter routing context example composes an ordinary
   event value, explicit state, route metadata, and trace metadata into one
   anonymous record passed through `task::spawn_with<Result, Context>`. The

@@ -737,6 +737,7 @@ Implemented expressions:
 - network and time boundary calls: `net::receive_chunk()`,
   `net::send_chunk(bytes)`,
   `net::read_chunk_until_cancellable(stream, deadline, token)`,
+  `net::write_chunk_until_cancellable(stream, bytes, deadline, token)`,
   `time::timeout_ms(milliseconds)`,
   `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
   `time::cancel_token()`, `time::cancel(token)`, and
