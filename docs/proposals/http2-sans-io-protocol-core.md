@@ -50,9 +50,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented outbound DATA send-intent splitting and PADDED DATA
   send-intent slices, outbound DATA send-window accounting, outbound
-  `RST_STREAM` reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`,
-  outbound `WINDOW_UPDATE` receive-credit intent, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` receive-window accounting
+  DATA send-credit refill from peer `WINDOW_UPDATE`, outbound `RST_STREAM`
+  reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`, outbound
+  `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
+  receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
   and outbound HEADERS and DATA send-intent rejection above received or
@@ -551,6 +552,12 @@ remains accepted, and missing, closed, reset, or mismatched stream cases keep
 their narrower failures. Generated frame-header
 representation failures stay on the `codec.encode_value_unrepresentable`
 encode-error path.
+The same source slice now also keeps peer `WINDOW_UPDATE` send-credit refill
+separate from local receive-credit `WINDOW_UPDATE` send-intents. A valid
+received connection-level or open-stream `WINDOW_UPDATE` can restore the
+matching outbound DATA send credit after a no-output over-window rejection,
+while a local outbound `WINDOW_UPDATE` intent updates receive credit only and
+does not make later outbound DATA fit.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
 under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.

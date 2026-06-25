@@ -2221,7 +2221,12 @@ payload, DATA intents that exceed available outbound connection credit, and
 DATA intents that exceed peer-advertised stream credit derived from received
 `SETTINGS_INITIAL_WINDOW_SIZE` are rejected before output bytes are emitted.
 The checked case also pins zero available connection credit and zero available
-stream credit as stable rejected no-output outcomes.
+stream credit as stable rejected no-output outcomes. Valid peer
+`WINDOW_UPDATE` frames can then refill the separate outbound connection or
+stream send credit, allowing the same DATA payload to emit bytes after the
+matching credit is restored. The checked case also keeps local outbound
+`WINDOW_UPDATE` receive-credit intents from refilling outbound DATA send
+credit.
 After receiving GOAWAY or after locally sending GOAWAY, the outbound DATA
 send-intent slice accepts DATA at the recorded last-stream-id boundary and
 rejects a higher open stream with `http2.protocol.stream_after_goaway` before

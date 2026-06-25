@@ -27,6 +27,10 @@ If the connection send window has no available credit, or the target stream
 send window has no available credit, the send-intent returns a stable
 source-visible rejection and emits no output bytes. Larger over-window DATA
 intents follow the same no-output rejection shape for the limiting window.
+Valid received peer `WINDOW_UPDATE` frames refill the separate outbound
+connection or stream send credit for later DATA send-intents. The refill path
+is separate from local outbound `WINDOW_UPDATE` send-intents, which add
+receive credit and do not make a previously over-window DATA intent fit.
 
 PADDED DATA uses the same outbound credit accounting but counts the pad-length
 byte and padding bytes as part of the encoded DATA payload. Padding that cannot
@@ -41,6 +45,11 @@ fit in the selected frame payload is rejected before bytes or credit changes.
   source output.
 - The same checked case pins zero-credit connection and stream cases as
   rejected no-output outcomes.
+- The same checked case sends valid peer connection-level and stream-level
+  `WINDOW_UPDATE` frames after no-output DATA rejections, then verifies the
+  matching later DATA intent emits bytes after send credit is restored.
+- The same checked case verifies a local outbound `WINDOW_UPDATE`
+  receive-credit intent does not refill outbound DATA send credit.
 - The same checked case keeps the existing PADDED DATA and split DATA
   send-intent coverage passing with the same output bytes.
 - `../../specification/execution.md` and `../../specification/examples.md`
