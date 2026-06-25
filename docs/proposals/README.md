@@ -262,6 +262,7 @@ compare it with `../specification/` before changing behavior.
   cancellable deadline-aware adapters, stream close lifecycle,
   adapter-owned clean shutdown after cancellation and deadline expiry,
   source-visible ordered `net::write_chunks` chunk-list writes,
+  source-visible deadline-aware `net::write_chunk_until` writes,
   source-visible cancellable deadline-aware
   `net::write_chunks_until_cancellable` chunk-list writes,
   adapter-owned multi-handler outbound write ordering through
@@ -284,6 +285,8 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
+  The completed deadline-aware stream-write boundary is archived under
+  [Network Write Until Boundary](../reference/implemented-proposals/network-write-until-boundary.md).
   The completed cancellable deadline-aware stream-write boundary is archived
   under
   [Network Write Until Cancellable Boundary](../reference/implemented-proposals/network-write-until-cancellable-boundary.md).

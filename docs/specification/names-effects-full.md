@@ -201,6 +201,7 @@ net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk
 net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
+net::write_chunk_until(stream: NetStream, bytes: ByteChunk, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
 net::write_chunk_until_cancellable(stream: NetStream, bytes: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
 net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
@@ -223,8 +224,9 @@ effect. Direct calls to `net::listen`, `net::accept`,
 `net::close_listener` also infer the same coarse `net` effect. Direct calls
 to `net::accept_until`,
 `net::read_chunk_until`, and
-`net::read_chunk_until_cancellable`, and
-`net::write_chunk_until_cancellable` and
+`net::read_chunk_until_cancellable`,
+`net::write_chunk_until`,
+`net::write_chunk_until_cancellable`, and
 `net::write_chunks_until_cancellable` infer both `net` and `time` because
 the adapter-owned accept, read, or write attempt observes a `Deadline` or
 `CancelToken`.
@@ -260,6 +262,9 @@ fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream.
+`net::write_chunk_until` returns `WriteCompleted` after writing one immutable
+`ByteChunk` before the deadline and `WriteDeadlineExpired` for supplied or
+fixture-reported write deadline expiry.
 `net::write_chunk_until_cancellable` returns `WriteCompleted` after writing
 one immutable `ByteChunk` before the deadline and before cancellation,
 `WriteDeadlineExpired` for supplied or fixture-reported write deadline expiry,
