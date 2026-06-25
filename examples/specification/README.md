@@ -1850,6 +1850,7 @@ against the built `veln` binary.
 	  fixtures share the HPACK string literal decoder for visible-ASCII raw
 	  values and Huffman-marked values decoded by the HPACK static
   Huffman symbols, including zero-length `:path`, `:path: test`,
+  `:path` line feed, `:path` single NUL, `:path` `hpack-byte-ff`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
@@ -2080,8 +2081,10 @@ against the built `veln` binary.
 	  set, including ordinary names such as `server`, `content-type`, and
 	  `user-agent`. Those literal fixtures share the HPACK string literal
 	  decoder for visible-ASCII raw values and Huffman-marked values decoded
-	  by the HPACK static
-  Huffman symbols, including zero-length `:path`, `:path: test`,
+	  by the HPACK static Huffman table across the full byte symbol range into
+	  checked fixture strings, including
+  zero-length `:path`, `:path: test`, `:path` line feed, `:path` single NUL,
+  `:path` `hpack-byte-ff`,
   `:scheme: https`, `:authority: www.example.com`, `:method: PUT`,
   `:method: bad`, and `:status: 200`;
   checked output also covers raw literal-with-indexing `:authority`, Huffman
@@ -2094,9 +2097,11 @@ against the built `veln` binary.
   the focused `hpack.fixture.malformed_huffman_padding` id; malformed string
   length, non-visible raw bytes, and a malformed raw `:status` literal stay on
   the unsupported fixture path. The outbound fixture encoder in this case uses
-  the same static Huffman table for visible-ASCII Huffman-marked string literals, pins
-  `:authority: abc.test` as a non-allowlist encoded value, and keeps a
-  Huffman-marked non-visible value on the raw string encoding failure path.
+  the same static Huffman table for checked Huffman-marked string literals,
+  pins `:authority: abc.test` as a non-allowlist encoded value, accepts
+  line-feed, single-NUL, and `hpack-byte-ff` `:path` fixture values, and keeps
+  a multi-byte Huffman-marked non-visible value on the raw string encoding
+  failure path.
   Request and response header-list validation also covers fixture-marked
   `content-length` values: absence is accepted, one valid decimal value is
   accepted, repeated identical valid decimal values are accepted, mismatched

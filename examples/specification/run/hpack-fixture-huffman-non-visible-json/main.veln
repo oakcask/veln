@@ -1,7 +1,7 @@
 # HPACK fixture Huffman non-visible values project structured runtime details.
 
 pub fn main() -> Result<(), String>
-	let block: ByteChunk = byte_chunk_from_hex("0482ffc7")?
+	let block: ByteChunk = byte_chunk_from_hex("0484ffc7fe3f")?
 	let preview: ByteView = byte_view(block, byte_offset(0)?, byte_chunk_count(block))?
-	hpack_fixture_huffman_non_visible_value(9, 4, 4, "fixture HPACK Huffman visible ASCII header value", "hpack_fixture", preview)
+	hpack_fixture_huffman_non_visible_value(9, 6, 4, "fixture HPACK Huffman checked header value", "hpack_fixture", preview)
 end

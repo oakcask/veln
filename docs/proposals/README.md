@@ -225,7 +225,8 @@ compare it with `../specification/` before changing behavior.
   header-list consistency slice,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
-  visible-ASCII Huffman-marked string literal encoding, and the bounded
+  full-table single-byte Huffman-marked string literal decoding and encoding,
+  and the bounded
   stateful dynamic-table fixture encoder path, focused unsupported-Huffman EOS
   and non-visible decoded-byte diagnostics, focused malformed string-length
   and raw string value fixture diagnostics, general visible-ASCII raw literal
@@ -235,11 +236,10 @@ compare it with `../specification/` before changing behavior.
   checked outbound dynamic table-size update encoding,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
-  broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary, including full HPACK compression,
-  unbounded dynamic-table behavior, and HPACK Huffman behavior beyond
-  the implemented visible-ASCII fixture string literal decoding and encoding
-  slice and beyond the focused malformed Huffman fixture diagnostics.
+  broader protocol-core behavior and full HPACK behavior beyond the
+  full-table single-byte checked fixture boundary, including full HPACK
+  compression, unbounded dynamic-table behavior, and multi-byte non-visible
+  fixture strings beyond the focused malformed Huffman fixture diagnostics.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

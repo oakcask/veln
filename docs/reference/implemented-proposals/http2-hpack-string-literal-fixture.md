@@ -17,8 +17,12 @@ introduced the helper for `:authority`, `:method`, `:path`, `:scheme`, and
 `:status`; the later
 `http2-hpack-static-name-literal-fixture.md` record extends the same helper to
 ordinary static-table names accepted by the static-indexed fixture set. The
-helper accepts visible-ASCII raw string literals and Huffman-marked values
-decoded by the HPACK static Huffman table. It also accepts the fixture-boundary
+helper accepts visible-ASCII raw string literals and checked Huffman-marked
+values decoded by the HPACK static Huffman table. The checked Huffman boundary
+accepts visible ASCII, the line-feed fixture value, and single-byte
+`hpack-byte-xx` labels for every byte value while multi-byte decoded
+non-visible byte strings remain outside the supported fixture boundary.
+It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
 long raw values, including raw values past the former checked 128-byte decode
@@ -47,8 +51,9 @@ string values for supported literal names, including non-visible raw bytes,
 use `hpack.fixture.malformed_raw_string_value`. Unsupported names continue to
 project through `hpack.fixture.unsupported_header_block`. Malformed Huffman
 padding keeps the established `hpack.fixture.malformed_huffman_padding`
-diagnostic. Huffman EOS and Huffman strings whose decoded bytes are not
-visible ASCII remain unsupported but use focused HPACK fixture diagnostics.
+diagnostic. Huffman EOS and Huffman strings whose decoded bytes fall outside
+the supported checked fixture string values remain unsupported but use focused HPACK
+fixture diagnostics.
 
 ## Evidence
 
@@ -56,8 +61,8 @@ visible ASCII remain unsupported but use focused HPACK fixture diagnostics.
   raw and Huffman-marked literal-without-indexing values, non-allowlist raw
   values `:authority: odd`, `:method: raw`, and
   `:path: bot` across the three literal indexing forms,
-  `:path: test`, Huffman-marked `:method: bad` through all three literal
-  forms, Huffman-marked `:status: 200`, Huffman-marked
+  `:path: test`, Huffman-marked `:path` line feed, Huffman-marked
+  `:method: bad` through all three literal forms, Huffman-marked `:status: 200`, Huffman-marked
   `:authority: www.example.com`, Huffman-marked
   literal-with-indexing `:method: PUT`, raw literal-with-indexing
   `:authority`, Huffman-marked literal-with-indexing `:scheme: https`, raw

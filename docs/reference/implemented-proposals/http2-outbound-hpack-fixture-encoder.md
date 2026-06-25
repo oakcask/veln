@@ -14,7 +14,7 @@ The imported HPACK fixture module exposes a source-visible header-list encoder
 for the outbound protocol-core fixtures. It accepts the fixture-owned
 static-indexed header lists already accepted by the decoder, raw
 literal-without-indexing and literal-with-indexing header lists for supported
-static-table names, visible-ASCII Huffman-marked literal header lists for the
+static-table names, checked Huffman-marked literal header lists for the
 same fixture boundary, and the checked request and response pseudo-header
 fixture lists used by outbound HEADERS and server-side `PUSH_PROMISE`
 send-intents.
@@ -52,9 +52,13 @@ before the send-intent path emits header-block bytes.
 
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
-The checked Huffman-marked non-visible value remains on the raw string
-encoding failure path. Those failures are not projected as HTTP/2 protocol
-diagnostics by the outbound send-intent helpers.
+The checked Huffman-marked single-NUL `:path` fixture value encodes to
+`0x04 0x82 0xff 0xc7`, and the checked full-table single-byte
+`hpack-byte-ff` `:path` fixture value encodes to
+`0x04 0x84 0xff 0xff 0xfb 0xbf`, while a multi-byte Huffman-marked
+non-visible value remains on the raw string encoding failure path. Those
+failures are not projected as HTTP/2 protocol diagnostics by the outbound
+send-intent helpers.
 
 ## Evidence
 
@@ -67,6 +71,7 @@ diagnostics by the outbound send-intent helpers.
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
   dynamic-table capacity, an over-peer-limit table-size update failure,
   Huffman-marked literal `:path: test` into outbound HEADERS,
+  Huffman-marked literal `:path: hpack-byte-ff` into outbound HEADERS,
   Huffman-marked literal `:authority: abc.test` into outbound HEADERS, static
   indexed `:status: 200` and Huffman-marked literal `:status: 200` into
   server-side `PUSH_PROMISE`, one non-visible Huffman value encode failure,

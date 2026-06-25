@@ -1896,8 +1896,12 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 supported static-table header name already accepted by the static-indexed
 fixture set, including ordinary names such as `server`, `content-type`, and
 `user-agent`. Those literal fixtures share the HPACK string literal decoder
-for visible-ASCII raw values and Huffman-marked values decoded by the HPACK
-static Huffman table rather than a fixed decoded-value allowlist. The fixture
+for visible-ASCII raw values and Huffman-marked values decoded by scanning
+the HPACK static Huffman table across the full byte symbol range rather than a
+fixed decoded-value allowlist. The checked Huffman fixture boundary accepts
+visible ASCII, the line-feed fixture value, and single-byte `hpack-byte-xx`
+labels for every byte value; multi-byte decoded non-visible byte strings remain
+unsupported fixture inputs. The fixture
 also accepts raw new-name literal forms whose field-name string is a raw
 visible-ASCII HPACK string literal, and sends those decoded names through the
 same HTTP/2 header-list validation paths as indexed-name literals. The same
@@ -1908,11 +1912,15 @@ past the former checked raw decode boundary. The same HPACK-prefixed integer
 foundation reads checked table-size updates, dynamic-name indexes, and string
 literal lengths before each caller applies its fixture-specific policy. The
 HTTP/2 protocol-core example
-uses the same static Huffman table to encode visible-ASCII Huffman-marked
-outbound fixture string literals, including a non-allowlist
+uses the same static Huffman table to encode checked Huffman-marked outbound
+fixture string literals, including a non-allowlist
 `:authority: abc.test` value whose
-checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, and keeps a
-Huffman-marked non-visible value on the raw string encoding failure path. The
+checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, a line-feed
+`:path` value whose checked bytes are
+`0x04 0x84 0xff 0xff 0xff 0xf3`, and a single-NUL `:path` value whose checked
+bytes are `0x04 0x82 0xff 0xc7`, plus `hpack-byte-ff` whose checked bytes are
+`0x04 0x84 0xff 0xff 0xfb 0xbf`. It keeps a multi-byte Huffman-marked
+non-visible value on the raw string encoding failure path. The
 boundary example also checks
 `encode_hpack_raw_string_literal` for a short raw `PUT` literal that keeps its
 existing bytes, a visible ASCII `bad` literal that was not part of the former
@@ -1925,7 +1933,9 @@ literal-without-indexing `:authority: odd`,
 literal-with-indexing `:method: raw`, and literal-never-indexed
 `:path: bot`, plus `:authority: abc.test` through completed HEADERS and final
 CONTINUATION paths, raw `:status` through completed HEADERS, Huffman
-`:path: test` through completed HEADERS, Huffman `:method: PUT` through both
+`:path: test`, `:path` line feed, and `:path` single NUL through completed
+HEADERS, Huffman `:path` `hpack-byte-ff` through completed HEADERS, Huffman
+`:method: PUT` through both
 literal-without-indexing and literal-with-indexing, Huffman `:method: bad`
 through literal-without-indexing, literal-with-indexing, and
 literal-never-indexed, Huffman `:status: 200` through completed HEADERS and
@@ -1954,8 +1964,8 @@ supported literal names, including non-visible raw bytes and malformed raw
 `:status` literals, have `hpack.fixture.malformed_raw_string_value`.
 Malformed Huffman padding has `hpack.fixture.malformed_huffman_padding`.
 Huffman EOS used as a decoded symbol has `hpack.fixture.huffman_eos_symbol`,
-and Huffman decoded bytes outside the fixture visible-ASCII header-value
-boundary have `hpack.fixture.huffman_non_visible_value`. The focused failures
+and multi-byte non-visible Huffman strings outside the supported checked
+single-byte labels have `hpack.fixture.huffman_non_visible_value`. The focused failures
 are checked through completed HEADERS or final CONTINUATION paths as
 appropriate.
 It does not implement general HPACK behavior beyond the fixture boundary.
@@ -2065,7 +2075,8 @@ accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including unsupported
 literal-without-indexing forms. Malformed string lengths, malformed raw string
 values for supported literal names, malformed Huffman padding, Huffman EOS,
-and Huffman strings whose decoded bytes are not visible ASCII stay on the
+and multi-byte non-visible Huffman strings outside the supported checked
+single-byte labels stay on the
 HPACK fixture boundary but use focused `hpack.fixture.*` ids, and the focused
 JSON and human examples assert their bounded header-block byte previews.
 The table-size placement diagnostic has matching focused human and
