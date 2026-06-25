@@ -1885,7 +1885,11 @@ execution reference.
   payload length after all split frames encode, including cases that exactly
   consume either the connection or stream send window. Over-window DATA
   intents, including zero-credit connection and stream cases, are rejected
-  before output bytes or credit changes. Accepted outbound DATA with
+  before output bytes or credit changes. Valid received `WINDOW_UPDATE` frames
+  can refill the separate outbound connection or stream send credit so the
+  same DATA payload is accepted after matching peer credit is restored. Local
+  outbound `WINDOW_UPDATE` send-intents still add receive credit only and do
+  not refill outbound DATA send credit. Accepted outbound DATA with
   `END_STREAM` records local closed-stream state for outbound send-intents
   while the receive core keeps the stream half-closed-local for inbound DATA.
   After accepted inbound DATA carries peer `END_STREAM`, the same example
