@@ -38,9 +38,9 @@ slices, and narrow deadline and cancellation slices, for:
   boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
-  deadline-aware stream-read, cancellable deadline-aware stream-write,
-  cancellable deadline-aware chunk-list stream-write, ordered write lifecycle
-  slice, and checked
+  deadline-aware stream-read, deadline-aware stream-write, cancellable
+  deadline-aware stream-write, cancellable deadline-aware chunk-list
+  stream-write, ordered write lifecycle slice, and checked
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
@@ -54,8 +54,9 @@ slices, and narrow deadline and cancellation slices, for:
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, plus the source-visible
-  ordered chunk-list boundary, cancellable deadline-aware stream-write
-  boundary, and cancellable deadline-aware chunk-list stream-write boundary
+  ordered chunk-list boundary, deadline-aware stream-write boundary,
+  cancellable deadline-aware stream-write boundary, and cancellable
+  deadline-aware chunk-list stream-write boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -235,6 +236,15 @@ and before cancellation, `ReadEnd` for clean stream end,
 and `ReadCancelled` for source-visible token cancellation. The call infers
 the existing coarse `net` and `time` effects. Forced read failure on the same
 path remains a runtime transport failure, not a protocol diagnostic.
+
+Implemented deadline-aware stream write slice: executable specification cases
+use `net::write_chunk_until(stream, chunk, deadline)` to return
+`WriteCompleted` when a fixture or production-loopback stream writes before
+the deadline and `WriteDeadlineExpired` for fixture-reported or supplied
+write deadline expiry. The call infers the existing coarse `net` and `time`
+effects. Forced write failure on the same path remains a runtime transport
+failure, not a protocol diagnostic. The completion record is archived under
+`../reference/implemented-proposals/network-write-until-boundary.md`.
 
 Implemented cancellable deadline-aware stream write slice: executable
 specification cases use

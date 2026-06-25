@@ -114,10 +114,12 @@ execution reference.
   accept failures as runtime failures. `net::read_chunk_until_cancellable`
   returns ordinary `StreamReadOutcome` values for chunk arrival, clean end,
   read deadline expiry, and token cancellation while preserving forced host
-  read failures as runtime failures. `net::write_chunk_until_cancellable`
-  returns ordinary `StreamWriteOutcome` values for completed write, write
-  deadline expiry, and token cancellation while preserving forced host write
-  failures as runtime failures.
+  read failures as runtime failures. `net::write_chunk_until` returns
+  ordinary `StreamWriteOutcome` values for completed write and write deadline
+  expiry while preserving forced host write failures as runtime failures.
+  `net::write_chunk_until_cancellable` returns ordinary `StreamWriteOutcome`
+  values for completed write, write deadline expiry, and token cancellation
+  while preserving forced host write failures as runtime failures.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

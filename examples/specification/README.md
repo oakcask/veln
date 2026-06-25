@@ -2526,6 +2526,16 @@ against the built `veln` binary.
 - `run/transport-socket-read-until-cancellable-cancelled/`: cancellable
   deadline-aware socket read observes token cancellation as `ReadCancelled`
   without a runtime failure.
+- `run/transport-socket-write-until-boundary/`: deadline-aware socket write
+  returns `WriteCompleted` when the fixture stream writes before the deadline.
+- `run/transport-socket-write-until-deadline/`: deadline-aware socket write
+  observes fixture-reported write deadline expiry as `WriteDeadlineExpired`
+  without a runtime failure.
+- `run/transport-socket-write-until-production-outcomes/`: production loopback
+  deadline-aware writes return completed and deadline-expired write outcomes
+  as adapter values.
+- `run/transport-socket-write-until-failure-json/`: forced host write failure
+  through the deadline-aware write path remains a runtime transport failure.
 - `run/transport-socket-write-until-cancellable-boundary/`: cancellable
   deadline-aware socket write returns `WriteCompleted` when the fixture stream
   writes before the deadline and before cancellation.
@@ -2566,6 +2576,8 @@ against the built `veln` binary.
 - `check/transport-socket-read-until-cancellable-effects/`: cancellable
   deadline-aware stream read directly infers both `net` and `time` for public
   effect checking.
+- `check/transport-socket-write-until-effects/`: deadline-aware stream write
+  directly infers both `net` and `time` for public effect checking.
 - `check/transport-socket-write-until-cancellable-effects/`: cancellable
   deadline-aware stream write directly infers both `net` and `time` for
   public effect checking.

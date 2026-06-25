@@ -899,6 +899,18 @@ mod tests {
         assert_eq!(return_type, adt::option_type(byte_chunk_type()));
 
         let (params, return_type) =
+            standard_library_signature(&path("net", "write_chunk_until")).expect("net signature");
+        assert_eq!(
+            params,
+            vec![
+                net_stream_type(),
+                byte_chunk_type(),
+                Type::named("Deadline", Vec::new())
+            ]
+        );
+        assert_eq!(return_type, Type::named("StreamWriteOutcome", Vec::new()));
+
+        let (params, return_type) =
             standard_library_signature(&path("net", "close_stream")).expect("net signature");
         assert_eq!(params, vec![net_stream_type()]);
         assert_eq!(return_type, Type::unit());

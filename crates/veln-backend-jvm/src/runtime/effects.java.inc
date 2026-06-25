@@ -886,6 +886,26 @@
         return UNIT;
     }
 
+    public static Object netWriteChunkUntil(Object stream, Object bytes, Object deadline) {
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        if (writeDeadlineExpired(deadline)) {
+            try {
+                writeNetEvent("write-deadline " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport write failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamWriteOutcome("WriteDeadlineExpired");
+        }
+        netWriteChunk(stream, bytes);
+        return streamWriteOutcome("WriteCompleted");
+    }
+
     public static Object netWriteChunkUntilCancellable(Object stream, Object bytes, Object deadline, Object token) {
         if (forced("VELN_NET_WRITE_FAILED")) {
             throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");

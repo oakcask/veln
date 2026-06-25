@@ -2027,6 +2027,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ),
         ("net::read_chunk_or_end", "netReadChunkOrEnd"),
         ("net::write_chunk", "netWriteChunk"),
+        ("net::write_chunk_until", "netWriteChunkUntil"),
         (
             "net::write_chunk_until_cancellable",
             "netWriteChunkUntilCancellable",

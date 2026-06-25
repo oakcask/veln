@@ -1445,6 +1445,16 @@ covers fixture-reported read deadline expiry returning `ReadDeadlineExpired`,
 and
 `../../examples/specification/run/transport-socket-read-until-cancellable-cancelled/`
 covers token cancellation returning `ReadCancelled`. The matching
+`../../examples/specification/run/transport-socket-write-until-boundary/`
+case covers `net::write_chunk_until` returning `WriteCompleted`,
+`../../examples/specification/run/transport-socket-write-until-deadline/`
+covers fixture-reported write deadline expiry returning
+`WriteDeadlineExpired`, and
+`../../examples/specification/run/transport-socket-write-until-failure-json/`
+keeps forced host write failure as a runtime transport failure.
+`../../examples/specification/run/transport-socket-write-until-production-outcomes/`
+covers the same success and deadline outcomes in the production-loopback
+runtime. The matching
 `../../examples/specification/run/transport-socket-write-until-cancellable-boundary/`
 case covers `net::write_chunk_until_cancellable` returning `WriteCompleted`,
 `../../examples/specification/run/transport-socket-write-until-cancellable-deadline/`
@@ -1481,6 +1491,8 @@ and
 pins that deadline-aware read requires both `net` and `time`, and
 `../../examples/specification/check/transport-socket-read-until-cancellable-effects/`
 pins the same effect boundary for cancellable deadline-aware reads, and
+`../../examples/specification/check/transport-socket-write-until-effects/`
+pins the same effect boundary for deadline-aware writes, and
 `../../examples/specification/check/transport-socket-write-until-cancellable-effects/`
 pins the same effect boundary for cancellable deadline-aware writes, and
 `../../examples/specification/check/transport-socket-write-chunks-until-cancellable-effects/`
