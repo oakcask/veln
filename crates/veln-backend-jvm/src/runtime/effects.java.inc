@@ -11,20 +11,24 @@
 
     private static final class NetListener {
         private final String address;
+        private final boolean productionSocket;
         private final java.net.ServerSocket server;
         private final LoopbackClient loopbackClient;
-        private final java.util.List<InMemoryLoopback> inMemoryLoopbacks;
+        private java.util.List<InMemoryLoopback> inMemoryLoopbacks;
         private final int productionStreamCount;
+        private final java.util.concurrent.atomic.AtomicBoolean closed =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
         private final java.util.concurrent.atomic.AtomicInteger productionAcceptIndex =
             new java.util.concurrent.atomic.AtomicInteger(0);
 
         private NetListener(String address) {
-            this(address, null, null, null, 0);
+            this(address, false, null, null, null, 0);
         }
 
         private NetListener(String address, java.net.ServerSocket server, LoopbackClient loopbackClient) {
             this(
                 address,
+                true,
                 server,
                 loopbackClient,
                 null,
@@ -33,17 +37,19 @@
         }
 
         private NetListener(String address, java.util.List<InMemoryLoopback> inMemoryLoopbacks) {
-            this(address, null, null, inMemoryLoopbacks, inMemoryLoopbacks.size());
+            this(address, true, null, null, inMemoryLoopbacks, inMemoryLoopbacks.size());
         }
 
         private NetListener(
             String address,
+            boolean productionSocket,
             java.net.ServerSocket server,
             LoopbackClient loopbackClient,
             java.util.List<InMemoryLoopback> inMemoryLoopbacks,
             int productionStreamCount
         ) {
             this.address = address;
+            this.productionSocket = productionSocket;
             this.server = server;
             this.loopbackClient = loopbackClient;
             this.inMemoryLoopbacks = inMemoryLoopbacks;
@@ -51,11 +57,23 @@
         }
 
         private boolean isProductionSocket() {
-            return server != null || inMemoryLoopbacks != null;
+            return productionSocket;
         }
 
         private int nextProductionAcceptIndex() {
             return productionAcceptIndex.getAndIncrement();
+        }
+
+        private boolean isClosed() {
+            return closed.get();
+        }
+
+        private boolean closeOnce() {
+            return closed.compareAndSet(false, true);
+        }
+
+        private void releaseLoopbackListenerState() {
+            inMemoryLoopbacks = null;
         }
 
         @Override
@@ -401,6 +419,7 @@
             throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
         }
         NetListener value = asNetListener(listener);
+        failIfListenerClosed(value);
         if (value.isProductionSocket()) {
             return acceptProduction(value, false);
         }
@@ -424,6 +443,7 @@
             throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
         }
         NetListener value = asNetListener(listener);
+        failIfListenerClosed(value);
         if (value.isProductionSocket()) {
             NetStream stream = acceptProduction(value, true);
             return stream == null ? none() : some(stream);
@@ -456,6 +476,7 @@
             throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
         }
         NetListener value = asNetListener(listener);
+        failIfListenerClosed(value);
         if (acceptDeadlineExpired(deadline)) {
             try {
                 writeNetEvent("accept-deadline " + value.address);
@@ -499,6 +520,7 @@
             throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
         }
         NetListener value = asNetListener(listener);
+        failIfListenerClosed(value);
         CancelToken cancelToken = asCancelToken(token);
         if (waitCancelled(cancelToken)) {
             try {
@@ -553,6 +575,7 @@
     }
 
     private static NetStream acceptProduction(NetListener listener, boolean optional) {
+        failIfListenerClosed(listener);
         int index = listener.nextProductionAcceptIndex();
         if (index >= listener.productionStreamCount) {
             closeQuietly(listener.server);
@@ -890,6 +913,45 @@
             );
         }
         return UNIT;
+    }
+
+    public static Object netCloseListener(Object listener) {
+        if (forced("VELN_NET_CLOSE_FAILED")) {
+            throw new RuntimeFailure("transport listener close failed: VELN_NET_CLOSE_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        boolean production = value.isProductionSocket();
+        if (value.closeOnce()) {
+            if (value.server != null) {
+                try {
+                    value.server.close();
+                } catch (java.io.IOException | RuntimeException error) {
+                    throw new RuntimeFailure(
+                        "transport listener close failed: production socket failed",
+                        error
+                    );
+                }
+            }
+            value.releaseLoopbackListenerState();
+        }
+        try {
+            writeNetEvent(
+                (production ? "close-listener-production " : "close-listener ")
+                    + value.address
+            );
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport listener close failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return UNIT;
+    }
+
+    private static void failIfListenerClosed(NetListener listener) {
+        if (listener.isClosed()) {
+            throw new RuntimeFailure("transport accept failed: listener closed");
+        }
     }
 
     private static Object readProductionChunk(NetStream stream) {
@@ -1257,6 +1319,10 @@
         String path = System.getenv("VELN_NET_EVENTS");
         if (path == null || path.isEmpty()) {
             return;
+        }
+        String failedPrefix = System.getenv("VELN_NET_EVENT_RECORD_FAILED_PREFIX");
+        if (failedPrefix != null && !failedPrefix.isEmpty() && line.startsWith(failedPrefix)) {
+            throw new java.io.IOException("VELN_NET_EVENT_RECORD_FAILED_PREFIX");
         }
         java.nio.file.Files.write(
             java.nio.file.Paths.get(path),

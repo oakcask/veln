@@ -262,7 +262,8 @@ compare it with `../specification/` before changing behavior.
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
   boundary, deadline-aware adapter lifecycle, deadline-aware accept and read
-  failure runtime boundaries, and adapter close-failure runtime boundary,
+  failure runtime boundaries, adapter close-failure runtime boundary, and
+  explicit listener-close boundary,
   bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
@@ -274,6 +275,8 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
+  The completed explicit listener-close boundary is archived under
+  [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering slice is
   archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).

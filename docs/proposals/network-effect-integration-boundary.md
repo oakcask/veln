@@ -33,15 +33,15 @@ slices, and narrow deadline and cancellation slices, for:
   end, close lifecycle, two-stream adapter handler/action lifecycle,
   listener-drain adapter lifecycle, listener-drain read-failure boundary,
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
-  and deadline-aware read-failure boundary,
+  deadline-aware read-failure boundary, and explicit listener-close boundary,
   the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, ordered write lifecycle slice, and checked
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
-  deadline-aware accepted-stream lifecycle, and explicit stream close
-  lifecycle slices
+  deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
+  and explicit listener close lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle,
   cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
@@ -287,6 +287,9 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
+
+The explicit listener-close boundary is recorded as implemented in
+`../reference/implemented-proposals/network-listener-close-boundary.md`.
 
 The adapter-owned multi-handler outbound write-ordering slice is recorded as
 implemented in

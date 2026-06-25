@@ -1,0 +1,5 @@
+# Listener close event recording failures stay runtime transport failures.
+pub fn main() -> () effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	net::close_listener(listener)
+end

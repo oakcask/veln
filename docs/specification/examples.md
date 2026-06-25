@@ -1400,6 +1400,10 @@ case covers `net::accept_or_end` returning `Some(stream)` and using that
 stream with the existing read behavior, while
 `../../examples/specification/run/transport-socket-optional-accept-clean-end/`
 covers clean listener end returning `None`.
+`../../examples/specification/run/transport-socket-listener-close-boundary/`
+covers `net::close_listener` recording an ordered fixture listener-close event,
+leaving an already accepted stream readable, and making a later optional
+accept fail as a runtime transport failure.
 `../../examples/specification/run/transport-socket-accept-until-boundary/`
 covers `net::accept_until` returning `Some(stream)` when a fixture accepts
 before the deadline, while
@@ -1453,8 +1457,18 @@ pins that deadline-aware read requires both `net` and `time`, and
 pins the same effect boundary for cancellable deadline-aware reads, and
 `../../examples/specification/check/transport-socket-clean-end-effects/` pins
 the optional clean-end read directly. The
+`../../examples/specification/check/transport-socket-listener-close-effects/`
+case pins that explicit listener close requires the `net` effect. The
 `../../examples/specification/check/socket-stream-close-effects/` case pins
 that explicit stream close requires the `net` effect. The
+`../../examples/specification/run/transport-socket-listener-close-accept-until-failure-json/`,
+`../../examples/specification/run/transport-socket-listener-close-accept-until-cancellable-failure-json/`,
+and
+`../../examples/specification/run/transport-socket-listener-close-failure-json/`
+cases keep accept-after-listener-close and forced listener-close failures on
+the runtime transport-failure surface. The
+`../../examples/specification/run/transport-socket-listener-close-record-failure-json/`
+case keeps listener-close event-recording failure on the same surface.
 `../../examples/specification/run/transport-socket-read-failure-human/`,
 `../../examples/specification/run/transport-socket-read-failure-json/`,
 `../../examples/specification/run/transport-socket-read-or-end-failure-json/`,
@@ -1609,7 +1623,11 @@ executable specification case
 `../../examples/specification/run/transport-socket-production-two-streams/`
 uses one production loopback listener to accept two independent streams, read,
 write, and close each stream, and then observe clean listener end through
-`net::accept_or_end`. The matching
+`net::accept_or_end`. The
+`../../examples/specification/run/transport-socket-production-listener-close/`
+case closes the production listener after accepting a stream, proves that the
+accepted stream remains readable and writable, closes that stream, and then
+checks that a later accept fails as a runtime transport failure. The matching
 `../../examples/specification/run/transport-socket-production-listen-failure-json/`
 case pins invalid production listen addresses as runtime transport failures.
 

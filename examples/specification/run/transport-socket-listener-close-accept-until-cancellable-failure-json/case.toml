@@ -1,0 +1,42 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
+path = "stderr"
+equals = "transport accept failed: listener closed\n"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.message"
+equals = "transport accept failed: listener closed"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen 127.0.0.1:0\nclose-listener 127.0.0.1:0\n"

@@ -26,9 +26,11 @@ compiler-known calls.
   values, deadline-aware stream reads that return `None` on read deadline
   expiry or clean stream end, cancellable deadline-aware stream reads that
   return `ReadChunk`, `ReadEnd`, `ReadDeadlineExpired`, or `ReadCancelled`
-  values, fixture-backed stream writes and stream close recording,
+  values, fixture-backed stream writes, stream close recording, and listener
+  close recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
-  reads, writes, clean listener end, and close under the same public calls,
+  reads, writes, clean listener end, stream close, and listener close under
+  the same public calls,
   relative deadline calls, and cancellable deadline waits through
   source-visible `CancelToken` handles. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
@@ -55,10 +57,15 @@ compiler-known calls.
   effects. The cancellable channel-first routing case uses
   receiver-list selection before the wait outcome and keeps the same adapter
   effect boundary.
-  Malformed receive fixtures, failed send, write, or close recording, forced
-  accept, read, write, or close failures, forced timeout or deadline expiry
-  through runtime-failure waits, and forced cancellable-wait cancellation
-  through the runtime-failure wait are runtime failures. Forced accept failure
+  Malformed receive fixtures, failed send, write, stream close, or listener
+  close recording, forced accept, read, write, or close failures, forced
+  timeout or deadline expiry through runtime-failure waits, and forced
+  cancellable-wait cancellation through the runtime-failure wait are runtime
+  failures. Explicit listener close keeps already accepted streams owned by
+  their `NetStream` handles, while any later `net::accept`,
+  `net::accept_or_end`, `net::accept_until`, or
+  `net::accept_until_cancellable` call on that listener fails as a runtime
+  transport failure. Forced accept failure
   through the deadline-aware optional and cancellable accept paths and forced
   read failure through the deadline-aware optional and cancellable read paths
   also stay runtime failures.

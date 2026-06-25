@@ -203,6 +203,7 @@ net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
 net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
+net::close_listener(listener: NetListener) -> () effects [net]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
@@ -216,8 +217,9 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
-`net::write_chunk`, `net::write_chunks`, and `net::close_stream` also infer
-the same coarse `net` effect. Direct calls to `net::accept_until`,
+`net::write_chunk`, `net::write_chunks`, `net::close_stream`, and
+`net::close_listener` also infer the same coarse `net` effect. Direct calls
+to `net::accept_until`,
 `net::read_chunk_until`, and
 `net::read_chunk_until_cancellable` infer both `net` and `time` because the
 adapter-owned accept or read attempt observes a `Deadline` or `CancelToken`.
@@ -255,7 +257,11 @@ and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream. `net::write_chunks` writes a
 source-owned `List<ByteChunk>` to the same stream in list order.
 `net::close_stream` records fixture-backed adapter-owned stream cleanup and
-returns `()`.
+returns `()`. `net::close_listener` records fixture-backed adapter-owned
+listener cleanup and returns `()`; after that close, `net::accept`,
+`net::accept_or_end`, `net::accept_until`, and
+`net::accept_until_cancellable` fail as runtime transport failures instead of
+reporting clean end, deadline expiry, or cancellation.
 When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
 host loopback listener and deterministic loopback stream sequence:
 `net::listen` binds the requested host and port, `net::accept` and
@@ -267,6 +273,10 @@ supplied deadline or reports clean stream end as `None`, `net::write_chunk`
 writes bytes back to the stream, `net::write_chunks` writes each chunk in
 source list order, `net::close_stream` closes the owned stream, and a
 following optional or deadline-aware accept can observe clean listener end.
+`net::close_listener` closes the owned production listener or in-memory
+loopback listener state without closing already accepted `NetStream` handles;
+any later accept call on that listener fails through the same runtime
+transport boundary.
 Adapter-owned production loopback examples can handle multiple accepted
 streams independently through ordinary `StreamInput` and response-action
 values, route them through the existing `concurrency` boundary, project only
@@ -291,11 +301,12 @@ handle is cancelled first.
 `time::wait_until_cancellable_outcome` uses the same deadline and token values
 and returns `WaitCompleted`, `WaitDeadlineExpired`, or `WaitCancelled` as an
 ordinary `CancellableWaitOutcome` value for adapter-owned branching. Malformed
-host-fed receive or read bytes, failed outgoing send or write event recording,
-forced listen, accept, read, write, timeout, deadline expiry through
-runtime-failure waits, or cancellable-wait cancellation failures through the
-runtime-failure wait are transport runtime failures, not schema, codec, or
-peer protocol diagnostics. `net::accept_until_cancellable` returns
+host-fed receive or read bytes, failed outgoing send, write, stream close, or
+listener close event recording, forced listen, accept, read, write, close,
+timeout, deadline expiry through runtime-failure waits, or cancellable-wait
+cancellation failures through the runtime-failure wait are transport runtime
+failures, not schema, codec, or peer protocol diagnostics.
+`net::accept_until_cancellable` returns
 `AcceptStream(stream)` for an accepted stream, `AcceptEnd` for clean listener
 end, `AcceptDeadlineExpired` for accept deadline expiry, and `AcceptCancelled`
 for token cancellation. Forced accept failure through `net::accept_until`

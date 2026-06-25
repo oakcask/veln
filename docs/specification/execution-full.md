@@ -729,7 +729,12 @@ read and `None` for clean end of the fixture stream, `net::write_chunk`
 writes one immutable `ByteChunk` to that stream, and `net::write_chunks`
 writes each chunk from a source-owned `List<ByteChunk>` to that stream in
 list order. `net::close_stream` records a fixture-backed close event for an
-adapter-owned stream and returns `()`.
+adapter-owned stream and returns `()`. `net::close_listener` records a
+fixture-backed listener close event and returns `()`. After explicit listener
+close, later `net::accept`, `net::accept_or_end`, `net::accept_until`, and
+`net::accept_until_cancellable` calls on the same listener fail as runtime
+transport failures rather than reporting clean end, deadline expiry, or
+cancellation.
 When the runtime environment selects `production-loopback`, those same
 listener and stream calls use a host-owned loopback transport rather than
 fixture-only stream ids: `net::listen` binds the requested address,
@@ -740,10 +745,13 @@ accepts before the supplied deadline or reports clean listener end as `None`,
 stream, `net::read_chunk_until` reads bytes before the supplied deadline or
 reports clean stream end as `None`, `net::write_chunk` writes response bytes
 to that stream, `net::write_chunks` writes response chunks to that stream in
-source list order, and `net::close_stream` closes it. A configured production
-loopback sequence can accept multiple independent streams from one listener,
-and a following optional or deadline-aware accept observes clean listener end
-after those streams are exhausted.
+source list order, and `net::close_stream` closes it. `net::close_listener`
+closes the owned listener resource or in-memory loopback listener state
+without closing already accepted streams; any later accept call on that
+listener fails through the runtime transport boundary. A configured
+production loopback sequence can accept multiple independent streams from one
+listener, and a following optional or deadline-aware accept observes clean
+listener end after those streams are exhausted.
 The checked adapter lifecycles keep the application handler on ordinary
 `StreamInput` and response-action values, route through the existing
 `concurrency` boundary, capture the client-observed bytes, close each accepted
@@ -776,10 +784,11 @@ handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
 same deadline and token values and returns `WaitCompleted`,
 `WaitDeadlineExpired`, or `WaitCancelled` as a source-visible
 `CancellableWaitOutcome`.
-Malformed host-fed receive or read bytes, failed outgoing send, write, or
-close event recording, and host-fixture-forced listen, accept, read, write,
-close, timeout, or deadline expiry, or cancellable-wait cancellation through
-the runtime-failure wait stop the entry as runtime failures. Clean listener end
+Malformed host-fed receive or read bytes, failed outgoing send, write, stream
+close, or listener close event recording, and host-fixture-forced listen,
+accept, read, write, close, timeout, or deadline expiry, or cancellable-wait
+cancellation through the runtime-failure wait stop the entry as runtime
+failures. Clean listener end
 observed through
 `net::accept_or_end`, accept deadline expiry observed through
 `net::accept_until`, clean listener end, accept deadline expiry, and

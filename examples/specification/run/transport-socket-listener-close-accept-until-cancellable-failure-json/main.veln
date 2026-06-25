@@ -1,0 +1,8 @@
+# Cancellable accept after listener close stays a runtime transport failure.
+pub fn main() -> AcceptOutcome effects [net, time]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	net::close_listener(listener)
+	let deadline: Deadline = time::deadline_after_ms(5)
+	let token: CancelToken = time::cancel_token()
+	net::accept_until_cancellable(listener, deadline, token)
+end

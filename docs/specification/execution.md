@@ -55,14 +55,17 @@ execution reference.
   read, optional clean-end stream read, deadline-aware optional stream read,
   cancellable deadline-aware listener accept, cancellable deadline-aware
   stream read, stream write, ordered stream chunk-list write, stream close,
-  timeout, deadline waits, and cancellable deadline waits execute outside the
+  listener close, timeout, deadline waits, and cancellable deadline waits
+  execute outside the
   pure protocol core. The
   default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
   `production-loopback`, the same public listen, accept, read, write, and
   close calls own a host loopback listener and deterministic accepted stream
   sequence; optional and deadline-aware accept can observe clean listener end
-  after the planned loopback streams are exhausted, and deadline-aware reads
-  observe clean stream end through the same `None` result as the fixture path.
+  after the planned loopback streams are exhausted, explicit listener close
+  releases the listener without closing already accepted streams, and
+  deadline-aware reads observe clean stream end through the same `None` result
+  as the fixture path.
   `CancelToken` handles are source-visible time-boundary values used by
   adapter-owned waits. `time::is_cancelled` observes whether such a handle has
   already been cancelled without waiting or requesting cancellation.
@@ -84,11 +87,14 @@ execution reference.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
-  Malformed received or read bytes, failed outgoing send, write, or close
-  event recording, and forced listen, accept, read, write, close, timeout,
-  deadline, or cancellable-wait cancellation failures through the
-  runtime-failure wait stop the entry as runtime failures rather than schema,
-  codec, or peer protocol diagnostics. `net::accept_until` turns accept
+  Malformed received or read bytes, failed outgoing send, write, stream close,
+  or listener close event recording, and forced listen, accept, read, write,
+  close, timeout, deadline, or cancellable-wait cancellation failures through
+  the runtime-failure wait stop the entry as runtime failures rather than
+  schema, codec, or peer protocol diagnostics. After `net::close_listener`,
+  `net::accept`, `net::accept_or_end`, `net::accept_until`, and
+  `net::accept_until_cancellable` fail through that runtime boundary.
+  `net::accept_until` turns accept
   deadline expiry into `None`, and `net::read_chunk_until` turns read deadline
   expiry into `None`, while forced host accept or read failure through those
   paths remains a runtime failure. `net::accept_until_cancellable` returns

@@ -247,6 +247,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::write_chunk" => "netWriteChunk",
         "net::write_chunks" => "netWriteChunks",
         "net::close_stream" => "netCloseStream",
+        "net::close_listener" => "netCloseListener",
         "process::args" => "processArgs",
         "process::env" => "processEnv",
         "process::cwd" => "processCwd",

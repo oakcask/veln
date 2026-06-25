@@ -1,0 +1,13 @@
+# Production listener close releases the listener without closing accepted streams.
+use stdio
+
+pub fn main() -> NetStream effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::close_listener(listener)
+	let incoming: ByteChunk = net::read_chunk(stream)
+	net::write_chunk(stream, incoming)
+	net::close_stream(stream)
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	net::accept(listener)
+end
