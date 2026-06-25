@@ -1,0 +1,16 @@
+# Two-receiver timeout-result selection requires concurrency but not time.
+fn route_with_timeout_result(left: Receiver<StreamInput>, right: Receiver<StreamInput>) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [concurrency]
+	channel::select_timeout_result(left, right, 25)
+end
+
+pub fn adapter_with_concurrency(left: Receiver<StreamInput>, right: Receiver<StreamInput>) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [concurrency]
+	route_with_timeout_result(left, right)
+end
+
+pub fn adapter_missing_concurrency(left: Receiver<StreamInput>, right: Receiver<StreamInput>) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [time]
+	route_with_timeout_result(left, right)
+end
+
+pub fn adapter_non_int_timeout(left: Receiver<StreamInput>, right: Receiver<StreamInput>) -> Result<Option<{ index : Int, value : StreamInput }>, SelectError> effects [concurrency]
+	channel::select_timeout_result(left, right, "soon")
+end

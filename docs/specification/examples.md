@@ -1599,10 +1599,15 @@ and
 to pin the source-visible `channel::select_many_timeout_cancellable` boundary:
 ready receiver priority returns `Ok(Some(...))`, timeout returns `Ok(None)`,
 and token cancellation returns `Err(SelectError)` under the existing `time`
-and `concurrency` effects. The two-receiver timeout cancellation case uses
-`../../examples/specification/run/channel-select-timeout-cancellable/` and
+and `concurrency` effects. The two-receiver timeout-result and timeout
+cancellation cases use
+`../../examples/specification/run/channel-select-timeout-result/`,
+`../../examples/specification/run/channel-select-timeout-cancellable/`,
+`../../examples/specification/check/channel-select-timeout-result-effects/`,
+and
 `../../examples/specification/check/channel-select-timeout-cancellable-effects/`
-to pin the matching `channel::select_timeout_cancellable` boundary.
+to pin the matching `channel::select_timeout_result` and
+`channel::select_timeout_cancellable` boundaries.
 The main routing case also pins those three wait paths in one fixture output;
 the deadline case pins the global host-forced deadline expiry fixture.
 Together they show that these outcomes become adapter decisions rather than
@@ -1789,6 +1794,7 @@ The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing-three-route/`,
 `../../examples/specification/run/channel-first-stream-routing-four-route/`,
 `../../examples/specification/run/channel-select-many-timeout/`,
+`../../examples/specification/run/channel-select-timeout-result/`,
 `../../examples/specification/run/channel-select-timeout-cancellable/`,
 `../../examples/specification/run/channel-select-many-timeout-cancellable/`,
 `../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
@@ -1803,7 +1809,11 @@ routes and checks that selected indexes and routed values remain stable. The
 timeout case also pins ready receiver-list selection, `None` when no supplied
 receiver becomes ready before the timeout, and the matching
 `channel::select_many_timeout_result` `Ok(Some(...))` and `Ok(None)` result
-boundary. The two-receiver cancellable timeout case pins
+boundary. The two-receiver timeout-result case pins
+`channel::select_timeout_result` ready selection, timeout,
+rotating tie selection, closed-before-selection `Ok(None)`, and the
+`concurrency`-only effect boundary plus the non-`Int` timeout diagnostic.
+The two-receiver cancellable timeout case pins
 `channel::select_timeout_cancellable` ready selection, timeout, and
 `Err(SelectError)` cancellation paths. The receiver-list cancellable timeout
 cases pin the matching `channel::select_many_timeout_cancellable`
@@ -1814,12 +1824,15 @@ source-visible `CancelToken` observation. The matching
 `../../examples/specification/check/channel-first-stream-routing-three-route-effects/`,
 `../../examples/specification/check/channel-first-stream-routing-four-route-effects/`,
 `../../examples/specification/check/channel-select-many-timeout-effects/`,
+`../../examples/specification/check/channel-select-timeout-result-effects/`,
 `../../examples/specification/check/channel-select-timeout-cancellable-effects/`,
 `../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
 and
 `../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`
 cases pin the effect boundary: the routing adapter requires `concurrency`,
-the cancellable channel-first adapter requires both `time` and `concurrency`,
+the timeout-result adapter requires only `concurrency` and rejects a non-`Int`
+timeout argument, the cancellable channel-first adapter requires both `time`
+and `concurrency`,
 socket wrappers around the routing boundary require both `net` and
 `concurrency`, and the handler boundary remains free of transport effects.
 Earlier bounded route-count examples remain checked coverage, not a pattern
