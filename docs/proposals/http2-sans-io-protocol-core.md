@@ -338,8 +338,9 @@ visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table across the full byte symbol range rather than
 matching a fixed decoded-value allowlist. The checked Huffman fixture boundary
 accepts visible ASCII, the line-feed fixture value, and single-byte
-`hpack-byte-xx` labels for every byte value while leaving multi-byte decoded
-non-visible byte strings unsupported. The same fixture decoder accepts raw new-name literal forms whose
+`hpack-byte-xx` labels for every byte value plus the bounded
+`hpack-bytes-00-ff` label for decoded bytes `0x00 0xff`, while leaving other
+multi-byte decoded non-visible byte strings unsupported. The same fixture decoder accepts raw new-name literal forms whose
 field-name string is raw visible ASCII, including lower-case trailer names
 that pass existing HTTP/2 header-list validation and invalid raw field names
 that fail through the same trailer diagnostics. The same fixture decoder
@@ -765,6 +766,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
+`../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:

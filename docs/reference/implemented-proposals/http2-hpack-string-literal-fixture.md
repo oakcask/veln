@@ -20,8 +20,9 @@ ordinary static-table names accepted by the static-indexed fixture set. The
 helper accepts visible-ASCII raw string literals and checked Huffman-marked
 values decoded by the HPACK static Huffman table. The checked Huffman boundary
 accepts visible ASCII, the line-feed fixture value, and single-byte
-`hpack-byte-xx` labels for every byte value while multi-byte decoded
-non-visible byte strings remain outside the supported fixture boundary.
+`hpack-byte-xx` labels for every byte value. A later bounded slice also accepts
+`hpack-bytes-00-ff` for decoded bytes `0x00 0xff`, while other multi-byte
+decoded non-visible byte strings remain outside the supported fixture boundary.
 It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
@@ -33,7 +34,8 @@ literal bytes with the Huffman flag cleared, including the same
 one-continuation length boundary for the long raw `a` fixture, and keeps
 non-visible raw encoder input on the fixture-owned unsupported-header-block
 failure path. The decode path keeps multi-byte non-visible Huffman fixture
-values outside the accepted string boundary but reports them through
+values outside the bounded `hpack-bytes-00-ff` label on the focused
+diagnostic path and reports them through
 `hpack.fixture.huffman_non_visible_value`.
 
 The shared decoder is used by literal-without-indexing,

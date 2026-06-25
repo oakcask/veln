@@ -21,8 +21,10 @@ literal-without-indexing header values by scanning the HPACK static Huffman
 table into decoded fixture strings rather than by matching a fixed
 decoded-value allowlist. The checked Huffman boundary accepts visible ASCII,
 the line-feed fixture value, and single-byte `hpack-byte-xx` labels for every
-byte value, while multi-byte decoded non-visible byte strings remain outside
-the supported fixture boundary. Checked values include `0x04 0x80`
+byte value. A later bounded fixture slice also accepts `hpack-bytes-00-ff`
+for decoded bytes `0x00 0xff`, while other multi-byte decoded non-visible byte
+strings remain outside the supported fixture boundary. Checked values include
+`0x04 0x80`
 for zero-length `:path`, `0x04 0x83 0x49 0x50 0x9f` for `:path: test`,
 `0x04 0x84 0xff 0xff 0xff 0xf3` for `:path` line feed,
 `0x04 0x82 0xff 0xc7` for `:path` single NUL,
@@ -44,12 +46,16 @@ compression.
 
 The transition returns the same immutable `HpackFixtureState` shape and
 advances the decode count through the existing transition accessors.
-Huffman EOS and unsupported multi-byte non-visible decoded values stay outside
-full HPACK support but now project through focused
+Huffman EOS and unsupported multi-byte non-visible decoded values outside the
+bounded `hpack-bytes-00-ff` label stay outside full HPACK support but now
+project through focused
 `hpack.fixture.huffman_eos_symbol` and
 `hpack.fixture.huffman_non_visible_value` diagnostics. The later
 [HPACK malformed Huffman padding diagnostic](http2-hpack-huffman-padding-diagnostic.md)
-record preserves the focused diagnostic id for malformed Huffman padding.
+record preserves the focused diagnostic id for malformed Huffman padding, and
+the later
+[HPACK multi-byte non-visible fixture](http2-hpack-multibyte-non-visible-fixture.md)
+record preserves the accepted bounded label.
 
 ## Evidence
 
