@@ -117,6 +117,12 @@ const PARAM_NET_STREAM_BYTE_CHUNK_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
 ];
 const PARAM_NET_STREAM_BYTE_CHUNKS: &[StandardType] =
     &[StandardType::NetStream, LIST_BYTE_CHUNK_TYPE];
+const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
+    StandardType::NetStream,
+    LIST_BYTE_CHUNK_TYPE,
+    StandardType::Deadline,
+    StandardType::CancelToken,
+];
 const PARAM_INT: &[StandardType] = &[StandardType::Int];
 const PARAM_DEADLINE: &[StandardType] = &[StandardType::Deadline];
 const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::CancelToken];
@@ -431,6 +437,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         StandardSignature {
             params: PARAM_NET_STREAM_BYTE_CHUNKS,
             return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "write_chunks_until_cancellable",
+        NET_TIME_EFFECTS,
+        "runtime.net.write_chunks_until_cancellable",
+        StandardSignature {
+            params: PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE_CANCEL_TOKEN,
+            return_type: STREAM_WRITE_OUTCOME_TYPE,
         },
     ),
     runtime_symbol_with_signature(

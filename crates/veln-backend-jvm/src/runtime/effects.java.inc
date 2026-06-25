@@ -934,6 +934,28 @@
         return UNIT;
     }
 
+    public static Object netWriteChunksUntilCancellable(
+        Object stream,
+        Object chunks,
+        Object deadline,
+        Object token
+    ) {
+        ListValue current = asListValue(chunks);
+        while (current.cons) {
+            Object outcome = netWriteChunkUntilCancellable(
+                stream,
+                current.head,
+                deadline,
+                token
+            );
+            if (!isAdt(outcome, "StreamWriteOutcome::WriteCompleted")) {
+                return outcome;
+            }
+            current = asListValue(current.tail);
+        }
+        return streamWriteOutcome("WriteCompleted");
+    }
+
     public static Object netCloseStream(Object stream) {
         if (forced("VELN_NET_CLOSE_FAILED")) {
             throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");

@@ -733,8 +733,10 @@ the supplied `Deadline` and before cancellation and returns
 `WriteDeadlineExpired`, and reports token cancellation as `WriteCancelled`,
 and `net::write_chunks`
 writes each chunk from a source-owned `List<ByteChunk>` to that stream in
-list order. `net::close_stream` records a fixture-backed close event for an
-adapter-owned stream and returns `()`. `net::close_listener` records a
+list order, and `net::write_chunks_until_cancellable` writes each chunk in
+list order until the full list completes, deadline expiry wins, or
+cancellation wins. `net::close_stream` records a fixture-backed close event
+for an adapter-owned stream and returns `()`. `net::close_listener` records a
 fixture-backed listener close event and returns `()`. After explicit listener
 close, later `net::accept`, `net::accept_or_end`, `net::accept_until`, and
 `net::accept_until_cancellable` calls on the same listener fail as runtime
@@ -752,8 +754,10 @@ reports clean stream end as `None`, `net::write_chunk` writes response bytes
 to that stream, `net::write_chunk_until_cancellable` writes response bytes
 before the supplied deadline and before cancellation or returns write outcome
 values for deadline expiry and cancellation, `net::write_chunks` writes
-response chunks to that stream in source list order, and `net::close_stream`
-closes it. `net::close_listener`
+response chunks to that stream in source list order,
+`net::write_chunks_until_cancellable` applies that outcome boundary to a
+source-owned `List<ByteChunk>` in list order, and `net::close_stream` closes
+it. `net::close_listener`
 closes the owned listener resource or in-memory loopback listener state
 without closing already accepted streams; any later accept call on that
 listener fails through the runtime transport boundary. A configured

@@ -78,6 +78,11 @@ execution reference.
   routing decisions.
   `net::write_chunks` writes a `List<ByteChunk>` to the selected stream in
   source list order through the same stream write path as `net::write_chunk`.
+  `net::write_chunks_until_cancellable` writes the same list shape in source
+  order while observing a `Deadline` and `CancelToken`, returning
+  `WriteCompleted` only when the full list is written and returning
+  `WriteDeadlineExpired` or `WriteCancelled` when that outcome wins before
+  the list is fully written.
   The checked adapter-owned outbound ordering example is
   `examples/specification/run/socket-stream-adapter-write-chunks-ordering/`;
   it accepts deterministic loopback streams, routes ordinary inputs through a
