@@ -736,6 +736,7 @@ execution reference.
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
   `examples/specification/run/binary-schema-mapping-ordered-selection-decode/`,
   `examples/specification/run/binary-schema-mapped-field-selection-decode/`,
+  `examples/specification/run/binary-schema-mapped-constructor-field-selection-decode/`,
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`,
   and
   `examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-decode/`.

@@ -1,0 +1,33 @@
+# Binary schema mapping can pass selected record fields to ADT constructors.
+use stdio
+
+type FrameKind
+	FrameKind(Int)
+end
+
+type Header
+	Header {kind: FrameKind}
+end
+
+schema HeaderWire
+	format binary
+
+	kind: UInt8
+
+	map to Header
+		kind = FrameKind({code: kind}.code)
+end
+
+fn emit_kind(kind: FrameKind) -> () effects [stdio]
+	match kind
+		FrameKind(value) => stdio::println(int_to_string(value))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("05")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let header: {kind: FrameKind} = byte_decode_header_wire(view)?
+	emit_kind(header.kind)
+	Ok(())
+end
