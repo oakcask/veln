@@ -41,6 +41,7 @@ through `http2.protocol.invalid_response_header_list`.
 
 ## Remaining Work
 
-Full HPACK compression, trailer-field validation, message body length
-enforcement against DATA byte counts, and socket integration remain outside
-this completed slice.
+Full HPACK compression, trailer-field validation beyond the checked fixture
+boundary, and socket integration remain outside this completed slice. The
+completed body accounting follow-up is archived in
+[HTTP/2 Content-Length Body Accounting](http2-content-length-body-accounting.md).
