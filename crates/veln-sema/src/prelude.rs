@@ -545,6 +545,19 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
             ],
             unit_result(),
         )),
+        "http2_protocol_content_length_mismatch" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
         "http2_protocol_invalid_request_header_list"
         | "http2_protocol_invalid_response_header_list" => Some((
             vec![

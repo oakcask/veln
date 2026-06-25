@@ -1,0 +1,107 @@
+use hpack_fixture
+use stdio
+
+type BodyLengthState
+	NoExpectedContentLength
+	ExpectedContentLength(Int, Int, Int, Int, Int)
+end
+
+type BodyLengthDecision
+	BodyLengthAccepted(BodyLengthState)
+	BodyLengthRejected(Http2ProtocolFailure)
+end
+
+type Http2ProtocolFailure
+	ContentLengthMismatch(Int, Int, Int, Int, Int, String, String, ByteView)
+end
+
+fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
+	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
+end
+
+fn request_headers_with_content_length() -> Result<HpackHeaderList, String>
+	let transition: HpackDecodeTransition = hpack_fixture::decode_header_block(byte_chunk_from_hex("4f505152")?, hpack_fixture::initial_state(), 0)?
+	Ok(hpack_fixture::transition_headers(transition))
+end
+
+fn accepted_request_body_state() -> Result<BodyLengthState, String>
+	let headers: HpackHeaderList = request_headers_with_content_length()?
+	let expected_length: Int = hpack_fixture::header_list_accepted_content_length(headers)
+	Ok(ExpectedContentLength(1, expected_length, 0, 65535, 65535))
+end
+
+fn receive_data(state: BodyLengthState, offset: Int, frame_payload_length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
+	match state
+		NoExpectedContentLength => Ok(BodyLengthAccepted(state))
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => validate_body_length(stream_id, expected_length, observed_length + application_length, connection_window - frame_payload_length, stream_window - frame_payload_length, offset, end_stream, preview)
+	end
+end
+
+fn validate_body_length(stream_id: Int, expected_length: Int, next_observed_length: Int, next_connection_window: Int, next_stream_window: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
+	match next_observed_length > expected_length
+		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+		false => match end_stream and next_observed_length < expected_length
+			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, next_observed_length, next_connection_window, next_stream_window)))
+		end
+	end
+end
+
+fn body_state(decision: BodyLengthDecision) -> BodyLengthState
+	match decision
+		BodyLengthAccepted(state) => state
+		BodyLengthRejected(_) => NoExpectedContentLength
+	end
+end
+
+fn body_expected(state: BodyLengthState) -> Int
+	match state
+		NoExpectedContentLength => 0
+		ExpectedContentLength(_, expected_length, _, _, _) => expected_length
+	end
+end
+
+fn body_observed(state: BodyLengthState) -> Int
+	match state
+		NoExpectedContentLength => 0
+		ExpectedContentLength(_, _, observed_length, _, _) => observed_length
+	end
+end
+
+fn body_connection_window(state: BodyLengthState) -> Int
+	match state
+		NoExpectedContentLength => 0
+		ExpectedContentLength(_, _, _, connection_window, _) => connection_window
+	end
+end
+
+fn body_stream_window(state: BodyLengthState) -> Int
+	match state
+		NoExpectedContentLength => 0
+		ExpectedContentLength(_, _, _, _, stream_window) => stream_window
+	end
+end
+
+fn print_body_state(label: String, state: BodyLengthState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" expected ")
+	stdio::print(int_to_string(body_expected(state)))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(body_observed(state)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(body_connection_window(state)))
+	stdio::print(" stream_window ")
+	stdio::println(int_to_string(body_stream_window(state)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let exact_start: BodyLengthState = accepted_request_body_state()?
+	let exact_first: BodyLengthDecision = receive_data(exact_start, 9, 3, 3, false, byte_chunk_from_hex("aabbcc")?)?
+	let exact_second: BodyLengthDecision = receive_data(body_state(exact_first), 21, 2, 2, false, byte_chunk_from_hex("ddee")?)?
+	let exact_end: BodyLengthDecision = receive_data(body_state(exact_second), 32, 0, 0, true, byte_chunk([]))?
+	print_body_state("content-length-exact", body_state(exact_end))
+	let padded_start: BodyLengthState = accepted_request_body_state()?
+	let padded: BodyLengthDecision = receive_data(padded_start, 9, 8, 5, true, byte_chunk_from_hex("02aabbccddee0000")?)?
+	print_body_state("content-length-padded", body_state(padded))
+	Ok(())
+end

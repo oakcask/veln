@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln", "hpack_fixture.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.content_length_mismatch]: content-length body length mismatch at byte offset 9", "note: Frame kind 0 on stream 1 observed 3 DATA application byte(s); accepted content-length is 5 byte(s).", "note: Nearby bytes: aa bb cc (showing 3 of 3 byte(s), complete).", "note: Active protocol state: open-stream.", "note: Rule provenance: rfc9113_content_length_body."]

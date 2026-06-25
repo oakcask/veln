@@ -222,7 +222,8 @@ compare it with `../specification/` before changing behavior.
   half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, and request-trailer header-list validation,
   the source-visible `te` header value rule, the `content-length`
-  header-list consistency slice,
+  header-list consistency slice, accepted `content-length` body-length
+  accounting for tracked inbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
   full-table single-byte Huffman-marked string literal decoding and encoding,

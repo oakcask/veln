@@ -3721,6 +3721,38 @@
         return err(message);
     }
 
+    public static Object http2ProtocolContentLengthMismatch(
+        Object offset,
+        Object frameKind,
+        Object streamId,
+        Object expectedLength,
+        Object observedLength,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        long expected = asLong(expectedLength);
+        long observed = asLong(observedLength);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 content-length body length mismatch at byte offset " + byteOffset;
+        registerHttp2ProtocolContentLengthMismatchDiagnostic(
+            message,
+            byteOffset,
+            kind,
+            stream,
+            expected,
+            observed,
+            state,
+            provenance,
+            byteViewPreviewTrace(preview, 8)
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolUnexpectedSettingsAck(
         Object offset,
         Object activeState,

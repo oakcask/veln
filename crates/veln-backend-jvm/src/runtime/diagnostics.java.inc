@@ -360,6 +360,36 @@
         );
     }
 
+    private static void registerHttp2ProtocolContentLengthMismatchDiagnostic(
+        String message,
+        long byteOffset,
+        long frameKind,
+        long streamId,
+        long expectedLength,
+        long observedLength,
+        String activeState,
+        String ruleProvenance,
+        String nearbyContext
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.content_length_mismatch",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number("expected_content_length", expectedLength),
+                    DiagnosticDetail.number("observed_body_length", observedLength),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
         String message,
         long byteOffset,

@@ -123,6 +123,7 @@ end
 type StreamPriorityState
 	NoStreamPriority
 	StreamPriority(Int, Bool, Int)
+	ExpectedContentLength(Int, Int, StreamPriorityState)
 end
 
 type OpenStreamReceiveWindow
@@ -179,6 +180,7 @@ type Http2ProtocolFailure
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidWindowUpdateIncrement(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidDataPadding(Int, Int, Int, Int, String, String, ByteView)
+	ContentLengthMismatch(Int, Int, Int, Int, Int, String, String, ByteView)
 	InvalidRequestHeaderList(Int, Int, Int, String, String, String)
 	InvalidResponseHeaderList(Int, Int, Int, String, String, String)
 	UnexpectedSettingsAck(Int, String, String, ByteView)
@@ -226,6 +228,11 @@ end
 type ReceiveFlowControlDecision
 	ReceiveFlowControlOk(ReceiveFlowControl)
 	ReceiveFlowControlFailed(Http2ProtocolFailure)
+end
+
+type ContentLengthBodyDecision
+	ContentLengthBodyOk(StreamPriorityState)
+	ContentLengthBodyFailed(Http2ProtocolFailure)
 end
 
 type HeaderListSizeDecision
@@ -743,10 +750,10 @@ fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, n
 				HeaderListSizeOk => match validate_trailer_end_stream(next_offset, kind, stream_id, headers, completed_is_trailer)
 					TrailerEndStreamOk => match validate_trailer_header_list(next_offset, kind, flags, stream_id, headers, completed_is_trailer)
 						TrailerHeaderListOk => match completed_is_trailer
-							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, consumed_state)
+							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, headers, completed_is_trailer, consumed_state)
 							false => match validate_request_header_list(next_offset, kind, flags, stream_id, headers)
 								RequestHeaderListOk => match validate_response_header_list(next_offset, kind, flags, stream_id, headers)
-									ResponseHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, consumed_state)
+									ResponseHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, headers, completed_is_trailer, consumed_state)
 									ResponseHeaderListFailed(error) => Ok(Failed(consumed_state, error))
 								end
 								RequestHeaderListFailed(error) => Ok(Failed(consumed_state, error))
@@ -764,9 +771,9 @@ fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, n
 	end
 end
 
-fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, headers: HpackHeaderList, completed_is_trailer: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
-	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
+	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, accepted_content_length_for_stream(headers, completed_is_trailer), state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
 	match flow_control_decision
 		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, update_shutdown_state(pending, length, kind, state_shutdown_state_value(consumed_state))?, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
@@ -807,6 +814,13 @@ fn header_list_boundary_reached(kind: Int, flags: Int) -> Bool
 			true => end_headers_set(flags)
 			false => false
 		end
+	end
+end
+
+fn accepted_content_length_for_stream(headers: HpackHeaderList, completed_is_trailer: Bool) -> Int
+	match completed_is_trailer
+		true => -1
+		false => hpack_fixture::header_list_accepted_content_length(headers)
 	end
 end
 
@@ -1096,6 +1110,10 @@ fn data_content_view(payload: ByteChunk, length: Int, kind: Int, flags: Int) -> 
 			true => padded_data_content_view(payload, length)
 		end
 	end
+end
+
+fn data_application_length(payload: ByteChunk, length: Int, flags: Int) -> Result<Int, String>
+	Ok(byte_count_to_int(byte_view_count(data_content_view(payload, length, 0, flags)?)))
 end
 
 fn padded_data_content_view(payload: ByteChunk, length: Int) -> Result<ByteView, String>
@@ -2551,17 +2569,17 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 	end
 end
 
-fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match kind == 1
-		true => Ok(open_receive_stream(offset, stream_id, completed_end_stream, shutdown_state, receive_flow_control))
+		true => open_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, shutdown_state, receive_flow_control)
 		false => match kind == 0
-			true => Ok(consume_data_receive_window(offset, stream_id, length, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control))
+			true => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
 			false => match kind == 3
 				true => reset_receive_stream(pending, offset, stream_id, receive_flow_control)
 				false => match kind == 8
 					true => update_window_receive_credit(pending, offset, stream_id, receive_flow_control)
 					false => match kind == 9
-						true => Ok(complete_continuation_receive_stream(offset, stream_id, completed_end_stream, receive_flow_control))
+						true => complete_continuation_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, receive_flow_control)
 						false => match kind == 2
 							true => update_priority_receive_state(pending, offset, length, stream_id, receive_flow_control)
 							false => Ok(ReceiveFlowControlOk(receive_flow_control))
@@ -2573,68 +2591,141 @@ fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kin
 	end
 end
 
-fn open_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn open_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-			ReceiveFlowControlOk(_) => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, initial_receive_stream_window(stream_id, end_stream)))
-			ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, end_stream, accepted_content_length)
+			ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 		end
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
-			true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, receive_stream_window_after_headers(open_stream_id, stream_window, priority, end_stream)))
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-				ReceiveFlowControlOk(_) => ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit"))
-				ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
+				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _)) => match stream_id == first_stream_id
-			true => ReceiveFlowControlOk(receive_flow_control)
+			true => Ok(ReceiveFlowControlOk(receive_flow_control))
 			false => match stream_id == second_stream_id
-				true => ReceiveFlowControlOk(receive_flow_control)
+				true => Ok(ReceiveFlowControlOk(receive_flow_control))
 				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-					ReceiveFlowControlOk(_) => ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 3, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit"))
-					ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+					ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 3, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
+					ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 				end
 			end
 		end
 		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
-			true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "half-closed-local-stream", "half_closed_local_data_only"))
+			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "half-closed-local-stream", "half_closed_local_data_only")))
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-				ReceiveFlowControlOk(_) => ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit"))
-				ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
+				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => match stream_id == closed_stream_id
-			true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames"))
+			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames")))
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-				ReceiveFlowControlOk(_) => ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit"))
-				ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
+				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => match stream_id == reset_stream_id
-			true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames"))
+			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-				ReceiveFlowControlOk(_) => ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit"))
-				ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
+				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 	end
 end
 
-fn initial_receive_stream_window(stream_id: Int, end_stream: Bool) -> OpenStreamReceiveWindow
-	receive_stream_window_after_headers(stream_id, 65535, NoStreamPriority, end_stream)
+fn initial_receive_stream_window_decision(offset: Int, connection_window: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
+	receive_stream_window_after_headers_decision(offset, connection_window, stream_id, 65535, NoStreamPriority, end_stream, accepted_content_length)
 end
 
-fn receive_stream_window_after_headers(stream_id: Int, stream_window: Int, priority: StreamPriorityState, end_stream: Bool) -> OpenStreamReceiveWindow
+fn receive_stream_window_after_headers_decision(offset: Int, connection_window: Int, stream_id: Int, stream_window: Int, priority: StreamPriorityState, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
+	let next_priority: StreamPriorityState = stream_priority_with_accepted_content_length(priority, accepted_content_length)
 	match end_stream
-		true => ClosedByPeerStreamReceiveWindow(stream_id, stream_window)
-		false => OpenStreamReceiveWindow(stream_id, stream_window, priority)
+		true => match stream_priority_content_length_expected(next_priority) > 0
+			true => Ok(ReceiveFlowControlFailed(ContentLengthMismatch(offset, 1, stream_id, stream_priority_content_length_expected(next_priority), stream_priority_content_length_observed(next_priority), "open-stream", "rfc9113_content_length_body", empty_byte_preview()?)))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(stream_id, stream_window))))
+		end
+		false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window, next_priority))))
 	end
 end
 
-fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
-	match end_stream
-		false => ReceiveFlowControlOk(receive_flow_control)
-		true => close_continuation_receive_stream(offset, stream_id, receive_flow_control)
+fn stream_priority_with_accepted_content_length(priority: StreamPriorityState, accepted_content_length: Int) -> StreamPriorityState
+	match accepted_content_length >= 0
+		true => ExpectedContentLength(accepted_content_length, 0, stream_priority_without_content_length(priority))
+		false => priority
+	end
+end
+
+fn stream_priority_without_content_length(priority: StreamPriorityState) -> StreamPriorityState
+	match priority
+		ExpectedContentLength(_, _, inner) => stream_priority_without_content_length(inner)
+		_ => priority
+	end
+end
+
+fn stream_priority_with_priority(priority: StreamPriorityState, next_priority: StreamPriorityState) -> StreamPriorityState
+	match priority
+		ExpectedContentLength(expected_length, observed_length, _) => ExpectedContentLength(expected_length, observed_length, next_priority)
+		_ => next_priority
+	end
+end
+
+fn stream_priority_content_length_expected(priority: StreamPriorityState) -> Int
+	match priority
+		ExpectedContentLength(expected_length, _, _) => expected_length
+		_ => -1
+	end
+end
+
+fn stream_priority_content_length_observed(priority: StreamPriorityState) -> Int
+	match priority
+		ExpectedContentLength(_, observed_length, _) => observed_length
+		_ => 0
+	end
+end
+
+fn update_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, application_length: Int, end_stream: Bool, active_state: String, preview: ByteChunk, priority: StreamPriorityState) -> Result<ContentLengthBodyDecision, String>
+	match priority
+		ExpectedContentLength(expected_length, observed_length, inner) => validate_content_length_body(offset, frame_kind, stream_id, expected_length, observed_length + application_length, end_stream, active_state, preview, inner)
+		_ => Ok(ContentLengthBodyOk(priority))
+	end
+end
+
+fn validate_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, end_stream: Bool, active_state: String, preview: ByteChunk, inner: StreamPriorityState) -> Result<ContentLengthBodyDecision, String>
+	match observed_length > expected_length
+		true => Ok(ContentLengthBodyFailed(ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+		false => match end_stream and observed_length < expected_length
+			true => Ok(ContentLengthBodyFailed(ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+			false => Ok(ContentLengthBodyOk(ExpectedContentLength(expected_length, observed_length, inner)))
+		end
+	end
+end
+
+fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	match accepted_content_length >= 0
+		true => complete_continuation_receive_stream_with_content_length(offset, stream_id, end_stream, accepted_content_length, receive_flow_control)
+		false => match end_stream
+			false => Ok(ReceiveFlowControlOk(receive_flow_control))
+			true => Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
+		end
+	end
+end
+
+fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	match receive_flow_control
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		_ => Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
 	end
 end
 
@@ -2677,53 +2768,85 @@ fn validate_new_stream_after_goaway(offset: Int, stream_id: Int, shutdown_state:
 	end
 end
 
-fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, end_stream: Bool, preview: ByteChunk, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
+			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match length > stream_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window", preview))
-				false => match end_stream
-					true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, OpenStreamReceiveWindow(open_stream_id, stream_window - length, priority)))
-				end
+				true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window", preview)))
+				false => receive_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority)
 			end
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
+			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match stream_id == first_stream_id
 				true => match length > first_stream_window
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window", preview))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window - length, first_priority, second_stream_id, second_stream_window, second_priority)))
+					true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window", preview)))
+					false => receive_first_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)
 				end
 				false => match stream_id == second_stream_id
 					true => match length > second_stream_window
-						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window", preview))
-						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window - length, second_priority)))
+						true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window", preview)))
+						false => receive_second_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)
 					end
-					false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+					false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 				end
 			end
 		end
 		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview))
+			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match length > stream_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "half-closed-local-stream", "stream_receive_window", preview))
-				false => match end_stream
-					true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window - length, priority)))
-				end
+				true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "half-closed-local-stream", "stream_receive_window", preview)))
+				false => receive_half_closed_local_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority)
 			end
 		end
 		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => match stream_id == closed_stream_id
-			true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames"))
-			false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames")))
+			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => match stream_id == reset_stream_id
-			true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames"))
-			false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
+			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
+	end
+end
+
+fn receive_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, open_stream_id: Int, stream_window: Int, priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
+	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, priority)?
+	match body_decision
+		ContentLengthBodyOk(next_priority) => match end_stream
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length))))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, OpenStreamReceiveWindow(open_stream_id, stream_window - length, next_priority))))
+		end
+		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
+	end
+end
+
+fn receive_first_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
+	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, first_priority)?
+	match body_decision
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window - length, next_priority, second_stream_id, second_stream_window, second_priority))))
+		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
+	end
+end
+
+fn receive_second_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
+	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, second_priority)?
+	match body_decision
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window - length, next_priority))))
+		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
+	end
+end
+
+fn receive_half_closed_local_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, open_stream_id: Int, stream_window: Int, priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
+	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "half-closed-local-stream", preview, priority)?
+	match body_decision
+		ContentLengthBodyOk(next_priority) => match end_stream
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length))))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window - length, next_priority))))
+		end
+		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
 
@@ -2852,14 +2975,14 @@ fn update_priority_receive_state(pending: ByteChunk, offset: Int, length: Int, s
 	let payload_view: ByteView = byte_view(payload, byte_offset(0)?, byte_count(5)?)?
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)))
-		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, _)) => match stream_id == open_stream_id
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)))))
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, stream_priority_with_priority(priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?))))))
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match stream_id == first_stream_id
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?), second_stream_id, second_stream_window, second_priority))))
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, stream_priority_with_priority(first_priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)), second_stream_id, second_stream_window, second_priority))))
 			false => match stream_id == second_stream_id
-				true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)))))
+				true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, stream_priority_with_priority(second_priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?))))))
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
@@ -3235,6 +3358,24 @@ fn state_stream_window(state: Http2DecodeState) -> Int
 	end
 end
 
+fn state_content_length_expected(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_expected(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _))) => stream_priority_content_length_expected(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_expected(priority)
+		State(_, _, _, _, _, _, _, _, _) => -1
+	end
+end
+
+fn state_content_length_observed(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_observed(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _))) => stream_priority_content_length_observed(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_observed(priority)
+		State(_, _, _, _, _, _, _, _, _) => 0
+	end
+end
+
 fn state_open_stream_id(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
@@ -3317,61 +3458,105 @@ end
 
 fn state_priority_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, StreamPriority(_, _, _)))) => "tracked"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, StreamPriority(_, _, _), _, _, _))) => "tracked"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, StreamPriority(_, _, _)))) => "tracked"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, StreamPriority(_, _, _)))) => "tracked"
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_label(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_label(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_label(priority)
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => "none"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, NoStreamPriority))) => "none"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, NoStreamPriority))) => "none"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, NoStreamPriority))) => "none"
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => "none"
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => "none"
 	end
 end
 
+fn first_tracked_priority_label(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> String
+	match stream_priority_label(first_priority) == "tracked"
+		true => "tracked"
+		false => stream_priority_label(second_priority)
+	end
+end
+
+fn stream_priority_label(priority: StreamPriorityState) -> String
+	match priority
+		StreamPriority(_, _, _) => "tracked"
+		ExpectedContentLength(_, _, inner) => stream_priority_label(inner)
+		NoStreamPriority => "none"
+	end
+end
+
 fn state_priority_dependency_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, StreamPriority(dependency_stream_id, _, _)))) => dependency_stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, StreamPriority(dependency_stream_id, _, _), _, _, _))) => dependency_stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, StreamPriority(dependency_stream_id, _, _)))) => dependency_stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, StreamPriority(dependency_stream_id, _, _)))) => dependency_stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_dependency_stream_id(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_dependency_stream_id(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_dependency_stream_id(priority)
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, NoStreamPriority))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, NoStreamPriority))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, NoStreamPriority))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+	end
+end
+
+fn first_tracked_priority_dependency_stream_id(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Int
+	match stream_priority_label(first_priority) == "tracked"
+		true => stream_priority_dependency_stream_id(first_priority)
+		false => stream_priority_dependency_stream_id(second_priority)
+	end
+end
+
+fn stream_priority_dependency_stream_id(priority: StreamPriorityState) -> Int
+	match priority
+		StreamPriority(dependency_stream_id, _, _) => dependency_stream_id
+		ExpectedContentLength(_, _, inner) => stream_priority_dependency_stream_id(inner)
+		NoStreamPriority => 0
 	end
 end
 
 fn state_priority_exclusive(state: Http2DecodeState) -> Bool
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, StreamPriority(_, exclusive, _)))) => exclusive
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, StreamPriority(_, exclusive, _), _, _, _))) => exclusive
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, StreamPriority(_, exclusive, _)))) => exclusive
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, StreamPriority(_, exclusive, _)))) => exclusive
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_exclusive(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_exclusive(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_exclusive(priority)
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => false
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, NoStreamPriority))) => false
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, NoStreamPriority))) => false
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, NoStreamPriority))) => false
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => false
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => false
 	end
 end
 
+fn first_tracked_priority_exclusive(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Bool
+	match stream_priority_label(first_priority) == "tracked"
+		true => stream_priority_exclusive(first_priority)
+		false => stream_priority_exclusive(second_priority)
+	end
+end
+
+fn stream_priority_exclusive(priority: StreamPriorityState) -> Bool
+	match priority
+		StreamPriority(_, exclusive, _) => exclusive
+		ExpectedContentLength(_, _, inner) => stream_priority_exclusive(inner)
+		NoStreamPriority => false
+	end
+end
+
 fn state_priority_weight(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, StreamPriority(_, _, weight)))) => weight
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, StreamPriority(_, _, weight), _, _, _))) => weight
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, StreamPriority(_, _, weight)))) => weight
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, StreamPriority(_, _, weight)))) => weight
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_weight(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_weight(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_weight(priority)
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, NoStreamPriority))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, NoStreamPriority, _, _, NoStreamPriority))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, NoStreamPriority))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+	end
+end
+
+fn first_tracked_priority_weight(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Int
+	match stream_priority_label(first_priority) == "tracked"
+		true => stream_priority_weight(first_priority)
+		false => stream_priority_weight(second_priority)
+	end
+end
+
+fn stream_priority_weight(priority: StreamPriorityState) -> Int
+	match priority
+		StreamPriority(_, _, weight) => weight
+		ExpectedContentLength(_, _, inner) => stream_priority_weight(inner)
+		NoStreamPriority => 0
 	end
 end
 
@@ -3403,6 +3588,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
@@ -3886,6 +4072,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidDataPadding(_, _, _, _, _, _, _) => failure_rule_provenance(error)
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(_, _, _, _, _, _) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
@@ -4296,6 +4483,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_window_update_increment"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "http2.protocol.invalid_data_padding"
+			ContentLengthMismatch(_, _, _, _, _, _, _, _) => "http2.protocol.content_length_mismatch"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "http2.protocol.invalid_request_header_list"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "http2.protocol.invalid_response_header_list"
 			UnexpectedSettingsAck(_, _, _, _) => "http2.protocol.unexpected_settings_ack"
@@ -4345,6 +4533,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(offset, _, _, _, _, _, _, _) => offset
 		InvalidWindowUpdateIncrement(offset, _, _, _, _, _, _, _) => offset
 		InvalidDataPadding(offset, _, _, _, _, _, _) => offset
+		ContentLengthMismatch(offset, _, _, _, _, _, _, _) => offset
 		InvalidRequestHeaderList(offset, _, _, _, _, _) => offset
 		InvalidResponseHeaderList(offset, _, _, _, _, _) => offset
 		UnexpectedSettingsAck(offset, _, _, _) => offset
@@ -4372,6 +4561,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4399,6 +4589,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 8
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidResponseHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
@@ -4426,6 +4617,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _, _) => actual_stream
 		InvalidWindowUpdateIncrement(_, actual_stream, _, _, _, _, _, _) => actual_stream
 		InvalidDataPadding(_, actual_stream, _, _, _, _, _) => actual_stream
+		ContentLengthMismatch(_, _, actual_stream, _, _, _, _, _) => actual_stream
 		InvalidRequestHeaderList(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidResponseHeaderList(_, _, actual_stream, _, _, _) => actual_stream
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4453,6 +4645,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4480,6 +4673,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 8
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		InvalidRequestHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidResponseHeaderList(_, actual_kind, _, _, _, _) => actual_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
@@ -4507,6 +4701,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4534,6 +4729,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 			InvalidDataPadding(_, _, _, _, _, _, _) => 0
+			ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 			InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 			InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 			UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4561,6 +4757,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
 		InvalidWindowUpdateIncrement(_, _, observed_increment, _, _, _, _, _) => observed_increment
 		InvalidDataPadding(_, _, pad_length, _, _, _, _) => pad_length
+		ContentLengthMismatch(_, _, _, _, observed_length, _, _, _) => observed_length
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4588,6 +4785,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
 		InvalidWindowUpdateIncrement(_, _, _, accepted_min_increment, _, _, _, _) => accepted_min_increment
 		InvalidDataPadding(_, _, _, remaining_payload_length, _, _, _) => remaining_payload_length
+		ContentLengthMismatch(_, _, _, expected_length, _, _, _, _) => expected_length
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4615,6 +4813,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, active_state, _, _) => active_state
 			InvalidWindowUpdateIncrement(_, _, _, _, _, active_state, _, _) => active_state
 			InvalidDataPadding(_, _, _, _, active_state, _, _) => active_state
+			ContentLengthMismatch(_, _, _, _, _, active_state, _, _) => active_state
 			InvalidRequestHeaderList(_, _, _, failed_header_fact, _, decoded_header_names) => request_header_active_state(failed_header_fact, decoded_header_names)
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "response-headers"
 			UnexpectedSettingsAck(_, active_state, _, _) => active_state
@@ -4712,6 +4911,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidDataPadding(_, _, _, _, _, rule_provenance, _) => rule_provenance
+			ContentLengthMismatch(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 			InvalidRequestHeaderList(_, _, _, failed_header_fact, _, _) => request_header_rule_provenance(failed_header_fact)
 			InvalidResponseHeaderList(_, _, _, failed_header_fact, _, _) => response_header_rule_provenance(failed_header_fact)
 			UnexpectedSettingsAck(_, _, rule_provenance, _) => rule_provenance
@@ -4739,6 +4939,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
@@ -4766,6 +4967,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4793,6 +4995,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
@@ -4820,6 +5023,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, observed_increment, _, _, _, _, _) => observed_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4847,6 +5051,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, accepted_min_increment, _, _, _, _) => accepted_min_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4874,6 +5079,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, accepted_max_increment, _, _, _) => accepted_max_increment
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -4901,6 +5107,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 		InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => "none"
 		InvalidRequestHeaderList(_, _, _, _, _, _) => "none"
 		InvalidResponseHeaderList(_, _, _, _, _, _) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
@@ -5029,6 +5236,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview)
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
+		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => http2_protocol_content_length_mismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview)
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
 			true => hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
@@ -5060,6 +5268,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+			ContentLengthMismatch(_, _, _, _, _, _, _, _) => "none"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "request pseudo-header list"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "response pseudo-header list"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
@@ -5087,6 +5296,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 			InvalidPayloadLength(_, _, _, _, _, _, _, _) => "none"
 			InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => "none"
 			InvalidDataPadding(_, _, _, _, _, _, _) => "none"
+			ContentLengthMismatch(_, _, _, _, _, _, _, _) => "none"
 			InvalidRequestHeaderList(_, _, _, _, _, _) => "server"
 			InvalidResponseHeaderList(_, _, _, _, _, _) => "server"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
@@ -5115,6 +5325,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidPayloadLength(_, _, _, _, _, _, _, _) => 0
 		InvalidWindowUpdateIncrement(_, _, _, _, _, _, _, _) => 0
 		InvalidDataPadding(_, _, _, _, _, _, _) => 0
+		ContentLengthMismatch(_, _, _, _, _, _, _, _) => 0
 		InvalidRequestHeaderList(_, _, _, _, _, _) => 0
 		InvalidResponseHeaderList(_, _, _, _, _, _) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
@@ -5368,6 +5579,18 @@ fn print_receive_windows(label: String, state: Http2DecodeState) -> () effects [
 	stdio::print(label)
 	stdio::print(" open_stream ")
 	stdio::print(int_to_string(state_open_stream_id(state)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(state_connection_window(state)))
+	stdio::print(" stream_window ")
+	stdio::println(int_to_string(state_stream_window(state)))
+end
+
+fn print_content_length_body_state(label: String, state: Http2DecodeState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" content_length_expected ")
+	stdio::print(int_to_string(state_content_length_expected(state)))
+	stdio::print(" observed_body_length ")
+	stdio::print(int_to_string(state_content_length_observed(state)))
 	stdio::print(" connection_window ")
 	stdio::print(int_to_string(state_connection_window(state)))
 	stdio::print(" stream_window ")
@@ -7530,6 +7753,12 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_step("request-headers-content-length", request_headers_content_length)
 	let ignored_request_headers_content_length: () = emit_header_block("http2-request-headers-content-length", request_headers_content_length, "4f505152")?
 	print_hpack_transition("request-headers-content-length", request_headers_content_length)
+	let request_content_length_data_first: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003000000000001aabbcc")?), step_state(request_headers_content_length))?
+	print_step("request-content-length-data-first", request_content_length_data_first)
+	print_content_length_body_state("request-content-length-data-first", step_state(request_content_length_data_first))
+	let request_content_length_data_exact: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002000000000001ddee")?), step_state(request_content_length_data_first))?
+	print_step("request-content-length-data-exact", request_content_length_data_exact)
+	print_content_length_body_state("request-content-length-data-exact", step_state(request_content_length_data_exact))
 	let request_headers_content_length_repeated: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000150515253")?), state)?
 	print_step("request-headers-content-length-repeated", request_headers_content_length_repeated)
 	let ignored_request_headers_content_length_repeated: () = emit_header_block("http2-request-headers-content-length-repeated", request_headers_content_length_repeated, "50515253")?
