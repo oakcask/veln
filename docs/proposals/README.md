@@ -101,6 +101,8 @@ compare it with `../specification/` before changing behavior.
   and direct or nested ADT constructor mapped encode boundaries for supported
   schema-local fields plus record-payload constructor slices,
   standalone visible `UInt1` through `UInt7` decode and encode,
+  visible-only packed `UInt1` through `UInt7` one-byte group decode and
+  encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive, same-module nested
   schema field, and public imported nested schema field decode and encode

@@ -74,7 +74,8 @@ When the result value is a schema fixed-field mismatch,
 - `actual_value`: the decoded value that was present
 - `byte_preview`: a structured bounded byte preview object
 
-When the result value is a binary schema frame-header truncation,
+When the result value is a binary schema frame-header truncation or generated
+binary schema field truncation,
 `details.byte_diagnostic` includes:
 
 - `kind: "byte_diagnostic"`
@@ -91,6 +92,8 @@ adds an `index` segment after the repeated field segment in `field_path`; the
 segment `name` is the zero-based element index whose representation could not
 be fully read. Nested repeated schema failures append the nested schema field
 segments after that `index` segment.
+Packed visible-only sub-byte groups use the same shape and report the first
+field in the group when the shared byte is missing.
 
 When the result value is a binary schema payload length boundary failure,
 `details.byte_diagnostic` includes:
