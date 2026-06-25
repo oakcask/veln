@@ -1612,9 +1612,12 @@ execution reference.
   Huffman-marked `hpack-byte-ff` `:path` literal encodes to
   `0x04 0x84 0xff 0xff 0xfb 0xbf`, proving the fixture encoder can leave the
   former visible-ASCII boundary for supported fixture values. The checked
-  failure path keeps a multi-byte Huffman-marked non-visible value on the fixture-owned
-  raw string encoding failure, while unsupported header names return a typed
-  HPACK fixture failure with expected fixture `fixture header list encoding`.
+  raw-string encoder failure path keeps a multi-byte Huffman-marked
+  non-visible outbound value on the fixture-owned raw string encoding failure,
+  while the fixture decode path reports the focused
+  `hpack.fixture.huffman_non_visible_value` id for the checked two-NUL
+  Huffman literal. Unsupported header names return a typed HPACK fixture
+  failure with expected fixture `fixture header list encoding`.
   These encode failures are fixture codec results and are not projected as
   HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   The checked example covers `:authority: abc.test` through

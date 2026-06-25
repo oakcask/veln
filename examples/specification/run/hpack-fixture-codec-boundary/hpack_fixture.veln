@@ -25,6 +25,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
@@ -346,6 +347,10 @@ end
 
 fn unsupported_byte_chunk(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	Err(HuffmanNonVisibleValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman checked header value", "hpack_fixture", block))
 end
 
 fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -1014,7 +1019,7 @@ fn decode_hpack_huffman_done(decoded: ByteChunk, code: Int, length: Int, block: 
 		false => unsupported_string_literal(block, offset)
 		true => match hpack_huffman_decoded_string(decoded, block, offset)
 			Ok(value) => Ok(HpackStringLiteral(value, hpack_huffman_decoded_wire_size(value, byte_count_to_int(byte_chunk_count(decoded)))))
-			Err(_) => unsupported_string_literal(block, offset)
+			Err(failure) => Err(failure)
 		end
 	end
 end
@@ -1040,7 +1045,7 @@ fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk
 end
 
 fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
-	match unsupported_string_literal(block, offset)
+	match huffman_non_visible_value(block, offset)
 		Ok(_) => Ok("")
 		Err(failure) => Err(failure)
 	end
@@ -1832,6 +1837,7 @@ end
 pub fn failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
@@ -1839,6 +1845,7 @@ end
 pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -1846,6 +1853,7 @@ end
 pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -1853,6 +1861,7 @@ end
 pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
@@ -1860,6 +1869,7 @@ end
 pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
@@ -1867,12 +1877,25 @@ end
 pub fn failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
+	end
+end
+
+pub fn failure_diagnostic_id(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => "hpack.fixture.huffman_non_visible_value"
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 	end
 end
 
 pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	let preview_chunk: ByteChunk = failure_preview(failure)
 	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
-	hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+	end
 end

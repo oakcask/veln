@@ -764,8 +764,8 @@ and
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked full-table single-byte fixture string literal decoder and encoder,
-multi-byte non-visible fixture strings beyond the focused malformed-Huffman
-diagnostic boundary,
+accepting multi-byte non-visible fixture strings beyond the focused HPACK
+fixture diagnostics,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request, response,
 and trailer header-name shape, the source-visible `te` value rule, and the

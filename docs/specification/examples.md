@@ -1946,8 +1946,10 @@ checked bytes are `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f`, a line-feed
 `:path` value whose checked bytes are
 `0x04 0x84 0xff 0xff 0xff 0xf3`, and a single-NUL `:path` value whose checked
 bytes are `0x04 0x82 0xff 0xc7`, plus `hpack-byte-ff` whose checked bytes are
-`0x04 0x84 0xff 0xff 0xfb 0xbf`. It keeps a multi-byte Huffman-marked
-non-visible value on the raw string encoding failure path. The
+`0x04 0x84 0xff 0xff 0xfb 0xbf`. It reports the focused
+`hpack.fixture.huffman_non_visible_value` id for a checked two-NUL
+Huffman-marked decode fixture and keeps only the outbound raw-string encoder's
+multi-byte non-visible value on the raw string encoding failure path. The
 boundary example also checks
 `encode_hpack_raw_string_literal` for a short raw `PUT` literal that keeps its
 existing bytes, a visible ASCII `bad` literal that was not part of the former
