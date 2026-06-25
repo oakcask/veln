@@ -1550,8 +1550,11 @@ execution reference.
 	  such as `server`, `content-type`, and `user-agent`. Those literal
 	  fixtures share the same HPACK string literal
   decoder: raw values must be visible ASCII, and Huffman-marked values
-  decode by scanning the HPACK static Huffman table into decoded
-  visible-ASCII bytes rather than by matching a fixed decoded-value allowlist.
+  decode by scanning the HPACK static Huffman table into decoded fixture
+  strings rather than by matching a fixed decoded-value allowlist. The checked
+  Huffman string boundary accepts visible ASCII plus the single line-feed
+  fixture value, while other decoded non-visible byte strings stay outside the
+  supported fixture boundary.
   The fixture also accepts raw new-name literal forms when the field-name
   string itself is a raw visible-ASCII HPACK string literal; the decoded
   field name then flows into the same HTTP/2 header-list validation used for
@@ -1582,7 +1585,7 @@ execution reference.
   `fixture raw string encoding`.
   The same fixture module exposes a narrow source-visible header-list encoder
   for outbound fixture use. It accepts the supported static-indexed header
-  lists, raw and visible-ASCII Huffman-marked literal-without-indexing and
+  lists, raw and checked Huffman-marked literal-without-indexing and
   literal-with-indexing lists for supported static-table names, and the
   checked request and response pseudo-header fixture lists needed by the
   outbound HTTP/2 examples. Static indexed `:method: GET` encodes to `0x82`,
@@ -1592,15 +1595,18 @@ execution reference.
   encodes to `0x08 0x82 0x10 0x01`. The same encoder is table-driven for
   visible ASCII values; the checked non-allowlist `:authority: abc.test`
   literal encodes to `0x01 0x86 0x1c 0x64 0x5d 0x25 0x42 0x7f` with the HPACK
-  Huffman flag set and EOS-prefix padding in the final byte. The checked
-  failure path keeps a Huffman-marked non-visible value on the fixture-owned
+  Huffman flag set and EOS-prefix padding in the final byte. A checked
+  Huffman-marked line-feed `:path` literal encodes to
+  `0x04 0x84 0xff 0xff 0xff 0xf3`, proving the fixture encoder can leave the
+  former visible-ASCII boundary for a supported fixture value. The checked
+  failure path keeps a multi-byte Huffman-marked non-visible value on the fixture-owned
   raw string encoding failure, while unsupported header names return a typed
   HPACK fixture failure with expected fixture `fixture header list encoding`.
   These encode failures are fixture codec results and are not projected as
   HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   The checked example covers `:authority: abc.test` through
   completed HEADERS and final CONTINUATION paths, raw `:status` through
-  completed HEADERS, Huffman `:path: test` through completed HEADERS,
+  completed HEADERS, Huffman `:path: test` and `:path` line feed through completed HEADERS,
   Huffman `:status: 200` through completed HEADERS and final CONTINUATION,
   Huffman `:method: PUT` through both literal-without-indexing and
   literal-with-indexing, Huffman `:method: bad` through
@@ -1647,7 +1653,7 @@ execution reference.
   `hpack.fixture.malformed_raw_string_value`. Malformed Huffman padding uses
   the focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS used
   as a decoded symbol uses `hpack.fixture.huffman_eos_symbol`, and a Huffman
-  string whose decoded bytes are outside the visible-ASCII header-value
+  string whose decoded bytes are outside the checked fixture string
   fixture boundary uses `hpack.fixture.huffman_non_visible_value`. Each
   focused HPACK fixture diagnostic records the same header-block byte offset,
   observed size, observed first byte, codec module, expected fixture, and
@@ -1754,7 +1760,7 @@ execution reference.
   module, and bounded header-block byte preview. Malformed HPACK string
   lengths, malformed raw string values for supported literal names, malformed
   Huffman padding, Huffman EOS, and Huffman strings whose decoded bytes are
-  not visible ASCII stay on the HPACK fixture boundary but project through
+  outside the checked fixture string boundary stay on the HPACK fixture boundary but project through
   their focused `hpack.fixture.*` ids with the same fixture diagnostic shape.
   That
   diagnostic path is

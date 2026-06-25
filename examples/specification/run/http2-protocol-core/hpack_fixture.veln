@@ -352,7 +352,11 @@ pub fn outbound_literal_authority_abc_huffman_headers() -> HpackHeaderList
 end
 
 pub fn outbound_literal_path_non_visible_huffman_headers() -> HpackHeaderList
-	HpackHeaderList(HpackHeader(":path", "\n"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 0)
+	HpackHeaderList(HpackHeader(":path", "\n\n"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 0)
+end
+
+pub fn outbound_literal_path_linefeed_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "\n"), HpackHeader(":fixture", "literal-without-indexing-huffman"), 6)
 end
 
 pub fn outbound_literal_status_200_huffman_headers() -> HpackHeaderList
@@ -726,7 +730,7 @@ fn huffman_eos_symbol(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackF
 end
 
 fn huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	Err(HuffmanNonVisibleValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman visible ASCII header value", "hpack_fixture", block))
+	Err(HuffmanNonVisibleValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman checked header value", "hpack_fixture", block))
 end
 
 fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -745,7 +749,13 @@ fn hpack_raw_string_unsupported_preview(value: String) -> ByteChunk
 				Ok(preview) => preview
 				Err(_) => byte_chunk([])
 			end
-			false => byte_chunk([])
+			false => match value == "\n\n"
+				true => match byte_chunk_from_hex("0a0a")
+					Ok(preview) => preview
+					Err(_) => byte_chunk([])
+				end
+				false => byte_chunk([])
+			end
 		end
 	end
 end
@@ -805,8 +815,8 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 end
 
 pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match byte_chunk_from_visible_ascii_string(value)
-		Ok(bytes) => match hpack_huffman_encode_visible_ascii_bytes(bytes, value, offset)
+	match hpack_fixture_huffman_string_value_bytes(value, offset)
+		Ok(bytes) => match hpack_huffman_encode_fixture_bytes(bytes, value, offset)
 			Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
 				Ok(prefix) => Ok(byte_append(prefix, encoded_value))
 				Err(failure) => Err(failure)
@@ -814,6 +824,19 @@ pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result
 			Err(failure) => Err(failure)
 		end
 		Err(_) => unsupported_raw_string_encoding(value, offset)
+	end
+end
+
+fn hpack_fixture_huffman_string_value_bytes(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match value == "\n"
+		true => match byte_chunk_from_hex("0a")
+			Ok(bytes) => Ok(bytes)
+			Err(_) => unsupported_raw_string_encoding(value, offset)
+		end
+		false => match byte_chunk_from_visible_ascii_string(value)
+			Ok(bytes) => Ok(bytes)
+			Err(_) => unsupported_raw_string_encoding(value, offset)
+		end
 	end
 end
 
@@ -830,16 +853,16 @@ fn hpack_fixture_huffman_string_length_prefix(count: Int, value: String, offset:
 	end
 end
 
-fn hpack_huffman_encode_visible_ascii_bytes(bytes: ByteChunk, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	hpack_huffman_encode_visible_ascii_byte(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)), HpackHuffmanEncoding(byte_chunk([]), 0, 0), value, offset)
+fn hpack_huffman_encode_fixture_bytes(bytes: ByteChunk, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	hpack_huffman_encode_fixture_byte(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)), HpackHuffmanEncoding(byte_chunk([]), 0, 0), value, offset)
 end
 
-fn hpack_huffman_encode_visible_ascii_byte(bytes: ByteChunk, index: Int, byte_count_value: Int, encoding: HpackHuffmanEncoding, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+fn hpack_huffman_encode_fixture_byte(bytes: ByteChunk, index: Int, byte_count_value: Int, encoding: HpackHuffmanEncoding, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match index == byte_count_value
 		true => hpack_huffman_finish_encoding(encoding, value, offset)
-		false => match hpack_static_huffman_code_for_visible_ascii(byte_at_or_missing(bytes, index))
+		false => match hpack_static_huffman_code_for_fixture_symbol(byte_at_or_missing(bytes, index))
 			Some(code) => match hpack_huffman_encode_code_bits(code, 0, encoding, value, offset)
-				Ok(next_encoding) => hpack_huffman_encode_visible_ascii_byte(bytes, index + 1, byte_count_value, next_encoding, value, offset)
+				Ok(next_encoding) => hpack_huffman_encode_fixture_byte(bytes, index + 1, byte_count_value, next_encoding, value, offset)
 				Err(failure) => Err(failure)
 			end
 			None => unsupported_raw_string_encoding(value, offset)
@@ -913,6 +936,13 @@ fn hpack_pow2(value: Int) -> Int
 	match value == 0
 		true => 1
 		false => 2 * hpack_pow2(value - 1)
+	end
+end
+
+fn hpack_static_huffman_code_for_fixture_symbol(symbol: Int) -> Option<HpackHuffmanCode>
+	match symbol == 10
+		true => Some(HpackHuffmanCode(1073741820, 30))
+		false => hpack_static_huffman_code_for_visible_ascii(symbol)
 	end
 end
 
@@ -1822,12 +1852,9 @@ end
 fn append_hpack_huffman_symbol(decoded: ByteChunk, symbol: Int, block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match symbol == 256
 		true => huffman_eos_symbol(block, offset)
-		false => match symbol < 32 or symbol > 126
-			true => huffman_non_visible_value(block, offset)
-			false => match byte_write_u8_be(symbol)
-				Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
-				Err(_) => unsupported_byte_chunk(block, offset)
-			end
+		false => match byte_write_u8_be(symbol)
+			Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
+			Err(_) => unsupported_byte_chunk(block, offset)
 		end
 	end
 end
@@ -1835,9 +1862,26 @@ end
 fn decode_hpack_huffman_done(decoded: ByteChunk, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
 	match hpack_huffman_padding_valid(code, length)
 		false => malformed_huffman_padding_string_literal(block, offset)
-		true => match byte_chunk_to_visible_ascii_string(decoded)
+		true => match hpack_huffman_decoded_string(decoded, block, offset)
 			Ok(value) => Ok(HpackStringLiteral(value, hpack_huffman_decoded_wire_size(value, byte_count_to_int(byte_chunk_count(decoded)))))
 			Err(_) => unsupported_string_literal(block, offset)
+		end
+	end
+end
+
+fn hpack_huffman_decoded_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_chunk_to_visible_ascii_string(decoded)
+		Ok(value) => Ok(value)
+		Err(_) => hpack_huffman_fixture_non_visible_string(decoded, block, offset)
+	end
+end
+
+fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_count_to_int(byte_chunk_count(decoded)) == 1 and byte_at_or_missing(decoded, 0) == 10
+		true => Ok("\n")
+		false => match huffman_non_visible_value(block, offset)
+			Ok(_) => Ok("")
+			Err(failure) => Err(failure)
 		end
 	end
 end

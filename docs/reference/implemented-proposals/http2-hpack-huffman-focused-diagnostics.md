@@ -18,7 +18,7 @@ identify the failed fact.
 
 Huffman EOS used as a decoded symbol projects as
 `hpack.fixture.huffman_eos_symbol`. A Huffman string whose decoded bytes fall
-outside the visible-ASCII header-value fixture boundary projects as
+outside the checked fixture string boundary projects as
 `hpack.fixture.huffman_non_visible_value`.
 
 Both diagnostics carry the same HPACK fixture detail shape as unsupported
@@ -29,7 +29,7 @@ HTTP/2 protocol-core examples both exercise the command-facing JSON and human
 diagnostic projections.
 
 This is a fixture-boundary diagnostic slice only. It does not add full HPACK
-compression, general HPACK Huffman behavior beyond visible-ASCII fixture string
+compression, general HPACK Huffman behavior beyond checked fixture string
 literal decoding and encoding, unbounded dynamic-table behavior, or production
 header validation.
 

@@ -517,7 +517,7 @@ supported literal-name forms,
 `hpack.fixture.malformed_huffman_padding` for malformed Huffman padding,
 `hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a symbol,
 and `hpack.fixture.huffman_non_visible_value` for Huffman decoded bytes outside
-the fixture's visible-ASCII header-value boundary. These diagnostics record
+the checked fixture string boundary. These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.

@@ -1006,9 +1006,26 @@ end
 fn decode_hpack_huffman_done(decoded: ByteChunk, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
 	match hpack_huffman_padding_valid(code, length)
 		false => unsupported_string_literal(block, offset)
-		true => match byte_chunk_to_visible_ascii_string(decoded)
+		true => match hpack_huffman_decoded_string(decoded, block, offset)
 			Ok(value) => Ok(HpackStringLiteral(value, hpack_huffman_decoded_wire_size(value, byte_count_to_int(byte_chunk_count(decoded)))))
 			Err(_) => unsupported_string_literal(block, offset)
+		end
+	end
+end
+
+fn hpack_huffman_decoded_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_chunk_to_visible_ascii_string(decoded)
+		Ok(value) => Ok(value)
+		Err(_) => hpack_huffman_fixture_non_visible_string(decoded, block, offset)
+	end
+end
+
+fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_count_to_int(byte_chunk_count(decoded)) == 1 and byte_at_or_missing(decoded, 0) == 10
+		true => Ok("\n")
+		false => match unsupported_string_literal(block, offset)
+			Ok(_) => Ok("")
+			Err(failure) => Err(failure)
 		end
 	end
 end

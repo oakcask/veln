@@ -14,7 +14,7 @@ The imported HPACK fixture module exposes a source-visible header-list encoder
 for the outbound protocol-core fixtures. It accepts the fixture-owned
 static-indexed header lists already accepted by the decoder, raw
 literal-without-indexing and literal-with-indexing header lists for supported
-static-table names, visible-ASCII Huffman-marked literal header lists for the
+static-table names, checked Huffman-marked literal header lists for the
 same fixture boundary, and the checked request and response pseudo-header
 fixture lists used by outbound HEADERS and server-side `PUSH_PROMISE`
 send-intents.

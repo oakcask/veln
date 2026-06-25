@@ -18,9 +18,12 @@ through one string literal decoder.
 
 The imported HPACK fixture boundary accepts Huffman-marked
 literal-without-indexing header values by scanning the HPACK static Huffman
-table into decoded visible-ASCII bytes rather than by matching a fixed
-decoded-value allowlist. Checked values include `0x04 0x80`
+table into decoded fixture strings rather than by matching a fixed
+decoded-value allowlist. The checked Huffman boundary accepts visible ASCII
+plus the single line-feed fixture value while other decoded non-visible byte
+strings remain outside the supported fixture boundary. Checked values include `0x04 0x80`
 for zero-length `:path`, `0x04 0x83 0x49 0x50 0x9f` for `:path: test`,
+`0x04 0x84 0xff 0xff 0xff 0xf3` for `:path` line feed,
 `0x06 0x84 0x9d 0x29 0xad 0x1f` for `:scheme: https`,
 `0x08 0x82 0x10 0x01` for `:status: 200`, and
 `0x01 0x8c 0xf1 0xe3 0xc2 0xe5 0xf2 0x3a 0x6b 0xa0 0xab 0x90 0xf4 0xff`
@@ -32,7 +35,7 @@ header-list validation and protocol-state projection run after the HPACK
 fixture decoder has produced ordinary header-list data. The checked invalid
 Huffman cases exercise real table decode failures: malformed EOS-prefix
 padding, EOS decoded as a data symbol, and decoded bytes outside the
-visible-ASCII fixture boundary stay on focused HPACK fixture diagnostics
+checked fixture string boundary stay on focused HPACK fixture diagnostics
 rather than widening the boundary to full HPACK compression.
 
 The transition returns the same immutable `HpackFixtureState` shape and
@@ -47,7 +50,7 @@ record preserves the focused diagnostic id for malformed Huffman padding.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the focused `literal-path-empty-huffman` and
-  `literal-path-test-huffman` decodes, the existing
+  `literal-path-test-huffman` and `literal-path-linefeed-huffman` decodes, the existing
   `literal-scheme-https-huffman` decode, the
   `literal-status-200-huffman` decode, plus malformed Huffman padding that
   was later split into a focused diagnostic path.
@@ -55,8 +58,8 @@ record preserves the focused diagnostic id for malformed Huffman padding.
   completed HEADERS cases named `hpack-literal-huffman`,
   `hpack-literal-test-huffman`, `hpack-literal-scheme-https-huffman`, and
   `hpack-literal-status-200-huffman`, emits the header-block bytes `0480`,
-  `048349509f`, `06849d29ad1f`, and `08821001`, prints the decoded `:path`,
-  `:path: test`, `:scheme: https`, and `:status: 200` values, and keeps
+  `048349509f`, `0484fffffff3`, `06849d29ad1f`, and `08821001`, prints the
+  decoded `:path`, `:path: test`, `:path` line feed, `:scheme: https`, and `:status: 200` values, and keeps
   the focused malformed-padding diagnostic covered through the later
   implemented record. The broader HTTP/2 case also keeps the
   `:authority: www.example.com` Huffman fixture covered and checks
