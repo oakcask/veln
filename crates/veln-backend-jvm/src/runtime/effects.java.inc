@@ -954,6 +954,18 @@
         return UNIT;
     }
 
+    public static Object netWriteChunksUntil(Object stream, Object chunks, Object deadline) {
+        ListValue current = asListValue(chunks);
+        while (current.cons) {
+            Object outcome = netWriteChunkUntil(stream, current.head, deadline);
+            if (!isAdt(outcome, "StreamWriteOutcome::WriteCompleted")) {
+                return outcome;
+            }
+            current = asListValue(current.tail);
+        }
+        return streamWriteOutcome("WriteCompleted");
+    }
+
     public static Object netWriteChunksUntilCancellable(
         Object stream,
         Object chunks,

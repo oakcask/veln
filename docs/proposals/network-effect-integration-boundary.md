@@ -39,8 +39,9 @@ slices, and narrow deadline and cancellation slices, for:
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
-  deadline-aware stream-write, cancellable deadline-aware chunk-list
-  stream-write, ordered write lifecycle slice, and checked
+  deadline-aware stream-write, deadline-aware chunk-list stream-write,
+  cancellable deadline-aware chunk-list stream-write, ordered write lifecycle
+  slice, and checked
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
@@ -55,8 +56,9 @@ slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, plus the source-visible
   ordered chunk-list boundary, deadline-aware stream-write boundary,
-  cancellable deadline-aware stream-write boundary, and cancellable
-  deadline-aware chunk-list stream-write boundary
+  deadline-aware chunk-list stream-write boundary, cancellable
+  deadline-aware stream-write boundary, and cancellable deadline-aware
+  chunk-list stream-write boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -246,6 +248,17 @@ effects. Forced write failure on the same path remains a runtime transport
 failure, not a protocol diagnostic. The completion record is archived under
 `../reference/implemented-proposals/network-write-until-boundary.md`.
 
+Implemented deadline-aware chunk-list stream write slice: executable
+specification cases use
+`net::write_chunks_until(stream, chunks, deadline)` to write a source-owned
+`List<ByteChunk>` in list order and return `WriteCompleted` when the full
+list is written before deadline expiry. The same boundary returns
+`WriteDeadlineExpired` when deadline expiry wins before the list is fully
+written. The call infers the existing coarse `net` and `time` effects.
+Forced write failure on the same path remains a runtime transport failure,
+not a protocol diagnostic. The completion record is archived under
+`../reference/implemented-proposals/network-write-chunks-until-boundary.md`.
+
 Implemented cancellable deadline-aware stream write slice: executable
 specification cases use
 `net::write_chunk_until_cancellable(stream, chunk, deadline, token)` to
@@ -339,6 +352,10 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
+
+The source-visible deadline-aware chunk-list write slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-write-chunks-until-boundary.md`.
 
 The source-visible cancellable deadline-aware chunk-list write slice is
 recorded as implemented in

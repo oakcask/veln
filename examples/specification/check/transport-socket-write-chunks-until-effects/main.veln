@@ -1,0 +1,8 @@
+# Deadline-aware socket chunk-list writes require both net and time effects.
+pub fn write_chunks_until_missing_time(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [net]
+	net::write_chunks_until(stream, chunks, deadline)
+end
+
+pub fn write_chunks_until_missing_net(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [time]
+	net::write_chunks_until(stream, chunks, deadline)
+end

@@ -1481,6 +1481,14 @@ covers token cancellation returning `WriteCancelled`.
 `../../examples/specification/run/transport-socket-write-until-cancellable-production-outcomes/`
 covers the same success, deadline, and cancellation outcomes in the
 production-loopback runtime. The matching
+`../../examples/specification/run/transport-socket-write-chunks-until-boundary/`
+case covers `net::write_chunks_until` returning `WriteCompleted` after
+writing a source-owned `List<ByteChunk>` in list order,
+`../../examples/specification/run/transport-socket-write-chunks-until-deadline/`
+covers fixture-reported write deadline expiry returning
+`WriteDeadlineExpired` before the list is fully written, and
+`../../examples/specification/run/transport-socket-write-chunks-until-failure-json/`
+keeps forced host write failure as a runtime transport failure. The matching
 `../../examples/specification/run/transport-socket-write-chunks-until-cancellable-boundary/`
 case covers `net::write_chunks_until_cancellable` returning
 `WriteCompleted` after writing a source-owned `List<ByteChunk>` in list
@@ -1511,6 +1519,8 @@ pins the same effect boundary for cancellable deadline-aware reads, and
 pins the same effect boundary for deadline-aware writes, and
 `../../examples/specification/check/transport-socket-write-until-cancellable-effects/`
 pins the same effect boundary for cancellable deadline-aware writes, and
+`../../examples/specification/check/transport-socket-write-chunks-until-effects/`
+pins the same effect boundary for deadline-aware chunk-list writes, and
 `../../examples/specification/check/transport-socket-write-chunks-until-cancellable-effects/`
 pins the same effect boundary for cancellable deadline-aware chunk-list
 writes, and

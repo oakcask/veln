@@ -90,6 +90,8 @@ behavior.
   [network-write-chunks-boundary.md](network-write-chunks-boundary.md).
 - Network write until boundary:
   [network-write-until-boundary.md](network-write-until-boundary.md).
+- Network write chunks until boundary:
+  [network-write-chunks-until-boundary.md](network-write-chunks-until-boundary.md).
 - Network write until cancellable boundary:
   [network-write-until-cancellable-boundary.md](network-write-until-cancellable-boundary.md).
 - Network write chunks until cancellable boundary:
