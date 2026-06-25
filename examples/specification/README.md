@@ -2707,6 +2707,11 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-cancel-close-lifecycle/`: one adapter function
   turns `WaitCancelled` into cleanup, applies ordered writes, and then records
   explicit stream close without treating cancellation as a runtime failure.
+- `run/socket-stream-adapter-clean-shutdown/`: one adapter function accepts
+  with `net::accept_until_cancellable`, routes ordinary stream input through a
+  channel, turns cancellation and deadline expiry into ordinary response
+  actions, writes only ordered `SendBytes` actions, and then records explicit
+  stream and listener close.
 - `run/channel-first-stream-routing-general-list/`: a source-visible helper
   accepts a receiver list with more than four `StreamInput` routes, returns
   the selected route index plus value, and preserves lower-index priority
@@ -2750,6 +2755,9 @@ against the built `veln` binary.
   cancellable deadline-aware adapter lifecycle shape must declare `net`,
   `time`, and `concurrency`, while the handler boundary remains free of
   transport effects.
+- `check/socket-stream-adapter-clean-shutdown-effects/`: the clean shutdown
+  adapter boundary must declare `net`, `time`, and `concurrency`, while the
+  handler boundary remains free of transport effects.
 - `check/channel-first-stream-routing-effects/`: channel-first stream routing
   must declare `concurrency`, socket wrappers around that routing must declare
   both `net` and `concurrency`, and the plain handler boundary stays free of

@@ -41,7 +41,8 @@ slices, and narrow deadline and cancellation slices, for:
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
-  and explicit listener close lifecycle slices
+  adapter-owned clean shutdown lifecycle, and explicit listener close
+  lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle,
   cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
@@ -56,7 +57,8 @@ slices, and narrow deadline and cancellation slices, for:
   channel-first routing, receiver-list timeout-result selection, receiver-list
   cancellable timeout-result selection, two-receiver cancellable
   timeout-result selection, socket/channel routing, deadline-aware lifecycle,
-  cancellable lifecycle, cancellable deadline-aware lifecycle, and
+  cancellable lifecycle, cancellable deadline-aware lifecycle, clean shutdown
+  lifecycle, and
   multi-handler outbound write-ordering slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list select-many route-count fixtures,
@@ -260,6 +262,18 @@ actions to `net::write_chunk`. The adapter declares the existing `net`,
 `time`, and `concurrency` effects; the handler receives no `NetStream` handle
 and performs no transport, time, or concurrency calls.
 
+Implemented adapter-owned clean shutdown slice: an executable specification
+case accepts a stream with `net::accept_until_cancellable`, owns the
+`NetListener` and `NetStream` in adapter code, routes an ordinary
+`StreamInput` value through an existing channel, observes cancellation and
+deadline expiry through `time::wait_until_cancellable_outcome`, translates
+those outcomes into ordinary response actions, projects only ordered
+`SendBytes` actions to `net::write_chunk`, and then explicitly calls
+`net::close_stream` followed by `net::close_listener`. The matching
+effect-checking case requires `net`, `time`, and `concurrency` at the adapter
+boundary while keeping the handler free of transport, time, and concurrency
+effects.
+
 Implemented outgoing chunk-list write slice: executable specification cases
 use `net::write_chunks(stream, chunks)` to write a source-owned
 `List<ByteChunk>` to a `NetStream` in list order under the existing coarse
@@ -416,7 +430,8 @@ or the pure protocol core.
   listener sequence, two-stream adapter handler/action boundary,
   listener-drain lifecycle, listener-drain read-failure runtime boundary,
   deadline-aware adapter lifecycle, deadline-aware accept and read failure
-  runtime boundaries, and clean listener end, remains current evidence for
+  runtime boundaries, adapter-owned clean shutdown lifecycle, and clean
+  listener end, remains current evidence for
   deterministic host-owned loopback streams. Remaining examples still need
   richer production adapter
   socket ownership beyond those deterministic loopback lifecycle slices, first

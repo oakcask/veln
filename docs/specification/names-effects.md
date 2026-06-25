@@ -75,12 +75,15 @@ compiler-known calls.
   adapter side declares `concurrency`; the handler receives one context
   parameter, returns ordinary action intent values, and stays free of
   transport effects. Dedicated socket lifecycle examples additionally call
-  `net::close_stream` after ordered writes or cancellation cleanup; they add
-  no new effect label or compiler-known routing call. The owned-lifecycle and
-  close-lifecycle adapters declare `net` and `concurrency`; the
-  deadline-aware, cancellable, cancellable deadline-aware, and cancel-close
-  lifecycle adapters declare `net`, `time`, and `concurrency`; the pure
-  handler boundary remains free of transport effects.
+  `net::close_stream` after ordered writes or cancellation cleanup. The clean
+  shutdown adapter also closes the owned `NetListener` after projecting only
+  `SendBytes` actions, so cancellation and deadline-expiry decisions do not
+  emit extra bytes. These examples add no new effect label or compiler-known
+  routing call. The owned-lifecycle and close-lifecycle adapters declare
+  `net` and `concurrency`; the deadline-aware, cancellable, cancellable
+  deadline-aware, cancel-close, and clean-shutdown lifecycle adapters declare
+  `net`, `time`, and `concurrency`; the pure handler boundary remains free of
+  transport effects.
   The production loopback lifecycle cases use the same `net` and
   `concurrency` declarations as the close-lifecycle adapter, and the
   production deadline-aware lifecycle adds the existing coarse `time` label

@@ -84,6 +84,12 @@ execution reference.
   channel, calls multiple pure handlers, combines their response actions into
   one explicit outbound order, and writes only the ordered `SendBytes` chunks
   with `net::write_chunks`.
+  The checked clean shutdown adapter example is
+  `examples/specification/run/socket-stream-adapter-clean-shutdown/`; it
+  accepts an owned stream, routes ordinary `StreamInput` values through a
+  channel, observes cancellation and deadline-expiry decisions as ordinary
+  source values, projects only `SendBytes` actions to `net::write_chunk`, and
+  then records `net::close_stream` followed by `net::close_listener`.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.
