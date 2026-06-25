@@ -15,7 +15,7 @@ schema HeaderWire
 		private = helpers::private_convert(kind)
 		bare = public_convert(kind)
 		too_few = helpers::two_params(kind)
-		too_many = helpers::five_params(kind, length, kind, length, kind)
+		too_many = helpers::six_params(kind, length, kind, length, kind, length)
 		bad_input = helpers::needs_text(kind)
 		bad_return = helpers::to_text(kind)
 		impure = helpers::noisy(kind)

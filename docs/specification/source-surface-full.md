@@ -270,10 +270,16 @@ and
 `../../examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`
 keep same-module and imported public four-argument converter calls executable
 through generated decode mapping.
+The executable runtime cases
+`../../examples/specification/run/binary-schema-five-argument-mapped-converter-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`
+keep same-module and imported public five-argument converter calls executable
+through generated decode mapping.
 The executable diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-keeps unsupported five-argument converter calls, rejected fourth arguments, and
-nested converter calls inside four-argument converter calls executable.
+keeps unsupported six-argument converter calls, rejected fifth arguments, and
+nested converter calls inside five-argument converter calls executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
