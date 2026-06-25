@@ -1,0 +1,48 @@
+# Hand-written codec invalid-input reasons render byte read context notes.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	checksum: UInt32be
+end
+
+codec ManualPacketCodec for ManualPacketWire decode
+	decode with decode_manual_packet
+end
+
+fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
+	match byte_offset(byte_offset_to_int(base) + local)
+		Ok(offset) => offset
+		Err(_) => base
+	end
+end
+
+fn decode_manual_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, checksum: Int}>
+	match byte_read_u16_be(input)
+		Ok(length) => decode_checksum(input, base, length)
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.length"))
+	end
+end
+
+fn decode_checksum(input: ByteView, base: ByteOffset, length: Int) -> DecodeStep<{length: Int, checksum: Int}>
+	match byte_count(2)
+		Ok(local_checksum) => match byte_view_drop(input, local_checksum)
+			Ok(checksum_view) => match byte_read_u32_be(checksum_view)
+				Ok(checksum) => match byte_count(6)
+					Ok(consumed) => Decoded({length: length, checksum: checksum}, consumed)
+					Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.checksum"))
+				end
+				Err(message) => Invalid(DecodeErrorWithReason("codec.invalid_input", absolute_offset(base, 2), "ManualPacketWire.checksum", message))
+			end
+			Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.checksum"))
+		end
+		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.checksum"))
+	end
+end
+
+pub fn main() -> DecodeStep<{length: Int, checksum: Int}>
+	let bytes: ByteChunk = byte_chunk_from_hex("0003010203")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	ManualPacketCodec(view, byte_offset(40)?)
+end

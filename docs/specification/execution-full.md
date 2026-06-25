@@ -329,7 +329,9 @@ is projected to a focused human runtime diagnostic and
 field path, optional reason, and optional byte-helper context carried by that
 reason, including codec-owned invalid-input facts and the
 `codec.consumed_count_invalid` result produced by the hand-written codec
-boundary when a decoded consumed count is outside the supplied `ByteView`. A
+boundary when a decoded consumed count is outside the supplied `ByteView`. The
+carried byte-helper context includes local byte offset, expected and available
+byte counts, and bounded byte preview when the helper produced those facts. A
 returned
 `DecodeStep::NeedMore(readiness)` is projected at the closed-input reporting
 boundary as `codec.incomplete_input`, with readiness and requested byte count
@@ -337,6 +339,10 @@ details from the source-visible `DecodeReadiness` value. `Decoded` remains an
 ordinary successful entry value. The checked examples are
 `examples/specification/run/codec-decode-consumed-count-invalid-human/`,
 `examples/specification/run/codec-decode-consumed-count-invalid-json/`,
+`examples/specification/run/codec-decode-invalid-byte-context-human/`,
+`examples/specification/run/codec-decode-invalid-byte-context-json/`,
+`examples/specification/run/codec-decode-invalid-byte-read-context-human/`,
+`examples/specification/run/codec-decode-invalid-byte-read-context-json/`,
 `examples/specification/run/codec-decode-invalid-step-human/`,
 `examples/specification/run/codec-decode-invalid-step-json/`,
 `examples/specification/run/codec-decode-need-end-human/`,

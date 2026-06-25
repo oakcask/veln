@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.invalid_input]: decode error at byte offset 42", "note: Field path: schema `ManualPacketWire` / field `checksum`.", "note: Decode failure reason: byte read requires 4 bytes but view has 3.", "note: Local byte offset: 5.", "note: Decoder expected 4 byte(s); 3 byte(s) were available.", "note: DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3)."]
