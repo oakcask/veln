@@ -650,7 +650,7 @@ execution reference.
   compose those supported comparisons with `and`, `or`, and `not`. Division by zero returns
   `schema.mapping_division_by_zero` at the offset after the decoded schema
   body with the schema and target-field path. Converter calls
-  take one, two, three, or four arguments. Each argument is either one decoded
+  take one, two, three, four, or five arguments. Each argument is either one decoded
   schema-local field or an already implemented structural mapping expression
   made from decoded schema fields, records, ADT constructors, integer
   arithmetic mapping expressions, and nested combinations of those forms. The
@@ -713,11 +713,13 @@ execution reference.
   `examples/specification/run/binary-schema-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-five-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`,
   `examples/specification/run/binary-schema-imported-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
   `examples/specification/run/binary-schema-mapping-ordered-selection-decode/`,

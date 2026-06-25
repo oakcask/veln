@@ -326,9 +326,9 @@ against the built `veln` binary.
   public three-argument schema mapping converters accept supported structural
   mapping expression arguments.
 - `check/schema-three-argument-mapping-converter-diagnostics/`:
-  three-argument schema mapping converters reject unsupported fourth
-  arguments, unsupported third arguments, nested converter-call arguments, and
-  imported public converter input mismatches.
+  schema mapping converters reject unsupported fifth arguments, unsupported
+  third arguments, nested converter-call arguments, imported public converter
+  input mismatches, and calls beyond the implemented arity boundary.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -1126,6 +1126,9 @@ against the built `veln` binary.
 - `run/binary-schema-three-argument-mapped-converter-decode/`: a generated
   binary schema decode helper calls a pure same-module converter with three
   supported structural mapping expression arguments.
+- `run/binary-schema-five-argument-mapped-converter-decode/`: a generated
+  binary schema decode helper calls a pure same-module converter with five
+  supported structural mapping expression arguments.
 - `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
   schema decode helper calls imported public pure converters through written
   `use` paths before returning the decoded value.
@@ -1138,6 +1141,9 @@ against the built `veln` binary.
 - `run/binary-schema-imported-three-argument-mapped-converter-decode/`: a
   generated binary schema decode helper calls an imported public pure
   converter with three supported structural mapping expression arguments.
+- `run/binary-schema-imported-five-argument-mapped-converter-decode/`: a
+  generated binary schema decode helper calls an imported public pure
+  converter with five supported structural mapping expression arguments.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

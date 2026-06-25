@@ -1985,7 +1985,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "  value\n",
             "end\n",
             "\n",
-            "fn five_params(value: Int, extra: Int, another: Int, final: Int, overflow: Int) -> Int\n",
+            "fn six_params(value: Int, extra: Int, another: Int, final: Int, overflow: Int, spare: Int) -> Int\n",
             "  value\n",
             "end\n",
             "\n",
@@ -2017,7 +2017,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "\n",
             "  map to Header\n",
             "    too_few = two_params(kind)\n",
-            "    too_many = five_params(kind, length, kind, length, kind)\n",
+            "    too_many = six_params(kind, length, kind, length, kind, length)\n",
             "    bad_input = needs_text(kind)\n",
             "    bad_return = to_text(kind)\n",
             "    impure = noisy(kind)\n",
@@ -2043,7 +2043,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_converter_arity"
                 && diagnostic.message
-                    == "schema mapping converter `five_params` expects 4 argument(s), but got 5"
+                    == "schema mapping converter `six_params` expects 5 argument(s), but got 6"
         }),
         "{diagnostics:#?}"
     );
