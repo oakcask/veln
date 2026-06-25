@@ -1580,10 +1580,10 @@ execution reference.
   symbol range into decoded fixture strings rather than by matching a fixed
   decoded-value allowlist. The checked Huffman string boundary accepts visible
   ASCII, the line-feed fixture value, and single-byte `hpack-byte-xx` labels
-  for every byte value. It also accepts the bounded multi-byte
-  `hpack-bytes-00-ff` label for the decoded byte sequence `0x00 0xff`, while
-  other multi-byte decoded non-visible byte strings stay outside the supported
-  fixture boundary.
+  for every byte value. Multi-byte decoded non-visible byte strings use the
+  deterministic `hpack-bytes-xx-...-xx` fixture label form; the existing
+  `hpack-bytes-00-ff` spelling remains the label for decoded bytes
+  `0x00 0xff`, and decoded bytes `0x00 0x00` produce `hpack-bytes-00-00`.
   The fixture also accepts raw new-name literal forms when the field-name
   string itself is a raw visible-ASCII HPACK string literal; the decoded
   field name then flows into the same HTTP/2 header-list validation used for
@@ -1634,10 +1634,8 @@ execution reference.
   `0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`, proving the fixture encoder can
   leave the former visible-ASCII boundary for supported fixture values. The
   checked raw-string encoder failure path keeps a multi-byte Huffman-marked
-  non-visible outbound value on the fixture-owned raw string encoding failure,
-  while the fixture decode path reports the focused
-  `hpack.fixture.huffman_non_visible_value` id for the checked two-NUL
-  Huffman literal. Unsupported header names return a typed HPACK fixture
+  non-visible outbound value on the fixture-owned raw string encoding failure.
+  Unsupported header names return a typed HPACK fixture
   failure with expected fixture `fixture header list encoding`.
   These encode failures are fixture codec results and are not projected as
   HTTP/2 protocol diagnostics by the outbound send-intent helpers.
@@ -1695,11 +1693,10 @@ execution reference.
   and malformed raw `:status` literals, use
   `hpack.fixture.malformed_raw_string_value`. Malformed Huffman padding uses
   the focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS used
-  as a decoded symbol uses `hpack.fixture.huffman_eos_symbol`, and a Huffman
-  string whose decoded bytes are a multi-byte non-visible fixture value outside
-  the supported checked single-byte labels and bounded `hpack-bytes-00-ff`
-  label uses
-  `hpack.fixture.huffman_non_visible_value`. Each
+  as a decoded symbol uses `hpack.fixture.huffman_eos_symbol`. Multi-byte
+  decoded non-visible Huffman strings are represented as `hpack-bytes-*`
+  labels instead of failing solely because their decoded bytes are
+  non-visible. Each
   focused HPACK fixture diagnostic records the same header-block byte offset,
   observed size, observed first byte, codec module, expected fixture, and
   bounded preview fields as other HPACK fixture diagnostics; the checked paths
@@ -1804,10 +1801,10 @@ execution reference.
   byte offset, observed size, observed first byte, expected fixture, codec
   module, and bounded header-block byte preview. Malformed HPACK string
   lengths, malformed raw string values for supported literal names, malformed
-  Huffman padding, Huffman EOS, and multi-byte non-visible Huffman strings
-  outside the supported checked single-byte labels and bounded
-  `hpack-bytes-00-ff` label stay on the HPACK fixture boundary but project through
-  their focused `hpack.fixture.*` ids with the same fixture diagnostic shape.
+  Huffman padding, and Huffman EOS stay on the HPACK fixture boundary but
+  project through their focused `hpack.fixture.*` ids with the same fixture
+  diagnostic shape. Multi-byte non-visible Huffman strings stay on the fixture
+  boundary as `hpack-bytes-*` labels rather than focused diagnostics.
   That
   diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;

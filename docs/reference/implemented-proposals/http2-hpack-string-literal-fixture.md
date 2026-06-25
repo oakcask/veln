@@ -20,9 +20,10 @@ ordinary static-table names accepted by the static-indexed fixture set. The
 helper accepts visible-ASCII raw string literals and checked Huffman-marked
 values decoded by the HPACK static Huffman table. The checked Huffman boundary
 accepts visible ASCII, the line-feed fixture value, and single-byte
-`hpack-byte-xx` labels for every byte value. A later bounded slice also accepts
-`hpack-bytes-00-ff` for decoded bytes `0x00 0xff`, while other multi-byte
-decoded non-visible byte strings remain outside the supported fixture boundary.
+`hpack-byte-xx` labels for every byte value. A later slice also accepts
+multi-byte non-visible decoded byte strings through deterministic
+`hpack-bytes-xx-...-xx` labels, including `hpack-bytes-00-ff` for decoded
+bytes `0x00 0xff`.
 It also accepts the fixture-boundary
 string-length integer continuation form for supported literal names, covering
 one continuation byte after a saturated seven-bit string-length prefix for
@@ -34,9 +35,8 @@ literal bytes with the Huffman flag cleared, including the same
 one-continuation length boundary for the long raw `a` fixture, and keeps
 non-visible raw encoder input on the fixture-owned unsupported-header-block
 failure path. The decode path keeps multi-byte non-visible Huffman fixture
-values outside the bounded `hpack-bytes-00-ff` label on the focused
-diagnostic path and reports them through
-`hpack.fixture.huffman_non_visible_value`.
+values on the fixture label path rather than failing solely because the
+decoded bytes are multi-byte and non-visible.
 
 The shared decoder is used by literal-without-indexing,
 literal-with-indexing, and literal-never-indexed header blocks.
@@ -75,8 +75,8 @@ fixture diagnostics.
   Huffman-marked literal-never-indexed `:scheme: https`, long raw and
   Huffman-marked string-length continuation fixtures through all three
   literal forms, 129-byte raw values through all three literal forms,
-  a checked two-NUL Huffman-marked decode fixture that reports
-  `hpack.fixture.huffman_non_visible_value`, malformed string-length
+  a checked two-NUL Huffman-marked decode fixture that produces
+  `hpack-bytes-00-00`, malformed string-length
   continuation, malformed Huffman padding, short and long raw string-literal
   encoding, unsupported and
   non-visible raw string-literal encoding failures, dynamic-table behavior

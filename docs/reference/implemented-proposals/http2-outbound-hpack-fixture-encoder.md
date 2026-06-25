@@ -55,12 +55,12 @@ return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
 The checked Huffman-marked single-NUL `:path` fixture value encodes to
 `0x04 0x82 0xff 0xc7`, and the checked full-table single-byte
 `hpack-byte-ff` `:path` fixture value encodes to
-`0x04 0x84 0xff 0xff 0xfb 0xbf`. The later bounded
+`0x04 0x84 0xff 0xff 0xfb 0xbf`. Later fixture label support accepts
+multi-byte `hpack-bytes-*` Huffman-marked values; the checked
 `hpack-bytes-00-ff` `:path` fixture value encodes to
-`0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`, while other multi-byte
-Huffman-marked non-visible values remain on the raw string encoding failure
-path. Those failures are not projected as HTTP/2 protocol diagnostics by the
-outbound send-intent helpers.
+`0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`. Raw non-visible string values still
+remain on the raw string encoding failure path. Those failures are not
+projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
 
 ## Evidence
 

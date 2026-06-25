@@ -688,6 +688,8 @@ source_prelude_symbol_set! {
     "byte_append" => veln_stdlib::prelude_source("byte_append"),
     "byte_chunk_from_hex" => veln_stdlib::prelude_source("byte_chunk_from_hex"),
     "byte_chunk_to_visible_ascii_string" => veln_stdlib::prelude_source("byte_chunk_to_visible_ascii_string"),
+    "hpack_fixture_huffman_bytes_label" => veln_stdlib::prelude_source("hpack_fixture_huffman_bytes_label"),
+    "hpack_fixture_huffman_label_bytes" => veln_stdlib::prelude_source("hpack_fixture_huffman_label_bytes"),
     "byte_chunk_from_visible_ascii_string" => veln_stdlib::prelude_source("byte_chunk_from_visible_ascii_string"),
     "byte_take" => veln_stdlib::prelude_source("byte_take"),
     "byte_drop" => veln_stdlib::prelude_source("byte_drop"),

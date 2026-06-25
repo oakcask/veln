@@ -234,15 +234,13 @@ compare it with `../specification/` before changing behavior.
   values, raw field-name validation through header-list diagnostics, inbound
   fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
   and eviction, checked inbound table-size update placement diagnostics, and
-  checked outbound dynamic table-size update encoding, plus the bounded
-  `hpack-bytes-00-ff` Huffman fixture value,
+  checked outbound dynamic table-size update encoding, plus deterministic
+  `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
-  broader protocol-core behavior and full HPACK behavior beyond the
-  full-table single-byte checked fixture boundary and bounded
-  `hpack-bytes-00-ff` label, including full HPACK compression, unbounded
-  dynamic-table behavior, and accepting arbitrary multi-byte non-visible
-  fixture strings beyond the focused HPACK fixture diagnostics.
+  broader protocol-core behavior and full HPACK behavior beyond the checked
+  fixture boundary, including full HPACK compression and unbounded
+  dynamic-table behavior.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

@@ -851,7 +851,7 @@ fn hpack_fixture_huffman_string_value_bytes(value: String, offset: Int) -> Resul
 			Ok(bytes) => Ok(bytes)
 			Err(_) => unsupported_raw_string_encoding(value, offset)
 		end
-		false => match hpack_fixture_huffman_label_bytes(value)
+		false => match hpack_huffman_label_value_bytes(value)
 			Some(bytes) => Ok(bytes)
 			None => match byte_chunk_from_visible_ascii_string(value)
 				Ok(bytes) => Ok(bytes)
@@ -868,7 +868,7 @@ fn hpack_fixture_huffman_label_hex(hex: String) -> Option<ByteChunk>
 	end
 end
 
-fn hpack_fixture_huffman_label_bytes(value: String) -> Option<ByteChunk>
+fn hpack_huffman_label_value_bytes(value: String) -> Option<ByteChunk>
 	match value
 		"hpack-bytes-00-ff" => hpack_fixture_huffman_label_hex("00ff")
 		"hpack-byte-00" => hpack_fixture_huffman_label_hex("00")
@@ -1127,7 +1127,7 @@ fn hpack_fixture_huffman_label_bytes(value: String) -> Option<ByteChunk>
 		"hpack-byte-fd" => hpack_fixture_huffman_label_hex("fd")
 		"hpack-byte-fe" => hpack_fixture_huffman_label_hex("fe")
 		"hpack-byte-ff" => hpack_fixture_huffman_label_hex("ff")
-		_ => None
+		_ => hpack_fixture_huffman_label_bytes(value)
 	end
 end
 
@@ -2329,7 +2329,7 @@ fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk
 				Some(label) => Ok(label)
 				None => hpack_huffman_unsupported_non_visible_string(block, offset)
 			end
-			false => match hpack_fixture_huffman_bytes_label(decoded)
+			false => match hpack_decoded_huffman_bytes_label(decoded)
 				Some(label) => Ok(label)
 				None => hpack_huffman_unsupported_non_visible_string(block, offset)
 			end
@@ -2344,11 +2344,8 @@ fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -
 	end
 end
 
-fn hpack_fixture_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
-	match byte_count_to_int(byte_chunk_count(decoded)) == 2 and byte_at_or_missing(decoded, 0) == 0 and byte_at_or_missing(decoded, 1) == 255
-		true => Some("hpack-bytes-00-ff")
-		false => None
-	end
+fn hpack_decoded_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
+	Some(hpack_fixture_huffman_bytes_label(decoded))
 end
 
 fn hpack_fixture_huffman_byte_label(symbol: Int) -> Option<String>
