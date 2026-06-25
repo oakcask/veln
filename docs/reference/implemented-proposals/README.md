@@ -84,6 +84,8 @@ behavior.
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:
   [network-stream-close-boundary.md](network-stream-close-boundary.md).
+- Network listener close boundary:
+  [network-listener-close-boundary.md](network-listener-close-boundary.md).
 - Network write chunks boundary:
   [network-write-chunks-boundary.md](network-write-chunks-boundary.md).
 - Network adapter outbound write ordering:

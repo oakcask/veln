@@ -426,6 +426,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         },
     ),
     runtime_symbol_with_signature(
+        "net",
+        "close_listener",
+        NET_EFFECTS,
+        "runtime.net.close_listener",
+        StandardSignature {
+            params: PARAM_NET_LISTENER,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
         "process",
         "args",
         PROCESS_EFFECTS,

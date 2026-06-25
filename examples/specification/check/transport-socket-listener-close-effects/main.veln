@@ -1,0 +1,4 @@
+# Listener close is a net boundary operation.
+pub fn missing_net(listener: NetListener) -> ()
+	net::close_listener(listener)
+end
