@@ -352,7 +352,9 @@ boundary. The executable slice
 covers a
 raw `:authority` value through completed HEADERS and final CONTINUATION paths,
 raw `:status` through completed HEADERS, Huffman `:path: test` and
-`:path` line feed, single NUL, and `hpack-byte-ff` through completed HEADERS,
+`:path` line feed, single NUL, `hpack-byte-ff`, and `hpack-bytes-00-ff`
+through completed HEADERS, plus `hpack-bytes-00-ff` through a final
+CONTINUATION,
 Huffman `:method: PUT` through both literal-without-indexing
 and literal-with-indexing, Huffman `:method: bad` through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed,
@@ -375,7 +377,8 @@ supported literal-name forms use
 `hpack.fixture.malformed_raw_string_value`. Malformed Huffman padding uses the
 focused `hpack.fixture.malformed_huffman_padding` id. Huffman EOS and Huffman
 multi-byte non-visible strings outside the supported checked single-byte labels
-use focused `hpack.fixture.huffman_eos_symbol` and
+and the bounded `hpack-bytes-00-ff` label use focused
+`hpack.fixture.huffman_eos_symbol` and
 `hpack.fixture.huffman_non_visible_value` ids while remaining outside full
 HPACK support. Checked bytes include
 zero-length `:path`
@@ -383,6 +386,8 @@ as `0x04 0x80`, `:path: test` as `0x04 0x83 0x49 0x50 0x9f`,
 `:path` line feed as `0x04 0x84 0xff 0xff 0xff 0xf3`,
 `:path` single NUL as `0x04 0x82 0xff 0xc7`,
 `:path` `hpack-byte-ff` as `0x04 0x84 0xff 0xff 0xfb 0xbf`,
+`:path` `hpack-bytes-00-ff` as
+`0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`,
 `:scheme: https` as `0x06 0x84 0x9d 0x29 0xad 0x1f`,
 `:status: 200` as `0x08 0x82 0x10 0x01`, `:method: bad` as
 `0x02 0x83 0x8c 0x72 0x7f`, `0x42 0x83 0x8c 0x72 0x7f`, and
@@ -454,7 +459,8 @@ updates and table-size updates with trailing bytes after a complete integer,
 remain on `hpack.fixture.unsupported_header_block`. Malformed string lengths,
 malformed raw string values on supported literal-name forms, malformed Huffman
 padding, Huffman EOS, and multi-byte non-visible Huffman strings outside the
-supported checked single-byte labels use their focused HPACK fixture diagnostic ids.
+supported checked single-byte labels and bounded `hpack-bytes-00-ff` label use
+their focused HPACK fixture diagnostic ids.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
@@ -763,9 +769,9 @@ and
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked full-table single-byte fixture string literal decoder and encoder,
-accepting multi-byte non-visible fixture strings beyond the focused HPACK
-fixture diagnostics,
+the checked full-table single-byte fixture string literal decoder and encoder
+plus the bounded `hpack-bytes-00-ff` label, accepting arbitrary multi-byte
+non-visible fixture strings beyond the focused HPACK fixture diagnostics,
 outbound table-size behavior beyond the checked fixture encoder update
 boundary, and production header validation beyond ordinary request, response,
 and trailer header-name shape, the source-visible `te` value rule, and the
@@ -846,6 +852,7 @@ full HPACK behavior.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
 - Full HPACK compression, unbounded dynamic table behavior, and HPACK behavior
-  beyond the full-table single-byte checked fixture boundary remain later work.
+  beyond the full-table single-byte checked fixture boundary and bounded
+  `hpack-bytes-00-ff` label remain later work.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

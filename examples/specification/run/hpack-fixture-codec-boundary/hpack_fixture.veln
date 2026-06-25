@@ -1039,7 +1039,10 @@ fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk
 				Some(label) => Ok(label)
 				None => hpack_huffman_unsupported_non_visible_string(block, offset)
 			end
-			false => hpack_huffman_unsupported_non_visible_string(block, offset)
+			false => match hpack_fixture_huffman_bytes_label(decoded)
+				Some(label) => Ok(label)
+				None => hpack_huffman_unsupported_non_visible_string(block, offset)
+			end
 		end
 	end
 end
@@ -1048,6 +1051,13 @@ fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -
 	match huffman_non_visible_value(block, offset)
 		Ok(_) => Ok("")
 		Err(failure) => Err(failure)
+	end
+end
+
+fn hpack_fixture_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
+	match byte_count_to_int(byte_chunk_count(decoded)) == 2 and byte_at_or_missing(decoded, 0) == 0 and byte_at_or_missing(decoded, 1) == 255
+		true => Some("hpack-bytes-00-ff")
+		false => None
 	end
 end
 

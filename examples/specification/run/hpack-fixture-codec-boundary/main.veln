@@ -269,6 +269,7 @@ fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state:
 	let ignored_literal_path_linefeed_huffman: HpackFixtureState = print_required_header("literal-path-linefeed-huffman", decode_header_block(byte_chunk_from_hex("0484fffffff3")?, initial, 116), ":path", "\n")?
 	let ignored_literal_path_nul_huffman: HpackFixtureState = print_required_header("literal-path-nul-huffman", decode_header_block(byte_chunk_from_hex("0482ffc7")?, initial, 117), ":path", "hpack-byte-00")?
 	let ignored_literal_path_ff_huffman: HpackFixtureState = print_required_header("literal-path-ff-huffman", decode_header_block(byte_chunk_from_hex("0484fffffbbf")?, initial, 119), ":path", "hpack-byte-ff")?
+	let ignored_literal_path_bytes_huffman: HpackFixtureState = print_required_header("literal-path-bytes-huffman", decode_header_block(byte_chunk_from_hex("0485ffc7ffffdd")?, initial, 120), ":path", "hpack-bytes-00-ff")?
 	let ignored_literal_path_two_nul_huffman: () = print_required_unsupported_with_id("literal-path-two-nul-huffman-unsupported", decode_header_block(byte_chunk_from_hex("0484ffc7fe3f")?, initial, 118))?
 	print_transition("literal-indexed-authority", decode_header_block(byte_chunk_from_hex("41086162632e74657374")?, initial, 86))
 	let ignored_literal_indexed_method_put_huffman: HpackFixtureState = print_required_header("literal-indexed-method-put-huffman", decode_header_block(byte_chunk_from_hex("4283d7c37f")?, initial, 84), ":method", "PUT")?
