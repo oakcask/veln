@@ -239,6 +239,17 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-decode-human/`,
   `examples/specification/run/binary-schema-sub-byte-truncated-json/`, and
   `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
+- Generated binary schema decode helpers also support consecutive
+  visible-only `UInt1` through `UInt7` fields when at least two fields are
+  present and their widths complete exactly one byte. The first field occupies
+  the high bits, later fields occupy progressively lower bits, each decoded
+  field remains an ordinary visible `Int`, the helper advances by one shared
+  byte, and truncation reports `schema.truncated_field` at the first field in
+  the group. Standalone or incomplete sub-byte fields keep the standalone
+  one-byte-per-field behavior above. The checked examples are
+  `examples/specification/run/binary-schema-packed-visible-byte-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-packed-visible-byte-truncated-json/`.
 - Generated binary schema decode helpers support opt-in `Flag8`,
   `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
   `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`, `Flag56le`,
@@ -880,6 +891,15 @@ execution reference.
   helper writes visible and reserved values in declaration order, omits
   reserved fields from the encoder value record, and reports
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
+  Consecutive visible-only `UInt1` through `UInt7` fields whose widths
+  complete exactly one byte use the same declaration-order bit packing without
+  any reserved fields: the first value occupies the high bits, later values
+  occupy progressively lower bits, and out-of-range values report
+  `codec.encode_value_unrepresentable` at the offending field path. The
+  checked examples are
+  `examples/specification/run/binary-schema-packed-visible-byte-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-packed-visible-byte-encode-out-of-range/`.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -998,6 +1018,8 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-encode-human/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
+  `examples/specification/run/binary-schema-packed-visible-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-packed-visible-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-flag8-mapped-record-encode/`,
   `examples/specification/run/binary-schema-flag16be-mapped-record-encode/`,

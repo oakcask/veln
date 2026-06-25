@@ -99,7 +99,13 @@ helpers also decode and encode standalone visible
 `UInt1` through `UInt7` fields as one byte each, expose the declared low bits
 as ordinary `Int` values, preserve structural mapping and generated
 decode-step and derived codec eligibility, and report existing truncation and
-`codec.encode_value_unrepresentable` range-failure shapes. The
+`codec.encode_value_unrepresentable` range-failure shapes. Generated schema
+helpers also decode and encode consecutive visible-only `UInt1` through
+`UInt7` fields when at least two fields complete exactly one byte, packing the
+fields in declaration order from high bits to low bits, preserving each
+visible field as an ordinary `Int`, including generated decode-step and
+derived codec eligibility, and reporting existing truncation and
+`codec.encode_value_unrepresentable` shapes. The
 generated helper slice also treats visible exact-width fields with a
 field-local equality predicate such as `field == literal` as schema-owned
 fixed fields, leaves matching values visible in the decoded result, and

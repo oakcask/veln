@@ -305,7 +305,9 @@ pins unsupported five-argument converter calls, rejected fourth arguments, and
 nested converter calls inside four-argument converter calls.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
-one byte each, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
+one byte each and consecutive visible-only `UInt1` through `UInt7` groups of
+at least two fields whose widths complete exactly one byte, `Flag8`,
+`Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
 `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`,
 `Flag56be`, `Flag56le`, `Flag64be`, and `Flag64le` bitset fields, supported
 byte-aligned `ReservedBits(width, value)` fields,
@@ -324,7 +326,8 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, or forty bits,
-supported consecutive non-byte-aligned `UIntN` and
+supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
+sum to eight bits, supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
