@@ -42,19 +42,21 @@ reports malformed input at the absolute offset derived from the base offset
 plus the local byte position.
 The eligible derived codec decode and encode execution boundaries now also
 cover same-module recursive closed and extension dispatch payload helpers
-already accepted by the generated helper path.
+already accepted by the generated helper path, and the checked non-HTTP
+general generated helper shape with successful decode, short-input
+`NeedMore`, successful encode, and helper-projected encode failure.
 
 Define codec support for:
 
-- remaining general generated and schema-driven decoding from `ByteView` plus
-  an explicit input position, beyond the implemented hand-written boundary and
-  generated binary schema decode-step helper slices in
+- remaining schema-driven decoding from `ByteView` plus an explicit input
+  position, beyond the implemented hand-written boundary, generated binary
+  schema decode-step helper slices, and generated-helper-backed codec slices in
   `../specification/execution.md`
 - general encoding into immutable output chunks beyond the implemented
-  eligible generated binary schema encode helper, derived codec encode, and
-  budgeted derived codec encode slices in `../specification/execution.md`,
-  and beyond the implemented hand-written partial encode preservation and
-  resume example
+  eligible generated binary schema encode helper, generated-helper-backed
+  derived codec encode, and budgeted derived codec encode slices in
+  `../specification/execution.md`, and beyond the implemented hand-written
+  partial encode preservation and resume example
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -230,13 +232,15 @@ ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
 decode-step slice, including same-module nested dispatch payload helper
 schemas, public imported nested dispatch payload helper schemas,
-repeat-backed schemas, and supported middle reserved layouts. The implemented
+repeat-backed schemas, supported middle reserved layouts, and the checked
+non-HTTP general helper shape. The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated
 `byte_encode_<schema>` behavior when the schema is in the currently
 implemented binary schema encode helper slice, including direct structural
 mapped schemas, same-module nested dispatch payload helper schemas, public
-imported nested dispatch payload helper schemas, and repeat-backed schemas.
+imported nested dispatch payload helper schemas, repeat-backed schemas, and
+the checked non-HTTP general helper shape.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 
@@ -334,9 +338,9 @@ encoder state owns only the remaining encode work.
   derived codec encode execution boundaries, including budgeted derived encode
   over generated helper output, selected structural mapping encode cases
   already accepted by the generated helper, same-module recursive closed and
-  extension dispatch payload helpers, and the caller-owned parser-state
-  retention and hand-written bounded `ByteView` base-offset `NeedMore`
-  examples.
+  extension dispatch payload helpers, the checked non-HTTP general helper
+  shape, and the caller-owned parser-state retention and hand-written bounded
+  `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.

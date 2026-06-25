@@ -486,8 +486,10 @@ dispatch payload encode slices, and same-module recursive closed and
 extension dispatch payload slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
-codec calls over that encode helper slice are covered by
-[execution.md](execution.md).
+codec calls over that encode helper slice, including the combined non-HTTP
+general helper shape checked by
+`../../examples/specification/run/derived-codec-general-helper-boundary/`, are
+covered by [execution.md](execution.md).
 When a mapped schema cannot expose the mapping target through a generated
 encode boundary, the `derive encode` clause reports
 `codec.derive_helper_unsupported`.

@@ -1979,6 +1979,10 @@ against the built `veln` binary.
   dispatch payload schemas. The case checks recursive decode success,
   short-input readiness, helper failure projection, extension unknown-payload
   preservation, and encoded chunks through codec item calls.
+- `run/derived-codec-general-helper-boundary/`: derived codec decode and
+  encode item boundaries over the combined non-HTTP generated helper shape.
+  The case checks successful decode, short-input readiness, successful encode,
+  and helper-projected encode failure through the codec item.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot project the mapping target
   value back to schema-local fields.

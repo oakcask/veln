@@ -1,0 +1,212 @@
+# Derived codec calls route through the general generated schema helpers.
+use stdio
+
+schema TelemetryPayload
+	format binary
+
+	channel_reserved: ReservedBits(3, 5)
+	channel: UInt5
+	reading: UInt16le
+end
+
+schema TelemetryEnvelope
+	format binary
+
+	section_length: UInt8
+	payload_length: UInt8
+	kind: UInt8
+	flags: Flag8
+	sample_count: UInt8
+	samples: Repeat(sample_count, UInt16be)
+	padding: ReservedBits(8, 0)
+	metadata: ByteView(section_length - payload_length)
+	payload: ExtensionDispatch(kind, payload_length, 1 => TelemetryPayload)
+end
+
+codec TelemetryCodec for TelemetryEnvelope decode encode
+	derive decode
+	derive encode
+end
+
+fn sample_count(samples: List<Int>) -> Int
+	match samples
+		Nil => 0
+		Cons(_, tail) => 1 + sample_count(tail)
+	end
+end
+
+fn sample_sum(samples: List<Int>) -> Int
+	match samples
+		Nil => 0
+		Cons(head, tail) => head + sample_sum(tail)
+	end
+end
+
+fn payload_channel(payload: SchemaDispatchPayload<{ channel : Int, reading : Int }>) -> Int
+	match payload
+		Known(value) => value.channel
+		Unknown(_, _) => -1
+	end
+end
+
+fn payload_reading(payload: SchemaDispatchPayload<{ channel : Int, reading : Int }>) -> Int
+	match payload
+		Known(value) => value.reading
+		Unknown(_, _) => -1
+	end
+end
+
+fn flag_bits(flags: Flag8) -> Int
+	match flags
+		Flag8(bits) => bits
+	end
+end
+
+fn emit_decoded(packet: { section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }, consumed: ByteCount) -> () effects [stdio]
+	stdio::print("decoded ")
+	stdio::print(int_to_string(packet.section_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.payload_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(flag_bits(packet.flags)))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.sample_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample_count(packet.samples)))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample_sum(packet.samples)))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(packet.metadata))))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload_channel(packet.payload)))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload_reading(packet.payload)))
+	stdio::print(" consumed ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn chunk_byte(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn expected_packet_byte(index: Int) -> Int
+	match index
+		0 => 5
+		1 => 3
+		2 => 1
+		3 => 40
+		4 => 2
+		5 => 1
+		6 => 2
+		7 => 3
+		8 => 4
+		9 => 0
+		10 => 170
+		11 => 187
+		12 => 177
+		13 => 52
+		14 => 18
+		_ => -1
+	end
+end
+
+fn packet_bytes_match(chunk: ByteChunk, index: Int) -> Result<Bool, String>
+	match index == 15
+		true => Ok(true)
+		false => match chunk_byte(chunk, index)? == expected_packet_byte(index)
+			true => packet_bytes_match(chunk, index + 1)
+			false => Ok(false)
+		end
+	end
+end
+
+fn matches_expected_packet(chunk: ByteChunk) -> Result<Bool, String>
+	match byte_count_to_int(byte_chunk_count(chunk)) == 15
+		true => packet_bytes_match(chunk, 0)
+		false => Ok(false)
+	end
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	let matches: Bool = matches_expected_packet(chunk)?
+	match matches
+		true => emit_encoded_chunk_unchecked(name, chunk, expected_hex)
+		false => Err("encoded chunk mismatch")
+	end
+end
+
+fn emit_encoded_chunk_unchecked(name: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+	Ok(())
+end
+
+fn emit_need_bytes(count: ByteCount) -> () effects [stdio]
+	stdio::print("need_more need_bytes ")
+	stdio::print(int_to_string(byte_count_to_int(count)))
+	stdio::println(" consumed 0")
+end
+
+fn emit_invalid_encode(id: String, path: String, reason: String) -> () effects [stdio]
+	stdio::print("invalid ")
+	stdio::print(id)
+	stdio::print(" ")
+	stdio::print(path)
+	stdio::print(" ")
+	stdio::println(reason)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let expected_hex: String = "05030128020102030400aabbb13412"
+	let bytes: ByteChunk = byte_chunk_from_hex(expected_hex)?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(15)?)?
+	let complete: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = TelemetryCodec(view, byte_offset(0)?)
+	let complete_output: () = match complete
+		Decoded(packet, consumed) => emit_decoded(packet, consumed)
+		NeedMore(_) => stdio::println("unexpected decode readiness")
+		Invalid(_) => stdio::println("unexpected decode failure")
+	end
+
+	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let waiting: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = TelemetryCodec(short_view, byte_offset(31)?)
+	let waiting_output: () = match waiting
+		NeedMore(NeedBytes(count)) => emit_need_bytes(count)
+		NeedMore(NeedEnd) => stdio::println("need_more need_end 0 consumed 0")
+		Decoded(_, _) => stdio::println("unexpected short decode")
+		Invalid(_) => stdio::println("unexpected short decode failure")
+	end
+
+	let samples: List<Int> = list_cons(258, list_cons(772, list_nil()))
+	let metadata: ByteView = byte_view(byte_chunk_from_hex("aabb")?, byte_offset(0)?, byte_count(2)?)?
+	let payload: SchemaDispatchPayload<{ channel : Int, reading : Int }> = Known({ channel: 17, reading: 4660 })
+	let encoded: EncodeStep<()> = TelemetryCodec({ section_length: 5, payload_length: 3, kind: 1, flags: Flag8(40), sample_count: 2, samples: samples, metadata: metadata, payload: payload })
+	let encoded_output: () = match encoded
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk("derived-general-helper", chunk, expected_hex)?
+		Encoded(_) => stdio::println("unexpected encoded chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+
+	let invalid_encoded: EncodeStep<()> = TelemetryCodec({ section_length: 5, payload_length: 3, kind: 1, flags: Flag8(40), sample_count: 3, samples: samples, metadata: metadata, payload: payload })
+	let invalid_output: () = match invalid_encoded
+		Invalid(EncodeError(id, path, reason)) => emit_invalid_encode(id, path, reason)
+		Encoded(_) => stdio::println("unexpected invalid encoded")
+		Partial(_, _, _) => stdio::println("unexpected invalid partial")
+	end
+	Ok(())
+end
