@@ -1,0 +1,50 @@
+# Two-receiver timeout-result selection keeps indexes and returns Ok(None) for empty outcomes.
+use stdio
+
+fn result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let left_ready_left = channel::bounded<Int>(1)
+	let left_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(left_ready_left.tx, 13)
+	let left_selected = channel::select_timeout_result(left_ready_left.rx, left_ready_right.rx, 25)
+
+	let right_ready_left = channel::bounded<Int>(1)
+	let right_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(right_ready_right.tx, 21)
+	let right_selected = channel::select_timeout_result(right_ready_left.rx, right_ready_right.rx, 25)
+
+	let tie_left = channel::bounded<Int>(1)
+	let tie_right = channel::bounded<Int>(1)
+	let _ = channel::send(tie_left.tx, 31)
+	let _ = channel::send(tie_right.tx, 47)
+	let tie_selected = channel::select_timeout_result(tie_left.rx, tie_right.rx, 25)
+
+	let timeout_left = channel::bounded<Int>(1)
+	let timeout_right = channel::bounded<Int>(1)
+	let timeout_selected = channel::select_timeout_result(timeout_left.rx, timeout_right.rx, 0)
+
+	let closed_left = channel::bounded<Int>(1)
+	let closed_right = channel::bounded<Int>(1)
+	channel::close(closed_left.tx)
+	channel::close(closed_right.tx)
+	let closed_selected = channel::select_timeout_result(closed_left.rx, closed_right.rx, 25)
+
+	stdio::print("left ")
+	stdio::print(int_to_string(result_score(left_selected)))
+	stdio::print(" right ")
+	stdio::print(int_to_string(result_score(right_selected)))
+	stdio::print(" tie ")
+	stdio::print(int_to_string(result_score(tie_selected)))
+	stdio::print(" timeout ")
+	stdio::print(int_to_string(result_score(timeout_selected)))
+	stdio::print(" closed ")
+	stdio::println(int_to_string(result_score(closed_selected)))
+	Ok(())
+end

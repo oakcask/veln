@@ -188,6 +188,11 @@ execution reference.
   `channel::select_many_timeout_cancellable` uses the same priority, timeout,
   and selected value shape, and returns `Err(SelectError)` when its
   `CancelToken` is already cancelled or wins during the wait.
+  The two-receiver timeout-result helper
+  `channel::select_timeout_result` preserves the left/right receiver index
+  shape, rotating tie behavior, timeout behavior, closed-before-selection
+  `Ok(None)` behavior, `Int` timeout argument, and fallible selection boundary
+  while requiring only `concurrency`.
   The two-receiver cancellable timeout helper
   `channel::select_timeout_cancellable` preserves the left/right receiver
   index shape, timeout behavior, and token-cancellation result boundary.
@@ -201,6 +206,7 @@ execution reference.
   `examples/specification/run/channel-first-stream-routing-three-route/`,
   `examples/specification/run/channel-first-stream-routing-four-route/`,
   `examples/specification/run/channel-select-many-timeout/`,
+  `examples/specification/run/channel-select-timeout-result/`,
   `examples/specification/run/channel-select-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable/`,
   `examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`,
@@ -210,6 +216,7 @@ execution reference.
   `examples/specification/check/channel-first-stream-routing-three-route-effects/`,
   `examples/specification/check/channel-first-stream-routing-four-route-effects/`,
   `examples/specification/check/channel-select-many-timeout-effects/`,
+  `examples/specification/check/channel-select-timeout-result-effects/`,
   `examples/specification/check/channel-select-timeout-cancellable-effects/`,
   `examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
   and

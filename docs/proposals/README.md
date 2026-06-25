@@ -282,7 +282,8 @@ compare it with `../specification/` before changing behavior.
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
-  selection, and two-receiver cancellable timeout-result selection slices
+  selection, two-receiver timeout-result selection, and two-receiver
+  cancellable timeout-result selection slices
   documented under `../specification/`; completed proposal records live under
   `../reference/implemented-proposals/`.
   The completed source-visible ordered `net::write_chunks` chunk-list write

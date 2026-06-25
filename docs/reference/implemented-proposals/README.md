@@ -106,6 +106,8 @@ behavior.
   [network-production-cancellable-deadline-lifecycle.md](network-production-cancellable-deadline-lifecycle.md).
 - Network channel select-many routing:
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
+- Network channel select timeout result:
+  [network-channel-select-timeout-result.md](network-channel-select-timeout-result.md).
 - Network channel select timeout cancellable:
   [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
 - HTTP/2 unknown frame preservation:

@@ -62,21 +62,21 @@ slices, and narrow deadline and cancellation slices, for:
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
-  cancellable timeout-result selection, two-receiver cancellable
-  timeout-result selection, socket/channel routing, deadline-aware lifecycle,
-  cancellable lifecycle, cancellable deadline-aware lifecycle, clean shutdown
-  lifecycle, and
+  cancellable timeout-result selection, two-receiver timeout-result selection,
+  two-receiver cancellable timeout-result selection, socket/channel routing,
+  deadline-aware lifecycle, cancellable lifecycle, cancellable deadline-aware
+  lifecycle, clean shutdown lifecycle, and
   multi-handler outbound write-ordering slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, receiver-list select-many route-count fixtures,
   general receiver-list routing helper, receiver-list timeout,
   receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
-  cancellable timeout-result selection, and receiver-list cancellable
-  channel-first fixture shapes. Additional work should improve routing
-  ownership, lifecycle, cancellation, transport integration, or adapter APIs;
-  adding another same-shaped route-count fixture is not remaining proposal
-  work.
+  timeout-result selection, two-receiver cancellable timeout-result selection,
+  and receiver-list cancellable channel-first fixture shapes. Additional work
+  should improve routing ownership, lifecycle, cancellation, transport
+  integration, or adapter APIs; adding another same-shaped route-count fixture
+  is not remaining proposal work.
 - richer per-stream task handling beyond the context-based
   `task::spawn_with<Result, Context>` handler boundary. Additional work should
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
@@ -395,6 +395,10 @@ The two-receiver cancellable timeout-result selection slice, including
 `channel::select_timeout_cancellable`, is recorded as implemented in
 `../reference/implemented-proposals/network-channel-select-timeout-cancellable.md`.
 
+The two-receiver timeout-result selection slice, including
+`channel::select_timeout_result`, is recorded as implemented in
+`../reference/implemented-proposals/network-channel-select-timeout-result.md`.
+
 The context-based stream-task slice is now part of the current task spawning
 specification instead of a planned arity-growth path.
 The proposal no longer treats more `spawn_withN` or positional handler
@@ -507,9 +511,10 @@ or the pure protocol core.
   lifecycle, two-route, three-route, four-route, receiver-list select-many
   routing through the current checked boundary, receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
-  timeout-result selection, two-receiver cancellable timeout-result selection,
-  and receiver-list cancellable channel-first stream routing, deadline-aware
-  accepted-stream lifecycle, cancellable accepted-stream lifecycle,
+  timeout-result selection, two-receiver timeout-result selection,
+  two-receiver cancellable timeout-result selection, and receiver-list
+  cancellable channel-first stream routing, deadline-aware accepted-stream
+  lifecycle, cancellable accepted-stream lifecycle,
   cancellable deadline-aware accepted-stream lifecycle, context-based spawned
   handler task, adapter-level cancellable stream routing, and the general
   receiver-list stream routing abstraction that replaces route-count fixture

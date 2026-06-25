@@ -135,6 +135,10 @@ compiler-known calls.
   selection uses `channel::select_many_timeout_cancellable` with the same
   selected value shape and returns `Err(SelectError)` when its
   source-visible `CancelToken` wins before a ready receiver. The two-receiver
+  timeout-result helper `channel::select_timeout_result` uses the same
+  selected value shape, left/right indexes, rotating tie behavior, timeout
+  behavior, fallible selection boundary, and `Int` timeout argument while
+  requiring only `concurrency`. The two-receiver
   cancellable timeout helper `channel::select_timeout_cancellable` uses the
   same selected value shape, left/right indexes, timeout behavior, and token
   cancellation boundary. A cancellable channel-first adapter composes
