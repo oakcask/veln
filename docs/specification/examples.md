@@ -1607,7 +1607,21 @@ uses the same production-loopback handler/action boundary through
 deadline-aware `net::accept_until` and `net::read_chunk_until` calls. The
 adapter accepts, reads until clean stream end becomes `None`, writes the
 ordered response, closes the stream, and then observes clean listener end
-through a following deadline-aware accept. The matching
+through a following deadline-aware accept. The executable specification cases
+`../../examples/specification/run/socket-stream-adapter-production-cancellable-deadline-lifecycle/`
+and
+`../../examples/specification/run/socket-stream-adapter-production-cancellable-deadline-outcomes/`
+cover the same production-loopback handler/action boundary through
+cancellable deadline-aware accept and read outcomes. The adapter accepts with
+`net::accept_until_cancellable`, reads with
+`net::read_chunk_until_cancellable`, routes `ReadChunk` and `ReadEnd` as
+ordinary `StreamInput` values through a channel, translates accept/read
+deadline and cancellation outcomes into adapter decisions, writes only
+`SendBytes` responses, closes owned streams, observes clean listener end, and
+closes the listener. The matching
+`../../examples/specification/check/socket-stream-adapter-production-cancellable-deadline-lifecycle-effects/`
+case pins the `net`, `time`, and `concurrency` adapter effect boundary while
+the handler remains free of transport, time, and channel effects. The existing
 `../../examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
 and
 `../../examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`

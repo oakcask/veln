@@ -94,6 +94,8 @@ behavior.
   [network-adapter-clean-shutdown.md](network-adapter-clean-shutdown.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
+- Network production cancellable deadline lifecycle:
+  [network-production-cancellable-deadline-lifecycle.md](network-production-cancellable-deadline-lifecycle.md).
 - Network channel select-many routing:
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
 - Network channel select timeout cancellable:

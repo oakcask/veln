@@ -265,7 +265,8 @@ compare it with `../specification/` before changing behavior.
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
   boundary, deadline-aware adapter lifecycle, deadline-aware accept and read
-  failure runtime boundaries, adapter close-failure runtime boundary, and
+  failure runtime boundaries, production cancellable deadline-aware adapter
+  lifecycle and outcome boundary, adapter close-failure runtime boundary, and
   explicit listener-close boundary,
   bounded
   receiver-list channel-first routing through the
