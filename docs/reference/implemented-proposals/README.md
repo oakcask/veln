@@ -88,6 +88,8 @@ behavior.
   [network-listener-close-boundary.md](network-listener-close-boundary.md).
 - Network write chunks boundary:
   [network-write-chunks-boundary.md](network-write-chunks-boundary.md).
+- Network write until cancellable boundary:
+  [network-write-until-cancellable-boundary.md](network-write-until-cancellable-boundary.md).
 - Network adapter outbound write ordering:
   [network-adapter-outbound-write-ordering.md](network-adapter-outbound-write-ordering.md).
 - Network adapter clean shutdown:

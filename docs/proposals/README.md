@@ -252,7 +252,8 @@ compare it with `../specification/` before changing behavior.
   beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, deadline, cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
-  read, cancellable deadline-aware stream read, adapter-owned
+  read, cancellable deadline-aware stream read, cancellable deadline-aware
+  stream write, adapter-owned
   listener-to-clean-stream-end lifecycle, context-based
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
@@ -279,6 +280,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
+  The completed cancellable deadline-aware stream-write boundary is archived
+  under
+  [Network Write Until Cancellable Boundary](../reference/implemented-proposals/network-write-until-cancellable-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering slice is

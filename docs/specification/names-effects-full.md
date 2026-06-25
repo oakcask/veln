@@ -201,6 +201,7 @@ net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk
 net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
 net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
+net::write_chunk_until_cancellable(stream: NetStream, bytes: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
@@ -221,8 +222,10 @@ effect. Direct calls to `net::listen`, `net::accept`,
 `net::close_listener` also infer the same coarse `net` effect. Direct calls
 to `net::accept_until`,
 `net::read_chunk_until`, and
-`net::read_chunk_until_cancellable` infer both `net` and `time` because the
-adapter-owned accept or read attempt observes a `Deadline` or `CancelToken`.
+`net::read_chunk_until_cancellable`, and
+`net::write_chunk_until_cancellable` infer both `net` and `time` because the
+adapter-owned accept, read, or write attempt observes a `Deadline` or
+`CancelToken`.
 Direct calls to `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`,
 `time::cancel_token`,
@@ -254,7 +257,12 @@ fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
 `CancelToken` has been cancelled;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
 and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream. `net::write_chunks` writes a
+writes one immutable `ByteChunk` to that stream.
+`net::write_chunk_until_cancellable` returns `WriteCompleted` after writing
+one immutable `ByteChunk` before the deadline and before cancellation,
+`WriteDeadlineExpired` for supplied or fixture-reported write deadline expiry,
+and `WriteCancelled` when the supplied `CancelToken` has been cancelled.
+`net::write_chunks` writes a
 source-owned `List<ByteChunk>` to the same stream in list order.
 `net::close_stream` records fixture-backed adapter-owned stream cleanup and
 returns `()`. `net::close_listener` records fixture-backed adapter-owned
@@ -562,6 +570,19 @@ type AcceptOutcome
 	AcceptEnd
 	AcceptDeadlineExpired
 	AcceptCancelled
+end
+
+type StreamReadOutcome
+	ReadChunk(bytes: ByteChunk)
+	ReadEnd
+	ReadDeadlineExpired
+	ReadCancelled
+end
+
+type StreamWriteOutcome
+	WriteCompleted
+	WriteDeadlineExpired
+	WriteCancelled
 end
 
 type DecodeError

@@ -39,7 +39,8 @@ The standard prelude byte vocabulary uses `Byte` for one byte value,
 immutable view into byte data, `ByteCount` for byte lengths and consumed or
 produced counts, `ByteOffset` for absolute byte offsets, `StreamInput` for
 incremental input events, `AcceptOutcome` for adapter-owned listener accept
-decisions, `StreamReadOutcome` for adapter-owned stream read decisions, and
+decisions, `StreamReadOutcome` for adapter-owned stream read decisions,
+`StreamWriteOutcome` for adapter-owned stream write decisions, and
 `DecodeStep<T>` and `EncodeStep<TState>` for ordinary source-visible codec
 boundary values. `StreamInput` is a public ADT with `Chunk(bytes: ByteChunk)`
 and `End` variants. A zero-length `ByteChunk` inside `Chunk` remains a chunk
@@ -48,6 +49,8 @@ arrival and is not equivalent to `End`. `AcceptOutcome` is a public ADT with
 `AcceptCancelled` variants.
 `StreamReadOutcome` is a public ADT with `ReadChunk(bytes: ByteChunk)`,
 `ReadEnd`, `ReadDeadlineExpired`, and `ReadCancelled` variants.
+`StreamWriteOutcome` is a public ADT with `WriteCompleted`,
+`WriteDeadlineExpired`, and `WriteCancelled` variants.
 `EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
 variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
 carries the encoder state as `TState`. Prelude helpers also construct and

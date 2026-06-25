@@ -18,11 +18,12 @@ full type reference.
   exhaustiveness use descriptor facts.
 - The standard prelude exposes source-visible `Byte`, `ByteChunk`,
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
-  `AcceptOutcome`, `StreamReadOutcome`, `DecodeStep<T>`, `DecodeReadiness`,
-  `DecodeError`, `EncodeStep<TState>`, and `EncodeError` named types for
-  small immutable byte values, bounded byte views, byte-counted helper APIs,
-  outgoing chunk lists, listener accept decisions, stream read decisions, and
-  incremental codec boundary values.
+  `AcceptOutcome`, `StreamReadOutcome`, `StreamWriteOutcome`,
+  `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`,
+  and `EncodeError` named types for small immutable byte values, bounded byte
+  views, byte-counted helper APIs, outgoing chunk lists, listener accept
+  decisions, stream read and write decisions, and incremental codec boundary
+  values.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and

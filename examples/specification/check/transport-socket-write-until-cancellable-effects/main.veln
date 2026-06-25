@@ -1,0 +1,8 @@
+# Cancellable deadline-aware socket writes require both net and time effects.
+pub fn write_until_cancellable_missing_time(stream: NetStream, chunk: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net]
+	net::write_chunk_until_cancellable(stream, chunk, deadline, token)
+end
+
+pub fn write_until_cancellable_missing_net(stream: NetStream, chunk: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [time]
+	net::write_chunk_until_cancellable(stream, chunk, deadline, token)
+end
