@@ -243,7 +243,9 @@ before the deadline and before cancellation, `WriteDeadlineExpired` for
 fixture-reported or supplied write deadline expiry, and `WriteCancelled` for
 source-visible token cancellation. The call infers the existing coarse `net`
 and `time` effects. Forced write failure on the same path remains a runtime
-transport failure, not a protocol diagnostic.
+transport failure, not a protocol diagnostic. The completion record is
+archived under
+`../reference/implemented-proposals/network-write-until-cancellable-boundary.md`.
 
 Implemented deadline-aware accepted-stream lifecycle slice: an executable
 specification case accepts a stream with `net::accept_until`, owns that

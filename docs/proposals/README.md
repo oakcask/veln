@@ -280,6 +280,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).
+  The completed cancellable deadline-aware stream-write boundary is archived
+  under
+  [Network Write Until Cancellable Boundary](../reference/implemented-proposals/network-write-until-cancellable-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering slice is
