@@ -81,6 +81,8 @@ as specified under `../specification/run-json.md`,
 checked by
 `../../examples/specification/run/codec-decode-invalid-byte-context-json/`,
 `../../examples/specification/run/codec-decode-invalid-byte-context-human/`,
+`../../examples/specification/run/codec-decode-invalid-byte-read-context-json/`,
+`../../examples/specification/run/codec-decode-invalid-byte-read-context-human/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-json/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-json/`,

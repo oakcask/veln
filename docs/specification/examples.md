@@ -176,6 +176,14 @@ offset, expected and available byte counts, and bounded nearby bytes as
 related notes, and `run --json` attaches the same fields under
 `details.byte_diagnostic`.
 The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-byte-read-context-human/`
+and
+`../../examples/specification/run/codec-decode-invalid-byte-read-context-json/`
+cover the same projection when the carried helper context comes from a
+short-input byte read helper rather than a byte-view range helper; this pins
+the helper offset and count fields without requiring a preview when that
+helper did not produce one.
+The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-step-human/` and
 `../../examples/specification/run/codec-decode-invalid-step-json/` cover
 command-facing projection when a `veln run` entry returns
