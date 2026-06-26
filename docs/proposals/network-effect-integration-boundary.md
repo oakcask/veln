@@ -483,6 +483,8 @@ and the adapter example composes them with existing `net` and `concurrency`
 boundaries while leaving the handler free of transport effects. Owner-derived
 observer tokens reject direct `time::cancel(token)` at the runtime boundary;
 direct tokens from `time::cancel_token` keep the existing compatibility path.
+The completion record is archived under
+`../reference/implemented-proposals/network-cancel-owner-boundary.md`.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
@@ -514,8 +516,9 @@ deadline behavior into schemas or the pure protocol core.
   listener sequence, two-stream adapter handler/action boundary,
   listener-drain lifecycle, listener-drain read-failure runtime boundary,
   deadline-aware adapter lifecycle, deadline-aware accept and read failure
-  runtime boundaries, adapter-owned clean shutdown lifecycle, and clean
-  listener end, remains current evidence for
+  runtime boundaries, adapter-owned clean shutdown lifecycle,
+  adapter-owned cancellation owner lifecycle, and clean listener end, remains
+  current evidence for
   deterministic host-owned loopback streams. Remaining examples still need
   richer production adapter
   socket ownership beyond those deterministic loopback lifecycle slices, first

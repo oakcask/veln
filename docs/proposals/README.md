@@ -313,6 +313,8 @@ compare it with `../specification/` before changing behavior.
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
   The completed adapter-owned clean shutdown slice is archived under
   [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).
+  The completed adapter-owned cancellation owner slice is archived under
+  [Network Cancel Owner Boundary](../reference/implemented-proposals/network-cancel-owner-boundary.md).
 
 ## Update When
 
