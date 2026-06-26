@@ -56,8 +56,10 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/http2-protocol-core-ping-length-json/`,
   `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
   `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
+  `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
+  `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
   and
-  `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`.
+  `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 
 ## Skip Unless Needed
 

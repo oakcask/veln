@@ -285,6 +285,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
             return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic")) {
+            return runtimeHttp2ProtocolStreamAfterGoawayDiagnostic(id, (Adt) detail);
+        }
         return null;
     }
 
@@ -398,6 +401,34 @@
                 DiagnosticDetail.number("dependency_stream_id", dependencyStreamId),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolStreamAfterGoawayDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.stream_after_goaway")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long streamId = asLong(detail.payloads[1]);
+        long lastStreamId = asLong(detail.payloads[2]);
+        String shutdownState = asString(detail.payloads[3]);
+        String endpointRole = asString(detail.payloads[4]);
+        String ruleProvenance = asString(detail.payloads[5]);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", "stream"),
+                DiagnosticDetail.number("last_stream_id", lastStreamId),
+                DiagnosticDetail.string("shutdown_state", shutdownState),
+                DiagnosticDetail.string("endpoint_role", endpointRole),
+                DiagnosticDetail.string("active_state", shutdownState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )
         );

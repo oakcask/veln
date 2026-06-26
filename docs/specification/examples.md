@@ -2393,10 +2393,12 @@ streams, already reset streams, mismatched open streams, and generated
 frame-header representation failures before accepted bytes are produced.
 After receiving GOAWAY or after locally sending GOAWAY, the same slice accepts
 outbound HEADERS at the recorded last-stream-id boundary and rejects a higher
-open stream through the existing `http2.protocol.stream_after_goaway`
-diagnostic before frame splitting or encode checks. The checked output keeps
-the endpoint role visible for the local-GOAWAY rejection. Stream id zero and
-closed stream cases keep their narrower existing failures.
+open stream through a source-visible
+`RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` payload with
+`http2.protocol.stream_after_goaway` before frame splitting or encode checks.
+The checked output keeps the endpoint role visible for the local-GOAWAY
+rejection while preserving the public protocol diagnostic JSON fields. Stream
+id zero and closed stream cases keep their narrower existing failures.
 The outbound `PUSH_PROMISE` send-intent slice accepts a currently open
 client-created associated stream, a server-initiated promised stream id, and
 already-encoded opaque header-block bytes. It pins a single-frame

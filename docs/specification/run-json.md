@@ -79,8 +79,10 @@ When the returned error value is an HTTP/2 protocol
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for
 `http2.protocol.invalid_payload_length`, and
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for
-`http2.protocol.invalid_priority_dependency`. These constructors project the
-same public JSON fields as the compatibility helpers, including stream
+`http2.protocol.invalid_priority_dependency`, and
+`RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for
+`http2.protocol.stream_after_goaway`. These constructors project the same
+public JSON fields as the compatibility helpers, including stream
 classification, peer-limit facts, active state, rule provenance, receive-limit
 provenance, and bounded byte previews where applicable.
 
@@ -538,6 +540,11 @@ HEADERS stream or local outbound HEADERS send-intent greater than the recorded
 last stream id uses id `http2.protocol.stream_after_goaway` and records
 `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
 `shutdown_state`, `endpoint_role`, `active_state`, and `rule_provenance`.
+The checked stream-after-GOAWAY human and JSON examples return
+source-visible `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`
+payloads for peer-created and local outbound HEADERS streams, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields.
 Wrong-length protocol payloads use id
 `http2.protocol.invalid_payload_length` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,

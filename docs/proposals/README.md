@@ -218,9 +218,9 @@ compare it with `../specification/` before changing behavior.
 - [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
   remaining runtime diagnostic payload migration after the implemented
   source-visible byte diagnostic ADT, HPACK fixture payloads, representative
-  HTTP/2 protocol payload slices including fixed payload-length diagnostics,
-  command projection, and executable harness assertion slices. The completed
-  HPACK fixture payload slice is archived under
+  HTTP/2 protocol payload slices including fixed payload-length and
+  stream-after-GOAWAY diagnostics, command projection, and executable harness
+  assertion slices. The completed HPACK fixture payload slice is archived under
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
   Remaining work includes unmigrated HTTP/2 protocol and peer-limit diagnostic
   payloads and removing the legacy side-table bridge once no specification

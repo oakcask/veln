@@ -1443,8 +1443,9 @@ execution reference.
   the compatibility helper. The implemented HTTP/2 slice covers
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
-  `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`, and
-  `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, keeping the
+  `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
+  `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
+  `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
   where the diagnostic owns one.

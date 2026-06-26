@@ -2586,12 +2586,14 @@ against the built `veln` binary.
   and rule provenance notes.
 - `run/http2-protocol-core-stream-after-goaway-json/`: the same post-GOAWAY
   stream-state failure reports `http2.protocol.stream_after_goaway` through
-  `run --json` with byte offset, stream reference, last stream id, shutdown
-  state, endpoint role, active state, and rule provenance.
+  `run --json` from a source-visible
+  `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` payload, with byte
+  offset, stream reference, last stream id, shutdown state, endpoint role,
+  active state, and rule provenance.
 - `run/http2-protocol-core-local-stream-after-goaway-human/` and
   `run/http2-protocol-core-local-stream-after-goaway-json/`: the same
-  post-GOAWAY diagnostic preserves `endpoint_role` as `local` for the
-  outbound send-intent boundary after a locally sent GOAWAY.
+  source-visible post-GOAWAY payload preserves `endpoint_role` as `local` for
+  the outbound send-intent boundary after a locally sent GOAWAY.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

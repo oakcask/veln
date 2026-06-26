@@ -387,6 +387,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String)
 	RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, observed_payload_length: Int, expected_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String)
 end
 
 pub type RuntimeDiagnosticFieldPathSegment
