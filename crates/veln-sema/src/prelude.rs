@@ -80,6 +80,8 @@ struct ExpectedPreludeParts {
     input_result_error: Type,
     dict_key: Type,
     dict_value: Type,
+    input_dict_key: Type,
+    input_dict_value: Type,
 }
 
 impl ExpectedPreludeParts {
@@ -95,6 +97,11 @@ impl ExpectedPreludeParts {
                 (value.clone(), error.clone())
             });
         let (dict_key, dict_value) = expected
+            .and_then(Type::dict_parts)
+            .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+                (key.clone(), value.clone())
+            });
+        let (input_dict_key, input_dict_value) = input
             .and_then(Type::dict_parts)
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
                 (key.clone(), value.clone())
@@ -131,6 +138,8 @@ impl ExpectedPreludeParts {
             input_result_error,
             dict_key,
             dict_value,
+            input_dict_key,
+            input_dict_value,
         }
     }
 }
@@ -994,22 +1003,16 @@ fn prelude_dict_signature(
     name: &str,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    let dict_key = &expected.dict_key;
-    let dict_value = &expected.dict_value;
-    let option_item = &expected.option_item;
+    let dict_key = prefer_known(&expected.dict_key, &expected.input_dict_key);
+    let dict_value = prefer_known(&expected.dict_value, &expected.input_dict_value);
+    let option_item = prefer_known(&expected.option_item, &expected.input_dict_value);
     match name {
         "dict_get" => Some((
-            vec![
-                Type::dict(dict_key.clone(), option_item.clone()),
-                dict_key.clone(),
-            ],
+            vec![Type::dict(dict_key.clone(), option_item.clone()), dict_key],
             adt::option_type(option_item.clone()),
         )),
         "dict_contains" => Some((
-            vec![
-                Type::dict(dict_key.clone(), dict_value.clone()),
-                dict_key.clone(),
-            ],
+            vec![Type::dict(dict_key.clone(), dict_value.clone()), dict_key],
             Type::bool(),
         )),
         "dict_insert" => Some((
@@ -1027,6 +1030,85 @@ fn prelude_dict_signature(
             ],
             Type::dict(dict_key.clone(), dict_value.clone()),
         )),
+        "dict_map" => {
+            let result_dict_key = prefer_known(&expected.input_dict_key, &expected.dict_key);
+            let result_dict_value = expected.dict_value.clone();
+            Some((
+                vec![
+                    Type::dict(result_dict_key.clone(), expected.input_dict_value.clone()),
+                    Type::Function {
+                        params: vec![result_dict_key.clone(), expected.input_dict_value.clone()],
+                        variadic: None,
+                        return_type: Box::new(result_dict_value.clone()),
+                        effects: Vec::new(),
+                    },
+                ],
+                Type::dict(result_dict_key, result_dict_value),
+            ))
+        }
+        "dict_filter" => {
+            let same_dict_key = prefer_known(&expected.input_dict_key, &expected.dict_key);
+            let same_dict_value = prefer_known(&expected.input_dict_value, &expected.dict_value);
+            Some((
+                vec![
+                    Type::dict(same_dict_key.clone(), same_dict_value.clone()),
+                    Type::Function {
+                        params: vec![same_dict_key.clone(), same_dict_value.clone()],
+                        variadic: None,
+                        return_type: Box::new(Type::bool()),
+                        effects: Vec::new(),
+                    },
+                ],
+                Type::dict(same_dict_key, same_dict_value),
+            ))
+        }
+        "dict_fold" => Some((
+            vec![
+                Type::dict(
+                    expected.input_dict_key.clone(),
+                    expected.input_dict_value.clone(),
+                ),
+                expected.direct.clone(),
+                Type::Function {
+                    params: vec![
+                        expected.direct.clone(),
+                        expected.input_dict_key.clone(),
+                        expected.input_dict_value.clone(),
+                    ],
+                    variadic: None,
+                    return_type: Box::new(expected.direct.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.direct.clone(),
+        )),
+        "dict_try_map" => {
+            let (result_dict_key, result_dict_value) = expected
+                .result_value
+                .dict_parts()
+                .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+                    (key.clone(), value.clone())
+                });
+            let output_key = prefer_known(&expected.input_dict_key, &result_dict_key);
+            Some((
+                vec![
+                    Type::dict(output_key.clone(), expected.input_dict_value.clone()),
+                    Type::Function {
+                        params: vec![output_key.clone(), expected.input_dict_value.clone()],
+                        variadic: None,
+                        return_type: Box::new(adt::result_type(
+                            result_dict_value.clone(),
+                            expected.result_error.clone(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                adt::result_type(
+                    Type::dict(output_key, result_dict_value),
+                    expected.result_error.clone(),
+                ),
+            ))
+        }
         _ => None,
     }
 }
@@ -1584,6 +1666,73 @@ fn core_prelude_dict_signature(
             ],
             CoreType::dict(dict_key.clone(), dict_value.clone()),
         )),
+        "dict_map" => Some((
+            vec![
+                CoreType::dict(dict_key.clone(), CoreType::Unknown),
+                CoreType::Function {
+                    params: vec![dict_key.clone(), CoreType::Unknown],
+                    variadic: None,
+                    return_type: Box::new(dict_value.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            CoreType::dict(dict_key.clone(), dict_value.clone()),
+        )),
+        "dict_filter" => Some((
+            vec![
+                CoreType::dict(dict_key.clone(), dict_value.clone()),
+                CoreType::Function {
+                    params: vec![dict_key.clone(), dict_value.clone()],
+                    variadic: None,
+                    return_type: Box::new(CoreType::bool()),
+                    effects: Vec::new(),
+                },
+            ],
+            CoreType::dict(dict_key.clone(), dict_value.clone()),
+        )),
+        "dict_fold" => Some((
+            vec![
+                CoreType::dict(CoreType::Unknown, CoreType::Unknown),
+                expected.direct.clone(),
+                CoreType::Function {
+                    params: vec![
+                        expected.direct.clone(),
+                        CoreType::Unknown,
+                        CoreType::Unknown,
+                    ],
+                    variadic: None,
+                    return_type: Box::new(expected.direct.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.direct.clone(),
+        )),
+        "dict_try_map" => {
+            let (result_dict_key, result_dict_value) = expected
+                .result_value
+                .dict_parts()
+                .map_or((CoreType::Unknown, CoreType::Unknown), |(key, value)| {
+                    (key.clone(), value.clone())
+                });
+            Some((
+                vec![
+                    CoreType::dict(result_dict_key.clone(), CoreType::Unknown),
+                    CoreType::Function {
+                        params: vec![result_dict_key.clone(), CoreType::Unknown],
+                        variadic: None,
+                        return_type: Box::new(adt::core_result_type(
+                            result_dict_value.clone(),
+                            expected.result_error.clone(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                adt::core_result_type(
+                    CoreType::dict(result_dict_key, result_dict_value),
+                    expected.result_error.clone(),
+                ),
+            ))
+        }
         _ => None,
     }
 }
@@ -1715,5 +1864,51 @@ mod tests {
         assert_eq!(params, vec![Type::vec(Type::Unknown)]);
         assert_eq!(return_type, Type::int());
         assert!(prelude_signature("unknown_helper", None).is_none());
+    }
+
+    #[test]
+    fn dictionary_prelude_signatures_are_first_order() {
+        let expected_dict = Type::dict(Type::string(), Type::int());
+        let expected_option = adt::option_type(Type::int());
+
+        for (name, expected, params, return_type) in [
+            (
+                "dict_get",
+                expected_option,
+                vec![expected_dict.clone(), Type::string()],
+                adt::option_type(Type::int()),
+            ),
+            (
+                "dict_contains",
+                Type::bool(),
+                vec![expected_dict.clone(), Type::string()],
+                Type::bool(),
+            ),
+            (
+                "dict_insert",
+                expected_dict.clone(),
+                vec![expected_dict.clone(), Type::string(), Type::int()],
+                expected_dict.clone(),
+            ),
+            (
+                "dict_remove",
+                expected_dict.clone(),
+                vec![expected_dict.clone(), Type::string()],
+                expected_dict.clone(),
+            ),
+        ] {
+            let (actual_params, actual_return_type) =
+                prelude_signature_with_input(name, Some(&expected), Some(&expected_dict))
+                    .expect("dictionary helper signature");
+
+            assert_eq!(actual_params, params, "{name}");
+            assert_eq!(actual_return_type, return_type, "{name}");
+            assert!(
+                actual_params
+                    .iter()
+                    .all(|param| !matches!(param, Type::Function { .. })),
+                "{name} should not be treated as a callback helper"
+            );
+        }
     }
 }

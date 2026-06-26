@@ -1,7 +1,7 @@
-fn stringify(value: String) -> String
-	"bad"
+fn stringify(key: String, value: String) -> String
+	key
 end
 
-pub fn main(items: Vec<Int>) -> Vec<String>
-	vec_map(items, stringify)
+pub fn main(items: Dict<String, Int>) -> Dict<String, String>
+	dict_map(items, stringify)
 end

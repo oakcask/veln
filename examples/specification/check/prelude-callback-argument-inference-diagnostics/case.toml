@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.mismatch\"", "expected `fn(Int) -> String`, but found `fn(String) -> String`"]
+contains = ["\"id\":\"type.mismatch\"", "expected `fn(String, Int) -> String`, but found `fn(String, String) -> String`"]
 
 [stderr]
 format = "empty"
@@ -20,9 +20,9 @@ equals = 1
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `fn(Int) -> String`, but found `fn(String) -> String`"
+message = "expected `fn(String, Int) -> String`, but found `fn(String, String) -> String`"
 
 [diagnostics.span]
 file = "main.veln"
 line = 6
-column = 17
+column = 18

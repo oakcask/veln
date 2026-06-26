@@ -10,11 +10,10 @@ compare it with `../specification/` before changing behavior.
 ## Catalog
 
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
-  define remaining annotation-elision work for dictionary callback inputs,
-  callback aliases that are not in the compiler-known helper
-  path, and other paths beyond the implemented same-function local `let`,
-  empty collection expected-type, empty collection callback return,
-  payload-carrying ADT constructor inference, match scrutinee
+  define remaining annotation-elision work for callback aliases that are not
+  in the compiler-known helper path, and other paths beyond the implemented
+  same-function local `let`, empty collection expected-type, empty collection
+  callback return, payload-carrying ADT constructor inference, match scrutinee
   constructor-pattern inference, and compiler-known prelude callback argument
   slices specified in `../specification/types.md`. The completed private
   helper call-site inference, prelude callback argument inference, ADT
