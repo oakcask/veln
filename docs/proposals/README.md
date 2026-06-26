@@ -218,7 +218,8 @@ compare it with `../specification/` before changing behavior.
 - [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
   remaining runtime diagnostic payload migration after the implemented
   source-visible byte diagnostic ADT, HPACK fixture unsupported-header-block
-  payload, command projection, and executable harness assertion slices.
+  and malformed-string-length payloads, command projection, and executable
+  harness assertion slices.
   Remaining work includes the other HPACK fixture and HTTP/2 protocol
   diagnostic payload migrations, and removing the legacy side-table bridge
   once no specification case depends on it.

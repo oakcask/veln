@@ -2006,6 +2006,13 @@ against the built `veln` binary.
   `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` and
   projects through `hpack.fixture.unsupported_header_block`, separate from
   schema diagnostics and HTTP/2 frame-state diagnostics.
+- `run/runtime-diagnostic-payload-hpack-string-length-json/` and
+  `run/runtime-diagnostic-payload-hpack-string-length-human/`: a
+  source-visible
+  `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` entry
+  result carries the malformed HPACK string-length payload that `veln run`
+  projects through `hpack.fixture.malformed_string_length` in JSON and human
+  command output.
 - `run/hpack-fixture-dynamic-index-json/` and
   `run/hpack-fixture-dynamic-index-human/`: standalone HPACK fixture dynamic
   indexed lookups without a current bounded dynamic-table entry project

@@ -151,8 +151,9 @@ details.
 ## Implemented Baseline
 
 Current behavior for the completed source-visible byte diagnostic value, the
-HPACK fixture unsupported-header-block runtime diagnostic payload, command
-projection, and executable harness assertion slices is specified in
+HPACK fixture unsupported-header-block and malformed-string-length runtime
+diagnostic payloads, command projection, and executable harness assertion
+slices is specified in
 `../specification/run-json.md`, `../specification/commands.md`,
 `../specification/execution.md`, and `../specification/test-json.md`.
 
@@ -179,7 +180,8 @@ to remove. They may remain temporarily for legacy helpers, but new helpers
 should return source-visible diagnostic error values.
 
 Implemented slices define the standard `RuntimeDiagnostic` value shape for
-byte diagnostics and HPACK fixture unsupported-header-block diagnostics.
+byte diagnostics, HPACK fixture unsupported-header-block diagnostics, and
+HPACK fixture malformed-string-length diagnostics.
 `veln run` and `veln run --json` project
 `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` through the
 same human and JSON byte-diagnostic surfaces used by legacy helpers, and
@@ -190,16 +192,21 @@ through the existing HPACK fixture human diagnostic and
 `../../examples/specification/run/runtime-diagnostic-payload-byte-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`, and
 `../../examples/specification/run/runtime-diagnostic-payload-plain-json/`,
-plus `../../examples/specification/run/hpack-fixture-codec-human/` and
-`../../examples/specification/run/hpack-fixture-codec-json/`. These slices
-deliberately leave legacy side-table support in place for existing fixture,
-value, protocol, remaining HPACK, HTTP/2, and generated-schema helpers.
+plus `../../examples/specification/run/hpack-fixture-codec-human/`,
+`../../examples/specification/run/hpack-fixture-codec-json/`,
+`../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-human/`,
+and
+`../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`.
+These slices deliberately leave legacy side-table support in place for
+existing fixture, value, protocol, remaining HPACK, HTTP/2, and
+generated-schema helpers.
 
 A staged migration can keep compatibility for the remaining work:
 
 1. Convert the remaining HPACK fixture projection helpers to return
    `Result<(), RuntimeDiagnostic>` or an equivalent structured diagnostic error
-   type from Veln. The unsupported-header-block projection is already covered.
+   type from Veln. The unsupported-header-block and malformed-string-length
+   projections are already covered.
 2. Convert HTTP/2 protocol projection helpers to the same model.
 3. Remove narrow backend helpers and side-table registrations once no
    specification case depends on them.
