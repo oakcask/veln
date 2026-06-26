@@ -100,6 +100,13 @@ pub(crate) struct Binding {
     pub(crate) ty: Type,
 }
 
+type FunctionKey = (Option<String>, String);
+type FunctionAstMap<'a> = BTreeMap<FunctionKey, &'a Function>;
+type FunctionSignatureMap = BTreeMap<FunctionKey, FunctionSignature>;
+type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
+type PrivateSlotOmissions = (Vec<bool>, bool);
+type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
+
 #[derive(Clone)]
 pub(crate) struct ExpectedType {
     pub(crate) ty: Type,
@@ -591,22 +598,22 @@ fn infer_private_function_call_site_signature_types(
         for function in &module.functions {
             collect_private_call_site_constraints(
                 function,
-                &module.uses,
-                &function_by_path,
-                &omitted_private_slots,
-                &signatures_by_path,
-                &returns_by_path,
-                functions,
-                adts,
-                &mut changed,
+                &mut PrivateCallSiteConstraintContext {
+                    uses: &module.uses,
+                    function_by_path: &function_by_path,
+                    omitted_private_slots: &omitted_private_slots,
+                    signatures_by_path: &signatures_by_path,
+                    returns_by_path: &returns_by_path,
+                    functions,
+                    adts,
+                    changed: &mut changed,
+                },
             );
         }
     }
 }
 
-fn signatures_by_path(
-    functions: &[FunctionSignature],
-) -> BTreeMap<(Option<String>, String), FunctionSignature> {
+fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
     functions
         .iter()
         .map(|function| {
@@ -618,7 +625,7 @@ fn signatures_by_path(
         .collect()
 }
 
-fn returns_by_path(functions: &[FunctionSignature]) -> BTreeMap<(Option<String>, String), Type> {
+fn returns_by_path(functions: &[FunctionSignature]) -> FunctionReturnMap {
     functions
         .iter()
         .map(|function| {
@@ -630,28 +637,39 @@ fn returns_by_path(functions: &[FunctionSignature]) -> BTreeMap<(Option<String>,
         .collect()
 }
 
+struct PrivateCallSiteConstraintContext<'a> {
+    uses: &'a [UseDecl],
+    function_by_path: &'a FunctionAstMap<'a>,
+    omitted_private_slots: &'a PrivateSlotMap,
+    signatures_by_path: &'a FunctionSignatureMap,
+    returns_by_path: &'a FunctionReturnMap,
+    functions: &'a mut [FunctionSignature],
+    adts: &'a AdtRegistry,
+    changed: &'a mut bool,
+}
+
+struct PrivateCallSiteExprContext<'a, 'b> {
+    current_module: Option<&'b str>,
+    caller_key: Option<&'b FunctionKey>,
+    bindings: &'b [Binding],
+    constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
+}
+
 fn collect_private_call_site_constraints(
     function: &Function,
-    uses: &[UseDecl],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_slots: &BTreeMap<(Option<String>, String), (Vec<bool>, bool)>,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
-    functions: &mut [FunctionSignature],
-    adts: &AdtRegistry,
-    changed: &mut bool,
+    context: &mut PrivateCallSiteConstraintContext<'_>,
 ) {
     let current_module = function.module_name.as_deref();
     let caller_key = function
         .name
         .as_ref()
         .map(|name| (function.module_name.clone(), name.clone()));
-    let mut bindings = private_function_body_bindings(function, signatures_by_path);
+    let mut bindings = private_function_body_bindings(function, context.signatures_by_path);
     let declared_return = function.return_type.as_deref().map_or_else(
         || {
             caller_key
                 .as_ref()
-                .and_then(|key| signatures_by_path.get(key))
+                .and_then(|key| context.signatures_by_path.get(key))
                 .map(|signature| signature.return_type.clone())
                 .filter(|ty| !type_has_unknown(ty))
         },
@@ -671,27 +689,22 @@ fn collect_private_call_site_constraints(
                 collect_private_call_site_expr_constraints(
                     expr,
                     annotation_type.as_ref(),
-                    current_module,
-                    caller_key.as_ref(),
-                    uses,
-                    &bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
+                    &mut PrivateCallSiteExprContext {
+                        current_module,
+                        caller_key: caller_key.as_ref(),
+                        bindings: &bindings,
+                        constraints: context,
+                    },
                 );
                 let ty = annotation_type.unwrap_or_else(|| {
                     infer_private_signature_expr_type(
                         expr,
                         None,
                         current_module,
-                        uses,
+                        context.uses,
                         &bindings,
-                        returns_by_path,
-                        adts,
+                        context.returns_by_path,
+                        context.adts,
                     )
                 });
                 collect_pattern_bindings(pattern, &ty, &mut bindings);
@@ -703,17 +716,12 @@ fn collect_private_call_site_constraints(
                 collect_private_call_site_expr_constraints(
                     expr,
                     expected,
-                    current_module,
-                    caller_key.as_ref(),
-                    uses,
-                    &bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
+                    &mut PrivateCallSiteExprContext {
+                        current_module,
+                        caller_key: caller_key.as_ref(),
+                        bindings: &bindings,
+                        constraints: context,
+                    },
                 );
             }
         }
@@ -723,37 +731,13 @@ fn collect_private_call_site_constraints(
 fn collect_private_call_site_expr_constraints(
     expr: &Expr,
     expected: Option<&Type>,
-    current_module: Option<&str>,
-    caller_key: Option<&(Option<String>, String)>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_slots: &BTreeMap<(Option<String>, String), (Vec<bool>, bool)>,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
-    functions: &mut [FunctionSignature],
-    adts: &AdtRegistry,
-    changed: &mut bool,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) {
     match &expr.kind {
         ExprKind::List(items) => {
             let item_expected = expected.and_then(Type::vec_part);
             for item in items {
-                collect_private_call_site_expr_constraints(
-                    item,
-                    item_expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
+                collect_private_call_site_expr_constraints(item, item_expected, context);
             }
         }
         ExprKind::Dict(entries) => {
@@ -761,161 +745,34 @@ fn collect_private_call_site_expr_constraints(
                 .and_then(Type::dict_parts)
                 .map_or((None, None), |(key, value)| (Some(key), Some(value)));
             for entry in entries {
-                collect_private_call_site_expr_constraints(
-                    &entry.key,
-                    key_expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
-                collect_private_call_site_expr_constraints(
-                    &entry.value,
-                    value_expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
+                collect_private_call_site_expr_constraints(&entry.key, key_expected, context);
+                collect_private_call_site_expr_constraints(&entry.value, value_expected, context);
             }
         }
         ExprKind::Record(fields) => {
             for field in fields {
                 let field_expected =
                     expected.and_then(|expected| expected.record_field(&field.name));
-                collect_private_call_site_expr_constraints(
-                    &field.expr,
-                    field_expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
+                collect_private_call_site_expr_constraints(&field.expr, field_expected, context);
             }
         }
         ExprKind::Call { callee, args } => {
-            collect_private_call_site_call_constraints(
-                callee,
-                args,
-                expected,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
+            collect_private_call_site_call_constraints(callee, args, expected, context);
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::Prefix { expr: base, .. } => {
-            collect_private_call_site_expr_constraints(
-                base,
-                None,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
+            collect_private_call_site_expr_constraints(base, None, context);
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_private_call_site_expr_constraints(
-                scrutinee,
-                None,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
+            collect_private_call_site_expr_constraints(scrutinee, None, context);
             for arm in arms {
-                collect_private_call_site_expr_constraints(
-                    &arm.expr,
-                    expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
+                collect_private_call_site_expr_constraints(&arm.expr, expected, context);
             }
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_private_call_site_expr_constraints(
-                left,
-                expected,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
-            collect_private_call_site_expr_constraints(
-                right,
-                expected,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
+            collect_private_call_site_expr_constraints(left, expected, context);
+            collect_private_call_site_expr_constraints(right, expected, context);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -933,85 +790,51 @@ fn collect_private_call_site_call_constraints(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    current_module: Option<&str>,
-    caller_key: Option<&(Option<String>, String)>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_slots: &BTreeMap<(Option<String>, String), (Vec<bool>, bool)>,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
-    functions: &mut [FunctionSignature],
-    adts: &AdtRegistry,
-    changed: &mut bool,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) {
-    let Some(target_key) =
-        private_same_module_call_target(callee, current_module, function_by_path)
-    else {
-        collect_private_call_site_non_target_call_args(
-            callee,
-            args,
-            expected,
-            current_module,
-            caller_key,
-            uses,
-            bindings,
-            function_by_path,
-            omitted_private_slots,
-            signatures_by_path,
-            returns_by_path,
-            functions,
-            adts,
-            changed,
-        );
+    let Some(target_key) = private_same_module_call_target(
+        callee,
+        context.current_module,
+        context.constraints.function_by_path,
+    ) else {
+        collect_private_call_site_non_target_call_args(callee, args, expected, context);
         return;
     };
 
-    let is_recursive_edge = caller_key == Some(&target_key);
+    let is_recursive_edge = context.caller_key == Some(&target_key);
     if !is_recursive_edge
-        && let Some((omitted_params, omitted_return)) = omitted_private_slots.get(&target_key)
+        && let Some((omitted_params, omitted_return)) =
+            context.constraints.omitted_private_slots.get(&target_key)
     {
-        if let Some(target_signature) = signatures_by_path.get(&target_key) {
+        if let Some(target_params) = context
+            .constraints
+            .signatures_by_path
+            .get(&target_key)
+            .map(|signature| signature.params.clone())
+        {
             for (index, arg) in args.iter().enumerate() {
                 if omitted_params.get(index).copied().unwrap_or(false) {
                     let actual = infer_private_signature_expr_type(
                         arg,
                         None,
-                        current_module,
-                        uses,
-                        bindings,
-                        returns_by_path,
-                        adts,
+                        context.current_module,
+                        context.constraints.uses,
+                        context.bindings,
+                        context.constraints.returns_by_path,
+                        context.constraints.adts,
                     );
                     if !type_has_unknown(&actual) {
                         update_private_signature_param(
-                            functions,
+                            context.constraints.functions,
                             &target_key,
                             index,
                             actual,
-                            changed,
+                            context.constraints.changed,
                         );
                     }
                 }
-                let arg_expected = target_signature
-                    .params
-                    .get(index)
-                    .filter(|ty| !type_has_unknown(ty));
-                collect_private_call_site_expr_constraints(
-                    arg,
-                    arg_expected,
-                    current_module,
-                    caller_key,
-                    uses,
-                    bindings,
-                    function_by_path,
-                    omitted_private_slots,
-                    signatures_by_path,
-                    returns_by_path,
-                    functions,
-                    adts,
-                    changed,
-                );
+                let arg_expected = target_params.get(index).filter(|ty| !type_has_unknown(ty));
+                collect_private_call_site_expr_constraints(arg, arg_expected, context);
             }
         }
 
@@ -1019,7 +842,12 @@ fn collect_private_call_site_call_constraints(
             && let Some(expected) = expected
             && !type_has_unknown(expected)
         {
-            update_private_signature_return(functions, &target_key, expected.clone(), changed);
+            update_private_signature_return(
+                context.constraints.functions,
+                &target_key,
+                expected.clone(),
+                context.constraints.changed,
+            );
         }
     }
 }
@@ -1028,64 +856,26 @@ fn collect_private_call_site_non_target_call_args(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    current_module: Option<&str>,
-    caller_key: Option<&(Option<String>, String)>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_slots: &BTreeMap<(Option<String>, String), (Vec<bool>, bool)>,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
-    functions: &mut [FunctionSignature],
-    adts: &AdtRegistry,
-    changed: &mut bool,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) {
     let ExprKind::NamePath(segments) = &callee.kind else {
         for arg in args {
-            collect_private_call_site_expr_constraints(
-                arg,
-                None,
-                current_module,
-                caller_key,
-                uses,
-                bindings,
-                function_by_path,
-                omitted_private_slots,
-                signatures_by_path,
-                returns_by_path,
-                functions,
-                adts,
-                changed,
-            );
+            collect_private_call_site_expr_constraints(arg, None, context);
         }
         return;
     };
     let params = private_call_site_non_target_params(
         segments,
         expected,
-        current_module,
-        uses,
-        function_by_path,
-        signatures_by_path,
-        adts,
+        context.current_module,
+        context.constraints.uses,
+        context.constraints.function_by_path,
+        context.constraints.signatures_by_path,
+        context.constraints.adts,
     );
     for (index, arg) in args.iter().enumerate() {
         let arg_expected = params.get(index).filter(|ty| !type_has_unknown(ty));
-        collect_private_call_site_expr_constraints(
-            arg,
-            arg_expected,
-            current_module,
-            caller_key,
-            uses,
-            bindings,
-            function_by_path,
-            omitted_private_slots,
-            signatures_by_path,
-            returns_by_path,
-            functions,
-            adts,
-            changed,
-        );
+        collect_private_call_site_expr_constraints(arg, arg_expected, context);
     }
 }
 
@@ -1094,8 +884,8 @@ fn private_call_site_non_target_params(
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
+    function_by_path: &FunctionAstMap<'_>,
+    signatures_by_path: &FunctionSignatureMap,
     adts: &AdtRegistry,
 ) -> Vec<Type> {
     if let crate::adt::ConstructorLookup::Found(constructor) =
@@ -1136,7 +926,7 @@ fn private_call_site_declared_signature<'a>(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[UseDecl],
-    signatures_by_path: &'a BTreeMap<(Option<String>, String), FunctionSignature>,
+    signatures_by_path: &'a FunctionSignatureMap,
 ) -> Option<&'a FunctionSignature> {
     match segments {
         [name] => signatures_by_path.get(&(current_module.map(str::to_string), name.clone())),
@@ -1154,8 +944,8 @@ fn private_call_site_declared_signature<'a>(
 fn private_same_module_call_target(
     callee: &Expr,
     current_module: Option<&str>,
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-) -> Option<(Option<String>, String)> {
+    function_by_path: &FunctionAstMap<'_>,
+) -> Option<FunctionKey> {
     let ExprKind::NamePath(segments) = &callee.kind else {
         return None;
     };
