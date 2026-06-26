@@ -189,6 +189,18 @@ Nested `if` expressions inside a branch body are indented one level deeper.
 or rewrite `match Bool` to `if`; preserving the user's chosen branch form keeps
 source diffs focused.
 
+## Style Lint
+
+A future style lint should prefer `if` / `else if` / `else` over `match` when
+the matched value is `Bool` and the expression is being used for ordinary
+true/false value branching. The lint should not apply when the source is
+specifically exercising `match` parsing, Boolean pattern arms, exhaustiveness
+behavior, formatter preservation, or diagnostic recovery for `match`.
+
+The lint should report style guidance only. It should not make `match Bool`
+invalid source, and it should not require the formatter to rewrite one branch
+form into the other.
+
 ## Diagnostics
 
 Initial diagnostics should cover:
@@ -250,7 +262,5 @@ same behavior and expected output.
 - Should `if` conditions allow a line break immediately after `if` before the
   condition expression, or should that remain a parse error for clearer
   recovery?
-- Should a future style lint prefer `if` over `match Bool` outside tests that
-  explicitly exercise `match`?
 - Should branch-chain diagnostics expose stable branch indexes in JSON details,
   or are source spans enough for editor clients?
