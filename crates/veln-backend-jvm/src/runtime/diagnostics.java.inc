@@ -279,6 +279,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
+            return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
             return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
         }
@@ -337,6 +340,37 @@
                 DiagnosticDetail.number("stream_id", streamId),
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_payload_length")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long frameKind = asLong(detail.payloads[1]);
+        long streamId = asLong(detail.payloads[2]);
+        long observedLength = asLong(detail.payloads[3]);
+        long expectedLength = asLong(detail.payloads[4]);
+        String activeState = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.number("observed_payload_length", observedLength),
+                DiagnosticDetail.number("expected_payload_length", expectedLength),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )
         );
     }

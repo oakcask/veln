@@ -52,6 +52,12 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
   and
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`.
+  HTTP/2 protocol payload assertions are checked by
+  `../../examples/specification/run/http2-protocol-core-ping-length-json/`,
+  `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
+  `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
+  and
+  `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`.
 
 ## Skip Unless Needed
 

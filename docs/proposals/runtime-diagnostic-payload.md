@@ -190,9 +190,10 @@ same human and JSON byte-diagnostic surfaces used by legacy helpers, and
 project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
 fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover invalid frame kind,
-frame-size exceeded, and invalid PRIORITY dependency, and project through the
-existing HTTP/2 human diagnostics and `details.protocol_diagnostic` JSON
-shape. The checked examples are
+frame-size exceeded, fixed payload length for SETTINGS ACK, PING, GOAWAY, and
+`RST_STREAM`, and invalid PRIORITY dependency. They project through the existing
+HTTP/2 human diagnostics and `details.protocol_diagnostic` JSON shape. The
+checked examples are
 `../../examples/specification/run/runtime-diagnostic-payload-byte-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`, and
 `../../examples/specification/run/runtime-diagnostic-payload-plain-json/`,
@@ -210,6 +211,14 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
+`../../examples/specification/run/http2-protocol-core-settings-ack-length-human/`,
+`../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
+`../../examples/specification/run/http2-protocol-core-ping-length-human/`,
+`../../examples/specification/run/http2-protocol-core-ping-length-json/`,
+`../../examples/specification/run/http2-protocol-core-goaway-length-human/`,
+`../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
+`../../examples/specification/run/http2-protocol-core-rst-stream-length-human/`,
+`../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,
 and `../../examples/specification/run/http2-protocol-core-priority-dependency-json/`.
 These slices deliberately leave legacy side-table support in place for

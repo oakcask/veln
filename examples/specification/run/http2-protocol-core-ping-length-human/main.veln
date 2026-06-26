@@ -20,15 +20,48 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_payload_length",
+		error,
+		RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(0, 6, 0, 7, 8, "connection-control", "rfc9113_ping_payload_length", byte_chunk([]))
+	)
+end
+
+fn payload_length_payload(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_payload_length",
+		"HTTP/2 invalid payload length at byte offset 0",
+		RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(offset, frame_kind, stream_id, observed_length, expected_length, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, preview) => Err(payload_length_payload(offset, frame_kind, stream_id, observed_length, expected_length, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("01020304050607")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "rfc9113_ping_payload_length")
-	let bytes: ByteChunk = byte_chunk_from_hex("01020304050607")?
-	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let bytes: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(bytes)?
 	http2_protocol_diagnostic(InvalidPayloadLength(0, 6, 0, 7, 8, preview), context)
 end
