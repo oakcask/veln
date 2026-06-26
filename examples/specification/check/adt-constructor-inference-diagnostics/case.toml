@@ -1,0 +1,61 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.inference_ambiguous\"", "\"inferred_type\":\"Result<Int, unknown>\"", "\"inferred_type\":\"Result<unknown, String>\"", "\"id\":\"type.mismatch\"", "expected `Int`, but found `String`", "expected `List<Int>`, but found `List<String>`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Ok` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 6
+column = 14
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Err` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 11
+column = 14
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 22
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `List<Int>`, but found `List<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 22
+column = 22

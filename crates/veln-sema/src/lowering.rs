@@ -1122,38 +1122,45 @@ impl<'a> CoreLowerer<'a> {
                 ])),
             );
         }
-        let lowered_args = constructor
-            .variant
-            .payload_fields
-            .iter()
-            .enumerate()
-            .map(|(index, _)| {
-                let payload_type = expected
-                    .and_then(|expected| adt::core_payload_type(expected, constructor, index))
-                    .unwrap_or(CoreType::Unknown);
-                args.get(index)
-                    .map(|arg| self.lower_expr(arg, Some(&payload_type)))
-                    .unwrap_or_else(|| {
-                        self.missing_expression(
-                            expr,
-                            Some(&payload_type),
-                            "missing_constructor_argument",
-                        );
-                        self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
-                    })
-            })
-            .collect::<Vec<_>>();
-        let ty = if expected
+        let expected_constructor_type = expected
             .and_then(|expected| adt::core_adt_args(expected, constructor.descriptor))
-            .is_some()
-        {
+            .is_some();
+        let mut inferred_type_args =
+            vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
+        let mut lowered_args = Vec::new();
+        for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
+            let payload_type = expected
+                .filter(|_| expected_constructor_type)
+                .and_then(|expected| adt::core_payload_type(expected, constructor, index))
+                .or_else(|| {
+                    adt::core_payload_type_with_args(constructor, &inferred_type_args, index)
+                })
+                .unwrap_or(CoreType::Unknown);
+            let lowered = args
+                .get(index)
+                .map(|arg| self.lower_expr(arg, Some(&payload_type)))
+                .unwrap_or_else(|| {
+                    self.missing_expression(
+                        expr,
+                        Some(&payload_type),
+                        "missing_constructor_argument",
+                    );
+                    self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
+                });
+            if !expected_constructor_type {
+                adt::merge_core_type_args_from_payload(
+                    &mut inferred_type_args,
+                    constructor,
+                    index,
+                    &lowered.ty,
+                );
+            }
+            lowered_args.push(lowered);
+        }
+        let ty = if expected_constructor_type {
             expected.cloned().unwrap_or(CoreType::Unknown)
         } else {
-            let payload_types = lowered_args
-                .iter()
-                .map(|arg| arg.ty.clone())
-                .collect::<Vec<_>>();
-            adt::core_constructed_type(constructor, &payload_types)
+            adt::core_constructed_type_from_args(constructor, &inferred_type_args)
         };
         for arg in args.iter().skip(expected_count) {
             self.lower_expr(arg, None);

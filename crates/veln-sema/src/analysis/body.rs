@@ -1838,18 +1838,34 @@ impl<'a> FunctionChecker<'a> {
         constructor: adt::AdtConstructor,
     ) -> Type {
         let mut actual_args = Vec::new();
+        let expected_constructor_type = expected
+            .and_then(|expected| adt::adt_args(&expected.ty, constructor.descriptor))
+            .is_some();
+        let mut inferred_type_args =
+            vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
         for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
             let expected_payload = expected
+                .filter(|_| expected_constructor_type)
                 .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
+                .or_else(|| adt::payload_type_with_args(constructor, &inferred_type_args, index))
                 .unwrap_or(Type::Unknown);
             let arg_expected = ExpectedType {
                 ty: expected_payload,
-                source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-                origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-                origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-                origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                    expected.origin_message
-                }),
+                source: expected
+                    .filter(|_| expected_constructor_type)
+                    .map_or(ExpectedTypeSource::Inferred, |expected| expected.source),
+                origin_node_id: expected
+                    .filter(|_| expected_constructor_type)
+                    .map_or(expr.node_id, |expected| expected.origin_node_id),
+                origin_span: expected.filter(|_| expected_constructor_type).map_or_else(
+                    || Some(expr.span.clone()),
+                    |expected| expected.origin_span.clone(),
+                ),
+                origin_message: expected
+                    .filter(|_| expected_constructor_type)
+                    .map_or("Constructor payload inferred here.", |expected| {
+                        expected.origin_message
+                    }),
             };
             let Some(arg) = args.get(index) else {
                 continue;
@@ -1862,21 +1878,36 @@ impl<'a> FunctionChecker<'a> {
                 &arg_expected,
                 "call_argument",
             );
+            if !expected_constructor_type {
+                adt::merge_type_args_from_payload(
+                    &mut inferred_type_args,
+                    constructor,
+                    index,
+                    &actual_arg,
+                );
+            }
             actual_args.push(actual_arg);
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
 
-        if expected
-            .and_then(|expected| adt::adt_args(&expected.ty, constructor.descriptor))
-            .is_some()
-        {
+        if expected_constructor_type {
             return expected
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown);
         }
-        adt::constructed_type(constructor, &actual_args)
+        let inferred = adt::constructed_type_from_args(constructor, &inferred_type_args);
+        if type_contains_unknown(&inferred) {
+            self.push_ambiguous_constructor_type(
+                expr.node_id,
+                expr.span.clone(),
+                &constructor.variant.name,
+                &inferred,
+            );
+            return adt::constructed_type(constructor, &actual_args);
+        }
+        inferred
     }
 
     pub(super) fn infer_list(

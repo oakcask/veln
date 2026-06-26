@@ -255,6 +255,127 @@ fn lowers_qualified_builtin_constructors() {
 }
 
 #[test]
+fn infers_payload_constructor_type_arguments_without_expected_adt_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Box<A>\n",
+            "  Box(value: A)\n",
+            "end\n",
+            "fn main() -> {option: Option<Int>, list: List<Int>, boxed: Box<String>}\n",
+            "  let option = Some(1)\n",
+            "  let list = Cons(1, Nil)\n",
+            "  let boxed = Box(\"ok\")\n",
+            "  {option: option, list: list, boxed: boxed}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("option binding should lower as let");
+    };
+    assert_eq!(expr.ty, CoreType::option(CoreType::int()));
+    let CoreStmtKind::Let { expr, .. } = &main.body[1].kind else {
+        panic!("list binding should lower as let");
+    };
+    assert_eq!(expr.ty, CoreType::named("List", vec![CoreType::int()]));
+    let CoreStmtKind::Let { expr, .. } = &main.body[2].kind else {
+        panic!("box binding should lower as let");
+    };
+    assert_eq!(expr.ty, CoreType::named("Box", vec![CoreType::string()]));
+}
+
+#[test]
+fn unresolved_payload_constructor_type_arguments_are_ambiguous() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  let value = Ok(1)\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.inference_ambiguous");
+    assert_eq!(
+        diagnostics[0].message,
+        "constructor `Ok` needs type context"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"inferred_type\":\"Result<Int, unknown>\"")
+    );
+}
+
+#[test]
+fn conflicting_payload_constructor_type_arguments_report_mismatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Both<A>\n",
+            "  Both(left: A, right: A)\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  let value = Both(1, \"bad\")\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(&diagnostics[0], 5, 23, 5, 28);
+}
+
+#[test]
+fn non_constructor_expected_type_still_reports_outer_mismatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn main() -> Int\n", "  Some(1)\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Int`, but found `Option<Int>`"
+    );
+}
+
+#[test]
 fn lowers_runnable_checked_program_to_core_and_typed_ir() {
     let source = SourceFile::new(
         "main.veln",

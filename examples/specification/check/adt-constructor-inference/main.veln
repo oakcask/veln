@@ -1,0 +1,15 @@
+use models
+
+type Box<A>
+	Box(value: A)
+end
+
+fn main() -> {option: Option<Int>, list: List<Int>, box: Box<String>, imported: Wrap<String>, qualified: Box<String>, imported_qualified: Wrap<String>}
+	let option = Option::Some(1)
+	let list = List::Cons(1, List::Nil)
+	let box = Box("local")
+	let imported = models::Wrap("imported")
+	let qualified = Box::Box("qualified")
+	let imported_qualified = models::Wrap::Wrap("imported qualified")
+	{option: option, list: list, box: box, imported: imported, qualified: qualified, imported_qualified: imported_qualified}
+end
