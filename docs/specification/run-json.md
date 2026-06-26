@@ -322,9 +322,10 @@ plus `Http2DiagnosticContext`, then routes each supported failure shape to the
 stable helper that owns the diagnostic id, primary message, related notes, and
 structured details. The HTTP/2 protocol-core executable example and the
 converted command-facing frame-size, header-list-size, invalid-frame-kind,
-stream-id, post-GOAWAY, payload-length, DATA-padding, SETTINGS ACK, preface,
-continuation, and priority self-dependency examples check this boundary for
-both `http2.peer_limit.*` and `http2.protocol.*` failures.
+stream-id, post-GOAWAY, payload-length, DATA-padding, content-length,
+SETTINGS ACK, preface, continuation, and priority self-dependency examples
+check this boundary for both `http2.peer_limit.*` and `http2.protocol.*`
+failures.
 Accepted HTTP/2 send-intents, including outbound HEADERS output split across
 HEADERS and CONTINUATION frames and server-side outbound `PUSH_PROMISE`
 output split across `PUSH_PROMISE` and CONTINUATION frames, remain ordinary
@@ -404,7 +405,8 @@ payload byte preview. Accepted `content-length` body-length mismatches use id
 `http2.protocol.content_length_mismatch` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `expected_content_length`,
 `observed_body_length`, `active_state`, `rule_provenance`, and a bounded DATA
-application-byte preview. A
+application-byte preview. The checked run examples cover both over-length DATA
+and an early peer `END_STREAM` shortfall through the same projection. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
@@ -499,7 +501,7 @@ payload length facts stay in their own fields; the checked HTTP/2 examples
 cover the SETTINGS ACK expected-zero-length failure, PING fixed-length failure
 with JSON byte-preview assertions, PRIORITY fixed-length failure, GOAWAY
 fixed-prefix length failure with JSON byte-preview assertions, `RST_STREAM`
-fixed-length failure, and
+fixed-length failure with JSON byte-preview assertions, and
 `WINDOW_UPDATE` fixed-length failure. A SETTINGS ACK received while no local
 SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records

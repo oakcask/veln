@@ -1,0 +1,54 @@
+use hpack_fixture
+
+type BodyLengthState
+	ExpectedContentLength(Int, Int, Int)
+end
+
+type BodyLengthDecision
+	BodyLengthAccepted(BodyLengthState)
+	BodyLengthRejected(Http2ProtocolFailure)
+end
+
+type Http2ProtocolFailure
+	ContentLengthMismatch(Int, Int, Int, Int, Int, String, String, ByteView)
+end
+
+fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
+	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
+end
+
+fn accepted_request_body_state() -> Result<BodyLengthState, String>
+	let transition: HpackDecodeTransition = hpack_fixture::decode_header_block(byte_chunk_from_hex("4f505152")?, hpack_fixture::initial_state(), 0)?
+	let headers: HpackHeaderList = hpack_fixture::transition_headers(transition)
+	Ok(ExpectedContentLength(1, hpack_fixture::header_list_accepted_content_length(headers), 0))
+end
+
+fn receive_data(state: BodyLengthState, offset: Int, application_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
+	match state
+		ExpectedContentLength(stream_id, expected_length, observed_length) => validate_body_length(stream_id, expected_length, observed_length + application_length, offset, end_stream, preview)
+	end
+end
+
+fn validate_body_length(stream_id: Int, expected_length: Int, observed_length: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
+	match observed_length > expected_length
+		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+		false => match end_stream and observed_length < expected_length
+			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, observed_length)))
+		end
+	end
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => http2_protocol_content_length_mismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let decision: BodyLengthDecision = receive_data(accepted_request_body_state()?, 9, 6, false, byte_chunk_from_hex("aabbccddeeff")?)?
+	match decision
+		BodyLengthAccepted(_) => Ok(())
+		BodyLengthRejected(failure) => project(failure)
+	end
+end

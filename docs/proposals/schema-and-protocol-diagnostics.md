@@ -136,9 +136,10 @@ Representative command-facing HTTP/2 examples route
 preserving the same human diagnostics and `details.protocol_diagnostic` JSON
 shape, including the PRIORITY self-dependency payload byte preview. Focused
 HTTP/2 protocol examples for stream-id domains, post-GOAWAY stream rejection,
-fixed payload lengths, invalid DATA padding, SETTINGS ACK state, preface
-failures, continuation ordering, pending-byte close, and remaining invalid
-frame-kind slices also route through that projection boundary. The
+fixed payload lengths, invalid DATA padding, content-length body mismatches,
+SETTINGS ACK state, preface failures, continuation ordering,
+pending-byte close, and remaining invalid frame-kind slices also route through
+that projection boundary. The
 continuation-ordering and pending-byte close diagnostics carry structured
 protocol-owned byte previews for the inspected incoming frame header and
 retained pending bytes. The remaining proposal work covers broader schema and
@@ -400,9 +401,10 @@ SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
 plus fixed payload-length failures for SETTINGS ACK, PING, GOAWAY,
-`RST_STREAM`, and `WINDOW_UPDATE`, plus invalid DATA padding. DATA receive
-flow-control, fixed payload-length failures, and invalid DATA padding include
-protocol-owned payload byte previews.
+`RST_STREAM`, and `WINDOW_UPDATE`, plus invalid DATA padding and
+content-length body mismatches. DATA receive flow-control, fixed
+payload-length failures, invalid DATA padding, and content-length body
+mismatches include protocol-owned payload byte previews.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in

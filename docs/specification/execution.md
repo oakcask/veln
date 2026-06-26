@@ -1506,7 +1506,8 @@ execution reference.
   connection stream with bounded inspected frame-header previews, invalid
   stream-state frame kinds with bounded inspected frame-header previews,
   wrong-length PING, PRIORITY, GOAWAY, and
-  `RST_STREAM` payloads with bounded inspected-payload previews, accepted PING
+  `RST_STREAM` payloads with bounded inspected-payload previews and
+  command-facing human and JSON projection cases, accepted PING
   ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority
