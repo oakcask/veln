@@ -482,14 +482,32 @@ impl<'a> FunctionChecker<'a> {
             ) {
                 continue;
             }
+            let inferred_private_param = (self.function.visibility == Visibility::Private
+                && self.function.kind == FunctionKind::Function
+                && param.ty.is_none())
+            .then(|| {
+                self.environment
+                    .function_by_node_id(self.function.node_id)
+                    .and_then(|function| {
+                        self.function
+                            .params
+                            .iter()
+                            .position(|candidate| candidate.node_id == param.node_id)
+                            .and_then(|index| function.params.get(index).cloned())
+                    })
+            })
+            .flatten()
+            .filter(|ty| !type_contains_unknown(ty));
             self.bindings.push(Binding {
                 name: param.name.clone(),
-                ty: ty.map_or(Type::Unknown, |expected| {
-                    if param.is_variadic {
-                        Type::named("List", vec![expected.ty])
-                    } else {
-                        expected.ty
-                    }
+                ty: inferred_private_param.unwrap_or_else(|| {
+                    ty.map_or(Type::Unknown, |expected| {
+                        if param.is_variadic {
+                            Type::named("List", vec![expected.ty])
+                        } else {
+                            expected.ty
+                        }
+                    })
                 }),
             });
         }
@@ -1172,6 +1190,24 @@ impl<'a> FunctionChecker<'a> {
                 origin_node_id,
                 origin_span: Some(self.function.span.clone()),
                 origin_message: "Return type declared here.",
+            })
+            .or_else(|| {
+                (self.function.visibility == Visibility::Private
+                    && self.function.kind == FunctionKind::Function)
+                    .then(|| {
+                        self.environment
+                            .function_by_node_id(self.function.node_id)
+                            .map(|function| function.return_type.clone())
+                    })
+                    .flatten()
+                    .filter(|ty| !type_contains_unknown(ty))
+                    .map(|ty| ExpectedType {
+                        ty,
+                        source: ExpectedTypeSource::Inferred,
+                        origin_node_id,
+                        origin_span: Some(self.function.span.clone()),
+                        origin_message: "Private return type inferred here.",
+                    })
             })
     }
 

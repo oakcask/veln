@@ -81,34 +81,12 @@ the right-hand side has a known record or ADT type and every named binding
 receives a concrete field or payload type. Wildcard lets follow the same
 checking rule but do not add a binding.
 
-## Private Helper Inference From Call Sites
+## Completed Private Helper Call-Site Slice
 
-Private function parameters and returns may be inferred from concrete same-module
-call sites when annotations are omitted and the body alone does not determine a
-complete type.
-
-Rules:
-
-- A private helper still has one monomorphic signature.
-- Body facts and call-site facts contribute to the same signature slots.
-- All observed call sites must agree with the inferred parameter and return
-  types.
-- Public functions, tests, exported aliases, and imported public functions do
-  not receive inferred signatures.
-- Recursive private helpers need an annotation for any parameter or return slot
-  that cannot be determined before the recursive edge.
-- Mutually recursive helpers need annotations at the cycle boundary unless all
-  omitted slots are already concrete from non-recursive facts.
-
-If the inferred helper signature would contain `unknown`, the checker reports
-the existing private-inference failure shape or a narrower diagnostic with the
-helper declaration as the primary span. Related notes should name the body fact
-or call site that left the slot unconstrained.
-
-If two call sites force incompatible types, the primary diagnostic should be at
-the helper declaration or the later conflicting call argument, whichever
-contains the failed fact most directly. Related notes should include the
-earlier constraining call site.
+The completed private helper call-site inference slice is archived under
+`../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
+Current behavior is specified in `../specification/types.md#read-first` and
+`../specification/types-full.md#inference`.
 
 ## Callback Argument Inference For Prelude Helpers
 
@@ -231,7 +209,7 @@ ambiguous expression, or test annotation syntax and diagnostics.
 Acceptance evidence should include:
 
 - checked examples that use omitted local annotations for empty collections,
-  ADT constructors, private helpers, and prelude callbacks
+  ADT constructors, and prelude callbacks
 - negative examples for unconstrained, conflicting, and ambiguous inference
   failures
 - human and JSON diagnostic coverage when related provenance is required
@@ -248,8 +226,7 @@ Acceptance evidence should include:
 4. Infer payload-carrying ADT constructor type arguments from payloads when the
    constructor descriptor is unambiguous.
 5. Infer match scrutinee descriptors from constructor-pattern arms.
-6. Add private helper call-site constraint collection.
-7. Run the examples cleanup and keep only annotations that still carry useful
+6. Run the examples cleanup and keep only annotations that still carry useful
    meaning.
 
 The order is deliberately incremental. Each step should be useful on its own
@@ -262,6 +239,3 @@ constraints is added.
   for all local slots or split into more precise ids.
 - Whether callback literals need dedicated source syntax before callback
   inference can remove enough annotations from examples.
-- Whether call-site inference for private helpers should be limited to helpers
-  declared before their first use, or implemented as a same-module fixed-point
-  pass.

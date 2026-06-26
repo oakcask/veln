@@ -120,6 +120,18 @@ monomorphic: after one concrete type is fixed, a later incompatible use reports
 binding type, checking reports `type.local_inference_incomplete` at the
 omitted binding.
 
+When a private non-exported helper omits parameter or return annotations,
+same-module concrete call sites may constrain the helper's single monomorphic
+signature. Concrete argument expressions constrain omitted parameters. A
+concrete expected result type at a helper call constrains an omitted return
+type, and body tail facts are checked against the inferred return type. Body
+facts and call-site facts must agree; a later incompatible call reports
+`type.mismatch` at the failed argument or expected-result use. Direct recursive
+edges do not supply inference facts for the recursive helper itself, so an
+omitted recursive slot still needs a non-recursive concrete fact or an
+annotation. Public functions, tests, exported aliases, and imported public
+functions do not receive inferred signatures.
+
 Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
 accept concrete expected collection types from local annotations, return
 positions, call arguments, record fields, match arm results, constructor

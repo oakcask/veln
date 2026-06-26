@@ -19,6 +19,10 @@ full type reference.
   annotations, returns, call arguments, record fields, match arms, and
   constructor payloads, plus compiler-known prelude helper result context for
   callback return values.
+- Private non-exported helper functions may omit parameter and return
+  annotations when same-module concrete call sites and body facts determine one
+  monomorphic signature. Public functions, tests, exported aliases, and
+  imported public functions still require declared signature boundaries.
 - `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain

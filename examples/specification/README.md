@@ -117,6 +117,11 @@ against the built `veln` binary.
 - `check/type-effect-boundaries/`: private inference gaps, missing record
   fields, `Path` versus `String`, invalid pipeline targets,
   method-call-shaped syntax, unknown effects, and indirect effect inference.
+- `check/private-helper-inference/`: omitted private helper parameters and
+  returns inferred from same-module concrete call sites and expected result
+  context.
+- `check/private-helper-inference-diagnostics/`: non-concrete and conflicting
+  private helper call-site inference failures.
 - `check/function-effect-boundaries/`: function-typed value compatibility when
   callable effects are narrower or wider than the expected function type.
 - `check/type-annotation-boundaries/`: public API annotation requirements,

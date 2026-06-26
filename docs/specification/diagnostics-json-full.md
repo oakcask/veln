@@ -133,7 +133,11 @@ When a body omits its final expression line, return checking uses `()` with
 `type.private_inference_incomplete` reports a private parameter or private
 return type whose omitted annotation did not infer to a concrete type. Its
 `details` include `phase`, `node_id`, `boundary: "private_function"`,
-`missing_fact`, and `inferred_type`. Repair hints are related notes.
+`missing_fact`, and `inferred_type`. Same-module call-site inference can leave
+this diagnostic in place when observed arguments or expected results are still
+non-concrete. Repair hints are related notes. Conflicting concrete call-site
+facts are reported by `type.mismatch` at the incompatible use and keep the
+ordinary mismatch `details` shape.
 
 `type.pipeline_target` reports a target on the right side of `|>` that is not
 a call, or is a call whose callee is not a name path. Its `details` include

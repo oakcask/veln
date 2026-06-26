@@ -1,0 +1,17 @@
+# Private helper call-site inference remains monomorphic and concrete.
+fn identity(value)
+	value
+end
+
+fn length(items)
+	vec_len(items)
+end
+
+fn conflicting_call_sites() -> Int
+	let first: Int = identity(1)
+	identity("bad")
+end
+
+fn non_concrete_call_site() -> Int
+	length([])
+end

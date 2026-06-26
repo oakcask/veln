@@ -14,12 +14,13 @@ compare it with `../specification/` before changing behavior.
   branching while preserving `match` as the implemented and still-supported
   finite-domain branch form.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
-  define remaining annotation-elision work for private helpers, callbacks,
+  define remaining annotation-elision work for callbacks,
   constructor type-argument inference from payloads, match scrutinees, and
-  other paths beyond the implemented same-function local `let` and empty
-  collection expected-type slices, including empty collection callback return
-  values in compiler-known prelude helper result context, specified in
-  `../specification/types.md`.
+  other paths beyond the implemented same-function local `let`, empty
+  collection expected-type, and empty collection callback return slices
+  specified in `../specification/types.md`. The completed private helper
+  call-site inference slice is archived under
+  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
