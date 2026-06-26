@@ -1,7 +1,7 @@
 # HTTP/2 WINDOW_UPDATE increment failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidWindowUpdateIncrement({offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, preview: ByteView})
+	InvalidWindowUpdateIncrement {offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, preview: ByteView}
 end
 
 type Http2DiagnosticContext
@@ -22,7 +22,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidWindowUpdateIncrement(payload) => http2_protocol_invalid_window_update_increment(payload.offset, payload.stream_id, payload.observed_increment, payload.accepted_min_increment, payload.accepted_max_increment, context_active_state(context), context_rule_provenance(context), payload.preview)
+		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, preview) => http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 
@@ -32,5 +32,5 @@ pub fn main() -> Result<(), String>
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(13)?)?
 	let frame: {length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView} = byte_decode_http2_frame(view)?
 	let observed_increment: Int = byte_read_u31_be(frame.payload)?
-	http2_protocol_diagnostic(InvalidWindowUpdateIncrement({offset: 0, stream_id: frame.stream_id, observed_increment: observed_increment, accepted_min_increment: 1, accepted_max_increment: 2147483647, preview: frame.payload}), context)
+	http2_protocol_diagnostic(InvalidWindowUpdateIncrement(0, frame.stream_id, observed_increment, 1, 2147483647, frame.payload), context)
 end

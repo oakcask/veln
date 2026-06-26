@@ -1,7 +1,7 @@
 # HTTP/2 response te header values project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidResponseHeaderList({offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String})
+	InvalidResponseHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
 end
 
 type Http2DiagnosticContext
@@ -22,11 +22,11 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidResponseHeaderList(payload) => http2_protocol_invalid_response_header_list(payload.offset, payload.frame_kind, payload.stream_id, payload.failed_header_fact, payload.header_name, payload.decoded_header_names, context_active_state(context), context_rule_provenance(context))
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let context: Http2DiagnosticContext = DiagnosticContext("response-headers", "rfc9113_te_trailers_only")
-	http2_protocol_diagnostic(InvalidResponseHeaderList({offset: 12, frame_kind: 1, stream_id: 1, failed_header_fact: "te_header_value_not_trailers", header_name: "te", decoded_header_names: ":status,te"}), context)
+	http2_protocol_diagnostic(InvalidResponseHeaderList(12, 1, 1, "te_header_value_not_trailers", "te", ":status,te"), context)
 end

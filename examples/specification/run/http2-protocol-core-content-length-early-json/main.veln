@@ -10,7 +10,7 @@ type BodyLengthDecision
 end
 
 type Http2ProtocolFailure
-	ContentLengthMismatch({offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView})
+	ContentLengthMismatch {offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
 end
 
 fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
@@ -31,9 +31,9 @@ end
 
 fn validate_body_length(stream_id: Int, expected_length: Int, observed_length: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
 	match observed_length > expected_length
-		true => Ok(BodyLengthRejected(ContentLengthMismatch({offset: offset, frame_kind: 0, stream_id: stream_id, expected_length: expected_length, observed_length: observed_length, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body", preview: byte_chunk_view(preview)?})))
+		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
 		false => match end_stream and observed_length < expected_length
-			true => Ok(BodyLengthRejected(ContentLengthMismatch({offset: offset, frame_kind: 0, stream_id: stream_id, expected_length: expected_length, observed_length: observed_length, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body", preview: byte_chunk_view(preview)?})))
+			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
 			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, observed_length)))
 		end
 	end
@@ -41,7 +41,7 @@ end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		ContentLengthMismatch(payload) => http2_protocol_content_length_mismatch(payload.offset, payload.frame_kind, payload.stream_id, payload.expected_length, payload.observed_length, payload.active_state, payload.rule_provenance, payload.preview)
+		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => http2_protocol_content_length_mismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview)
 	end
 end
 
