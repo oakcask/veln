@@ -22,7 +22,9 @@ header slice also rejects `connection`, `keep-alive`, `proxy-connection`,
 `transfer-encoding`, and `upgrade` as ordinary request headers. The
 request `:scheme` value slice accepts `http` and `https`, and rejects any
 other fixture-marked value with failed fact
-`scheme_value_not_http_or_https`. Failures use the protocol-owned
+`scheme_value_not_http_or_https`. The request `:path` value slice rejects
+fixture-marked empty values with failed fact `path_value_empty` after
+`:path` presence has been confirmed. Failures use the protocol-owned
 `http2.protocol.invalid_request_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
 
@@ -32,7 +34,8 @@ HPACK fixture diagnostics.
   integrated protocol-core path, including one accepted request fixture, a
   request fixture with a lowercase ordinary `host` header, accepted
   `:scheme` values `http` and `https` through completed HEADERS and final
-  CONTINUATION paths, an unsupported `:scheme` value, a final
+  CONTINUATION paths, an unsupported `:scheme` value, an empty `:path`
+  value after method and scheme presence are satisfied, a final
   CONTINUATION path missing `:method`, a HEADERS path containing
   response-only `:status`, a duplicate `:method`, and a `:method` after a
   regular `host` header, plus uppercase and token-invalid ordinary request
@@ -58,6 +61,10 @@ HPACK fixture diagnostics.
   checks the JSON projection for an unsupported request `:scheme` value.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-scheme-human/`
   checks the human projection for an unsupported request `:scheme` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-path-empty-json/`
+  checks the JSON projection for an empty request `:path` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-path-empty-human/`
+  checks the human projection for an empty request `:path` value.
 
 ## Remaining Work
 

@@ -870,21 +870,24 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
 						true => match hpack_fixture::header_list_has_path(headers)
 							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers)))
-							true => match hpack_fixture::header_list_has_invalid_scheme_value(headers)
-								true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "scheme_value_not_http_or_https", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
-								false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-									true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
-									false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-										true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
-										false => match hpack_fixture::header_list_has_connection_specific_header(headers)
-											true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
-											false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-												true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers)))
-												false => match hpack_fixture::header_list_has_invalid_content_length(headers)
-													true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers)))
-													false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
-														true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers)))
-														false => RequestHeaderListOk
+							true => match hpack_fixture::header_list_has_empty_path_value(headers)
+								true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "path_value_empty", ":path", hpack_fixture::header_list_decoded_names(headers)))
+								false => match hpack_fixture::header_list_has_invalid_scheme_value(headers)
+									true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "scheme_value_not_http_or_https", ":scheme", hpack_fixture::header_list_decoded_names(headers)))
+									false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
+										true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
+										false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
+											true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
+											false => match hpack_fixture::header_list_has_connection_specific_header(headers)
+												true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers)))
+												false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
+													true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers)))
+													false => match hpack_fixture::header_list_has_invalid_content_length(headers)
+														true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers)))
+														false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
+															true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers)))
+															false => RequestHeaderListOk
+														end
 													end
 												end
 											end
@@ -5002,9 +5005,12 @@ fn request_header_rule_provenance(failed_header_fact: String) -> String
 						true => "rfc9113_content_length"
 						false => match failed_header_fact == "scheme_value_not_http_or_https"
 							true => "rfc9113_request_scheme"
-							false => match failed_header_fact == "trailer_pseudo_header"
-								true => "rfc9113_trailer_pseudo_headers"
-								false => "rfc9113_request_pseudo_headers"
+							false => match failed_header_fact == "path_value_empty"
+								true => "rfc9113_request_pseudo_headers"
+								false => match failed_header_fact == "trailer_pseudo_header"
+									true => "rfc9113_trailer_pseudo_headers"
+									false => "rfc9113_request_pseudo_headers"
+								end
 							end
 						end
 					end
@@ -7947,6 +7953,8 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_hpack_transition("request-headers-scheme-https", request_headers_scheme_https_done)
 	let request_headers_scheme_unsupported: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000015e5f6061")?), state)?
 	print_request_header_failure("request-headers-scheme-unsupported", request_headers_scheme_unsupported)
+	let request_headers_empty_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000015f606162")?), state)?
+	print_request_header_failure("request-headers-empty-path", request_headers_empty_path)
 	let request_headers_missing_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000131")?), state)?
 	print_step("request-headers-missing-start", request_headers_missing_start)
 	let request_headers_missing_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(request_headers_missing_start))?

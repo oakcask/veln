@@ -3897,6 +3897,9 @@
         } else if ("scheme_value_not_http_or_https".equals(fact)) {
             message = "HTTP/2 request header list contains :scheme value other than http or https"
                 + " at byte offset " + byteOffset;
+        } else if ("path_value_empty".equals(fact)) {
+            message = "HTTP/2 request header list contains empty :path"
+                + " at byte offset " + byteOffset;
         } else if ("content_length_invalid".equals(fact)) {
             message = "HTTP/2 request header list contains invalid content-length"
                 + " at byte offset " + byteOffset;
