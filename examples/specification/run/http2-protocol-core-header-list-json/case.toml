@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 header list size exceeds receive maximum at byte offset 12"
+equals = "RuntimeDiagnostic(http2.peer_limit.header_list_size_exceeded, HTTP/2 header list size exceeds receive maximum at byte offset 12, RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, local_configuration, header_list_receive_limit, ByteChunk([Byte(6), Byte(7), Byte(8), Byte(9), Byte(10), Byte(11), Byte(12), Byte(13), Byte(14)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -85,3 +85,38 @@ equals = 9
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
 equals = true
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.1"
+equals = 10
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.2"
+equals = 9
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.5"
+equals = "local_configuration"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.6"
+equals = "header_list_receive_limit"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.7.constructor"
+equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.8"
+missing = true

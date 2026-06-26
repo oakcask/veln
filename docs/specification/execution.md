@@ -1443,6 +1443,7 @@ execution reference.
   the compatibility helper. The implemented HTTP/2 slice covers
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
+  `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,
   `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
@@ -1932,9 +1933,11 @@ execution reference.
   `http2.peer_limit.header_table_size_exceeded` and
   `http2.peer_limit.header_list_size_exceeded` receive-limit boundaries after
   fixture decoding. Those receive-limit diagnostics carry bounded structured
-  previews of the inspected header-block bytes. Fixture-marked request header
-  lists are validated after that HPACK fixture decode on completed HEADERS and
-  final CONTINUATION paths.
+  previews of the inspected header-block bytes. The header-list receive-limit
+  boundary can carry those facts in a source-visible
+  `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` payload. Fixture-marked
+  request header lists are validated after that HPACK fixture decode on
+  completed HEADERS and final CONTINUATION paths.
   Duplicate request pseudo-headers, request pseudo-headers after regular
   headers, missing `:method`, `:scheme`, or `:path`, response-only
   `:status`, uppercase ordinary header names, ordinary header names outside
