@@ -290,7 +290,8 @@ closed truncation still reports `schema.truncated_field` through
 A codec declaration with a valid `derive decode` clause for the same eligible
 generated binary schema decode-step slice exposes the codec item name as an
 executable decode boundary in ordinary source calls, including supported
-middle reserved-bit layouts, same-module nested dispatch payload schemas,
+middle reserved-bit layouts, same-module nested dispatch payload schemas whose
+own helpers may include length-bounded `ByteView(length_field)` fields,
 same-module recursive closed and extension dispatch payload schemas,
 repeat-backed schemas, and multiple decoded-field selected schema mappings
 already accepted by `byte_decode_step_<schema>`. The call accepts the bounded

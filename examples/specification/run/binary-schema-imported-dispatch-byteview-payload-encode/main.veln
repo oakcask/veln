@@ -1,0 +1,60 @@
+use stdio
+use wire
+
+schema ImportedClosedByteViewPayloadWritePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::SizedPayload)
+end
+
+schema ImportedExtensionByteViewPayloadWritePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => wire::SizedPayload)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let data_bytes: ByteChunk = byte_chunk_from_hex("616263")?
+	let data: ByteView = byte_view(data_bytes, byte_offset(0)?, byte_count(3)?)?
+	let payload: {length: Int, data: ByteView} = {length: 3, data: data}
+
+	let closed: Result<ByteChunk, EncodeError> = byte_encode_imported_closed_byte_view_payload_write_packet({kind: 1, payload: payload})
+	emit_encoded("imported-closed-byteview-payload", closed, "0103616263")
+
+	let extension: Result<ByteChunk, EncodeError> = byte_encode_imported_extension_byte_view_payload_write_packet({length: 4, kind: 1, payload: Known(payload)})
+	emit_encoded("imported-extension-byteview-payload", extension, "040103616263")
+	Ok(())
+end

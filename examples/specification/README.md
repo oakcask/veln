@@ -1595,6 +1595,9 @@ against the built `veln` binary.
   extension-tolerant nested dispatch encode cases write the selected nested
   payload through the generated schema helper path, including byte-aligned
   reserved fields and little-endian primitive output.
+- `run/binary-schema-dispatch-byteview-payload-encode/`: closed and
+  extension-tolerant same-module nested dispatch encode cases write a selected
+  payload schema whose generated helper contains `ByteView(length_field)`.
 - `run/binary-schema-dispatch-reserved-payload-roundtrip/`: closed and
   extension-tolerant nested dispatch payloads that contain supported
   representation-only reserved bits decode and then encode back through the
@@ -1602,6 +1605,9 @@ against the built `veln` binary.
 - `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
   binary schema encode helper selects a closed dispatch public imported nested
   payload schema and writes the nested record fields in schema order.
+- `run/binary-schema-imported-dispatch-byteview-payload-encode/`: closed and
+  extension-tolerant known cases encode a public imported nested payload
+  schema with a `ByteView(length_field)` helper through a written `use` path.
 - `run/binary-schema-imported-recursive-dispatch-encode/`: generated binary
   schema encode helpers write public imported recursive closed and extension
   dispatch payload schemas through written `use` paths and preserve extension
@@ -1711,9 +1717,16 @@ against the built `veln` binary.
   extension-tolerant nested dispatch known cases decode the selected nested
   payload through the generated schema helper path, preserving fixed-field
   validation, byte-aligned reserved fields, and little-endian primitive reads.
+- `run/binary-schema-dispatch-byteview-payload-decode/`: closed and
+  extension-tolerant same-module nested dispatch known cases decode a selected
+  payload schema whose generated helper contains `ByteView(length_field)`;
+  extension-tolerant unknown tags still preserve bounded raw bytes.
 - `run/binary-schema-imported-closed-dispatch-nested-decode/`: a closed
   dispatch known case may select a public imported binary schema payload
   through a written `use` path and return the decoded nested record shape.
+- `run/binary-schema-imported-dispatch-byteview-payload-decode/`: closed and
+  extension-tolerant known cases decode a public imported nested payload
+  schema with a `ByteView(length_field)` helper through a written `use` path.
 - `run/binary-schema-imported-recursive-dispatch-decode/`: public imported
   recursive closed and extension dispatch payload schemas decode through
   written `use` paths while extension unknown tags preserve bounded raw

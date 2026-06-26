@@ -1,0 +1,6 @@
+pub schema SizedPayload
+	format binary
+
+	length: UInt8
+	data: ByteView(length)
+end

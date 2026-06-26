@@ -1,0 +1,52 @@
+# Imported nested dispatch payload decode accepts ByteView(length) helper schemas.
+use stdio
+use wire
+
+schema ImportedClosedByteViewPayloadPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::SizedPayload)
+end
+
+schema ImportedExtensionByteViewPayloadPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => wire::SizedPayload)
+end
+
+fn emit_payload(prefix: String, payload: {length: Int, data: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.length))
+	stdio::print(" ")
+	stdio::println(byte_chunk_to_visible_ascii_string(byte_view_to_chunk(payload.data))?)
+	Ok(())
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{length: Int, data: ByteView}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_payload("imported-extension", value)
+		Unknown(_, _) => unexpected_unknown()
+	end
+end
+
+fn unexpected_unknown() -> Result<(), String> effects [stdio]
+	stdio::println("unexpected unknown")
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("0103616263")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(5)?)?
+	let closed: {kind: Int, payload: {length: Int, data: ByteView}} = byte_decode_imported_closed_byte_view_payload_packet(closed_view)?
+	emit_payload("imported-closed", closed.payload)
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("040103616263")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(6)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{length: Int, data: ByteView}>} = byte_decode_imported_extension_byte_view_payload_packet(extension_view)?
+	emit_extension_payload(extension.payload)
+	Ok(())
+end

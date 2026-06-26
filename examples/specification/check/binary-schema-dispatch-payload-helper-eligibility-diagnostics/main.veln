@@ -7,6 +7,19 @@ schema ForwardByteViewPayload
 	later_length: UInt8
 end
 
+schema MissingByteViewPayload
+	format binary
+
+	payload: ByteView(missing_length)
+end
+
+schema NonIntByteViewPayload
+	format binary
+
+	flags: Flag8
+	payload: ByteView(flags)
+end
+
 schema ClosedPacket
 	format binary
 
@@ -20,6 +33,20 @@ schema ExtensionPacket
 	length: UInt8
 	kind: UInt8
 	payload: ExtensionDispatch(kind, length, 1 => ForwardByteViewPayload)
+end
+
+schema MissingPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => MissingByteViewPayload)
+end
+
+schema NonIntPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => NonIntByteViewPayload)
 end
 
 codec ClosedPacketDecode for ClosedPacket decode
