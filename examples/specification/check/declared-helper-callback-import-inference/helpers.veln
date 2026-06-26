@@ -1,0 +1,3 @@
+pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end

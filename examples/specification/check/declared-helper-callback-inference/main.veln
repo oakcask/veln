@@ -1,0 +1,28 @@
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool
+	callback(label, value)
+end
+
+fn apply_effect(value: String, callback: fn(String) -> () effects [stdio]) -> () effects [stdio]
+	callback(value)
+end
+
+fn stringify(value) -> String
+	"ok"
+end
+
+fn keep_pair(label, value) -> Bool
+	true
+end
+
+fn emit(value) -> () effects [stdio]
+	()
+end
+
+pub fn main() -> {text: String, kept: Bool} effects [stdio]
+	apply_effect("ready", emit)
+	{text: apply_int(1, stringify), kept: apply_pair("one", 1, keep_pair)}
+end

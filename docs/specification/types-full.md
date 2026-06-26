@@ -186,8 +186,19 @@ as the first callback argument.
 parameter from the `Result<T, E>` success type, and `result_map_err` constrains
 its callback parameter from the error type. These helpers still use the
 surrounding expected result type to constrain the callback return type when
-that expected result is concrete. This inference does not apply to ordinary
-user-defined higher-order helpers.
+that expected result is concrete.
+
+Ordinary same-module helpers and visible imported public helpers can provide
+the same expected-type context when their declared parameter type is already a
+concrete function type such as `fn(Int) -> String`,
+`fn(String, Int) -> Bool`, or `fn(String) -> () effects [stdio]`. A named
+private callback function value passed at that argument position receives the
+declared function parameter types for any omitted callback parameter
+annotations. The callback return still has to satisfy the helper's declared
+function return type, and function effect assignment keeps the usual pure and
+effectful compatibility checks. This rule does not infer public callback
+signatures, exported aliases, or helper signatures whose function parameter
+type still contains `unknown`.
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a

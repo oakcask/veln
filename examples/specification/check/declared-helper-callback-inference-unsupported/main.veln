@@ -1,0 +1,11 @@
+fn apply_unknown(callback) -> String
+	"ok"
+end
+
+fn stringify(value) -> String
+	"ok"
+end
+
+pub fn main() -> String
+	apply_unknown(stringify)
+end

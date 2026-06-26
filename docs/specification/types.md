@@ -34,7 +34,9 @@ full type reference.
   Compiler-known collection, dictionary, option, and result helper input
   types also constrain named private callback function parameters passed to
   the implemented map, filter, fold, try-map, context-carrying dictionary
-  aliases, and and-then helpers.
+  aliases, and and-then helpers. Same-module helpers and visible imported
+  helpers whose declared parameter type is a concrete function type also
+  constrain named private callback parameters at that argument position.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

@@ -10694,6 +10694,138 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
 }
 
 #[test]
+fn declared_helpers_infer_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn apply_int(value: Int, callback: fn(Int) -> String) -> String\n",
+            "  callback(value)\n",
+            "end\n",
+            "fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool\n",
+            "  callback(label, value)\n",
+            "end\n",
+            "fn apply_effect(value: String, callback: fn(String) -> () effects [stdio]) -> () effects [stdio]\n",
+            "  callback(value)\n",
+            "end\n",
+            "fn stringify(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn keep_pair(label, value) -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn emit(value) -> () effects [stdio]\n",
+            "  ()\n",
+            "end\n",
+            "pub fn main() -> {text: String, kept: Bool} effects [stdio]\n",
+            "  apply_effect(\"ready\", emit)\n",
+            "  {text: apply_int(1, stringify), kept: apply_pair(\"one\", 1, keep_pair)}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let stringify = core
+        .functions
+        .iter()
+        .find(|function| function.name == "stringify")
+        .expect("callback should be lowered");
+    assert_eq!(stringify.params[0].ty, CoreType::int());
+    let keep_pair = core
+        .functions
+        .iter()
+        .find(|function| function.name == "keep_pair")
+        .expect("pair callback should be lowered");
+    assert_eq!(keep_pair.params[0].ty, CoreType::string());
+    assert_eq!(keep_pair.params[1].ty, CoreType::int());
+    let emit = core
+        .functions
+        .iter()
+        .find(|function| function.name == "emit")
+        .expect("effectful callback should be lowered");
+    assert_eq!(emit.params[0].ty, CoreType::string());
+}
+
+#[test]
+fn imported_declared_helpers_infer_private_callback_parameters() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod spec.app\n",
+            "use spec.helpers\n",
+            "fn stringify(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  helpers::apply_int(1, stringify)\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod spec.helpers\n",
+            "pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String\n",
+            "  callback(value)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: [app.types, helpers.types].concat(),
+        functions: [app.functions, helpers.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let stringify = core
+        .functions
+        .iter()
+        .find(|function| function.name == "stringify")
+        .expect("callback should be lowered");
+    assert_eq!(stringify.params[0].ty, CoreType::int());
+}
+
+#[test]
+fn unconstrained_helpers_do_not_infer_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn apply_unknown(callback) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn stringify(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  apply_unknown(stringify)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `value` has no inferred type"
+    }));
+}
+
+#[test]
 fn dictionary_prelude_callbacks_infer_key_and_value_parameters() {
     let source = SourceFile::new(
         "main.veln",
