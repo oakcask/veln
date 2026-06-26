@@ -661,11 +661,11 @@ execution reference.
   `map to Target` clause, or multiple structural mapping clauses selected by
   `when field == literal`, `when field != literal`, or boolean selector
   expressions built from decoded schema-local `Int` fields, integer literals,
-  `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, and each target
-  or by direct selector calls to one pure same-module `Bool` converter function
-  or one imported public pure `Bool` converter function through a written
-  `use` path or alias, and each target resolves to the same decoded record
-  shape whose mapped expressions match the target field types,
+  `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by direct
+  selector calls to one pure same-module `Bool` converter function or one
+  imported public pure `Bool` converter function through a written `use` path
+  or alias, and each target resolves to the same decoded record shape whose
+  mapped expressions match the target field types,
   the helper returns the selected mapped ordinary record shape instead of the
   schema-local field shape. Mapping selection reads the already decoded `Int`
   selector fields after field-local validation succeeds; selector clauses must
