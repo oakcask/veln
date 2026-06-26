@@ -1816,13 +1816,14 @@ execution reference.
   are decoded, and the checked state output shows the decode count is
   unchanged while a CONTINUATION block is still pending and advances only
   after the final accepted header-block decode. A dynamic indexed `0xbe`
-  lookup without prior state remains unsupported and leaves the carried HPACK
+  lookup without prior state reports
+  `hpack.fixture.dynamic_index_out_of_range` and leaves the carried HPACK
   fixture decode count unchanged; a later accepted literal-with-indexing
   block then inserts `:path: /target` and makes the following `0xbe` readable
   through the returned state. A literal-never-indexed decode without a prior
   dynamic entry still inserts no dynamic table entry, so a later `0xbe`
-  lookup from that returned state remains unsupported. Missing, malformed,
-  and out-of-range dynamic-name continuations remain on
+  lookup from that returned state reports the same dynamic-index diagnostic.
+  Missing, malformed, and out-of-range dynamic-name continuations remain on
   `hpack.fixture.unsupported_header_block`. It also
   accepts dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
@@ -1856,14 +1857,17 @@ execution reference.
   `:authority: abc.test` entry, a reduction to `40` evicts the raw new-name
   ordinary `x-trace: ok` entry after its checked `0xbe` reuse path, and a
   reduction to `30` drops both supported `:method: PUT` and `:path: /target`
-  entries so later dynamic indexed representations stay on the unsupported
-  fixture path. The checked fixture
+  entries so later dynamic indexed representations report
+  `hpack.fixture.dynamic_index_out_of_range`. The checked fixture
   boundary also covers eviction caused by a later literal-with-indexing
   insertion: after a reduced table keeps `:scheme: https` and `:method: PUT`,
   inserting `:path: /target` keeps that new entry as the newest dynamic entry
   and evicts the older entries that no longer fit; a later `0xbe` lookup
-  succeeds, while `0xbf` stays on the unsupported fixture path. Unsupported
-  fixture input, including malformed non-terminating table-size updates,
+  succeeds, while `0xbf` reports the dynamic-index diagnostic. That
+  diagnostic records the requested dynamic index, the current dynamic table
+  entry count, observed header-block size, observed first byte, codec module,
+  and bounded header-block byte preview. Unsupported fixture input, including
+  malformed non-terminating table-size updates,
   table-size updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block

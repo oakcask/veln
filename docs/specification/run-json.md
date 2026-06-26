@@ -531,6 +531,10 @@ diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.
+Dynamic indexed lookup failures use id
+`hpack.fixture.dynamic_index_out_of_range` and also record
+`requested_dynamic_index` and `dynamic_table_entry_count` before the same
+expected fixture, codec module, and bounded byte-preview fields.
 When a dynamic table-size update appears after a decoded header field in the
 same completed header block, the HPACK fixture boundary uses id
 `hpack.fixture.table_size_update_not_at_start` and also records

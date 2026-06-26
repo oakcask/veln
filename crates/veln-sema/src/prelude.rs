@@ -759,6 +759,19 @@ fn hpack_fixture_signature<T: BytePreludeType>(
             ],
             unit_result(),
         )),
+        "hpack_fixture_dynamic_index_out_of_range" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_result(),
+        )),
         "hpack_fixture_table_size_update_not_at_start" => Some((
             vec![
                 T::int(),

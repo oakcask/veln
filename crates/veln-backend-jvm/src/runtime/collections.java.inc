@@ -4406,6 +4406,40 @@
         return err(message);
     }
 
+    public static Object hpackFixtureDynamicIndexOutOfRange(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object requestedDynamicIndex,
+        Object dynamicTableEntryCount,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        long requestedIndex = asLong(requestedDynamicIndex);
+        long entryCount = asLong(dynamicTableEntryCount);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String nearbyContext = byteViewPreviewTrace(preview, 8);
+        String message = "HPACK dynamic index out of range at byte offset "
+            + byteOffset;
+        registerHpackFixtureDynamicIndexOutOfRangeDiagnostic(
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            requestedIndex,
+            entryCount,
+            expected,
+            module,
+            nearbyContext
+        );
+        return err(message);
+    }
+
     public static Object hpackFixtureTableSizeUpdateNotAtStart(
         Object offset,
         Object observedSize,

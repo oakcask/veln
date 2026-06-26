@@ -833,6 +833,35 @@
         );
     }
 
+    private static void registerHpackFixtureDynamicIndexOutOfRangeDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        long requestedDynamicIndex,
+        long dynamicTableEntryCount,
+        String expectedFixture,
+        String codecModule,
+        String nearbyContext
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "hpack.fixture.dynamic_index_out_of_range",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_header_block_size", observedSize),
+                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                    DiagnosticDetail.number("requested_dynamic_index", requestedDynamicIndex),
+                    DiagnosticDetail.number("dynamic_table_entry_count", dynamicTableEntryCount),
+                    DiagnosticDetail.string("expected_fixture", expectedFixture),
+                    DiagnosticDetail.string("codec_module", codecModule),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
         String message,
         long byteOffset,

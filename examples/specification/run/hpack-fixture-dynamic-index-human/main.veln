@@ -1,0 +1,21 @@
+use hpack_fixture
+
+fn require_state(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<HpackFixtureState, String>
+	match result
+		Ok(transition) => Ok(transition_state(transition))
+		Err(_) => Err("expected HPACK fixture decode")
+	end
+end
+
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String>
+	match result
+		Ok(_) => Err("expected HPACK dynamic index lookup failure")
+		Err(error) => project_failure(error)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let literal_state: HpackFixtureState = require_state(decode_header_block(byte_chunk_from_hex("44072f746172676574")?, initial_state(), 27))?
+	let evicted_state: HpackFixtureState = require_state(decode_header_block(byte_chunk_from_hex("3e")?, literal_state, 28))?
+	project_decode_result(decode_header_block(byte_chunk_from_hex("be")?, evicted_state, 29))
+end

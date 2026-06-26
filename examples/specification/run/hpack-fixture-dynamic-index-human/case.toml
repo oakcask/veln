@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln", "hpack_fixture.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.dynamic_index_out_of_range]: HPACK dynamic index out of range at byte offset 29", "note: HPACK dynamic index 0 was requested, but the fixture dynamic table currently contains 0 entry/entries.", "note: HPACK fixture codec `hpack_fixture` observed header block size 1 and first byte 190.", "note: Nearby bytes: be (showing 1 of 1 byte(s), complete).", "note: Expected fixture dynamic indexed header."]

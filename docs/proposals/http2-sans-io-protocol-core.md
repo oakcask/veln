@@ -405,14 +405,15 @@ dynamic-table receive slice: a
 literal-with-indexing `:path: /target` block inserts that entry into the next
 immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
-indexed representation without prior state stays unsupported without
-advancing the carried fixture decode count. The same completed HEADERS path
-also inserts raw new-name literal-with-indexing `x-trace: ok`, reuses it
-through a later `0xbe`, and evicts it with a table-size `40` reduction so the
-following dynamic indexed reference stays unsupported. The state output also
-shows that a split header block leaves the HPACK fixture state unchanged until
-the final CONTINUATION block is accepted. A later literal-with-indexing `:method: PUT`
-block and a later
+indexed representation without prior state reports
+`hpack.fixture.dynamic_index_out_of_range` without advancing the carried
+fixture decode count. The same completed HEADERS path also inserts raw
+new-name literal-with-indexing `x-trace: ok`, reuses it through a later
+`0xbe`, and evicts it with a table-size `40` reduction so the following
+dynamic indexed reference reports the same focused diagnostic. The state
+output also shows that a split header block leaves the HPACK fixture state
+unchanged until the final CONTINUATION block is accepted. A later
+literal-with-indexing `:method: PUT` block and a later
 literal-with-indexing `:scheme: https` block are inserted as newest-first
 bounded fixture dynamic-table entries while older entries remain addressable
 when the table has room. The fixture carries that state through both completed
@@ -425,8 +426,9 @@ through `0xc0`, accepts the checked dynamic-name literal-with-indexing block
 values `63` and `64`, accepts checked dynamic-name literal-without-indexing
 and literal-never-indexed blocks that reuse `:path` without inserting
 replacement dynamic entries, and retains older entries when the bounded
-fixture table has room, keeps dynamic entries evicted by a reduced fixture
-table size on the unsupported fixture path. Reducing the fixture table size to
+fixture table has room, while dynamic entries evicted by a reduced fixture
+table size use the focused dynamic-index diagnostic. Reducing the fixture
+table size to
 `86`
 keeps the newest two supported entries and evicts the third retained entry;
 reducing the fixture table size to `42` keeps the newest supported
@@ -456,11 +458,13 @@ start of a header block and preserving unsupported behavior for malformed or
 trailing-byte table-size update encodings.
 Unsupported HPACK bytes, including malformed non-terminating table-size
 updates and table-size updates with trailing bytes after a complete integer,
-remain on `hpack.fixture.unsupported_header_block`. Malformed string lengths,
-malformed raw string values on supported literal-name forms, malformed Huffman
-padding, and Huffman EOS use their focused HPACK fixture diagnostic ids;
-multi-byte non-visible Huffman strings decode as `hpack-bytes-*` fixture
-labels.
+remain on `hpack.fixture.unsupported_header_block`. Dynamic indexed lookup
+failures use `hpack.fixture.dynamic_index_out_of_range` with the requested
+dynamic index and current bounded dynamic table entry count. Malformed string
+lengths, malformed raw string values on supported literal-name forms,
+malformed Huffman padding, and Huffman EOS use their focused HPACK fixture
+diagnostic ids; multi-byte non-visible Huffman strings decode as
+`hpack-bytes-*` fixture labels.
 It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on

@@ -54,6 +54,7 @@ requiring the full command reference on the first read.
   flow-control peer-limits with bounded DATA payload byte previews,
   header-list and header-table receive-limit peer-limits with bounded
   header-block byte previews,
+  HPACK dynamic index lookup failures with dynamic table entry counts, and
   HPACK dynamic table-size update placement failures with frame and stream
   context,
   SETTINGS value range peer-limit, stream id domain

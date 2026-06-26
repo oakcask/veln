@@ -25,6 +25,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
@@ -244,11 +245,18 @@ fn dynamic_entry_at(dynamic_entry: HpackDynamicEntry, table_index: Int) -> Optio
 	end
 end
 
+fn dynamic_entry_count(dynamic_entry: HpackDynamicEntry) -> Int
+	match dynamic_entry
+		NoDynamicEntry => 0
+		DynamicEntry(_, _, older) => 1 + dynamic_entry_count(older)
+	end
+end
+
 fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
 			Some(HpackHeader(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
-			None => unsupported(block, offset)
+			None => dynamic_index_out_of_range(block, offset, table_index, dynamic_entry_count(dynamic_entry))
 		end
 	end
 end
@@ -331,6 +339,10 @@ end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn dynamic_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic indexed header", "hpack_fixture", block))
 end
 
 fn unsupported_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
@@ -1844,6 +1856,7 @@ end
 pub fn failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		DynamicIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
@@ -1852,6 +1865,7 @@ end
 pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		DynamicIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
 		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
@@ -1860,14 +1874,30 @@ end
 pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		DynamicIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
+	end
+end
+
+pub fn failure_requested_dynamic_index(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		_ => 0
+	end
+end
+
+pub fn failure_dynamic_table_entry_count(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		_ => 0
 	end
 end
 
 pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicIndexOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
@@ -1876,6 +1906,7 @@ end
 pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		DynamicIndexOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
 		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
@@ -1884,6 +1915,7 @@ end
 pub fn failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, preview) => preview
 		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
@@ -1892,6 +1924,7 @@ end
 pub fn failure_diagnostic_id(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_index_out_of_range"
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => "hpack.fixture.huffman_non_visible_value"
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 	end
@@ -1902,6 +1935,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 	end

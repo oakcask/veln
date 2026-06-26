@@ -2193,7 +2193,8 @@ boundary also checks one dynamic-table receive slice: a literal
 incremental-indexing `:path: /target` block returns a next immutable fixture
 state that the HTTP/2 decode state carries, a later `0xbe` indexed header
 field decodes through that carried state, and the same indexed byte without a
-dynamic entry stays unsupported. Later literal incremental-indexing blocks
+dynamic entry reports `hpack.fixture.dynamic_index_out_of_range`. Later
+literal incremental-indexing blocks
 prepend newest-first bounded fixture dynamic-table entries while older entries
 remain addressable when the table has room. After `:method: PUT` and
 `:scheme: https` are inserted over `:path: /target`, `0xbe` decodes the
@@ -2236,9 +2237,10 @@ literal-never-indexed decode without a prior
 dynamic entry still
 advances the immutable fixture decode count without inserting a dynamic-table
 entry, so a following `0xbe` dynamic-indexed lookup from that returned state
-remains unsupported. The case also checks a `0xbe` dynamic-indexed lookup
-without any prior dynamic entry at the HTTP/2 boundary: the unsupported
-fixture failure leaves the carried decode count unchanged, and a later
+reports `hpack.fixture.dynamic_index_out_of_range`. The case also checks a
+`0xbe` dynamic-indexed lookup without any prior dynamic entry at the HTTP/2
+boundary: the focused fixture failure leaves the carried decode count
+unchanged, and a later
 accepted literal-with-indexing block inserts `:path: /target` so the following
 `0xbe` reads through the returned state. Missing, malformed, and out-of-range
 dynamic-name continuations remain unsupported. The fixture also accepts dynamic
@@ -2269,14 +2271,18 @@ the older `:path: /target` entry, and also evicts `:authority: abc.test`;
 table size `40` evicts the raw new-name ordinary `x-trace: ok` entry after a
 checked `0xbe` reuse; table size `30` evicts both supported `:method: PUT` and
 `:path: /target` dynamic
-entries and leaves later dynamic indexed representations on the unsupported
-fixture path. A later literal-with-indexing insertion that exceeds remaining
-capacity keeps the inserted `:path: /target` entry readable at `0xbe` and
-evicts the older entries so `0xbf` stays unsupported. The fixture
+entries, so later dynamic indexed lookups report
+`hpack.fixture.dynamic_index_out_of_range`. Non-dynamic-indexed unsupported
+forms remain on `hpack.fixture.unsupported_header_block`. A later
+literal-with-indexing insertion that exceeds remaining capacity keeps the
+inserted `:path: /target` entry readable at `0xbe` and evicts the older
+entries so `0xbf` reports the dynamic-index failure. The fixture
 exposes the decoded header name and value through ordinary header-list
 accessors, advances the immutable fixture state, and keeps unsupported HPACK
 input on `hpack.fixture.unsupported_header_block`, including unsupported
-literal-without-indexing forms. Malformed string lengths, malformed raw string
+literal-without-indexing forms. Dynamic indexed lookup failures record the
+requested dynamic index, current dynamic table entry count, codec module, and
+bounded byte preview. Malformed string lengths, malformed raw string
 values for supported literal names, malformed Huffman padding, Huffman EOS,
 and other malformed HPACK string inputs stay on the HPACK fixture boundary but
 use focused `hpack.fixture.*` ids, while multi-byte non-visible Huffman values
@@ -2463,6 +2469,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,
+`../../examples/specification/run/hpack-fixture-dynamic-index-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-order-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/case.toml`,
@@ -2498,6 +2505,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-json/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-json/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`,
+`../../examples/specification/run/hpack-fixture-dynamic-index-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/case.toml`,
