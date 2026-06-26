@@ -71,6 +71,113 @@ fn private_function_reports_incomplete_annotation_inference() {
 }
 
 #[test]
+fn omitted_local_binding_type_infers_from_later_call_use() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn consume(items: Vec<Int>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let items = []\n",
+            "  consume(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn omitted_local_binding_type_infers_from_return_compatible_use() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Vec<Int>\n",
+            "  let items = []\n",
+            "  items\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn omitted_local_binding_type_reports_unconstrained_unknown() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn main() -> Int\n", "  let items = []\n", "  1\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.local_inference_incomplete");
+    assert_eq!(
+        diagnostics[0].message,
+        "omitted local binding `items` has no concrete inferred type"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"inferred_type\":\"Vec<unknown>\"")
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
+fn omitted_local_binding_type_reports_conflicting_later_uses() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn consume_int(items: Vec<Int>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn consume_string(items: Vec<String>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let items = []\n",
+            "  let first: Int = consume_int(items)\n",
+            "  consume_string(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Vec<String>`, but found `Vec<Int>`"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"constraint\":\"call_argument\"")
+    );
+}
+
+#[test]
 fn test_declaration_requires_explicit_test_shape() {
     let source = SourceFile::new(
         "main_test.veln",

@@ -1,0 +1,14 @@
+# Omitted local let types may be fixed by later same-function uses.
+fn consume(items: Vec<Int>) -> Int
+	1
+end
+
+fn call_constrained() -> Int
+	let items = []
+	consume(items)
+end
+
+fn return_constrained() -> Vec<Int>
+	let items = []
+	items
+end

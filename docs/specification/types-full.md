@@ -111,6 +111,15 @@ Expected types flow into holes and subexpressions from:
 - `match` arm results and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
+When a local `let` binding omits its annotation and its initializer leaves the
+binding type with `unknown`, later same-function uses may fix the binding to
+one concrete type. Implemented constraining uses include call arguments and
+tail expressions checked against a declared return type. The binding remains
+monomorphic: after one concrete type is fixed, a later incompatible use reports
+`type.mismatch`. If no same-function use fixes every `unknown` part of the
+binding type, checking reports `type.local_inference_incomplete` at the
+omitted binding.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
