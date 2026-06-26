@@ -558,8 +558,8 @@ fn check_human_reports_refutable_let_pattern_hint() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Option<Int>) -> ()\n",
-            "  let Some(amount) = value\n",
+            "fn main(value: Int) -> ()\n",
+            "  let 1 = value\n",
             "  ()\n",
             "end\n",
         ),
@@ -573,7 +573,7 @@ fn check_human_reports_refutable_let_pattern_hint() {
         stdout(&output),
         &[
             "main.veln:2:7: error[pattern.refutable_let]: refutable let pattern is not supported",
-            "  note: main.veln:2:7: Use a binding, wildcard, or record pattern in a let statement.",
+            "  note: main.veln:2:7: Use a binding, wildcard, record pattern, or constructor pattern in a let statement.",
         ],
     );
 }

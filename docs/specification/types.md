@@ -24,6 +24,11 @@ full type reference.
   ADT constructors also infer omitted type arguments from payload expressions
   when the constructor resolves to one visible variant and every type argument
   becomes concrete.
+  Record let patterns bind nested named fields from a known record initializer
+  or local annotation; missing fields report `type.field_missing`.
+  Constructor let patterns bind named payload positions from a known ADT
+  initializer or local annotation; wrong descriptor constructors report
+  `type.mismatch`.
   Constructor patterns in `match` arms may constrain an otherwise unknown
   scrutinee when the visible arms identify one finite descriptor domain.
   Compiler-known collection, dictionary, option, and result helper input
@@ -62,7 +67,7 @@ full type reference.
 
 - Annotation syntax, public/private annotation requirements, and test
   declaration type requirements: [types-full.md](types-full.md#annotations).
-- Local inference sources, match patterns, and record pattern bindings:
+- Local inference sources, match patterns, and pattern let bindings:
   [types-full.md](types-full.md#inference).
 - Record, dictionary, function, and field-access assignment compatibility:
   [types-full.md](types-full.md#assignment-compatibility).

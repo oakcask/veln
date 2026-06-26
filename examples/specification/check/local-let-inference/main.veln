@@ -36,6 +36,27 @@ fn non_empty_collection_initializers() -> {vec: Vec<Int>, dict: Dict<String, Int
 	{vec: items, dict: table}
 end
 
+fn record_pattern_bindings(input: {count: Int, label: String}) -> {count: Int, label: String}
+	let {count: count, label: label} = input
+	{count: count, label: label}
+end
+
+fn nested_record_pattern_bindings() -> {count: Int, label: String}
+	let {outer: {count: count, label: label}, ignored: _} = {outer: {count: 1, label: "ok"}, ignored: false}
+	let _: Int = count + 1
+	{count: count, label: label}
+end
+
+fn constructor_pattern_bindings(input: Option<Int>) -> Int
+	let Some(count) = input
+	count + 1
+end
+
+fn nested_constructor_pattern_bindings(input: Result<Option<Int>, String>) -> Int
+	let Ok(Some(count)) = input
+	count + 1
+end
+
 fn return_constrained() -> Vec<Int>
 	let items = []
 	items

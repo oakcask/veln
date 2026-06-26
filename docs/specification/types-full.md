@@ -187,7 +187,15 @@ Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
 to the corresponding record field type when the right-hand side or annotation
-has a known record type.
+has a known record type. A record let pattern field missing from a known record
+type reports `type.field_missing` at the pattern field.
+Constructor let patterns bind each nested binding to the corresponding
+constructor payload type when the right-hand side or annotation has a known ADT
+descriptor type. A constructor pattern that resolves to a different descriptor
+reports `type.mismatch` at the constructor pattern. Pattern bindings whose
+payload or field type remains `unknown` still report
+`type.local_inference_incomplete` unless another diagnostic already explains
+the pattern.
 
 `match` infers a scrutinee type before checking arm bodies. Constructor
 patterns can constrain an otherwise unknown scrutinee when the visible arm

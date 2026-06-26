@@ -66,6 +66,8 @@ behavior.
   [local-inference-adt-constructor-payload.md](local-inference-adt-constructor-payload.md).
 - Local inference match scrutinee constructor pattern:
   [local-inference-match-scrutinee-constructor-pattern.md](local-inference-match-scrutinee-constructor-pattern.md).
+- Local inference local pattern let:
+  [local-inference-local-pattern-let.md](local-inference-local-pattern-let.md).
 - If else expression syntax:
   [if-else-expression-syntax.md](if-else-expression-syntax.md).
 - Public member alias re-exports:
