@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.table_size_update_not_at_start]: HPACK table-size update appears after a header field at byte offset 10", "note: Frame kind 1 on stream 1 requested HPACK header table size 30 after a decoded header field.", "note: HPACK fixture codec `hpack_fixture` observed header block size 2, first byte 62, and active state hpack-fixture.", "note: Nearby bytes: 82 3e (showing 2 of 2 byte(s), complete).", "note: Expected fixture HPACK table-size update at header block start."]
