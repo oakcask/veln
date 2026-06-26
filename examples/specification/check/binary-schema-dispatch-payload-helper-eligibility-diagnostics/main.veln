@@ -20,6 +20,13 @@ schema NonIntByteViewPayload
 	payload: ByteView(flags)
 end
 
+schema UnsupportedReservedPayload
+	format binary
+
+	padding: ReservedBits(1, 0)
+	value: UInt8
+end
+
 schema ClosedPacket
 	format binary
 
@@ -49,6 +56,13 @@ schema NonIntPacket
 	payload: Dispatch(kind, 1 => NonIntByteViewPayload)
 end
 
+schema UnsupportedReservedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
+end
+
 codec ClosedPacketDecode for ClosedPacket decode
 	derive decode
 end
@@ -63,4 +77,8 @@ end
 
 codec ExtensionPacketEncode for ExtensionPacket encode
 	derive encode
+end
+
+codec UnsupportedReservedPacketDecode for UnsupportedReservedPacket decode
+	derive decode
 end

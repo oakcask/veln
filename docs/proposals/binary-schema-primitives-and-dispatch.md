@@ -157,7 +157,8 @@ existing `schema.dispatch_payload` diagnostic shape. Resolved binary payload
 schemas outside that helper slice include structured expected decode and
 encode helper fields plus related notes for the payload declaration; checked
 coverage includes a nested payload whose `ByteView` length field is not an
-earlier decoded `Int` field.
+earlier decoded `Int` field and a nested payload with an unsupported
+representation-only `ReservedBits` layout.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching
