@@ -145,7 +145,9 @@ that projection boundary. The
 continuation-ordering and pending-byte close diagnostics carry structured
 protocol-owned byte previews for the inspected incoming frame header and
 retained pending bytes. The remaining proposal work covers broader schema and
-codec diagnostics beyond these implemented slices.
+codec diagnostics beyond these implemented slices. The language-level
+transport for attaching runtime diagnostic details to failures is covered by
+[Runtime Diagnostic Payloads](runtime-diagnostic-payload.md).
 
 ## Problem
 
