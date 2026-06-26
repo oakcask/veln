@@ -420,7 +420,10 @@
         if (storageByteWidth > 0) {
             return storageByteWidth;
         }
-        return bitWidth >= 33 && bitWidth <= 39 ? 5 : 0;
+        if (bitWidth >= 33 && bitWidth <= 39) {
+            return 5;
+        }
+        return bitWidth >= 41 && bitWidth <= 47 ? 6 : 0;
     }
 
     private static int packedVisibleBitWidth(SchemaFieldSpec reserved, SchemaFieldSpec visible) {

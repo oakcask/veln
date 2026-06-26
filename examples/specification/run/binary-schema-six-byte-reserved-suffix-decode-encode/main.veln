@@ -1,0 +1,31 @@
+use stdio
+
+schema SixByteReservedSuffixHeader
+	format binary
+
+	control: UInt7
+	control_padding: ReservedBits(41, 1466015503701)
+end
+
+fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(6)?)?
+	byte_read_u48_be(view)
+end
+
+fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => Ok(stdio::println(int_to_string(encoded_value(chunk)?)))
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("ab5555555555")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let decoded: {control: Int} = byte_decode_six_byte_reserved_suffix_header(view)?
+	stdio::println(int_to_string(decoded.control))
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_six_byte_reserved_suffix_header({control: 85})
+	let ignored: () = emit_encoded(encoded)?
+	Ok(())
+end

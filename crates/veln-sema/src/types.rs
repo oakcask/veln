@@ -4199,6 +4199,8 @@ fn suffix_packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
     packed_reserved_storage_bit_width(bit_width).or_else(|| {
         if (33..=39).contains(&bit_width) {
             Some(40)
+        } else if (41..=47).contains(&bit_width) {
+            Some(48)
         } else {
             None
         }

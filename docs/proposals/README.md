@@ -100,7 +100,7 @@ compare it with `../specification/` before changing behavior.
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
-  one-byte, two-byte, three-byte, four-byte, and five-byte packed
+  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte packed
   reserved-suffix decode and encode,
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode, including the narrow two-byte byte-interleaved
