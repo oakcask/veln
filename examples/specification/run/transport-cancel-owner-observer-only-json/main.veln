@@ -1,0 +1,8 @@
+# Owner-derived cancellation tokens are observer-only.
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let owner: CancelOwner = time::cancel_owner()
+	let token: CancelToken = time::cancel_token_from(owner)
+	time::cancel(token)
+	stdio::println("unreachable")
+	Ok(())
+end

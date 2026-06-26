@@ -1791,6 +1791,23 @@ response actions, applies only `SendBytes` actions as ordered
 case pins the composed `net`, `time`, and `concurrency` effect boundary while
 the handler remains callable without transport effects.
 
+The executable specification case
+`../../examples/specification/run/socket-stream-adapter-cancel-owner-lifecycle/`
+covers adapter-owned cancellation authority. The adapter creates a
+`CancelOwner`, passes only `time::cancel_token_from(owner)` to routing, wait,
+and cancellable socket-read code, requests cancellation through
+`time::cancel_owned(owner)` during cleanup, then observes `WaitCancelled` and
+`ReadCancelled` as ordinary outcome values before closing the stream and
+listener. The matching
+`../../examples/specification/check/socket-stream-adapter-cancel-owner-lifecycle-effects/`
+case pins the same `net`, `time`, and `concurrency` adapter effect boundary
+while the handler remains callable without transport effects.
+The
+`../../examples/specification/run/transport-cancel-owner-observer-only-json/`
+case pins owner-derived observer tokens as non-authoritative: direct
+`time::cancel(token)` on such a token fails at runtime, while cancellation
+through `time::cancel_owned(owner)` remains the owner path.
+
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing-general-list/`,
 `../../examples/specification/run/channel-first-stream-routing/`,

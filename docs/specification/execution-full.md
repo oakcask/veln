@@ -803,9 +803,13 @@ non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
 `time::cancel_token` returns a source-visible `CancelToken`,
-`time::cancel` requests cancellation through that handle, `time::is_cancelled`
-observes the handle state as `Bool` without waiting or requesting
-cancellation, and
+`time::cancel_owner` returns a source-visible `CancelOwner`,
+`time::cancel_token_from` exposes an observer `CancelToken` from that owner,
+`time::cancel_owned` requests cancellation through the owner,
+`time::cancel` requests cancellation through a token for existing direct-token
+code, owner-derived observer tokens reject direct `time::cancel(token)` at the
+runtime boundary, `time::is_cancelled`
+observes token state as `Bool` without waiting or requesting cancellation, and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
 same deadline and token values and returns `WaitCompleted`,
@@ -844,6 +848,12 @@ completed wait, deadline-expired, and cancelled outcomes into response action
 values. Completed waits keep the handler-produced actions, deadline expiry
 prepends a retry action, and cancellation prepends a cleanup action without
 exposing timer handles or transport effects to the handler.
+The cancellation-owner lifecycle case keeps a `CancelOwner` in adapter
+cleanup, passes only the observer `CancelToken` to routing, wait, and socket
+read code, requests cancellation through the owner, and then observes
+`WaitCancelled` and `ReadCancelled` as ordinary source outcome values before
+closing the owned stream and listener. A focused runtime case keeps direct
+`time::cancel` on an owner-derived observer token as a runtime failure.
 The cancellable deadline-aware socket lifecycle case composes
 `net::accept_until_cancellable`, `net::read_chunk_until_cancellable`,
 ordinary channel routing, and ordered `net::write_chunk` projection. The

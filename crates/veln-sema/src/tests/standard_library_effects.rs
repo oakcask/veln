@@ -1022,6 +1022,36 @@ fn cancellation_status_query_requires_time_effect_with_descriptor_provenance() {
 }
 
 #[test]
+fn cancellation_owner_calls_require_time_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn owner_token() -> CancelToken\n",
+            "  let owner: CancelOwner = time::cancel_owner()\n",
+            "  let token: CancelToken = time::cancel_token_from(owner)\n",
+            "  time::cancel_owned(owner)\n",
+            "  token\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `time`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"time\""));
+    assert!(details.contains("\"inferred_effects\":[\"time\"]"));
+    assert!(details.contains("\"symbol\":\"time::cancel_owner\""));
+}
+
+#[test]
 fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
     let source = SourceFile::new(
         "main.veln",
@@ -1059,6 +1089,10 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  let token: CancelToken = time::cancel_token()\n",
             "  time::wait_until_cancellable(deadline, token)\n",
             "  let outcome: CancellableWaitOutcome = time::wait_until_cancellable_outcome(deadline, token)\n",
+            "  let owner: CancelOwner = time::cancel_owner()\n",
+            "  let observer_token: CancelToken = time::cancel_token_from(owner)\n",
+            "  time::cancel_owned(owner)\n",
+            "  let owner_cancelled: Bool = time::is_cancelled(observer_token)\n",
             "  time::cancel(token)\n",
             "  let cancelled: Bool = time::is_cancelled(token)\n",
             "  fs::read_to_string(path)\n",
@@ -1387,7 +1421,47 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::wait_until_cancellable_outcome"
     ));
-    let IrStmtKind::Expr { value } = &main.body[32].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[32].kind else {
+        panic!("cancel owner call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::cancel_owner"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[33].kind else {
+        panic!("cancel token from owner call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::cancel_token_from"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[34].kind else {
+        panic!("cancel owned call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::cancel_owned"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[35].kind else {
+        panic!("owner cancel status call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::is_cancelled"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[36].kind else {
         panic!("cancel call should lower as an expression");
     };
     assert!(matches!(
@@ -1397,7 +1471,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::cancel"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[33].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[37].kind else {
         panic!("cancel status call should lower as a let");
     };
     assert!(matches!(
@@ -1407,7 +1481,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::is_cancelled"
     ));
-    let IrStmtKind::Return { value } = &main.body[34].kind else {
+    let IrStmtKind::Return { value } = &main.body[38].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

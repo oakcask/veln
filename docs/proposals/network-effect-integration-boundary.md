@@ -34,8 +34,8 @@ slices, and narrow deadline and cancellation slices, for:
   listener-drain adapter lifecycle, listener-drain read-failure boundary,
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
   deadline-aware read-failure boundary, production cancellable deadline-aware
-  adapter lifecycle and outcome boundary, and explicit listener-close
-  boundary, the
+  adapter lifecycle and outcome boundary, explicit listener-close boundary,
+  and adapter-owned cancellation owner lifecycle boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -87,7 +87,8 @@ slices, and narrow deadline and cancellation slices, for:
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
   `time::wait_until_cancellable_outcome`, deadline-aware listener accept,
   cancellable deadline-aware listener accept, and deadline-aware and
-  cancellable deadline-aware stream read
+  cancellable deadline-aware stream read, `time::cancel_owner`,
+  `time::cancel_token_from`, and `time::cancel_owned`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -470,6 +471,19 @@ timeout expiry, deadline expiry, or cancellable-wait cancellation as runtime
 failures through the runtime-failure wait. These calls do not add a separate
 richer timer effect or timer-specific source construct.
 
+Implemented cancellation-owner slice: executable specification cases use
+`time::cancel_owner` to create an adapter-owned cancellation owner,
+`time::cancel_token_from` to expose only an observer `CancelToken` to routing,
+wait, and cancellable socket-read code, and `time::cancel_owned` to request
+cancellation during adapter cleanup. After owner-requested cancellation,
+`time::wait_until_cancellable_outcome` returns `WaitCancelled` and
+`net::read_chunk_until_cancellable` returns `ReadCancelled` as ordinary
+adapter-observable values. The calls infer the existing coarse `time` effect,
+and the adapter example composes them with existing `net` and `concurrency`
+boundaries while leaving the handler free of transport effects. Owner-derived
+observer tokens reject direct `time::cancel(token)` at the runtime boundary;
+direct tokens from `time::cancel_token` keep the existing compatibility path.
+
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
 source-visible handle, and translate deadline expiry or cancellation into
@@ -479,10 +493,10 @@ does not read time, sleep, or observe host timers or cancellation handles.
 
 This keeps the first integration boundary aligned with the current coarse
 effect model. A later runtime proposal may add richer timer handles,
-monotonic-clock values, cancellation ownership APIs beyond `CancelToken`, or
-scheduler APIs if examples need them, but that work should extend the `time`
-standard-library surface rather than introduce deadline behavior into schemas
-or the pure protocol core.
+monotonic-clock values, cancellation-owner capabilities beyond the current
+owner/token split, or scheduler APIs if examples need them, but that work
+should extend the `time` standard-library surface rather than introduce
+deadline behavior into schemas or the pure protocol core.
 
 ## Non-Goals
 
@@ -523,7 +537,8 @@ or the pure protocol core.
   deadline and cancellation APIs beyond the current relative `Deadline`,
   `CancelToken`, cancellation status-query, cancellable wait-outcome,
   cancellable deadline-aware listener accept, stream read, stream write, and
-  accepted-stream lifecycle boundaries.
+  accepted-stream lifecycle boundaries, plus the current cancellation
+  owner/token split.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

@@ -281,7 +281,8 @@ compare it with `../specification/` before changing behavior.
   boundary, deadline-aware adapter lifecycle, deadline-aware accept and read
   failure runtime boundaries, production cancellable deadline-aware adapter
   lifecycle and outcome boundary, adapter close-failure runtime boundary, and
-  explicit listener-close boundary,
+  explicit listener-close boundary, adapter-owned cancellation owner
+  lifecycle boundary,
   bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable

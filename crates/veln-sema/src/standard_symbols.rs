@@ -36,6 +36,7 @@ pub(crate) enum StandardType {
     NetListener,
     NetStream,
     Deadline,
+    CancelOwner,
     CancelToken,
     AcceptOutcome,
     StreamReadOutcome,
@@ -135,6 +136,7 @@ const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
 ];
 const PARAM_INT: &[StandardType] = &[StandardType::Int];
 const PARAM_DEADLINE: &[StandardType] = &[StandardType::Deadline];
+const PARAM_CANCEL_OWNER: &[StandardType] = &[StandardType::CancelOwner];
 const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::CancelToken];
 const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] =
     &[StandardType::Deadline, StandardType::CancelToken];
@@ -577,6 +579,36 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         StandardSignature {
             params: &[],
             return_type: StandardType::CancelToken,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
+        "cancel_owner",
+        TIME_EFFECTS,
+        "runtime.time.cancel_owner",
+        StandardSignature {
+            params: &[],
+            return_type: StandardType::CancelOwner,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
+        "cancel_token_from",
+        TIME_EFFECTS,
+        "runtime.time.cancel_token_from",
+        StandardSignature {
+            params: PARAM_CANCEL_OWNER,
+            return_type: StandardType::CancelToken,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
+        "cancel_owned",
+        TIME_EFFECTS,
+        "runtime.time.cancel_owned",
+        StandardSignature {
+            params: PARAM_CANCEL_OWNER,
+            return_type: StandardType::Unit,
         },
     ),
     runtime_symbol_with_signature(
