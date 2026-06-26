@@ -26,15 +26,49 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext, preview: ByteView) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_table_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, "local_configuration", "hpack_dynamic_table_size_update", byte_chunk([]))
+	)
+end
+
+fn header_table_payload(offset: Int, observed_size: Int, frame_kind: Int, stream_id: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_table_size_exceeded",
+		"HTTP/2 header table size exceeds receive maximum at byte offset 35",
+		RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(offset, observed_size, context_allowed_header_table_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	match failure
-		HeaderTableSizeExceeded(offset, observed_size, frame_kind, stream_id) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, context_allowed_header_table_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), preview)
+		HeaderTableSizeExceeded(offset, observed_size, frame_kind, stream_id) => Err(header_table_payload(offset, observed_size, frame_kind, stream_id, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("3f8101")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext(160, "local_configuration", "hpack_dynamic_table_size_update")
-	let preview_chunk: ByteChunk = byte_chunk_from_hex("3f8101")?
-	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
+	let preview_chunk: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(preview_chunk)?
 	http2_protocol_diagnostic(HeaderTableSizeExceeded(35, 289, 9, 1), context, preview)
 end

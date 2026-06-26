@@ -1515,6 +1515,87 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "observed_header_table_size".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "allowed_header_table_size".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "frame_kind".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "receive_limit_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "attempted_concurrent_stream_count".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "allowed_concurrent_stream_count".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "endpoint_role".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "receive_limit_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitSettingsValueDiagnostic".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![

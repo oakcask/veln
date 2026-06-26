@@ -4245,7 +4245,7 @@ mod tests {
     fn header_table_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",
-            "485454502f3220686561646572207461626c652073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f6666736574203335",
+            "52756e74696d65446961676e6f737469632868747470322e706565725f6c696d69742e6865616465725f7461626c655f73697a655f65786365656465642c20485454502f3220686561646572207461626c652073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f66667365742033352c2052756e74696d654874747032506565724c696d69744865616465725461626c6553697a65446961676e6f737469632833352c203238392c203136302c20392c20312c206c6f63616c5f636f6e66696775726174696f6e2c20687061636b5f64796e616d69635f7461626c655f73697a655f7570646174652c20427974654368756e6b285b42797465283633292c204279746528313239292c20427974652831295d292929",
             "\tprotocol_diagnostic\thttp2.peer_limit.header_table_size_exceeded\t35",
             "\t8\tobserved_header_table_size\tnumber\t289",
             "\tallowed_header_table_size\tnumber\t160",
@@ -4264,7 +4264,7 @@ mod tests {
             failure.details.to_json(),
             concat!(
                 "{\"kind\":\"result\",\"phase\":\"runtime\",",
-                "\"value\":\"HTTP/2 header table size exceeds receive maximum at byte offset 35\",",
+                "\"value\":\"RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)])))\",",
                 "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
                 "\"id\":\"http2.peer_limit.header_table_size_exceeded\",",
                 "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":35},",
@@ -4331,7 +4331,7 @@ mod tests {
     fn concurrent_streams_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",
-            "485454502f3220636f6e63757272656e742073747265616d2072656365697665206c696d69742065786365656465642061742062797465206f66667365742039",
+            "52756e74696d65446961676e6f737469632868747470322e706565725f6c696d69742e636f6e63757272656e745f73747265616d735f65786365656465642c20485454502f3220636f6e63757272656e742073747265616d2072656365697665206c696d69742065786365656465642061742062797465206f666673657420392c2052756e74696d654874747032506565724c696d6974436f6e63757272656e7453747265616d73446961676e6f7374696328392c20332c20322c20312c207365727665722c206f70656e2d73747265616d2c206c6f63616c5f636f6e66696775726174696f6e2c20706565725f637265617465645f73747265616d5f726563656976655f6c696d69742929",
             "\tprotocol_diagnostic\thttp2.peer_limit.concurrent_streams_exceeded\t9",
             "\t9\tstream_id\tnumber\t3",
             "\tstream_ref\tstring\t73747265616d",
@@ -4351,7 +4351,7 @@ mod tests {
             failure.details.to_json(),
             concat!(
                 "{\"kind\":\"result\",\"phase\":\"runtime\",",
-                "\"value\":\"HTTP/2 concurrent stream receive limit exceeded at byte offset 9\",",
+                "\"value\":\"RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit))\",",
                 "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
                 "\"id\":\"http2.peer_limit.concurrent_streams_exceeded\",",
                 "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":9},",

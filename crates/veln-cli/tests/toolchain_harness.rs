@@ -2612,6 +2612,38 @@ fn result_value_parser_exposes_runtime_diagnostic_shape() {
 }
 
 #[test]
+fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
+    let header_table = parse_result_value(
+        "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)])))",
+    )
+    .expect("header-table runtime diagnostic value should parse");
+    let concurrent_streams = parse_result_value(
+        "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit))",
+    )
+    .expect("concurrent-stream runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&header_table, "value.detail.observed_header_table_size"),
+        Some(&JsonValue::Number(289))
+    );
+    assert_eq!(
+        json_path(&header_table, "value.detail.preview.fields.1.value"),
+        Some(&JsonValue::Number(129))
+    );
+    assert_eq!(
+        json_path(
+            &concurrent_streams,
+            "value.detail.attempted_concurrent_stream_count"
+        ),
+        Some(&JsonValue::Number(2))
+    );
+    assert_eq!(
+        json_path(&concurrent_streams, "value.detail.receive_limit_provenance"),
+        Some(&JsonValue::String("local_configuration".to_string()))
+    );
+}
+
+#[test]
 fn manifest_output_chunk_lists_parse_ordered_hex_chunks() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -3209,6 +3241,62 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         JsonValue::String(args[8].trim().to_string()),
                     ),
                     ("preview", parse_veln_value(args[9])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_table_size", parse_veln_value(args[1])?),
+                    ("allowed_header_table_size", parse_veln_value(args[2])?),
+                    ("frame_kind", parse_veln_value(args[3])?),
+                    ("stream_id", parse_veln_value(args[4])?),
+                    (
+                        "receive_limit_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    (
+                        "attempted_concurrent_stream_count",
+                        parse_veln_value(args[2])?,
+                    ),
+                    (
+                        "allowed_concurrent_stream_count",
+                        parse_veln_value(args[3])?,
+                    ),
+                    (
+                        "endpoint_role",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "receive_limit_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[7].trim().to_string()),
+                    ),
                 ],
             ))
         }

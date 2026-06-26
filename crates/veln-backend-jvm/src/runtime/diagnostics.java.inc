@@ -288,6 +288,12 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderListSizeDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic")) {
+            return runtimeHttp2PeerLimitHeaderTableSizeDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic")) {
+            return runtimeHttp2PeerLimitConcurrentStreamsDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic")) {
             return runtimeHttp2PeerLimitSettingsValueDiagnostic(id, (Adt) detail);
         }
@@ -445,6 +451,72 @@
                 DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitHeaderTableSizeDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.header_table_size_exceeded")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long allowedSize = asLong(detail.payloads[2]);
+        long frameKind = asLong(detail.payloads[3]);
+        long streamId = asLong(detail.payloads[4]);
+        String receiveLimitProvenance = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_table_size", observedSize),
+                DiagnosticDetail.number("allowed_header_table_size", allowedSize),
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitConcurrentStreamsDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.concurrent_streams_exceeded")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long streamId = asLong(detail.payloads[1]);
+        long attemptedCount = asLong(detail.payloads[2]);
+        long allowedCount = asLong(detail.payloads[3]);
+        String endpointRole = asString(detail.payloads[4]);
+        String activeState = asString(detail.payloads[5]);
+        String receiveLimitProvenance = asString(detail.payloads[6]);
+        String ruleProvenance = asString(detail.payloads[7]);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.number(
+                    "current_open_peer_created_stream_count",
+                    attemptedCount - 1
+                ),
+                DiagnosticDetail.number("attempted_concurrent_stream_count", attemptedCount),
+                DiagnosticDetail.number("allowed_concurrent_stream_count", allowedCount),
+                DiagnosticDetail.string("endpoint_role", endpointRole),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )
         );
     }

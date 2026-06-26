@@ -82,6 +82,10 @@ When the returned error value is an HTTP/2 protocol
 `http2.peer_limit.frame_size_exceeded`,
 `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for
 `http2.peer_limit.header_list_size_exceeded`,
+`RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(...)` for
+`http2.peer_limit.header_table_size_exceeded`,
+`RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(...)` for
+`http2.peer_limit.concurrent_streams_exceeded`,
 `RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)` for
 `http2.peer_limit.settings_value_out_of_range`,
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for

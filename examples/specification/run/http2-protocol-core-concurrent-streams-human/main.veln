@@ -4,12 +4,20 @@ type Http2ProtocolFailure
 	ConcurrentStreamsExceeded {offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String}
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+fn concurrent_streams_payload(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.concurrent_streams_exceeded",
+		"HTTP/2 concurrent stream receive limit exceeded at byte offset 9",
+		RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
+	)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
 	match failure
-		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance) => http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
+		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance) => Err(concurrent_streams_payload(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance))
 	end
 end
 
-pub fn main() -> Result<(), String>
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	project(ConcurrentStreamsExceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit"))
 end
