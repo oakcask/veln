@@ -315,6 +315,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
             return runtimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic")) {
+            return runtimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
             return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
         }
@@ -736,6 +739,31 @@
                 DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
                 DiagnosticDetail.string("header_name", headerName),
                 DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.unexpected_settings_ack")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        String activeState = asString(detail.payloads[1]);
+        String ruleProvenance = asString(detail.payloads[2]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[3], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", 4),
+                DiagnosticDetail.number("stream_id", 0),
+                DiagnosticDetail.string("stream_ref", "connection"),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )

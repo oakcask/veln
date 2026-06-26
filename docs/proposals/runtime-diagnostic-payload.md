@@ -196,7 +196,8 @@ header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
 request and response header-list validation, invalid `WINDOW_UPDATE`
-increment, invalid PRIORITY dependency, and stream-after-GOAWAY failures.
+increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
+stream-after-GOAWAY failures.
 They project through the existing HTTP/2 human diagnostics and
 `details.protocol_diagnostic` JSON shape. The
 checked examples are
@@ -268,13 +269,15 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-header-table-json/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
+`../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/`,
+`../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-human/`,
 and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 These slices deliberately leave legacy side-table support in place for
-existing fixture, value, unmigrated HTTP/2 protocol and peer-limit, and
+existing fixture, value, other unmigrated HTTP/2 protocol and peer-limit, and
 generated-schema helpers.
 
 A staged migration can keep compatibility for the remaining work:

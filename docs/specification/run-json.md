@@ -80,6 +80,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.invalid_preface`,
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for
 `http2.protocol.continuation_expected`,
+`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for
+`http2.protocol.unexpected_settings_ack`,
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
 `http2.protocol.invalid_frame_kind`,
 `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
@@ -601,7 +603,11 @@ outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 and `rule_provenance`, plus a structured bounded `byte_preview` for the
 inspected frame header bytes. The preview uses the same object shape as other
 protocol-owned byte previews while SETTINGS ACK state facts stay in their own
-fields. A PRIORITY frame whose dependency stream id is its own
+fields. The checked human and JSON examples return a source-visible
+`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` payload, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields. A PRIORITY frame
+whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
