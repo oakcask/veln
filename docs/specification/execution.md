@@ -1455,6 +1455,7 @@ execution reference.
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,
+  `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)`,
   `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
@@ -2081,7 +2082,9 @@ execution reference.
   fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
   provenance in related context, plus a bounded byte preview for the
-  inspected frame header.
+  inspected frame header. The checked SETTINGS ACK failure reports that fact
+  through a source-visible `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)`
+  payload.
 - The same HTTP/2 protocol-core example also covers the narrow outbound PING
   ACK send-intent. After a valid inbound non-ACK PING frame, ordinary source
   reuses the frame-header encode path to construct exactly one immutable

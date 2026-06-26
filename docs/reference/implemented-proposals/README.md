@@ -168,6 +168,8 @@ behavior.
   [runtime-diagnostic-hpack-fixture-payloads.md](runtime-diagnostic-hpack-fixture-payloads.md).
 - Runtime diagnostic HTTP/2 preface payloads:
   [runtime-diagnostic-http2-preface-payloads.md](runtime-diagnostic-http2-preface-payloads.md).
+- Runtime diagnostic HTTP/2 SETTINGS ACK payload:
+  [runtime-diagnostic-http2-settings-ack-payload.md](runtime-diagnostic-http2-settings-ack-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

@@ -1167,7 +1167,10 @@ helper side table,
 legacy helper side table, and
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
-using the legacy helper side table.
+using the legacy helper side table, and
+`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
+`http2.protocol.unexpected_settings_ack` failures without using the legacy
+helper side table.
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
