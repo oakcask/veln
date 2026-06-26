@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_window_update_increment, HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0, RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, connection-flow-control, window_update_increment_nonzero, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

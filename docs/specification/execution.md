@@ -1444,6 +1444,7 @@ execution reference.
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
+  `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,
   `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the

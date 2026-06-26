@@ -386,6 +386,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String)
 	RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, observed_payload_length: Int, expected_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(byte_offset: Int, stream_id: Int, observed_window_increment: Int, accepted_min_window_increment: Int, accepted_max_window_increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String)
 end

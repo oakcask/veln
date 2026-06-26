@@ -191,7 +191,8 @@ project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
 fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover invalid frame kind,
 frame-size exceeded, fixed payload length for SETTINGS ACK, PING, GOAWAY, and
-`RST_STREAM`, invalid PRIORITY dependency, and stream-after-GOAWAY failures.
+`RST_STREAM`, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency,
+and stream-after-GOAWAY failures.
 They project through the existing HTTP/2 human diagnostics and
 `details.protocol_diagnostic` JSON shape. The
 checked examples are
@@ -220,6 +221,8 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-human/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
+`../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
+`../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-human/`,
