@@ -260,7 +260,10 @@ integer arithmetic mapping expressions, and nested combinations of those forms
 before assigning the returned value to the target field. Multiple selected mappings
 may use narrow boolean selector expressions over decoded schema-local `Int`
 fields, integer literals, `==`, `!=`, `and`, `or`, and `not` when the selector
-clauses do not overlap and all branches resolve to one target record shape. A
+clauses do not overlap, or direct selector calls to one pure same-module
+`Bool` converter function or one imported public pure `Bool` converter
+function through a written `use` path or alias, when all branches resolve to
+one target record shape. A
 mapping assignment may also select a field from an already supported
 structural mapping expression after that source expression is available, when
 the source expression has a record-shaped type with the selected field.

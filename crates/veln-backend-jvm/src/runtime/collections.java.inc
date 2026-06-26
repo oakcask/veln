@@ -796,6 +796,7 @@
         final String selectorOperator;
         final Long selectorValue;
         final SchemaPredicate selectorPredicate;
+        final Object selectorExpr;
         final SchemaMappingFieldSpec[] fields;
 
         SchemaMappingSpec(SchemaMappingFieldSpec[] fields) {
@@ -807,6 +808,16 @@
             this.selectorOperator = "==";
             this.selectorValue = null;
             this.selectorPredicate = new SchemaPredicateParser(selectorText).parse();
+            this.selectorExpr = null;
+            this.fields = fields;
+        }
+
+        SchemaMappingSpec(String selectorText, Object selectorExpr, SchemaMappingFieldSpec[] fields) {
+            this.selectorField = null;
+            this.selectorOperator = "==";
+            this.selectorValue = null;
+            this.selectorPredicate = null;
+            this.selectorExpr = selectorExpr;
             this.fields = fields;
         }
 
@@ -829,10 +840,18 @@
                         schemaLiteral(selectorValue.longValue())
                     )
                 );
+            this.selectorExpr = null;
             this.fields = fields;
         }
 
         boolean matches(java.util.Map<?, Object> decoded) {
+            if (selectorExpr != null) {
+                try {
+                    return asBool(schemaMappingExprValue(mappingDecodedValues(decoded), selectorExpr));
+                } catch (RuntimeException failure) {
+                    return false;
+                }
+            }
             if (selectorPredicate == null) {
                 return true;
             }
@@ -848,6 +867,19 @@
                 return false;
             }
         }
+    }
+
+    private static java.util.LinkedHashMap<String, Object> mappingDecodedValues(
+        java.util.Map<?, Object> decoded
+    ) {
+        java.util.LinkedHashMap<String, Object> values =
+            new java.util.LinkedHashMap<String, Object>();
+        for (java.util.Map.Entry<?, Object> entry : decoded.entrySet()) {
+            if (entry.getKey() instanceof String) {
+                values.put((String) entry.getKey(), entry.getValue());
+            }
+        }
+        return values;
     }
 
     private static final class SchemaEncodeMappingValue {
@@ -7089,7 +7121,7 @@
                 java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
                 boolean selectorExpr = asString(targetSpec.get(0)).equals("select_expr");
                 java.util.List<Object> targets =
-                    asList(targetSpec.get(selectorExpr ? 2 : (targetSpec.size() > 4 ? 4 : 3)));
+                    asList(targetSpec.get(selectorExpr ? 3 : (targetSpec.size() > 4 ? 4 : 3)));
                 java.util.List<Object> sources = asList(mappingSourceValues.get(index));
                 SchemaMappingFieldSpec[] mappingFields =
                     new SchemaMappingFieldSpec[targets.size()];
@@ -7100,7 +7132,11 @@
                     );
                 }
                 if (selectorExpr) {
-                    mapping[index] = new SchemaMappingSpec(asString(targetSpec.get(1)), mappingFields);
+                    mapping[index] = new SchemaMappingSpec(
+                        asString(targetSpec.get(1)),
+                        targetSpec.get(2),
+                        mappingFields
+                    );
                 } else {
                     mapping[index] = new SchemaMappingSpec(
                         asString(targetSpec.get(1)),
@@ -7453,7 +7489,7 @@
                 java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
                 String selectorKind = asString(targetSpec.get(0));
                 boolean selectorExpr = selectorKind.equals("select_expr");
-                if (selectorExpr && targetSpec.size() != 3) {
+                if (selectorExpr && targetSpec.size() != 4) {
                     return err("invalid schema decoder mapping selection metadata for schema `" + name + "`");
                 }
                 if (!selectorExpr
@@ -7462,7 +7498,7 @@
                     return err("invalid schema decoder mapping selection metadata for schema `" + name + "`");
                 }
                 String selectorOperator = targetSpec.size() > 4 ? asString(targetSpec.get(3)) : "==";
-                java.util.List<Object> targets = asList(targetSpec.get(selectorExpr ? 2 : (targetSpec.size() > 4 ? 4 : 3)));
+                java.util.List<Object> targets = asList(targetSpec.get(selectorExpr ? 3 : (targetSpec.size() > 4 ? 4 : 3)));
                 java.util.List<Object> sources = asList(mappingSourceValues.get(index));
                 if (targets.size() != sources.size()) {
                     return err("invalid schema decoder mapping metadata for schema `" + name + "`");
@@ -7476,7 +7512,11 @@
                     );
                 }
                 if (selectorExpr) {
-                    mapping[index] = new SchemaMappingSpec(asString(targetSpec.get(1)), mappingFields);
+                    mapping[index] = new SchemaMappingSpec(
+                        asString(targetSpec.get(1)),
+                        targetSpec.get(2),
+                        mappingFields
+                    );
                 } else {
                     mapping[index] = new SchemaMappingSpec(
                         asString(targetSpec.get(1)),

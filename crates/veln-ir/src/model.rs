@@ -84,6 +84,7 @@ pub struct IrSchemaDecodeMappingSelector {
     pub field: Option<String>,
     pub operator: String,
     pub value: i64,
+    pub expr: Option<IrSchemaDecodeMappingExpr>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

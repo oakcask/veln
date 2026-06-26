@@ -1,0 +1,46 @@
+# Binary schema selected mappings can call same-module pure Bool selector converters.
+use stdio
+
+type Packet
+	Packet {branch: Int, kind: Int, value: Int}
+end
+
+fn is_primary(kind: Int) -> Bool
+	kind == 1
+end
+
+fn is_fallback(kind: Int) -> Bool
+	kind == 2
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	branch: UInt8
+	value: UInt8
+
+	map to Packet when is_primary(kind)
+		branch = branch
+		kind = kind
+		value = value
+
+	map to Packet when is_fallback(kind)
+		branch = branch
+		kind = kind
+		value = value
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_bytes: ByteChunk = byte_chunk_from_hex("010a07")?
+	let first_view: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(3)?)?
+	let first: {branch: Int, kind: Int, value: Int} = byte_decode_packet_wire(first_view)?
+	stdio::println(int_to_string(first.branch))
+
+	let second_bytes: ByteChunk = byte_chunk_from_hex("021405")?
+	let second_view: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(3)?)?
+	let second: {branch: Int, kind: Int, value: Int} = byte_decode_packet_wire(second_view)?
+	stdio::println(int_to_string(second.branch))
+
+	Ok(())
+end

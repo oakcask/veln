@@ -30,7 +30,8 @@ pub(crate) struct SchemaDecodeMapping {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDecodeMappingSelector {
     pub(crate) text: String,
-    pub(crate) predicate: SchemaMappingSelectorPredicate,
+    pub(crate) predicate: Option<SchemaMappingSelectorPredicate>,
+    pub(crate) expr: SchemaDecodeMappingExpr,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -458,6 +459,20 @@ impl<'a> SchemaMappingTyper<'a> {
         Ok(typed)
     }
 
+    pub(crate) fn converter_selector_expr_typed(
+        &self,
+        schema_fields: &BTreeMap<String, Type>,
+        expr: &Expr,
+    ) -> SchemaMappingExprResult {
+        if !matches!(expr.kind, ExprKind::Call { .. }) {
+            return Err(Box::new(SchemaMappingExprError::Unsupported {
+                text: schema_mapping_expr_render(expr),
+                span: expr.span.clone(),
+            }));
+        }
+        self.expr_typed(schema_fields, expr, &Type::bool())
+    }
+
     pub(crate) fn assignment_expr_typed(
         &self,
         schema_fields: &BTreeMap<String, Type>,
@@ -572,6 +587,10 @@ fn schema_decode_mappings_from_decoded_fields(
         return None;
     }
     let typer = SchemaMappingTyper::new(module, schema);
+    let source_field_types = decoded_fields
+        .iter()
+        .map(|(name, ty, _)| (name.clone(), ty.clone()))
+        .collect::<BTreeMap<_, _>>();
     schema
         .mappings
         .iter()
@@ -583,15 +602,38 @@ fn schema_decode_mappings_from_decoded_fields(
                 decoded_fields,
                 mapping,
             )?;
-            let selector = mapping.selector.as_ref().and_then(|selector| {
-                Some(SchemaDecodeMappingSelector {
-                    text: selector.text.clone(),
-                    predicate: schema_mapping_selector_predicate(selector).ok()?,
-                })
-            });
+            let selector = mapping_selector_for_codegen(&typer, &source_field_types, mapping)?;
             Some(SchemaDecodeMapping { selector, fields })
         })
         .collect()
+}
+
+fn mapping_selector_for_codegen(
+    typer: &SchemaMappingTyper<'_>,
+    source_field_types: &BTreeMap<String, Type>,
+    mapping: &SchemaMappingClause,
+) -> Option<Option<SchemaDecodeMappingSelector>> {
+    let Some(selector) = &mapping.selector else {
+        return Some(None);
+    };
+    if let Ok(predicate) = schema_mapping_selector_predicate(selector) {
+        let typed = typer
+            .expr_typed(source_field_types, &selector.expr, &Type::bool())
+            .ok()?;
+        return Some(Some(SchemaDecodeMappingSelector {
+            text: selector.text.clone(),
+            predicate: Some(predicate),
+            expr: typed.expr,
+        }));
+    }
+    let typed = typer
+        .converter_selector_expr_typed(source_field_types, &selector.expr)
+        .ok()?;
+    Some(Some(SchemaDecodeMappingSelector {
+        text: selector.text.clone(),
+        predicate: None,
+        expr: typed.expr,
+    }))
 }
 
 fn schema_decode_mapping_fields_for_mapping(
@@ -1964,7 +2006,7 @@ fn schema_mapping_name_can_be_converter(segments: &[String]) -> bool {
         .is_some_and(char::is_lowercase)
 }
 
-fn schema_mapping_expr_render(expr: &Expr) -> String {
+pub(crate) fn schema_mapping_expr_render(expr: &Expr) -> String {
     match &expr.kind {
         ExprKind::Missing => "<missing>".to_string(),
         ExprKind::Hole { name, .. } => format!("_{}", name.as_deref().unwrap_or("")),

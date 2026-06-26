@@ -655,6 +655,14 @@ mapping selection.
 `../../examples/specification/check/schema-mapping-boolean-selector-diagnostics/`
 pins JSON diagnostics for unsupported boolean selector expressions, unknown
 selector fields, non-`Int` selector fields, and boolean-selector overlap.
+`../../examples/specification/run/binary-schema-mapping-converter-selector-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapping-converter-selector-decode/`
+pin same-module and imported public pure `Bool` converter selectors during
+generated schema decode mapping selection.
+`../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
+pins JSON diagnostics for converter selector return type, argument type,
+purity, private imported visibility, and missing written import paths.
 `../../examples/specification/check/schema-mapping-ordered-comparison-diagnostics/`
 pins JSON diagnostics for ordered comparison non-`Int` operands, non-`Bool`
 target shapes, and unsupported ordered-comparison operand forms.
