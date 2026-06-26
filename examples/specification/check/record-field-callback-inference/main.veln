@@ -1,0 +1,11 @@
+fn use_options(options: {map: fn(Int) -> String}) -> String
+	"ok"
+end
+
+fn stringify(value) -> String
+	"ok"
+end
+
+pub fn main() -> String
+	use_options({map: stringify})
+end

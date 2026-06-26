@@ -10875,6 +10875,37 @@ fn declared_helpers_infer_private_callback_parameters() {
 }
 
 #[test]
+fn record_field_expected_type_infers_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn use_options(options: {map: fn(Int) -> String}) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn stringify(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  use_options({map: stringify})\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let stringify = core
+        .functions
+        .iter()
+        .find(|function| function.name == "stringify")
+        .expect("callback should be lowered");
+    assert_eq!(stringify.params[0].ty, CoreType::int());
+}
+
+#[test]
 fn imported_declared_helpers_infer_private_callback_parameters() {
     let app_source = SourceFile::new(
         "app.veln",

@@ -131,6 +131,8 @@ The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 The completed declared helper callback argument slice is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
+The completed record-field callback expected-type slice is archived under
+`../reference/implemented-proposals/local-inference-record-field-callback.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
@@ -145,12 +147,15 @@ dictionary and pass that context as the first callback argument.
 Same-module helpers and visible imported public helpers whose declared
 parameter type is a concrete function type also push that function parameter
 list into named private callbacks passed at the matching argument position.
+Concrete expected record fields whose type is a concrete function type also
+push that function parameter list into named private callbacks placed in the
+matching record field initializer.
 
 Remaining planned work in this section covers callback inputs outside the
-implemented compiler-known and concrete declared-helper signature paths. Future
-prelude higher-order helpers should push their concrete element, value, key,
-success, and error types into callback parameters only after they enter an
-equally concrete helper signature path.
+implemented compiler-known, concrete declared-helper signature, and concrete
+record-field expected-type paths. Future prelude higher-order helpers should
+push their concrete element, value, key, success, and error types into callback
+parameters only after they enter an equally concrete helper signature path.
 
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
@@ -267,10 +272,10 @@ Acceptance evidence includes:
 3. Completed for current compiler-known collection, dictionary, option, and
    result helpers, including dictionary `_with` aliases, and for same-module
    or visible imported declared helpers with concrete function-typed
-   parameters: push concrete helper input types into named private callback
-   parameters while preserving helper result-context callback return
-   inference. Remaining callback work is limited to future helpers after they
-   enter an equally concrete helper signature path.
+   parameters, plus concrete record-field expected types: push concrete helper
+   or expected-field input types into named private callback parameters while
+   preserving callback return checking. Remaining callback work is limited to
+   future helpers after they enter an equally concrete helper signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
