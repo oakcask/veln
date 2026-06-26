@@ -288,6 +288,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderListSizeDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic")) {
+            return runtimeHttp2PeerLimitSettingsValueDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
         }
@@ -441,6 +444,36 @@
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitSettingsValueDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.settings_value_out_of_range")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long settingIdentifier = asLong(detail.payloads[1]);
+        String settingName = asString(detail.payloads[2]);
+        long observedValue = asLong(detail.payloads[3]);
+        long acceptedMinValue = asLong(detail.payloads[4]);
+        long acceptedMaxValue = asLong(detail.payloads[5]);
+        String peerLimitProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("setting_identifier", settingIdentifier),
+                DiagnosticDetail.string("setting_name", settingName),
+                DiagnosticDetail.number("observed_value", observedValue),
+                DiagnosticDetail.number("accepted_min_value", acceptedMinValue),
+                DiagnosticDetail.number("accepted_max_value", acceptedMaxValue),
+                DiagnosticDetail.string("peer_limit_provenance", peerLimitProvenance),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );
