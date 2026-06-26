@@ -1,0 +1,24 @@
+# RuntimeDiagnostic values can project malformed raw HPACK string payloads.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.malformed_raw_string_value",
+		error,
+		RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK raw string value", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn preview_block() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("0803321f30")
+		Ok(block) => Ok(block)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let block: ByteChunk = preview_block()?
+	Err(RuntimeDiagnostic(
+		"hpack.fixture.malformed_raw_string_value",
+		"HPACK fixture malformed raw string value at byte offset 9",
+		RuntimeHpackFixtureDiagnostic(9, 5, 8, "fixture HPACK raw string value", "hpack_fixture", block)
+	))
+end

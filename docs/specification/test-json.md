@@ -46,6 +46,12 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`
   and
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`.
+  Additional HPACK fixture payload assertions are checked by
+  `../../examples/specification/run/runtime-diagnostic-payload-hpack-raw-string-json/`,
+  `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-padding-json/`,
+  `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
+  and
+  `../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`.
 
 ## Skip Unless Needed
 

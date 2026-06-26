@@ -57,10 +57,16 @@ When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...))`,
 `details.value` likewise keeps the rendered `RuntimeDiagnostic(...)` value and
 the HPACK fixture detail projects to `details.protocol_diagnostic`. The
-unsupported-header-block and malformed-string-length fixture payloads carry
-byte offset, observed header block size, observed first byte, expected
-fixture, codec module, and a bounded header-block byte preview from the
-returned error value itself.
+unsupported-header-block, malformed-string-length, malformed-raw-string,
+malformed-Huffman-padding, Huffman-EOS, and Huffman non-visible fixture
+payloads carry byte offset, observed header block size, observed first byte,
+expected fixture, codec module, and a bounded header-block byte preview from
+the returned error value itself. Dynamic-index fixture payloads use
+`RuntimeHpackFixtureDynamicIndexDiagnostic(...)` to add
+`requested_dynamic_index` and `dynamic_table_entry_count`. Table-size update
+placement payloads use `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to
+add `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`,
+and `active_state`.
 
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
@@ -540,32 +546,33 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
-for unsupported header blocks and `hpack.fixture.malformed_string_length` for
-malformed HPACK string-length encodings. The source-visible runtime diagnostic
-payload path for those ids uses the same `details.protocol_diagnostic` field
-shape as the legacy side-table-backed fixture helpers. Other HPACK fixture ids
-remain on their existing compatibility bridge:
+for unsupported header blocks, `hpack.fixture.malformed_string_length` for
+malformed HPACK string-length encodings,
 `hpack.fixture.malformed_raw_string_value` for malformed raw string values on
 supported literal-name forms,
 `hpack.fixture.malformed_huffman_padding` for malformed Huffman padding,
-and `hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a
-symbol. Multi-byte non-visible Huffman decoded strings are ordinary checked
-fixture values represented by `hpack-bytes-xx-...-xx` labels rather than this
-diagnostic surface. These
-diagnostics record
+`hpack.fixture.huffman_eos_symbol` for HPACK Huffman EOS decoded as a
+symbol, and `hpack.fixture.huffman_non_visible_value` for HPACK Huffman output
+that decodes to a non-visible checked header value. The source-visible runtime
+diagnostic payload path for those ids uses the same
+`details.protocol_diagnostic` field shape as the legacy side-table-backed
+fixture helpers. These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.
 Dynamic indexed lookup failures use id
 `hpack.fixture.dynamic_index_out_of_range` and also record
 `requested_dynamic_index` and `dynamic_table_entry_count` before the same
-expected fixture, codec module, and bounded byte-preview fields.
+expected fixture, codec module, and bounded byte-preview fields. Source-visible
+payloads for this id carry those fields in
+`RuntimeHpackFixtureDynamicIndexDiagnostic(...)`.
 When a dynamic table-size update appears after a decoded header field in the
 same completed header block, the HPACK fixture boundary uses id
 `hpack.fixture.table_size_update_not_at_start` and also records
 `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`, and
 `active_state` before the same expected fixture, codec module, and byte
-preview fields.
+preview fields. Source-visible payloads for this id carry those fields in
+`RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)`.
 Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
 typed HPACK fixture results in program stdout; they are not converted into
 `details.protocol_diagnostic`.

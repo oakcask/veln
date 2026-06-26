@@ -381,6 +381,8 @@ end
 pub type RuntimeDiagnosticDetail
 	RuntimeByteDiagnostic(byte_offset: ByteOffset, field_path: List<RuntimeDiagnosticFieldPathSegment>, facts: RuntimeByteDiagnosticFacts, preview: RuntimeBytePreview)
 	RuntimeHpackFixtureDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	RuntimeHpackFixtureDynamicIndexDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	RuntimeHpackFixtureTableSizeUpdateDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, observed_header_table_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
 pub type RuntimeDiagnosticFieldPathSegment

@@ -217,12 +217,10 @@ compare it with `../specification/` before changing behavior.
   diagnostics for unsupported generated decode and encode directions.
 - [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
   remaining runtime diagnostic payload migration after the implemented
-  source-visible byte diagnostic ADT, HPACK fixture unsupported-header-block
-  and malformed-string-length payloads, command projection, and executable
-  harness assertion slices.
-  Remaining work includes the other HPACK fixture and HTTP/2 protocol
-  diagnostic payload migrations, and removing the legacy side-table bridge
-  once no specification case depends on it.
+  source-visible byte diagnostic ADT and HPACK fixture payloads, command
+  projection, and executable harness assertion slices. Remaining work includes
+  HTTP/2 protocol diagnostic payload migrations and removing the legacy
+  side-table bridge once no specification case depends on it.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema

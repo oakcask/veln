@@ -1,0 +1,24 @@
+# RuntimeDiagnostic values can project human HPACK table-size update payloads.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.table_size_update_not_at_start",
+		error,
+		RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn preview_block() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("823e")
+		Ok(block) => Ok(block)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let block: ByteChunk = preview_block()?
+	Err(RuntimeDiagnostic(
+		"hpack.fixture.table_size_update_not_at_start",
+		"HPACK fixture table-size update after header field at byte offset 10",
+		RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", block)
+	))
+end

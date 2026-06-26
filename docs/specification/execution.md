@@ -1429,9 +1429,10 @@ execution reference.
   result failure and does not opt into diagnostic projection.
 - For `veln run` entries, a returned
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
-  is the source-visible diagnostic-bearing result failure form used by the
-  HPACK fixture unsupported-header-block and malformed-string-length
-  projections. The command boundary keeps the rendered
+  is the source-visible diagnostic-bearing result failure form used by common
+  HPACK fixture projections. Dynamic-index and table-size update placement
+  projections use dedicated HPACK fixture detail constructors for their extra
+  public facts. The command boundary keeps the rendered
   `RuntimeDiagnostic(...)` as the result value and projects byte offset,
   observed header block size, observed first byte, expected fixture, codec
   module, and bounded header-block preview into the same human diagnostic and
@@ -1901,13 +1902,14 @@ execution reference.
   module, and bounded header-block byte preview carried by an ordinary
   `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` payload at
   the standalone HPACK fixture projection boundary. Malformed HPACK string
-  lengths stay on the HPACK fixture boundary and can be carried by the same
-  source-visible `RuntimeHpackFixtureDiagnostic` payload shape. Malformed raw
-  string values for supported literal names, malformed Huffman padding, and
-  Huffman EOS stay on the HPACK fixture boundary but continue to use the
-  compatibility helper bridge for their focused `hpack.fixture.*` ids.
-  Multi-byte non-visible Huffman strings stay on the fixture boundary as
-  `hpack-bytes-*` labels rather than focused diagnostics.
+  lengths, malformed raw string values for supported literal names, malformed
+  Huffman padding, Huffman EOS, and Huffman non-visible checked header values
+  stay on the HPACK fixture boundary and can be carried by the same
+  source-visible `RuntimeHpackFixtureDiagnostic` payload shape. Dynamic-index
+  and table-size update placement fixture diagnostics use source-visible
+  `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
+  `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` payloads so their extra
+  public facts are also carried by the returned `Err` value.
   That
   diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;

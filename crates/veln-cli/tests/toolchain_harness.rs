@@ -3163,6 +3163,55 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHpackFixtureDynamicIndexDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHpackFixtureDynamicIndexDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_block_size", parse_veln_value(args[1])?),
+                    ("observed_first_byte", parse_veln_value(args[2])?),
+                    ("requested_dynamic_index", parse_veln_value(args[3])?),
+                    ("dynamic_table_entry_count", parse_veln_value(args[4])?),
+                    (
+                        "expected_fixture",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "codec_module",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHpackFixtureTableSizeUpdateDiagnostic" => {
+            let args = expect_arity(name, args, 10)?;
+            Ok(result_value_object(
+                "RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_block_size", parse_veln_value(args[1])?),
+                    ("observed_first_byte", parse_veln_value(args[2])?),
+                    ("observed_header_table_size", parse_veln_value(args[3])?),
+                    ("frame_kind", parse_veln_value(args[4])?),
+                    ("stream_id", parse_veln_value(args[5])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    (
+                        "expected_fixture",
+                        JsonValue::String(args[7].trim().to_string()),
+                    ),
+                    (
+                        "codec_module",
+                        JsonValue::String(args[8].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[9])?),
+                ],
+            ))
+        }
         "RuntimeDiagnosticFieldPathSegment" => {
             let args = expect_arity(name, args, 2)?;
             Ok(result_value_object(

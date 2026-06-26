@@ -159,26 +159,104 @@
     }
 
     private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
+            return runtimeHpackFixtureCommonDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic")) {
+            return runtimeHpackFixtureDynamicIndexDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic")) {
+            return runtimeHpackFixtureTableSizeUpdateDiagnostic(id, (Adt) detail);
+        }
+        return null;
+    }
+
+    private static ProtocolDiagnostic runtimeHpackFixtureCommonDiagnostic(String id, Adt detail) {
         if (!id.equals("hpack.fixture.unsupported_header_block")
-            && !id.equals("hpack.fixture.malformed_string_length")) {
+            && !id.equals("hpack.fixture.malformed_string_length")
+            && !id.equals("hpack.fixture.malformed_raw_string_value")
+            && !id.equals("hpack.fixture.malformed_huffman_padding")
+            && !id.equals("hpack.fixture.huffman_eos_symbol")
+            && !id.equals("hpack.fixture.huffman_non_visible_value")) {
             return null;
         }
-        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
-            return null;
-        }
-        Adt hpackDetail = (Adt) detail;
-        long byteOffset = asLong(hpackDetail.payloads[0]);
-        long observedSize = asLong(hpackDetail.payloads[1]);
-        long observedFirstByte = asLong(hpackDetail.payloads[2]);
-        String expectedFixture = asString(hpackDetail.payloads[3]);
-        String codecModule = asString(hpackDetail.payloads[4]);
-        String nearbyContext = byteChunkPreviewTrace(hpackDetail.payloads[5], 8);
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long observedFirstByte = asLong(detail.payloads[2]);
+        String expectedFixture = asString(detail.payloads[3]);
+        String codecModule = asString(detail.payloads[4]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[5], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
             java.util.Arrays.asList(
                 DiagnosticDetail.number("observed_header_block_size", observedSize),
                 DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                DiagnosticDetail.string("expected_fixture", expectedFixture),
+                DiagnosticDetail.string("codec_module", codecModule),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHpackFixtureDynamicIndexDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("hpack.fixture.dynamic_index_out_of_range")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long observedFirstByte = asLong(detail.payloads[2]);
+        long requestedDynamicIndex = asLong(detail.payloads[3]);
+        long dynamicTableEntryCount = asLong(detail.payloads[4]);
+        String expectedFixture = asString(detail.payloads[5]);
+        String codecModule = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_block_size", observedSize),
+                DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                DiagnosticDetail.number("requested_dynamic_index", requestedDynamicIndex),
+                DiagnosticDetail.number("dynamic_table_entry_count", dynamicTableEntryCount),
+                DiagnosticDetail.string("expected_fixture", expectedFixture),
+                DiagnosticDetail.string("codec_module", codecModule),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHpackFixtureTableSizeUpdateDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("hpack.fixture.table_size_update_not_at_start")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long observedFirstByte = asLong(detail.payloads[2]);
+        long observedHeaderTableSize = asLong(detail.payloads[3]);
+        long frameKind = asLong(detail.payloads[4]);
+        long streamId = asLong(detail.payloads[5]);
+        String activeState = asString(detail.payloads[6]);
+        String expectedFixture = asString(detail.payloads[7]);
+        String codecModule = asString(detail.payloads[8]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[9], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_block_size", observedSize),
+                DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                DiagnosticDetail.number("observed_header_table_size", observedHeaderTableSize),
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("expected_fixture", expectedFixture),
                 DiagnosticDetail.string("codec_module", codecModule),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
