@@ -93,7 +93,10 @@ requiring the full command reference on the first read.
   context as `details.byte_diagnostic.local_byte_offset`, `expected_count`,
   `available_count`, and `byte_preview`. The same projection applies when a
   hand-written `decode with` codec boundary returns a codec-owned
-  `Invalid(DecodeError(...))` result. A
+  `Invalid(DecodeError(...))` or `Invalid(DecodeErrorWithReason(...))`
+  result. Plain source-visible reasons preserve the codec-owned id and reason
+  without helper-only related notes unless registered byte-helper context is
+  present. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

@@ -85,6 +85,8 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-byte-read-context-human/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-json/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
+`../../examples/specification/run/codec-decode-invalid-owned-id-json/`,
+`../../examples/specification/run/codec-decode-invalid-owned-id-human/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-json/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/`, and
@@ -428,5 +430,5 @@ The implemented protocol-state diagnostic projection slice covers:
 The proposal remains open for broader schema and codec diagnostics that are not
 specified as current behavior under `../specification/`, including additional
 codec diagnostic ids outside the implemented `EncodeError`,
-`codec.invalid_input`, and `codec.consumed_count_invalid` command-facing
-slices.
+`codec.invalid_input`, `codec.packet_kind_invalid`, and
+`codec.consumed_count_invalid` command-facing slices.

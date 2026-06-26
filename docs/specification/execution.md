@@ -1433,6 +1433,8 @@ execution reference.
   `examples/specification/run/codec-decode-invalid-byte-read-context-json/`,
   `examples/specification/run/codec-decode-invalid-boundary-human/`,
   `examples/specification/run/codec-decode-invalid-boundary-json/`,
+  `examples/specification/run/codec-decode-invalid-owned-id-human/`,
+  `examples/specification/run/codec-decode-invalid-owned-id-json/`,
   `examples/specification/run/codec-decode-invalid-reason-step-human/`,
   `examples/specification/run/codec-decode-invalid-reason-step-json/`,
   `examples/specification/run/codec-decode-invalid-step-human/`,

@@ -678,7 +678,8 @@ impl OutputStream {
 #[derive(Debug)]
 struct JsonAssertion {
     path: String,
-    equals: JsonValue,
+    equals: Option<JsonValue>,
+    missing: bool,
 }
 
 #[derive(Debug)]
@@ -967,7 +968,8 @@ impl<'a> ManifestParser<'a> {
     fn parse_json_assert_header(&mut self) -> Section {
         self.json_assertions.push(JsonAssertion {
             path: String::new(),
-            equals: JsonValue::Null,
+            equals: None,
+            missing: false,
         });
         Section::JsonAssert(self.json_assertions.len() - 1)
     }
@@ -1134,7 +1136,10 @@ impl<'a> ManifestParser<'a> {
             }
             "equals" => {
                 self.json_assertions[index].equals =
-                    parse_manifest_json_value(self.path, line_number, value)
+                    Some(parse_manifest_json_value(self.path, line_number, value))
+            }
+            "missing" => {
+                self.json_assertions[index].missing = parse_bool(self.path, line_number, value)
             }
             _ => manifest_error(
                 self.path,
@@ -1343,6 +1348,15 @@ impl<'a> ManifestParser<'a> {
                     self.path,
                     0,
                     format!("json_assert {index} is missing `path`"),
+                );
+            }
+            if assertion.missing == assertion.equals.is_some() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!(
+                        "json_assert {index} needs exactly one of `equals` or `missing = true`"
+                    ),
                 );
             }
         }
@@ -2292,6 +2306,43 @@ java = "real"
 }
 
 #[test]
+fn manifest_json_assertions_support_missing_paths() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview"
+missing = true
+"#,
+    );
+
+    let assertion = &manifest.expectations.json_assertions[0];
+    assert_eq!(assertion.path, "error.details.byte_diagnostic.byte_preview");
+    assert!(assertion.missing);
+    assert!(assertion.equals.is_none());
+}
+
+#[test]
+#[should_panic(expected = "json_assert 0 needs exactly one of `equals` or `missing = true`")]
+fn manifest_json_assertions_reject_mixed_equals_and_missing() {
+    parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+missing = true
+"#,
+    );
+}
+
+#[test]
 fn manifest_binary_fixtures_parse_named_bytes_and_errors() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -2678,6 +2729,17 @@ fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
+    if assertion.missing {
+        assert!(
+            json_path(json, &assertion.path).is_none(),
+            "{}: JSON path `{}` should be missing in {:?}",
+            context.label(),
+            assertion.path,
+            json
+        );
+        return;
+    }
+
     let actual = json_path(json, &assertion.path).unwrap_or_else(|| {
         panic!(
             "{}: JSON path `{}` was not found in {:?}",
@@ -2688,7 +2750,10 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
     });
     assert_eq!(
         actual,
-        &assertion.equals,
+        assertion
+            .equals
+            .as_ref()
+            .expect("non-missing json assertion should have expected value"),
         "{}: JSON path `{}` mismatch",
         context.label(),
         assertion.path

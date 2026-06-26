@@ -252,8 +252,10 @@ When a `veln run` entry returns
   carried by the reason when present
 
 This shape also covers codec-owned invalid-input facts returned by a
-hand-written `decode with` codec boundary, such as
-`codec.invalid_input`. If the reason is a byte-helper failure message with
+hand-written `decode with` codec boundary, such as `codec.invalid_input` and
+`codec.packet_kind_invalid`. A plain `DecodeErrorWithReason` reason is kept
+only as `reason`; helper-only fields are omitted unless the reason matches
+registered helper context. If the reason is a byte-helper failure message with
 registered helper context, the command-facing projection keeps the reason text
 and adds the carried helper counts, local byte offset, and byte preview to the
 same `details.byte_diagnostic`.

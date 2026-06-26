@@ -1853,6 +1853,11 @@ against the built `veln` binary.
   returns a codec-owned `Invalid(DecodeErrorWithReason(...))`, and `veln run`
   projects the contained decode error and reason through focused human
   diagnostics and `run --json` `details.byte_diagnostic`.
+- `run/codec-decode-invalid-owned-id-human/` and
+  `run/codec-decode-invalid-owned-id-json/`: a hand-written codec boundary
+  returns a codec-owned id other than the generic invalid-input id with a
+  plain reason, and `veln run` preserves the id, absolute byte offset, field
+  path, and reason without byte-helper-only context fields.
 - `run/codec-decode-invalid-byte-context-human/` and
   `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
   boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose
