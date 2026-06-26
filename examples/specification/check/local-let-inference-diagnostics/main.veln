@@ -46,3 +46,18 @@ end
 fn conflicting_prelude_callback_result() -> Vec<Vec<Int>>
 	vec_map([1], string_vec_callback)
 end
+
+fn conflicting_non_empty_vec() -> Int
+	let items = [1, "bad"]
+	1
+end
+
+fn conflicting_non_empty_dict_key() -> Int
+	let table = {"one": 1, 2: 2}
+	1
+end
+
+fn conflicting_non_empty_dict_value() -> Int
+	let table = {"one": 1, "two": "bad"}
+	1
+end

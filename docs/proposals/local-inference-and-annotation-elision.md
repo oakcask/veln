@@ -68,12 +68,14 @@ Implemented current behavior is specified in
 `../specification/types-full.md#inference` for the narrow same-function local
 `let` slice: a binding whose initializer leaves `unknown` may be fixed by a
 later call argument or return-compatible use that requires one concrete type.
+Non-empty collection literal initializers may also infer omitted local binding
+types when every element, key, and value agrees on one concrete type.
 Unconstrained bindings and later incompatible uses are diagnostics.
 
 Remaining planned work in this section extends omitted local annotations into
 broader expected-type paths that are not covered by the current same-function
-local `let` and empty collection expected-type slices, including non-empty
-collection element inference, typed hole context, and other nested initializer
+local `let`, non-empty collection initializer, and empty collection
+expected-type slices, including typed hole context and other nested initializer
 positions.
 
 Record and nested pattern lets may also omit annotations in a future slice when
@@ -85,6 +87,13 @@ checking rule but do not add a binding.
 
 The completed private helper call-site inference slice is archived under
 `../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
+Current behavior is specified in `../specification/types.md#read-first` and
+`../specification/types-full.md#inference`.
+
+## Completed Non-Empty Collection Initializer Slice
+
+The completed non-empty collection initializer slice is archived under
+[local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md).
 Current behavior is specified in `../specification/types.md#read-first` and
 `../specification/types-full.md#inference`.
 

@@ -1932,24 +1932,22 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|expected| expected.ty.vec_part())
             .cloned()
             .unwrap_or(Type::Unknown);
-        let item_expected = ExpectedType {
-            ty: expected_item.clone(),
-            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-            origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                expected.origin_message
-            }),
-        };
         let mut item_type = expected_item.clone();
         for item in items {
+            let item_expected = collection_item_expected(
+                item_type.clone(),
+                expected,
+                expr.node_id,
+                expr.span.clone(),
+                "Vec element type inferred here.",
+            );
             let actual = self.infer_expr(item, Some(&item_expected));
             self.check_assignable(
                 item,
                 &item_expected.ty,
                 &actual,
                 &item_expected,
-                "assignable",
+                "list_element",
             );
             if item_type == Type::Unknown {
                 item_type = actual;
@@ -2356,45 +2354,41 @@ impl<'a> FunctionChecker<'a> {
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
                 (key.clone(), value.clone())
             });
-        let key_expected = ExpectedType {
-            ty: expected_key.clone(),
-            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-            origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                expected.origin_message
-            }),
-        };
-        let value_expected = ExpectedType {
-            ty: expected_value.clone(),
-            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-            origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                expected.origin_message
-            }),
-        };
         let mut key_type = expected_key;
         let mut value_type = expected_value;
         for entry in entries {
+            let key_expected = collection_item_expected(
+                key_type.clone(),
+                expected,
+                expr.node_id,
+                expr.span.clone(),
+                "Dict key type inferred here.",
+            );
             let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
             self.check_assignable(
                 &entry.key,
                 &key_expected.ty,
                 &actual_key,
                 &key_expected,
-                "assignable",
+                "dict_key",
             );
             if key_type == Type::Unknown {
                 key_type = actual_key;
             }
+            let value_expected = collection_item_expected(
+                value_type.clone(),
+                expected,
+                expr.node_id,
+                expr.span.clone(),
+                "Dict value type inferred here.",
+            );
             let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
             self.check_assignable(
                 &entry.value,
                 &value_expected.ty,
                 &actual_value,
                 &value_expected,
-                "assignable",
+                "dict_value",
             );
             if value_type == Type::Unknown {
                 value_type = actual_value;
@@ -3273,6 +3267,24 @@ fn prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr
         "vec_try_map_with" | "dict_map_with" | "dict_filter_with" | "dict_fold_with"
         | "dict_try_map_with" => args.get(1),
         _ => args.first(),
+    }
+}
+
+fn collection_item_expected(
+    ty: Type,
+    expected: Option<&ExpectedType>,
+    origin_node_id: NodeId,
+    origin_span: SourceSpan,
+    inferred_message: &'static str,
+) -> ExpectedType {
+    ExpectedType {
+        ty,
+        source: expected.map_or(ExpectedTypeSource::Inferred, |expected| expected.source),
+        origin_node_id: expected.map_or(origin_node_id, |expected| expected.origin_node_id),
+        origin_span: expected
+            .and_then(|expected| expected.origin_span.clone())
+            .or(Some(origin_span)),
+        origin_message: expected.map_or(inferred_message, |expected| expected.origin_message),
     }
 }
 
