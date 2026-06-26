@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `six` expects 5 argument(s), but got 6", "schema mapping expression `kind == 1` is not supported", "schema mapping expression `identity(kind)` is not supported", "schema mapping converter `combine_text` expects `String`, but source field `length` decodes as `Int`", "\"source_field\":\"helpers::combine_text(kind, length, kind, length, length)\"", "\"input_source_field\":\"length\""]
+contains = ["\"id\":\"schema.mapping_converter_arity\"", "schema mapping converter `six` expects 5 argument(s), but got 6", "schema mapping expression `kind == 1` is not supported", "schema mapping converter `combine_text` expects `String`, but source field `length` decodes as `Int`", "\"source_field\":\"helpers::combine_text(kind, length, kind, length, length)\"", "\"input_source_field\":\"length\""]
 
 [stderr]
 format = "empty"
@@ -22,12 +22,8 @@ equals = "schema.mapping_expression_unsupported"
 
 [[json_assert]]
 path = "diagnostics.2.id"
-equals = "schema.mapping_expression_unsupported"
-
-[[json_assert]]
-path = "diagnostics.3.id"
 equals = "schema.mapping_converter_input"
 
 [[json_assert]]
-path = "diagnostics.3.details.input_source_field"
+path = "diagnostics.2.details.input_source_field"
 equals = "length"

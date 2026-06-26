@@ -1,0 +1,7 @@
+pub fn bump(kind: Int) -> Int
+	kind + 1
+end
+
+pub fn summarize(kind: Int, length: Int) -> Int
+	length + kind
+end

@@ -22,7 +22,8 @@ compare it with `../specification/` before changing behavior.
   constructor construction mapping expressions including nested constructor
   payloads in generated decode mappings, pure same-module and imported
   public representation conversion hooks that take one, two, three, four, or five
-  arguments from schema-local fields or structural mapping expressions, field
+  arguments from schema-local fields or structural mapping expressions
+  including pure converter calls, field
   selection from record-shaped structural mapping expressions, decoded-field,
   integer-literal, and `Int` converter-call mapping arithmetic including
   integer division, equality, inequality, and ordered mapping comparisons over

@@ -191,7 +191,7 @@ calls take one, two, three, four, or five
 arguments. Each argument is either a schema-local field reference or an
 already implemented structural mapping expression made from schema-local
 fields, records, ADT constructors, supported integer arithmetic mapping
-expressions, and nested combinations of those forms. The converter return
+expressions, pure converter calls, and nested combinations of those forms. The converter return
 value is assigned to the
 target field. A converter-call mapping assignment may name an explicit
 same-module pure inverse converter or imported public pure inverse converter
@@ -272,11 +272,14 @@ pins boolean selector unsupported, unknown-field, non-`Int`, and overlap
 diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 pins converter selector return type, argument type, purity, visibility, and
-written-import-path diagnostics. The checked diagnostics case
+written-import-path diagnostics. The checked runtime case
+`../../examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`
+pins nested converter calls inside direct converter selector arguments. The
+checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
-arity, direct and nested constructor payload type, non-`Int` arithmetic operand, and
-unsupported arithmetic expression diagnostics. The checked diagnostics case
+arity, direct and nested constructor payload type, non-`Int` arithmetic operand,
+and unsupported arithmetic expression diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-bool-comparison-diagnostics/`
 pins non-`Int` comparison operands, non-`Bool` comparison targets, and
 unsupported comparison and boolean-composition operand shapes. The checked
@@ -300,8 +303,8 @@ The checked acceptance case
 pins same-module and imported public two-argument converter calls.
 The checked diagnostics case
 `../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
-pins rejected second arguments and nested converter calls inside
-two-argument converter calls.
+pins rejected second arguments while nested converter calls inside
+two-argument converter calls remain supported.
 The checked acceptance case
 `../../examples/specification/check/schema-three-argument-mapping-converters/`
 pins same-module and imported public three-argument converter calls.
@@ -319,8 +322,9 @@ pin same-module and imported public five-argument converter calls through
 generated decode mapping.
 The checked diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-pins unsupported six-argument converter calls, rejected fifth arguments, and
-nested converter calls inside five-argument converter calls.
+pins unsupported six-argument converter calls and rejected fifth arguments
+while nested converter calls inside five-argument converter calls remain
+supported.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each and consecutive visible-only `UInt1` through `UInt7` groups of

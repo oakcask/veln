@@ -5971,6 +5971,78 @@ fn generated_schema_decode_helpers_keep_structural_converter_arguments() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_nested_converter_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {summary: Int}\n",
+            "end\n",
+            "\n",
+            "fn bump(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+            "\n",
+            "fn combine(kind: Int, length: Int) -> Int\n",
+            "  kind + length\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = combine(bump(wire_kind), wire_length)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{summary: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let summary = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "summary")
+        .expect("summary mapping should be emitted");
+    assert!(matches!(
+        &summary.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter { function, args, .. }
+            if function == "combine"
+                && args.len() == 2
+                && matches!(
+                    &args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::Converter { function, args, .. }
+                        if function == "bump"
+                            && args.len() == 1
+                            && matches!(
+                                &args[0],
+                                veln_ir::IrSchemaDecodeMappingExpr::Field(field)
+                                    if field == "wire_kind"
+                            )
+                )
+                && matches!(
+                    &args[1],
+                    veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "wire_length"
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_two_argument_converter_mapping_expressions() {
     let source = SourceFile::new(
         "main.veln",
