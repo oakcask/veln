@@ -2388,8 +2388,9 @@ against the built `veln` binary.
   and preserves promised-id representation failures as codec encode failures.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
-  `run` stderr with byte offset, pending byte count, and active continuation
-  context, plus a bounded lowercase hex nearby-byte note.
+  `run` stderr from a source-visible `RuntimeDiagnostic(...)` result value
+  with byte offset, pending byte count, and active continuation context, plus a
+  bounded lowercase hex nearby-byte note.
 - `run/http2-protocol-core-closed-json/`: the same closed-input pending-byte
   failure reports `http2.protocol.closed_with_pending` through `run --json`
   as a source-visible `RuntimeDiagnostic(...)` result value, with byte
@@ -2420,8 +2421,9 @@ against the built `veln` binary.
   bounded byte preview fields for the inspected frame header.
 - `run/http2-protocol-core-continuation-human/`: the same continuation
   ordering failure reports `http2.protocol.continuation_expected` through
-  human `run` stderr with active continuation details and a bounded lowercase
-  hex nearby-byte note for the inspected frame header.
+  human `run` stderr from a source-visible `RuntimeDiagnostic(...)` result
+  value with active continuation details and a bounded lowercase hex nearby-byte
+  note for the inspected frame header.
 - `run/http2-protocol-core-frame-size-human/`: an incoming frame whose payload
   length exceeds the active receive maximum reports
   `http2.peer_limit.frame_size_exceeded` through human `run` stderr with a
