@@ -156,6 +156,11 @@ is `Dict<K, V>`; a later same-function use may fix an omitted local `{}`
 binding to that dictionary type. Without a dictionary expectation, `{}`
 remains an empty record literal. An expected collection type that still
 contains `unknown` is not concrete enough for an empty collection literal.
+Record field and source-declared constructor payload expected types propagate
+recursively through nested initializer expressions when every enclosing field
+or payload type is concrete. This lets empty collection literals and nullary
+source-declared constructors inside nested record literals and constructor
+payloads use the same concrete context they would receive at the top level.
 
 Payload-carrying ADT constructors infer omitted type arguments from payload
 expressions when there is no surrounding expected ADT type. The constructor

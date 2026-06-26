@@ -14,18 +14,20 @@ compare it with `../specification/` before changing behavior.
   compiler-known, concrete declared-helper signature, and concrete record-field
   expected-type paths, and other paths beyond the implemented same-function
   local `let`, non-empty collection initializer, empty collection expected-type,
-  hole expected-type flow, empty collection callback return, payload-carrying
-  ADT constructor inference, match scrutinee constructor-pattern inference,
-  local pattern `let` inference, compiler-known prelude callback argument,
-  dictionary callback alias, declared helper callback argument, record-field
-  callback, and examples cleanup slices specified in
+  nested initializer expected-type propagation, hole expected-type flow, empty
+  collection callback return, payload-carrying ADT constructor inference, match
+  scrutinee constructor-pattern inference, local pattern `let` inference,
+  compiler-known prelude callback argument, dictionary callback alias, declared
+  helper callback argument, record-field callback, and examples cleanup slices
+  specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference, dictionary callback alias inference, declared helper callback
   argument inference, record-field callback inference, non-empty collection
   initializer inference, ADT constructor payload inference, match scrutinee
-  constructor-pattern inference, local pattern `let` inference, hole
-  expected-type flow, and examples cleanup slices are archived under
+  constructor-pattern inference, local pattern `let` inference, nested
+  initializer expected-type propagation, hole expected-type flow, and examples
+  cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
@@ -35,6 +37,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
   `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
+  [local-inference-nested-initializer-expected-type.md](../reference/implemented-proposals/local-inference-nested-initializer-expected-type.md),
   `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`,
   and
   `../reference/implemented-proposals/local-inference-examples-cleanup.md`.

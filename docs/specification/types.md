@@ -20,7 +20,10 @@ full type reference.
   for `List<T>`, and empty dictionary literals accept concrete expected
   collection types from annotations, returns, call arguments, record fields,
   match arms, `if` branches, and constructor payloads, plus compiler-known
-  prelude helper result context for callback return values. Payload-carrying
+  prelude helper result context for callback return values. Concrete record
+  field and source-declared constructor payload expected types also propagate
+  through nested initializer expressions when every enclosing field or payload
+  type is concrete. Payload-carrying
   ADT constructors also infer omitted type arguments from payload expressions
   when the constructor resolves to one visible variant and every type argument
   becomes concrete.
