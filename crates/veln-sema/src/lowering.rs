@@ -104,7 +104,13 @@ impl<'a> CoreLowerer<'a> {
                 }
             })
             .collect();
-        let return_type = core_type(&parse_type_or_unknown(self.function.return_type.as_deref()));
+        let return_type = self
+            .environment
+            .function_by_node_id(self.function.node_id)
+            .map(|function| core_type(&function.return_type))
+            .unwrap_or_else(|| {
+                core_type(&parse_type_or_unknown(self.function.return_type.as_deref()))
+            });
         let contracts = self
             .function
             .contracts

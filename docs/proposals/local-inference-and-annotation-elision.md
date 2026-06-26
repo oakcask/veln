@@ -126,7 +126,9 @@ Examples of intended sources:
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
 result has an expected type such as `Vec<String>` or `Result<List<String>, E>`,
-that expected result may also constrain the callback return type.
+that expected result may also constrain non-empty callback return types.
+The implemented empty collection callback return slice is specified in
+`../specification/types-full.md#inference`.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
@@ -182,12 +184,8 @@ Implemented current behavior is specified in
 `../specification/types-full.md#inference` for empty `Vec<T>` literals, `Nil`
 for `List<T>`, and empty dictionary literals in local annotations, inferred
 local binding slots, return positions, call arguments, record fields, match arm
-results, and constructor payloads.
-
-Remaining planned work in this section extends empty collection inference into
-additional contexts:
-
-- prelude helper result context
+results, constructor payloads, and compiler-known prelude helper result
+context for callback return values.
 
 An empty list literal may infer `Vec<T>` when its context expects `Vec<T>`.
 `Nil` may infer `List<T>` when its context expects `List<T>`. Empty dictionary

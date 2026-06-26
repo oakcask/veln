@@ -10524,6 +10524,38 @@ fn prelude_helpers_check_direct_expected_return_types() {
 }
 
 #[test]
+fn prelude_helper_result_context_refines_empty_callback_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn empty_vec_callback(value: Int)\n",
+            "  []\n",
+            "end\n",
+            "pub fn main() -> Vec<Vec<Int>>\n",
+            "  vec_map([1], empty_vec_callback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let callback = core
+        .functions
+        .iter()
+        .find(|function| function.name == "empty_vec_callback")
+        .expect("callback should be lowered");
+    assert_eq!(callback.return_type, CoreType::vec(CoreType::int()));
+    let CoreStmtKind::Return { expr } = &callback.body[0].kind else {
+        panic!("callback tail should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::vec(CoreType::int()));
+}
+
+#[test]
 fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
         (

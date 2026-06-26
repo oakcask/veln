@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`"]
+contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`", "expected `fn(unknown) -> Vec<Int>`, but found `fn(Int) -> Vec<String>`"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 8
 
 [[diagnostics]]
 id = "type.local_inference_incomplete"
@@ -81,3 +81,25 @@ message = "empty Dict literal needs concrete type context"
 file = "main.veln"
 line = 29
 column = 36
+
+[[diagnostics]]
+id = "type.local_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "omitted local binding `mapped` has no concrete inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 42
+column = 6
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(unknown) -> Vec<Int>`, but found `fn(Int) -> Vec<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 15
