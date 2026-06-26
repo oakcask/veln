@@ -346,7 +346,7 @@ supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, or forty bits,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
-sum to eight bits, supported consecutive non-byte-aligned `UIntN` and
+sum to eight or sixteen bits, supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
