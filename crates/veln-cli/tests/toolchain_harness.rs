@@ -13,19 +13,10 @@ use veln_project::Project;
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
-#[test]
-fn toolchain_cases_pass() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let cases_roots = [
-        manifest_dir.join("tests/toolchain_cases"),
-        manifest_dir.join("../../examples/specification"),
-    ];
-    let cases = discover_cases(&cases_roots);
-    assert!(!cases.is_empty(), "expected at least one toolchain case");
+include!(concat!(env!("OUT_DIR"), "/toolchain_cases.rs"));
 
-    for case_dir in cases {
-        run_case(&case_dir);
-    }
+fn toolchain_case_path(relative: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative)
 }
 
 fn run_case(case_dir: &Path) {
@@ -67,34 +58,6 @@ fn run_case(case_dir: &Path) {
         manifest
             .expectations
             .assert_files_match(&context, &project.root);
-    }
-}
-
-fn discover_cases(roots: &[PathBuf]) -> Vec<PathBuf> {
-    let mut cases = Vec::new();
-    for root in roots {
-        collect_cases(root, &mut cases);
-    }
-    cases.sort();
-    cases
-}
-
-fn collect_cases(dir: &Path, cases: &mut Vec<PathBuf>) {
-    if dir.join("case.toml").is_file() {
-        cases.push(dir.to_path_buf());
-        return;
-    }
-
-    let entries = fs::read_dir(dir)
-        .unwrap_or_else(|error| panic!("{}: failed to read cases: {error}", dir.display()));
-    for entry in entries {
-        let entry = entry.unwrap_or_else(|error| {
-            panic!("{}: failed to read case entry: {error}", dir.display())
-        });
-        let path = entry.path();
-        if path.is_dir() {
-            collect_cases(&path, cases);
-        }
     }
 }
 
