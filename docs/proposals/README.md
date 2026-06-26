@@ -105,8 +105,8 @@ compare it with `../specification/` before changing behavior.
   boundaries for supported schema-local fields plus record-payload
   constructor slices,
   standalone visible `UInt1` through `UInt7` decode and encode,
-  visible-only packed `UInt1` through `UInt7` one-byte group decode and
-  encode,
+  visible-only packed `UInt1` through `UInt7` one-byte and two-byte group
+  decode and encode,
   bounded `Repeat(count_field, Payload)` and
   `Repeat(left_count - right_count, Payload)` primitive, same-module nested
   schema field, and public imported nested schema field decode and encode
@@ -164,6 +164,8 @@ compare it with `../specification/` before changing behavior.
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
   and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
+  The completed visible-only packed two-byte group slice is archived under
+  [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

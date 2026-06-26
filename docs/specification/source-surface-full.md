@@ -294,7 +294,10 @@ nested converter calls inside five-argument converter calls executable.
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, including standalone
-`UInt1` through `UInt7` fields that consume one byte each, plus the supported
+`UInt1` through `UInt7` fields that consume one byte each and consecutive
+visible-only `UInt1` through `UInt7` groups of at least two fields whose
+widths complete exactly one byte or one two-byte big-endian storage unit,
+plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, the supported
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` before `UInt8` byte-prefix
