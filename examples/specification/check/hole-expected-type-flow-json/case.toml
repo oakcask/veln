@@ -1,0 +1,76 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+contains = ["\"expected_type\":\"Int\"", "\"expected_type_source\":\"declared\"", "\"candidate_queries\":[{\"kind\":\"symbol\"", "\"name\":\"candidate\",\"type\":\"Int\"", "\"query\":\"fn(Int) -> Int\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type_source"
+equals = "declared"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type_source"
+equals = "declared"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type_source"
+equals = "declared"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type_source"
+equals = "declared"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type_source"
+equals = "declared"
+
+[[json_assert]]
+path = "diagnostics.5.details.expected_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.5.details.expected_type_source"
+equals = "declared"
+
+[[diagnostics]]
+id = "hole.unfilled"
+severity = "hint"
+kind = "hole"
+message = "hole requires a `Int` value"
+
+[diagnostics.span]
+file = "main.veln"
+line = 11
+column = 2

@@ -1,0 +1,39 @@
+# Holes inherit concrete expected types from expression contexts.
+type Box<A>
+	Box(value: A)
+end
+
+fn accept(value: Int) -> Int
+	value
+end
+
+fn return_context(candidate: Int) -> Int
+	_
+end
+
+fn call_context(candidate: Int) -> Int
+	accept(_)
+end
+
+fn record_context(candidate: Int) -> {value: Int}
+	{value: _}
+end
+
+fn if_context(flag: Bool, candidate: Int) -> Int
+	if flag
+		_
+	else
+		candidate
+	end
+end
+
+fn match_context(flag: Bool, candidate: Int) -> Int
+	match flag
+		true => _
+		false => candidate
+	end
+end
+
+fn constructor_context(candidate: Int) -> Box<Int>
+	Box(_)
+end

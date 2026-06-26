@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["main.veln:7:9: hint[hole.unfilled]: hole requires a `Int` value"]
+
+[stderr]
+format = "empty"

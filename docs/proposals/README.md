@@ -13,23 +13,25 @@ compare it with `../specification/` before changing behavior.
   define remaining annotation-elision work for callback inputs outside the
   compiler-known helper path, and other paths beyond the implemented
   same-function local `let`, non-empty collection initializer, empty
-  collection expected-type, empty collection callback return, payload-carrying
-  ADT constructor inference, match scrutinee constructor-pattern inference,
-  local pattern `let` inference, compiler-known prelude callback argument, and
-  dictionary callback alias slices specified in `../specification/types.md`.
+  collection expected-type, hole expected-type flow, empty collection callback
+  return, payload-carrying ADT constructor inference, match scrutinee
+  constructor-pattern inference, local pattern `let` inference,
+  compiler-known prelude callback argument, and dictionary callback alias
+  slices specified in `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference, dictionary callback alias inference, non-empty collection
   initializer inference, ADT constructor payload inference, match scrutinee
-  constructor-pattern inference, and local pattern `let` inference slices are
-  archived under
+  constructor-pattern inference, local pattern `let` inference, and hole
+  expected-type flow slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
+  `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
   and
-  `../reference/implemented-proposals/local-inference-local-pattern-let.md`.
+  `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

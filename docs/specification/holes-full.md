@@ -16,6 +16,16 @@ Hole details include:
 - `local_bindings`
 - `candidate_queries`
 
+When a hole appears in a concrete expected-type expression context, the human
+primary message names the rendered type in the required-value message, and
+`details.expected_type` records the same rendered type. Implemented expected
+type contexts include function return expressions, call arguments, record field
+initializers, `if` branches, `match` arms, and ADT constructor payloads.
+`details.expected_type_source` reports whether the context came from a
+declared boundary or an inferred expression context. A hole without concrete
+expected type keeps `expected_type: "unknown"` and uses the unknown-type
+message.
+
 ## Repair Candidates
 
 Candidate query records are unapplied repair records. Each query carries

@@ -111,6 +111,12 @@ Expected types flow into holes and subexpressions from:
 - `match` arm results, `if` branch results, and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
+Typed holes use the same concrete expected-type flow as other subexpressions.
+When a hole appears under a concrete return, call argument, record field, `if`
+branch, `match` arm, or constructor payload context, the hole diagnostic and
+JSON details report that type and use it to build advisory symbol candidate
+queries.
+
 When a local `let` binding omits its annotation and its initializer leaves the
 binding type with `unknown`, later same-function uses may fix the binding to
 one concrete type. Implemented constraining uses include call arguments and

@@ -84,8 +84,20 @@ from the wrong descriptor report `type.mismatch`.
 Remaining planned work in this section extends omitted local annotations into
 broader expected-type paths that are not covered by the current same-function
 local `let`, non-empty collection initializer, empty collection expected-type,
-and local pattern slices, including typed hole context and other nested
+hole expected-type flow, and local pattern slices, including other nested
 initializer positions.
+
+## Completed Hole Expected-Type Flow Slice
+
+The completed typed-hole expected-type flow slice is archived under
+`../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`.
+Current behavior is specified in `../specification/types.md#read-first`,
+`../specification/types-full.md#inference`,
+`../specification/holes.md#read-first`,
+`../specification/holes-full.md#hole-diagnostics`, and the checked examples
+under `../../examples/specification/check/hole-expected-type-flow-json/case.toml`
+and
+`../../examples/specification/check/hole-expected-type-flow-human/case.toml`.
 
 ## Completed Local Pattern Let Slice
 
