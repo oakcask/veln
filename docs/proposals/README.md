@@ -17,14 +17,15 @@ compare it with `../specification/` before changing behavior.
   collection callback return, payload-carrying ADT constructor inference,
   match scrutinee constructor-pattern inference, local pattern `let`
   inference, compiler-known prelude callback argument, dictionary callback
-  alias, and declared helper callback argument slices specified in
+  alias, declared helper callback argument, and examples cleanup slices
+  specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference, dictionary callback alias inference, declared helper callback
   argument inference, non-empty collection initializer inference, ADT
   constructor payload inference, match scrutinee constructor-pattern
-  inference, local pattern `let` inference, and hole expected-type flow slices
-  are archived under
+  inference, local pattern `let` inference, hole expected-type flow, and
+  examples cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
@@ -33,8 +34,9 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
   `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
+  `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`,
   and
-  `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`.
+  `../reference/implemented-proposals/local-inference-examples-cleanup.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

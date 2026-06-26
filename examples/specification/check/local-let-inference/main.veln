@@ -89,8 +89,8 @@ fn return_empty_dict() -> Dict<String, Int>
 end
 
 fn call_argument_empty_collections() -> Int
-	let left: Int = consume([])
-	let middle: Int = consume_nodes(Nil)
+	let left = consume([])
+	let middle = consume_nodes(Nil)
 	left + middle + consume_table({})
 end
 
@@ -119,6 +119,26 @@ fn match_arm_empty_dict(flag: Bool) -> Dict<String, Int>
 	end
 end
 
+fn if_branch_empty_collections(flag: Bool) -> {vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>}
+	{
+		vec: if flag
+			[]
+		else
+			[1]
+		end,
+		list: if flag
+			Nil
+		else
+			Cons(1, Nil)
+		end,
+		dict: if flag
+			{}
+		else
+			{"one": 1}
+		end
+	}
+end
+
 fn constructor_payload_empty_collections() -> {vec: Box<Vec<Int>>, list: Box<List<Int>>, dict: Box<Dict<String, Int>>}
 	{vec: Box([]), list: Box(Nil), dict: Box({})}
 end
@@ -132,7 +152,7 @@ fn empty_list_callback(value: Int)
 end
 
 fn prelude_helper_callback_result_context() -> {vec: Vec<Vec<Int>>, list: List<List<Int>>, option: Option<Vec<Int>>, result: Result<List<Int>, String>}
-	let ints: List<Int> = Cons(1, Nil)
+	let ints = Cons(1, Nil)
 	{
 		vec: vec_map([1], empty_vec_callback),
 		list: list_map(ints, empty_list_callback),
