@@ -299,10 +299,10 @@ pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
     for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
         if let Some(payload) = payloads.get(index) {
-            fill_type_parameters(&mut args, &field.ty, payload);
+            fill_type_parameters(&mut args, constructor.descriptor, &field.ty, payload);
         }
     }
-    Type::named(&constructor.descriptor.type_name, args)
+    constructed_type_from_args(constructor, &args)
 }
 
 pub(crate) fn core_constructed_type(
@@ -312,10 +312,61 @@ pub(crate) fn core_constructed_type(
     let mut args = vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
     for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
         if let Some(payload) = payloads.get(index) {
-            fill_core_type_parameters(&mut args, &field.ty, payload);
+            fill_core_type_parameters(&mut args, constructor.descriptor, &field.ty, payload);
         }
     }
-    CoreType::named(&constructor.descriptor.type_name, args)
+    core_constructed_type_from_args(constructor, &args)
+}
+
+pub(crate) fn constructed_type_from_args(constructor: AdtConstructor<'_>, args: &[Type]) -> Type {
+    Type::named(&constructor.descriptor.type_name, args.to_vec())
+}
+
+pub(crate) fn core_constructed_type_from_args(
+    constructor: AdtConstructor<'_>,
+    args: &[CoreType],
+) -> CoreType {
+    CoreType::named(&constructor.descriptor.type_name, args.to_vec())
+}
+
+pub(crate) fn payload_type_with_args(
+    constructor: AdtConstructor<'_>,
+    args: &[Type],
+    payload_index: usize,
+) -> Option<Type> {
+    let ty = constructed_type_from_args(constructor, args);
+    payload_type(&ty, constructor, payload_index)
+}
+
+pub(crate) fn core_payload_type_with_args(
+    constructor: AdtConstructor<'_>,
+    args: &[CoreType],
+    payload_index: usize,
+) -> Option<CoreType> {
+    let ty = core_constructed_type_from_args(constructor, args);
+    core_payload_type(&ty, constructor, payload_index)
+}
+
+pub(crate) fn merge_type_args_from_payload(
+    args: &mut [Type],
+    constructor: AdtConstructor<'_>,
+    payload_index: usize,
+    actual: &Type,
+) {
+    if let Some(field) = constructor.variant.payload_fields.get(payload_index) {
+        fill_type_parameters(args, constructor.descriptor, &field.ty, actual);
+    }
+}
+
+pub(crate) fn merge_core_type_args_from_payload(
+    args: &mut [CoreType],
+    constructor: AdtConstructor<'_>,
+    payload_index: usize,
+    actual: &CoreType,
+) {
+    if let Some(field) = constructor.variant.payload_fields.get(payload_index) {
+        fill_core_type_parameters(args, constructor.descriptor, &field.ty, actual);
+    }
 }
 
 pub(crate) fn payload_type(
@@ -1413,21 +1464,179 @@ fn core_payload_type_from_args(
     }
 }
 
-fn fill_type_parameters(args: &mut [Type], payload: &AdtPayloadType, actual: &Type) {
+fn fill_type_parameters(
+    args: &mut [Type],
+    descriptor: &AdtDescriptor,
+    payload: &AdtPayloadType,
+    actual: &Type,
+) {
     match payload {
-        AdtPayloadType::TypeParameter(index) => args[*index] = actual.clone(),
+        AdtPayloadType::TypeParameter(index) => assign_type_arg(args, *index, actual),
         AdtPayloadType::Concrete(template) => unify_template(args, template, actual),
-        AdtPayloadType::SelfType => {}
+        AdtPayloadType::SelfType => unify_self_type(args, descriptor, actual),
     }
 }
 
-fn fill_core_type_parameters(args: &mut [CoreType], payload: &AdtPayloadType, actual: &CoreType) {
+fn fill_core_type_parameters(
+    args: &mut [CoreType],
+    descriptor: &AdtDescriptor,
+    payload: &AdtPayloadType,
+    actual: &CoreType,
+) {
     match payload {
-        AdtPayloadType::TypeParameter(index) => args[*index] = actual.clone(),
+        AdtPayloadType::TypeParameter(index) => assign_core_type_arg(args, *index, actual),
         AdtPayloadType::Concrete(template) => {
             unify_core_template(args, &core_type_template(template), actual);
         }
-        AdtPayloadType::SelfType => {}
+        AdtPayloadType::SelfType => unify_core_self_type(args, descriptor, actual),
+    }
+}
+
+fn assign_type_arg(args: &mut [Type], index: usize, actual: &Type) {
+    let Some(slot) = args.get_mut(index) else {
+        return;
+    };
+    merge_type_slot(slot, actual);
+}
+
+fn assign_core_type_arg(args: &mut [CoreType], index: usize, actual: &CoreType) {
+    let Some(slot) = args.get_mut(index) else {
+        return;
+    };
+    merge_core_type_slot(slot, actual);
+}
+
+fn merge_type_slot(slot: &mut Type, actual: &Type) {
+    if actual == &Type::Unknown {
+        return;
+    }
+    match (slot, actual) {
+        (slot @ Type::Unknown, _) => *slot = actual.clone(),
+        (
+            Type::Named {
+                name: slot_name,
+                args: slot_args,
+            },
+            Type::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
+            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
+                merge_type_slot(slot_arg, actual_arg);
+            }
+        }
+        (Type::Record(slot_fields), Type::Record(actual_fields)) => {
+            for (slot_name, slot_ty) in slot_fields {
+                if let Some((_, actual_ty)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == slot_name)
+                {
+                    merge_type_slot(slot_ty, actual_ty);
+                }
+            }
+        }
+        (
+            Type::Function {
+                params: slot_params,
+                variadic: slot_variadic,
+                return_type: slot_return,
+                effects: _,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: _,
+            },
+        ) if slot_params.len() == actual_params.len()
+            && slot_variadic.is_some() == actual_variadic.is_some() =>
+        {
+            for (slot_param, actual_param) in slot_params.iter_mut().zip(actual_params) {
+                merge_type_slot(slot_param, actual_param);
+            }
+            if let (Some(slot_variadic), Some(actual_variadic)) = (slot_variadic, actual_variadic) {
+                merge_type_slot(slot_variadic, actual_variadic);
+            }
+            merge_type_slot(slot_return, actual_return);
+        }
+        _ => {}
+    }
+}
+
+fn merge_core_type_slot(slot: &mut CoreType, actual: &CoreType) {
+    if actual == &CoreType::Unknown {
+        return;
+    }
+    match (slot, actual) {
+        (slot @ CoreType::Unknown, _) => *slot = actual.clone(),
+        (
+            CoreType::Named {
+                name: slot_name,
+                args: slot_args,
+            },
+            CoreType::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
+            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
+                merge_core_type_slot(slot_arg, actual_arg);
+            }
+        }
+        (CoreType::Record(slot_fields), CoreType::Record(actual_fields)) => {
+            for (slot_name, slot_ty) in slot_fields {
+                if let Some((_, actual_ty)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == slot_name)
+                {
+                    merge_core_type_slot(slot_ty, actual_ty);
+                }
+            }
+        }
+        (
+            CoreType::Function {
+                params: slot_params,
+                variadic: slot_variadic,
+                return_type: slot_return,
+                effects: _,
+            },
+            CoreType::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: _,
+            },
+        ) if slot_params.len() == actual_params.len()
+            && slot_variadic.is_some() == actual_variadic.is_some() =>
+        {
+            for (slot_param, actual_param) in slot_params.iter_mut().zip(actual_params) {
+                merge_core_type_slot(slot_param, actual_param);
+            }
+            if let (Some(slot_variadic), Some(actual_variadic)) = (slot_variadic, actual_variadic) {
+                merge_core_type_slot(slot_variadic, actual_variadic);
+            }
+            merge_core_type_slot(slot_return, actual_return);
+        }
+        _ => {}
+    }
+}
+
+fn unify_self_type(args: &mut [Type], descriptor: &AdtDescriptor, actual: &Type) {
+    let Some(actual_args) = adt_args(actual, descriptor) else {
+        return;
+    };
+    for (index, actual_arg) in actual_args.iter().enumerate() {
+        assign_type_arg(args, index, actual_arg);
+    }
+}
+
+fn unify_core_self_type(args: &mut [CoreType], descriptor: &AdtDescriptor, actual: &CoreType) {
+    let Some(actual_args) = core_adt_args(actual, descriptor) else {
+        return;
+    };
+    for (index, actual_arg) in actual_args.iter().enumerate() {
+        assign_core_type_arg(args, index, actual_arg);
     }
 }
 
@@ -1440,10 +1649,8 @@ fn unify_template(args: &mut [Type], template: &Type, actual: &Type) {
                 args: _actual_args,
             },
         ) if name.starts_with("$param") && nested.is_empty() => {
-            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>()
-                && let Some(slot) = args.get_mut(index)
-            {
-                *slot = actual.clone();
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
+                assign_type_arg(args, index, actual);
             }
         }
         (
@@ -1480,10 +1687,8 @@ fn unify_core_template(args: &mut [CoreType], template: &CoreType, actual: &Core
                 args: _actual_args,
             },
         ) if name.starts_with("$param") && nested.is_empty() => {
-            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>()
-                && let Some(slot) = args.get_mut(index)
-            {
-                *slot = actual.clone();
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
+                assign_core_type_arg(args, index, actual);
             }
         }
         (

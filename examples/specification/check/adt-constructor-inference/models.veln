@@ -1,0 +1,3 @@
+pub type Wrap<A>
+	pub Wrap(value: A)
+end

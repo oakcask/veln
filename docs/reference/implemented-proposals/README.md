@@ -58,6 +58,8 @@ behavior.
   [local-inference-private-helper-call-site.md](local-inference-private-helper-call-site.md).
 - Local inference prelude callback argument:
   [local-inference-prelude-callback-argument.md](local-inference-prelude-callback-argument.md).
+- Local inference ADT constructor payload:
+  [local-inference-adt-constructor-payload.md](local-inference-adt-constructor-payload.md).
 - If else expression syntax:
   [if-else-expression-syntax.md](if-else-expression-syntax.md).
 - Public member alias re-exports:

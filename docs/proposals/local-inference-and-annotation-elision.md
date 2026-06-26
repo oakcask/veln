@@ -123,27 +123,14 @@ This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
 generic function system for ordinary user-defined helpers.
 
-## Bidirectional ADT Constructor Inference
+## Completed Bidirectional ADT Constructor Inference
 
-Constructors with payloads should infer type arguments from both expected type
-and payload expressions.
-
-Rules:
-
-- If an expected ADT type is available, constructor payloads are checked against
-  the instantiated payload types.
-- If no expected ADT type is available, payload expression types may determine
-  omitted type arguments when the constructor name resolves to one visible
-  variant and every type argument becomes concrete.
-- For generic constructors with multiple payloads, all payload-derived facts
-  must agree on shared type parameters.
-- Qualified, import-alias-qualified, and type-qualified constructor forms
-  follow the existing visibility and descriptor rules.
-- Nullary generic constructors still require surrounding context; payload-free
-  constructors do not create fresh public type variables.
-
-Ambiguous constructor names, hidden constructors, and payload facts that do not
-determine all type arguments remain diagnostics rather than implicit guesses.
+The completed payload-carrying ADT constructor inference slice is archived
+under
+`../reference/implemented-proposals/local-inference-adt-constructor-payload.md`.
+Implemented current behavior is specified in
+`../specification/types.md#read-first` and
+`../specification/types-full.md#inference`.
 
 ## Match Scrutinee Inference From Constructor Patterns
 
@@ -245,8 +232,9 @@ Acceptance evidence should include:
    parameters while preserving helper result-context callback return
    inference. Remaining callback work is limited to dictionary helpers and
    aliases after they enter an equally concrete helper signature path.
-4. Infer payload-carrying ADT constructor type arguments from payloads when the
-   constructor descriptor is unambiguous.
+4. Completed for current payload-carrying constructor calls: infer ADT
+   constructor type arguments from payloads when the constructor descriptor is
+   unambiguous and every type argument becomes concrete.
 5. Infer match scrutinee descriptors from constructor-pattern arms.
 6. Run the examples cleanup and keep only annotations that still carry useful
    meaning.

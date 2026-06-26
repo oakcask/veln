@@ -18,9 +18,12 @@ full type reference.
   empty dictionary literals accept concrete expected collection types from
   annotations, returns, call arguments, record fields, match arms, `if`
   branches, and constructor payloads, plus compiler-known prelude helper result
-  context for callback return values. Compiler-known collection, option, and
-  result helper input types also constrain named private callback function
-  parameters passed to the implemented map, filter, fold, and try-map helpers.
+  context for callback return values. Payload-carrying ADT constructors also
+  infer omitted type arguments from payload expressions when the constructor
+  resolves to one visible variant and every type argument becomes concrete.
+  Compiler-known collection, option, and result helper input types also
+  constrain named private callback function parameters passed to the
+  implemented map, filter, fold, and try-map helpers.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

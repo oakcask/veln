@@ -10,17 +10,18 @@ compare it with `../specification/` before changing behavior.
 ## Catalog
 
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
-  define remaining annotation-elision work for constructor type-argument
-  inference from payloads, match scrutinees, dictionary callback inputs,
-  callback aliases that are not in the compiler-known helper path, and other
-  paths beyond the implemented same-function local `let`, empty collection
-  expected-type, empty collection callback return, and compiler-known prelude
+  define remaining annotation-elision work for match scrutinees, dictionary
+  callback inputs, callback aliases that are not in the compiler-known helper
+  path, and other paths beyond the implemented same-function local `let`,
+  empty collection expected-type, empty collection callback return,
+  payload-carrying ADT constructor inference, and compiler-known prelude
   callback argument slices specified in `../specification/types.md`. The
-  completed private helper call-site inference and prelude callback argument
-  inference slices are archived under
-  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`
+  completed private helper call-site inference, prelude callback argument
+  inference, and ADT constructor payload inference slices are archived under
+  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
+  `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   and
-  `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`.
+  `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

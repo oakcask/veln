@@ -1,0 +1,24 @@
+type Both<A>
+	Both(left: A, right: A)
+end
+
+fn unresolved_ok() -> Int
+	let value = Ok(1)
+	1
+end
+
+fn unresolved_err() -> Int
+	let value = Err("bad")
+	1
+end
+
+fn conflicting_source_payloads() -> Int
+	let value = Both(1, "bad")
+	1
+end
+
+fn conflicting_list_tail() -> Int
+	let tail = Cons("bad", Nil)
+	let value = Cons(1, tail)
+	1
+end

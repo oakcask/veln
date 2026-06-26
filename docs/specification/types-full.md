@@ -143,6 +143,18 @@ binding to that dictionary type. Without a dictionary expectation, `{}`
 remains an empty record literal. An expected collection type that still
 contains `unknown` is not concrete enough for an empty collection literal.
 
+Payload-carrying ADT constructors infer omitted type arguments from payload
+expressions when there is no surrounding expected ADT type. The constructor
+name must resolve to one visible variant, and every type argument must become
+concrete from the payloads. Repeated uses of the same type parameter must agree;
+an incompatible later payload reports `type.mismatch` at that payload
+expression. If payloads leave a constructor type argument as `unknown`, the
+constructor reports `type.inference_ambiguous`. Bare, type-qualified,
+import-alias-qualified, and import-alias-and-type-qualified constructor forms
+use the same visibility and descriptor resolution rules as constructor calls
+with expected type context. Nullary generic constructors still require
+surrounding type context.
+
 Compiler-known prelude helpers push concrete input item types into named
 private callback function values. For `vec_map`, `vec_filter`, `vec_fold`, and
 `vec_try_map`, a concrete `Vec<T>` input constrains the callback parameter that
