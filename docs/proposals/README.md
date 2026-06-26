@@ -27,7 +27,9 @@ compare it with `../specification/` before changing behavior.
   integer-literal, and `Int` converter-call mapping arithmetic including
   integer division, equality, inequality, and ordered mapping comparisons over
   supported `Int` mapping operands for `Bool` target fields composed with
-  `and`, `or`, and `not`, narrow boolean mapping selection, focused mapping
+  `and`, `or`, and `not`, narrow boolean mapping selection, pure `Bool`
+  converter selector calls through same-module functions or written imported
+  paths, focused mapping
   selection diagnostics, and the generated-helper schema validation diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, plus
   projectable structural mapped schema encode helper including explicitly

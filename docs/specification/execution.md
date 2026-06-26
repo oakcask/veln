@@ -661,14 +661,18 @@ execution reference.
   `map to Target` clause, or multiple structural mapping clauses selected by
   `when field == literal`, `when field != literal`, or boolean selector
   expressions built from decoded schema-local `Int` fields, integer literals,
-  `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, and each target
-  resolves to the same decoded record shape whose mapped expressions match
-  the target field types,
+  `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by direct
+  selector calls to one pure same-module `Bool` converter function or one
+  imported public pure `Bool` converter function through a written `use` path
+  or alias, and each target resolves to the same decoded record shape whose
+  mapped expressions match the target field types,
   the helper returns the selected mapped ordinary record shape instead of the
   schema-local field shape. Mapping selection reads the already decoded `Int`
   selector fields after field-local validation succeeds; selector clauses must
   not overlap for any concrete assignment of those fields, so at most one
-  mapping is selected. Mapping assignment
+  mapping is selected. Converter selectors are evaluated after field-local
+  validation succeeds, using the same schema-local field and supported
+  structural mapping argument rules as mapping converter calls. Mapping assignment
   expressions may reference decoded schema fields, construct records,
   construct ADT payloads resolved through the ordinary source module rules,
   including nested ADT constructor payload expressions whose leaves stay in the
@@ -755,6 +759,8 @@ execution reference.
   `examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-mapping-converter-selector-decode/`,
+  `examples/specification/run/binary-schema-imported-mapping-converter-selector-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
   `examples/specification/run/binary-schema-mapping-ordered-selection-decode/`,

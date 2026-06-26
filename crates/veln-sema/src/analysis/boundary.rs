@@ -1,8 +1,10 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use crate::schema::diagnostics::schema_mapping_expr_diagnostic;
+use crate::schema::diagnostics::{
+    schema_mapping_expr_diagnostic, schema_mapping_selector_expr_diagnostic,
+};
 use crate::schema::mapping::{
-    SchemaMappingSelectorComparison, SchemaMappingSelectorPredicate,
+    SchemaMappingSelectorComparison, SchemaMappingSelectorPredicate, SchemaMappingTyper,
     schema_mapping_assignment_expr_typed, schema_mapping_expr_typed,
     schema_mapping_selector_predicate, schema_mapping_selectors_overlap,
     schema_mapping_source_field_types, schema_mapping_target_record_fields,
@@ -3229,6 +3231,7 @@ fn schema_mapping_selection_diagnostics(
     }
 
     let mut diagnostics = Vec::new();
+    let typer = SchemaMappingTyper::new(module, schema);
     let mut seen_selectors = Vec::<(
         &veln_ast::SchemaMappingSelector,
         SchemaMappingSelectorPredicate,
@@ -3242,57 +3245,60 @@ fn schema_mapping_selection_diagnostics(
             ));
             continue;
         };
-        let Ok(predicate) = schema_mapping_selector_predicate(selector) else {
-            diagnostics.push(schema_mapping_selection_unsupported_diagnostic(
-                schema, mapping, selector,
-            ));
-            continue;
-        };
-        let mut selector_fields = BTreeSet::<String>::new();
-        predicate.collect_fields(&mut selector_fields);
-        let mut selector_valid = true;
-        for selector_field in selector_fields {
-            if !schema
-                .fields
-                .iter()
-                .any(|field| field.name == selector_field)
+        if let Ok(predicate) = schema_mapping_selector_predicate(selector) {
+            let mut selector_fields = BTreeSet::<String>::new();
+            predicate.collect_fields(&mut selector_fields);
+            let mut selector_valid = true;
+            for selector_field in selector_fields {
+                if !schema
+                    .fields
+                    .iter()
+                    .any(|field| field.name == selector_field)
+                {
+                    selector_valid = false;
+                    diagnostics.push(schema_mapping_selection_unknown_field_diagnostic(
+                        schema,
+                        mapping,
+                        selector,
+                        &selector_field,
+                    ));
+                } else if schema_fields.get(&selector_field) != Some(&Type::int()) {
+                    selector_valid = false;
+                    diagnostics.push(schema_mapping_selection_field_diagnostic(
+                        schema,
+                        mapping,
+                        selector,
+                        &selector_field,
+                    ));
+                }
+            }
+            if !selector_valid {
+                continue;
+            }
+            if let Some((previous, previous_predicate, first_span)) =
+                seen_selectors.iter().find(|(_, previous_predicate, _)| {
+                    schema_mapping_selectors_overlap(previous_predicate, &predicate)
+                })
             {
-                selector_valid = false;
-                diagnostics.push(schema_mapping_selection_unknown_field_diagnostic(
+                diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
                     schema,
                     mapping,
                     selector,
-                    &selector_field,
-                ));
-            } else if schema_fields.get(&selector_field) != Some(&Type::int()) {
-                selector_valid = false;
-                diagnostics.push(schema_mapping_selection_field_diagnostic(
-                    schema,
-                    mapping,
-                    selector,
-                    &selector_field,
+                    &predicate,
+                    previous,
+                    previous_predicate,
+                    first_span,
                 ));
             }
-        }
-        if !selector_valid {
+            seen_selectors.push((selector, predicate, selector.span.clone()));
+        } else if let Err(error) =
+            typer.converter_selector_expr_typed(schema_fields, &selector.expr)
+        {
+            diagnostics.push(schema_mapping_selector_expr_diagnostic(
+                schema, mapping, selector, *error,
+            ));
             continue;
         }
-        if let Some((previous, previous_predicate, first_span)) =
-            seen_selectors.iter().find(|(_, previous_predicate, _)| {
-                schema_mapping_selectors_overlap(previous_predicate, &predicate)
-            })
-        {
-            diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
-                schema,
-                mapping,
-                selector,
-                &predicate,
-                previous,
-                previous_predicate,
-                first_span,
-            ));
-        }
-        seen_selectors.push((selector, predicate, selector.span.clone()));
         if let Some(fields) = schema_mapping_target_record_fields(module, schema, mapping) {
             if let Some(first_fields) = &target_fields {
                 if first_fields != &fields {
@@ -3380,38 +3386,6 @@ fn schema_mapping_selection_unknown_field_diagnostic(
                 (
                     "selector_field",
                     JsonValue::string(selector_field.to_string()),
-                ),
-                (
-                    "selector_expression",
-                    JsonValue::string(selector.text.clone()),
-                ),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_selection_unsupported_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    selector: &veln_ast::SchemaMappingSelector,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_selection_unsupported",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "schema mapping selector expression `{}` is not supported",
-            selector.text
-        ),
-        Some(selector.span.clone()),
-        schema_mapping_details(
-            selector.node_id.display("schema-mapping-selector"),
-            schema,
-            mapping,
-            [
-                (
-                    "reason",
-                    JsonValue::string("unsupported_selector_expression"),
                 ),
                 (
                     "selector_expression",

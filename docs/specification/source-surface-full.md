@@ -217,14 +217,18 @@ editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
 multiple eligible mapping clauses selected by `when field == literal`,
 `when field != literal`, ordered field-literal comparisons, or by narrow
-boolean selector expressions over decoded schema-local `Int` fields, when all
-schema fields are implemented exact-width unsigned primitives, supported
+boolean selector expressions over decoded schema-local `Int` fields, or by a
+direct selector call to one pure same-module `Bool` converter or imported
+public pure `Bool` converter named through a written `use` path or alias, when
+all schema fields are implemented exact-width unsigned primitives, supported
 reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
 fields, or extension dispatch fields and the target resolves to matching
 record fields. Multiple selected mappings must decode to the same record
 shape. Selector comparisons may only compare decoded schema-local `Int` fields
 with integer literals, and selector clauses must not overlap for any concrete
-assignment of referenced selector fields. Missing selectors report
+assignment of referenced selector fields. Converter selector calls follow the
+same visibility, purity, return-type, and argument rules as schema mapping
+converters and must return `Bool`. Missing selectors report
 `schema.mapping_selection_required`, duplicate or overlapping selectors report
 `schema.mapping_selection_ambiguous`, and unsupported selector
 or target-shape boundaries report `schema.mapping_selection` or
@@ -257,6 +261,10 @@ The executable diagnostics case
 `../../examples/specification/check/schema-imported-mapping-converter-diagnostics/`
 keeps imported converter visibility and missing written import-path
 diagnostics executable.
+The executable diagnostics case
+`../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
+keeps converter selector return type, argument type, purity, visibility, and
+written import-path diagnostics executable.
 `../../examples/specification/check/schema-two-argument-mapping-converters/`
 keeps same-module and imported public two-argument converter calls executable.
 The executable diagnostics case

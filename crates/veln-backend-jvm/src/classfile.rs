@@ -1620,13 +1620,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                             },
                         );
                     } else {
+                        let selector_expr = selector
+                            .expr
+                            .as_ref()
+                            .expect("expression schema mapping selector should have metadata");
                         this.emit_object_array(
                             code,
-                            3,
+                            4,
                             |this, code, spec_index| match spec_index {
                                 0 => code.ldc_string("select_expr"),
                                 1 => code.ldc_string(&selector.text),
-                                2 => {
+                                2 => this.emit_schema_mapping_expr_spec(code, selector_expr),
+                                3 => {
                                     this.emit_object_array(
                                         code,
                                         mapping.fields.len(),

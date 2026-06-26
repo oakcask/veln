@@ -1,9 +1,11 @@
-use veln_ast::{SchemaDecl, SchemaMappingAssignment, SchemaMappingClause};
+use veln_ast::{SchemaDecl, SchemaMappingAssignment, SchemaMappingClause, SchemaMappingSelector};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::diagnostics::span_json;
-use crate::schema::mapping::{SchemaMappingConverterInput, SchemaMappingExprError};
+use crate::schema::mapping::{
+    SchemaMappingConverterInput, SchemaMappingExprError, schema_mapping_expr_render,
+};
 use crate::types::Type;
 
 pub(crate) fn schema_mapping_expr_diagnostic(
@@ -362,6 +364,272 @@ pub(crate) fn schema_mapping_expr_diagnostic(
     }
 }
 
+pub(crate) fn schema_mapping_selector_expr_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &SchemaMappingSelector,
+    error: SchemaMappingExprError,
+) -> Diagnostic {
+    match error {
+        SchemaMappingExprError::Unsupported { text, span } => Diagnostic::new(
+            "schema.mapping_selection_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("schema mapping selector expression `{text}` is not supported"),
+            Some(span),
+            schema_mapping_selector_details(
+                selector.node_id.display("schema-mapping-selector"),
+                schema,
+                mapping,
+                selector,
+                [
+                    (
+                        "reason",
+                        JsonValue::string("unsupported_selector_expression"),
+                    ),
+                    ("expression", JsonValue::string(text)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::UnknownSchemaField { name, span } => Diagnostic::new(
+            "schema.mapping_selection",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("schema mapping selector field `{name}` is not declared"),
+            Some(span),
+            schema_mapping_selector_details(
+                selector.node_id.display("schema-mapping-selector"),
+                schema,
+                mapping,
+                selector,
+                [
+                    ("reason", JsonValue::string("unknown_selector_field")),
+                    ("selector_field", JsonValue::string(name)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::UnresolvedConverter { name, span } => Diagnostic::new(
+            "schema.mapping_converter",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("schema mapping converter `{name}` is not resolved"),
+            Some(span),
+            schema_mapping_selector_details(
+                selector.node_id.display("schema-mapping-selector"),
+                schema,
+                mapping,
+                selector,
+                [
+                    ("reason", JsonValue::string("unresolved_converter")),
+                    ("converter", JsonValue::string(name)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::PrivateConverter {
+            name,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_visibility",
+                Severity::Error,
+                DiagnosticKind::Name,
+                format!("schema mapping converter `{name}` is private"),
+                Some(span),
+                schema_mapping_selector_details(
+                    selector.node_id.display("schema-mapping-selector"),
+                    schema,
+                    mapping,
+                    selector,
+                    [
+                        ("reason", JsonValue::string("private_converter")),
+                        ("converter", JsonValue::string(name)),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ConverterInputType {
+            name,
+            expected,
+            actual,
+            input,
+            span,
+            function_span,
+        } => {
+            let message = match &input {
+                SchemaMappingConverterInput::SourceField(source) => format!(
+                    "schema mapping converter `{name}` expects `{}`, but source field `{source}` decodes as `{}`",
+                    expected.render(),
+                    actual.render()
+                ),
+                SchemaMappingConverterInput::Expression(text) => format!(
+                    "schema mapping converter `{name}` expects `{}`, but argument expression `{text}` has type `{}`",
+                    expected.render(),
+                    actual.render()
+                ),
+            };
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_input",
+                Severity::Error,
+                DiagnosticKind::Type,
+                message,
+                Some(span),
+                schema_mapping_selector_converter_details(SchemaMappingSelectorConverterDetails {
+                    node_id: selector.node_id.display("schema-mapping-selector"),
+                    schema,
+                    mapping,
+                    selector,
+                    reason: "converter_input_type_mismatch",
+                    converter: &name,
+                    input: &input,
+                    expected: &expected,
+                    actual: &actual,
+                }),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ConverterReturnType {
+            name,
+            expected,
+            actual,
+            input,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_return",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "schema mapping converter `{name}` returns `{}`, but selector expects `{}`",
+                    actual.render(),
+                    expected.render()
+                ),
+                Some(span),
+                schema_mapping_selector_converter_details(SchemaMappingSelectorConverterDetails {
+                    node_id: selector.node_id.display("schema-mapping-selector"),
+                    schema,
+                    mapping,
+                    selector,
+                    reason: "converter_return_type_mismatch",
+                    converter: &name,
+                    input: &input,
+                    expected: &expected,
+                    actual: &actual,
+                }),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ImpureConverter {
+            name,
+            effects,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_purity",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!("schema mapping converter `{name}` must be pure"),
+                Some(span),
+                schema_mapping_selector_details(
+                    selector.node_id.display("schema-mapping-selector"),
+                    schema,
+                    mapping,
+                    selector,
+                    [
+                        ("reason", JsonValue::string("impure_converter")),
+                        ("converter", JsonValue::string(name)),
+                        (
+                            "effects",
+                            JsonValue::array(effects.iter().cloned().map(JsonValue::string)),
+                        ),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::TypeMismatch {
+            expected,
+            actual,
+            text,
+            span,
+        } => Diagnostic::new(
+            "schema.mapping_selection_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "schema mapping selector expression `{}` has type `{}`, but selector expects `{}`",
+                text,
+                actual.render(),
+                expected.render()
+            ),
+            Some(span),
+            schema_mapping_selector_details(
+                selector.node_id.display("schema-mapping-selector"),
+                schema,
+                mapping,
+                selector,
+                [
+                    ("reason", JsonValue::string("selector_type_mismatch")),
+                    ("expression", JsonValue::string(text)),
+                    ("expected", JsonValue::string(expected.render())),
+                    ("actual", JsonValue::string(actual.render())),
+                ],
+            ),
+        ),
+        other => Diagnostic::new(
+            "schema.mapping_selection_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "schema mapping selector expression `{}` is not supported",
+                schema_mapping_expr_render(&selector.expr)
+            ),
+            Some(selector.span.clone()),
+            schema_mapping_selector_details(
+                selector.node_id.display("schema-mapping-selector"),
+                schema,
+                mapping,
+                selector,
+                [(
+                    "reason",
+                    JsonValue::string(format!("unsupported_{other:?}")),
+                )],
+            ),
+        ),
+    }
+}
+
 fn schema_mapping_source_diagnostic(
     schema: &SchemaDecl,
     assignment: &SchemaMappingAssignment,
@@ -488,6 +756,83 @@ fn schema_mapping_converter_details(details: SchemaMappingConverterDetails<'_>) 
         }
     }
     JsonValue::object(fields)
+}
+
+struct SchemaMappingSelectorConverterDetails<'a> {
+    node_id: String,
+    schema: &'a SchemaDecl,
+    mapping: &'a SchemaMappingClause,
+    selector: &'a SchemaMappingSelector,
+    reason: &'static str,
+    converter: &'a str,
+    input: &'a SchemaMappingConverterInput,
+    expected: &'a Type,
+    actual: &'a Type,
+}
+
+fn schema_mapping_selector_converter_details(
+    details: SchemaMappingSelectorConverterDetails<'_>,
+) -> JsonValue {
+    let mut fields = schema_mapping_selector_detail_fields(
+        details.node_id,
+        details.schema,
+        details.mapping,
+        details.selector,
+    );
+    fields.extend([
+        ("reason", JsonValue::string(details.reason)),
+        (
+            "converter",
+            JsonValue::string(details.converter.to_string()),
+        ),
+        ("expected", JsonValue::string(details.expected.render())),
+        ("actual", JsonValue::string(details.actual.render())),
+    ]);
+    match details.input {
+        SchemaMappingConverterInput::SourceField(source) => {
+            fields.push(("input_source_field", JsonValue::string(source.clone())));
+        }
+        SchemaMappingConverterInput::Expression(text) => {
+            fields.push(("input_expression", JsonValue::string(text.clone())));
+        }
+    }
+    JsonValue::object(fields)
+}
+
+fn schema_mapping_selector_details<const N: usize>(
+    node_id: String,
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &SchemaMappingSelector,
+    extra: [(&'static str, JsonValue); N],
+) -> JsonValue {
+    let mut fields = schema_mapping_selector_detail_fields(node_id, schema, mapping, selector);
+    fields.extend(extra);
+    JsonValue::object(fields)
+}
+
+fn schema_mapping_selector_detail_fields(
+    node_id: String,
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    selector: &SchemaMappingSelector,
+) -> Vec<(&'static str, JsonValue)> {
+    vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(node_id)),
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+        (
+            "mapping_target",
+            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+        ),
+        (
+            "selector_expression",
+            JsonValue::string(selector.text.clone()),
+        ),
+    ]
 }
 
 fn schema_mapping_assignment_details<const N: usize>(

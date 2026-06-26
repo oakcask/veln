@@ -100,6 +100,11 @@ schemas whose fields use implemented exact-width unsigned primitives,
   and `==`, `!=`, `<`, `<=`, `>`, or `>=` comparisons over supported `Int`
   mapping operands, composed with `and`, `or`, and `not`, into a `Bool`
   target field
+- schema mapping selectors that call one pure same-module `Bool` converter
+  function or one imported public pure `Bool` converter function through a
+  written `use` path or alias, using the same converter argument rules as
+  schema mapping converter assignments during generated decode mapping
+  selection
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
@@ -115,8 +120,8 @@ This proposal remains open for:
   conversion hooks that take one, two, three, four, or five arguments, field
   selection from record-shaped structural mapping expressions, supported
   integer mapping arithmetic, supported ordered and equality integer mapping
-  comparisons, boolean mapping assignment composition, and narrow decoded-field
-  integer boolean mapping selection
+  comparisons, boolean mapping assignment composition, narrow decoded-field
+  integer boolean mapping selection, and pure `Bool` converter selector calls
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition surfaces beyond codec
@@ -150,10 +155,15 @@ implemented under `../specification/execution.md`: an eligible binary schema
 may use one `map to Target` clause, or multiple clauses selected by
 `when field == literal`, `when field != literal`, or narrow boolean selector
 expressions built from decoded schema-local `Int` fields, integer literals,
-`==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, to construct an
+`==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by direct
+selector calls to one pure same-module `Bool` converter function or one
+imported public pure `Bool` converter function through a written `use` path
+or alias, to construct an
 ordinary mapped record after field-local validation succeeds when each
 assignment expression type checks against the target field. Selected mappings
-must use non-overlapping selector clauses and one decoded record shape. The
+whose truth can be decided from decoded `Int` field comparisons must use
+non-overlapping selector clauses, and all selected mappings must resolve to
+one decoded record shape. The
 implemented expression slice supports schema-local field references, record
 construction, ADT constructor construction resolved through ordinary source
 module rules, including nested constructor payload expressions whose leaves
@@ -181,7 +191,9 @@ supported `Int` mapping operands composed with `and`, `or`, and `not` for
 calls may take one, two, three, four, or five arguments. Arguments may be schema-local field
 references or structural mapping expressions made from schema-local fields,
 records, ADT constructors, and nested combinations of those forms, including
-supported integer arithmetic mapping expressions. A schema does not implicitly publish a record type just
+supported integer arithmetic mapping expressions. Direct converter selector
+calls reuse those converter argument rules and must return `Bool`. A schema
+does not implicitly publish a record type just
 because it names fields, and importing a schema does not make its schema-local
 field names available as ordinary source bindings.
 
@@ -208,8 +220,9 @@ alias with one, two, three, four, or five supported arguments, plus decoded-fiel
 integer `+`, `-`, `*`, and `/` mapping arithmetic, and equality, inequality,
 and ordered comparisons over supported `Int` mapping operands composed with
 `and`, `or`, and `not` for `Bool` target fields, are
-implemented. Arbitrary function calls, bare imported converter
-names, private imported converters, runtime settings, stream state, and
+implemented along with direct pure `Bool` converter selector calls. Arbitrary
+function calls, bare imported converter names, private imported converters,
+runtime settings, stream state, and
 recovery behavior belong in explicit codec functions rather than in schema
 mapping.
 
@@ -451,7 +464,8 @@ Implemented:
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=
   literal`, ordered field-literal comparisons, or narrow decoded-field boolean
-  selector expressions, when assignment expressions type check against target
+  selector expressions, or by direct pure `Bool` converter selector calls,
+  when assignment expressions type check against target
   record fields, rejects
   invalid mapping assignments before execution, and returns the selected mapped
   record shape after field-local validation passes.

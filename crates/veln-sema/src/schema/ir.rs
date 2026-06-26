@@ -312,7 +312,8 @@ fn ir_schema_mapping_selector(
 ) -> IrSchemaDecodeMappingSelector {
     let simple = selector
         .predicate
-        .as_simple_comparison()
+        .as_ref()
+        .and_then(|predicate| predicate.as_simple_comparison())
         .map(|(field, op, value)| {
             (
                 field.to_string(),
@@ -328,6 +329,11 @@ fn ir_schema_mapping_selector(
                 value,
             )
         });
+    let expr = if simple.is_some() {
+        None
+    } else {
+        Some(ir_schema_mapping_expr(selector.expr))
+    };
     IrSchemaDecodeMappingSelector {
         text: selector.text,
         field: simple.as_ref().map(|(field, _, _)| field.clone()),
@@ -336,6 +342,7 @@ fn ir_schema_mapping_selector(
             .map(|(_, op, _)| op.clone())
             .unwrap_or_default(),
         value: simple.map(|(_, _, value)| value).unwrap_or_default(),
+        expr,
     }
 }
 

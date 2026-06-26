@@ -208,7 +208,10 @@ and used by the generated decode slice described in
 multiple structural mappings selected by `when field == literal` or
 `when field != literal`, ordered field-literal comparisons, or by boolean
 selector expressions built from decoded schema-local `Int` fields, integer
-literals, `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, and all
+literals, `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by
+direct selector calls to one pure same-module `Bool` converter function or one
+imported public pure `Bool` converter function through a written `use` path or
+alias, and all
 assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, `Flag8` fields as `Flag8`,
 `Flag16be` fields as `Flag16be`, `Flag16le` fields as `Flag16le`,
@@ -232,11 +235,14 @@ selected mapping target record shape, and extension dispatch payload fields as
 `SchemaDispatchPayload<T>`. Multiple selected mappings must all resolve to the
 same decoded record shape. Selector comparisons may only compare a decoded
 schema-local `Int` field with an integer literal using `==`, `!=`, `<`, `<=`,
-`>`, or `>=`; arbitrary calls, converter calls, record expressions,
-schema-local payload values, runtime settings, stream state, imported names,
-and unsupported arithmetic are rejected as unsupported selectors. Selector
-clauses must not overlap for any concrete assignment of their referenced
-`Int` fields.
+`>`, or `>=`; direct converter selector calls must follow the same visibility,
+purity, return-type, and argument rules as schema mapping converters and must
+return `Bool`. Arbitrary ordinary calls, bare imported converter names, private
+imported converters, record expressions as the selector root, schema-local
+payload values, runtime settings, stream state, and unsupported arithmetic are
+rejected as unsupported selectors. Selector clauses whose truth can be decided
+from decoded `Int` field comparisons must not overlap for any concrete
+assignment of their referenced `Int` fields.
 Missing, duplicate, ambiguous, unknown-field, non-`Int`, and unsupported
 selectors report
 `schema.mapping_selection_required`, `schema.mapping_selection_ambiguous`,
@@ -255,7 +261,8 @@ expressions, support rather than rejection for recursive dispatch payload
 schemas outside the selected same-module or public imported length-bounded
 dispatch decode-and-encode slice, dispatch payload schemas outside the
 generated helper slice, arbitrary mapping expressions, and mapping selection
-beyond this narrow decoded-field boolean selector slice are not implemented.
+beyond this narrow decoded-field boolean and converter selector slice are not
+implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the equality and inequality mapping selection boundary. The checked
@@ -263,6 +270,9 @@ diagnostics case
 `../../examples/specification/check/schema-mapping-boolean-selector-diagnostics/`
 pins boolean selector unsupported, unknown-field, non-`Int`, and overlap
 diagnostics. The checked diagnostics case
+`../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
+pins converter selector return type, argument type, purity, visibility, and
+written-import-path diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, direct and nested constructor payload type, non-`Int` arithmetic operand, and

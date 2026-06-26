@@ -1405,6 +1405,15 @@ fn collect_schema_mapping_converter_callees_for_schema(
     callees: &mut Vec<ReachableFunction>,
 ) {
     for mapping in &schema.mappings {
+        if let Some(selector) = &mapping.selector {
+            collect_schema_mapping_expr_converter_callees(
+                &selector.expr,
+                schema.module_name.as_deref(),
+                &module.uses,
+                function_targets,
+                callees,
+            );
+        }
         for assignment in &mapping.assignments {
             collect_schema_mapping_expr_converter_callees(
                 &assignment.expr,
@@ -2469,6 +2478,64 @@ mod tests {
             functions,
             vec![
                 (Some("main"), FunctionKind::Function, Some("next_kind")),
+                (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_schema_mapping_selector_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Header\n",
+                    "  Header {kind: Int}\n",
+                    "end\n",
+                    "\n",
+                    "fn is_kind(kind: Int) -> Bool\n",
+                    "  kind == 1\n",
+                    "end\n",
+                    "\n",
+                    "schema HeaderWire\n",
+                    "  format binary\n",
+                    "  wire_kind: UInt8\n",
+                    "\n",
+                    "  map to Header when is_kind(wire_kind)\n",
+                    "    kind = wire_kind\n",
+                    "\n",
+                    "  map to Header when wire_kind == 2\n",
+                    "    kind = wire_kind\n",
+                    "end\n",
+                    "\n",
+                    "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
+                    "  byte_decode_header_wire(view)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("is_kind")),
                 (Some("main"), FunctionKind::Function, Some("main")),
             ]
         );
