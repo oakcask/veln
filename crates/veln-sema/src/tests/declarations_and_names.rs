@@ -2164,6 +2164,126 @@ fn generated_schema_mappings_report_imported_converter_diagnostics() {
 }
 
 #[test]
+fn generated_schema_mappings_report_nested_converter_diagnostics() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use helpers\n",
+            "\n",
+            "type Header\n",
+            "  Header {missing: Int, private: Int, too_few: Int, bad_input: Int, nested_return: Int, impure: Int}\n",
+            "end\n",
+            "\n",
+            "fn combine(value: Int, extra: Int) -> Int\n",
+            "  value + extra\n",
+            "end\n",
+            "\n",
+            "fn two_params(value: Int, extra: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn needs_text(value: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\n",
+            "fn to_text(value: Int) -> String\n",
+            "  int_to_string(value)\n",
+            "end\n",
+            "\n",
+            "fn noisy(value: Int) -> Int effects [stdio]\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  length: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    missing = combine(missing_helpers::convert(kind), length)\n",
+            "    private = combine(helpers::private_convert(kind), length)\n",
+            "    too_few = combine(two_params(kind), length)\n",
+            "    bad_input = combine(needs_text(kind), length)\n",
+            "    nested_return = combine(to_text(kind), length)\n",
+            "    impure = combine(noisy(kind), length)\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod helpers\n",
+            "fn private_convert(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        types: app.types,
+        functions: app.functions.into_iter().chain(helpers.functions).collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter"
+                && diagnostic.message
+                    == "schema mapping converter `missing_helpers::convert` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_visibility"
+                && diagnostic.message
+                    == "schema mapping converter `helpers::private_convert` is private"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_arity"
+                && diagnostic.message
+                    == "schema mapping converter `two_params` expects 2 argument(s), but got 1"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_input"
+                && diagnostic.message
+                    == "schema mapping converter `needs_text` expects `String`, but source field `kind` decodes as `Int`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_return"
+                && diagnostic.message
+                    == "schema mapping converter `to_text` returns `String`, but target field `nested_return` expects `Int`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_converter_purity"
+                && diagnostic.message == "schema mapping converter `noisy` must be pure"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn dispatch_payload_schema_references_report_resolution_diagnostics() {
     let app_source = SourceFile::new(
         "app.veln",

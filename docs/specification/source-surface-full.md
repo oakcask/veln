@@ -206,10 +206,11 @@ whose operands are decoded schema-local `Int` fields, integer literals,
 mapping expressions. A `Bool` target field may use `==`, `!=`, `<`, `<=`,
 `>`, and `>=` between supported `Int` mapping operands, and may compose those
 supported comparisons with `and`, `or`, and `not`. Converter calls take one,
-two, three, or four arguments. Each argument is either a schema-local field
+two, three, four, or five arguments. Each argument is either a schema-local field
 reference or an already implemented structural mapping expression made from
 schema-local fields, records, ADT constructors, supported integer arithmetic
-mapping expressions, and nested combinations of those forms.
+mapping expressions, pure converter calls, and nested combinations of those
+forms.
 Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
@@ -265,12 +266,15 @@ The executable diagnostics case
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 keeps converter selector return type, argument type, purity, visibility, and
 written import-path diagnostics executable.
+`../../examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`
+keeps nested converter calls inside direct converter selector arguments
+executable.
 `../../examples/specification/check/schema-two-argument-mapping-converters/`
 keeps same-module and imported public two-argument converter calls executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-two-argument-mapping-converter-diagnostics/`
-keeps rejected second arguments and nested converter calls inside
-two-argument converter calls executable.
+keeps rejected second arguments executable while nested converter calls inside
+two-argument converter calls remain accepted.
 `../../examples/specification/check/schema-three-argument-mapping-converters/`
 keeps same-module and imported public three-argument converter calls
 executable.
@@ -288,8 +292,9 @@ keep same-module and imported public five-argument converter calls executable
 through generated decode mapping.
 The executable diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-keeps unsupported six-argument converter calls, rejected fifth arguments, and
-nested converter calls inside five-argument converter calls executable.
+keeps unsupported six-argument converter calls and rejected fifth arguments
+executable while nested converter calls inside five-argument converter calls
+remain accepted.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose

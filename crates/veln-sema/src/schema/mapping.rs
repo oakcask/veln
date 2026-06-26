@@ -1638,7 +1638,7 @@ fn schema_mapping_converter_arg_exprs(
             }));
         }
         let input = schema_mapping_converter_input(arg);
-        let typed_arg = match schema_mapping_expr_typed_unchecked(context, arg, param_ty, false) {
+        let typed_arg = match schema_mapping_expr_typed_unchecked(context, arg, param_ty, true) {
             Ok(typed) => typed,
             Err(error) => match *error {
                 SchemaMappingExprError::TypeMismatch {

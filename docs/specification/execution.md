@@ -700,7 +700,8 @@ execution reference.
   take one, two, three, four, or five arguments. Each argument is either one decoded
   schema-local field or an already implemented structural mapping expression
   made from decoded schema fields, records, ADT constructors, integer
-  arithmetic mapping expressions, and nested combinations of those forms. The
+  arithmetic mapping expressions, pure converter calls, and nested
+  combinations of those forms. The
   returned value is then assigned to the target field.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
@@ -757,17 +758,20 @@ execution reference.
   `examples/specification/run/binary-schema-imported-mapping-converter-arithmetic-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapped-converter-adt-argument-decode/`,
+  `examples/specification/run/binary-schema-nested-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-five-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-imported-nested-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`,
   `examples/specification/run/binary-schema-imported-two-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-mapping-converter-selector-decode/`,
+  `examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`,
   `examples/specification/run/binary-schema-imported-mapping-converter-selector-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-decode/`,
   `examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`,
