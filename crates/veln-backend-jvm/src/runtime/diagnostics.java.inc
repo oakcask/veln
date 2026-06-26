@@ -41,7 +41,9 @@
             ? byteDiagnostics.get().remove(value)
             : runtimeDiagnostic.byteDiagnostic;
         ValueDiagnostic valueDiagnostic = valueDiagnostics.get().remove(value);
-        ProtocolDiagnostic protocolDiagnostic = protocolDiagnostics.get().remove(value);
+        ProtocolDiagnostic protocolDiagnostic = runtimeDiagnostic == null
+            ? protocolDiagnostics.get().remove(value)
+            : runtimeDiagnostic.protocolDiagnostic;
         String line = "result"
             + "\t" + hex(value);
         if (fixtureHex != null) {
@@ -122,10 +124,15 @@
         Adt diagnostic = (Adt) value;
         String id = asString(diagnostic.payloads[0]);
         ByteDiagnostic byteDiagnostic = runtimeByteDiagnostic(id, diagnostic.payloads[2]);
-        if (byteDiagnostic == null) {
-            return null;
+        if (byteDiagnostic != null) {
+            return new RuntimeDiagnosticPayload(byteDiagnostic, null);
         }
-        return new RuntimeDiagnosticPayload(byteDiagnostic);
+        ProtocolDiagnostic protocolDiagnostic =
+            runtimeHpackFixtureDiagnostic(id, diagnostic.payloads[2]);
+        if (protocolDiagnostic != null) {
+            return new RuntimeDiagnosticPayload(null, protocolDiagnostic);
+        }
+        return null;
     }
 
     private static ByteDiagnostic runtimeByteDiagnostic(String id, Object detail) {
@@ -149,6 +156,53 @@
             details.add(preview);
         }
         return new ByteDiagnostic(id, byteOffset, fieldPath, details);
+    }
+
+    private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
+        if (!id.equals("hpack.fixture.unsupported_header_block")) {
+            return null;
+        }
+        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
+            return null;
+        }
+        Adt hpackDetail = (Adt) detail;
+        long byteOffset = asLong(hpackDetail.payloads[0]);
+        long observedSize = asLong(hpackDetail.payloads[1]);
+        long observedFirstByte = asLong(hpackDetail.payloads[2]);
+        String expectedFixture = asString(hpackDetail.payloads[3]);
+        String codecModule = asString(hpackDetail.payloads[4]);
+        String nearbyContext = byteChunkPreviewTrace(hpackDetail.payloads[5], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_block_size", observedSize),
+                DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                DiagnosticDetail.string("expected_fixture", expectedFixture),
+                DiagnosticDetail.string("codec_module", codecModule),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static String byteChunkPreviewTrace(Object chunk, int maxPreviewBytes) {
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        long count = bytes.size();
+        long previewCount = Math.min(count, Math.max(0, maxPreviewBytes));
+        StringBuilder out = new StringBuilder((int) (previewCount * 2));
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (long index = 0; index < previewCount; index += 1) {
+            int value = (int) byteValueLong(bytes.get((int) index));
+            out.append(digits[value >>> 4]);
+            out.append(digits[value & 0x0f]);
+        }
+        return hex(out.toString())
+            + ":"
+            + previewCount
+            + ":"
+            + count
+            + ":"
+            + Boolean.toString(count > previewCount);
     }
 
     private static java.util.List<ByteDiagnosticFieldPathSegment> runtimeDiagnosticFieldPath(
@@ -1833,9 +1887,14 @@
 
     private static final class RuntimeDiagnosticPayload {
         final ByteDiagnostic byteDiagnostic;
+        final ProtocolDiagnostic protocolDiagnostic;
 
-        RuntimeDiagnosticPayload(ByteDiagnostic byteDiagnostic) {
+        RuntimeDiagnosticPayload(
+            ByteDiagnostic byteDiagnostic,
+            ProtocolDiagnostic protocolDiagnostic
+        ) {
             this.byteDiagnostic = byteDiagnostic;
+            this.protocolDiagnostic = protocolDiagnostic;
         }
     }
 

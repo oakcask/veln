@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HPACK fixture unsupported header block at byte offset 27"
+equals = "RuntimeDiagnostic(hpack.fixture.unsupported_header_block, HPACK fixture unsupported header block at byte offset 27, RuntimeHpackFixtureDiagnostic(27, 1, 255, fixture header block, hpack_fixture, ByteChunk([Byte(255)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"
@@ -57,3 +57,58 @@ equals = 1
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
 equals = false
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "hpack.fixture.unsupported_header_block"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.message"
+equals = "HPACK fixture unsupported header block at byte offset 27"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHpackFixtureDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset"
+equals = 27
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.observed_header_block_size"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.observed_first_byte"
+equals = 255
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.expected_fixture"
+equals = "fixture header block"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.codec_module"
+equals = "hpack_fixture"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"

@@ -3143,6 +3143,26 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHpackFixtureDiagnostic" => {
+            let args = expect_arity(name, args, 6)?;
+            Ok(result_value_object(
+                "RuntimeHpackFixtureDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_block_size", parse_veln_value(args[1])?),
+                    ("observed_first_byte", parse_veln_value(args[2])?),
+                    (
+                        "expected_fixture",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "codec_module",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[5])?),
+                ],
+            ))
+        }
         "RuntimeDiagnosticFieldPathSegment" => {
             let args = expect_arity(name, args, 2)?;
             Ok(result_value_object(
@@ -3194,7 +3214,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
-        "ByteOffset" | "ByteCount" => {
+        "Byte" | "ByteOffset" | "ByteCount" => {
             let args = expect_arity(name, args, 1)?;
             Ok(result_value_object(
                 name,
