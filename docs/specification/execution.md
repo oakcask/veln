@@ -1442,6 +1442,8 @@ execution reference.
   human runtime diagnostic and `details.protocol_diagnostic` JSON shape as
   the compatibility helper. The implemented HTTP/2 slice covers
   `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)`,
+  `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)`,
+  `RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)`,
   `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,

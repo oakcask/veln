@@ -1,28 +1,50 @@
 # HTTP/2 invalid connection preface failures project structured runtime details.
 
 type Http2ProtocolFailure
-	InvalidPreface(Int, Int, Int, Int)
+	InvalidPreface(Int, Int, Int, Int, ByteView)
 end
 
-type Http2DiagnosticContext
-	DiagnosticContext(ByteView)
+fn invalid_preface_error_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_preface",
+		error,
+		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([]))
+	)
 end
 
-fn context_pending_view(context: Http2DiagnosticContext) -> ByteView
-	match context
-		DiagnosticContext(preview) => preview
-	end
+fn invalid_preface_payload(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_preface",
+		"HTTP/2 invalid client connection preface at byte offset 4",
+		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(offset, expected_byte, actual_byte, matched_count, 24, "connection-preface", "rfc9113_client_connection_preface", byte_view_to_chunk(preview))
+	)
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, context_pending_view(context))
+		InvalidPreface(offset, expected_byte, actual_byte, matched_count, preview) => Err(invalid_preface_payload(offset, expected_byte, actual_byte, matched_count, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("505249202b")?
-	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	let context: Http2DiagnosticContext = DiagnosticContext(preview)
-	http2_protocol_diagnostic(InvalidPreface(4, 42, 43, 4), context)
+fn preface_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("505249202b")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_preface_error_payload(error))
+	end
+end
+
+fn preface_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_preface_error_payload(error))
+		end
+		Err(error) => Err(invalid_preface_error_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = preface_bytes()?
+	let preview: ByteView = preface_view(bytes)?
+	http2_protocol_diagnostic(InvalidPreface(4, 42, 43, 4, preview))
 end

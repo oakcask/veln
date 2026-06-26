@@ -190,7 +190,8 @@ same human and JSON byte-diagnostic surfaces used by legacy helpers, and
 project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
 fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover pending-byte close,
-continuation ordering, invalid frame kind, frame-size exceeded,
+partial and invalid client connection preface failures, continuation ordering,
+invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
@@ -205,6 +206,10 @@ checked examples are
 plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/hpack-fixture-codec-json/`,
 `../../examples/specification/run/http2-protocol-core-closed-json/`,
+`../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
+`../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
+`../../examples/specification/run/http2-protocol-core-preface-invalid-human/`,
+`../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`,

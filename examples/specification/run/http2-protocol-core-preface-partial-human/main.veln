@@ -1,28 +1,50 @@
 # HTTP/2 partial connection preface failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	ClosedWithPartialPreface(Int, Int)
+	ClosedWithPartialPreface(Int, Int, ByteView)
 end
 
-type Http2DiagnosticContext
-	DiagnosticContext(ByteView)
+fn partial_preface_error_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.partial_preface",
+		error,
+		RuntimeHttp2ProtocolPartialPrefaceDiagnostic(0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([]))
+	)
 end
 
-fn context_pending_view(context: Http2DiagnosticContext) -> ByteView
-	match context
-		DiagnosticContext(preview) => preview
-	end
+fn partial_preface_payload(offset: Int, pending_count: Int, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.partial_preface",
+		"HTTP/2 input ended with partial client connection preface at byte offset 0",
+		RuntimeHttp2ProtocolPartialPrefaceDiagnostic(offset, pending_count, 24, "connection-preface", "rfc9113_client_connection_preface", byte_view_to_chunk(preview))
+	)
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
 	match failure
-		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count, context_pending_view(context))
+		ClosedWithPartialPreface(offset, pending_count, preview) => Err(partial_preface_payload(offset, pending_count, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("505249202a20485454502f32")?
-	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(12)?)?
-	let context: Http2DiagnosticContext = DiagnosticContext(preview)
-	http2_protocol_diagnostic(ClosedWithPartialPreface(0, 12), context)
+fn preface_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("505249202a20485454502f32")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(partial_preface_error_payload(error))
+	end
+end
+
+fn preface_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(partial_preface_error_payload(error))
+		end
+		Err(error) => Err(partial_preface_error_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = preface_bytes()?
+	let preview: ByteView = preface_view(bytes)?
+	http2_protocol_diagnostic(ClosedWithPartialPreface(0, 12, preview))
 end

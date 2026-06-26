@@ -223,14 +223,17 @@ compare it with `../specification/` before changing behavior.
 - [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
   remaining runtime diagnostic payload migration after the implemented
   source-visible byte diagnostic ADT, HPACK fixture payloads, HTTP/2 protocol
-  payload slices for pending-byte close, continuation ordering, invalid frame
-  kind, frame-size peer limit, header-list receive-limit, SETTINGS value range
-  peer-limit, header-table receive-limit, concurrent-stream receive-limit,
-  fixed payload length, invalid `WINDOW_UPDATE` increment, invalid PRIORITY
-  dependency, and stream-after-GOAWAY diagnostics, command projection, and
-  executable harness assertion slices. The completed HPACK fixture payload
-  slice is archived under
-  `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
+  payload slices for pending-byte close, partial and invalid client connection
+  preface failures, continuation ordering, invalid frame kind, frame-size peer
+  limit, header-list receive-limit, SETTINGS value range peer-limit,
+  header-table receive-limit, concurrent-stream receive-limit, fixed payload
+  length, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency, and
+  stream-after-GOAWAY diagnostics, command projection, and executable harness
+  assertion slices. The completed HPACK fixture and HTTP/2 preface payload
+  slices are archived under
+  `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`
+  and
+  `../reference/implemented-proposals/runtime-diagnostic-http2-preface-payloads.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

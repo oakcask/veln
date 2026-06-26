@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 invalid client connection preface at byte offset 4"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_preface, HTTP/2 invalid client connection preface at byte offset 4, RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(4, 42, 43, 4, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(43)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -77,3 +77,28 @@ equals = "connection-preface"
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
 equals = "rfc9113_client_connection_preface"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.expected_byte"
+equals = 42
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.actual_byte"
+equals = 43
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.matched_prefix_count"
+equals = 4
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.expected_count"
+equals = 24
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"
