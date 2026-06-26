@@ -63,7 +63,9 @@ requiring the full command reference on the first read.
   bounded protocol-owned byte previews, unexpected SETTINGS ACK failures with
   bounded frame-header byte previews, and fixed payload-length failures
   including SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`,
-  plus invalid DATA padding, with bounded payload byte-preview notes,
+  plus invalid DATA padding and content-length body mismatches, with bounded
+  payload byte-preview notes. `RST_STREAM` payload-length projection has
+  checked human and JSON cases,
   and run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

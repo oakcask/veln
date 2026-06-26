@@ -2359,6 +2359,16 @@ against the built `veln` binary.
   failure reports `http2.protocol.invalid_data_padding` through `run --json`
   with byte offset, stream reference, pad length, remaining payload length,
   bounded byte preview, active state, and rule provenance.
+- `run/http2-protocol-core-content-length-over-human/`: over-length DATA for
+  an accepted `content-length` reports
+  `http2.protocol.content_length_mismatch` through human `run` stderr with
+  the observed application byte count, accepted length, bounded byte preview,
+  active state, and rule provenance.
+- `run/http2-protocol-core-content-length-early-json/`: early peer
+  `END_STREAM` before the accepted `content-length` reports
+  `http2.protocol.content_length_mismatch` through `run --json` with byte
+  offset, stream reference, expected and observed body lengths, structured
+  byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
@@ -2462,6 +2472,16 @@ against the built `veln` binary.
   `http2.protocol.invalid_payload_length` through `run --json` with byte
   offset, frame kind, stream reference, observed and expected payload lengths,
   structured byte preview, active state, and rule provenance.
+- `run/http2-protocol-core-rst-stream-length-human/`: a wrong-length
+  `RST_STREAM` payload reports `http2.protocol.invalid_payload_length`
+  through human `run` stderr with observed and expected payload length,
+  stream reference, bounded inspected-payload byte preview, protocol state,
+  and provenance notes.
+- `run/http2-protocol-core-rst-stream-length-json/`: the same `RST_STREAM`
+  payload-length failure reports `http2.protocol.invalid_payload_length`
+  through `run --json` with byte offset, frame kind, stream reference,
+  observed and expected payload lengths, structured byte preview, active
+  state, and rule provenance.
 - `run/http2-protocol-core-stream-after-goaway-human/`: a peer-created
   HEADERS stream greater than a recorded GOAWAY last stream id reports
   `http2.protocol.stream_after_goaway` through human `run` stderr with

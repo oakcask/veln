@@ -1989,10 +1989,13 @@ data bytes. A pad length that exceeds the remaining DATA payload is reported as
 `http2-protocol-core-content-length-body` case checks exact DATA application
 byte matches and PADDED DATA whose padding consumes window credit but is not
 counted toward the body length. The focused
-`http2-protocol-core-content-length-over-json` and
-`http2-protocol-core-content-length-early-human` cases project over-length
+`http2-protocol-core-content-length-over-human`,
+`http2-protocol-core-content-length-over-json`,
+`http2-protocol-core-content-length-early-human`, and
+`http2-protocol-core-content-length-early-json` cases project over-length
 DATA and early peer `END_STREAM` shortfalls through
-`http2.protocol.content_length_mismatch`. Accepted DATA with `END_STREAM`, and
+`http2.protocol.content_length_mismatch` in both human and JSON command
+output. Accepted DATA with `END_STREAM`, and
 accepted HEADERS sequences with `END_STREAM` after header-block completion,
 move the tracked stream to closed-by-peer state. Later DATA or stream-level
 `WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
@@ -2462,6 +2465,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-rst-stream-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
@@ -2497,6 +2501,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-rst-stream-length-json/case.toml`,
 and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
 pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
