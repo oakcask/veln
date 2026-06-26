@@ -167,6 +167,12 @@ human output reports the failed decode fact at the contained byte offset with
 related field-path, reason, and source-visible value notes, and `run --json`
 attaches `details.byte_diagnostic.reason`.
 The executable specification cases
+`../../examples/specification/run/codec-decode-invalid-owned-id-human/` and
+`../../examples/specification/run/codec-decode-invalid-owned-id-json/` cover
+the same hand-written boundary with a codec-owned id other than the generic
+invalid-input id and a plain source-visible reason; the JSON case also checks
+that byte-helper-only fields are omitted.
+The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-byte-context-human/`
 and
 `../../examples/specification/run/codec-decode-invalid-byte-context-json/`
