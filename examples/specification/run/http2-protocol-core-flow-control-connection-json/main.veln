@@ -1,17 +1,17 @@
 # HTTP/2 connection flow-control failures project structured byte previews.
 
 type Http2ProtocolFailure
-	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String, ByteView)
+	FlowControlWindowExceeded({offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView})
 end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		FlowControlWindowExceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview)
+		FlowControlWindowExceeded(payload) => http2_peer_limit_flow_control_window_exceeded(payload.offset, payload.observed_length, payload.allowed_window_credit, payload.frame_kind, payload.stream_id, payload.active_state, payload.rule_provenance, payload.preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let bytes: ByteChunk = byte_chunk_from_hex("01020304")?
 	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?
-	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "connection-flow-control", "connection_receive_window", preview))
+	project(FlowControlWindowExceeded({offset: 0, observed_length: 4, allowed_window_credit: 3, frame_kind: 0, stream_id: 1, active_state: "connection-flow-control", rule_provenance: "connection_receive_window", preview: preview}))
 end

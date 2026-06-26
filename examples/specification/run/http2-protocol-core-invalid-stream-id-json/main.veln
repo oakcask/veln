@@ -11,7 +11,7 @@ schema Http2FrameHeaderWire
 end
 
 type Http2ProtocolFailure
-	InvalidStreamId(Int, Int, Int, String, String, ByteView)
+	InvalidStreamId({offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, preview: ByteView})
 end
 
 type Http2DiagnosticContext
@@ -44,7 +44,7 @@ fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int, preview: By
 	match kind == 1
 		true => match stream_id_is_client_initiated(stream_id)
 			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", preview)))
+			false => Ok(Failed(InvalidStreamId({offset: offset, frame_kind: kind, stream_id: stream_id, required_domain: "nonzero client-initiated stream id", endpoint_role: "server", preview: preview})))
 		end
 		false => Ok(FrameOk(kind))
 	end
@@ -71,7 +71,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, preview) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidStreamId(payload) => http2_protocol_invalid_stream_id(payload.offset, payload.frame_kind, payload.stream_id, payload.required_domain, payload.endpoint_role, context_active_state(context), context_rule_provenance(context), payload.preview)
 	end
 end
 

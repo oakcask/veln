@@ -11,7 +11,7 @@ schema Http2FrameHeaderWire
 end
 
 type Http2ProtocolFailure
-	InvalidFrameKind(Int, Int, Int, Int, ByteView)
+	InvalidFrameKind({offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, preview: ByteView})
 end
 
 type Http2DiagnosticContext
@@ -45,7 +45,7 @@ fn validate_closed_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, pre
 		true => Ok(FrameOk(kind))
 		false => match kind == 1
 			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, preview)))
+			false => Ok(Failed(InvalidFrameKind({offset: offset, actual_kind: kind, stream_id: stream_id, expected_kind: 1, preview: preview})))
 		end
 	end
 end
@@ -64,7 +64,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidFrameKind(payload) => http2_protocol_invalid_frame_kind(payload.offset, payload.actual_kind, payload.stream_id, payload.expected_kind, context_active_state(context), context_rule_provenance(context), payload.preview)
 	end
 end
 

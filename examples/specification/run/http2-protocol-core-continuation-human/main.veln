@@ -1,7 +1,7 @@
 # HTTP/2 continuation ordering failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	ContinuationExpected(Int, Int, Int, Int, Int, Int, ByteView)
+	ContinuationExpected({offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, preview: ByteView})
 end
 
 type Http2DiagnosticContext
@@ -16,7 +16,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context), preview)
+		ContinuationExpected(payload) => http2_protocol_continuation_expected(payload.offset, payload.actual_kind, payload.actual_stream, payload.expected_stream, payload.started_kind, payload.started_offset, context_active_continuation(context), payload.preview)
 	end
 end
 
@@ -24,5 +24,5 @@ pub fn main() -> Result<(), String>
 	let bytes: ByteChunk = byte_chunk_from_hex("000000000000000001")?
 	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
 	let context: Http2DiagnosticContext = DiagnosticContext("headers")
-	http2_protocol_diagnostic(ContinuationExpected(9, 0, 1, 1, 1, 0, preview), context)
+	http2_protocol_diagnostic(ContinuationExpected({offset: 9, actual_kind: 0, actual_stream: 1, expected_stream: 1, started_kind: 1, started_offset: 0, preview: preview}), context)
 end
