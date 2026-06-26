@@ -1442,8 +1442,10 @@ execution reference.
   human runtime diagnostic and `details.protocol_diagnostic` JSON shape as
   the compatibility helper. The implemented HTTP/2 slice covers
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
-  `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`, and
-  `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, keeping the
+  `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
+  `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
+  `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
+  `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
   where the diagnostic owns one.
@@ -1563,13 +1565,15 @@ execution reference.
   SETTINGS state,
   zero-length SETTINGS ACK frames with no outstanding local SETTINGS state
   and bounded inspected frame-header previews,
-  wrong-length SETTINGS ACK payloads with bounded inspected-payload previews,
+  wrong-length SETTINGS ACK payloads with source-visible runtime diagnostic
+  payloads and bounded inspected-payload previews,
   stream id domain failures including HEADERS and CONTINUATION on the
   connection stream with bounded inspected frame-header previews, invalid
   stream-state frame kinds with bounded inspected frame-header previews,
-  wrong-length PING, PRIORITY, GOAWAY, and
-  `RST_STREAM` payloads with bounded inspected-payload previews and
-  command-facing human and JSON projection cases, accepted PING
+  wrong-length PING, GOAWAY, and `RST_STREAM` payloads with source-visible
+  runtime diagnostic payloads, bounded inspected-payload previews, and
+  command-facing human and JSON projection cases, wrong-length PRIORITY
+  payloads with bounded inspected-payload previews, accepted PING
   ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority

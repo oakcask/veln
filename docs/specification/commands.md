@@ -118,10 +118,11 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
   diagnostics. Source-visible HTTP/2 protocol payloads for invalid frame kind,
-  frame-size exceeded, and invalid PRIORITY dependency likewise use the same
-  human runtime diagnostic rendering as the compatibility helpers, with the
-  stable id, protocol facts, provenance, and bounded byte preview projected
-  from the returned `RuntimeDiagnostic(...)` value. Checked byte write
+  frame-size exceeded, fixed payload length, invalid PRIORITY dependency, and
+  stream-after-GOAWAY likewise use the same human runtime diagnostic rendering
+  as the compatibility helpers, with the stable id, protocol facts,
+  provenance, and bounded byte preview when present projected from the
+  returned `RuntimeDiagnostic(...)` value. Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied
   value, accepted range, width, byte order, and source-visible `Err` value in
