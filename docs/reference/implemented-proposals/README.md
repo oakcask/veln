@@ -72,6 +72,8 @@ behavior.
   [local-inference-local-pattern-let.md](local-inference-local-pattern-let.md).
 - Local inference hole expected-type flow:
   [local-inference-hole-expected-type-flow.md](local-inference-hole-expected-type-flow.md).
+- Local inference examples cleanup:
+  [local-inference-examples-cleanup.md](local-inference-examples-cleanup.md).
 - If else expression syntax:
   [if-else-expression-syntax.md](if-else-expression-syntax.md).
 - Public member alias re-exports:

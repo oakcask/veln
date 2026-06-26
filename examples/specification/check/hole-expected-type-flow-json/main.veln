@@ -15,6 +15,11 @@ fn call_context(candidate: Int) -> Int
 	accept(_)
 end
 
+fn local_annotation_context(candidate: Int) -> Int
+	let value: Int = _
+	value
+end
+
 fn record_context(candidate: Int) -> {value: Int}
 	{value: _}
 end

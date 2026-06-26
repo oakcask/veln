@@ -231,25 +231,33 @@ those ids when their failure shape matches; add a new id only when callers need
 to distinguish a new slot kind or ambiguity boundary from the existing local,
 private, ambiguous, or mismatch cases.
 
-## Examples Acceptance
+## Completed Examples Cleanup Evidence
 
-Implementation should include an examples cleanup pass. The pass should remove
-local `let` annotations in `../../examples/specification/` only when the
-program still checks or runs through the existing case harness.
+The completed examples cleanup slice is archived under
+`../reference/implemented-proposals/local-inference-examples-cleanup.md`.
+Current behavior is specified in `../specification/types.md`,
+`../specification/types-full.md`, and checked examples under
+`../../examples/specification/check/local-let-inference/`,
+`../../examples/specification/check/adt-constructor-inference/`,
+`../../examples/specification/check/prelude-callback-argument-inference/`,
+`../../examples/specification/check/declared-helper-callback-inference/`,
+`../../examples/specification/check/private-helper-inference/`,
+`../../examples/specification/check/match-scrutinee-inference/`, and
+`../../examples/specification/check/hole-expected-type-flow-json/`.
 
-Annotations should remain when they document a public boundary, make a
+The cleanup keeps annotations when they document a public boundary, make a
 specification example intentionally explicit, disambiguate a genuinely
 ambiguous expression, or test annotation syntax and diagnostics.
 
-Acceptance evidence should include:
+Acceptance evidence includes:
 
 - checked examples that use omitted local annotations for empty collections,
-  ADT constructors, and prelude callbacks
+  ADT constructors, prelude callbacks, declared-helper callbacks, private
+  helpers, pattern lets, match scrutinees, and hole expected-type paths
 - negative examples for unconstrained, conflicting, and ambiguous inference
   failures
 - human and JSON diagnostic coverage when related provenance is required
-- updated specification text under `../specification/` only after behavior is
-  implemented
+- current specification text under `../specification/`
 
 ## Implementation Order
 
@@ -269,7 +277,9 @@ Acceptance evidence should include:
 5. Completed for current match scrutinee constructor-pattern arms: infer the
    scrutinee finite descriptor when visible constructor patterns identify one
    domain.
-6. Run the examples cleanup and keep only annotations that still carry useful
+6. Completed for the current examples cleanup slice: checked examples use
+   omitted local annotations for implemented inference paths, and remaining
+   annotations carry public-boundary, explicit syntax, ambiguity, or diagnostic
    meaning.
 
 The order is deliberately incremental. Each step should be useful on its own
