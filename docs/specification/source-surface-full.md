@@ -881,6 +881,16 @@ expressions use the same expected-type and unification behavior as equivalent
 `match Bool` arms. Every `if` expression requires a final `else` and closing
 `end`; `else if` remains a chain branch for formatting rather than an `else`
 body whose first expression is another `if`.
+Checked evidence for successful `if` expressions, formatter preservation,
+non-`Bool` condition diagnostics, branch result diagnostics, and parse
+recovery for incomplete branches lives under
+`../../examples/specification/check/if-expression-syntax/`,
+`../../examples/specification/fmt/if-expression-syntax/`,
+`../../examples/specification/check/if-expression-condition-diagnostics/`,
+`../../examples/specification/check/if-expression-condition-human/`,
+`../../examples/specification/check/if-expression-branch-diagnostics/`,
+`../../examples/specification/check/if-expression-branch-human/`, and
+`../../examples/specification/check/if-expression-parse-recovery-diagnostics/`.
 
 ## Contract Predicates
 

@@ -1335,6 +1335,20 @@ fn collect_called_name_paths(expr: &Expr, calls: &mut Vec<Vec<String>>) {
                 collect_called_name_paths(&arm.expr, calls);
             }
         }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_called_name_paths(condition, calls);
+            collect_called_name_paths(then_branch, calls);
+            for branch in else_if_branches {
+                collect_called_name_paths(&branch.condition, calls);
+                collect_called_name_paths(&branch.expr, calls);
+            }
+            collect_called_name_paths(else_branch, calls);
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_called_name_paths(left, calls);
             collect_called_name_paths(right, calls);
@@ -1749,6 +1763,55 @@ fn collect_function_callees(
                     callees,
                 );
             }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_function_callees(
+                condition,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
+            collect_function_callees(
+                then_branch,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
+            for branch in else_if_branches {
+                collect_function_callees(
+                    &branch.condition,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
+                    callees,
+                );
+                collect_function_callees(
+                    &branch.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
+                    callees,
+                );
+            }
+            collect_function_callees(
+                else_branch,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
         }
         ExprKind::Prefix { expr, .. } => {
             collect_function_callees(

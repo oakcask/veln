@@ -1,6 +1,6 @@
 use veln_ast::{
-    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, MatchArm, Pattern, PatternKind,
-    RecordField, SurfaceModule,
+    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, IfBranch, MatchArm, Pattern,
+    PatternKind, RecordField, SurfaceModule,
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
@@ -413,6 +413,19 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::Match { scrutinee, arms } => {
                 self.lower_match(expr, scrutinee, arms, expected)
             }
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => self.lower_if(
+                expr,
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+                expected,
+            ),
             ExprKind::Prefix { op, expr: inner } => self.lower_prefix(expr, *op, inner, expected),
             ExprKind::Binary { op, left, right } => {
                 self.lower_binary(expr, *op, left, right, expected)
@@ -1302,6 +1315,117 @@ impl<'a> CoreLowerer<'a> {
                 arms: lowered_arms,
             },
         )
+    }
+
+    fn lower_if(
+        &mut self,
+        expr: &Expr,
+        condition: &Expr,
+        then_branch: &Expr,
+        else_if_branches: &[IfBranch],
+        else_branch: &Expr,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let mut result_type = expected.cloned().unwrap_or(CoreType::Unknown);
+        let mut lowered = self.lower_if_chain(
+            expr.node_id,
+            &expr.span,
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+            &mut result_type,
+        );
+        lowered.node_id = expr.node_id;
+        lowered.span = expr.span.clone();
+        lowered.ty = result_type;
+        lowered
+    }
+
+    fn lower_if_chain(
+        &mut self,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+        condition: &Expr,
+        then_branch: &Expr,
+        else_if_branches: &[IfBranch],
+        else_branch: &Expr,
+        result_type: &mut CoreType,
+    ) -> CoreExpr {
+        let scrutinee = self.lower_expr(condition, None);
+        let then_expected = (*result_type != CoreType::Unknown).then(|| result_type.clone());
+        let lowered_then = self.lower_expr(then_branch, then_expected.as_ref());
+        if *result_type == CoreType::Unknown {
+            *result_type = lowered_then.ty.clone();
+        }
+
+        let (false_expr, false_span, false_node_id) = if let Some((next_branch, rest)) =
+            else_if_branches.split_first()
+        {
+            (
+                self.lower_if_chain(
+                    next_branch.node_id,
+                    &next_branch.span,
+                    &next_branch.condition,
+                    &next_branch.expr,
+                    rest,
+                    else_branch,
+                    result_type,
+                ),
+                next_branch.span.clone(),
+                next_branch.node_id,
+            )
+        } else {
+            let else_expected = (*result_type != CoreType::Unknown).then(|| result_type.clone());
+            let lowered_else = self.lower_expr(else_branch, else_expected.as_ref());
+            if *result_type == CoreType::Unknown {
+                *result_type = lowered_else.ty.clone();
+            }
+            (lowered_else, else_branch.span.clone(), else_branch.node_id)
+        };
+
+        self.core_expr(
+            &Expr {
+                node_id,
+                kind: ExprKind::Missing,
+                span: span.clone(),
+            },
+            result_type.clone(),
+            CoreExprKind::Match {
+                scrutinee: Box::new(scrutinee),
+                arms: vec![
+                    CoreMatchArm {
+                        node_id: then_branch.node_id,
+                        pattern: self.lower_bool_pattern(
+                            true,
+                            then_branch.node_id,
+                            &then_branch.span,
+                        ),
+                        expr: lowered_then,
+                        span: then_branch.span.clone(),
+                    },
+                    CoreMatchArm {
+                        node_id: false_node_id,
+                        pattern: self.lower_bool_pattern(false, false_node_id, &false_span),
+                        expr: false_expr,
+                        span: false_span,
+                    },
+                ],
+            },
+        )
+    }
+
+    fn lower_bool_pattern(
+        &self,
+        value: bool,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+    ) -> CorePattern {
+        CorePattern {
+            node_id,
+            kind: CorePatternKind::BoolLiteral(value),
+            span: span.clone(),
+        }
     }
 
     fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {

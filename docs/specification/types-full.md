@@ -108,7 +108,7 @@ Expected types flow into holes and subexpressions from:
 - callable function declarations used as values
 - `Ok`, `Err`, `Some`, `None`, `Nil`, `Cons`, source-declared constructors,
   their type-qualified and import-alias-qualified forms, and postfix `?`
-- `match` arm results and constructor payload bindings
+- `match` arm results, `if` branch results, and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
 When a local `let` binding omits its annotation and its initializer leaves the
@@ -162,6 +162,14 @@ corresponding record field type when the scrutinee type is known. Unknown or
 non-record scrutinee types leave nested pattern bindings unknown. Arm
 expressions share the expected result type when one is available; otherwise the
 first arm supplies the initial result type for later arms.
+
+`if` and `else if` conditions are checked with expected type `Bool`. A
+non-`Bool` condition reports `type.mismatch` at the condition expression.
+Branch body expressions share the expected result type when one is available;
+otherwise the first branch supplies the initial result type for later branches,
+matching the result-unification behavior of equivalent `match Bool` arms.
+Typed holes in conditions therefore receive `Bool`, while typed holes in
+branch bodies receive the enclosing expected result type when one exists.
 
 After scrutinee type inference and arm expression checking, `match` expressions
 over finite domains must be exhaustive. `Bool` scrutinees require coverage for

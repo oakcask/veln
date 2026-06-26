@@ -1,0 +1,5 @@
+fn missing_end(flag: Bool) -> Int
+	if flag
+		1
+	else
+		2

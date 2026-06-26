@@ -5,7 +5,8 @@ mod holes;
 
 use veln_ast::{
     BinaryOp, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
-    MatchArm, NodeId, Pattern, PatternKind, RecordField, SatisfyClause, SurfaceModule, Visibility,
+    IfBranch, MatchArm, NodeId, Pattern, PatternKind, RecordField, SatisfyClause, SurfaceModule,
+    Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;

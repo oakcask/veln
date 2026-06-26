@@ -53,7 +53,16 @@ against the built `veln` binary.
   record type fields.
 - `check/if-expression-syntax/`: `if`, `else if`, and final `else` expression
   syntax in local initializers, return position, call arguments, record
-  fields, and `Result` constructor payloads.
+  fields, `Result` constructor payloads, and nested `if`/`match` expressions
+  in opposite orders.
+- `check/if-expression-condition-diagnostics/` and
+  `check/if-expression-condition-human/`: non-`Bool` `if` and `else if`
+  conditions in JSON and human output.
+- `check/if-expression-branch-diagnostics/` and
+  `check/if-expression-branch-human/`: incompatible `if` branch result types
+  in JSON and human output.
+- `check/if-expression-parse-recovery-diagnostics/`: missing `else`, missing
+  `end`, missing `else if` condition, and malformed `else` branch recovery.
 - `check/recursive-call-shapes/`: direct recursive calls, nested-match
   tail-shaped recursive calls, postcondition-bearing recursive functions,
   non-tail recursive calls, and function-typed callback calls.

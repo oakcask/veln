@@ -1,13 +1,13 @@
 # If Else Expression Syntax
 
-Status: proposed
+Status: implemented
 
-Implemented source behavior now includes `if` / `else if` / `else` / `end`
-expression syntax for ordinary Boolean branching, formatting preservation, and
-the same observable success-path checking behavior as the equivalent
-`match Bool` expression syntax specified in
-`../specification/source-surface.md`. This proposal remains open for the
-remaining diagnostic, metadata, and evidence work listed below.
+Implemented source behavior includes `if` / `else if` / `else` / `end`
+expression syntax for ordinary Boolean branching, distinct surface AST
+preservation through semantic analysis input, formatter preservation, type and
+effect checking aligned with equivalent `match Bool` expressions, and checked
+diagnostic evidence. Current behavior is specified in
+`../../specification/source-surface.md` and `../../specification/types.md`.
 
 ## Problem
 
@@ -228,19 +228,24 @@ from generic expression parse failures.
 
 ## Examples Acceptance
 
-The implementation slice should add checked examples under
-`../../examples/specification/`. Implemented evidence now covers successful
-`check` behavior in
-`../../examples/specification/check/if-expression-syntax/case.toml` and
-formatter preservation in
-`../../examples/specification/fmt/if-expression-syntax/case.toml`.
+Completion evidence lives under `../../../examples/specification/`:
 
-Remaining acceptance coverage:
-
-- nested `if` and `match` expressions in opposite orders
-- non-`Bool` condition diagnostics in human and JSON output
-- incompatible branch result diagnostics in human and JSON output
-- parse recovery for missing `else` and missing `end`
+- successful `check` behavior, including nested `if` and `match` expressions
+  in opposite orders:
+  `../../../examples/specification/check/if-expression-syntax/case.toml`
+- formatter preservation:
+  `../../../examples/specification/fmt/if-expression-syntax/case.toml`
+- non-`Bool` condition diagnostics in JSON and human output:
+  `../../../examples/specification/check/if-expression-condition-diagnostics/case.toml`
+  and
+  `../../../examples/specification/check/if-expression-condition-human/case.toml`
+- incompatible branch result diagnostics in JSON and human output:
+  `../../../examples/specification/check/if-expression-branch-diagnostics/case.toml`
+  and
+  `../../../examples/specification/check/if-expression-branch-human/case.toml`
+- parse recovery for missing `else`, missing `end`, missing `else if`
+  condition, and malformed `else` branch bodies:
+  `../../../examples/specification/check/if-expression-parse-recovery-diagnostics/case.toml`
 
 Existing examples may migrate from `match Bool` to `if` only when the example
 is not specifically testing `match` parsing, Boolean pattern arms, or
@@ -258,9 +263,9 @@ same behavior and expected output.
 5. Add type, effect, typed-hole, and repair-context coverage matching
    equivalent `match Bool` behavior.
 6. Add specification examples and promote implemented behavior into
-   `../specification/source-surface.md` only after the behavior exists.
+   `../../specification/source-surface.md` only after the behavior exists.
 
-## Open Questions
+## Deferred Questions
 
 - Should `if` conditions allow a line break immediately after `if` before the
   condition expression, or should that remain a parse error for clearer

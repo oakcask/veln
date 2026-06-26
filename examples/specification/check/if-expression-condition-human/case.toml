@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:2:5: error[type.mismatch]: expected `Bool`, but found `Int`", "main.veln:4:10: error[type.mismatch]: expected `Bool`, but found `String`"]
+
+[stderr]
+format = "empty"

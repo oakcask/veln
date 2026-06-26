@@ -39,7 +39,8 @@ full type reference.
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
   `if` expressions require a final `else`; `if` and `else if` conditions
   follow the same Boolean branching type rules as equivalent `match Bool`
-  expressions.
+  expressions. Non-`Bool` conditions and incompatible branch result types
+  report `type.mismatch` at the failed condition or branch expression.
 - Assignment compatibility treats `unknown` as compatible with any type and
   checks records by required fields. Function compatibility preserves
   fixed-arity versus variadic shape. `Path` is distinct from `String`; the

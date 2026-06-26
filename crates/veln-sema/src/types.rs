@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
-    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
+    FunctionKind, IfBranch, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
     SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
@@ -770,6 +770,24 @@ fn collect_private_call_site_expr_constraints(
                 collect_private_call_site_expr_constraints(&arm.expr, expected, context);
             }
         }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_private_call_site_expr_constraints(condition, Some(&Type::bool()), context);
+            collect_private_call_site_expr_constraints(then_branch, expected, context);
+            for branch in else_if_branches {
+                collect_private_call_site_expr_constraints(
+                    &branch.condition,
+                    Some(&Type::bool()),
+                    context,
+                );
+                collect_private_call_site_expr_constraints(&branch.expr, expected, context);
+            }
+            collect_private_call_site_expr_constraints(else_branch, expected, context);
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_private_call_site_expr_constraints(left, expected, context);
             collect_private_call_site_expr_constraints(right, expected, context);
@@ -1206,6 +1224,28 @@ fn collect_private_prelude_callback_expr_constraints(
                 collect_private_prelude_callback_expr_constraints(&arm.expr, expected, context);
             }
         }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_private_prelude_callback_expr_constraints(
+                condition,
+                Some(&Type::bool()),
+                context,
+            );
+            collect_private_prelude_callback_expr_constraints(then_branch, expected, context);
+            for branch in else_if_branches {
+                collect_private_prelude_callback_expr_constraints(
+                    &branch.condition,
+                    Some(&Type::bool()),
+                    context,
+                );
+                collect_private_prelude_callback_expr_constraints(&branch.expr, expected, context);
+            }
+            collect_private_prelude_callback_expr_constraints(else_branch, expected, context);
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_private_prelude_callback_expr_constraints(left, expected, context);
             collect_private_prelude_callback_expr_constraints(right, expected, context);
@@ -1574,6 +1614,22 @@ fn infer_private_signature_expr_type(
             }
             result
         }
+        ExprKind::If {
+            then_branch,
+            else_if_branches,
+            else_branch,
+            ..
+        } => infer_private_if_result_type(
+            then_branch,
+            else_if_branches,
+            else_branch,
+            expected,
+            current_module,
+            uses,
+            bindings,
+            returns_by_path,
+            adts,
+        ),
         ExprKind::Prefix { expr, .. } => {
             infer_private_signature_expr_type(
                 expr,
@@ -1626,6 +1682,38 @@ fn infer_private_signature_expr_type(
             veln_ast::BinaryOp::PipeGreater => Type::Unknown,
         },
     }
+}
+
+fn infer_private_if_result_type(
+    then_branch: &Expr,
+    else_if_branches: &[IfBranch],
+    else_branch: &Expr,
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    returns_by_path: &FunctionReturnMap,
+    adts: &AdtRegistry,
+) -> Type {
+    let mut result = expected.cloned().unwrap_or(Type::Unknown);
+    for branch_expr in std::iter::once(then_branch)
+        .chain(else_if_branches.iter().map(|branch| &branch.expr))
+        .chain(std::iter::once(else_branch))
+    {
+        let actual = infer_private_signature_expr_type(
+            branch_expr,
+            item_type_unknown_as_none(&result),
+            current_module,
+            uses,
+            bindings,
+            returns_by_path,
+            adts,
+        );
+        if result == Type::Unknown {
+            result = actual;
+        }
+    }
+    result
 }
 
 fn item_type_unknown_as_none(ty: &Type) -> Option<&Type> {
@@ -4285,6 +4373,60 @@ fn collect_expr_effects(
                     inferred,
                 );
             }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_expr_effects(
+                condition,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
+            collect_expr_effects(
+                then_branch,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
+            for branch in else_if_branches {
+                collect_expr_effects(
+                    &branch.condition,
+                    uses,
+                    current_module,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
+                collect_expr_effects(
+                    &branch.expr,
+                    uses,
+                    current_module,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
+            }
+            collect_expr_effects(
+                else_branch,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
         }
         ExprKind::Binary { left, right, .. } => {
             collect_expr_effects(

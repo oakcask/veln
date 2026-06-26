@@ -109,6 +109,21 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
                 collect_expr_node_ids(&arm.expr, ids);
             }
         }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_expr_node_ids(condition, ids);
+            collect_expr_node_ids(then_branch, ids);
+            for branch in else_if_branches {
+                ids.push(branch.node_id.as_u32());
+                collect_expr_node_ids(&branch.condition, ids);
+                collect_expr_node_ids(&branch.expr, ids);
+            }
+            collect_expr_node_ids(else_branch, ids);
+        }
         ExprKind::Prefix { expr, .. } => collect_expr_node_ids(expr, ids),
         ExprKind::Binary { left, right, .. } => {
             collect_expr_node_ids(left, ids);
@@ -479,6 +494,41 @@ fn lowers_boolean_literals_as_literals() {
     let expr = expr_line(&module.functions[0], 0);
 
     assert!(matches!(expr.kind, ExprKind::BoolLiteral(true)));
+}
+
+#[test]
+fn preserves_if_expression_as_surface_ast_node() {
+    let module = lower_source(concat!(
+        "fn choose(first: Bool, second: Bool) -> Int\n",
+        "  if first\n",
+        "    1\n",
+        "  else if second\n",
+        "    2\n",
+        "  else\n",
+        "    3\n",
+        "  end\n",
+        "end\n",
+    ));
+    let ExprKind::If {
+        condition,
+        then_branch,
+        else_if_branches,
+        else_branch,
+    } = &expr_line(&module.functions[0], 0).kind
+    else {
+        panic!("expected if expression");
+    };
+
+    assert!(
+        matches!(&condition.kind, ExprKind::NamePath(segments) if segments == &vec!["first".to_string()])
+    );
+    assert!(matches!(&then_branch.kind, ExprKind::IntLiteral(value) if value == "1"));
+    assert_eq!(else_if_branches.len(), 1);
+    assert!(
+        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath(segments) if segments == &vec!["second".to_string()])
+    );
+    assert!(matches!(&else_if_branches[0].expr.kind, ExprKind::IntLiteral(value) if value == "2"));
+    assert!(matches!(&else_branch.kind, ExprKind::IntLiteral(value) if value == "3"));
 }
 
 #[test]

@@ -1,0 +1,7 @@
+fn bad_branch(flag: Bool) -> Int
+	if flag
+		1
+	else
+		"two"
+	end
+end

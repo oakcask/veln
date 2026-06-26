@@ -1,0 +1,72 @@
+command = ["check", "--json", "missing-else.veln", "missing-end.veln", "missing-else-if-condition.veln", "malformed-else.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.if_missing_else\"", "\"id\":\"parse.if_missing_end\"", "\"id\":\"parse.if_condition\"", "\"id\":\"parse.if_branch\"", "\"parser_context\":\"expression_line\"", "\"strategy\":\"insert_token\"", "\"strategy\":\"close_block\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[diagnostics]]
+id = "parse.if_missing_else"
+severity = "error"
+kind = "parse"
+message = "if expression is missing a final `else` branch"
+
+[diagnostics.span]
+file = "missing-else.veln"
+line = 4
+column = 2
+
+[[diagnostics]]
+id = "parse.if_missing_end"
+severity = "error"
+kind = "parse"
+message = "if expression is missing `end`"
+
+[diagnostics.span]
+file = "missing-end.veln"
+line = 6
+column = 1
+
+[[diagnostics]]
+id = "parse.expected_end"
+severity = "error"
+kind = "parse"
+message = "expected `end` to close function declaration"
+
+[diagnostics.span]
+file = "missing-end.veln"
+line = 6
+column = 1
+
+[[diagnostics]]
+id = "parse.if_condition"
+severity = "error"
+kind = "parse"
+message = "else if condition is missing an expression"
+
+[diagnostics.span]
+file = "missing-else-if-condition.veln"
+line = 4
+column = 9
+
+[[diagnostics]]
+id = "parse.if_branch"
+severity = "error"
+kind = "parse"
+message = "if branch is missing an expression"
+
+[diagnostics.span]
+file = "malformed-else.veln"
+line = 5
+column = 2

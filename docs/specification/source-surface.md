@@ -22,6 +22,9 @@ smallest section to read before opening the full grammar notes.
   calls, standard channel calls, zero-argument task spawns, one-context
   `task::spawn_with` calls, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
+  `if` expressions require a final `else` and `end`; parse recovery covers
+  missing `else`, missing `end`, missing `else if` conditions, and malformed
+  branch bodies.
 - Function declaration parameters may use the final-only variadic spelling
   `name: ...T`; ordinary type positions reject `...T`:
   [source-surface-full.md#grammar](source-surface-full.md#grammar).
