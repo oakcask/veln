@@ -26,6 +26,11 @@ struct CoreBinding {
     ty: CoreType,
 }
 
+struct IfLoweringTarget<'a> {
+    node_id: veln_ast::NodeId,
+    span: &'a veln_source::SourceSpan,
+}
+
 struct CoreLowerer<'a> {
     function: &'a Function,
     environment: &'a TypeEnvironment,
@@ -1328,8 +1333,10 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let mut result_type = expected.cloned().unwrap_or(CoreType::Unknown);
         let mut lowered = self.lower_if_chain(
-            expr.node_id,
-            &expr.span,
+            IfLoweringTarget {
+                node_id: expr.node_id,
+                span: &expr.span,
+            },
             condition,
             then_branch,
             else_if_branches,
@@ -1344,8 +1351,7 @@ impl<'a> CoreLowerer<'a> {
 
     fn lower_if_chain(
         &mut self,
-        node_id: veln_ast::NodeId,
-        span: &veln_source::SourceSpan,
+        target: IfLoweringTarget<'_>,
         condition: &Expr,
         then_branch: &Expr,
         else_if_branches: &[IfBranch],
@@ -1364,8 +1370,10 @@ impl<'a> CoreLowerer<'a> {
         {
             (
                 self.lower_if_chain(
-                    next_branch.node_id,
-                    &next_branch.span,
+                    IfLoweringTarget {
+                        node_id: next_branch.node_id,
+                        span: &next_branch.span,
+                    },
                     &next_branch.condition,
                     &next_branch.expr,
                     rest,
@@ -1386,9 +1394,9 @@ impl<'a> CoreLowerer<'a> {
 
         self.core_expr(
             &Expr {
-                node_id,
+                node_id: target.node_id,
                 kind: ExprKind::Missing,
-                span: span.clone(),
+                span: target.span.clone(),
             },
             result_type.clone(),
             CoreExprKind::Match {

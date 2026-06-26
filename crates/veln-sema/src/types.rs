@@ -107,6 +107,15 @@ type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
 type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
 
+struct PrivateInferenceExprContext<'a> {
+    expected: Option<&'a Type>,
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    bindings: &'a [Binding],
+    returns_by_path: &'a FunctionReturnMap,
+    adts: &'a AdtRegistry,
+}
+
 #[derive(Clone)]
 pub(crate) struct ExpectedType {
     pub(crate) ty: Type,
@@ -1623,12 +1632,14 @@ fn infer_private_signature_expr_type(
             then_branch,
             else_if_branches,
             else_branch,
-            expected,
-            current_module,
-            uses,
-            bindings,
-            returns_by_path,
-            adts,
+            &PrivateInferenceExprContext {
+                expected,
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            },
         ),
         ExprKind::Prefix { expr, .. } => {
             infer_private_signature_expr_type(
@@ -1688,14 +1699,9 @@ fn infer_private_if_result_type(
     then_branch: &Expr,
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
-    expected: Option<&Type>,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
-    returns_by_path: &FunctionReturnMap,
-    adts: &AdtRegistry,
+    context: &PrivateInferenceExprContext<'_>,
 ) -> Type {
-    let mut result = expected.cloned().unwrap_or(Type::Unknown);
+    let mut result = context.expected.cloned().unwrap_or(Type::Unknown);
     for branch_expr in std::iter::once(then_branch)
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
@@ -1703,11 +1709,11 @@ fn infer_private_if_result_type(
         let actual = infer_private_signature_expr_type(
             branch_expr,
             item_type_unknown_as_none(&result),
-            current_module,
-            uses,
-            bindings,
-            returns_by_path,
-            adts,
+            context.current_module,
+            context.uses,
+            context.bindings,
+            context.returns_by_path,
+            context.adts,
         );
         if result == Type::Unknown {
             result = actual;
