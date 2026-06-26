@@ -230,14 +230,29 @@ When implemented, current behavior should move into:
 Completed rationale should then be archived under
 `../reference/implemented-proposals/`.
 
-## Open Questions
+## Discussion Results
 
-- Should diagnostic-bearing failures use a dedicated result wrapper or a
-  standard error ADT convention? This proposal prefers the standard error ADT
-  convention unless implementation work exposes a concrete blocker.
-- Should payload details be a fixed ADT family, a record-like map, or a small
-  closed set of detail constructors?
-- How should diagnostic payloads compose when a source module wraps one domain
-  error inside another?
-- Should projection be allowed only at command-facing boundaries, or should any
-  function be able to return diagnostic-bearing failures as ordinary values?
+Diagnostic-bearing failures should use ordinary `Result` values with a standard
+error ADT convention. The proposal should not introduce a dedicated diagnostic
+result wrapper. A function that wants command-facing diagnostics returns
+`Err(RuntimeDiagnostic(...))` or an equivalent standard diagnostic error value;
+functions that do not opt in keep returning plain `Err(value)`.
+
+Payload details should be represented by a small closed set of detail
+constructors rather than a record-like map. The closed constructor set names
+the stable diagnostic family, such as byte, value, fixture, or protocol, while
+each constructor carries the structured fields needed by JSON output, related
+human notes, fixtures, and agents. This keeps the value typed without freezing
+one global field list for every diagnostic family.
+
+Diagnostic payloads should not compose by automatically merging nested
+payloads. A source module may wrap one domain error inside another as ordinary
+data, but the reporting boundary selects one primary diagnostic payload. Inner
+causes, provenance, and wrapped domain values belong in structured detail
+fields or related notes when they help explain the reported fact.
+
+Any function may return a diagnostic-bearing failure as an ordinary value.
+Projection into command-facing diagnostics still happens only when a command,
+fixture helper, adapter, or other reporting boundary observes the standard
+diagnostic error value. Returning a domain error ADT by itself remains
+non-diagnostic until an explicit projection function converts it.
