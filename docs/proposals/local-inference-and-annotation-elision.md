@@ -15,8 +15,8 @@ Veln examples often write local `let` annotations only to guide the checker:
 - `None`, `Nil`, and similar constructors need surrounding context
 - private helper parameters or returns repeat types already forced by call
   sites
-- callbacks passed to prelude helpers lose concrete argument types and surface
-  as `unknown`
+- callback paths outside the implemented compiler-known helper slice still
+  lose concrete argument types and surface as `unknown`
 
 Those annotations make examples longer and distract from the source behavior
 the example is meant to show. Public signatures should stay explicit, but local
@@ -90,16 +90,24 @@ Current behavior is specified in `../specification/types.md#read-first` and
 
 ## Callback Argument Inference For Prelude Helpers
 
-Prelude higher-order helpers should push their concrete element, value, key,
-success, and error types into callback parameters.
+Implemented current behavior is specified in
+`../specification/types.md#read-first` and
+`../specification/types-full.md#inference` for compiler-known `vec_map`,
+`vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
+`list_fold`, `list_try_map`, `option_map`, `result_map`, and
+`result_map_err`: concrete helper input types push item, success, or error
+types into named private callback function parameters.
+
+Remaining planned work in this section covers callback inputs outside that
+implemented compiler-known helper path. Prelude higher-order helpers should
+eventually push their concrete element, value, key, success, and error types
+into callback parameters.
 
 Examples of intended sources:
 
-- `vec_map`, `vec_filter`, `vec_fold`, and `vec_try_map`
-- `list_map`, `list_filter`, `list_fold`, and `list_try_map`
-- `option_map`, `option_then`, `result_map`, `result_map_error`, and
-  `result_then`
 - dictionary helpers that pass keys or values to callbacks
+- `option_then`, `result_then`, and proposal-spelled aliases not yet promoted
+  into the same compiler-known helper signature path
 
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
@@ -229,8 +237,11 @@ Acceptance evidence should include:
 1. Infer local `let` bindings from initializers and existing expected-type
    paths.
 2. Add empty collection and nullary constructor context propagation.
-3. Push concrete prelude helper input and result types into callback
-   parameters and returns.
+3. Completed for current compiler-known collection, option, and result
+   helpers: push concrete helper input types into named private callback
+   parameters while preserving helper result-context callback return
+   inference. Remaining callback work is limited to dictionary helpers and
+   aliases after they enter an equally concrete helper signature path.
 4. Infer payload-carrying ADT constructor type arguments from payloads when the
    constructor descriptor is unambiguous.
 5. Infer match scrutinee descriptors from constructor-pattern arms.

@@ -9,8 +9,16 @@ pub(crate) const PRELUDE_MODULE: &str = "prelude";
 const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
 
 pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(Vec<Type>, Type)> {
+    prelude_signature_with_input(name, expected, None)
+}
+
+pub(crate) fn prelude_signature_with_input(
+    name: &str,
+    expected: Option<&Type>,
+    input: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
     let descriptor = prelude_symbol(name)?;
-    let expected = ExpectedPreludeParts::from_expected(expected);
+    let expected = ExpectedPreludeParts::from_expected_and_input(expected, input);
     prelude_float_signature(descriptor.name)
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
@@ -21,9 +29,10 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
         .or_else(|| prelude_result_signature(descriptor.name, &expected))
 }
 
-pub(crate) fn qualified_prelude_builtin_signature(
+pub(crate) fn qualified_prelude_builtin_signature_with_input(
     segments: &[String],
     expected: Option<&Type>,
+    input: Option<&Type>,
 ) -> Option<(String, Vec<Type>, Type)> {
     let [module, name] = segments else {
         return None;
@@ -31,7 +40,7 @@ pub(crate) fn qualified_prelude_builtin_signature(
     if module != PRELUDE_BUILTIN_MODULE {
         return None;
     }
-    let (params, return_type) = prelude_signature(name, expected)?;
+    let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
     Some((name.clone(), params, return_type))
 }
 
@@ -39,30 +48,48 @@ pub(crate) fn qualified_prelude_signature(
     segments: &[String],
     expected: Option<&Type>,
 ) -> Option<(String, Vec<Type>, Type)> {
+    qualified_prelude_signature_with_input(segments, expected, None)
+}
+
+pub(crate) fn qualified_prelude_signature_with_input(
+    segments: &[String],
+    expected: Option<&Type>,
+    input: Option<&Type>,
+) -> Option<(String, Vec<Type>, Type)> {
     let [module, name] = segments else {
         return None;
     };
     if module != PRELUDE_MODULE {
         return None;
     }
-    let (params, return_type) = prelude_signature(name, expected)?;
+    let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
     Some((name.clone(), params, return_type))
 }
 
 struct ExpectedPreludeParts {
     direct: Type,
     vec_item: Type,
+    input_vec_item: Type,
     list_item: Type,
+    input_list_item: Type,
     option_item: Type,
+    input_option_item: Type,
     result_value: Type,
     result_error: Type,
+    input_result_value: Type,
+    input_result_error: Type,
     dict_key: Type,
     dict_value: Type,
 }
 
 impl ExpectedPreludeParts {
-    fn from_expected(expected: Option<&Type>) -> Self {
+    fn from_expected_and_input(expected: Option<&Type>, input: Option<&Type>) -> Self {
         let (result_value, result_error) = expected
+            .and_then(adt::result_parts)
+            .map_or((Type::Unknown, Type::Unknown), |(value, error)| {
+                (value.clone(), error.clone())
+            });
+        let (input_result_value, input_result_error) = input
             .and_then(adt::result_parts)
             .map_or((Type::Unknown, Type::Unknown), |(value, error)| {
                 (value.clone(), error.clone())
@@ -78,7 +105,15 @@ impl ExpectedPreludeParts {
                 .and_then(Type::vec_part)
                 .cloned()
                 .unwrap_or(Type::Unknown),
+            input_vec_item: input
+                .and_then(Type::vec_part)
+                .cloned()
+                .unwrap_or(Type::Unknown),
             list_item: expected
+                .and_then(adt::list_part)
+                .cloned()
+                .unwrap_or(Type::Unknown),
+            input_list_item: input
                 .and_then(adt::list_part)
                 .cloned()
                 .unwrap_or(Type::Unknown),
@@ -86,8 +121,14 @@ impl ExpectedPreludeParts {
                 .and_then(adt::option_part)
                 .cloned()
                 .unwrap_or(Type::Unknown),
+            input_option_item: input
+                .and_then(adt::option_part)
+                .cloned()
+                .unwrap_or(Type::Unknown),
             result_value,
             result_error,
+            input_result_value,
+            input_result_error,
             dict_key,
             dict_value,
         }
@@ -815,12 +856,14 @@ fn prelude_vec_callback_signature(
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
     let vec_item = &expected.vec_item;
+    let input_vec_item = &expected.input_vec_item;
+    let same_vec_item = prefer_known(input_vec_item, vec_item);
     match name {
         "vec_map" => Some((
             vec![
-                Type::vec(Type::Unknown),
+                Type::vec(input_vec_item.to_owned()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_vec_item.to_owned()],
                     variadic: None,
                     return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
@@ -830,22 +873,22 @@ fn prelude_vec_callback_signature(
         )),
         "vec_filter" => Some((
             vec![
-                Type::vec(vec_item.clone()),
+                Type::vec(same_vec_item.clone()),
                 Type::Function {
-                    params: vec![vec_item.clone()],
+                    params: vec![same_vec_item.clone()],
                     variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
                 },
             ],
-            Type::vec(vec_item.clone()),
+            Type::vec(same_vec_item),
         )),
         "vec_fold" => Some((
             vec![
-                Type::vec(Type::Unknown),
+                Type::vec(input_vec_item.to_owned()),
                 expected.direct.clone(),
                 Type::Function {
-                    params: vec![expected.direct.clone(), Type::Unknown],
+                    params: vec![expected.direct.clone(), input_vec_item.to_owned()],
                     variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
@@ -856,11 +899,13 @@ fn prelude_vec_callback_signature(
         "vec_try_map" => Some(vec_try_map_signature(
             &expected.result_value,
             expected.result_error.clone(),
+            input_vec_item,
             false,
         )),
         "vec_try_map_with" => Some(vec_try_map_signature(
             &expected.result_value,
             expected.result_error.clone(),
+            input_vec_item,
             true,
         )),
         _ => None,
@@ -896,12 +941,14 @@ fn prelude_list_callback_signature(
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
     let list_item = &expected.list_item;
+    let input_list_item = &expected.input_list_item;
+    let same_list_item = prefer_known(input_list_item, list_item);
     match name {
         "list_map" => Some((
             vec![
-                adt::list_type(Type::Unknown),
+                adt::list_type(input_list_item.to_owned()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_list_item.to_owned()],
                     variadic: None,
                     return_type: Box::new(list_item.clone()),
                     effects: Vec::new(),
@@ -911,22 +958,22 @@ fn prelude_list_callback_signature(
         )),
         "list_filter" => Some((
             vec![
-                adt::list_type(list_item.clone()),
+                adt::list_type(same_list_item.clone()),
                 Type::Function {
-                    params: vec![list_item.clone()],
+                    params: vec![same_list_item.clone()],
                     variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
                 },
             ],
-            adt::list_type(list_item.clone()),
+            adt::list_type(same_list_item),
         )),
         "list_fold" => Some((
             vec![
-                adt::list_type(Type::Unknown),
+                adt::list_type(input_list_item.to_owned()),
                 expected.direct.clone(),
                 Type::Function {
-                    params: vec![expected.direct.clone(), Type::Unknown],
+                    params: vec![expected.direct.clone(), input_list_item.to_owned()],
                     variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
@@ -937,6 +984,7 @@ fn prelude_list_callback_signature(
         "list_try_map" => Some(list_try_map_signature(
             &expected.result_value,
             expected.result_error.clone(),
+            input_list_item,
         )),
         _ => None,
     }
@@ -988,12 +1036,13 @@ fn prelude_option_signature(
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
     let option_item = &expected.option_item;
+    let input_option_item = &expected.input_option_item;
     match name {
         "option_map" => Some((
             vec![
-                adt::option_type(Type::Unknown),
+                adt::option_type(input_option_item.clone()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_option_item.clone()],
                     variadic: None,
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
@@ -1030,30 +1079,34 @@ fn prelude_result_signature(
 ) -> Option<(Vec<Type>, Type)> {
     let result_value = &expected.result_value;
     let result_error = &expected.result_error;
+    let input_result_value = &expected.input_result_value;
+    let input_result_error = &expected.input_result_error;
+    let carried_result_value = prefer_known(result_value, &expected.input_result_value);
+    let carried_result_error = prefer_known(result_error, &expected.input_result_error);
     match name {
         "result_map" => Some((
             vec![
-                adt::result_type(Type::Unknown, result_error.clone()),
+                adt::result_type(input_result_value.clone(), carried_result_error.clone()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_result_value.clone()],
                     variadic: None,
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
                 },
             ],
-            adt::result_type(result_value.clone(), result_error.clone()),
+            adt::result_type(result_value.clone(), carried_result_error),
         )),
         "result_map_err" => Some((
             vec![
-                adt::result_type(result_value.clone(), Type::Unknown),
+                adt::result_type(carried_result_value.clone(), input_result_error.clone()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_result_error.clone()],
                     variadic: None,
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
                 },
             ],
-            adt::result_type(result_value.clone(), result_error.clone()),
+            adt::result_type(carried_result_value, result_error.clone()),
         )),
         "result_and_then" => Some((
             vec![
@@ -1077,9 +1130,11 @@ fn prelude_result_signature(
 fn vec_try_map_signature(
     result_value: &Type,
     result_error: Type,
+    input_vec_item: &Type,
     with_context: bool,
 ) -> (Vec<Type>, Type) {
     let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
+    let input_item = input_vec_item.clone();
     let mut params = Vec::new();
     let mut callback_params = Vec::new();
 
@@ -1088,8 +1143,8 @@ fn vec_try_map_signature(
         callback_params.push(Type::Unknown);
     }
 
-    params.push(Type::vec(Type::Unknown));
-    callback_params.push(Type::Unknown);
+    params.push(Type::vec(input_item.clone()));
+    callback_params.push(input_item);
     params.push(Type::Function {
         params: callback_params,
         variadic: None,
@@ -1103,15 +1158,20 @@ fn vec_try_map_signature(
     )
 }
 
-fn list_try_map_signature(result_value: &Type, result_error: Type) -> (Vec<Type>, Type) {
+fn list_try_map_signature(
+    result_value: &Type,
+    result_error: Type,
+    input_list_item: &Type,
+) -> (Vec<Type>, Type) {
     let mapped_item = adt::list_part(result_value)
         .cloned()
         .unwrap_or(Type::Unknown);
+    let input_item = input_list_item.clone();
     (
         vec![
-            adt::list_type(Type::Unknown),
+            adt::list_type(input_item.clone()),
             Type::Function {
-                params: vec![Type::Unknown],
+                params: vec![input_item],
                 variadic: None,
                 return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
                 effects: Vec::new(),
@@ -1119,6 +1179,14 @@ fn list_try_map_signature(result_value: &Type, result_error: Type) -> (Vec<Type>
         ],
         adt::result_type(adt::list_type(mapped_item), result_error),
     )
+}
+
+fn prefer_known(primary: &Type, fallback: &Type) -> Type {
+    if primary == &Type::Unknown {
+        fallback.clone()
+    } else {
+        primary.clone()
+    }
 }
 
 pub(crate) fn float_prefix_prelude_name(op: PrefixOp) -> Option<&'static str> {

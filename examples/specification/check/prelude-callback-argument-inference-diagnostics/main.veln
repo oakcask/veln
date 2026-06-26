@@ -1,0 +1,7 @@
+fn stringify(value: String) -> String
+	"bad"
+end
+
+pub fn main(items: Vec<Int>) -> Vec<String>
+	vec_map(items, stringify)
+end

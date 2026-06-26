@@ -1,0 +1,64 @@
+type List<A>
+	Nil
+	Cons(head: A, tail: List<A>)
+end
+
+fn vec_string(value) -> String
+	"ok"
+end
+
+fn vec_keep(value) -> Bool
+	true
+end
+
+fn vec_folder(acc: String, value) -> String
+	acc
+end
+
+fn vec_try(value) -> Result<String, String>
+	Ok("ok")
+end
+
+fn list_string(value) -> String
+	"ok"
+end
+
+fn list_keep(value) -> Bool
+	true
+end
+
+fn list_folder(acc: String, value) -> String
+	acc
+end
+
+fn list_try(value) -> Result<String, String>
+	Ok("ok")
+end
+
+fn option_string(value) -> String
+	"ok"
+end
+
+fn result_string(value) -> String
+	"ok"
+end
+
+fn result_error_string(value) -> String
+	"ok"
+end
+
+pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>}
+	{
+		vec_mapped: vec_map(vec, vec_string),
+		vec_filtered: vec_filter(vec, vec_keep),
+		vec_folded: vec_fold(vec, "", vec_folder),
+		vec_tried: vec_try_map(vec, vec_try),
+		list_mapped: list_map(list, list_string),
+		list_filtered: list_filter(list, list_keep),
+		list_folded: list_fold(list, "", list_folder),
+		list_tried: list_try_map(list, list_try),
+		option_mapped: option_map(opt, option_string),
+		result_mapped: result_map(res, result_string),
+		result_error_mapped: result_map_err(err, result_error_string)
+	}
+end

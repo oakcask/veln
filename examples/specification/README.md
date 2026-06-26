@@ -66,6 +66,9 @@ against the built `veln` binary.
 - `check/recursive-call-shapes/`: direct recursive calls, nested-match
   tail-shaped recursive calls, postcondition-bearing recursive functions,
   non-tail recursive calls, and function-typed callback calls.
+- `check/prelude-callback-argument-inference/`: named private callback
+  parameter inference from compiler-known collection, option, and result
+  helper input types.
 - `check/slash-comments-rejected/`: slash-prefixed comment-like text is
   rejected as source instead of being treated as ordinary or documentation
   comments.

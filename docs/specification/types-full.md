@@ -143,6 +143,18 @@ binding to that dictionary type. Without a dictionary expectation, `{}`
 remains an empty record literal. An expected collection type that still
 contains `unknown` is not concrete enough for an empty collection literal.
 
+Compiler-known prelude helpers push concrete input item types into named
+private callback function values. For `vec_map`, `vec_filter`, `vec_fold`, and
+`vec_try_map`, a concrete `Vec<T>` input constrains the callback parameter that
+receives each element to `T`. The same rule applies to `list_map`,
+`list_filter`, `list_fold`, and `list_try_map` for concrete `List<T>` inputs.
+`option_map` constrains its callback parameter from the `Option<T>` input.
+`result_map` constrains its callback parameter from the `Result<T, E>` success
+type, and `result_map_err` constrains its callback parameter from the error
+type. These helpers still use the surrounding expected result type to constrain
+the callback return type when that expected result is concrete. This inference
+does not apply to ordinary user-defined higher-order helpers.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
