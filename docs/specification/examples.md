@@ -1704,6 +1704,20 @@ ordinary `StreamInput` handler path with independent state, only ordered
 `SendBytes` actions become socket writes, both streams close, both
 client-observed byte sequences are captured, and a final optional accept
 observes clean listener end. The executable specification case
+`../../examples/specification/run/socket-stream-adapter-write-chunks-ordering/`
+uses the same production-loopback boundary for adapter-owned outbound
+ordering. It accepts deterministic loopback streams, routes ordinary inputs
+through a channel, calls multiple pure handlers, combines their response
+actions into one explicit outbound order, and writes only the ordered
+`SendBytes` chunks with `net::write_chunks`. The executable specification
+cases
+`../../examples/specification/run/socket-stream-adapter-write-chunks-failure-json/`
+and
+`../../examples/specification/run/socket-stream-adapter-write-chunks-failure-human/`
+force the same adapter-owned write path to fail after production accept, read,
+channel routing, and response projection, keeping the result on the runtime
+transport-failure surface without response writes or stream close. The
+executable specification case
 `../../examples/specification/run/socket-stream-adapter-production-drain-lifecycle/`
 uses optional accept as a listener-drain loop rather than a fixed stream-count
 entry path. Each accepted production stream is owned by adapter code, routed

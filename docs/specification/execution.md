@@ -179,6 +179,10 @@ execution reference.
   `examples/specification/run/socket-stream-adapter-production-drain-read-failure-json/`
   for a forced read failure after adapter-owned production accept but before
   response writes or stream close,
+  `examples/specification/run/socket-stream-adapter-write-chunks-failure-json/`
+  for a forced adapter-owned outbound write failure after production accept,
+  read, ordinary handler routing, and ordered `SendBytes` projection through
+  `net::write_chunks`,
   `examples/specification/run/socket-stream-adapter-production-close-failure-json/`
   for a forced close failure after an adapter-routed production stream has
   already projected ordered response writes,
