@@ -105,7 +105,15 @@ helpers also decode and encode consecutive visible-only `UInt1` through
 fields in declaration order from high bits to low bits, preserving each
 visible field as an ordinary `Int`, including generated decode-step and
 derived codec eligibility, and reporting existing truncation and
-`codec.encode_value_unrepresentable` shapes. The
+`codec.encode_value_unrepresentable` shapes. Generated schema helpers also
+decode and encode the narrow visible-only two-byte big-endian group where
+consecutive `UInt1` through `UInt7` fields complete exactly one two-byte
+storage unit, preserving the same high-to-low declaration-order packing,
+ordinary `Int` fields, generated decode-step and derived codec eligibility,
+truncation shape, and encode range-failure shape. The completed two-byte
+visible-only group slice is archived under
+`../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md`.
+The
 generated helper slice also treats visible exact-width fields with a
 field-local equality predicate such as `field == literal` as schema-owned
 fixed fields, leaves matching values visible in the decoded result, and

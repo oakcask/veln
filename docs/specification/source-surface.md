@@ -324,8 +324,9 @@ nested converter calls inside five-argument converter calls.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each and consecutive visible-only `UInt1` through `UInt7` groups of
-at least two fields whose widths complete exactly one byte, `Flag8`,
-`Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
+at least two fields whose widths complete exactly one byte or one two-byte
+big-endian storage unit, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
+`Flag24le`,
 `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`,
 `Flag56be`, `Flag56le`, `Flag64be`, and `Flag64le` bitset fields, supported
 byte-aligned `ReservedBits(width, value)` fields,

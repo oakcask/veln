@@ -1,0 +1,15 @@
+schema PackedVisibleTwoByteHeader
+	format binary
+
+	high: UInt4
+	middle: UInt5
+	low: UInt3
+	tail: UInt4
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ab")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let ignored: {high: Int, middle: Int, low: Int, tail: Int} = byte_decode_packed_visible_two_byte_header(view)?
+	Ok(())
+end

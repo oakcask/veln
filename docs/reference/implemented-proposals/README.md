@@ -74,6 +74,8 @@ behavior.
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
+- Binary schema packed visible two-byte groups:
+  [binary-schema-packed-visible-two-byte-groups.md](binary-schema-packed-visible-two-byte-groups.md).
 - Binary schema seven-byte split reserved layouts:
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema eight-byte split reserved layouts:
