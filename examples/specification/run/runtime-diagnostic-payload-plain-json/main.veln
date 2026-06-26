@@ -1,0 +1,4 @@
+# Plain Err values remain ordinary result failures without diagnostic payloads.
+pub fn main() -> Result<(), String>
+	Err("plain result failure")
+end

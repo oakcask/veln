@@ -101,7 +101,13 @@ requiring the full command reference on the first read.
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related
-  notes. Checked byte write conversion failures report
+  notes. A source-visible
+  `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` value uses
+  the same human byte-diagnostic rendering as side-table-backed runtime byte
+  failures, with the id, byte offset, field path, counts, readiness or reason,
+  and optional preview projected from the returned error value itself. Plain
+  `Err(value)` values remain ordinary result failures. Checked byte write
+  conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied
   value, accepted range, width, byte order, and source-visible `Err` value in
   related notes.

@@ -1,6 +1,6 @@
 # Runtime Diagnostic Payloads
 
-Status: proposed
+Status: partially implemented
 
 This proposal gives runtime diagnostics an explicit language-level position.
 Runtime failures that carry stable diagnostic facts should be represented as
@@ -196,17 +196,25 @@ Backend-local diagnostic side tables are the design debt this proposal intends
 to remove. They may remain temporarily for legacy helpers, but new helpers
 should return source-visible diagnostic error values.
 
+The first implemented slice defines the standard `RuntimeDiagnostic` value
+shape for byte diagnostics and lets `veln run` and `veln run --json` project
+`Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` through the
+same human and JSON byte-diagnostic surfaces used by legacy helpers. The
+checked examples are
+`../../examples/specification/run/runtime-diagnostic-payload-byte-human/`,
+`../../examples/specification/run/runtime-diagnostic-payload-byte-json/`, and
+`../../examples/specification/run/runtime-diagnostic-payload-plain-json/`.
+This slice deliberately leaves legacy side-table support in place for existing
+fixture, value, protocol, HPACK, HTTP/2, and generated-schema helpers.
+
 A staged migration can keep compatibility:
 
-1. Define the standard-library payload vocabulary and command projection.
-2. Add command support for `Err(RuntimeDiagnostic(...))` and any accepted
-   diagnostic error ADT conventions.
-3. Add harness assertions over structured `Err` values so implementation tests
+1. Add harness assertions over structured `Err` values so implementation tests
    can verify value-carried diagnostics before command rendering.
-4. Convert HPACK fixture projection helpers to return `Result<(), RuntimeDiagnostic>`
+2. Convert HPACK fixture projection helpers to return `Result<(), RuntimeDiagnostic>`
    or an equivalent structured diagnostic error type from Veln.
-5. Convert HTTP/2 protocol projection helpers to the same model.
-6. Remove narrow backend helpers and side-table registrations once no
+3. Convert HTTP/2 protocol projection helpers to the same model.
+4. Remove narrow backend helpers and side-table registrations once no
    specification case depends on them.
 
 During migration, existing Java runtime helpers can keep producing the same

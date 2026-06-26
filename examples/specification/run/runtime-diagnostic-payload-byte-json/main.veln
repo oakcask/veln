@@ -1,0 +1,21 @@
+# RuntimeDiagnostic values can carry byte diagnostic payloads through run JSON.
+fn byte_diagnostic() -> RuntimeDiagnostic
+	let field_path: List<RuntimeDiagnosticFieldPathSegment> = Cons(
+		RuntimeDiagnosticFieldPathSegment("schema", "Payload"),
+		Cons(RuntimeDiagnosticFieldPathSegment("field", "body"), Nil)
+	)
+	RuntimeDiagnostic(
+		"codec.incomplete_input",
+		"byte read requires 3 bytes but view has 2",
+		RuntimeByteDiagnostic(
+			byte_offset(2)?,
+			field_path,
+			RuntimeByteCountFacts(byte_count(3)?, byte_count(2)?, "need_bytes"),
+			RuntimeBytePreview("0001", byte_count(2)?, byte_count(2)?, false)
+		)
+	)
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	Err(byte_diagnostic())
+end

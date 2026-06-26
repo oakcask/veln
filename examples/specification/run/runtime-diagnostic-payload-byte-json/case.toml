@@ -1,0 +1,87 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.incomplete_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"Payload"},{"kind":"field","name":"body"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+equals = "need_bytes"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "0001"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false))))\n"

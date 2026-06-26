@@ -1939,6 +1939,14 @@ against the built `veln` binary.
   `NeedMore(NeedEnd)` at a closed-input reporting boundary, `veln run`
   projects `codec.incomplete_input` through focused human diagnostics and
   `run --json` `details.byte_diagnostic` without requested-byte context.
+- `run/runtime-diagnostic-payload-byte-human/` and
+  `run/runtime-diagnostic-payload-byte-json/`: a source-visible
+  `Err(RuntimeDiagnostic(..., RuntimeByteDiagnostic(...)))` entry result
+  carries the byte diagnostic payload value that `veln run` projects through
+  focused human diagnostics and `run --json` `details.byte_diagnostic`.
+- `run/runtime-diagnostic-payload-plain-json/`: a plain `Err(value)` entry
+  result remains an ordinary runtime result failure without byte diagnostic
+  projection.
 - `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
   deterministic header-block byte fixtures and every static indexed HPACK
   table entry from `0x81` `:authority` through `0xbd`

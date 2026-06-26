@@ -1419,6 +1419,15 @@ execution reference.
   a `DecodeError` whose byte offset is the caller-supplied base offset plus
   the local field position.
 - For `veln run` entries, a returned
+  `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` is a
+  source-visible diagnostic-bearing result failure. The command boundary
+  keeps the rendered `RuntimeDiagnostic(...)` as the result value and projects
+  the contained byte diagnostic into human runtime diagnostics and
+  `details.byte_diagnostic` JSON. The implemented byte detail slice carries
+  `ByteOffset`, field-path segments, count/readiness, range, or reason facts,
+  and an optional bounded byte preview. Plain `Err(value)` remains an ordinary
+  result failure and does not opt into diagnostic projection.
+- For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
   projected to a focused human runtime diagnostic and

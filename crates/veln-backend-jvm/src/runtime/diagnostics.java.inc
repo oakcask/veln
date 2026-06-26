@@ -36,7 +36,10 @@
         String value = format(resultValue);
         registerEncodeErrorValueDiagnostic(resultValue, value);
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
-        ByteDiagnostic byteDiagnostic = byteDiagnostics.get().remove(value);
+        RuntimeDiagnosticPayload runtimeDiagnostic = runtimeDiagnosticPayload(resultValue);
+        ByteDiagnostic byteDiagnostic = runtimeDiagnostic == null
+            ? byteDiagnostics.get().remove(value)
+            : runtimeDiagnostic.byteDiagnostic;
         ValueDiagnostic valueDiagnostic = valueDiagnostics.get().remove(value);
         ProtocolDiagnostic protocolDiagnostic = protocolDiagnostics.get().remove(value);
         String line = "result"
@@ -110,6 +113,113 @@
             return null;
         }
         return byteDiagnostics.get().get(asString(message));
+    }
+
+    private static RuntimeDiagnosticPayload runtimeDiagnosticPayload(Object value) {
+        if (!isAdtNamed(value, "RuntimeDiagnostic::RuntimeDiagnostic")) {
+            return null;
+        }
+        Adt diagnostic = (Adt) value;
+        String id = asString(diagnostic.payloads[0]);
+        ByteDiagnostic byteDiagnostic = runtimeByteDiagnostic(id, diagnostic.payloads[2]);
+        if (byteDiagnostic == null) {
+            return null;
+        }
+        return new RuntimeDiagnosticPayload(byteDiagnostic);
+    }
+
+    private static ByteDiagnostic runtimeByteDiagnostic(String id, Object detail) {
+        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeByteDiagnostic")) {
+            return null;
+        }
+        Adt byteDetail = (Adt) detail;
+        long byteOffset = byteOffsetLong(byteDetail.payloads[0]);
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath =
+            runtimeDiagnosticFieldPath(byteDetail.payloads[1]);
+        if (fieldPath == null) {
+            return null;
+        }
+        java.util.ArrayList<DiagnosticDetail> details =
+            runtimeByteDiagnosticFacts(byteDetail.payloads[2]);
+        if (details == null) {
+            return null;
+        }
+        DiagnosticDetail preview = runtimeBytePreview(byteDetail.payloads[3]);
+        if (preview != null) {
+            details.add(preview);
+        }
+        return new ByteDiagnostic(id, byteOffset, fieldPath, details);
+    }
+
+    private static java.util.List<ByteDiagnosticFieldPathSegment> runtimeDiagnosticFieldPath(
+        Object value
+    ) {
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        Object cursor = value;
+        while (true) {
+            ListValue list = asListValue(cursor);
+            if (!list.cons) {
+                return path;
+            }
+            if (!isAdtNamed(list.head, "RuntimeDiagnosticFieldPathSegment::RuntimeDiagnosticFieldPathSegment")) {
+                return null;
+            }
+            Adt segment = (Adt) list.head;
+            path.add(new ByteDiagnosticFieldPathSegment(
+                asString(segment.payloads[0]),
+                asString(segment.payloads[1])
+            ));
+            cursor = list.tail;
+        }
+    }
+
+    private static java.util.ArrayList<DiagnosticDetail> runtimeByteDiagnosticFacts(Object value) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteCountFacts")) {
+            Adt facts = (Adt) value;
+            details.add(DiagnosticDetail.number("expected_count", byteCountLong(facts.payloads[0])));
+            details.add(DiagnosticDetail.number("available_count", byteCountLong(facts.payloads[1])));
+            details.add(DiagnosticDetail.string("readiness", asString(facts.payloads[2])));
+            return details;
+        }
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteRangeFacts")) {
+            Adt facts = (Adt) value;
+            details.add(DiagnosticDetail.number("requested_count", byteCountLong(facts.payloads[0])));
+            details.add(DiagnosticDetail.number("available_count", byteCountLong(facts.payloads[1])));
+            return details;
+        }
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteReasonFacts")) {
+            Adt facts = (Adt) value;
+            details.add(DiagnosticDetail.string("reason", asString(facts.payloads[0])));
+            return details;
+        }
+        return null;
+    }
+
+    private static DiagnosticDetail runtimeBytePreview(Object value) {
+        if (isAdtNamed(value, "RuntimeBytePreview::NoRuntimeBytePreview")) {
+            return null;
+        }
+        if (!isAdtNamed(value, "RuntimeBytePreview::RuntimeBytePreview")) {
+            return null;
+        }
+        Adt preview = (Adt) value;
+        String data = asString(preview.payloads[0]);
+        long previewByteCount = byteCountLong(preview.payloads[1]);
+        long totalByteCount = byteCountLong(preview.payloads[2]);
+        boolean truncated = asBool(preview.payloads[3]);
+        return DiagnosticDetail.bytePreviewV2(
+            "byte_preview",
+            hex(data)
+                + ":"
+                + Long.toString(previewByteCount)
+                + ":"
+                + Long.toString(totalByteCount)
+                + ":"
+                + Boolean.toString(truncated)
+        );
     }
 
     private static void registerHttp2ProtocolClosedWithPendingDiagnostic(
@@ -1718,6 +1828,14 @@
             this.id = id;
             this.byteOffset = byteOffset;
             this.details = details;
+        }
+    }
+
+    private static final class RuntimeDiagnosticPayload {
+        final ByteDiagnostic byteDiagnostic;
+
+        RuntimeDiagnosticPayload(ByteDiagnostic byteDiagnostic) {
+            this.byteDiagnostic = byteDiagnostic;
         }
     }
 

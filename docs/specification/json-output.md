@@ -18,6 +18,9 @@ details.
   envelope, span, related note, and stable details fields.
 - `run --json`: [run-json.md](run-json.md) for run records, output events,
   failures, and summary shape.
+  Runtime result failures that carry source-visible diagnostic payload values,
+  including `RuntimeDiagnostic(..., RuntimeByteDiagnostic(...))`, are specified
+  there.
 - `test --json`: [test-json.md](test-json.md) for selection, case, summary,
   failure, and error records.
 - `repair --json`: [repair-json.md](repair-json.md) for preview, apply,
