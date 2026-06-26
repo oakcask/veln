@@ -10,17 +10,19 @@ compare it with `../specification/` before changing behavior.
 ## Catalog
 
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
-  define remaining annotation-elision work for callback aliases that are not
-  in the compiler-known helper path, and other paths beyond the implemented
+  define remaining annotation-elision work for callback inputs outside the
+  compiler-known helper path, and other paths beyond the implemented
   same-function local `let`, empty collection expected-type, empty collection
   callback return, payload-carrying ADT constructor inference, match scrutinee
-  constructor-pattern inference, and compiler-known prelude callback argument
-  slices specified in `../specification/types.md`. The completed private
-  helper call-site inference, prelude callback argument inference, ADT
-  constructor payload inference, and match scrutinee constructor-pattern
-  inference slices are archived under
+  constructor-pattern inference, compiler-known prelude callback argument, and
+  dictionary callback alias slices specified in `../specification/types.md`.
+  The completed private helper call-site inference, prelude callback argument
+  inference, dictionary callback alias inference, ADT constructor payload
+  inference, and match scrutinee constructor-pattern inference slices are
+  archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
+  `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   and
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`.

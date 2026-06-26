@@ -149,6 +149,10 @@ const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
     "list_map_step",
     "list_filter_step",
     "list_try_map_step",
+    "dict_map_with_step",
+    "dict_filter_with_step",
+    "dict_fold_with_step",
+    "dict_try_map_with_step",
 ];
 
 macro_rules! source_prelude_symbol_set {
@@ -837,9 +841,13 @@ source_prelude_symbol_set! {
     "dict_insert" => veln_stdlib::prelude_source("dict_insert"),
     "dict_remove" => veln_stdlib::prelude_source("dict_remove"),
     "dict_map" => veln_stdlib::prelude_source("dict_map"),
+    "dict_map_with" => veln_stdlib::prelude_source("dict_map_with"),
     "dict_filter" => veln_stdlib::prelude_source("dict_filter"),
+    "dict_filter_with" => veln_stdlib::prelude_source("dict_filter_with"),
     "dict_fold" => veln_stdlib::prelude_source("dict_fold"),
+    "dict_fold_with" => veln_stdlib::prelude_source("dict_fold_with"),
     "dict_try_map" => veln_stdlib::prelude_source("dict_try_map"),
+    "dict_try_map_with" => veln_stdlib::prelude_source("dict_try_map_with"),
     "option_map" => veln_stdlib::prelude_source("option_map"),
     "option_and_then" => veln_stdlib::prelude_source("option_and_then"),
     "option_unwrap_or" => veln_stdlib::prelude_source("option_unwrap_or"),

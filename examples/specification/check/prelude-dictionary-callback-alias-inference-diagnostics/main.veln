@@ -1,0 +1,9 @@
+fn stringify_value(context, key, value) -> String
+	let label: String = context
+	let text: String = value
+	key
+end
+
+pub fn main(items: Dict<String, Int>) -> Dict<String, String>
+	dict_map_with("ctx", items, stringify_value)
+end

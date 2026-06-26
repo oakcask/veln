@@ -69,6 +69,11 @@ against the built `veln` binary.
 - `check/prelude-callback-argument-inference/`: named private callback
   parameter inference from compiler-known collection, option, and result
   helper input types.
+- `check/prelude-dictionary-callback-alias-inference/`: named private
+  callback parameter inference for context-carrying dictionary helper aliases.
+- `check/prelude-dictionary-callback-alias-inference-diagnostics/`:
+  incompatible callback body facts after dictionary alias key and value
+  inference.
 - `check/slash-comments-rejected/`: slash-prefixed comment-like text is
   rejected as source instead of being treated as ordinary or documentation
   comments.

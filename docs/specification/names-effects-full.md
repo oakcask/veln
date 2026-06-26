@@ -842,9 +842,13 @@ dict_contains(dict: Dict<K, V>, key: K) -> Bool
 dict_insert(dict: Dict<K, V>, key: K, value: V) -> Dict<K, V>
 dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
 dict_map(dict: Dict<K, V>, f: fn(K, V) -> A) -> Dict<K, A>
+dict_map_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> A) -> Dict<K, A>
 dict_filter(dict: Dict<K, V>, f: fn(K, V) -> Bool) -> Dict<K, V>
+dict_filter_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> Bool) -> Dict<K, V>
 dict_fold(dict: Dict<K, V>, initial: A, f: fn(A, K, V) -> A) -> A
+dict_fold_with(context: C, dict: Dict<K, V>, initial: A, f: fn(C, A, K, V) -> A) -> A
 dict_try_map(dict: Dict<K, V>, f: fn(K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
+dict_try_map_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
 option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
 option_and_then(value: Option<A>, f: fn(A) -> Option<B>) -> Option<B>
 option_unwrap_or(value: Option<A>, fallback: A) -> A
@@ -864,12 +868,16 @@ containers in place. `vec_len` returns the number of items in the input vec.
 right input's items. `vec_is_empty` returns whether a vec contains no items.
 `dict_contains` returns true when `dict_get` would return `Some` for the same
 dictionary and key, and false when `dict_get` would return `None`.
-`dict_map`, `dict_filter`, `dict_fold`, and `dict_try_map` visit dictionary
-entries in insertion order and pass each key and value to the callback.
-`dict_map` preserves keys and maps values. `dict_filter` preserves entries
-whose callback returns true. `dict_fold` threads the accumulator through each
-entry. `dict_try_map` stops at the first `Err`; otherwise it returns `Ok`
-containing the mapped frozen dictionary.
+`dict_map`, `dict_map_with`, `dict_filter`, `dict_filter_with`, `dict_fold`,
+`dict_fold_with`, `dict_try_map`, and `dict_try_map_with` visit dictionary
+entries in insertion order and pass each key and value to the callback. The
+`_with` aliases pass the unchanged context value as the first callback
+argument. `dict_map` and `dict_map_with` preserve keys and map values.
+`dict_filter` and `dict_filter_with` preserve entries whose callback returns
+true. `dict_fold` and `dict_fold_with` thread the accumulator through each
+entry. `dict_try_map` and `dict_try_map_with` stop calling their callback
+after the first `Err`; otherwise they return `Ok` containing the mapped frozen
+dictionary.
 `vec_try_map` evaluates items in source order, stops at the first `Err`, and
 otherwise returns `Ok` containing the mapped frozen vec in source order.
 `vec_try_map_with` follows the same traversal and passes the unchanged context
@@ -1126,8 +1134,9 @@ The implemented standard symbol table has this current pure-helper split:
   `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
   `list_nil`, `list_cons`, `list_is_empty`, `list_fold`, `list_reverse`,
   `list_map`, `list_filter`, `list_try_map`, `dict_get`, `dict_contains`,
-  `dict_insert`, `dict_remove`, `dict_map`, `dict_filter`, `dict_fold`,
-  `dict_try_map`, `option_map`, `option_and_then`, `option_unwrap_or`,
+  `dict_insert`, `dict_remove`, `dict_map`, `dict_map_with`, `dict_filter`,
+  `dict_filter_with`, `dict_fold`, `dict_fold_with`, `dict_try_map`,
+  `dict_try_map_with`, `option_map`, `option_and_then`, `option_unwrap_or`,
   `result_map`, `result_map_err`, `result_and_then`, `string_split_once`,
   `string_parse_int`, and `int_to_string`
 - descriptor-only pure helpers: none

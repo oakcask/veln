@@ -933,16 +933,69 @@ pub fn dict_map(dict: Dict<K, V>, f: fn(K, V) -> A) -> Dict<K, A>
 	prelude_builtin::dict_map(dict, f)
 end
 
+pub fn dict_map_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> A) -> Dict<K, A>
+	let state: { values : Dict<K, A>, map : fn(C, K, V) -> A, context : C } = prelude_builtin::dict_fold(dict, {}, dict_map_with_step)
+	state.values
+end
+
+fn dict_map_with_step(state: { values : Dict<K, A>, map : fn(C, K, V) -> A, context : C }, key: K, value: V) -> { values : Dict<K, A>, map : fn(C, K, V) -> A, context : C }
+	let map = state.map
+	let context = state.context
+	{ values: prelude_builtin::dict_insert(state.values, key, map(context, key, value)), map: map, context: context }
+end
+
 pub fn dict_filter(dict: Dict<K, V>, f: fn(K, V) -> Bool) -> Dict<K, V>
 	prelude_builtin::dict_filter(dict, f)
+end
+
+pub fn dict_filter_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> Bool) -> Dict<K, V>
+	let state: { values : Dict<K, V>, keep : fn(C, K, V) -> Bool, context : C } = prelude_builtin::dict_fold(dict, {}, dict_filter_with_step)
+	state.values
+end
+
+fn dict_filter_with_step(state: { values : Dict<K, V>, keep : fn(C, K, V) -> Bool, context : C }, key: K, value: V) -> { values : Dict<K, V>, keep : fn(C, K, V) -> Bool, context : C }
+	let keep = state.keep
+	let context = state.context
+	match keep(context, key, value)
+		true => { values: prelude_builtin::dict_insert(state.values, key, value), keep: keep, context: context }
+		false => state
+	end
 end
 
 pub fn dict_fold(dict: Dict<K, V>, initial: A, f: fn(A, K, V) -> A) -> A
 	prelude_builtin::dict_fold(dict, initial, f)
 end
 
+pub fn dict_fold_with(context: C, dict: Dict<K, V>, initial: A, f: fn(C, A, K, V) -> A) -> A
+	let state: { acc : A, fold : fn(C, A, K, V) -> A, context : C } = prelude_builtin::dict_fold(dict, { acc: initial, fold: f, context: context }, dict_fold_with_step)
+	state.acc
+end
+
+fn dict_fold_with_step(state: { acc : A, fold : fn(C, A, K, V) -> A, context : C }, key: K, value: V) -> { acc : A, fold : fn(C, A, K, V) -> A, context : C }
+	let fold = state.fold
+	let context = state.context
+	{ acc: fold(context, state.acc, key, value), fold: fold, context: context }
+end
+
 pub fn dict_try_map(dict: Dict<K, V>, f: fn(K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
 	prelude_builtin::dict_try_map(dict, f)
+end
+
+pub fn dict_try_map_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
+	let state: { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C } = prelude_builtin::dict_fold(dict, { values: Ok({}), map: f, context: context }, dict_try_map_with_step)
+	state.values
+end
+
+fn dict_try_map_with_step(state: { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C }, key: K, value: V) -> { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C }
+	let map = state.map
+	let context = state.context
+	match state.values
+		Ok(values) => match map(context, key, value)
+			Ok(mapped) => { values: Ok(prelude_builtin::dict_insert(values, key, mapped)), map: map, context: context }
+			Err(error) => { values: Err(error), map: map, context: context }
+		end
+		Err(error) => { values: Err(error), map: map, context: context }
+	end
 end
 
 pub fn option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
