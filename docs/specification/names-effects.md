@@ -131,8 +131,11 @@ compiler-known calls.
   while recursively accepting configured production streams until
   `net::accept_or_end` reports clean listener end; forced production read
   failure on that path remains a runtime transport failure. Forced production
-  accept or read failures through the deadline-aware calls remain runtime
-  transport failures under the same coarse effect labels.
+  adapter-owned outbound write failure on the ordered `net::write_chunks`
+  projection path remains a runtime transport failure after ordinary handler
+  routing and before response writes or stream close. Forced production accept
+  or read failures through the deadline-aware calls remain runtime transport
+  failures under the same coarse effect labels.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. Receiver-list
   five-route through thirty-route examples use

@@ -32,6 +32,7 @@ slices, and narrow deadline and cancellation slices, for:
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle,
   listener-drain adapter lifecycle, listener-drain read-failure boundary,
+  adapter-owned outbound write-failure boundary,
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
   deadline-aware read-failure boundary, production cancellable deadline-aware
   adapter lifecycle and outcome boundary, explicit listener-close boundary,
@@ -54,8 +55,9 @@ slices, and narrow deadline and cancellation slices, for:
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
-  ordered `net::write_chunks` projection slice, plus the source-visible
-  ordered chunk-list boundary, deadline-aware stream-write boundary,
+  ordered `net::write_chunks` projection slice, the adapter-owned outbound
+  write-failure boundary, plus the source-visible ordered chunk-list
+  boundary, deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
   chunk-list stream-write boundary
@@ -344,6 +346,13 @@ values into one explicit adapter-owned order, projects only ordered
 transport-free and requires the adapter boundary to declare the existing
 `net` and `concurrency` effects.
 
+Implemented adapter-owned outbound write-failure slice: executable
+specification cases force the same ordered `net::write_chunks` projection path
+to fail after production accept, stream read, ordinary channel routing, and
+pure handler response projection. The failure remains a runtime transport
+failure owned by the adapter boundary; it does not become a protocol, schema,
+codec, or handler failure, and no response write or stream close is recorded.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -365,8 +374,8 @@ recorded as implemented in
 The explicit listener-close boundary is recorded as implemented in
 `../reference/implemented-proposals/network-listener-close-boundary.md`.
 
-The adapter-owned multi-handler outbound write-ordering slice is recorded as
-implemented in
+The adapter-owned multi-handler outbound write-ordering and outbound
+write-failure slices are recorded as implemented in
 `../reference/implemented-proposals/network-adapter-outbound-write-ordering.md`.
 
 The adapter-owned clean shutdown slice is recorded as implemented in

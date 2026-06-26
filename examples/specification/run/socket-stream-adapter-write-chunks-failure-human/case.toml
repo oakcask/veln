@@ -1,0 +1,22 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "0102"
+VELN_NET_WRITE_FAILED = "1"
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["transport write failed: VELN_NET_WRITE_FAILED"]
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream\nread-production production-stream 0102\n"

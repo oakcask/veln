@@ -278,7 +278,7 @@ compare it with `../specification/` before changing behavior.
   source-visible cancellable deadline-aware
   `net::write_chunks_until_cancellable` chunk-list writes,
   adapter-owned multi-handler outbound write ordering through
-  `net::write_chunks`,
+  `net::write_chunks`, adapter-owned outbound write-failure boundary,
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
@@ -312,8 +312,8 @@ compare it with `../specification/` before changing behavior.
   [Network Write Chunks Until Cancellable Boundary](../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
-  The completed adapter-owned multi-handler outbound write-ordering slice is
-  archived under
+  The completed adapter-owned multi-handler outbound write-ordering and
+  outbound write-failure slices are archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
   The completed adapter-owned clean shutdown slice is archived under
   [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).

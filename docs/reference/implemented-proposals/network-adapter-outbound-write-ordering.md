@@ -9,6 +9,10 @@ behavior is specified by `../../specification/names-effects.md`,
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-write-chunks-ordering/`
 and
+`../../../examples/specification/run/socket-stream-adapter-write-chunks-failure-json/`,
+with human transport-failure output pinned by
+`../../../examples/specification/run/socket-stream-adapter-write-chunks-failure-human/`,
+and
 `../../../examples/specification/check/socket-stream-adapter-write-chunks-ordering-effects/`.
 
 ## Outcome
@@ -25,7 +29,10 @@ Only `SendBytes` actions are projected into a `List<ByteChunk>`, and the
 adapter writes that list with `net::write_chunks`. Non-write actions remain
 ordinary response intent values for adapter code to interpret. The checked
 case verifies the ordered production write log and captured client bytes for
-two accepted streams.
+two accepted streams. The failure cases force the same adapter-owned
+`net::write_chunks` path after production accept, read, channel routing, and
+response projection, keeping the write failure as a runtime transport failure
+without recording response writes or stream close.
 
 The effect check keeps ownership explicit: handler functions remain free of
 transport, time, and concurrency effects, while the adapter boundary that

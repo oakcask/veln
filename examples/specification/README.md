@@ -2731,6 +2731,14 @@ against the built `veln` binary.
   stays runtime blame in human command output.
 - `run/transport-socket-write-failure-json/`: forced socket write failure uses
   the run JSON runtime error shape.
+- `run/socket-stream-adapter-write-chunks-failure-human/`: forced
+  adapter-owned outbound `net::write_chunks` failure stays runtime blame in
+  human command output after production accept, read, channel routing, and
+  response projection.
+- `run/socket-stream-adapter-write-chunks-failure-json/`: forced
+  adapter-owned outbound `net::write_chunks` failure uses the run JSON runtime
+  error shape after production accept, read, channel routing, and response
+  projection.
 - `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
   through `time::timeout_ms` fails as a run JSON runtime error.
 - `run/transport-deadline-expired-human/`: host-fixture-forced deadline expiry
