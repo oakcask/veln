@@ -26,15 +26,49 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext, preview: ByteView) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_list_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", byte_chunk([]))
+	)
+end
+
+fn header_list_payload(offset: Int, observed_size: Int, frame_kind: Int, stream_id: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_list_size_exceeded",
+		"HTTP/2 header list size exceeds receive maximum at byte offset 12",
+		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(offset, observed_size, context_allowed_header_list_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	match failure
-		HeaderListSizeExceeded(offset, observed_size, frame_kind, stream_id) => http2_peer_limit_header_list_size_exceeded(offset, observed_size, context_allowed_header_list_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), preview)
+		HeaderListSizeExceeded(offset, observed_size, frame_kind, stream_id) => Err(header_list_payload(offset, observed_size, frame_kind, stream_id, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("060708090a0b0c0d0e")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext(9, "local_configuration", "header_list_receive_limit")
-	let preview_chunk: ByteChunk = byte_chunk_from_hex("060708090a0b0c0d0e")?
-	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
+	let preview_chunk: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(preview_chunk)?
 	http2_protocol_diagnostic(HeaderListSizeExceeded(12, 10, 9, 1), context, preview)
 end

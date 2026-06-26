@@ -76,6 +76,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.invalid_frame_kind`,
 `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
 `http2.peer_limit.frame_size_exceeded`,
+`RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for
+`http2.peer_limit.header_list_size_exceeded`,
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for
 `http2.protocol.invalid_payload_length`,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for

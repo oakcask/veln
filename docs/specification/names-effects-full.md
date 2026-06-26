@@ -1147,6 +1147,8 @@ pure helper in this split is source-backed, while float operator compatibility
 descriptors remain outside the migration candidate pool.
 
 The source-visible `RuntimeDiagnosticDetail` constructor set includes
+`RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for projecting
+`http2.peer_limit.header_list_size_exceeded` failures and
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
 using the legacy helper side table.

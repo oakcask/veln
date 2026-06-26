@@ -279,6 +279,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
+            return runtimeHttp2PeerLimitHeaderListSizeDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
         }
@@ -346,6 +349,37 @@
                 DiagnosticDetail.number("stream_id", streamId),
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitHeaderListSizeDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.header_list_size_exceeded")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long allowedSize = asLong(detail.payloads[2]);
+        long frameKind = asLong(detail.payloads[3]);
+        long streamId = asLong(detail.payloads[4]);
+        String receiveLimitProvenance = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_list_size", observedSize),
+                DiagnosticDetail.number("allowed_header_list_size", allowedSize),
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );
     }
