@@ -39,6 +39,14 @@ fn option_string(value) -> String
 	"ok"
 end
 
+fn option_next(value) -> Option<String>
+	Some("ok")
+end
+
+fn qualified_option_next(value) -> Option<String>
+	Some("ok")
+end
+
 fn result_string(value) -> String
 	"ok"
 end
@@ -47,7 +55,15 @@ fn result_error_string(value) -> String
 	"ok"
 end
 
-pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>}
+fn result_next(value) -> Result<String, String>
+	Ok("ok")
+end
+
+fn qualified_result_next(value) -> Result<String, String>
+	Ok("ok")
+end
+
+pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}
 	{
 		vec_mapped: vec_map(vec, vec_string),
 		vec_filtered: vec_filter(vec, vec_keep),
@@ -58,7 +74,11 @@ pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, S
 		list_folded: list_fold(list, "", list_folder),
 		list_tried: list_try_map(list, list_try),
 		option_mapped: option_map(opt, option_string),
+		option_nexted: option_and_then(opt, option_next),
+		qualified_option_nexted: prelude::option_and_then(opt, qualified_option_next),
 		result_mapped: result_map(res, result_string),
-		result_error_mapped: result_map_err(err, result_error_string)
+		result_error_mapped: result_map_err(err, result_error_string),
+		result_nexted: result_and_then(res, result_next),
+		qualified_result_nexted: prelude::result_and_then(res, qualified_result_next)
 	}
 end

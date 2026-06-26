@@ -24,7 +24,8 @@ Compiler-known collection, option, and result prelude helpers push concrete
 input item, success, or error types into named private callback function
 parameters. The implemented helper set is `vec_map`, `vec_filter`, `vec_fold`,
 `vec_try_map`, `list_map`, `list_filter`, `list_fold`, `list_try_map`,
-`option_map`, `result_map`, and `result_map_err`.
+`option_map`, `option_and_then`, `result_map`, `result_map_err`, and
+`result_and_then`.
 
 The rule is local and monomorphic. It applies to named private callback
 function values used by the compiler-known helper signature path. It does not

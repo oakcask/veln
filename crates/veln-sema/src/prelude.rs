@@ -1052,9 +1052,9 @@ fn prelude_option_signature(
         )),
         "option_and_then" => Some((
             vec![
-                adt::option_type(Type::Unknown),
+                adt::option_type(input_option_item.clone()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_option_item.clone()],
                     variadic: None,
                     return_type: Box::new(adt::option_type(option_item.clone())),
                     effects: Vec::new(),
@@ -1110,18 +1110,18 @@ fn prelude_result_signature(
         )),
         "result_and_then" => Some((
             vec![
-                adt::result_type(Type::Unknown, result_error.clone()),
+                adt::result_type(input_result_value.clone(), carried_result_error.clone()),
                 Type::Function {
-                    params: vec![Type::Unknown],
+                    params: vec![input_result_value.clone()],
                     variadic: None,
                     return_type: Box::new(adt::result_type(
                         result_value.clone(),
-                        result_error.clone(),
+                        carried_result_error.clone(),
                     )),
                     effects: Vec::new(),
                 },
             ],
-            adt::result_type(result_value.clone(), result_error.clone()),
+            adt::result_type(result_value.clone(), carried_result_error),
         )),
         _ => None,
     }
