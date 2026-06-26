@@ -3594,6 +3594,116 @@ fn generated_schema_helpers_reject_unsupported_four_byte_packed_reserved_suffix_
 }
 
 #[test]
+fn generated_schema_helpers_accept_five_byte_reserved_suffix_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema FiveByteReservedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  control: UInt7\n",
+            "  control_padding: ReservedBits(33, 5726623061)\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{control: Int}, String>\n",
+            "  byte_decode_five_byte_reserved_suffix_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {control: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_five_byte_reserved_suffix_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "five-byte reserved suffix shape should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("control", 1, 127, None),
+            ("control_padding", 0, 0, Some((33, 5726623061))),
+        ]
+    );
+}
+
+#[test]
+fn generated_schema_helpers_reject_unsupported_five_byte_reserved_suffix_shapes() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ByteVisibleReservedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  control: UInt8\n",
+            "  control_padding: ReservedBits(33, 0)\n",
+            "end\n",
+            "\n",
+            "schema TooNarrowReservedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  control: UInt5\n",
+            "  control_padding: ReservedBits(34, 0)\n",
+            "end\n",
+            "\n",
+            "schema MissingVisibleReservedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  control_padding: ReservedBits(39, 0)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let unsupported_shapes = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "schema.reserved_bits_encode"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"unsupported_encode_shape\"")
+        })
+        .count();
+    assert_eq!(
+        unsupported_shapes, 3,
+        "unsupported five-byte reserved suffix shapes should be rejected: {:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "unsupported five-byte reserved suffix shapes should not emit typed IR"
+    );
+}
+
+#[test]
 fn generated_schema_helpers_reject_unsupported_two_byte_packed_reserved_shapes() {
     let source = SourceFile::new(
         "main.veln",

@@ -415,6 +415,14 @@
         return 0;
     }
 
+    private static int suffixPackedReservedStorageByteWidth(int bitWidth) {
+        int storageByteWidth = packedReservedStorageByteWidth(bitWidth);
+        if (storageByteWidth > 0) {
+            return storageByteWidth;
+        }
+        return bitWidth >= 33 && bitWidth <= 39 ? 5 : 0;
+    }
+
     private static int packedVisibleBitWidth(SchemaFieldSpec reserved, SchemaFieldSpec visible) {
         if (!reserved.isReserved()
             || packedReservedStorageByteWidth(reserved.reservedBitWidth) == 0
@@ -478,7 +486,7 @@
             || visible.littleEndian) {
             return 0;
         }
-        int storageByteWidth = packedReservedStorageByteWidth(reserved.reservedBitWidth);
+        int storageByteWidth = suffixPackedReservedStorageByteWidth(reserved.reservedBitWidth);
         if (storageByteWidth == 0) {
             return 0;
         }
@@ -490,7 +498,7 @@
 
     private static int suffixPackedStorageByteWidth(SchemaFieldSpec visible, SchemaFieldSpec reserved) {
         return suffixPackedVisibleBitWidth(visible, reserved) > 0
-            ? packedReservedStorageByteWidth(reserved.reservedBitWidth)
+            ? suffixPackedReservedStorageByteWidth(reserved.reservedBitWidth)
             : 0;
     }
 
@@ -4734,7 +4742,7 @@
         if (boundsError != null) {
             return boundsError;
         }
-        int requiredBytes = packedReservedStorageByteWidth(reserved.reservedBitWidth);
+        int requiredBytes = suffixPackedReservedStorageByteWidth(reserved.reservedBitWidth);
         long available = Math.max(0L, count - relativeOffset);
         if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;

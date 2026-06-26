@@ -462,9 +462,10 @@ execution reference.
   for the pair. The inverse suffix layout is also supported: a visible
   `UIntN` field followed immediately by `ReservedBits(width, value)` where
   the two widths complete one byte or the same two-byte, three-byte, or
-  four-byte big-endian storage unit. That form decodes the visible value from
-  the high bits, validates the low reserved bits at the reserved field path,
-  omits the reserved field, and
+  four-byte big-endian storage unit, plus the five-byte case where the fields
+  complete forty bits. That form decodes the visible value from the high bits,
+  validates the low reserved bits at the reserved field path, omits the
+  reserved field, and
   advances by the shared storage width. The supported middle layout is a
   visible `UIntN` field, a `ReservedBits(width, value)` field, and another
   visible `UIntN` field whose widths together complete one byte or the same
@@ -901,9 +902,10 @@ execution reference.
   declared value and the low visible bits from the encoder input record. A
   visible `UIntN` field followed by a `ReservedBits(width, value)` suffix
   that completes the same one-byte, two-byte, three-byte, or four-byte
-  big-endian storage unit is representation-only in the same way, but emits
-  the visible value in the high bits and the declared reserved value in the
-  low bits. A visible `UIntN` field, middle `ReservedBits(width, value)`
+  big-endian storage unit, plus the five-byte case where the fields complete
+  forty bits, is representation-only in the same way, but emits the visible
+  value in the high bits and the declared reserved value in the low bits. A
+  visible `UIntN` field, middle `ReservedBits(width, value)`
   field, and following visible `UIntN` field whose widths complete the same
   storage unit are also representation-only: the helper writes both visible
   values around the declared reserved value in declaration order and reports
@@ -1180,6 +1182,8 @@ execution reference.
   `examples/specification/run/binary-schema-packed-reserved-suffix-encode-out-of-range/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-five-byte-reserved-suffix-decode-encode/`,
+  `examples/specification/run/binary-schema-five-byte-reserved-suffix-json/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-middle-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`,
