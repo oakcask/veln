@@ -1,7 +1,7 @@
 # HTTP/2 response header-list validation failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidResponseHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
+	InvalidResponseHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
 end
 
 type Http2DiagnosticContext
@@ -20,13 +20,13 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))
+		InvalidResponseHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => Err(RuntimeDiagnostic("http2.protocol.invalid_response_header_list", message, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))))
 	end
 end
 
-pub fn main() -> Result<(), String>
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("response-headers", "rfc9113_response_pseudo_headers")
-	http2_protocol_diagnostic(InvalidResponseHeaderList(12, 1, 1, "request_only_pseudo_header", ":authority", ":authority,:status"), context)
+	http2_protocol_diagnostic(InvalidResponseHeaderList("HTTP/2 response header list contains request-only :authority at byte offset 12", 12, 1, 1, "request_only_pseudo_header", ":authority", ":authority,:status"), context)
 end

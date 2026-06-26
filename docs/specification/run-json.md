@@ -96,6 +96,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.invalid_payload_length`,
 `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for
 `http2.protocol.invalid_request_header_list`,
+`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for
+`http2.protocol.invalid_response_header_list`,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 `http2.protocol.invalid_window_update_increment`,
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for
@@ -534,9 +536,14 @@ regular header, an uppercase ordinary header name, and an ordinary header
 name outside the HTTP field-name token shape, plus invalid `te` value human
 output and invalid and mismatched `content-length` values; the larger
 protocol-core fixture also checks `:authority` as request-only and checks
-valid ordinary response header lists, including accepted `te: trailers` and
-accepted `content-length` values, through integrated completed HEADERS and
-final CONTINUATION paths.
+completed HEADERS and final CONTINUATION paths. The focused response
+header-list human and JSON examples return source-visible
+`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payloads, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields. The larger
+protocol-core fixture also checks valid ordinary response header lists,
+including accepted `te: trailers` and accepted `content-length` values,
+through integrated completed HEADERS and final CONTINUATION paths.
 Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record

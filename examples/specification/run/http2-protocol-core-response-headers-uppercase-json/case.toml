@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 response header list contains uppercase ordinary header Server at byte offset 12"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list contains uppercase ordinary header Server at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, ordinary_header_name_not_lowercase, Server, :status,Server, response-headers, rfc9113_field_name_lowercase))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

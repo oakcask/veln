@@ -227,9 +227,10 @@ compare it with `../specification/` before changing behavior.
   preface failures, continuation ordering, invalid frame kind, frame-size peer
   limit, header-list receive-limit, SETTINGS value range peer-limit,
   header-table receive-limit, concurrent-stream receive-limit, fixed payload
-  length, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency, and
-  stream-after-GOAWAY diagnostics, command projection, and executable harness
-  assertion slices. The completed HPACK fixture and HTTP/2 preface payload
+  length, request and response header-list validation, invalid `WINDOW_UPDATE`
+  increment, invalid PRIORITY dependency, and stream-after-GOAWAY diagnostics,
+  command projection, and executable harness assertion slices. The completed
+  HPACK fixture and HTTP/2 preface payload
   slices are archived under
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`
   and

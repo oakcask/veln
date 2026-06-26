@@ -195,8 +195,8 @@ invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
-request header-list validation, invalid `WINDOW_UPDATE` increment, invalid
-PRIORITY dependency, and stream-after-GOAWAY failures.
+request and response header-list validation, invalid `WINDOW_UPDATE`
+increment, invalid PRIORITY dependency, and stream-after-GOAWAY failures.
 They project through the existing HTTP/2 human diagnostics and
 `details.protocol_diagnostic` JSON shape. The
 checked examples are
@@ -248,6 +248,16 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-te-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-human/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-json/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-content-length-human/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-content-length-json/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-duplicate-json/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-order-human/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-te-human/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-te-json/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-token-human/`,
+`../../examples/specification/run/http2-protocol-core-response-headers-uppercase-json/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,

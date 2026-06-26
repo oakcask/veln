@@ -1453,6 +1453,7 @@ execution reference.
   `RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`,
+  `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,
   `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
@@ -1990,7 +1991,10 @@ execution reference.
   `content-length` value rules and failed facts apply to fixture-marked
   response header lists. The response diagnostic uses the same structured
   detail shape as request validation while naming the response-specific
-  failed header-list fact.
+  failed header-list fact. A source-visible
+  `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payload
+  carries those response header-list facts without using the legacy helper
+  side table.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

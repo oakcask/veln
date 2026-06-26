@@ -121,9 +121,9 @@ requiring the full command reference on the first read.
   partial and invalid client connection preface failures, continuation
   ordering, invalid frame kind, frame-size exceeded, header-list
   receive-limit failures, SETTINGS value range peer-limit failures, fixed
-  payload length, request header-list validation, invalid `WINDOW_UPDATE`
-  increment, invalid PRIORITY dependency, stream-after-GOAWAY, header-table
-  receive-limit failures, and concurrent-stream receive-limit failures
+  payload length, request and response header-list validation, invalid
+  `WINDOW_UPDATE` increment, invalid PRIORITY dependency, stream-after-GOAWAY,
+  header-table receive-limit failures, and concurrent-stream receive-limit failures
   likewise use the same human runtime diagnostic rendering as the
   compatibility helpers, with the stable id, protocol facts, provenance,
   decoded header names, and bounded byte preview when present projected from

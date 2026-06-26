@@ -2644,6 +2644,39 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
 }
 
 #[test]
+fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
+    let request = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers))",
+    )
+    .expect("request header-list runtime diagnostic value should parse");
+    let response = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers))",
+    )
+    .expect("response header-list runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&request, "value.detail.failed_header_fact"),
+        Some(&JsonValue::String(
+            "missing_required_pseudo_header".to_string()
+        ))
+    );
+    assert_eq!(
+        json_path(&request, "value.detail.decoded_header_names"),
+        Some(&JsonValue::String("headers".to_string()))
+    );
+    assert_eq!(
+        json_path(&response, "value.detail.constructor"),
+        Some(&JsonValue::String(
+            "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic".to_string()
+        ))
+    );
+    assert_eq!(
+        json_path(&response, "value.detail.header_name"),
+        Some(&JsonValue::String(":status".to_string()))
+    );
+}
+
+#[test]
 fn result_value_parser_exposes_http2_preface_runtime_diagnostics() {
     let partial = parse_result_value(
         "RuntimeDiagnostic(http2.protocol.partial_preface, HTTP/2 input ended with partial client connection preface at byte offset 0, RuntimeHttp2ProtocolPartialPrefaceDiagnostic(0, 12, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32)])))",
@@ -3366,6 +3399,35 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                     ),
                     (
                         "receive_limit_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[7].trim().to_string()),
+                    ),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic"
+        | "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                name,
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("frame_kind", parse_veln_value(args[1])?),
+                    ("stream_id", parse_veln_value(args[2])?),
+                    (
+                        "failed_header_fact",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    ("header_name", JsonValue::String(args[4].trim().to_string())),
+                    (
+                        "decoded_header_names",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "active_state",
                         JsonValue::String(args[6].trim().to_string()),
                     ),
                     (
