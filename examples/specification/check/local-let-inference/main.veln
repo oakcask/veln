@@ -15,6 +15,11 @@ type Box<A>
 	Box(value: A)
 end
 
+type Maybe<A>
+	Empty
+	Full(value: A)
+end
+
 fn call_constrained() -> Int
 	let items = []
 	consume(items)
@@ -141,6 +146,22 @@ end
 
 fn constructor_payload_empty_collections() -> {vec: Box<Vec<Int>>, list: Box<List<Int>>, dict: Box<Dict<String, Int>>}
 	{vec: Box([]), list: Box(Nil), dict: Box({})}
+end
+
+fn nested_record_initializer_context() -> {outer: {vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>, maybe: Maybe<Int>}}
+	{outer: {vec: [], list: Nil, dict: {}, maybe: Empty}}
+end
+
+fn record_field_nested_constructor_context() -> {box: Box<{vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>, maybe: Maybe<Int>}>}
+	{box: Box({vec: [], list: Nil, dict: {}, maybe: Empty})}
+end
+
+fn constructor_payload_nested_record_context() -> Box<{vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>, maybe: Maybe<Int>}>
+	Box({vec: [], list: Nil, dict: {}, maybe: Empty})
+end
+
+fn constructor_payload_nested_constructor_context() -> Box<Maybe<Vec<Int>>>
+	Box(Full([]))
 end
 
 fn empty_vec_callback(value: Int)

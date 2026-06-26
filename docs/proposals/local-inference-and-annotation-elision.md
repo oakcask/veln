@@ -84,8 +84,8 @@ from the wrong descriptor report `type.mismatch`.
 Remaining planned work in this section extends omitted local annotations into
 broader expected-type paths that are not covered by the current same-function
 local `let`, non-empty collection initializer, empty collection expected-type,
-hole expected-type flow, and local pattern slices, including other nested
-initializer positions.
+hole expected-type flow, nested initializer expected-type propagation, and
+local pattern slices.
 
 ## Completed Hole Expected-Type Flow Slice
 
@@ -114,6 +114,14 @@ The completed private helper call-site inference slice is archived under
 `../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
 Current behavior is specified in `../specification/types.md#read-first` and
 `../specification/types-full.md#inference`.
+
+## Completed Local Nested Initializer Expected-Type Slice
+
+The completed nested initializer expected-type slice is archived under
+[local-inference-nested-initializer-expected-type.md](../reference/implemented-proposals/local-inference-nested-initializer-expected-type.md).
+Current behavior is specified in `../specification/types.md#read-first`,
+`../specification/types-full.md#inference`, and the checked examples under
+`../../examples/specification/check/local-let-inference/`.
 
 ## Completed Non-Empty Collection Initializer Slice
 
@@ -268,7 +276,9 @@ Acceptance evidence includes:
 
 1. Infer local `let` bindings from initializers and existing expected-type
    paths.
-2. Add empty collection and nullary constructor context propagation.
+2. Completed for empty collection and nullary constructor context propagation,
+   including nested record and source-declared constructor initializer
+   positions when every enclosing field or payload type is concrete.
 3. Completed for current compiler-known collection, dictionary, option, and
    result helpers, including dictionary `_with` aliases, and for same-module
    or visible imported declared helpers with concrete function-typed

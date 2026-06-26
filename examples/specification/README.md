@@ -153,8 +153,9 @@ against the built `veln` binary.
 - `check/local-let-inference/` and
   `check/local-let-inference-diagnostics/`: omitted local let annotations,
   including collection literals, empty collection expected-type contexts,
-  prelude callback result context, record pattern bindings, and constructor
-  pattern bindings, plus their incomplete, conflicting, ambiguous,
+  nested initializer contexts, prelude callback result context, record pattern
+  bindings, and constructor pattern bindings, plus their incomplete,
+  conflicting, ambiguous,
   missing-field, and wrong-constructor diagnostics.
 - `check/function-effect-boundaries/`: function-typed value compatibility when
   callable effects are narrower or wider than the expected function type.
