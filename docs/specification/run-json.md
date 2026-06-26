@@ -53,6 +53,14 @@ standard `byte_preview` object. Plain `Err(value)` values that do not use this
 diagnostic ADT remain ordinary result failures with no
 `details.byte_diagnostic`.
 
+When the returned error value is
+`RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...))`,
+`details.value` likewise keeps the rendered `RuntimeDiagnostic(...)` value and
+the HPACK fixture detail projects to `details.protocol_diagnostic`. The
+unsupported-header-block fixture payload carries byte offset, observed header
+block size, observed first byte, expected fixture, codec module, and a bounded
+header-block byte preview from the returned error value itself.
+
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
 
@@ -531,7 +539,10 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
-for unsupported header blocks,
+for unsupported header blocks. The source-visible runtime diagnostic payload
+path for that id still uses the same `details.protocol_diagnostic` field shape
+as the legacy side-table-backed fixture helpers. Other HPACK fixture ids remain
+on their existing compatibility bridge:
 `hpack.fixture.malformed_string_length` for malformed HPACK string-length
 encodings,
 `hpack.fixture.malformed_raw_string_value` for malformed raw string values on

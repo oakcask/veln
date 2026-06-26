@@ -1428,6 +1428,15 @@ execution reference.
   and an optional bounded byte preview. Plain `Err(value)` remains an ordinary
   result failure and does not opt into diagnostic projection.
 - For `veln run` entries, a returned
+  `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
+  is the source-visible diagnostic-bearing result failure form used by the
+  HPACK fixture unsupported-header-block projection. The command boundary keeps
+  the rendered `RuntimeDiagnostic(...)` as the result value and projects byte
+  offset, observed header block size, observed first byte, expected fixture,
+  codec module, and bounded header-block preview into the same human
+  diagnostic and `details.protocol_diagnostic` JSON shape used by the
+  compatibility helper.
+- For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
   projected to a focused human runtime diagnostic and
@@ -1889,7 +1898,9 @@ execution reference.
   literal-without-indexing, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
-  module, and bounded header-block byte preview. Malformed HPACK string
+  module, and bounded header-block byte preview carried by an ordinary
+  `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` payload at
+  the standalone HPACK fixture projection boundary. Malformed HPACK string
   lengths, malformed raw string values for supported literal names, malformed
   Huffman padding, and Huffman EOS stay on the HPACK fixture boundary but
   project through their focused `hpack.fixture.*` ids with the same fixture

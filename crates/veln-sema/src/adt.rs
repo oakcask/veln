@@ -1187,36 +1187,73 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "RuntimeDiagnosticDetail".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
-            variants: vec![AdtVariantDescriptor {
-                name: "RuntimeByteDiagnostic".to_string(),
-                kind: AdtVariantKind::Source,
-                payload_fields: vec![
-                    AdtPayloadField {
-                        name: "byte_offset".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
-                    },
-                    AdtPayloadField {
-                        name: "field_path".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named(
-                            "List",
-                            vec![Type::named("RuntimeDiagnosticFieldPathSegment", Vec::new())],
-                        )),
-                    },
-                    AdtPayloadField {
-                        name: "facts".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named(
-                            "RuntimeByteDiagnosticFacts",
-                            Vec::new(),
-                        )),
-                    },
-                    AdtPayloadField {
-                        name: "preview".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named("RuntimeBytePreview", Vec::new())),
-                    },
-                ],
-                coverage_case: "RuntimeByteDiagnostic(_)".to_string(),
-                visibility: Visibility::Public,
-            }],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "RuntimeByteDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
+                        },
+                        AdtPayloadField {
+                            name: "field_path".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named(
+                                "List",
+                                vec![Type::named("RuntimeDiagnosticFieldPathSegment", Vec::new())],
+                            )),
+                        },
+                        AdtPayloadField {
+                            name: "facts".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named(
+                                "RuntimeByteDiagnosticFacts",
+                                Vec::new(),
+                            )),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named(
+                                "RuntimeBytePreview",
+                                Vec::new(),
+                            )),
+                        },
+                    ],
+                    coverage_case: "RuntimeByteDiagnostic(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "RuntimeHpackFixtureDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "observed_header_block_size".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "observed_first_byte".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "expected_fixture".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "codec_module".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHpackFixtureDiagnostic(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
             diagnostic_name: "runtimediagnosticdetail".to_string(),
             propagation: None,
             visibility: Visibility::Public,

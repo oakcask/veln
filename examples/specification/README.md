@@ -2002,9 +2002,10 @@ against the built `veln` binary.
   non-terminating table-size updates and table-size updates with trailing
   bytes after a complete integer stay on the unsupported fixture path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
-  unsupported HPACK fixture header block projects through
-  `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
-  and HTTP/2 frame-state diagnostics.
+  unsupported HPACK fixture header block returns
+  `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` and
+  projects through `hpack.fixture.unsupported_header_block`, separate from
+  schema diagnostics and HTTP/2 frame-state diagnostics.
 - `run/hpack-fixture-dynamic-index-json/` and
   `run/hpack-fixture-dynamic-index-human/`: standalone HPACK fixture dynamic
   indexed lookups without a current bounded dynamic-table entry project

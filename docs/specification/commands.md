@@ -106,7 +106,13 @@ requiring the full command reference on the first read.
   the same human byte-diagnostic rendering as side-table-backed runtime byte
   failures, with the id, byte offset, field path, counts, readiness or reason,
   and optional preview projected from the returned error value itself. Plain
-  `Err(value)` values remain ordinary result failures. Checked byte write
+  `Err(value)` values remain ordinary result failures. A source-visible
+  `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
+  value for `hpack.fixture.unsupported_header_block` uses the same focused
+  HPACK fixture human diagnostic as the compatibility helper, with byte
+  offset, observed header block size, observed first byte, expected fixture,
+  codec module, and bounded byte preview projected from the returned error
+  value. Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied
   value, accepted range, width, byte order, and source-visible `Err` value in
