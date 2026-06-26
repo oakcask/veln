@@ -122,13 +122,14 @@ omitted binding.
 
 Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
 accept concrete expected collection types from local annotations, return
-positions, call arguments, record fields, match arm results, and constructor
-payloads. `Nil` in an omitted local binding may also be fixed by a later
-same-function use. Empty dictionary literals use `{}` when the expected type is
-`Dict<K, V>`; a later same-function use may fix an omitted local `{}` binding
-to that dictionary type. Without a dictionary expectation, `{}` remains an
-empty record literal. An expected collection type that still contains `unknown`
-is not concrete enough for an empty collection literal.
+positions, call arguments, record fields, match arm results, constructor
+payloads, and compiler-known prelude helper result context for callback return
+values. `Nil` in an omitted local binding may also be fixed by a later
+same-function use. Empty dictionary literals use `{}` when the expected type
+is `Dict<K, V>`; a later same-function use may fix an omitted local `{}`
+binding to that dictionary type. Without a dictionary expectation, `{}`
+remains an empty record literal. An expected collection type that still
+contains `unknown` is not concrete enough for an empty collection literal.
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a

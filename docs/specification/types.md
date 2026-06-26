@@ -17,7 +17,8 @@ full type reference.
   requires one concrete type. Empty `Vec<T>` literals, `Nil` for `List<T>`, and
   empty dictionary literals accept concrete expected collection types from
   annotations, returns, call arguments, record fields, match arms, and
-  constructor payloads.
+  constructor payloads, plus compiler-known prelude helper result context for
+  callback return values.
 - `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain

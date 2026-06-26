@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
-    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
-    NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField, SurfaceModule, UseDecl,
-    Visibility,
+    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
+    FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
+    SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
-use crate::adt::AdtRegistry;
+use crate::adt::{self, AdtRegistry, AdtVariantKind};
 use crate::effects::{concurrency_effects, is_stdio_call, standard_library_effects};
 use crate::schema::mapping::{
     SchemaDecodeMappingExpr, SchemaMappingSelectorComparison, SchemaMappingTyper,
@@ -316,6 +316,9 @@ impl Type {
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         let mut functions = ordinary_function_signatures(module);
+        let adts = AdtRegistry::from_module(module);
+        infer_private_function_body_return_types(module, &mut functions, &adts);
+        infer_private_prelude_callback_return_types(module, &mut functions, &adts);
         functions.extend(schema_decode_function_signatures(module));
         functions.extend(schema_encode_function_signatures(module));
         functions.extend(schema_validate_function_signatures(module));
@@ -327,12 +330,18 @@ impl TypeEnvironment {
             functions,
             codec_calls,
             uses: module.uses.clone(),
-            adts: AdtRegistry::from_module(module),
+            adts,
         }
     }
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+
+    pub(crate) fn function_by_node_id(&self, node_id: NodeId) -> Option<&FunctionSignature> {
+        self.functions
+            .iter()
+            .find(|function| function.node_id == node_id)
     }
 
     pub(crate) fn unqualified_function(
@@ -488,6 +497,806 @@ fn function_signature_params(function: &veln_ast::Function) -> (Vec<Type>, Optio
         }
     }
     (params, variadic)
+}
+
+fn infer_private_function_body_return_types(
+    module: &SurfaceModule,
+    functions: &mut [FunctionSignature],
+    adts: &AdtRegistry,
+) {
+    let mut returns_by_path = functions
+        .iter()
+        .map(|function| {
+            (
+                (function.module_name.clone(), function.name.clone()),
+                function.return_type.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for function in module.functions.iter().filter(|function| {
+            function.kind == FunctionKind::Function
+                && function.visibility == Visibility::Private
+                && function.return_type.is_none()
+        }) {
+            let Some(name) = &function.name else {
+                continue;
+            };
+            let key = (function.module_name.clone(), name.clone());
+            let inferred =
+                infer_private_function_tail_type(function, &module.uses, &returns_by_path, adts);
+            if inferred == Type::Unknown || returns_by_path.get(&key) == Some(&inferred) {
+                continue;
+            }
+            returns_by_path.insert(key, inferred);
+            changed = true;
+        }
+    }
+
+    for function in functions {
+        if function.visibility != Visibility::Private || function.return_type != Type::Unknown {
+            continue;
+        }
+        if let Some(inferred) =
+            returns_by_path.get(&(function.module_name.clone(), function.name.clone()))
+            && inferred != &Type::Unknown
+        {
+            function.return_type = inferred.clone();
+        }
+    }
+}
+
+fn infer_private_prelude_callback_return_types(
+    module: &SurfaceModule,
+    functions: &mut [FunctionSignature],
+    adts: &AdtRegistry,
+) {
+    let function_by_path = module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            Some((
+                (function.module_name.clone(), function.name.clone()?),
+                function,
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let omitted_private_returns = module
+        .functions
+        .iter()
+        .filter(|function| {
+            function.kind == FunctionKind::Function
+                && function.visibility == Visibility::Private
+                && function.return_type.is_none()
+        })
+        .filter_map(|function| Some((function.module_name.clone(), function.name.clone()?)))
+        .collect::<BTreeSet<_>>();
+    let mut returns_by_path = functions
+        .iter()
+        .map(|function| {
+            (
+                (function.module_name.clone(), function.name.clone()),
+                function.return_type.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for function in module
+            .functions
+            .iter()
+            .filter(|function| function.kind == FunctionKind::Function)
+        {
+            collect_private_prelude_callback_return_constraints(
+                function,
+                &module.uses,
+                &function_by_path,
+                &omitted_private_returns,
+                &mut returns_by_path,
+                adts,
+                &mut changed,
+            );
+        }
+    }
+
+    for function in functions {
+        let key = (function.module_name.clone(), function.name.clone());
+        if !omitted_private_returns.contains(&key) {
+            continue;
+        }
+        if let Some(inferred) = returns_by_path.get(&key)
+            && inferred != &function.return_type
+        {
+            function.return_type = inferred.clone();
+        }
+    }
+}
+
+fn collect_private_prelude_callback_return_constraints(
+    function: &Function,
+    uses: &[UseDecl],
+    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
+    omitted_private_returns: &BTreeSet<(Option<String>, String)>,
+    returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+    changed: &mut bool,
+) {
+    let mut bindings = function
+        .params
+        .iter()
+        .map(|param| Binding {
+            name: param.name.clone(),
+            ty: function_body_param_type(param),
+        })
+        .collect::<Vec<_>>();
+    let declared_return = function
+        .return_type
+        .as_deref()
+        .map(|return_type| parse_type_or_unknown(Some(return_type)));
+    for (index, line) in function.body.iter().enumerate() {
+        match &line.kind {
+            BodyLineKind::Let {
+                pattern,
+                annotation,
+                expr,
+            } => {
+                let annotation_type = annotation
+                    .as_deref()
+                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                collect_private_prelude_callback_expr_constraints(
+                    expr,
+                    annotation_type.as_ref(),
+                    &mut PrivatePreludeCallbackConstraintContext {
+                        current_module: function.module_name.as_deref(),
+                        function_by_path,
+                        omitted_private_returns,
+                        returns_by_path,
+                        adts,
+                        changed,
+                    },
+                );
+                let ty = annotation_type.unwrap_or_else(|| {
+                    infer_private_signature_expr_type(
+                        expr,
+                        None,
+                        function.module_name.as_deref(),
+                        uses,
+                        &bindings,
+                        returns_by_path,
+                        adts,
+                    )
+                });
+                collect_pattern_bindings(pattern, &ty, &mut bindings);
+            }
+            BodyLineKind::Expr { expr } => {
+                let expected = (index + 1 == function.body.len())
+                    .then_some(declared_return.as_ref())
+                    .flatten();
+                collect_private_prelude_callback_expr_constraints(
+                    expr,
+                    expected,
+                    &mut PrivatePreludeCallbackConstraintContext {
+                        current_module: function.module_name.as_deref(),
+                        function_by_path,
+                        omitted_private_returns,
+                        returns_by_path,
+                        adts,
+                        changed,
+                    },
+                );
+            }
+        }
+    }
+}
+
+struct PrivatePreludeCallbackConstraintContext<'a> {
+    current_module: Option<&'a str>,
+    function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
+    omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
+    returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
+    adts: &'a AdtRegistry,
+    changed: &'a mut bool,
+}
+
+fn collect_private_prelude_callback_expr_constraints(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    match &expr.kind {
+        ExprKind::List(items) => {
+            let item_expected = expected.and_then(Type::vec_part);
+            for item in items {
+                collect_private_prelude_callback_expr_constraints(item, item_expected, context);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            let (key_expected, value_expected) = expected
+                .and_then(Type::dict_parts)
+                .map_or((None, None), |(key, value)| (Some(key), Some(value)));
+            for entry in entries {
+                collect_private_prelude_callback_expr_constraints(
+                    &entry.key,
+                    key_expected,
+                    context,
+                );
+                collect_private_prelude_callback_expr_constraints(
+                    &entry.value,
+                    value_expected,
+                    context,
+                );
+            }
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                let field_expected =
+                    expected.and_then(|expected| expected.record_field(&field.name));
+                collect_private_prelude_callback_expr_constraints(
+                    &field.expr,
+                    field_expected,
+                    context,
+                );
+            }
+        }
+        ExprKind::Call { callee, args } => {
+            collect_private_prelude_callback_call_constraints(callee, args, expected, context);
+        }
+        ExprKind::FieldAccess { base, .. }
+        | ExprKind::Try(base)
+        | ExprKind::Prefix { expr: base, .. } => {
+            collect_private_prelude_callback_expr_constraints(base, None, context);
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_private_prelude_callback_expr_constraints(scrutinee, None, context);
+            for arm in arms {
+                collect_private_prelude_callback_expr_constraints(&arm.expr, expected, context);
+            }
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_private_prelude_callback_expr_constraints(left, expected, context);
+            collect_private_prelude_callback_expr_constraints(right, expected, context);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit
+        | ExprKind::TypeApply { .. } => {}
+    }
+}
+
+fn collect_private_prelude_callback_call_constraints(
+    callee: &Expr,
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    let ExprKind::NamePath(segments) = &callee.kind else {
+        return;
+    };
+    let Some(name) =
+        private_prelude_constraint_name(segments, context.current_module, context.function_by_path)
+    else {
+        return;
+    };
+    let Some((params, _)) = crate::prelude::prelude_signature(name, expected) else {
+        return;
+    };
+    for (arg, param) in args.iter().zip(params.iter()) {
+        collect_private_callback_return_constraint(arg, param, context);
+        collect_private_prelude_callback_expr_constraints(arg, Some(param), context);
+    }
+}
+
+fn private_prelude_constraint_name<'a>(
+    segments: &'a [String],
+    current_module: Option<&str>,
+    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
+) -> Option<&'a str> {
+    match segments {
+        [name]
+            if !function_by_path
+                .contains_key(&(current_module.map(str::to_string), name.clone())) =>
+        {
+            Some(name)
+        }
+        [module, name] if module == "prelude" || module == "prelude_builtin" => Some(name),
+        _ => None,
+    }
+}
+
+fn collect_private_callback_return_constraint(
+    arg: &Expr,
+    expected_callback: &Type,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    let Type::Function { return_type, .. } = expected_callback else {
+        return;
+    };
+    if type_has_unknown(return_type) {
+        return;
+    }
+    let ExprKind::NamePath(segments) = &arg.kind else {
+        return;
+    };
+    let [name] = segments.as_slice() else {
+        return;
+    };
+    let key = (context.current_module.map(str::to_string), name.clone());
+    if !context.omitted_private_returns.contains(&key) {
+        return;
+    }
+    let Some(function) = context.function_by_path.get(&key) else {
+        return;
+    };
+    if !private_tail_empty_collection_can_use_expected(function, return_type, context.adts) {
+        return;
+    }
+    if context.returns_by_path.get(&key) == Some(return_type) {
+        return;
+    }
+    context
+        .returns_by_path
+        .insert(key, return_type.as_ref().clone());
+    *context.changed = true;
+}
+
+fn private_tail_empty_collection_can_use_expected(
+    function: &Function,
+    expected: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    let Some(BodyLineKind::Expr { expr }) = function.body.last().map(|line| &line.kind) else {
+        return false;
+    };
+    tail_empty_collection_can_use_expected(expr, expected, function.module_name.as_deref(), adts)
+}
+
+fn tail_empty_collection_can_use_expected(
+    expr: &Expr,
+    expected: &Type,
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+) -> bool {
+    match &expr.kind {
+        ExprKind::List(items) => items.is_empty() && expected.vec_part().is_some(),
+        ExprKind::Record(fields) => fields.is_empty() && expected.dict_parts().is_some(),
+        ExprKind::Dict(entries) => entries.is_empty() && expected.dict_parts().is_some(),
+        ExprKind::NamePath(segments) => {
+            matches!(
+                adts.nullary_constructor(segments, current_module, &[]),
+                crate::adt::ConstructorLookup::Found(constructor)
+                    if constructor.variant.kind == AdtVariantKind::ListNil
+                        && adt::list_part(expected).is_some()
+            )
+        }
+        _ => false,
+    }
+}
+
+fn infer_private_function_tail_type(
+    function: &veln_ast::Function,
+    uses: &[UseDecl],
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+) -> Type {
+    let mut bindings = function
+        .params
+        .iter()
+        .map(|param| Binding {
+            name: param.name.clone(),
+            ty: function_body_param_type(param),
+        })
+        .collect::<Vec<_>>();
+    let mut tail = Type::unit();
+    for line in &function.body {
+        match &line.kind {
+            BodyLineKind::Let {
+                pattern,
+                annotation,
+                expr,
+            } => {
+                let annotation_type = annotation
+                    .as_deref()
+                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                let ty = annotation_type.unwrap_or_else(|| {
+                    infer_private_signature_expr_type(
+                        expr,
+                        None,
+                        function.module_name.as_deref(),
+                        uses,
+                        &bindings,
+                        returns_by_path,
+                        adts,
+                    )
+                });
+                collect_pattern_bindings(pattern, &ty, &mut bindings);
+            }
+            BodyLineKind::Expr { expr } => {
+                tail = infer_private_signature_expr_type(
+                    expr,
+                    None,
+                    function.module_name.as_deref(),
+                    uses,
+                    &bindings,
+                    returns_by_path,
+                    adts,
+                );
+            }
+        }
+    }
+    tail
+}
+
+fn infer_private_signature_expr_type(
+    expr: &Expr,
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+) -> Type {
+    match &expr.kind {
+        ExprKind::Missing | ExprKind::Hole { .. } | ExprKind::TypeApply { .. } => Type::Unknown,
+        ExprKind::StringLiteral(_) => Type::string(),
+        ExprKind::IntLiteral(_) => Type::int(),
+        ExprKind::FloatLiteral(_) => Type::float(),
+        ExprKind::BoolLiteral(_) => Type::bool(),
+        ExprKind::Unit => Type::unit(),
+        ExprKind::NamePath(segments) => infer_private_signature_name_type(
+            segments,
+            expected,
+            current_module,
+            uses,
+            bindings,
+            returns_by_path,
+            adts,
+        ),
+        ExprKind::List(items) => {
+            let expected_item = expected
+                .and_then(Type::vec_part)
+                .cloned()
+                .unwrap_or(Type::Unknown);
+            let mut item_type = expected_item;
+            for item in items {
+                let actual = infer_private_signature_expr_type(
+                    item,
+                    item_type_unknown_as_none(&item_type),
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                if item_type == Type::Unknown {
+                    item_type = actual;
+                }
+            }
+            Type::vec(item_type)
+        }
+        ExprKind::Dict(entries) => {
+            let (mut key_type, mut value_type) = expected
+                .and_then(Type::dict_parts)
+                .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+                    (key.clone(), value.clone())
+                });
+            for entry in entries {
+                let key_actual = infer_private_signature_expr_type(
+                    &entry.key,
+                    item_type_unknown_as_none(&key_type),
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                if key_type == Type::Unknown {
+                    key_type = key_actual;
+                }
+                let value_actual = infer_private_signature_expr_type(
+                    &entry.value,
+                    item_type_unknown_as_none(&value_type),
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                if value_type == Type::Unknown {
+                    value_type = value_actual;
+                }
+            }
+            Type::dict(key_type, value_type)
+        }
+        ExprKind::Record(fields) => {
+            if fields.is_empty()
+                && let Some(expected) = expected
+                && expected.dict_parts().is_some()
+            {
+                return expected.clone();
+            }
+            Type::Record(
+                fields
+                    .iter()
+                    .map(|field| {
+                        let field_expected =
+                            expected.and_then(|expected| expected.record_field(&field.name));
+                        (
+                            field.name.clone(),
+                            infer_private_signature_expr_type(
+                                &field.expr,
+                                field_expected,
+                                current_module,
+                                uses,
+                                bindings,
+                                returns_by_path,
+                                adts,
+                            ),
+                        )
+                    })
+                    .collect(),
+            )
+        }
+        ExprKind::Call { callee, args } => infer_private_signature_call_type(
+            callee,
+            args,
+            expected,
+            &PrivateSignatureInferContext {
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            },
+        ),
+        ExprKind::FieldAccess { base, field, .. } => infer_private_signature_expr_type(
+            base,
+            None,
+            current_module,
+            uses,
+            bindings,
+            returns_by_path,
+            adts,
+        )
+        .record_field(field)
+        .cloned()
+        .unwrap_or(Type::Unknown),
+        ExprKind::Try(inner) => expected.cloned().unwrap_or_else(|| {
+            let inner_type = infer_private_signature_expr_type(
+                inner,
+                None,
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
+            adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
+        }),
+        ExprKind::Match { arms, .. } => {
+            let mut result = expected.cloned().unwrap_or(Type::Unknown);
+            for arm in arms {
+                let actual = infer_private_signature_expr_type(
+                    &arm.expr,
+                    item_type_unknown_as_none(&result),
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                if result == Type::Unknown {
+                    result = actual;
+                }
+            }
+            result
+        }
+        ExprKind::Prefix { expr, .. } => {
+            infer_private_signature_expr_type(
+                expr,
+                expected,
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
+            Type::Unknown
+        }
+        ExprKind::Binary { op, left, right } => match op {
+            veln_ast::BinaryOp::Equal
+            | veln_ast::BinaryOp::NotEqual
+            | veln_ast::BinaryOp::Less
+            | veln_ast::BinaryOp::LessEqual
+            | veln_ast::BinaryOp::Greater
+            | veln_ast::BinaryOp::GreaterEqual
+            | veln_ast::BinaryOp::Or
+            | veln_ast::BinaryOp::And => Type::bool(),
+            veln_ast::BinaryOp::Add
+            | veln_ast::BinaryOp::Subtract
+            | veln_ast::BinaryOp::Multiply
+            | veln_ast::BinaryOp::Divide => {
+                let left = infer_private_signature_expr_type(
+                    left,
+                    expected,
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                let right = infer_private_signature_expr_type(
+                    right,
+                    expected,
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+                if left == Type::float() || right == Type::float() {
+                    Type::float()
+                } else {
+                    Type::int()
+                }
+            }
+            veln_ast::BinaryOp::PipeGreater => Type::Unknown,
+        },
+    }
+}
+
+fn item_type_unknown_as_none(ty: &Type) -> Option<&Type> {
+    (ty != &Type::Unknown).then_some(ty)
+}
+
+fn type_has_unknown(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => true,
+        Type::Named { args, .. } => args.iter().any(type_has_unknown),
+        Type::Record(fields) => fields.iter().any(|(_, ty)| type_has_unknown(ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_has_unknown)
+                || variadic.as_deref().is_some_and(type_has_unknown)
+                || type_has_unknown(return_type)
+        }
+    }
+}
+
+fn infer_private_signature_name_type(
+    segments: &[String],
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+) -> Type {
+    if let crate::adt::ConstructorLookup::Found(constructor) =
+        adts.nullary_constructor(segments, current_module, uses)
+    {
+        return expected
+            .and_then(|expected| {
+                adt::adt_args(expected, constructor.descriptor).map(|_| expected.clone())
+            })
+            .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
+    }
+    match segments {
+        [name] => bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+            .map(|binding| binding.ty.clone())
+            .or_else(|| {
+                returns_by_path
+                    .get(&(current_module.map(str::to_string), name.clone()))
+                    .cloned()
+            })
+            .unwrap_or(Type::Unknown),
+        [_, .., name] => {
+            imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+                .and_then(|use_decl| {
+                    returns_by_path
+                        .get(&(Some(use_decl.name.clone()), name.clone()))
+                        .cloned()
+                })
+                .unwrap_or(Type::Unknown)
+        }
+        _ => Type::Unknown,
+    }
+}
+
+struct PrivateSignatureInferContext<'a> {
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    bindings: &'a [Binding],
+    returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
+    adts: &'a AdtRegistry,
+}
+
+fn infer_private_signature_call_type(
+    callee: &Expr,
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    if let ExprKind::NamePath(segments) = &callee.kind {
+        if let crate::adt::ConstructorLookup::Found(constructor) =
+            context
+                .adts
+                .constructor(segments, context.current_module, context.uses)
+        {
+            let actual_args = args
+                .iter()
+                .map(|arg| {
+                    infer_private_signature_expr_type(
+                        arg,
+                        None,
+                        context.current_module,
+                        context.uses,
+                        context.bindings,
+                        context.returns_by_path,
+                        context.adts,
+                    )
+                })
+                .collect::<Vec<_>>();
+            if expected
+                .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
+                .is_some()
+            {
+                return expected.cloned().unwrap_or(Type::Unknown);
+            }
+            return adt::constructed_type(constructor, &actual_args);
+        }
+        if let Some(name) = segments.last() {
+            if let Some(return_type) = match segments.as_slice() {
+                [name] => context
+                    .returns_by_path
+                    .get(&(context.current_module.map(str::to_string), name.clone())),
+                [_, .., name] => imported_use_for_path(
+                    context.uses,
+                    &segments[..segments.len() - 1],
+                    context.current_module,
+                )
+                .and_then(|use_decl| {
+                    context
+                        .returns_by_path
+                        .get(&(Some(use_decl.name.clone()), name.clone()))
+                }),
+                _ => None,
+            } {
+                return return_type.clone();
+            }
+            if let Some((params, return_type)) = crate::prelude::prelude_signature(name, expected) {
+                for (arg, param) in args.iter().zip(params.iter()) {
+                    infer_private_signature_expr_type(
+                        arg,
+                        Some(param),
+                        context.current_module,
+                        context.uses,
+                        context.bindings,
+                        context.returns_by_path,
+                        context.adts,
+                    );
+                }
+                return return_type;
+            }
+        }
+    }
+    Type::Unknown
 }
 
 pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {

@@ -29,3 +29,20 @@ fn ambiguous_empty_collection_arguments() -> Int
 	let has_key: Bool = dict_contains({}, "key")
 	1
 end
+
+fn empty_vec_callback(value: Int)
+	[]
+end
+
+fn string_vec_callback(value: Int)
+	["bad"]
+end
+
+fn ambiguous_prelude_callback_result() -> Int
+	let mapped = vec_map([1], empty_vec_callback)
+	1
+end
+
+fn conflicting_prelude_callback_result() -> Vec<Vec<Int>>
+	vec_map([1], string_vec_callback)
+end

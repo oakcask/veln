@@ -84,3 +84,21 @@ end
 fn constructor_payload_empty_collections() -> {vec: Box<Vec<Int>>, list: Box<List<Int>>, dict: Box<Dict<String, Int>>}
 	{vec: Box([]), list: Box(Nil), dict: Box({})}
 end
+
+fn empty_vec_callback(value: Int)
+	[]
+end
+
+fn empty_list_callback(value: Int)
+	Nil
+end
+
+fn prelude_helper_callback_result_context() -> {vec: Vec<Vec<Int>>, list: List<List<Int>>, option: Option<Vec<Int>>, result: Result<List<Int>, String>}
+	let ints: List<Int> = Cons(1, Nil)
+	{
+		vec: vec_map([1], empty_vec_callback),
+		list: list_map(ints, empty_list_callback),
+		option: option_map(Some(1), empty_vec_callback),
+		result: result_map(Ok(1), empty_list_callback)
+	}
+end
