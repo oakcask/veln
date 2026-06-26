@@ -383,6 +383,9 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHpackFixtureDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	RuntimeHpackFixtureDynamicIndexDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	RuntimeHpackFixtureTableSizeUpdateDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, observed_header_table_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String)
+	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 end
 
 pub type RuntimeDiagnosticFieldPathSegment

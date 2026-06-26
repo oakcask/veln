@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 frame payload length exceeds receive maximum at byte offset 0"
+equals = "RuntimeDiagnostic(http2.peer_limit.frame_size_exceeded, HTTP/2 frame payload length exceeds receive maximum at byte offset 0, RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, local_configuration))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -56,4 +56,24 @@ equals = "stream"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.receive_limit_provenance"
+equals = "local_configuration"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHttp2PeerLimitFrameSizeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.1"
+equals = 1025
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.2"
+equals = 1024
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.5"
 equals = "local_configuration"

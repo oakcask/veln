@@ -1437,6 +1437,16 @@ execution reference.
   observed header block size, observed first byte, expected fixture, codec
   module, and bounded header-block preview into the same human diagnostic and
   `details.protocol_diagnostic` JSON shape used by the compatibility helper.
+- For `veln run` entries, a returned HTTP/2 protocol
+  `Err(RuntimeDiagnostic(...))` payload can project directly to the same
+  human runtime diagnostic and `details.protocol_diagnostic` JSON shape as
+  the compatibility helper. The implemented HTTP/2 slice covers
+  `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
+  `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`, and
+  `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, keeping the
+  rendered `RuntimeDiagnostic(...)` as the result value while projecting the
+  stable id, byte offset, protocol facts, provenance, and bounded byte preview
+  where the diagnostic owns one.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is

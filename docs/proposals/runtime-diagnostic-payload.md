@@ -151,8 +151,9 @@ details.
 ## Implemented Baseline
 
 Current behavior for the completed source-visible byte diagnostic value, HPACK
-fixture runtime diagnostic payloads, command projection, and executable
-harness assertion slices is specified in
+fixture runtime diagnostic payloads, the representative HTTP/2 protocol
+payload slice, command projection, and executable harness assertion slices is
+specified in
 `../specification/run-json.md`, `../specification/commands.md`,
 `../specification/execution.md`, and `../specification/test-json.md`.
 
@@ -181,13 +182,17 @@ to remove. They may remain temporarily for legacy helpers, but new helpers
 should return source-visible diagnostic error values.
 
 Implemented slices define the standard `RuntimeDiagnostic` value shape for
-byte diagnostics and HPACK fixture diagnostics.
+byte diagnostics, HPACK fixture diagnostics, and representative HTTP/2
+protocol diagnostics.
 `veln run` and `veln run --json` project
 `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` through the
 same human and JSON byte-diagnostic surfaces used by legacy helpers, and
 project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
-fixture human diagnostic and `details.protocol_diagnostic` JSON shape. The
-checked examples are
+fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
+HTTP/2 `RuntimeDiagnostic` payloads currently cover invalid frame kind,
+frame-size exceeded, and invalid PRIORITY dependency, and project through the
+existing HTTP/2 human diagnostics and `details.protocol_diagnostic` JSON
+shape. The checked examples are
 `../../examples/specification/run/runtime-diagnostic-payload-byte-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`, and
 `../../examples/specification/run/runtime-diagnostic-payload-plain-json/`,
@@ -200,13 +205,21 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-non-visible-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`,
-and `../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-human/`.
+`../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-human/`,
+`../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
+`../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-frame-size-human/`,
+`../../examples/specification/run/http2-protocol-core-frame-size-json/`,
+`../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,
+and `../../examples/specification/run/http2-protocol-core-priority-dependency-json/`.
 These slices deliberately leave legacy side-table support in place for
-existing fixture, value, protocol, HTTP/2, and generated-schema helpers.
+existing fixture, value, unmigrated HTTP/2 protocol and peer-limit, and
+generated-schema helpers.
 
 A staged migration can keep compatibility for the remaining work:
 
-1. Convert HTTP/2 protocol projection helpers to the same model.
+1. Convert the remaining HTTP/2 protocol and peer-limit projection helpers to
+   the same model.
 2. Remove narrow backend helpers and side-table registrations once no
    specification case depends on them.
 

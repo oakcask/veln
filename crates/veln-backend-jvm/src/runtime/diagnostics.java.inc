@@ -128,7 +128,7 @@
             return new RuntimeDiagnosticPayload(byteDiagnostic, null);
         }
         ProtocolDiagnostic protocolDiagnostic =
-            runtimeHpackFixtureDiagnostic(id, diagnostic.payloads[2]);
+            runtimeProtocolDiagnostic(id, diagnostic.payloads[2]);
         if (protocolDiagnostic != null) {
             return new RuntimeDiagnosticPayload(null, protocolDiagnostic);
         }
@@ -156,6 +156,14 @@
             details.add(preview);
         }
         return new ByteDiagnostic(id, byteOffset, fieldPath, details);
+    }
+
+    private static ProtocolDiagnostic runtimeProtocolDiagnostic(String id, Object detail) {
+        ProtocolDiagnostic hpackDiagnostic = runtimeHpackFixtureDiagnostic(id, detail);
+        if (hpackDiagnostic != null) {
+            return hpackDiagnostic;
+        }
+        return runtimeHttp2ProtocolDiagnostic(id, detail);
     }
 
     private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
@@ -260,6 +268,103 @@
                 DiagnosticDetail.string("expected_fixture", expectedFixture),
                 DiagnosticDetail.string("codec_module", codecModule),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolDiagnostic(String id, Object detail) {
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
+            return runtimeHttp2ProtocolInvalidFrameKindDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
+            return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
+            return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
+        }
+        return null;
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidFrameKindDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_frame_kind")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long actualKind = asLong(detail.payloads[1]);
+        long streamId = asLong(detail.payloads[2]);
+        long expectedKind = asLong(detail.payloads[3]);
+        String activeState = asString(detail.payloads[4]);
+        String ruleProvenance = asString(detail.payloads[5]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[6], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("actual_frame_kind", actualKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.number("expected_frame_kind", expectedKind),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitFrameSizeDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.frame_size_exceeded")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedLength = asLong(detail.payloads[1]);
+        long allowedLength = asLong(detail.payloads[2]);
+        long frameKind = asLong(detail.payloads[3]);
+        long streamId = asLong(detail.payloads[4]);
+        String receiveLimitProvenance = asString(detail.payloads[5]);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_payload_length", observedLength),
+                DiagnosticDetail.number("allowed_max_frame_size", allowedLength),
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolPriorityDependencyDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_priority_dependency")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long streamId = asLong(detail.payloads[1]);
+        long dependencyStreamId = asLong(detail.payloads[2]);
+        String activeState = asString(detail.payloads[3]);
+        String ruleProvenance = asString(detail.payloads[4]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[5], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", 2),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", "stream"),
+                DiagnosticDetail.number("dependency_stream_id", dependencyStreamId),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )
         );
     }

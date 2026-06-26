@@ -68,6 +68,20 @@ placement payloads use `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to
 add `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`,
 and `active_state`.
 
+When the returned error value is an HTTP/2 protocol
+`RuntimeDiagnostic(...)` payload, `details.value` keeps the rendered
+`RuntimeDiagnostic(...)` value and the detail projects to
+`details.protocol_diagnostic`. The implemented HTTP/2 payload constructors are
+`RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
+`http2.protocol.invalid_frame_kind`,
+`RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
+`http2.peer_limit.frame_size_exceeded`, and
+`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for
+`http2.protocol.invalid_priority_dependency`. These constructors project the
+same public JSON fields as the compatibility helpers, including stream
+classification, peer-limit facts, active state, rule provenance, receive-limit
+provenance, and bounded byte previews where applicable.
+
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
 
