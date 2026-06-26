@@ -1,17 +1,17 @@
 # HTTP/2 SETTINGS peer-limit failures project structured runtime details.
 
 type Http2ProtocolFailure
-	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String, ByteView)
+	SettingsValueOutOfRange({offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView})
 end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview)
+		SettingsValueOutOfRange(payload) => http2_peer_limit_settings_value_out_of_range(payload.offset, payload.setting_identifier, payload.setting_name, payload.observed_value, payload.accepted_min_value, payload.accepted_max_value, payload.peer_limit_provenance, payload.preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
 	let item: ByteChunk = byte_chunk_from_hex("000200000002")?
 	let preview: ByteView = byte_view(item, byte_offset(0)?, byte_count(6)?)?
-	project(SettingsValueOutOfRange(9, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", preview))
+	project(SettingsValueOutOfRange({offset: 9, setting_identifier: 2, setting_name: "SETTINGS_ENABLE_PUSH", observed_value: 2, accepted_min_value: 0, accepted_max_value: 1, peer_limit_provenance: "peer_settings", preview: preview}))
 end
