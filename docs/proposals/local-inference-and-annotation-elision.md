@@ -241,7 +241,14 @@ The order is deliberately incremental. Each step should be useful on its own
 and should preserve the monomorphic boundary before the next source of
 constraints is added.
 
-## Open Questions
+## Discussion Result: Callback Literal Syntax
 
-- Whether callback literals need dedicated source syntax before callback
-  inference can remove enough annotations from examples.
+Callback argument inference does not require dedicated callback literal
+syntax. The planned slice applies to existing function values passed to
+compiler-known prelude helpers, such as named private or local functions whose
+declared function type can be matched against the helper signature.
+
+Anonymous function syntax remains outside this proposal. If Veln later adds
+callback literals, that work should be proposed separately and must define
+source syntax, capture behavior, effect checking, formatting, and diagnostics
+without changing the callback inference rule chosen here.
