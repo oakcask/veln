@@ -37,7 +37,9 @@ same descriptor and visibility rules as other constructor calls.
   diagnostic rather than selecting a descriptor from payload shape.
 - Repeated payload facts for the same type parameter remain monomorphic; a
   conflicting later payload reports `type.mismatch`.
-- The rule does not infer match scrutinee types from constructor patterns.
+- Match scrutinee constructor-pattern inference was implemented by the later
+  [local-inference-match-scrutinee-constructor-pattern.md](local-inference-match-scrutinee-constructor-pattern.md)
+  slice.
 
 ## Completion Evidence
 

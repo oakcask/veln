@@ -173,19 +173,28 @@ binding to the local environment. Record let patterns bind each nested binding
 to the corresponding record field type when the right-hand side or annotation
 has a known record type.
 
-`match` infers the scrutinee first. A binding pattern has the scrutinee type.
-`Some(value)`, `Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`,
-`Err(error)`, `Result::Err(error)`, `Cons(head, tail)`, and
-`List::Cons(head, tail)`, and source-declared constructor patterns bind their
-payload patterns to the corresponding descriptor argument when the scrutinee
-type is known. Source-declared constructor patterns may use bare,
-type-qualified, import-alias-qualified, or import-alias-and-type-qualified
-names when the constructor is visible. For `List<A>`, `head` binds as `A` and
-`tail` binds as `List<A>`. A record pattern field binds nested patterns to the
-corresponding record field type when the scrutinee type is known. Unknown or
-non-record scrutinee types leave nested pattern bindings unknown. Arm
-expressions share the expected result type when one is available; otherwise the
-first arm supplies the initial result type for later arms.
+`match` infers a scrutinee type before checking arm bodies. Constructor
+patterns can constrain an otherwise unknown scrutinee when the visible arm
+patterns identify exactly one finite descriptor domain: `Option<T>`,
+`Result<T, E>`, `List<T>`, or one source-declared ADT. Payload literal and
+nested constructor subpatterns contribute concrete descriptor type arguments
+when they determine them. A catch-all arm alone does not infer the scrutinee
+type. Ambiguous constructor-pattern domains leave the scrutinee unknown and
+report `type.inference_ambiguous` when a concrete scrutinee type is required.
+
+A binding pattern has the scrutinee type. `Some(value)`,
+`Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`, `Err(error)`,
+`Result::Err(error)`, `Cons(head, tail)`, and `List::Cons(head, tail)`, and
+source-declared constructor patterns bind their payload patterns to the
+corresponding descriptor argument when the scrutinee type is known.
+Source-declared constructor patterns may use bare, type-qualified,
+import-alias-qualified, or import-alias-and-type-qualified names when the
+constructor is visible. For `List<A>`, `head` binds as `A` and `tail` binds as
+`List<A>`. A record pattern field binds nested patterns to the corresponding
+record field type when the scrutinee type is known. Unknown or non-record
+scrutinee types leave nested pattern bindings unknown. Arm expressions share
+the expected result type when one is available; otherwise the first arm
+supplies the initial result type for later arms.
 
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.

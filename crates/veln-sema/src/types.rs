@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
-    FunctionKind, IfBranch, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField,
-    SurfaceModule, UseDecl, Visibility,
+    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl,
+    SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -67,6 +67,12 @@ pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
     Ambiguous,
     Missing,
+}
+
+pub(crate) enum MatchScrutineePatternInference {
+    Uninferred,
+    Inferred(Type),
+    Ambiguous(Vec<String>),
 }
 
 impl<'a> FunctionLookup<'a> {
@@ -774,7 +780,21 @@ fn collect_private_call_site_expr_constraints(
             collect_private_call_site_expr_constraints(base, None, context);
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_private_call_site_expr_constraints(scrutinee, None, context);
+            let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
+                arms,
+                context.current_module,
+                context.constraints.uses,
+                context.constraints.adts,
+            ) {
+                MatchScrutineePatternInference::Inferred(ty) => Some(ty),
+                MatchScrutineePatternInference::Uninferred
+                | MatchScrutineePatternInference::Ambiguous(_) => None,
+            };
+            collect_private_call_site_expr_constraints(
+                scrutinee,
+                scrutinee_expected.as_ref(),
+                context,
+            );
             for arm in arms {
                 collect_private_call_site_expr_constraints(&arm.expr, expected, context);
             }
@@ -802,6 +822,7 @@ fn collect_private_call_site_expr_constraints(
             collect_private_call_site_expr_constraints(right, expected, context);
         }
         ExprKind::NamePath(segments) => {
+            collect_private_parameter_constraints(segments, expected, context);
             collect_private_function_value_constraints(segments, expected, context);
         }
         ExprKind::Missing
@@ -813,6 +834,46 @@ fn collect_private_call_site_expr_constraints(
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => {}
     }
+}
+
+fn collect_private_parameter_constraints(
+    segments: &[String],
+    expected: Option<&Type>,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
+) {
+    let Some(expected) = expected.filter(|ty| !type_has_unknown(ty)) else {
+        return;
+    };
+    let [name] = segments else {
+        return;
+    };
+    let Some(caller_key) = context.caller_key else {
+        return;
+    };
+    let Some((omitted_params, _)) = context.constraints.omitted_private_slots.get(caller_key)
+    else {
+        return;
+    };
+    let Some(function) = context.constraints.function_by_path.get(caller_key) else {
+        return;
+    };
+    let Some(index) = function
+        .params
+        .iter()
+        .position(|param| param.name == *name && param.ty.is_none())
+    else {
+        return;
+    };
+    if !omitted_params.get(index).copied().unwrap_or(false) {
+        return;
+    }
+    update_private_signature_param(
+        context.constraints.functions,
+        caller_key,
+        index,
+        expected.clone(),
+        context.constraints.changed,
+    );
 }
 
 fn collect_private_call_site_call_constraints(
@@ -1709,7 +1770,26 @@ fn infer_private_signature_expr_type(
             );
             adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
         }),
-        ExprKind::Match { arms, .. } => {
+        ExprKind::Match { scrutinee, arms } => {
+            let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
+                arms,
+                current_module,
+                uses,
+                adts,
+            ) {
+                MatchScrutineePatternInference::Inferred(ty) => Some(ty),
+                MatchScrutineePatternInference::Uninferred
+                | MatchScrutineePatternInference::Ambiguous(_) => None,
+            };
+            infer_private_signature_expr_type(
+                scrutinee,
+                scrutinee_expected.as_ref(),
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
             let mut result = expected.cloned().unwrap_or(Type::Unknown);
             for arm in arms {
                 let actual = infer_private_signature_expr_type(
@@ -1828,6 +1908,139 @@ fn infer_private_if_result_type(
 
 fn item_type_unknown_as_none(ty: &Type) -> Option<&Type> {
     (ty != &Type::Unknown).then_some(ty)
+}
+
+pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
+    arms: &[MatchArm],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+) -> MatchScrutineePatternInference {
+    let mut inferred: Option<(crate::adt::AdtConstructor<'_>, Vec<Type>)> = None;
+
+    for arm in arms {
+        let PatternKind::Constructor { name, args } = &arm.pattern.kind else {
+            continue;
+        };
+        let candidates = adts.constructor_candidates(name, current_module, uses);
+        if candidates.is_empty() {
+            continue;
+        }
+        let descriptor_names = unique_constructor_descriptor_names(&candidates);
+        if descriptor_names.len() != 1 {
+            return MatchScrutineePatternInference::Ambiguous(descriptor_names);
+        }
+        let constructor = candidates[0];
+        if let Some((previous, _)) = &inferred {
+            if !same_constructor_descriptor(previous, &constructor) {
+                let mut names = unique_constructor_descriptor_names(&[*previous, constructor]);
+                names.sort();
+                return MatchScrutineePatternInference::Ambiguous(names);
+            }
+        } else {
+            inferred = Some((
+                constructor,
+                vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
+            ));
+        }
+        let Some((_, type_args)) = &mut inferred else {
+            continue;
+        };
+        for (index, pattern) in args.iter().enumerate() {
+            let Some(pattern_type) =
+                infer_pattern_type_from_constructor_patterns(pattern, current_module, uses, adts)
+            else {
+                continue;
+            };
+            adt::merge_type_args_from_payload(type_args, constructor, index, &pattern_type);
+        }
+    }
+
+    match inferred {
+        Some((constructor, type_args)) => MatchScrutineePatternInference::Inferred(
+            adt::constructed_type_from_args(constructor, &type_args),
+        ),
+        None => MatchScrutineePatternInference::Uninferred,
+    }
+}
+
+fn infer_pattern_type_from_constructor_patterns(
+    pattern: &Pattern,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+) -> Option<Type> {
+    match &pattern.kind {
+        PatternKind::StringLiteral(_) => Some(Type::string()),
+        PatternKind::IntLiteral(_) => Some(Type::int()),
+        PatternKind::FloatLiteral(_) => Some(Type::float()),
+        PatternKind::BoolLiteral(_) => Some(Type::bool()),
+        PatternKind::Unit => Some(Type::unit()),
+        PatternKind::Record(fields) => Some(Type::Record(
+            fields
+                .iter()
+                .map(|field| {
+                    (
+                        field.name.clone(),
+                        infer_pattern_type_from_constructor_patterns(
+                            &field.pattern,
+                            current_module,
+                            uses,
+                            adts,
+                        )
+                        .unwrap_or(Type::Unknown),
+                    )
+                })
+                .collect(),
+        )),
+        PatternKind::Constructor { name, args } => {
+            let candidates = adts.constructor_candidates(name, current_module, uses);
+            let [constructor] = candidates.as_slice() else {
+                return None;
+            };
+            let mut type_args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
+            for (index, pattern) in args.iter().enumerate() {
+                let Some(pattern_type) = infer_pattern_type_from_constructor_patterns(
+                    pattern,
+                    current_module,
+                    uses,
+                    adts,
+                ) else {
+                    continue;
+                };
+                adt::merge_type_args_from_payload(
+                    &mut type_args,
+                    *constructor,
+                    index,
+                    &pattern_type,
+                );
+            }
+            Some(adt::constructed_type_from_args(*constructor, &type_args))
+        }
+        PatternKind::Wildcard | PatternKind::Binding(_) => None,
+    }
+}
+
+fn unique_constructor_descriptor_names(
+    constructors: &[crate::adt::AdtConstructor<'_>],
+) -> Vec<String> {
+    let mut names = Vec::new();
+    for constructor in constructors {
+        let name = constructor.descriptor.diagnostic_name.clone();
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    names
+}
+
+fn same_constructor_descriptor(
+    left: &crate::adt::AdtConstructor<'_>,
+    right: &crate::adt::AdtConstructor<'_>,
+) -> bool {
+    left.descriptor.type_name == right.descriptor.type_name
+        && left.descriptor.module_name == right.descriptor.module_name
+        && left.descriptor.type_parameters.len() == right.descriptor.type_parameters.len()
 }
 
 fn type_has_unknown(ty: &Type) -> bool {

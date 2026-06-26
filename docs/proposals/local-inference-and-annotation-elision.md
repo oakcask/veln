@@ -132,26 +132,14 @@ Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference`.
 
-## Match Scrutinee Inference From Constructor Patterns
+## Completed Match Scrutinee Inference From Constructor Patterns
 
-When a `match` scrutinee has unknown type, constructor patterns in the arms may
-constrain the scrutinee type if they identify exactly one finite domain.
-
-Rules:
-
-- The checker first gathers constructor-pattern candidates from visible arms.
-- If all constructor patterns point to the same `Option`, `Result`, `List`, or
-  source-declared ADT descriptor, that descriptor may constrain the scrutinee.
-- Payload subpatterns then receive descriptor payload types, subject to any
-  inferred type arguments.
-- If multiple descriptors remain possible, the scrutinee type stays unknown and
-  the checker reports an ambiguity when a concrete type is required.
-- Exhaustiveness still uses the full finite domain after the scrutinee type is
-  known, including hidden source-declared constructors in importing modules.
-- A catch-all arm alone does not infer the scrutinee type.
-
-This rule improves local pattern examples without making constructor names
-global type assertions.
+The completed match scrutinee constructor-pattern inference slice is archived
+under
+`../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`.
+Implemented current behavior is specified in
+`../specification/types.md#read-first` and
+`../specification/types-full.md#inference`.
 
 ## Empty Collection Literal Inference
 
@@ -235,7 +223,9 @@ Acceptance evidence should include:
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
-5. Infer match scrutinee descriptors from constructor-pattern arms.
+5. Completed for current match scrutinee constructor-pattern arms: infer the
+   scrutinee finite descriptor when visible constructor patterns identify one
+   domain.
 6. Run the examples cleanup and keep only annotations that still carry useful
    meaning.
 
