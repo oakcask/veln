@@ -158,6 +158,8 @@ behavior.
   [http2-hpack-multibyte-non-visible-fixture.md](http2-hpack-multibyte-non-visible-fixture.md).
 - HTTP/2 HPACK malformed string diagnostics:
   [http2-hpack-malformed-string-diagnostics.md](http2-hpack-malformed-string-diagnostics.md).
+- Runtime diagnostic HPACK fixture payloads:
+  [runtime-diagnostic-hpack-fixture-payloads.md](runtime-diagnostic-hpack-fixture-payloads.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

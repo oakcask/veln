@@ -159,6 +159,8 @@ harness assertion slices is specified in
 The remaining proposal work starts from that baseline. New migration slices
 should add executable examples under `../../examples/specification/run/`
 before updating specification prose.
+The completed HPACK fixture payload migration slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
 
 ## Logs And Metrics
 
