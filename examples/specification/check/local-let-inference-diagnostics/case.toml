@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`", "expected `fn(Int) -> Vec<Int>`, but found `fn(Int) -> Vec<String>`"]
+contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`", "expected `fn(Int) -> Vec<Int>`, but found `fn(Int) -> Vec<String>`", "\"constraint\":\"list_element\"", "\"constraint\":\"dict_key\"", "\"constraint\":\"dict_value\""]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 11
 
 [[diagnostics]]
 id = "type.local_inference_incomplete"
@@ -103,3 +103,36 @@ message = "expected `fn(Int) -> Vec<Int>`, but found `fn(Int) -> Vec<String>`"
 file = "main.veln"
 line = 47
 column = 15
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 51
+column = 18
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `String`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 56
+column = 25
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 61
+column = 32

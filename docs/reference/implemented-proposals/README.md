@@ -60,6 +60,8 @@ behavior.
   [local-inference-prelude-callback-argument.md](local-inference-prelude-callback-argument.md).
 - Local inference dictionary callback aliases:
   [local-inference-dictionary-callback-aliases.md](local-inference-dictionary-callback-aliases.md).
+- Local inference non-empty collection initializer:
+  [local-inference-non-empty-collection-initializer.md](local-inference-non-empty-collection-initializer.md).
 - Local inference ADT constructor payload:
   [local-inference-adt-constructor-payload.md](local-inference-adt-constructor-payload.md).
 - Local inference match scrutinee constructor pattern:

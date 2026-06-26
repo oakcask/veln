@@ -14,13 +14,16 @@ full type reference.
 - Local inference is monomorphic and flow-sensitive within one function body.
   An omitted local `let` binding type may be fixed by a later same-function use
   such as a call argument or return-compatible expression when that use
-  requires one concrete type. Empty `Vec<T>` literals, `Nil` for `List<T>`, and
-  empty dictionary literals accept concrete expected collection types from
-  annotations, returns, call arguments, record fields, match arms, `if`
-  branches, and constructor payloads, plus compiler-known prelude helper result
-  context for callback return values. Payload-carrying ADT constructors also
-  infer omitted type arguments from payload expressions when the constructor
-  resolves to one visible variant and every type argument becomes concrete.
+  requires one concrete type. Non-empty `Vec<T>` and `Dict<K, V>` literal
+  initializers may also infer omitted local binding types when every element,
+  key, and value agrees on one concrete type. Empty `Vec<T>` literals, `Nil`
+  for `List<T>`, and empty dictionary literals accept concrete expected
+  collection types from annotations, returns, call arguments, record fields,
+  match arms, `if` branches, and constructor payloads, plus compiler-known
+  prelude helper result context for callback return values. Payload-carrying
+  ADT constructors also infer omitted type arguments from payload expressions
+  when the constructor resolves to one visible variant and every type argument
+  becomes concrete.
   Constructor patterns in `match` arms may constrain an otherwise unknown
   scrutinee when the visible arms identify one finite descriptor domain.
   Compiler-known collection, dictionary, option, and result helper input

@@ -120,6 +120,14 @@ monomorphic: after one concrete type is fixed, a later incompatible use reports
 binding type, checking reports `type.local_inference_incomplete` at the
 omitted binding.
 
+Non-empty `Vec<T>` literal initializers infer an omitted local binding as
+`Vec<T>` from the first element when all later elements are assignable to the
+same concrete element type. Non-empty `Dict<K, V>` literal initializers infer
+`Dict<K, V>` from the first key and value when later keys and values are
+assignable to the same concrete key and value types. Conflicting later facts
+remain focused `type.mismatch` diagnostics at the incompatible element, key,
+or value rather than widening the binding type.
+
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
 signature. Concrete argument expressions constrain omitted parameters. A

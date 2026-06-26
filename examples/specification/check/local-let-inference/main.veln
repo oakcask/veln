@@ -30,6 +30,12 @@ fn dict_call_constrained() -> Int
 	consume_table(items)
 end
 
+fn non_empty_collection_initializers() -> {vec: Vec<Int>, dict: Dict<String, Int>}
+	let items = [1, 2, 3]
+	let table = {"one": 1, "two": 2}
+	{vec: items, dict: table}
+end
+
 fn return_constrained() -> Vec<Int>
 	let items = []
 	items
