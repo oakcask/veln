@@ -1259,6 +1259,10 @@ primitive output.
 pins the same same-module helper path when the selected nested schema contains
 a `ByteView(length_field)` payload whose length field is earlier in that
 nested schema.
+`../../examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`
+pins the same same-module helper path when selected closed and
+extension-tolerant nested payload schemas contain supported
+representation-only reserved-bit layouts.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-encode/`
@@ -1340,6 +1344,7 @@ pins the same mixed dispatch selected mapping encode boundary through
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
@@ -1388,7 +1393,9 @@ and
 pin a resolved binary payload schema whose forward `ByteView` length reference
 keeps the nested payload outside generated decode and encode helper
 eligibility, including structured helper-boundary fields, human related notes,
-and derived codec helper rejection for the parent dispatch schemas.
+and derived codec helper rejection for the parent dispatch schemas. The JSON
+case also pins an unsupported representation-only `ReservedBits` payload
+layout at the same helper boundary.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins the remaining self-reference rejection when a recursive closed dispatch
 is not length-bounded, or when an imported recursive payload is referenced

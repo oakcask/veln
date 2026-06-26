@@ -1613,8 +1613,9 @@ against the built `veln` binary.
   payload schema whose generated helper contains `ByteView(length_field)`.
 - `run/binary-schema-dispatch-reserved-payload-roundtrip/`: closed and
   extension-tolerant nested dispatch payloads that contain supported
-  representation-only reserved bits decode and then encode back through the
-  ordinary generated schema helper path.
+  representation-only reserved bits decode with the expected visible payload
+  values and then encode back through the ordinary generated schema helper
+  path.
 - `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
   binary schema encode helper selects a closed dispatch public imported nested
   payload schema and writes the nested record fields in schema order.
@@ -1761,9 +1762,10 @@ against the built `veln` binary.
 - `check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`:
   a resolved binary nested payload schema whose `ByteView` length refers
   forward remains outside generated decode and encode helper eligibility;
-  the JSON diagnostics preserve `schema.dispatch_payload`, name the expected
-  generated helpers, and reject derived codec helpers for the parent dispatch
-  schemas.
+  the JSON diagnostics also pin an unsupported representation-only
+  `ReservedBits` payload layout, preserve `schema.dispatch_payload`, name the
+  expected generated helpers, and reject derived codec helpers for the parent
+  dispatch schemas.
 - `check/binary-schema-dispatch-payload-helper-eligibility-human/`: the same
   dispatch payload helper-slice rejection projects the payload schema
   declaration and helper requirement as human related notes.

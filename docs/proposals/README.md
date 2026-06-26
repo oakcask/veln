@@ -144,7 +144,8 @@ compare it with `../specification/` before changing behavior.
   diagnostics now also name the generated decode and encode helper boundaries
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not
-  an earlier decoded `Int` field. The completed nested dispatch
+  an earlier decoded `Int` field and unsupported representation-only
+  `ReservedBits` payload layouts. The completed nested dispatch
   `ByteView(length_field)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md).
   The completed nested schema
