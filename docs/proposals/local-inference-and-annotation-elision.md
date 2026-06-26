@@ -81,20 +81,12 @@ the right-hand side has a known record or ADT type and every named binding
 receives a concrete field or payload type. Wildcard lets follow the same
 checking rule but do not add a binding.
 
-## Private Helper Inference From Call Sites
+## Completed Private Helper Call-Site Slice
 
-Implemented current behavior is specified in
-`../specification/types.md#read-first` and
-`../specification/types-full.md#inference`. Private non-exported helper
-parameters and returns may be inferred from concrete same-module call sites
-when annotations are omitted. The helper still has one monomorphic signature;
-body facts and call-site facts must agree. Public functions, tests, exported
-aliases, and imported public functions do not receive inferred signatures.
-
-An omitted slot that remains unconstrained or non-concrete reports
-`type.private_inference_incomplete`. Conflicting concrete call-site facts
-report `type.mismatch` at the incompatible use. Direct recursive edges do not
-provide inference facts for the recursive helper itself.
+The completed private helper call-site inference slice is archived under
+`../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
+Current behavior is specified in `../specification/types.md#read-first` and
+`../specification/types-full.md#inference`.
 
 ## Callback Argument Inference For Prelude Helpers
 

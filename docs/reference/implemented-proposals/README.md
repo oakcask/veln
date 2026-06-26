@@ -54,6 +54,8 @@ behavior.
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 - Remove legacy type delimiters:
   [remove-legacy-type-delimiters.md](remove-legacy-type-delimiters.md).
+- Local inference private helper call-site:
+  [local-inference-private-helper-call-site.md](local-inference-private-helper-call-site.md).
 - Public member alias re-exports:
   [public-member-alias-reexports.md](public-member-alias-reexports.md).
 - Implicit prelude and unqualified imports:
