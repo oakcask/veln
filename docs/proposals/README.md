@@ -11,8 +11,9 @@ compare it with `../specification/` before changing behavior.
 
 - [If Else Expression Syntax](if-else-expression-syntax.md): add planned
   `if` / `else if` / `else` / `end` expression syntax for ordinary Boolean
-  branching while preserving `match` as the implemented and still-supported
-  finite-domain branch form.
+  branching, plus future style-lint guidance that prefers `if` / `else` for
+  ordinary `Bool` value branches, while preserving `match` as the implemented
+  and still-supported finite-domain branch form.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for callbacks,
   constructor type-argument inference from payloads, match scrutinees, and
