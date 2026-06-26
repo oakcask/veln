@@ -15,7 +15,7 @@ pub fn main() -> () effects [concurrency, stdio]
 		Err(_) => "failed"
 	end
 	let pair = channel::bounded<String>(1)
-	let extra = channel::clone(pair.tx)
+	let extra: Sender<String> = channel::clone(pair.tx)
 	let _ = channel::send(extra, "channel")
 	let channel_output: String = match channel::select_priority_result(pair.rx, pair.rx)
 		Ok(Some(selected)) => selected.value

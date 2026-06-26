@@ -151,7 +151,10 @@ impl<'a> FunctionChecker<'a> {
                             "Type annotation declared here.",
                         )
                     });
+                    let initializer_diagnostic_count = self.diagnostics.len();
                     let actual = self.infer_expr(expr, expected.as_ref());
+                    let initializer_has_diagnostic =
+                        self.diagnostics.len() != initializer_diagnostic_count;
                     if let Some(expected) = &expected {
                         self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
                     }
@@ -173,7 +176,10 @@ impl<'a> FunctionChecker<'a> {
                             name: binding.name.clone(),
                             ty: binding.ty.clone(),
                         });
-                        if annotation.is_none() && type_contains_unknown(&binding.ty) {
+                        if annotation.is_none()
+                            && !initializer_has_diagnostic
+                            && type_contains_unknown(&binding.ty)
+                        {
                             self.omitted_local_bindings.push(OmittedLocalBinding {
                                 name: binding.name,
                                 node_id: binding.node_id,
