@@ -1161,7 +1161,10 @@ The source-visible `RuntimeDiagnosticDetail` constructor set includes
 `http2.peer_limit.settings_value_out_of_range` failures,
 `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for projecting
 `http2.protocol.invalid_request_header_list` failures without using the legacy
-helper side table, and
+helper side table,
+`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for projecting
+`http2.protocol.invalid_response_header_list` failures without using the
+legacy helper side table, and
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
 using the legacy helper side table.

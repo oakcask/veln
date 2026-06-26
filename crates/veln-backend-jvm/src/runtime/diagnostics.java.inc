@@ -309,6 +309,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic")) {
+            return runtimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
             return runtimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(id, (Adt) detail);
         }
@@ -682,6 +685,37 @@
         Adt detail
     ) {
         if (!id.equals("http2.protocol.invalid_request_header_list")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long frameKind = asLong(detail.payloads[1]);
+        long streamId = asLong(detail.payloads[2]);
+        String failedHeaderFact = asString(detail.payloads[3]);
+        String headerName = asString(detail.payloads[4]);
+        String decodedHeaderNames = asString(detail.payloads[5]);
+        String activeState = asString(detail.payloads[6]);
+        String ruleProvenance = asString(detail.payloads[7]);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
+                DiagnosticDetail.string("header_name", headerName),
+                DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_response_header_list")) {
             return null;
         }
         long byteOffset = asLong(detail.payloads[0]);
