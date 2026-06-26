@@ -16,8 +16,11 @@ compare it with `../specification/` before changing behavior.
   paths beyond the implemented same-function local `let`, empty collection
   expected-type, empty collection callback return, and compiler-known prelude
   callback argument slices specified in `../specification/types.md`. The
-  completed private helper call-site inference slice is archived under
-  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`.
+  completed private helper call-site inference and prelude callback argument
+  inference slices are archived under
+  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`
+  and
+  `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

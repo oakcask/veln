@@ -90,6 +90,9 @@ Current behavior is specified in `../specification/types.md#read-first` and
 
 ## Callback Argument Inference For Prelude Helpers
 
+The completed compiler-known prelude callback argument inference slice is
+archived under
+`../reference/implemented-proposals/local-inference-prelude-callback-argument.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
