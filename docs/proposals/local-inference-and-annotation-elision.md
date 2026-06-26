@@ -97,9 +97,9 @@ Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
 `vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
-`list_fold`, `list_try_map`, `option_map`, `result_map`, and
-`result_map_err`: concrete helper input types push item, success, or error
-types into named private callback function parameters.
+`list_fold`, `list_try_map`, `option_map`, `option_and_then`, `result_map`,
+`result_map_err`, and `result_and_then`: concrete helper input types push item,
+success, or error types into named private callback function parameters.
 
 Remaining planned work in this section covers callback inputs outside that
 implemented compiler-known helper path. Prelude higher-order helpers should
@@ -109,8 +109,8 @@ into callback parameters.
 Examples of intended sources:
 
 - dictionary helpers that pass keys or values to callbacks
-- `option_then`, `result_then`, and proposal-spelled aliases not yet promoted
-  into the same compiler-known helper signature path
+- proposal-spelled helper aliases not yet promoted into the same
+  compiler-known helper signature path
 
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
@@ -219,7 +219,7 @@ Acceptance evidence should include:
    helpers: push concrete helper input types into named private callback
    parameters while preserving helper result-context callback return
    inference. Remaining callback work is limited to dictionary helpers and
-   aliases after they enter an equally concrete helper signature path.
+   future aliases after they enter an equally concrete helper signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
@@ -236,9 +236,10 @@ constraints is added.
 ## Discussion Result: Callback Literal Syntax
 
 Callback argument inference does not require dedicated callback literal
-syntax. The planned slice applies to existing function values passed to
-compiler-known prelude helpers, such as named private or local functions whose
-declared function type can be matched against the helper signature.
+syntax. The implemented compiler-known prelude helper slice and remaining
+planned callback work both apply to existing function values, such as named
+private or local functions whose declared function type can be matched against
+the helper signature.
 
 Anonymous function syntax remains outside this proposal. If Veln later adds
 callback literals, that work should be proposed separately and must define
