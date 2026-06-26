@@ -71,6 +71,133 @@ fn private_function_reports_incomplete_annotation_inference() {
 }
 
 #[test]
+fn private_helper_signature_infers_from_same_module_call_site() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn consume(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  consume(identity(1))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn private_helper_return_infers_from_same_module_expected_call_result() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn empty_items()\n",
+            "  []\n",
+            "end\n",
+            "\n",
+            "fn main() -> Vec<Int>\n",
+            "  empty_items()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn private_helper_signature_infers_from_same_module_test_call_site() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "test uses_helper() -> ()\n",
+            "  let value: Int = identity(1)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn private_helper_parameter_reports_conflicting_call_site_constraints() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let first: Int = identity(1)\n",
+            "  identity(\"bad\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"constraint\":\"call_argument\"")
+    );
+}
+
+#[test]
+fn private_helper_parameter_remains_incomplete_for_non_concrete_call_site() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn length(items)\n",
+            "  vec_len(items)\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  length([])\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `items` has no inferred type"
+    }));
+}
+
+#[test]
 fn omitted_local_binding_type_infers_from_later_call_use() {
     let source = SourceFile::new(
         "main.veln",

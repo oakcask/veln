@@ -1,6 +1,6 @@
 # Type boundary diagnostics cover inference, fields, paths, pipelines, and calls.
 fn inferred(value)
-	value
+	()
 end
 
 fn field(input: { present : Int }) -> Int

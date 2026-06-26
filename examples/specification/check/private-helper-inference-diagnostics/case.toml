@@ -1,0 +1,39 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "expected `Int`, but found `String`", "\"id\":\"type.private_inference_incomplete\"", "\"missing_fact\":\"parameter_type\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `items` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 6
+column = 11
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 11

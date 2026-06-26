@@ -1,0 +1,24 @@
+# Private helper signatures may infer from same-module concrete call sites.
+fn identity(value)
+	value
+end
+
+fn empty_items()
+	[]
+end
+
+fn consume(value: Int) -> Int
+	value
+end
+
+fn call_site_parameter_and_body_return() -> Int
+	consume(identity(1))
+end
+
+fn expected_call_result_context() -> Vec<Int>
+	empty_items()
+end
+
+fn record_field_result_context() -> {items: Vec<Int>}
+	{items: empty_items()}
+end
