@@ -196,7 +196,7 @@ type Http2ProtocolFailure
 	HeaderListSizeExceeded {offset: Int, observed_size: Int, receive_limit: ReceiveLimitEntry, frame_kind: Int, stream_id: Int, rule_provenance: String, preview_chunk: ByteChunk}
 	HeaderTableSizeExceeded {offset: Int, observed_size: Int, receive_limit: ReceiveLimitEntry, frame_kind: Int, stream_id: Int, rule_provenance: String, preview_chunk: ByteChunk}
 	SettingsValueOutOfRange {offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView}
-	HpackFixtureDecodeFailed {offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview_chunk: ByteChunk}
+	HpackFixtureDecodeFailed {offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview_chunk: ByteChunk}
 	HpackTableSizeUpdateNotAtStart {offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview_chunk: ByteChunk}
 end
 
@@ -796,7 +796,7 @@ fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
 			Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start"
 				true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
-				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
 			end
 		end
 		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state, hpack_fixture::incomplete_header_list())
@@ -3686,7 +3686,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => failure_rule_provenance(error)
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
 	end
 end
@@ -4216,7 +4216,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => failure_rule_provenance(error)
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => failure_rule_provenance(error)
 	end
 end
@@ -4628,7 +4628,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "http2.peer_limit.header_list_size_exceeded"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "http2.peer_limit.header_table_size_exceeded"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "http2.peer_limit.settings_value_out_of_range"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => hpack_fixture_failure_id(expected_fixture)
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => hpack_fixture_failure_id(expected_fixture)
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "hpack.fixture.table_size_update_not_at_start"
 	end
 end
@@ -4646,7 +4646,10 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 						true => "hpack.fixture.huffman_non_visible_value"
 						false => match expected_fixture == "fixture HPACK table-size update at header block start"
 							true => "hpack.fixture.table_size_update_not_at_start"
-							false => "hpack.fixture.unsupported_header_block"
+							false => match expected_fixture == "fixture dynamic indexed header"
+								true => "hpack.fixture.dynamic_index_out_of_range"
+								false => "hpack.fixture.unsupported_header_block"
+							end
 						end
 					end
 				end
@@ -4678,7 +4681,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => offset
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => offset
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => offset
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => offset
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => offset
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => offset
 	end
 end
@@ -4706,7 +4709,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -4734,7 +4737,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => frame_kind
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => frame_kind
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 4
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 1
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 1
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => frame_kind
 	end
 end
@@ -4762,7 +4765,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => stream_id
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => stream_id
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => stream_id
 	end
 end
@@ -4790,7 +4793,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -4818,7 +4821,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => frame_kind
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => frame_kind
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 4
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 1
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 1
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => frame_kind
 	end
 end
@@ -4846,7 +4849,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -4874,7 +4877,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -4902,7 +4905,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => observed_size
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => observed_size
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => observed_size
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => observed_size
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => observed_update_size
 	end
 end
@@ -4930,7 +4933,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => receive_limit_value(receive_limit)
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => receive_limit_value(receive_limit)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -4958,7 +4961,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "header-list"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "hpack-dynamic-table"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "connection-control"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "hpack-fixture"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "hpack-fixture"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => active_state
 	end
 end
@@ -5059,7 +5062,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => rule_provenance
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => rule_provenance
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "http2_settings_value_range"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "hpack_fixture_decode"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "hpack_fixture_decode"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "hpack_dynamic_table_size_update_placement"
 	end
 end
@@ -5087,7 +5090,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => receive_limit_provenance_label(receive_limit)
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => receive_limit_provenance_label(receive_limit)
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "none"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "none"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "none"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "none"
 	end
 end
@@ -5115,7 +5118,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => setting_identifier
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -5143,7 +5146,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => setting_name
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "none"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "none"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "none"
 	end
 end
@@ -5171,7 +5174,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => observed_value
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => observed_first_byte
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => observed_first_byte
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => observed_update_size
 	end
 end
@@ -5199,7 +5202,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => accepted_min_value
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -5227,7 +5230,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => accepted_max_value
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -5255,7 +5258,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => peer_limit_provenance
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "none"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "none"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "none"
 	end
 end
@@ -5374,7 +5377,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => http2_protocol_invalid_data_padding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview)
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => http2_protocol_content_length_mismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview)
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
 			true => hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_raw_string_value"
 				true => hpack_fixture_malformed_raw_string_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
@@ -5384,7 +5387,10 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 						true => hpack_fixture_huffman_eos_symbol(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
 						false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_non_visible_value"
 							true => hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-							false => hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+							false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_index_out_of_range"
+								true => hpack_fixture_dynamic_index_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+								false => hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+							end
 						end
 					end
 				end
@@ -5416,7 +5422,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "none"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "none"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "none"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "none"
 	end
 end
@@ -5444,7 +5450,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "none"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "none"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => "none"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "none"
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "none"
 	end
 end
@@ -5472,7 +5478,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => 0
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => 0
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk) => 0
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => 0
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => 0
 	end
 end
@@ -6547,7 +6553,7 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start"
 			true => Ok(())
 			false => Err("expected HTTP/2 HPACK fixture failure")
 		end

@@ -9606,6 +9606,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
             "hpack_eos: hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
             "hpack_visible: hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",
+            "hpack_dynamic_index: hpack_fixture_dynamic_index_out_of_range(27, 1, 190, 0, 0, \"fixture dynamic indexed header\", \"hpack_fixture\", view), ",
             "hpack_bytes_label: hpack_fixture_huffman_bytes_label(chunk), ",
             "hpack_label_bytes: hpack_fixture_huffman_label_bytes(\"hpack-bytes-00-ff\"), ",
             "hpack_table_update_placement: hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update at header block start\", \"hpack_fixture\", view), ",

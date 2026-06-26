@@ -1062,6 +1062,9 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             "hpack.fixture.huffman_non_visible_value" => {
                 "HPACK Huffman decoded non-visible header value"
             }
+            "hpack.fixture.dynamic_index_out_of_range" => {
+                return self.project_hpack_dynamic_index_rule();
+            }
             "hpack.fixture.table_size_update_not_at_start" => {
                 return self.project_hpack_table_size_update_rule();
             }
@@ -1077,6 +1080,30 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         let codec_module = self.string("codec_module")?;
         let mut diagnostic =
             self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
+        diagnostic.related.push(note_json(format!(
+            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Expected {expected_fixture}.")));
+        Some(diagnostic)
+    }
+
+    fn project_hpack_dynamic_index_rule(&self) -> Option<Diagnostic> {
+        let observed_size = self.number("observed_header_block_size")?;
+        let observed_first_byte = self.number("observed_first_byte")?;
+        let requested_index = self.number("requested_dynamic_index")?;
+        let entry_count = self.number("dynamic_table_entry_count")?;
+        let expected_fixture = self.string("expected_fixture")?;
+        let codec_module = self.string("codec_module")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "HPACK dynamic index out of range at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "HPACK dynamic index {requested_index} was requested, but the fixture dynamic table currently contains {entry_count} entry/entries."
+        )));
         diagnostic.related.push(note_json(format!(
             "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
         )));
@@ -4485,6 +4512,61 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("04 82 ff c7 (showing 4 of 4 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_dynamic_index_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.dynamic_index_out_of_range"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(27)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(1)),
+            ("observed_first_byte", JsonValue::Number(190)),
+            ("requested_dynamic_index", JsonValue::Number(0)),
+            ("dynamic_table_entry_count", JsonValue::Number(0)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture dynamic indexed header"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("be")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK dynamic index out of range at byte offset 27".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.dynamic_index_out_of_range");
+        assert_eq!(
+            diagnostic.message,
+            "HPACK dynamic index out of range at byte offset 27"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(diagnostic.related[0].to_json().contains("dynamic index 0"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("header block size 1")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("be (showing 1 of 1 byte(s), complete)")
         );
     }
 

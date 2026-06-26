@@ -1,0 +1,13 @@
+use hpack_fixture
+
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String>
+	match result
+		Ok(_) => Err("expected HPACK dynamic index lookup failure")
+		Err(error) => project_failure(error)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let bad_block: ByteChunk = byte_chunk_from_hex("be")?
+	project_decode_result(decode_header_block(bad_block, initial_state(), 27))
+end

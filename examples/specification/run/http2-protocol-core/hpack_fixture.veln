@@ -25,6 +25,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedStringLength(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedRawStringValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
@@ -593,11 +594,18 @@ fn dynamic_entry_at(dynamic_entry: HpackDynamicEntry, table_index: Int) -> Optio
 	end
 end
 
+fn dynamic_entry_count(dynamic_entry: HpackDynamicEntry) -> Int
+	match dynamic_entry
+		NoDynamicEntry => 0
+		DynamicEntry(_, _, older) => 1 + dynamic_entry_count(older)
+	end
+end
+
 fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
 			Some(HpackHeader(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
-			None => unsupported(block, offset)
+			None => dynamic_index_out_of_range(block, offset, table_index, dynamic_entry_count(dynamic_entry))
 		end
 	end
 end
@@ -711,6 +719,10 @@ end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn dynamic_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic indexed header", "hpack_fixture", block))
 end
 
 fn unsupported_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
@@ -3759,6 +3771,7 @@ end
 pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		DynamicIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		MalformedStringLength(offset, _, _, _, _, _) => offset
 		MalformedRawStringValue(offset, _, _, _, _, _) => offset
 		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
@@ -3772,6 +3785,7 @@ end
 pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		DynamicIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
 		MalformedStringLength(_, observed_size, _, _, _, _) => observed_size
 		MalformedRawStringValue(_, observed_size, _, _, _, _) => observed_size
 		MalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
@@ -3785,6 +3799,7 @@ end
 pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		DynamicIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		MalformedStringLength(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedRawStringValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
@@ -3802,9 +3817,24 @@ pub fn hpack_failure_observed_update_size(failure: HpackFixtureFailure) -> Int
 	end
 end
 
+pub fn hpack_failure_requested_dynamic_index(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		_ => 0
+	end
+end
+
+pub fn hpack_failure_dynamic_table_entry_count(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		_ => 0
+	end
+end
+
 pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => 0
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => 0
 		MalformedStringLength(_, _, _, _, _, _) => 0
 		MalformedRawStringValue(_, _, _, _, _, _) => 0
 		MalformedHuffmanPadding(_, _, _, _, _, _) => 0
@@ -3818,6 +3848,7 @@ end
 pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicIndexOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedStringLength(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedRawStringValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedHuffmanPadding(_, _, _, expected_fixture, _, _) => expected_fixture
@@ -3831,6 +3862,7 @@ end
 pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		DynamicIndexOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
 		MalformedStringLength(_, _, _, _, codec_module, _) => codec_module
 		MalformedRawStringValue(_, _, _, _, codec_module, _) => codec_module
 		MalformedHuffmanPadding(_, _, _, _, codec_module, _) => codec_module
@@ -3844,6 +3876,7 @@ end
 pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, preview) => preview
 		MalformedStringLength(_, _, _, _, _, preview) => preview
 		MalformedRawStringValue(_, _, _, _, _, preview) => preview
 		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
@@ -3859,6 +3892,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
 	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedStringLength(_, _, _, _, _, _) => hpack_fixture_malformed_string_length(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedRawStringValue(_, _, _, _, _, _) => hpack_fixture_malformed_raw_string_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)

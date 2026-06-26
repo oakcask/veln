@@ -1967,9 +1967,9 @@ against the built `veln` binary.
   replacement dynamic entries, checks dynamic index value `127` for all three
   dynamic-name literal forms through wider continuation bytes, keeps the
   newest `:method: PUT` entry while evicting the older `:path: /target` entry
-  at table size `42`, and keeps
-  both missing dynamic state and dynamic entries evicted by a reduced fixture
-  table size on the unsupported fixture failure path. It accepts dynamic
+  at table size `42`, and reports missing dynamic state and dynamic entries
+  evicted by a reduced fixture table size through
+  `hpack.fixture.dynamic_index_out_of_range`. It accepts dynamic
   table-size update fixtures `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update
@@ -1982,6 +1982,12 @@ against the built `veln` binary.
   unsupported HPACK fixture header block projects through
   `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
   and HTTP/2 frame-state diagnostics.
+- `run/hpack-fixture-dynamic-index-json/` and
+  `run/hpack-fixture-dynamic-index-human/`: standalone HPACK fixture dynamic
+  indexed lookups without a current bounded dynamic-table entry project
+  `hpack.fixture.dynamic_index_out_of_range` with the requested dynamic
+  index, current dynamic table entry count, codec module, and bounded
+  header-block preview.
 - `run/http2-protocol-core-hpack-huffman-padding-human/`,
   `run/http2-protocol-core-hpack-huffman-padding-json/`,
   `run/http2-protocol-core-hpack-huffman-eos-human/`,
@@ -2211,7 +2217,8 @@ against the built `veln` binary.
   CONTINUATION paths, retain that newest entry while evicting the older
   path entry at table size `42`, insert and reuse the raw new-name ordinary
   `x-trace: ok` entry before a table-size `40` reduction evicts it, reject
-  the evicted older entry path,
+  the evicted older entry path through
+  `hpack.fixture.dynamic_index_out_of_range`,
   carry the replacement state through completed HEADERS and final
   CONTINUATION paths through the imported fixture codec, accept dynamic
   table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,

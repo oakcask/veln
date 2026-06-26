@@ -647,7 +647,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("malformed-authority", decode_header_block(malformed_authority_block, literal_state, 74))
 	let malformed_status_block: ByteChunk = byte_chunk_from_hex("08033230")?
 	print_transition("malformed-status", decode_header_block(malformed_status_block, literal_state, 75))
-	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
+	let bad_block: ByteChunk = byte_chunk_from_hex("7f")?
 	print_transition("bad", decode_header_block(bad_block, initial, 27))
 	let literal_scheme_huffman_block: ByteChunk = byte_chunk_from_hex("06849d29ad1f")?
 	print_transition("literal-scheme-https-huffman", decode_header_block(literal_scheme_huffman_block, initial, 81))
