@@ -14,13 +14,21 @@ fn context_receive_limit_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn frame_size_payload(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, context: Http2DiagnosticContext) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.frame_size_exceeded",
+		"HTTP/2 frame payload length exceeds receive maximum at byte offset 0",
+		RuntimeHttp2PeerLimitFrameSizeDiagnostic(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id) => http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context))
+		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id) => Err(frame_size_payload(offset, observed_length, allowed_length, frame_kind, stream_id, context))
 	end
 end
 
-pub fn main() -> Result<(), String>
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("local_configuration")
 	http2_protocol_diagnostic(FrameSizeExceeded(0, 1025, 1024, 0, 3), context)
 end
