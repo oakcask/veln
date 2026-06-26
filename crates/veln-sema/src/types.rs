@@ -801,9 +801,11 @@ fn collect_private_call_site_expr_constraints(
             collect_private_call_site_expr_constraints(left, expected, context);
             collect_private_call_site_expr_constraints(right, expected, context);
         }
+        ExprKind::NamePath(segments) => {
+            collect_private_function_value_constraints(segments, expected, context);
+        }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
@@ -860,7 +862,9 @@ fn collect_private_call_site_call_constraints(
                         );
                     }
                 }
-                let arg_expected = target_params.get(index).filter(|ty| !type_has_unknown(ty));
+                let arg_expected = target_params
+                    .get(index)
+                    .filter(|ty| private_expected_can_constrain(ty));
                 collect_private_call_site_expr_constraints(arg, arg_expected, context);
             }
         }
@@ -891,33 +895,41 @@ fn collect_private_call_site_non_target_call_args(
         }
         return;
     };
-    let params = private_call_site_non_target_params(
-        segments,
-        expected,
-        context.current_module,
-        context.constraints.uses,
-        context.constraints.function_by_path,
-        context.constraints.signatures_by_path,
-        context.constraints.adts,
-    );
+    let params = private_call_site_non_target_params(segments, args, expected, context);
     for (index, arg) in args.iter().enumerate() {
-        let arg_expected = params.get(index).filter(|ty| !type_has_unknown(ty));
+        let arg_expected = params
+            .get(index)
+            .filter(|ty| private_expected_can_constrain(ty));
         collect_private_call_site_expr_constraints(arg, arg_expected, context);
     }
 }
 
+fn private_expected_can_constrain(ty: &Type) -> bool {
+    if !type_has_unknown(ty) {
+        return true;
+    }
+    matches!(
+        ty,
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } if params.iter().any(|param| !type_has_unknown(param))
+            || !type_has_unknown(return_type)
+    )
+}
+
 fn private_call_site_non_target_params(
     segments: &[String],
+    args: &[Expr],
     expected: Option<&Type>,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_by_path: &FunctionAstMap<'_>,
-    signatures_by_path: &FunctionSignatureMap,
-    adts: &AdtRegistry,
+    context: &PrivateCallSiteExprContext<'_, '_>,
 ) -> Vec<Type> {
-    if let crate::adt::ConstructorLookup::Found(constructor) =
-        adts.constructor(segments, current_module, uses)
-    {
+    if let crate::adt::ConstructorLookup::Found(constructor) = context.constraints.adts.constructor(
+        segments,
+        context.current_module,
+        context.constraints.uses,
+    ) {
         return expected
             .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
             .map(|_| {
@@ -936,17 +948,90 @@ fn private_call_site_non_target_params(
             .unwrap_or_default();
     }
 
-    if let Some(signature) =
-        private_call_site_declared_signature(segments, current_module, uses, signatures_by_path)
-    {
+    if let Some(signature) = private_call_site_declared_signature(
+        segments,
+        context.current_module,
+        context.constraints.uses,
+        context.constraints.signatures_by_path,
+    ) {
         return signature.params.clone();
     }
 
-    private_prelude_constraint_name(segments, current_module, function_by_path)
-        .and_then(|name| {
-            crate::prelude::prelude_signature(name, expected).map(|(params, _)| params)
-        })
-        .unwrap_or_default()
+    private_prelude_constraint_name(
+        segments,
+        context.current_module,
+        context.constraints.function_by_path,
+    )
+    .and_then(|name| {
+        let input_type = private_prelude_input_arg(args, name).map(|arg| {
+            infer_private_signature_expr_type(
+                arg,
+                None,
+                context.current_module,
+                context.constraints.uses,
+                context.bindings,
+                context.constraints.returns_by_path,
+                context.constraints.adts,
+            )
+        });
+        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
+            .map(|(params, _)| params)
+    })
+    .unwrap_or_default()
+}
+
+fn private_prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr> {
+    if helper_name == "vec_try_map_with" {
+        args.get(1)
+    } else {
+        args.first()
+    }
+}
+
+fn collect_private_function_value_constraints(
+    segments: &[String],
+    expected: Option<&Type>,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
+) {
+    let Some(Type::Function {
+        params,
+        return_type,
+        ..
+    }) = expected
+    else {
+        return;
+    };
+    let [name] = segments else {
+        return;
+    };
+    let target_key = (context.current_module.map(str::to_string), name.clone());
+    if context.caller_key == Some(&target_key) {
+        return;
+    }
+    let Some((omitted_params, omitted_return)) =
+        context.constraints.omitted_private_slots.get(&target_key)
+    else {
+        return;
+    };
+    for (index, param) in params.iter().enumerate() {
+        if omitted_params.get(index).copied().unwrap_or(false) && !type_has_unknown(param) {
+            update_private_signature_param(
+                context.constraints.functions,
+                &target_key,
+                index,
+                param.clone(),
+                context.constraints.changed,
+            );
+        }
+    }
+    if *omitted_return && !type_has_unknown(return_type) {
+        update_private_signature_return(
+            context.constraints.functions,
+            &target_key,
+            return_type.as_ref().clone(),
+            context.constraints.changed,
+        );
+    }
 }
 
 fn private_call_site_declared_signature<'a>(
@@ -1129,6 +1214,8 @@ fn collect_private_prelude_callback_return_constraints(
                     annotation_type.as_ref(),
                     &mut PrivatePreludeCallbackConstraintContext {
                         current_module: function.module_name.as_deref(),
+                        uses,
+                        bindings: &bindings,
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
@@ -1158,6 +1245,8 @@ fn collect_private_prelude_callback_return_constraints(
                     expected,
                     &mut PrivatePreludeCallbackConstraintContext {
                         current_module: function.module_name.as_deref(),
+                        uses,
+                        bindings: &bindings,
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
@@ -1172,6 +1261,8 @@ fn collect_private_prelude_callback_return_constraints(
 
 struct PrivatePreludeCallbackConstraintContext<'a> {
     current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    bindings: &'a [Binding],
     function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
     omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
     returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
@@ -1285,7 +1376,20 @@ fn collect_private_prelude_callback_call_constraints(
     else {
         return;
     };
-    let Some((params, _)) = crate::prelude::prelude_signature(name, expected) else {
+    let input_type = private_prelude_input_arg(args, name).map(|arg| {
+        infer_private_signature_expr_type(
+            arg,
+            None,
+            context.current_module,
+            context.uses,
+            context.bindings,
+            context.returns_by_path,
+            context.adts,
+        )
+    });
+    let Some((params, _)) =
+        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
+    else {
         return;
     };
     for (arg, param) in args.iter().zip(params.iter()) {

@@ -1539,15 +1539,34 @@ impl<'a> FunctionChecker<'a> {
             if self.bare_name_is_shadowed(name) || self.bare_prelude_import_is_ambiguous(name) {
                 return None;
             }
-            let (params, return_type) =
-                prelude_signature(name, expected.map(|expected| &expected.ty))?;
+            let input_type =
+                prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+            let (params, return_type) = prelude_signature_with_input(
+                name,
+                expected.map(|expected| &expected.ty),
+                input_type.as_ref(),
+            )?;
             (name.clone(), params, return_type)
-        } else if let Some((name, params, return_type)) =
-            qualified_prelude_signature(segments, expected.map(|expected| &expected.ty))
-        {
+        } else if let Some((name, params, return_type)) = segments.last().and_then(|name| {
+            let input_type =
+                prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+            qualified_prelude_signature_with_input(
+                segments,
+                expected.map(|expected| &expected.ty),
+                input_type.as_ref(),
+            )
+        }) {
             (name, params, return_type)
         } else {
-            qualified_prelude_builtin_signature(segments, expected.map(|expected| &expected.ty))?
+            segments.last().and_then(|name| {
+                let input_type =
+                    prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+                qualified_prelude_builtin_signature_with_input(
+                    segments,
+                    expected.map(|expected| &expected.ty),
+                    input_type.as_ref(),
+                )
+            })?
         };
 
         for (index, arg) in args.iter().enumerate() {
@@ -2649,6 +2668,10 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Call { callee, .. } => self
                 .call_signature(callee, None, None, None)
                 .map(|(_, _, return_type, _)| return_type),
+            ExprKind::List(items) => items
+                .first()
+                .and_then(|first| self.shallow_expr_type(first))
+                .map(Type::vec),
             _ => None,
         }
     }
@@ -3152,6 +3175,14 @@ impl<'a> FunctionChecker<'a> {
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
             ContractValidation::Valid
         )
+    }
+}
+
+fn prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr> {
+    if helper_name == "vec_try_map_with" {
+        args.get(1)
+    } else {
+        args.first()
     }
 }
 

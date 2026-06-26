@@ -88,14 +88,23 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_function(&mut self) -> CoreFunction {
+        let signature = self.environment.function_by_node_id(self.function.node_id);
         let params = self
             .function
             .params
             .iter()
-            .map(|param| {
-                let mut ty = core_type(&parse_type_or_unknown(param.ty.as_deref()));
+            .enumerate()
+            .map(|(index, param)| {
+                let mut ty = signature
+                    .and_then(|function| function.params.get(index))
+                    .map(core_type)
+                    .unwrap_or_else(|| core_type(&parse_type_or_unknown(param.ty.as_deref())));
                 if param.is_variadic {
-                    ty = CoreType::named("List", vec![ty]);
+                    ty = signature
+                        .and_then(|function| function.variadic.as_ref())
+                        .map(core_type)
+                        .map(|ty| CoreType::named("List", vec![ty]))
+                        .unwrap_or_else(|| CoreType::named("List", vec![ty]));
                 }
                 self.bindings.push(CoreBinding {
                     name: param.name.clone(),

@@ -56,6 +56,8 @@ behavior.
   [remove-legacy-type-delimiters.md](remove-legacy-type-delimiters.md).
 - Local inference private helper call-site:
   [local-inference-private-helper-call-site.md](local-inference-private-helper-call-site.md).
+- Local inference prelude callback argument:
+  [local-inference-prelude-callback-argument.md](local-inference-prelude-callback-argument.md).
 - If else expression syntax:
   [if-else-expression-syntax.md](if-else-expression-syntax.md).
 - Public member alias re-exports:

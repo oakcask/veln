@@ -10231,7 +10231,7 @@ fn suggests_vec_try_map_for_result_returning_map_callback() {
         .expect("callback type mismatch should be reported");
     assert_eq!(
         diagnostic.message,
-        "expected `fn(unknown) -> String`, but found `fn(Int) -> Result<String, AppError>`"
+        "expected `fn(Int) -> String`, but found `fn(Int) -> Result<String, AppError>`"
     );
     assert!(
         diagnostic
@@ -10556,20 +10556,116 @@ fn prelude_helper_result_context_refines_empty_callback_return_type() {
 }
 
 #[test]
+fn prelude_helper_input_types_infer_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type List<A>\n",
+            "  Nil\n",
+            "  Cons(head: A, tail: List<A>)\n",
+            "end\n",
+            "\n",
+            "fn vec_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn qualified_vec_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn vec_keep(value) -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn vec_folder(acc: String, value) -> String\n",
+            "  acc\n",
+            "end\n",
+            "fn vec_try(value) -> Result<String, String>\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
+            "fn list_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn list_keep(value) -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn list_folder(acc: String, value) -> String\n",
+            "  acc\n",
+            "end\n",
+            "fn list_try(value) -> Result<String, String>\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
+            "fn option_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn result_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn result_error_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, qualified_vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>}\n",
+            "  {\n",
+            "    vec_mapped: vec_map(vec, vec_string),\n",
+            "    qualified_vec_mapped: prelude::vec_map(vec, qualified_vec_string),\n",
+            "    vec_filtered: vec_filter(vec, vec_keep),\n",
+            "    vec_folded: vec_fold(vec, \"\", vec_folder),\n",
+            "    vec_tried: vec_try_map(vec, vec_try),\n",
+            "    list_mapped: list_map(list, list_string),\n",
+            "    list_filtered: list_filter(list, list_keep),\n",
+            "    list_folded: list_fold(list, \"\", list_folder),\n",
+            "    list_tried: list_try_map(list, list_try),\n",
+            "    option_mapped: option_map(opt, option_string),\n",
+            "    result_mapped: result_map(res, result_string),\n",
+            "    result_error_mapped: result_map_err(err, result_error_string)\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in [
+        "vec_string",
+        "qualified_vec_string",
+        "vec_keep",
+        "vec_try",
+        "list_string",
+        "list_keep",
+        "list_try",
+        "option_string",
+        "result_string",
+        "result_error_string",
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::int(), "{name}");
+    }
+    for name in ["vec_folder", "list_folder"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("fold callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::string(), "{name}");
+        assert_eq!(function.params[1].ty, CoreType::int(), "{name}");
+    }
+}
+
+#[test]
 fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
-        (
-            "vec_map",
-            "Vec<Int>",
-            "Vec<String>",
-            "fn(unknown) -> String",
-        ),
+        ("vec_map", "Vec<Int>", "Vec<String>", "fn(Int) -> String"),
         ("vec_filter", "Vec<Int>", "Vec<Int>", "fn(Int) -> Bool"),
         (
             "option_map",
             "Option<Int>",
             "Option<String>",
-            "fn(unknown) -> String",
+            "fn(Int) -> String",
         ),
         (
             "option_and_then",
@@ -10581,13 +10677,13 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
             "result_map",
             "Result<Int, String>",
             "Result<String, String>",
-            "fn(unknown) -> String",
+            "fn(Int) -> String",
         ),
         (
             "result_map_err",
             "Result<String, Int>",
             "Result<String, String>",
-            "fn(unknown) -> String",
+            "fn(Int) -> String",
         ),
         (
             "result_and_then",
@@ -10599,20 +10695,15 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
             "vec_try_map",
             "Vec<Int>",
             "Result<Vec<String>, String>",
-            "fn(unknown) -> Result<String, String>",
+            "fn(Int) -> Result<String, String>",
         ),
-        (
-            "list_map",
-            "List<Int>",
-            "List<String>",
-            "fn(unknown) -> String",
-        ),
+        ("list_map", "List<Int>", "List<String>", "fn(Int) -> String"),
         ("list_filter", "List<Int>", "List<Int>", "fn(Int) -> Bool"),
         (
             "list_try_map",
             "List<Int>",
             "Result<List<String>, String>",
-            "fn(unknown) -> Result<String, String>",
+            "fn(Int) -> Result<String, String>",
         ),
     ] {
         let source = SourceFile::new(
