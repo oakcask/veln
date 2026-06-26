@@ -1430,12 +1430,12 @@ execution reference.
 - For `veln run` entries, a returned
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
   is the source-visible diagnostic-bearing result failure form used by the
-  HPACK fixture unsupported-header-block projection. The command boundary keeps
-  the rendered `RuntimeDiagnostic(...)` as the result value and projects byte
-  offset, observed header block size, observed first byte, expected fixture,
-  codec module, and bounded header-block preview into the same human
-  diagnostic and `details.protocol_diagnostic` JSON shape used by the
-  compatibility helper.
+  HPACK fixture unsupported-header-block and malformed-string-length
+  projections. The command boundary keeps the rendered
+  `RuntimeDiagnostic(...)` as the result value and projects byte offset,
+  observed header block size, observed first byte, expected fixture, codec
+  module, and bounded header-block preview into the same human diagnostic and
+  `details.protocol_diagnostic` JSON shape used by the compatibility helper.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
@@ -1901,11 +1901,13 @@ execution reference.
   module, and bounded header-block byte preview carried by an ordinary
   `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` payload at
   the standalone HPACK fixture projection boundary. Malformed HPACK string
-  lengths, malformed raw string values for supported literal names, malformed
-  Huffman padding, and Huffman EOS stay on the HPACK fixture boundary but
-  project through their focused `hpack.fixture.*` ids with the same fixture
-  diagnostic shape. Multi-byte non-visible Huffman strings stay on the fixture
-  boundary as `hpack-bytes-*` labels rather than focused diagnostics.
+  lengths stay on the HPACK fixture boundary and can be carried by the same
+  source-visible `RuntimeHpackFixtureDiagnostic` payload shape. Malformed raw
+  string values for supported literal names, malformed Huffman padding, and
+  Huffman EOS stay on the HPACK fixture boundary but continue to use the
+  compatibility helper bridge for their focused `hpack.fixture.*` ids.
+  Multi-byte non-visible Huffman strings stay on the fixture boundary as
+  `hpack-bytes-*` labels rather than focused diagnostics.
   That
   diagnostic path is
   distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*` ids;

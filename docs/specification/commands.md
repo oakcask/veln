@@ -108,11 +108,11 @@ requiring the full command reference on the first read.
   and optional preview projected from the returned error value itself. Plain
   `Err(value)` values remain ordinary result failures. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
-  value for `hpack.fixture.unsupported_header_block` uses the same focused
-  HPACK fixture human diagnostic as the compatibility helper, with byte
-  offset, observed header block size, observed first byte, expected fixture,
-  codec module, and bounded byte preview projected from the returned error
-  value. Checked byte write
+  value for `hpack.fixture.unsupported_header_block` or
+  `hpack.fixture.malformed_string_length` uses the same focused HPACK fixture
+  human diagnostic as the compatibility helper, with byte offset, observed
+  header block size, observed first byte, expected fixture, codec module, and
+  bounded byte preview projected from the returned error value. Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied
   value, accepted range, width, byte order, and source-visible `Err` value in

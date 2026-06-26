@@ -57,9 +57,10 @@ When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...))`,
 `details.value` likewise keeps the rendered `RuntimeDiagnostic(...)` value and
 the HPACK fixture detail projects to `details.protocol_diagnostic`. The
-unsupported-header-block fixture payload carries byte offset, observed header
-block size, observed first byte, expected fixture, codec module, and a bounded
-header-block byte preview from the returned error value itself.
+unsupported-header-block and malformed-string-length fixture payloads carry
+byte offset, observed header block size, observed first byte, expected
+fixture, codec module, and a bounded header-block byte preview from the
+returned error value itself.
 
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
@@ -539,12 +540,11 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
-for unsupported header blocks. The source-visible runtime diagnostic payload
-path for that id still uses the same `details.protocol_diagnostic` field shape
-as the legacy side-table-backed fixture helpers. Other HPACK fixture ids remain
-on their existing compatibility bridge:
-`hpack.fixture.malformed_string_length` for malformed HPACK string-length
-encodings,
+for unsupported header blocks and `hpack.fixture.malformed_string_length` for
+malformed HPACK string-length encodings. The source-visible runtime diagnostic
+payload path for those ids uses the same `details.protocol_diagnostic` field
+shape as the legacy side-table-backed fixture helpers. Other HPACK fixture ids
+remain on their existing compatibility bridge:
 `hpack.fixture.malformed_raw_string_value` for malformed raw string values on
 supported literal-name forms,
 `hpack.fixture.malformed_huffman_padding` for malformed Huffman padding,

@@ -159,7 +159,8 @@
     }
 
     private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
-        if (!id.equals("hpack.fixture.unsupported_header_block")) {
+        if (!id.equals("hpack.fixture.unsupported_header_block")
+            && !id.equals("hpack.fixture.malformed_string_length")) {
             return null;
         }
         if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
