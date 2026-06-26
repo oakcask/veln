@@ -1,0 +1,24 @@
+fn stringify(key, value) -> String
+	key
+end
+
+fn keep(key, value) -> Bool
+	true
+end
+
+fn fold(acc: String, key, value) -> String
+	acc
+end
+
+fn try_stringify(key, value) -> Result<String, String>
+	Ok(key)
+end
+
+pub fn main(items: Dict<String, Int>) -> {mapped: Dict<String, String>, filtered: Dict<String, Int>, folded: String, tried: Result<Dict<String, String>, String>}
+	{
+		mapped: dict_map(items, stringify),
+		filtered: dict_filter(items, keep),
+		folded: dict_fold(items, "", fold),
+		tried: dict_try_map(items, try_stringify)
+	}
+end

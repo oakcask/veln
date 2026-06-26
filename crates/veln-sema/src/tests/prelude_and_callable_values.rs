@@ -9439,6 +9439,9 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "flags56: Flag56be, flags56le: Flag56le, ",
             "flags64: Flag64be, flags64le: Flag64le, ",
             "mapper: fn(Int) -> String, keep: fn(Int) -> Bool, folder: fn(String, Int) -> String, ",
+            "dict_mapper: fn(String, Int) -> String, dict_keep: fn(String, Int) -> Bool, ",
+            "dict_folder: fn(String, String, Int) -> String, ",
+            "dict_fallible: fn(String, Int) -> Result<String, AppError>, ",
             "fallible: fn(Int) -> Result<String, AppError>, opt: Option<Int>, ",
             "fallible_with: fn(String, Int) -> Result<String, AppError>, ",
             "opt_map: fn(Int) -> String, opt_next: fn(Int) -> Option<String>, ",
@@ -9519,6 +9522,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "list_reversed: List<Int>, list_mapped: List<String>, list_filtered: List<Int>, ",
             "list_tried: Result<List<String>, AppError>, ",
             "found: Option<Int>, has_key: Bool, inserted: Dict<String, Int>, removed: Dict<String, Int>, ",
+            "dict_mapped: Dict<String, String>, dict_filtered: Dict<String, Int>, ",
+            "dict_folded: String, dict_tried: Result<Dict<String, String>, AppError>, ",
             "opt_mapped: Option<String>, opt_nexted: Option<String>, opt_value: Int, ",
             "res_mapped: Result<String, AppError>, res_err: Result<Int, String>, ",
             "res_nexted: Result<String, AppError>}\n",
@@ -9629,6 +9634,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "list_filtered: list_filter(list, keep), list_tried: list_try_map(list, fallible), ",
             "found: dict_get(table, \"a\"), has_key: dict_contains(table, \"a\"), ",
             "inserted: dict_insert(table, \"b\", 2), removed: dict_remove(table, \"b\"), ",
+            "dict_mapped: dict_map(table, dict_mapper), dict_filtered: dict_filter(table, dict_keep), ",
+            "dict_folded: dict_fold(table, \"\", dict_folder), dict_tried: dict_try_map(table, dict_fallible), ",
             "opt_mapped: option_map(opt, opt_map), opt_nexted: option_and_then(opt, opt_next), ",
             "opt_value: option_unwrap_or(opt, 0), res_mapped: result_map(res, opt_map), ",
             "res_err: result_map_err(res, err_map), res_nexted: result_and_then(res, res_next)}\n",
@@ -10677,6 +10684,68 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
 }
 
 #[test]
+fn dictionary_prelude_callbacks_infer_key_and_value_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn dict_string(key, value) -> String\n",
+            "  key\n",
+            "end\n",
+            "fn qualified_dict_string(key, value) -> String\n",
+            "  key\n",
+            "end\n",
+            "fn dict_keep(key, value) -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn dict_folder(acc: String, key, value) -> String\n",
+            "  acc\n",
+            "end\n",
+            "fn dict_try(key, value) -> Result<String, String>\n",
+            "  Ok(key)\n",
+            "end\n",
+            "pub fn main(table: Dict<String, Int>) -> {mapped: Dict<String, String>, qualified_mapped: Dict<String, String>, filtered: Dict<String, Int>, folded: String, tried: Result<Dict<String, String>, String>}\n",
+            "  {\n",
+            "    mapped: dict_map(table, dict_string),\n",
+            "    qualified_mapped: prelude::dict_map(table, qualified_dict_string),\n",
+            "    filtered: dict_filter(table, dict_keep),\n",
+            "    folded: dict_fold(table, \"\", dict_folder),\n",
+            "    tried: dict_try_map(table, dict_try)\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in [
+        "dict_string",
+        "qualified_dict_string",
+        "dict_keep",
+        "dict_try",
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("dictionary callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::string(), "{name}");
+        assert_eq!(function.params[1].ty, CoreType::int(), "{name}");
+    }
+    let folder = core
+        .functions
+        .iter()
+        .find(|function| function.name == "dict_folder")
+        .expect("fold callback should be lowered");
+    assert_eq!(folder.params[0].ty, CoreType::string());
+    assert_eq!(folder.params[1].ty, CoreType::string());
+    assert_eq!(folder.params[2].ty, CoreType::int());
+}
+
+#[test]
 fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
         ("vec_map", "Vec<Int>", "Vec<String>", "fn(Int) -> String"),
@@ -10755,6 +10824,128 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
             diagnostics[0].message,
             format!("expected `{expected_callback}`, but found `fn(Int) -> Int`")
         );
+        let span = diagnostics[0]
+            .span
+            .as_ref()
+            .expect("diagnostic should point at user source");
+        assert_eq!(span.file.as_str(), "main.veln");
+    }
+}
+
+#[test]
+fn dictionary_prelude_callbacks_report_user_call_site_diagnostics() {
+    for (helper, return_type, callback_source, expected_callback) in [
+        (
+            "dict_map",
+            "Dict<String, String>",
+            concat!(
+                "fn to_int(key: String, value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+            "fn(String, Int) -> String",
+        ),
+        (
+            "dict_filter",
+            "Dict<String, Int>",
+            concat!(
+                "fn to_int(key: String, value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+            "fn(String, Int) -> Bool",
+        ),
+        (
+            "dict_try_map",
+            "Result<Dict<String, String>, String>",
+            concat!(
+                "fn to_int(key: String, value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+            "fn(String, Int) -> Result<String, String>",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                concat!(
+                    "{}",
+                    "pub fn main(value: Dict<String, Int>) -> {}\n",
+                    "  {}(value, to_int)\n",
+                    "end\n",
+                ),
+                callback_source, return_type, helper
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1, "{helper}");
+        assert_eq!(diagnostics[0].id, "type.mismatch");
+        assert_eq!(
+            diagnostics[0].message,
+            format!("expected `{expected_callback}`, but found `fn(String, Int) -> Int`")
+        );
+        let span = diagnostics[0]
+            .span
+            .as_ref()
+            .expect("diagnostic should point at user source");
+        assert_eq!(span.file.as_str(), "main.veln");
+    }
+}
+
+#[test]
+fn dictionary_prelude_helpers_check_keys_and_values_from_input_dict() {
+    for (helper, source_text, expected_message) in [
+        (
+            "dict_contains",
+            concat!(
+                "pub fn main(table: Dict<Int, String>) -> Bool\n",
+                "  dict_contains(table, \"key\")\n",
+                "end\n",
+            ),
+            "expected `Int`, but found `String`",
+        ),
+        (
+            "dict_get",
+            concat!(
+                "pub fn main(table: Dict<Int, String>) -> Option<String>\n",
+                "  dict_get(table, \"key\")\n",
+                "end\n",
+            ),
+            "expected `Int`, but found `String`",
+        ),
+        (
+            "dict_insert",
+            concat!(
+                "pub fn main(table: Dict<String, Int>) -> Dict<String, Int>\n",
+                "  dict_insert(table, \"key\", \"bad\")\n",
+                "end\n",
+            ),
+            "expected `Int`, but found `String`",
+        ),
+        (
+            "dict_remove",
+            concat!(
+                "pub fn main(table: Dict<Int, String>) -> Dict<Int, String>\n",
+                "  dict_remove(table, \"key\")\n",
+                "end\n",
+            ),
+            "expected `Int`, but found `String`",
+        ),
+    ] {
+        let source = SourceFile::new("main.veln", source_text);
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1, "{helper}");
+        assert_eq!(diagnostics[0].id, "type.mismatch", "{helper}");
+        assert_eq!(diagnostics[0].message, expected_message, "{helper}");
         let span = diagnostics[0]
             .span
             .as_ref()

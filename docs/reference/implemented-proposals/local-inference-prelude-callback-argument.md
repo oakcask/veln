@@ -14,18 +14,21 @@ examples. It is historical evidence, not the source for current behavior.
   [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
 - Checked example coverage:
   `../../../examples/specification/check/prelude-callback-argument-inference/`.
+- Focused dictionary callback coverage:
+  `../../../examples/specification/check/prelude-dictionary-callback-inference/`.
 - Focused callback diagnostic coverage:
   `../../../examples/specification/check/prelude-callback-argument-inference-diagnostics/`
   and `../../../examples/specification/check/prelude-helper-diagnostics/`.
 
 ## Implemented Boundary
 
-Compiler-known collection, option, and result prelude helpers push concrete
-input item, success, or error types into named private callback function
-parameters. The implemented helper set is `vec_map`, `vec_filter`, `vec_fold`,
-`vec_try_map`, `list_map`, `list_filter`, `list_fold`, `list_try_map`,
-`option_map`, `option_and_then`, `result_map`, `result_map_err`, and
-`result_and_then`.
+Compiler-known collection, dictionary, option, and result prelude helpers push
+concrete input item, key, value, success, or error types into named private
+callback function parameters. The implemented helper set is `vec_map`,
+`vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
+`list_fold`, `list_try_map`, `dict_map`, `dict_filter`, `dict_fold`,
+`dict_try_map`, `option_map`, `option_and_then`, `result_map`,
+`result_map_err`, and `result_and_then`.
 
 The rule is local and monomorphic. It applies to named private callback
 function values used by the compiler-known helper signature path. It does not
@@ -45,15 +48,15 @@ not in the compiler-known prelude signature path.
 ## Completion Evidence
 
 - Executable specification examples cover successful named private callback
-  parameter inference from compiler-known collection, option, and result helper
-  input types.
+  parameter inference from compiler-known collection, dictionary, option, and
+  result helper input types.
 - Negative executable examples cover incompatible callback facts with the
   focused `type.mismatch` diagnostic.
 - Existing helper diagnostic examples preserve the `vec_try_map` repair hint
   for a `Result`-returning callback passed to `vec_map`.
 - Semantic tests cover the helper set, including fold callbacks, try-map
-  callbacks, result success and error callbacks, and qualified `prelude::`
-  helper calls.
+  callbacks, dictionary key/value callbacks, result success and error
+  callbacks, and qualified `prelude::` helper calls.
 - The proposal page keeps only remaining callback work outside this
   compiler-known helper path.
 

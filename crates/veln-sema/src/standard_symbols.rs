@@ -836,6 +836,10 @@ source_prelude_symbol_set! {
     "dict_contains" => veln_stdlib::prelude_source("dict_contains"),
     "dict_insert" => veln_stdlib::prelude_source("dict_insert"),
     "dict_remove" => veln_stdlib::prelude_source("dict_remove"),
+    "dict_map" => veln_stdlib::prelude_source("dict_map"),
+    "dict_filter" => veln_stdlib::prelude_source("dict_filter"),
+    "dict_fold" => veln_stdlib::prelude_source("dict_fold"),
+    "dict_try_map" => veln_stdlib::prelude_source("dict_try_map"),
     "option_map" => veln_stdlib::prelude_source("option_map"),
     "option_and_then" => veln_stdlib::prelude_source("option_and_then"),
     "option_unwrap_or" => veln_stdlib::prelude_source("option_unwrap_or"),
@@ -1051,6 +1055,13 @@ mod tests {
     fn source_backed_step_helpers_are_not_prelude_descriptors() {
         for name in SOURCE_BACKED_PRIVATE_HELPERS {
             assert_eq!(prelude_symbol(name), None);
+        }
+    }
+
+    #[test]
+    fn deferred_dictionary_traversal_helpers_are_not_prelude_descriptors() {
+        for name in ["dict_keys", "dict_values"] {
+            assert_eq!(prelude_symbol(name), None, "{name}");
         }
     }
 

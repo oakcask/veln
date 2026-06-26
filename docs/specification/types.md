@@ -23,9 +23,9 @@ full type reference.
   resolves to one visible variant and every type argument becomes concrete.
   Constructor patterns in `match` arms may constrain an otherwise unknown
   scrutinee when the visible arms identify one finite descriptor domain.
-  Compiler-known collection, option, and result helper input types also
-  constrain named private callback function parameters passed to the
-  implemented map, filter, fold, try-map, and and-then helpers.
+  Compiler-known collection, dictionary, option, and result helper input
+  types also constrain named private callback function parameters passed to
+  the implemented map, filter, fold, try-map, and and-then helpers.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

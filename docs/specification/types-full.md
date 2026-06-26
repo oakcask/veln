@@ -160,6 +160,10 @@ private callback function values. For `vec_map`, `vec_filter`, `vec_fold`, and
 `vec_try_map`, a concrete `Vec<T>` input constrains the callback parameter that
 receives each element to `T`. The same rule applies to `list_map`,
 `list_filter`, `list_fold`, and `list_try_map` for concrete `List<T>` inputs.
+For concrete `Dict<K, V>` inputs, `dict_map`, `dict_filter`, and
+`dict_try_map` constrain callback parameters that receive each key and value
+to `K` and `V`, and `dict_fold` constrains its accumulator, key, and value
+parameters from the fold result context and dictionary input.
 `option_map` and `option_and_then` constrain their callback parameter from the
 `Option<T>` input. `result_map` and `result_and_then` constrain their callback
 parameter from the `Result<T, E>` success type, and `result_map_err` constrains

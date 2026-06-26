@@ -929,6 +929,22 @@ pub fn dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
 	prelude_builtin::dict_remove(dict, key)
 end
 
+pub fn dict_map(dict: Dict<K, V>, f: fn(K, V) -> A) -> Dict<K, A>
+	prelude_builtin::dict_map(dict, f)
+end
+
+pub fn dict_filter(dict: Dict<K, V>, f: fn(K, V) -> Bool) -> Dict<K, V>
+	prelude_builtin::dict_filter(dict, f)
+end
+
+pub fn dict_fold(dict: Dict<K, V>, initial: A, f: fn(A, K, V) -> A) -> A
+	prelude_builtin::dict_fold(dict, initial, f)
+end
+
+pub fn dict_try_map(dict: Dict<K, V>, f: fn(K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
+	prelude_builtin::dict_try_map(dict, f)
+end
+
 pub fn option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
 	match value
 		Some(inner) => Some(f(inner))

@@ -63,7 +63,23 @@ fn qualified_result_next(value) -> Result<String, String>
 	Ok("ok")
 end
 
-pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}
+fn dict_string(key, value) -> String
+	key
+end
+
+fn dict_keep(key, value) -> Bool
+	true
+end
+
+fn dict_folder(acc: String, key, value) -> String
+	acc
+end
+
+fn dict_try(key, value) -> Result<String, String>
+	Ok(key)
+end
+
+pub fn main(vec: Vec<Int>, list: List<Int>, table: Dict<String, Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, dict_mapped: Dict<String, String>, dict_filtered: Dict<String, Int>, dict_folded: String, dict_tried: Result<Dict<String, String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}
 	{
 		vec_mapped: vec_map(vec, vec_string),
 		vec_filtered: vec_filter(vec, vec_keep),
@@ -73,6 +89,10 @@ pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, S
 		list_filtered: list_filter(list, list_keep),
 		list_folded: list_fold(list, "", list_folder),
 		list_tried: list_try_map(list, list_try),
+		dict_mapped: dict_map(table, dict_string),
+		dict_filtered: dict_filter(table, dict_keep),
+		dict_folded: dict_fold(table, "", dict_folder),
+		dict_tried: dict_try_map(table, dict_try),
 		option_mapped: option_map(opt, option_string),
 		option_nexted: option_and_then(opt, option_next),
 		qualified_option_nexted: prelude::option_and_then(opt, qualified_option_next),
