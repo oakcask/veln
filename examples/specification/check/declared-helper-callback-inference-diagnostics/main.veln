@@ -1,0 +1,12 @@
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn stringify(value) -> String
+	let text: String = value
+	text
+end
+
+pub fn main() -> String
+	apply_int(1, stringify)
+end

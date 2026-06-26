@@ -1,0 +1,9 @@
+use helpers
+
+fn stringify(value) -> String
+	"ok"
+end
+
+pub fn main() -> String
+	helpers::apply_int(1, stringify)
+end

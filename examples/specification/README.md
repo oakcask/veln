@@ -69,6 +69,14 @@ against the built `veln` binary.
 - `check/prelude-callback-argument-inference/`: named private callback
   parameter inference from compiler-known collection, option, and result
   helper input types.
+- `check/declared-helper-callback-inference/` and
+  `check/declared-helper-callback-import-inference/`: named private callback
+  parameter inference from same-module and imported helpers with concrete
+  declared function-typed parameters.
+- `check/declared-helper-callback-inference-diagnostics/` and
+  `check/declared-helper-callback-inference-unsupported/`: conflicting
+  callback body facts and unconstrained helper signatures for declared helper
+  callback inference.
 - `check/prelude-dictionary-callback-alias-inference/`: named private
   callback parameter inference for context-carrying dictionary helper aliases.
 - `check/prelude-dictionary-callback-alias-inference-diagnostics/`:

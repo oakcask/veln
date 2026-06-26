@@ -129,6 +129,8 @@ archived under
 `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`.
 The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
+The completed declared helper callback argument slice is archived under
+`../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
@@ -140,12 +142,15 @@ Implemented current behavior is specified in
 key, value, success, or error types into named private callback function
 parameters. The dictionary `_with` aliases accept a context argument before the
 dictionary and pass that context as the first callback argument.
+Same-module helpers and visible imported public helpers whose declared
+parameter type is a concrete function type also push that function parameter
+list into named private callbacks passed at the matching argument position.
 
-Remaining planned work in this section covers callback inputs outside that
-implemented compiler-known helper path. Future prelude higher-order helpers
-should push their concrete element, value, key, success, and error types into
-callback parameters only after they enter an equally concrete helper signature
-path.
+Remaining planned work in this section covers callback inputs outside the
+implemented compiler-known and concrete declared-helper signature paths. Future
+prelude higher-order helpers should push their concrete element, value, key,
+success, and error types into callback parameters only after they enter an
+equally concrete helper signature path.
 
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
@@ -156,7 +161,8 @@ The implemented empty collection callback return slice is specified in
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
-generic function system for ordinary user-defined helpers.
+generic function system for ordinary user-defined helpers, and it does not
+infer through helper function parameter types that still contain `unknown`.
 
 ## Completed Bidirectional ADT Constructor Inference
 
@@ -251,11 +257,12 @@ Acceptance evidence should include:
    paths.
 2. Add empty collection and nullary constructor context propagation.
 3. Completed for current compiler-known collection, dictionary, option, and
-   result helpers, including dictionary `_with` aliases: push concrete helper
-   input types into named private callback parameters while preserving helper
-   result-context callback return inference. Remaining callback work is
-   limited to future helpers after they enter an equally concrete helper
-   signature path.
+   result helpers, including dictionary `_with` aliases, and for same-module
+   or visible imported declared helpers with concrete function-typed
+   parameters: push concrete helper input types into named private callback
+   parameters while preserving helper result-context callback return
+   inference. Remaining callback work is limited to future helpers after they
+   enter an equally concrete helper signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
