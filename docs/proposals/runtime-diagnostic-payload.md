@@ -44,9 +44,6 @@ not carried by the `Err` value that caused the command failure.
 - Keep command output stable: `veln run`, `veln run --json`, and test harness
   reports continue to expose focused runtime diagnostics and structured
   `details.*` objects.
-- Let executable specification cases inspect the returned `Err` value shape
-  directly, so they can prove diagnostics are carried by values rather than by
-  backend side effects.
 - Allow HPACK fixture and HTTP/2 protocol helpers to move domain-specific
   diagnostic construction out of backend-specific runtime functions.
 - Preserve ordinary `Result<T, E>` behavior for failures that do not opt into a
@@ -151,32 +148,16 @@ This keeps the difference at the value level. No command needs to observe an
 out-of-band registration event to know whether an `Err` carries diagnostic
 details.
 
-## Test Harness Semantics
+## Implemented Baseline
 
-The executable specification harness should be able to inspect the structure
-of an entry result failure before or alongside command projection. Public
-output assertions still check human diagnostics and `run --json`, but
-lower-level harness assertions should also be able to prove that the entry
-returned a diagnostic-bearing `Err` value.
+Current behavior for the completed source-visible byte diagnostic value,
+command projection, and executable harness assertion slices is specified in
+`../specification/run-json.md`, `../specification/commands.md`,
+`../specification/execution.md`, and `../specification/test-json.md`.
 
-The harness should support path assertions over the error value, including:
-
-- the outer result constructor, such as `Err`
-- the diagnostic payload constructor, such as `RuntimeDiagnostic`
-- stable fields such as `id`, `message`, payload family, byte offset, field
-  path, provenance, and bounded byte preview fields
-- ordinary non-diagnostic error values, which remain inspectable as plain
-  returned values
-
-For example, a case should be able to assert that an entry returned
-`Err(RuntimeDiagnostic(...))` with id
-`hpack.fixture.malformed_raw_string_value`, independently of the projected
-human or JSON command output.
-
-This keeps the test evidence aligned with the language model. Tests should
-not need to observe a backend trace side table, a thread-local diagnostic
-registration, or a rendered `Err` string to prove that a diagnostic payload was
-attached to the failure.
+The remaining proposal work starts from that baseline. New migration slices
+should add executable examples under `../../examples/specification/run/`
+before updating specification prose.
 
 ## Logs And Metrics
 
@@ -207,14 +188,12 @@ checked examples are
 This slice deliberately leaves legacy side-table support in place for existing
 fixture, value, protocol, HPACK, HTTP/2, and generated-schema helpers.
 
-A staged migration can keep compatibility:
+A staged migration can keep compatibility for the remaining work:
 
-1. Add harness assertions over structured `Err` values so implementation tests
-   can verify value-carried diagnostics before command rendering.
-2. Convert HPACK fixture projection helpers to return `Result<(), RuntimeDiagnostic>`
+1. Convert HPACK fixture projection helpers to return `Result<(), RuntimeDiagnostic>`
    or an equivalent structured diagnostic error type from Veln.
-3. Convert HTTP/2 protocol projection helpers to the same model.
-4. Remove narrow backend helpers and side-table registrations once no
+2. Convert HTTP/2 protocol projection helpers to the same model.
+3. Remove narrow backend helpers and side-table registrations once no
    specification case depends on them.
 
 During migration, existing Java runtime helpers can keep producing the same
@@ -225,14 +204,14 @@ The migration is complete when diagnostic details are reachable from the
 failing `Err` value itself and command recording no longer needs a
 message-keyed store to attach public result details.
 
-## Specification Updates
+## Remaining Specification Updates
 
-When implemented, current behavior should move into:
+For each remaining migration slice, update the smallest matching current
+specification route after executable evidence exists:
 
-- `../specification/run-json.md` for result-failure JSON shape
-- `../specification/commands.md` for human command diagnostics
-- `../specification/execution.md` for runtime failure projection semantics
-- `../specification/test-json.md` for harness-visible `Err` value assertions
+- `../specification/run-json.md` for new result-failure JSON projections
+- `../specification/commands.md` for new human command diagnostics
+- `../specification/execution.md` for new runtime failure projection semantics
 - executable examples under `../../examples/specification/run/`
 
 Completed rationale should then be archived under

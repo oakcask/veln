@@ -85,3 +85,123 @@ equals = false
 [[json_assert]]
 path = "stderr"
 equals = "Err(RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false))))\n"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "codec.incomplete_input"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.message"
+equals = "byte read requires 3 bytes but view has 2"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeByteDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset.constructor"
+equals = "ByteOffset"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset.value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.0.constructor"
+equals = "RuntimeDiagnosticFieldPathSegment"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.0.kind"
+equals = "schema"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.0.name"
+equals = "Payload"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.1.kind"
+equals = "field"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.1.name"
+equals = "body"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.2"
+missing = true
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.constructor"
+equals = "RuntimeByteCountFacts"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.expected_count.constructor"
+equals = "ByteCount"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.expected_count.value"
+equals = 3
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.available_count.value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.readiness"
+equals = "need_bytes"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "RuntimeBytePreview"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.encoding"
+equals = "hex"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.data"
+equals = "0001"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.preview_byte_count.value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.total_byte_count.value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.truncated"
+equals = false

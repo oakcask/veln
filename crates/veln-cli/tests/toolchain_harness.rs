@@ -327,6 +327,7 @@ struct CaseExpectations {
     stderr: StreamExpectation,
     help: Option<HelpExpectation>,
     json_assertions: Vec<JsonAssertion>,
+    result_value_assertions: Vec<ResultValueAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
@@ -433,6 +434,9 @@ impl CaseExpectations {
             for assertion in &self.json_assertions {
                 assert_json_path(context, json, assertion);
             }
+            for assertion in &self.result_value_assertions {
+                assert_result_value_path(context, json, assertion);
+            }
             for diagnostic in &self.diagnostics {
                 assert_diagnostic(context, json, diagnostic);
             }
@@ -456,6 +460,7 @@ impl CaseExpectations {
     fn needs_stdout_json(&self) -> bool {
         self.stdout.format == Some(StreamFormat::Json)
             || !self.json_assertions.is_empty()
+            || !self.result_value_assertions.is_empty()
             || !self.diagnostics.is_empty()
             || !self.binary_fixtures.is_empty()
             || !self.output_chunk_lists.is_empty()
@@ -646,6 +651,14 @@ struct JsonAssertion {
 }
 
 #[derive(Debug)]
+struct ResultValueAssertion {
+    value_path: String,
+    path: String,
+    equals: Option<JsonValue>,
+    missing: bool,
+}
+
+#[derive(Debug)]
 struct FileAssertion {
     path: String,
     equals: String,
@@ -816,6 +829,7 @@ enum Section {
     Stderr,
     Help,
     JsonAssert(usize),
+    ResultValueAssert(usize),
     FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
@@ -847,6 +861,7 @@ struct ManifestParser<'a> {
     stderr: StreamExpectation,
     help: Option<HelpExpectation>,
     json_assertions: Vec<JsonAssertion>,
+    result_value_assertions: Vec<ResultValueAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     manifest_error: Option<ManifestErrorExpectation>,
@@ -871,6 +886,7 @@ impl<'a> ManifestParser<'a> {
             stderr: StreamExpectation::default(),
             help: None,
             json_assertions: Vec::new(),
+            result_value_assertions: Vec::new(),
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
             manifest_error: None,
@@ -910,6 +926,7 @@ impl<'a> ManifestParser<'a> {
             "[env]" => Section::Env,
             "[tools]" => Section::Tools,
             "[[json_assert]]" => self.parse_json_assert_header(),
+            "[[result_value_assert]]" => self.parse_result_value_assert_header(),
             "[[file_assert]]" => self.parse_file_assert_header(),
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
@@ -943,6 +960,16 @@ impl<'a> ManifestParser<'a> {
             equals: String::new(),
         });
         Section::FileAssert(self.file_assertions.len() - 1)
+    }
+
+    fn parse_result_value_assert_header(&mut self) -> Section {
+        self.result_value_assertions.push(ResultValueAssertion {
+            value_path: String::new(),
+            path: String::new(),
+            equals: None,
+            missing: false,
+        });
+        Section::ResultValueAssert(self.result_value_assertions.len() - 1)
     }
 
     fn parse_diagnostic_header(&mut self) -> Section {
@@ -1022,6 +1049,9 @@ impl<'a> ManifestParser<'a> {
             Section::Tools => self.parse_tools_key(line_number, key, value),
             Section::JsonAssert(index) => {
                 self.parse_json_assert_key(index, line_number, key, value)
+            }
+            Section::ResultValueAssert(index) => {
+                self.parse_result_value_assert_key(index, line_number, key, value)
             }
             Section::FileAssert(index) => {
                 self.parse_file_assert_key(index, line_number, key, value)
@@ -1108,6 +1138,38 @@ impl<'a> ManifestParser<'a> {
                 self.path,
                 line_number,
                 format!("unknown json_assert key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_result_value_assert_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &str,
+    ) {
+        match key {
+            "value_path" => {
+                self.result_value_assertions[index].value_path =
+                    parse_string(self.path, line_number, value)
+            }
+            "path" => {
+                self.result_value_assertions[index].path =
+                    parse_string(self.path, line_number, value)
+            }
+            "equals" => {
+                self.result_value_assertions[index].equals =
+                    Some(parse_manifest_json_value(self.path, line_number, value))
+            }
+            "missing" => {
+                self.result_value_assertions[index].missing =
+                    parse_bool(self.path, line_number, value)
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown result_value_assert key `{key}`"),
             ),
         }
     }
@@ -1294,6 +1356,7 @@ impl<'a> ManifestParser<'a> {
                 stderr: self.stderr,
                 help: self.help,
                 json_assertions: self.json_assertions,
+                result_value_assertions: self.result_value_assertions,
                 file_assertions: self.file_assertions,
                 diagnostics: self.diagnostics,
                 binary_fixtures: self.binary_fixtures,
@@ -1319,6 +1382,36 @@ impl<'a> ManifestParser<'a> {
                     0,
                     format!(
                         "json_assert {index} needs exactly one of `equals` or `missing = true`"
+                    ),
+                );
+            }
+        }
+        for (index, assertion) in manifest
+            .expectations
+            .result_value_assertions
+            .iter()
+            .enumerate()
+        {
+            if assertion.value_path.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("result_value_assert {index} is missing `value_path`"),
+                );
+            }
+            if assertion.path.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("result_value_assert {index} is missing `path`"),
+                );
+            }
+            if assertion.missing == assertion.equals.is_some() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!(
+                        "result_value_assert {index} needs exactly one of `equals` or `missing = true`"
                     ),
                 );
             }
@@ -2458,6 +2551,67 @@ fn binary_fixture_schema_references_reject_wrong_targets() {
 }
 
 #[test]
+fn manifest_result_value_assertions_parse_paths() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "codec.incomplete_input"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview"
+missing = true
+"#,
+    );
+
+    assert!(manifest.expectations.needs_stdout_json());
+    let assertions = &manifest.expectations.result_value_assertions;
+    assert_eq!(assertions.len(), 2);
+    assert_eq!(assertions[0].value_path, "error.details.value");
+    assert_eq!(assertions[0].path, "value.id");
+    assert_eq!(
+        assertions[0].equals,
+        Some(JsonValue::String("codec.incomplete_input".to_string()))
+    );
+    assert!(assertions[1].missing);
+}
+
+#[test]
+fn result_value_parser_exposes_runtime_diagnostic_shape() {
+    let parsed = parse_result_value(
+        "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))",
+    )
+    .expect("runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&parsed, "constructor"),
+        Some(&JsonValue::String("Err".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.constructor"),
+        Some(&JsonValue::String("RuntimeDiagnostic".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.detail.field_path.1.name"),
+        Some(&JsonValue::String("body".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.detail.facts.expected_count.value"),
+        Some(&JsonValue::Number(3))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.detail.preview.truncated"),
+        Some(&JsonValue::Bool(false))
+    );
+}
+
+#[test]
 fn manifest_output_chunk_lists_parse_ordered_hex_chunks() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -2723,6 +2877,60 @@ fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &
     );
 }
 
+fn assert_result_value_path(
+    context: &CaseRunContext<'_>,
+    json: &JsonValue,
+    assertion: &ResultValueAssertion,
+) {
+    let rendered = json_path(json, &assertion.value_path)
+        .and_then(JsonValue::as_str)
+        .unwrap_or_else(|| {
+            panic!(
+                "{}: result value source path `{}` was not found as a string in {:?}",
+                context.label(),
+                assertion.value_path,
+                json
+            )
+        });
+    let parsed = parse_result_value(rendered).unwrap_or_else(|error| {
+        panic!(
+            "{}: result value at `{}` could not be parsed: {error}\nvalue: {rendered}",
+            context.label(),
+            assertion.value_path
+        )
+    });
+
+    if assertion.missing {
+        assert!(
+            json_path(&parsed, &assertion.path).is_none(),
+            "{}: result value path `{}` should be missing in {:?}",
+            context.label(),
+            assertion.path,
+            parsed
+        );
+        return;
+    }
+
+    let actual = json_path(&parsed, &assertion.path).unwrap_or_else(|| {
+        panic!(
+            "{}: result value path `{}` was not found in {:?}",
+            context.label(),
+            assertion.path,
+            parsed
+        )
+    });
+    assert_eq!(
+        actual,
+        assertion
+            .equals
+            .as_ref()
+            .expect("non-missing result value assertion should have expected value"),
+        "{}: result value path `{}` mismatch",
+        context.label(),
+        assertion.path
+    );
+}
+
 fn assert_diagnostic(
     context: &CaseRunContext<'_>,
     json: &JsonValue,
@@ -2874,6 +3082,250 @@ fn json_path<'a>(mut value: &'a JsonValue, path: &str) -> Option<&'a JsonValue> 
         };
     }
     Some(value)
+}
+
+fn parse_result_value(rendered_value: &str) -> Result<JsonValue, String> {
+    let trimmed = rendered_value.trim();
+    if let Some(inner) = constructor_arg(trimmed, "Err") {
+        return parse_veln_value(trimmed).or_else(|_| {
+            Ok(result_value_object(
+                "Err",
+                vec![("value", parse_veln_value(inner)?)],
+            ))
+        });
+    }
+    Ok(result_value_object(
+        "Err",
+        vec![("value", parse_veln_value(trimmed)?)],
+    ))
+}
+
+fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
+    let text = text.trim();
+    if text == "Nil" {
+        return Ok(JsonValue::Array(Vec::new()));
+    }
+    if text == "NoRuntimeBytePreview" {
+        return Ok(result_value_object("NoRuntimeBytePreview", Vec::new()));
+    }
+    let Some((name, args)) = split_constructor_call(text) else {
+        return Ok(parse_veln_atom(text));
+    };
+
+    match name {
+        "Err" => {
+            let args = expect_arity(name, args, 1)?;
+            Ok(result_value_object(
+                "Err",
+                vec![("value", parse_veln_value(args[0])?)],
+            ))
+        }
+        "RuntimeDiagnostic" => {
+            let args = expect_arity(name, args, 3)?;
+            Ok(result_value_object(
+                "RuntimeDiagnostic",
+                vec![
+                    ("id", JsonValue::String(args[0].trim().to_string())),
+                    ("message", JsonValue::String(args[1].trim().to_string())),
+                    ("detail", parse_veln_value(args[2])?),
+                ],
+            ))
+        }
+        "RuntimeByteDiagnostic" => {
+            let args = expect_arity(name, args, 4)?;
+            Ok(result_value_object(
+                "RuntimeByteDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("field_path", parse_veln_list(args[1])?),
+                    ("facts", parse_veln_value(args[2])?),
+                    ("preview", parse_veln_value(args[3])?),
+                ],
+            ))
+        }
+        "RuntimeDiagnosticFieldPathSegment" => {
+            let args = expect_arity(name, args, 2)?;
+            Ok(result_value_object(
+                "RuntimeDiagnosticFieldPathSegment",
+                vec![
+                    ("kind", JsonValue::String(args[0].trim().to_string())),
+                    ("name", JsonValue::String(args[1].trim().to_string())),
+                ],
+            ))
+        }
+        "RuntimeByteCountFacts" => {
+            let args = expect_arity(name, args, 3)?;
+            Ok(result_value_object(
+                "RuntimeByteCountFacts",
+                vec![
+                    ("expected_count", parse_veln_value(args[0])?),
+                    ("available_count", parse_veln_value(args[1])?),
+                    ("readiness", JsonValue::String(args[2].trim().to_string())),
+                ],
+            ))
+        }
+        "RuntimeByteRangeFacts" => {
+            let args = expect_arity(name, args, 2)?;
+            Ok(result_value_object(
+                "RuntimeByteRangeFacts",
+                vec![
+                    ("requested_count", parse_veln_value(args[0])?),
+                    ("available_count", parse_veln_value(args[1])?),
+                ],
+            ))
+        }
+        "RuntimeByteReasonFacts" => {
+            let args = expect_arity(name, args, 1)?;
+            Ok(result_value_object(
+                "RuntimeByteReasonFacts",
+                vec![("reason", JsonValue::String(args[0].trim().to_string()))],
+            ))
+        }
+        "RuntimeBytePreview" => {
+            let args = expect_arity(name, args, 4)?;
+            Ok(result_value_object(
+                "RuntimeBytePreview",
+                vec![
+                    ("encoding", JsonValue::String("hex".to_string())),
+                    ("data", JsonValue::String(args[0].trim().to_string())),
+                    ("preview_byte_count", parse_veln_value(args[1])?),
+                    ("total_byte_count", parse_veln_value(args[2])?),
+                    ("truncated", parse_veln_value(args[3])?),
+                ],
+            ))
+        }
+        "ByteOffset" | "ByteCount" => {
+            let args = expect_arity(name, args, 1)?;
+            Ok(result_value_object(
+                name,
+                vec![("value", parse_veln_nonnegative_integer(name, args[0])?)],
+            ))
+        }
+        "Cons" => Ok(JsonValue::Array(parse_veln_list_items(text)?)),
+        _ => Ok(result_value_object(
+            name,
+            vec![(
+                "fields",
+                JsonValue::Array(
+                    args.into_iter()
+                        .map(parse_veln_value)
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+            )],
+        )),
+    }
+}
+
+fn parse_veln_list(text: &str) -> Result<JsonValue, String> {
+    Ok(JsonValue::Array(parse_veln_list_items(text)?))
+}
+
+fn parse_veln_list_items(text: &str) -> Result<Vec<JsonValue>, String> {
+    let text = text.trim();
+    if text == "Nil" {
+        return Ok(Vec::new());
+    }
+    let Some((name, args)) = split_constructor_call(text) else {
+        return Err(format!("expected list value, got `{text}`"));
+    };
+    if name != "Cons" {
+        return Err(format!("expected `Cons` or `Nil`, got `{name}`"));
+    }
+    let args = expect_arity(name, args, 2)?;
+    let mut values = vec![parse_veln_value(args[0])?];
+    values.extend(parse_veln_list_items(args[1])?);
+    Ok(values)
+}
+
+fn parse_veln_atom(text: &str) -> JsonValue {
+    match text {
+        "true" => JsonValue::Bool(true),
+        "false" => JsonValue::Bool(false),
+        _ => text
+            .parse::<i64>()
+            .map(JsonValue::Number)
+            .unwrap_or_else(|_| JsonValue::String(text.to_string())),
+    }
+}
+
+fn parse_veln_nonnegative_integer(name: &str, text: &str) -> Result<JsonValue, String> {
+    let value = text
+        .trim()
+        .parse::<i64>()
+        .map_err(|_| format!("`{name}` expects an integer payload, got `{}`", text.trim()))?;
+    Ok(JsonValue::Number(value))
+}
+
+fn split_constructor_call(text: &str) -> Option<(&str, Vec<&str>)> {
+    let open = text.find('(')?;
+    if !text.ends_with(')') {
+        return None;
+    }
+    let name = text[..open].trim();
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return None;
+    }
+    let inner = &text[open + 1..text.len() - 1];
+    Some((name, split_top_level_args(inner)))
+}
+
+fn constructor_arg<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let prefix = format!("{name}(");
+    text.strip_prefix(&prefix)?.strip_suffix(')')
+}
+
+fn split_top_level_args(text: &str) -> Vec<&str> {
+    let mut args = Vec::new();
+    let mut start = 0;
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                args.push(text[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    let tail = text[start..].trim();
+    if !tail.is_empty() {
+        args.push(tail);
+    }
+    args
+}
+
+fn expect_arity<'a>(
+    name: &str,
+    args: Vec<&'a str>,
+    expected: usize,
+) -> Result<Vec<&'a str>, String> {
+    if args.len() == expected {
+        Ok(args)
+    } else {
+        Err(format!(
+            "`{name}` expects {expected} argument(s), got {}",
+            args.len()
+        ))
+    }
+}
+
+fn result_value_object(constructor: &str, fields: Vec<(&str, JsonValue)>) -> JsonValue {
+    let mut entries = vec![(
+        "constructor".to_string(),
+        JsonValue::String(constructor.to_string()),
+    )];
+    entries.extend(
+        fields
+            .into_iter()
+            .map(|(name, value)| (name.to_string(), value)),
+    );
+    JsonValue::Object(entries)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
