@@ -1,0 +1,61 @@
+command = ["check", "--json", "main.veln", "shapes.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.inference_ambiguous\"", "\"slot_kind\":\"match_scrutinee\"", "\"constraint\":\"match_constructor_pattern_domain\"", "\"candidates\":[\"left\",\"right\"]", "\"id\":\"type.private_inference_incomplete\"", "\"id\":\"type.match_non_exhaustive\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `catch_value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 11
+column = 19
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "match scrutinee type is ambiguous"
+
+[diagnostics.span]
+file = "main.veln"
+line = 18
+column = 8
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `ambiguous_value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 21
+
+[[diagnostics]]
+id = "type.match_non_exhaustive"
+severity = "error"
+kind = "type"
+message = "match is missing case Hidden"
+
+[diagnostics.span]
+file = "main.veln"
+line = 25
+column = 2

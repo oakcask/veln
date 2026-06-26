@@ -1,0 +1,40 @@
+type Event
+	Start(count: Int)
+	Stop
+end
+
+fn option_label(value) -> Int
+	match value
+		Some(1) => 11
+		None => 7
+	end
+end
+
+fn result_label(value) -> Int
+	match value
+		Ok(1) => 13
+		Err("bad") => 17
+	end
+end
+
+fn list_label(value) -> Int
+	match value
+		Cons(1, tail) => if list_is_empty(tail)
+			19
+		else
+			23
+		end
+		Nil => 29
+	end
+end
+
+fn source_label(value) -> Int
+	match value
+		Event::Start(count) => count + 1
+		Stop => 31
+	end
+end
+
+pub fn main() -> Int
+	option_label(None) + result_label(Err("bad")) + list_label(Nil) + source_label(Stop)
+end

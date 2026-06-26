@@ -1965,7 +1965,38 @@ impl<'a> FunctionChecker<'a> {
         arms: &[MatchArm],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let scrutinee_type = self.infer_expr(scrutinee, None);
+        let mut prechecked_scrutinee_type = None;
+        let pattern_scrutinee_type = match infer_match_scrutinee_type_from_constructor_patterns(
+            arms,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+            &self.environment.adts,
+        ) {
+            MatchScrutineePatternInference::Inferred(ty) => Some(ty),
+            MatchScrutineePatternInference::Ambiguous(candidates) => {
+                let scrutinee_type = self.infer_expr(scrutinee, None);
+                if type_contains_unknown(&scrutinee_type) {
+                    self.push_ambiguous_match_scrutinee_type(
+                        scrutinee.node_id,
+                        scrutinee.span.clone(),
+                        candidates,
+                    );
+                } else {
+                    prechecked_scrutinee_type = Some(scrutinee_type);
+                }
+                None
+            }
+            MatchScrutineePatternInference::Uninferred => None,
+        };
+        let scrutinee_expected = pattern_scrutinee_type.as_ref().map(|ty| ExpectedType {
+            ty: ty.clone(),
+            source: ExpectedTypeSource::Inferred,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Match constructor patterns inferred the scrutinee type here.",
+        });
+        let scrutinee_type = prechecked_scrutinee_type
+            .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()));
         if arms.is_empty() {
             self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
             return expected
@@ -2852,6 +2883,34 @@ impl<'a> FunctionChecker<'a> {
                 ("constructor", JsonValue::string(symbol)),
                 ("inferred_type", JsonValue::string(ty.render())),
                 ("constraint", JsonValue::string("constructor_type_context")),
+            ]),
+        ));
+    }
+
+    pub(super) fn push_ambiguous_match_scrutinee_type(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        candidates: Vec<String>,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            "type.inference_ambiguous",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "match scrutinee type is ambiguous",
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("slot_kind", JsonValue::string("match_scrutinee")),
+                (
+                    "candidates",
+                    JsonValue::array(candidates.into_iter().map(JsonValue::string)),
+                ),
+                (
+                    "constraint",
+                    JsonValue::string("match_constructor_pattern_domain"),
+                ),
             ]),
         ));
     }

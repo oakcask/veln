@@ -1722,6 +1722,35 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
 }
 
 #[test]
+fn ambiguous_constructor_patterns_do_not_infer_known_scrutinee_domain() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  Same\n",
+            "end\n",
+            "type Right\n",
+            "  Same\n",
+            "end\n",
+            "fn label(value: Left) -> Int\n",
+            "  match value\n",
+            "    Same => 1\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.inference_ambiguous"
+            && diagnostic.message == "match scrutinee type is ambiguous"
+    }));
+}
+
+#[test]
 fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
     let types = SourceFile::new(
         "types.veln",

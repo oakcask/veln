@@ -113,6 +113,15 @@ impl AdtRegistry {
         self.lookup_constructor(segments, current_module, uses, true)
     }
 
+    pub(crate) fn constructor_candidates(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Vec<AdtConstructor<'_>> {
+        self.lookup_constructor_candidates(segments, current_module, uses, true)
+    }
+
     pub(crate) fn nullary_constructor(
         &self,
         segments: &[String],
@@ -184,6 +193,22 @@ impl AdtRegistry {
         uses: &[UseDecl],
         include_imports: bool,
     ) -> ConstructorLookup<'_> {
+        let matches =
+            self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
+        match matches.as_slice() {
+            [] => ConstructorLookup::Missing,
+            [constructor] => ConstructorLookup::Found(*constructor),
+            _ => ConstructorLookup::Ambiguous,
+        }
+    }
+
+    fn lookup_constructor_candidates(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        include_imports: bool,
+    ) -> Vec<AdtConstructor<'_>> {
         let mut matches = Vec::new();
         for descriptor in &self.descriptors {
             if !descriptor_visible(descriptor, segments, current_module, uses, include_imports) {
@@ -205,11 +230,7 @@ impl AdtRegistry {
                 }
             }
         }
-        match matches.as_slice() {
-            [] => ConstructorLookup::Missing,
-            [constructor] => ConstructorLookup::Found(*constructor),
-            _ => ConstructorLookup::Ambiguous,
-        }
+        matches
     }
 }
 

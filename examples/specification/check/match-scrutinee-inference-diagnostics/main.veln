@@ -1,0 +1,28 @@
+use shapes
+
+type Left
+	Same(value: Int)
+end
+
+type Right
+	Same(value: Int)
+end
+
+fn catch_all_only(catch_value) -> Int
+	match catch_value
+		_ => 0
+	end
+end
+
+fn ambiguous_domain(ambiguous_value) -> Int
+	match ambiguous_value
+		Same(1) => 1
+		_ => 0
+	end
+end
+
+fn hidden_constructor_exhaustiveness(hidden_value) -> Int
+	match hidden_value
+		shapes::Shown => 2
+	end
+end
