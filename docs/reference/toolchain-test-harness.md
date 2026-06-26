@@ -36,8 +36,9 @@ assertions, diagnostic selectors, and file content assertions.
 - Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
   `[tools]`, `[requires]`, and `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
-  `[help]`, `[[json_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
-  `[[binary_fixture]]`, and `[[output_chunk_list]]`.
+  `[help]`, `[[json_assert]]`, `[[result_value_assert]]`,
+  `[[diagnostics]]`, `[[file_assert]]`, `[[binary_fixture]]`, and
+  `[[output_chunk_list]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
 
@@ -46,7 +47,10 @@ assertions, diagnostic selectors, and file content assertions.
 Use `exit`, `[stdout]`, and `[stderr]` for command-visible output. Stream
 sections accept `format = "empty"`, `"text"`, or `"json"` where JSON is valid
 for stdout, plus `contains` fragments for stable text checks. Use
-`[[json_assert]]` and `[[diagnostics]]` for semantic checks inside JSON stdout.
+`[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
+semantic checks inside JSON stdout. `[[result_value_assert]]` reads a rendered
+result-failure value string from `value_path`, wraps it as the outer `Err`,
+and then checks a parsed value path with either `equals` or `missing = true`.
 
 Use `[help]` for command help output. It checks a help stream, defaulting to
 stdout, through stable help fragments instead of full-output equality. Its
