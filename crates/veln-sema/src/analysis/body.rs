@@ -19,6 +19,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
     pub(super) bindings: Vec<Binding>,
+    omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
@@ -28,6 +29,12 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
 pub(in crate::analysis) struct PatternBinding {
     name: String,
     ty: Type,
+    node_id: NodeId,
+    span: SourceSpan,
+}
+
+struct OmittedLocalBinding {
+    name: String,
     node_id: NodeId,
     span: SourceSpan,
 }
@@ -117,6 +124,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             bindings: Vec::new(),
+            omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
             inferred_return_type: None,
@@ -156,15 +164,22 @@ impl<'a> FunctionChecker<'a> {
                         if !self.declare_local_name(
                             &binding.name,
                             binding.node_id.display("pattern"),
-                            binding.span,
+                            binding.span.clone(),
                             "local binding",
                         ) {
                             continue;
                         }
                         self.bindings.push(Binding {
-                            name: binding.name,
-                            ty: binding.ty,
+                            name: binding.name.clone(),
+                            ty: binding.ty.clone(),
                         });
+                        if annotation.is_none() && type_contains_unknown(&binding.ty) {
+                            self.omitted_local_bindings.push(OmittedLocalBinding {
+                                name: binding.name,
+                                node_id: binding.node_id,
+                                span: binding.span,
+                            });
+                        }
                     }
                 }
                 BodyLineKind::Expr { expr } => {
@@ -186,6 +201,7 @@ impl<'a> FunctionChecker<'a> {
             }
         }
         self.check_implicit_unit_return();
+        self.check_omitted_local_inference_complete();
         self.check_private_inference_complete();
         self.check_effect_boundaries();
     }
@@ -301,6 +317,52 @@ impl<'a> FunctionChecker<'a> {
                     JsonValue::string("Add a return type annotation."),
                 ),
                 ("span", span_json(&self.function.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+        }
+    }
+
+    fn check_omitted_local_inference_complete(&mut self) {
+        for omitted in &self.omitted_local_bindings {
+            let inferred = self
+                .bindings
+                .iter()
+                .rev()
+                .find(|binding| binding.name == omitted.name)
+                .map(|binding| &binding.ty)
+                .unwrap_or(&Type::Unknown);
+            if !type_contains_unknown(inferred) {
+                continue;
+            }
+            let mut diagnostic = Diagnostic::new(
+                "type.local_inference_incomplete",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "omitted local binding `{}` has no concrete inferred type",
+                    omitted.name
+                ),
+                Some(omitted.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type_check")),
+                    (
+                        "node_id",
+                        JsonValue::string(omitted.node_id.display("pattern")),
+                    ),
+                    ("slot_kind", JsonValue::string("local_binding")),
+                    ("binding", JsonValue::string(omitted.name.clone())),
+                    ("inferred_type", JsonValue::string(inferred.render())),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("repair_hint")),
+                (
+                    "message",
+                    JsonValue::string(
+                        "Add a type annotation or a later same-function use that fixes the type.",
+                    ),
+                ),
+                ("span", span_json(&omitted.span)),
             ]));
             self.diagnostics.push(diagnostic);
         }
@@ -1183,13 +1245,8 @@ impl<'a> FunctionChecker<'a> {
             }
             ConstructorLookup::Missing => match segments {
                 [name] => {
-                    if let Some(binding) = self
-                        .bindings
-                        .iter()
-                        .rev()
-                        .find(|binding| binding.name == *name)
-                    {
-                        binding.ty.clone()
+                    if let Some(ty) = self.infer_local_binding_name(name, expected) {
+                        ty
                     } else if self.bare_prelude_import_is_ambiguous(name) {
                         self.push_ambiguous_unqualified_function_import(
                             expr.node_id,
@@ -1238,6 +1295,26 @@ impl<'a> FunctionChecker<'a> {
                 }
             },
         }
+    }
+
+    fn infer_local_binding_name(
+        &mut self,
+        name: &str,
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let index = self
+            .bindings
+            .iter()
+            .rposition(|binding| binding.name == name)?;
+        let current = self.bindings[index].ty.clone();
+        if type_contains_unknown(&current)
+            && let Some(expected) = expected
+            && !type_contains_unknown(&expected.ty)
+        {
+            self.bindings[index].ty = expected.ty.clone();
+            return Some(expected.ty.clone());
+        }
+        Some(current)
     }
 
     pub(super) fn infer_call(

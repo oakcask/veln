@@ -1,0 +1,19 @@
+# Omitted local let types still need one concrete same-function type.
+fn consume_int(items: Vec<Int>) -> Int
+	1
+end
+
+fn consume_string(items: Vec<String>) -> Int
+	1
+end
+
+fn unconstrained() -> Int
+	let items = []
+	1
+end
+
+fn conflicting() -> Int
+	let items = []
+	let first: Int = consume_int(items)
+	consume_string(items)
+end

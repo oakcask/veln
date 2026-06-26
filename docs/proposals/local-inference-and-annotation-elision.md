@@ -63,23 +63,23 @@ generalization.
 
 ## Local Let Annotation Elision
 
-A local binding may omit its type annotation when the checker can infer the
-binding type from one of these sources:
+Implemented current behavior is specified in
+`../specification/types.md#read-first` and
+`../specification/types-full.md#inference` for the narrow same-function local
+`let` slice: a binding whose initializer leaves `unknown` may be fixed by a
+later call argument or return-compatible use that requires one concrete type.
+Unconstrained bindings and later incompatible uses are diagnostics.
 
-- the initializer expression
-- an expected type flowing into the initializer from a call argument, return
-  position, record field, collection element, constructor payload, match arm,
-  or typed hole context
-- later same-function uses that demand one concrete type
+Remaining planned work in this section extends omitted local annotations into
+broader expected-type paths that are not covered by the current call-argument
+and return-compatible slice, including record fields, collection elements,
+constructor payloads, match arms, typed hole context, and other nested
+initializer positions.
 
-For example, an empty collection literal may stay annotation-free when a later
-call or return fixes its element type. A binding with no constraining use, or
-with incompatible constraining uses, remains invalid without an annotation.
-
-Record and nested pattern lets may also omit annotations when the right-hand
-side has a known record or ADT type and every named binding receives a concrete
-field or payload type. Wildcard lets follow the same checking rule but do not
-add a binding.
+Record and nested pattern lets may also omit annotations in a future slice when
+the right-hand side has a known record or ADT type and every named binding
+receives a concrete field or payload type. Wildcard lets follow the same
+checking rule but do not add a binding.
 
 ## Private Helper Inference From Call Sites
 
