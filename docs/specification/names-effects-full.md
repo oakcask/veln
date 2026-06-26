@@ -212,6 +212,9 @@ time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
 time::cancel_token() -> CancelToken effects [time]
+time::cancel_owner() -> CancelOwner effects [time]
+time::cancel_token_from(owner: CancelOwner) -> CancelToken effects [time]
+time::cancel_owned(owner: CancelOwner) -> () effects [time]
 time::cancel(token: CancelToken) -> () effects [time]
 time::is_cancelled(token: CancelToken) -> Bool effects [time]
 time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
@@ -235,6 +238,8 @@ the adapter-owned accept, read, or write attempt observes a `Deadline` or
 Direct calls to `time::timeout_ms`,
 `time::deadline_after_ms`, `time::wait_until`,
 `time::cancel_token`,
+`time::cancel_owner`, `time::cancel_token_from`,
+`time::cancel_owned`,
 `time::cancel`, `time::is_cancelled`, and
 `time::wait_until_cancellable`,
 `time::wait_until_cancellable_outcome` infer the `time` effect. A public
@@ -319,9 +324,16 @@ fixture-backed deadline-aware path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::wait_until` waits until that deadline
 expires; `time::cancel_token` returns a source-visible cancellation handle;
-`time::cancel` requests cancellation through that handle; `time::is_cancelled`
-observes the handle state as `Bool` without waiting, cancelling, allocating a
-new handle, or reporting a runtime transport failure; and
+`time::cancel_owner` returns a source-visible cancellation owner;
+`time::cancel_token_from` exposes an observer `CancelToken` from that owner
+for existing cancellable wait, channel, and socket calls;
+`time::cancel_owned` requests cancellation through the owner while preserving
+the observer token API;
+`time::cancel` requests cancellation through a direct token created by
+`time::cancel_token`; attempting to cancel an owner-derived observer token
+through `time::cancel` is a runtime failure; `time::is_cancelled`
+observes token state as `Bool` without waiting, cancelling, allocating a new
+handle, or reporting a runtime transport failure; and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first.
 `time::wait_until_cancellable_outcome` uses the same deadline and token values
@@ -352,6 +364,15 @@ cancellable channel-first case selects ordinary `StreamInput` values with
 deadline-expired, and cancelled outcomes into response actions. The adapter
 declares both `time` and `concurrency`; the pure handler it calls remains free
 of transport effects.
+The cancellation-owner lifecycle case uses `time::cancel_owner`,
+`time::cancel_token_from`, and `time::cancel_owned` so adapter cleanup keeps
+the cancellation owner while routing and socket code receive only the
+observer `CancelToken`. After cleanup requests cancellation through the owner,
+`time::wait_until_cancellable_outcome` returns `WaitCancelled` and
+`net::read_chunk_until_cancellable` returns `ReadCancelled` as ordinary
+adapter-observable outcome values under the same `net`, `time`, and
+`concurrency` boundary. The observer-only runtime case keeps direct
+`time::cancel` from taking authority through an owner-derived token.
 
 The implemented socket stream adapter routing examples compose multiple
 socket reads and ordered `net::write_chunk` calls with standard channel and

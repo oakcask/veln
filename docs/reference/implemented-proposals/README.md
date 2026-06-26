@@ -100,6 +100,8 @@ behavior.
   [network-adapter-outbound-write-ordering.md](network-adapter-outbound-write-ordering.md).
 - Network adapter clean shutdown:
   [network-adapter-clean-shutdown.md](network-adapter-clean-shutdown.md).
+- Network cancel owner boundary:
+  [network-cancel-owner-boundary.md](network-cancel-owner-boundary.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
 - Network production cancellable deadline lifecycle:

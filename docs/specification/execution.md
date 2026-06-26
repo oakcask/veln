@@ -67,8 +67,13 @@ execution reference.
   deadline-aware reads observe clean stream end through the same `None` result
   as the fixture path.
   `CancelToken` handles are source-visible time-boundary values used by
-  adapter-owned waits. `time::is_cancelled` observes whether such a handle has
-  already been cancelled without waiting or requesting cancellation.
+  adapter-owned waits. `CancelOwner` values let adapter code keep
+  cancellation authority while exposing observer `CancelToken` handles to
+  wait, channel, and socket code. Owner-derived observer tokens cannot be
+  cancelled through direct `time::cancel(token)`; direct tokens created by
+  `time::cancel_token` keep that compatibility path. `time::is_cancelled`
+  observes whether such a token has already been cancelled without waiting or
+  requesting cancellation.
   `CancellableWaitOutcome` values let adapter-owned waits observe completion,
   deadline expiry, or cancellation without stopping the entry. Stream adapter
   examples compose those outcomes with channel-routed `StreamInput` values,
@@ -96,6 +101,15 @@ execution reference.
   channel, observes cancellation and deadline-expiry decisions as ordinary
   source values, projects only `SendBytes` actions to `net::write_chunk`, and
   then records `net::close_stream` followed by `net::close_listener`.
+  The checked cancellation-owner adapter example is
+  `examples/specification/run/socket-stream-adapter-cancel-owner-lifecycle/`;
+  it keeps the `CancelOwner` in adapter cleanup, passes only the observer
+  `CancelToken` to routing and socket code, requests cancellation through the
+  owner, then observes cancelled wait and read attempts as ordinary outcome
+  values before closing the owned transport handles. The checked
+  `examples/specification/run/transport-cancel-owner-observer-only-json/`
+  case keeps direct cancellation of an owner-derived observer token on the
+  runtime-failure surface.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.

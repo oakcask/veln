@@ -99,6 +99,7 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
         StandardType::NetListener => Some(net_listener_type()),
         StandardType::NetStream => Some(net_stream_type()),
         StandardType::Deadline => Some(Type::named("Deadline", Vec::new())),
+        StandardType::CancelOwner => Some(cancel_owner_type()),
         StandardType::CancelToken => Some(cancel_token_type()),
         StandardType::AcceptOutcome => Some(Type::named("AcceptOutcome", Vec::new())),
         StandardType::StreamReadOutcome => Some(Type::named("StreamReadOutcome", Vec::new())),
@@ -144,6 +145,10 @@ fn net_stream_type() -> Type {
 
 fn cancel_token_type() -> Type {
     Type::named("CancelToken", Vec::new())
+}
+
+fn cancel_owner_type() -> Type {
+    Type::named("CancelOwner", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(
@@ -934,6 +939,21 @@ mod tests {
             standard_library_signature(&path("time", "cancel_token")).expect("time signature");
         assert!(params.is_empty());
         assert_eq!(return_type, cancel_token_type());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "cancel_owner")).expect("time signature");
+        assert!(params.is_empty());
+        assert_eq!(return_type, cancel_owner_type());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "cancel_token_from")).expect("time signature");
+        assert_eq!(params, vec![cancel_owner_type()]);
+        assert_eq!(return_type, cancel_token_type());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "cancel_owned")).expect("time signature");
+        assert_eq!(params, vec![cancel_owner_type()]);
+        assert_eq!(return_type, Type::unit());
 
         let (params, return_type) =
             standard_library_signature(&path("time", "cancel")).expect("time signature");

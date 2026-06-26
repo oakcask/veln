@@ -2797,6 +2797,15 @@ against the built `veln` binary.
   channel, turns cancellation and deadline expiry into ordinary response
   actions, writes only ordered `SendBytes` actions, and then records explicit
   stream and listener close.
+- `run/socket-stream-adapter-cancel-owner-lifecycle/`: one adapter function
+  keeps cancellation authority in `CancelOwner`, passes only an observer
+  `CancelToken` to routing, wait, and cancellable socket-read code, requests
+  cancellation through owner cleanup, and observes cancelled waits and reads
+  as ordinary outcome values before closing owned transport handles.
+- `run/transport-cancel-owner-observer-only-json/`: owner-derived observer
+  tokens reject direct `time::cancel(token)` at the runtime boundary while
+  direct tokens from `time::cancel_token` keep their existing cancellation
+  path.
 - `run/channel-first-stream-routing-general-list/`: a source-visible helper
   accepts a receiver list with more than four `StreamInput` routes, returns
   the selected route index plus value, and preserves lower-index priority
@@ -2843,6 +2852,10 @@ against the built `veln` binary.
 - `check/socket-stream-adapter-clean-shutdown-effects/`: the clean shutdown
   adapter boundary must declare `net`, `time`, and `concurrency`, while the
   handler boundary remains free of transport effects.
+- `check/socket-stream-adapter-cancel-owner-lifecycle-effects/`: the
+  cancellation-owner adapter boundary must declare `net`, `time`, and
+  `concurrency`, while the handler boundary remains free of transport
+  effects.
 - `check/channel-first-stream-routing-effects/`: channel-first stream routing
   must declare `concurrency`, socket wrappers around that routing must declare
   both `net` and `concurrency`, and the plain handler boundary stays free of

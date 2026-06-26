@@ -281,7 +281,8 @@ compare it with `../specification/` before changing behavior.
   boundary, deadline-aware adapter lifecycle, deadline-aware accept and read
   failure runtime boundaries, production cancellable deadline-aware adapter
   lifecycle and outcome boundary, adapter close-failure runtime boundary, and
-  explicit listener-close boundary,
+  explicit listener-close boundary, adapter-owned cancellation owner
+  lifecycle boundary,
   bounded
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
@@ -312,6 +313,8 @@ compare it with `../specification/` before changing behavior.
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
   The completed adapter-owned clean shutdown slice is archived under
   [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).
+  The completed adapter-owned cancellation owner slice is archived under
+  [Network Cancel Owner Boundary](../reference/implemented-proposals/network-cancel-owner-boundary.md).
 
 ## Update When
 

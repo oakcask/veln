@@ -275,11 +275,25 @@
         new java.util.concurrent.atomic.AtomicInteger(0);
 
     private static final class CancelToken {
+        private final boolean observerOnly;
         private volatile boolean cancelled;
+
+        private CancelToken(boolean observerOnly) {
+            this.observerOnly = observerOnly;
+        }
 
         @Override
         public String toString() {
             return cancelled ? "CancelToken(cancelled)" : "CancelToken(active)";
+        }
+    }
+
+    private static final class CancelOwner {
+        private final CancelToken token = new CancelToken(true);
+
+        @Override
+        public String toString() {
+            return token.cancelled ? "CancelOwner(cancelled)" : "CancelOwner(active)";
         }
     }
 
@@ -1188,11 +1202,28 @@
     }
 
     public static Object timeCancelToken() {
-        return new CancelToken();
+        return new CancelToken(false);
+    }
+
+    public static Object timeCancelOwner() {
+        return new CancelOwner();
+    }
+
+    public static Object timeCancelTokenFrom(Object owner) {
+        return asCancelOwner(owner).token;
+    }
+
+    public static Object timeCancelOwned(Object owner) {
+        asCancelOwner(owner).token.cancelled = true;
+        return UNIT;
     }
 
     public static Object timeCancel(Object token) {
-        asCancelToken(token).cancelled = true;
+        CancelToken cancelToken = asCancelToken(token);
+        if (cancelToken.observerOnly) {
+            throw new RuntimeFailure("cancellation token is observer-only");
+        }
+        cancelToken.cancelled = true;
         return UNIT;
     }
 
@@ -1522,4 +1553,8 @@
 
     private static CancelToken asCancelToken(Object value) {
         return (CancelToken) value;
+    }
+
+    private static CancelOwner asCancelOwner(Object value) {
+        return (CancelOwner) value;
     }

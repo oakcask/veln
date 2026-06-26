@@ -35,9 +35,15 @@ compiler-known calls.
   reads, writes, clean listener end, stream close, and listener close under
   the same public calls,
   relative deadline calls, and cancellable deadline waits through
-  source-visible `CancelToken` handles. `time::is_cancelled` observes a token
+  source-visible `CancelToken` handles. `time::cancel_owner` creates a
+  source-visible cancellation owner, `time::cancel_token_from` exposes an
+  observer token for existing cancellable operations, and
+  `time::cancel_owned` requests cancellation through the owner under the
+  same `time` effect. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
-  cancellation. The value-returning cancellable wait returns
+  cancellation. Direct `time::cancel` remains available for direct tokens
+  created by `time::cancel_token`, while owner-derived observer tokens reject
+  direct cancellation at runtime. The value-returning cancellable wait returns
   `CancellableWaitOutcome` under the same `time` effect so adapter code can
   treat completion, deadline expiry, and cancellation as ordinary values.
   Stream adapter routing that combines those outcomes with channel-routed
@@ -101,7 +107,11 @@ compiler-known calls.
   `net` and `concurrency`; the deadline-aware, cancellable, cancellable
   deadline-aware, cancel-close, and clean-shutdown lifecycle adapters declare
   `net`, `time`, and `concurrency`; the pure handler boundary remains free of
-  transport effects.
+  transport effects. The cancellation-owner lifecycle adapter keeps the
+  `CancelOwner` in adapter cleanup, passes only the observer `CancelToken` to
+  routing, wait, and read code, and observes both `WaitCancelled` and
+  `ReadCancelled` as ordinary outcome values after owner-requested
+  cancellation.
   The production loopback lifecycle cases use the same `net` and
   `concurrency` declarations as the close-lifecycle adapter, and the
   production deadline-aware lifecycle adds the existing coarse `time` label

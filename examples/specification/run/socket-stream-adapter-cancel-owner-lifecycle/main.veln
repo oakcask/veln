@@ -1,0 +1,141 @@
+# Cancellation owners keep authority in adapter cleanup.
+use stdio
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	CleanupAfterCancel
+end
+
+fn handle_stream_input(input: StreamInput, state: { chunks : Int }) -> { actions : List<ResponseAction>, next_state : { chunks : Int } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1 } }
+		End => { actions: list_nil(), next_state: state }
+	end
+end
+
+fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, append_actions(tail, right))
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => 1 + write_count(tail)
+			CleanupAfterCancel => write_count(tail)
+		end
+	end
+end
+
+fn cleanup_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => cleanup_count(tail)
+			CleanupAfterCancel => 1 + cleanup_count(tail)
+		end
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn read_result_text(outcome: StreamReadOutcome) -> String
+	match outcome
+		ReadChunk(_) => "chunk"
+		ReadEnd => "end"
+		ReadDeadlineExpired => "deadline-expired"
+		ReadCancelled => "cancelled"
+	end
+end
+
+fn wait_result_text(outcome: CancellableWaitOutcome) -> String
+	match outcome
+		WaitCompleted => "completed"
+		WaitDeadlineExpired => "deadline-expired"
+		WaitCancelled => "cancelled"
+	end
+end
+
+fn read_routed_chunk(stream: NetStream, deadline: Deadline, token: CancelToken, state: { chunks : Int }) -> { actions : List<ResponseAction>, next_state : { chunks : Int } } effects [net, time, concurrency]
+	let route = channel::bounded<StreamInput>(1)
+	match net::read_chunk_until_cancellable(stream, deadline, token)
+		ReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
+		ReadEnd => handle_stream_input(route_input(route, End), state)
+		ReadDeadlineExpired => { actions: list_nil(), next_state: state }
+		ReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+	end
+end
+
+fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+	match actions
+		Nil => ()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
+			CleanupAfterCancel => apply_response_actions(stream, tail)
+		end
+	end
+end
+
+fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
+	net::write_chunk(stream, bytes)
+	apply_response_actions(stream, tail)
+end
+
+fn cleanup_owned(owner: CancelOwner) -> List<ResponseAction> effects [time]
+	time::cancel_owned(owner)
+	list_cons(CleanupAfterCancel, list_nil())
+end
+
+fn cancel_owner_lifecycle(listener: NetListener, stream: NetStream, deadline: Deadline, owner: CancelOwner) -> { wait : String, read : String, actions : List<ResponseAction>, next_state : { chunks : Int } } effects [net, time, concurrency]
+	let token: CancelToken = time::cancel_token_from(owner)
+	let handled = read_routed_chunk(stream, deadline, token, { chunks: 0 })
+	let cleanup_actions = cleanup_owned(owner)
+	let wait_text = wait_result_text(time::wait_until_cancellable_outcome(deadline, token))
+	let cancelled_read = net::read_chunk_until_cancellable(stream, deadline, token)
+	let all_actions = append_actions(handled.actions, cleanup_actions)
+	apply_response_actions(stream, all_actions)
+	net::close_stream(stream)
+	net::close_listener(listener)
+	{ wait: wait_text, read: read_result_text(cancelled_read), actions: all_actions, next_state: handled.next_state }
+end
+
+fn lifecycle_result(address: String) -> Result<{ wait : String, read : String, actions : List<ResponseAction>, next_state : { chunks : Int } }, String> effects [net, time, concurrency]
+	let listener: NetListener = net::listen(address)
+	let stream: NetStream = net::accept(listener)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let owner: CancelOwner = time::cancel_owner()
+	Ok(cancel_owner_lifecycle(listener, stream, deadline, owner))
+end
+
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let routed: { wait : String, read : String, actions : List<ResponseAction>, next_state : { chunks : Int } } = lifecycle_result("127.0.0.1:0")?
+	stdio::print("wait ")
+	stdio::print(routed.wait)
+	stdio::print(" read ")
+	stdio::print(routed.read)
+	stdio::print(" actions ")
+	stdio::print(int_to_string(action_count(routed.actions)))
+	stdio::print(" chunks ")
+	stdio::print(int_to_string(routed.next_state.chunks))
+	stdio::print(" writes ")
+	stdio::print(int_to_string(write_count(routed.actions)))
+	stdio::print(" cleanup ")
+	stdio::println(int_to_string(cleanup_count(routed.actions)))
+	Ok(())
+end
