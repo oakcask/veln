@@ -207,6 +207,10 @@ fn request_headers_with_scheme_value(value: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", value), HpackHeader(":request", "method,path"), 9)
 end
 
+fn request_headers_with_empty_path() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path:"), 9)
+end
+
 fn request_headers_missing_method() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":path", "/"), 9)
 end
@@ -397,6 +401,10 @@ end
 
 fn decoded_request_headers_with_scheme_value(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_with_scheme_value(value_label), next_state(state)))
+end
+
+fn decoded_request_headers_with_empty_path(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_empty_path(), next_state(state)))
 end
 
 fn decoded_request_headers_missing_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -3033,6 +3041,10 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_scheme_value("ftp", state)
 				false => unsupported(block, offset)
 			end
+			95 => match observed_size == 4
+				true => decoded_request_headers_with_empty_path(state)
+				false => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+			end
 			49 => match observed_size == 2
 				true => decoded_request_headers_missing_method(state)
 				false => unsupported(block, offset)
@@ -3366,6 +3378,7 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path:"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => true
@@ -3424,6 +3437,7 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path:"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,connection"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,keep-alive"), _) => true
@@ -3442,6 +3456,7 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":scheme", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,host"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path:"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
@@ -3466,6 +3481,7 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,host"), _) => true
+		HpackHeaderList(_, HpackHeader(":request", "scheme,path:"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "duplicate-method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method-after-regular,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
@@ -3547,6 +3563,13 @@ end
 pub fn header_list_has_invalid_scheme_value(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":scheme", value), HpackHeader(":request", "method,path"), _) => value != "http" and value != "https"
+		_ => false
+	end
+end
+
+pub fn header_list_has_empty_path_value(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path:"), _) => true
 		_ => false
 	end
 end
@@ -3667,6 +3690,7 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => ":method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path:"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "duplicate-method,scheme,path"), _) => ":method,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader("host", _), HpackHeader(":request", "method-after-regular,scheme,path"), _) => "host,:method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":path", _), _) => ":scheme,:path"

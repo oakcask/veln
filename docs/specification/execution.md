@@ -1894,6 +1894,8 @@ execution reference.
   state, and rule provenance remain structured details or related notes.
   Fixture-marked request `:scheme` values are valid only when they are `http`
   or `https`; any other value fails with `scheme_value_not_http_or_https`.
+  Fixture-marked request `:path` values must be non-empty after `:path`
+  presence is confirmed; an empty value fails with `path_value_empty`.
   The same boundary accepts ordinary `te: trailers` on inbound requests and
   rejects any other fixture-marked `te` value with failed fact
   `te_header_value_not_trailers`. Fixture-marked request `content-length`

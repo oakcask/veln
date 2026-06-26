@@ -233,7 +233,8 @@ compare it with `../specification/` before changing behavior.
   `PUSH_PROMISE` send-intent, and
   half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, and request-trailer header-list validation,
-  the source-visible `te` header value rule, the `content-length`
+  the source-visible request `:path` value rule, the source-visible `te`
+  header value rule, the `content-length`
   header-list consistency slice, accepted `content-length` body-length
   accounting for tracked inbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
