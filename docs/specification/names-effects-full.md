@@ -1146,6 +1146,11 @@ condition for the self-hosting prelude helper migration. Every compiler-known
 pure helper in this split is source-backed, while float operator compatibility
 descriptors remain outside the migration candidate pool.
 
+The source-visible `RuntimeDiagnosticDetail` constructor set includes
+`RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
+projecting `http2.protocol.invalid_window_update_increment` failures without
+using the legacy helper side table.
+
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
 descriptor-only list above is the implemented candidate pool for proposal work

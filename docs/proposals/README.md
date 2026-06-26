@@ -84,8 +84,7 @@ compare it with `../specification/` before changing behavior.
   protocol byte previews, plus the HPACK fixture unsupported-header-block
   and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
   range protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
-  preview, HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, and
-  HTTP/2 unexpected SETTINGS ACK protocol byte preview, plus HTTP/2
+  preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, plus HTTP/2
   header-list and header-table receive-limit protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
@@ -217,14 +216,15 @@ compare it with `../specification/` before changing behavior.
   diagnostics for unsupported generated decode and encode directions.
 - [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
   remaining runtime diagnostic payload migration after the implemented
-  source-visible byte diagnostic ADT, HPACK fixture payloads, representative
-  HTTP/2 protocol payload slices including fixed payload-length and
+  source-visible byte diagnostic ADT, HPACK fixture payloads, HTTP/2 protocol
+  payload slices for invalid frame kind, frame-size peer limit, fixed payload
+  length, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency, and
   stream-after-GOAWAY diagnostics, command projection, and executable harness
   assertion slices. The completed HPACK fixture payload slice is archived under
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
-  Remaining work includes unmigrated HTTP/2 protocol and peer-limit diagnostic
-  payloads and removing the legacy side-table bridge once no specification
-  case depends on it.
+  Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
+  diagnostic payloads and removing the legacy side-table bridge once no
+  specification case depends on it.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
