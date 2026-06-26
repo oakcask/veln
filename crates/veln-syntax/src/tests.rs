@@ -1326,7 +1326,7 @@ fn reports_extra_tokens_after_let_pattern() {
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",
-        r#"1 1.5 1.foo "a\"b" @ test where _ _name
+        r#"1 1.5 1.foo "a\"b" @ test where if else _ _name
 "#,
     );
 
@@ -1350,6 +1350,8 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
             (TokenKind::Invalid, "@".to_string()),
             (TokenKind::Test, "test".to_string()),
             (TokenKind::Where, "where".to_string()),
+            (TokenKind::If, "if".to_string()),
+            (TokenKind::Else, "else".to_string()),
             (TokenKind::Underscore, "_".to_string()),
             (TokenKind::Hole, "_name".to_string()),
             (TokenKind::Newline, "\n".to_string()),
@@ -1388,6 +1390,8 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Use, "use"),
         (TokenKind::From, "from"),
         (TokenKind::Match, "match"),
+        (TokenKind::If, "if"),
+        (TokenKind::Else, "else"),
         (TokenKind::Or, "or"),
         (TokenKind::And, "and"),
         (TokenKind::Not, "not"),
@@ -2609,4 +2613,91 @@ fn reports_missing_record_pattern_field_colon_and_keeps_field_pattern() {
         &arms[0].expr.kind,
         ExprKind::StringLiteral(value) if value == "\"zero\""
     ));
+}
+
+#[test]
+fn parses_if_else_expression_chain_as_distinct_surface_expr() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(first: Bool, second: Bool) -> Int\n",
+            "  if first\n",
+            "    1\n",
+            "  else if second\n",
+            "    2\n",
+            "  else\n",
+            "    3\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn choose(first: Bool, second: Bool) -> Int\n",
+            "\tif first\n",
+            "\t\t1\n",
+            "\telse if second\n",
+            "\t\t2\n",
+            "\telse\n",
+            "\t\t3\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::If {
+        condition,
+        then_branch,
+        else_if_branches,
+        else_branch,
+    } = &expr.kind
+    else {
+        panic!("expected if expression");
+    };
+    assert!(
+        matches!(&condition.kind, ExprKind::NamePath(segments) if segments == &vec!["first".to_string()])
+    );
+    assert!(matches!(&then_branch.kind, ExprKind::IntLiteral(value) if value == "1"));
+    assert_eq!(else_if_branches.len(), 1);
+    assert!(
+        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath(segments) if segments == &vec!["second".to_string()])
+    );
+    assert!(matches!(&else_if_branches[0].expr.kind, ExprKind::IntLiteral(value) if value == "2"));
+    assert!(matches!(&else_branch.kind, ExprKind::IntLiteral(value) if value == "3"));
+}
+
+#[test]
+fn reports_if_expression_missing_else_before_end() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(first: Bool) -> Int\n",
+            "  if first\n",
+            "    1\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.if_missing_else")
+        .expect("expected missing else diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "if expression is missing a final `else` branch"
+    );
+    assert_eq!(diagnostic.expected, vec!["else"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
 }

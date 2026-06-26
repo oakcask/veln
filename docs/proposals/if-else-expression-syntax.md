@@ -2,9 +2,12 @@
 
 Status: proposed
 
-This proposal adds `if` / `else if` / `else` / `end` expression syntax for
-ordinary Boolean branching. Current implemented conditional behavior remains
-the `match` expression syntax specified in `../specification/source-surface.md`.
+Implemented source behavior now includes `if` / `else if` / `else` / `end`
+expression syntax for ordinary Boolean branching, formatting preservation, and
+the same observable success-path checking behavior as the equivalent
+`match Bool` expression syntax specified in
+`../specification/source-surface.md`. This proposal remains open for the
+remaining diagnostic, metadata, and evidence work listed below.
 
 ## Problem
 
@@ -226,18 +229,18 @@ from generic expression parse failures.
 ## Examples Acceptance
 
 The implementation slice should add checked examples under
-`../../examples/specification/` for:
+`../../examples/specification/`. Implemented evidence now covers successful
+`check` behavior in
+`../../examples/specification/check/if-expression-syntax/case.toml` and
+formatter preservation in
+`../../examples/specification/fmt/if-expression-syntax/case.toml`.
 
-- a simple `if` expression returning two `Int` values
-- an `else if` chain with a final `else`
+Remaining acceptance coverage:
+
 - nested `if` and `match` expressions in opposite orders
-- `if` used in a local binding initializer, return position, call argument,
-  record field, and ADT constructor payload where those contexts already work
-  for equivalent `match`
 - non-`Bool` condition diagnostics in human and JSON output
 - incompatible branch result diagnostics in human and JSON output
 - parse recovery for missing `else` and missing `end`
-- formatter preservation of `if`, `else if`, `else`, and `end`
 
 Existing examples may migrate from `match Bool` to `if` only when the example
 is not specifically testing `match` parsing, Boolean pattern arms, or

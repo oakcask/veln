@@ -51,6 +51,9 @@ against the built `veln` binary.
   record let and match patterns, private inference, parenthesized expressions,
   nested match expressions in call and aggregate positions, and trailing
   record type fields.
+- `check/if-expression-syntax/`: `if`, `else if`, and final `else` expression
+  syntax in local initializers, return position, call arguments, record
+  fields, and `Result` constructor payloads.
 - `check/recursive-call-shapes/`: direct recursive calls, nested-match
   tail-shaped recursive calls, postcondition-bearing recursive functions,
   non-tail recursive calls, and function-typed callback calls.
@@ -423,6 +426,8 @@ against the built `veln` binary.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.
+- `fmt/if-expression-syntax/`: canonical `if`, `else if`, `else`, and `end`
+  layout with idempotence.
 - `fmt/schema-declarations/`: canonical layout for schema headers,
   `format binary`, fields, field-local `where` predicates, `map to`
   arithmetic assignment expressions, and idempotence.

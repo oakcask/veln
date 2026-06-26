@@ -519,6 +519,12 @@ impl AstBuilder {
             SyntaxExprKind::Match { scrutinee, arms } => {
                 Some(self.lower_match_expr(scrutinee, arms))
             }
+            SyntaxExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => Some(self.lower_if_expr(condition, then_branch, else_if_branches, else_branch)),
             _ => None,
         }
     }
@@ -560,6 +566,61 @@ impl AstBuilder {
                     span: arm.span.clone(),
                 })
                 .collect(),
+        }
+    }
+
+    fn lower_if_expr(
+        &mut self,
+        condition: &SyntaxExpr,
+        then_branch: &SyntaxExpr,
+        else_if_branches: &[veln_syntax::IfBranch],
+        else_branch: &SyntaxExpr,
+    ) -> ExprKind {
+        self.lower_if_chain(condition, then_branch, else_if_branches, else_branch)
+    }
+
+    fn lower_if_chain(
+        &mut self,
+        condition: &SyntaxExpr,
+        then_branch: &SyntaxExpr,
+        else_if_branches: &[veln_syntax::IfBranch],
+        else_branch: &SyntaxExpr,
+    ) -> ExprKind {
+        let false_expr = if let Some((next, rest)) = else_if_branches.split_first() {
+            Expr {
+                node_id: self.alloc(),
+                kind: self.lower_if_chain(&next.condition, &next.expr, rest, else_branch),
+                span: next.span.clone(),
+            }
+        } else {
+            self.lower_expr(else_branch)
+        };
+        ExprKind::Match {
+            scrutinee: Box::new(self.lower_expr(condition)),
+            arms: vec![
+                MatchArm {
+                    node_id: self.alloc(),
+                    pattern: self.lower_bool_pattern(true, then_branch.span.clone()),
+                    expr: self.lower_expr(then_branch),
+                    span: then_branch.span.clone(),
+                },
+                MatchArm {
+                    node_id: self.alloc(),
+                    pattern: self.lower_bool_pattern(false, false_expr.span.clone()),
+                    expr: false_expr,
+                    span: else_if_branches
+                        .first()
+                        .map_or_else(|| else_branch.span.clone(), |branch| branch.span.clone()),
+                },
+            ],
+        }
+    }
+
+    fn lower_bool_pattern(&mut self, value: bool, span: SourceSpan) -> Pattern {
+        Pattern {
+            node_id: self.alloc(),
+            kind: PatternKind::BoolLiteral(value),
+            span,
         }
     }
 

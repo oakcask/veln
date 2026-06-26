@@ -1,0 +1,13 @@
+command = ["fmt", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals = "fn choose(flag: Bool, fallback: Bool) -> Int\n\tif flag\n\t\t1\n\telse if fallback\n\t\t2\n\telse\n\t\t3\n\tend\nend\n"

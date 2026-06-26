@@ -1,0 +1,47 @@
+fn choose(flag: Bool, fallback: Bool) -> Int
+	if flag
+		1
+	else if fallback
+		2
+	else
+		3
+	end
+end
+
+fn add(left: Int, right: Int) -> Int
+	left + right
+end
+
+fn as_argument(flag: Bool) -> Int
+	add(if flag
+		1
+	else
+		2
+	end, 3)
+end
+
+fn as_record(flag: Bool) -> { value : Int }
+	{ value: if flag
+		1
+	else
+		2
+	end }
+end
+
+fn as_result(flag: Bool) -> Result<Int, String>
+	Result::Ok(if flag
+		1
+	else
+		2
+	end)
+end
+
+pub fn main(flag: Bool, fallback: Bool) -> Result<{ chosen : Int, record : { value : Int }, payload : Int }, String>
+	let chosen: Int = choose(flag, fallback)
+	let record: { value : Int } = as_record(flag)
+	let payload: Result<Int, String> = as_result(fallback)
+	match payload
+		Result::Ok(value) => Result::Ok({ chosen: chosen + as_argument(flag), record: record, payload: value })
+		Result::Err(error) => Result::Err(error)
+	end
+end

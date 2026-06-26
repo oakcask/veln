@@ -18,7 +18,8 @@ smallest section to read before opening the full grammar notes.
   visible hash comments inside doctests, and negative examples:
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
-  pipelines, ordinary and variadic calls, standard channel calls, zero-argument task spawns, one-context
+  `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
+  calls, standard channel calls, zero-argument task spawns, one-context
   `task::spawn_with` calls, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
 - Function declaration parameters may use the final-only variadic spelling

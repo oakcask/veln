@@ -6,12 +6,13 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, CodecDecl, CodecDirection,
     CodecImplementationClause, CodecImplementationKind, ContractClause, ContractKind, DictEntry,
-    Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
-    PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingInverseConverter, SchemaMappingSelector,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    Expr, ExprKind, FunctionDecl, FunctionKind, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
+    PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
+    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
+    SchemaMappingAssignment, SchemaMappingClause, SchemaMappingInverseConverter,
+    SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind,
+    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
+    Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -1607,8 +1608,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
-        if self.at(TokenKind::Match) {
-            self.parse_match_expr_for_body_line(context)
+        if self.at(TokenKind::Match) || self.at(TokenKind::If) {
+            self.parse_block_expr_for_body_line(context)
         } else {
             self.parse_expr_until_newline(context)
         }
@@ -1654,11 +1655,12 @@ impl<'a> Parser<'a> {
         pattern
     }
 
-    fn parse_match_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
+    fn parse_block_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
         let start = self.current().range;
         let mut end = start;
         let mut tokens = Vec::new();
-        let mut match_depth = 0usize;
+        let mut block_depth = 0usize;
+        let mut previous_kind = None;
         while !self.at(TokenKind::Eof) {
             let token = self.bump();
             end = token.range;
@@ -1682,13 +1684,15 @@ impl<'a> Parser<'a> {
                 });
                 continue;
             }
-            if token.kind == TokenKind::Match {
-                match_depth += 1;
+            if token.kind == TokenKind::Match
+                || (token.kind == TokenKind::If && previous_kind != Some(TokenKind::Else))
+            {
+                block_depth += 1;
             }
             if token.kind == TokenKind::End {
-                match_depth = match_depth.saturating_sub(1);
+                block_depth = block_depth.saturating_sub(1);
                 tokens.push(token);
-                if match_depth == 0 {
+                if block_depth == 0 {
                     if self.at(TokenKind::Newline) {
                         end = self.bump().range;
                     }
@@ -1696,6 +1700,7 @@ impl<'a> Parser<'a> {
                 }
                 continue;
             }
+            previous_kind = Some(token.kind);
             tokens.push(token);
         }
 
@@ -1709,21 +1714,24 @@ impl<'a> Parser<'a> {
         let mut end = start;
         let mut tokens = Vec::new();
         let mut depth = 0usize;
-        let mut match_depth = 0usize;
+        let mut block_depth = 0usize;
+        let mut previous_kind = None;
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && match_depth == 0 && self.at(TokenKind::Newline) {
+            if depth == 0 && block_depth == 0 && self.at(TokenKind::Newline) {
                 break;
             }
             let token = self.bump();
             end = token.range;
+            let token_kind = token.kind;
             match token.kind {
                 TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
                 }
-                TokenKind::Match => match_depth += 1,
-                TokenKind::End if match_depth > 0 => {
-                    match_depth = match_depth.saturating_sub(1);
+                TokenKind::Match => block_depth += 1,
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
+                TokenKind::End if block_depth > 0 => {
+                    block_depth = block_depth.saturating_sub(1);
                 }
                 _ => {}
             }
@@ -1750,6 +1758,7 @@ impl<'a> Parser<'a> {
             } else {
                 end = token.range;
             }
+            previous_kind = Some(token_kind);
         }
         if self.at(TokenKind::Newline) {
             end = self.bump().range;
@@ -2507,6 +2516,7 @@ impl<'a> ExprParser<'a> {
             TokenKind::LBrace => self.parse_record_or_dict_primary(),
             TokenKind::LBracket => self.parse_list(),
             TokenKind::Match => self.parse_match(),
+            TokenKind::If => self.parse_if(),
             _ => self.parse_missing_primary(token),
         }
     }
@@ -2615,6 +2625,107 @@ impl<'a> ExprParser<'a> {
             },
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn parse_if(&mut self) -> Expr {
+        let start = self.bump().range;
+        let condition = self.parse_if_condition("if condition is missing an expression");
+        self.eat_newlines();
+        let then_branch = self.parse_if_branch_expr();
+        self.eat_newlines();
+
+        let mut else_if_branches = Vec::new();
+        let mut else_branch = None;
+
+        while self.at(TokenKind::Else) {
+            let else_token = self.bump();
+            if self.at(TokenKind::If) {
+                self.bump();
+                let condition =
+                    self.parse_if_condition("else if condition is missing an expression");
+                self.eat_newlines();
+                let expr = self.parse_if_branch_expr();
+                let span = self.source.span(else_token.range.cover(lhs_range(&expr)));
+                else_if_branches.push(IfBranch {
+                    condition,
+                    expr,
+                    span,
+                });
+                self.eat_newlines();
+                continue;
+            }
+
+            self.eat_newlines();
+            let branch = self.parse_if_branch_expr();
+            else_branch = Some(branch);
+            self.eat_newlines();
+            break;
+        }
+
+        let else_branch = else_branch.unwrap_or_else(|| {
+            self.error_current(
+                "parse.if_missing_else",
+                "if expression is missing a final `else` branch",
+                vec!["else"],
+                RecoveryStrategy::InsertToken,
+                Some("else"),
+            );
+            self.missing_expr_at_current()
+        });
+        let end = if let Some(token) = self.eat(TokenKind::End) {
+            token.range
+        } else {
+            self.error_current(
+                "parse.if_missing_end",
+                "if expression is missing `end`",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+            lhs_range(&else_branch)
+        };
+
+        Expr {
+            kind: ExprKind::If {
+                condition: Box::new(condition),
+                then_branch: Box::new(then_branch),
+                else_if_branches,
+                else_branch: Box::new(else_branch),
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_if_condition(&mut self, message: &'static str) -> Expr {
+        if self.at(TokenKind::Newline)
+            || self.at(TokenKind::Else)
+            || self.at(TokenKind::End)
+            || self.is_at_end()
+        {
+            self.error_current(
+                "parse.if_condition",
+                message,
+                vec!["condition"],
+                RecoveryStrategy::InsertToken,
+                Some("condition"),
+            );
+            return self.missing_expr_at_current();
+        }
+        self.parse_expr(0)
+    }
+
+    fn parse_if_branch_expr(&mut self) -> Expr {
+        if self.at(TokenKind::Else) || self.at(TokenKind::End) || self.is_at_end() {
+            self.error_current(
+                "parse.if_branch",
+                "if branch is missing an expression",
+                vec!["expression"],
+                RecoveryStrategy::InsertToken,
+                Some("expression"),
+            );
+            return self.missing_expr_at_current();
+        }
+        self.parse_expr(0)
     }
 
     fn parse_pattern(&mut self) -> Pattern {
@@ -3019,6 +3130,17 @@ impl<'a> ExprParser<'a> {
         Expr {
             kind: ExprKind::Missing,
             span: self.source.span(TextRange::at(self.source.len())),
+        }
+    }
+
+    fn missing_expr_at_current(&self) -> Expr {
+        let range = self
+            .tokens
+            .get(self.cursor)
+            .map_or_else(|| TextRange::at(self.source.len()), |token| token.range);
+        Expr {
+            kind: ExprKind::Missing,
+            span: self.source.span(range),
         }
     }
 
@@ -3523,6 +3645,7 @@ fn schema_mapping_expr_text(expr: &Expr) -> String {
             format!("{{ {entries} }}")
         }
         ExprKind::Match { .. } => "match".to_string(),
+        ExprKind::If { .. } => "if".to_string(),
         ExprKind::TypeApply { callee, type_args } => {
             format!(
                 "{}<{}>",

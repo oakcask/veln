@@ -9,7 +9,8 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-- [If Else Expression Syntax](if-else-expression-syntax.md): add planned
+- [If Else Expression Syntax](if-else-expression-syntax.md): define remaining
+  diagnostics, metadata, and evidence work beyond the implemented
   `if` / `else if` / `else` / `end` expression syntax for ordinary Boolean
   branching, plus future style-lint guidance that prefers `if` / `else` for
   ordinary `Bool` value branches, while preserving `match` as the implemented

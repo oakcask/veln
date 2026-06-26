@@ -63,7 +63,7 @@ Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
 PrimaryExpr   ::= Hole | Literal | NamePath | "(" Expr ")" | "()"
-                  | Record | Dict | List | Match
+                  | Record | Dict | List | Match | If
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
 TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"
@@ -73,6 +73,8 @@ Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
 List          ::= "[" ArgList? "]"
 Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
+If            ::= "if" Expr NL Expr NL ElseIf* "else" NL Expr NL "end"
+ElseIf        ::= "else" "if" Expr NL Expr NL
 Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")" | ConstructorName
 ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
@@ -785,6 +787,7 @@ Implemented expressions:
 - match expressions over literals, bindings, `_`, record patterns, and
   descriptor-backed constructors `Some`, `None`, `Ok`, `Err`, `Nil`, `Cons`,
   and their `Option::`, `Result::`, or `List::` qualified forms
+- `if` / `else if` / `else` expressions with a required final `else`
 - prefix operators: `not`, `-`
 - pipelines: `expr |> target(args...)`
 - binary operators: `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`,
@@ -870,6 +873,14 @@ matches must cover `true` and `false`; option matches must cover `Some(_)` and
 `None`; result matches must cover `Ok(_)` and `Err(_)`; list matches must cover
 `Nil` and `Cons(_)`; source-declared ADT matches must cover every declared
 variant unless a catch-all arm is present.
+
+`if` is a primary expression and may appear anywhere an expression is accepted.
+Each `if` and `else if` condition follows the same Boolean checking rules as
+the scrutinee in an equivalent `match Bool` expression. Branch result
+expressions use the same expected-type and unification behavior as equivalent
+`match Bool` arms. Every `if` expression requires a final `else` and closing
+`end`; `else if` remains a chain branch for formatting rather than an `else`
+body whose first expression is another `if`.
 
 ## Contract Predicates
 
