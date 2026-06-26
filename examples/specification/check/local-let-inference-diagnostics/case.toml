@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`"]
+contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 6
 
 [[diagnostics]]
 id = "type.local_inference_incomplete"
@@ -28,6 +28,17 @@ line = 11
 column = 6
 
 [[diagnostics]]
+id = "type.local_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "omitted local binding `items` has no concrete inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 6
+
+[[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
@@ -35,5 +46,38 @@ message = "expected `Vec<String>`, but found `Vec<Int>`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 18
+line = 23
 column = 17
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "empty Vec literal needs concrete type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 27
+column = 31
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Nil` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 28
+column = 39
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "empty Dict literal needs concrete type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 29
+column = 36

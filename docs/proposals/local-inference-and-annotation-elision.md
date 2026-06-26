@@ -71,10 +71,10 @@ later call argument or return-compatible use that requires one concrete type.
 Unconstrained bindings and later incompatible uses are diagnostics.
 
 Remaining planned work in this section extends omitted local annotations into
-broader expected-type paths that are not covered by the current call-argument
-and return-compatible slice, including record fields, collection elements,
-constructor payloads, match arms, typed hole context, and other nested
-initializer positions.
+broader expected-type paths that are not covered by the current same-function
+local `let` and empty collection expected-type slices, including non-empty
+collection element inference, typed hole context, and other nested initializer
+positions.
 
 Record and nested pattern lets may also omit annotations in a future slice when
 the right-hand side has a known record or ADT type and every named binding
@@ -177,14 +177,16 @@ global type assertions.
 
 ## Empty Collection Literal Inference
 
-Empty collection literals should accept expected types from more contexts:
+Implemented current behavior is specified in
+`../specification/types.md#read-first` and
+`../specification/types-full.md#inference` for empty `Vec<T>` literals, `Nil`
+for `List<T>`, and empty dictionary literals in local annotations, inferred
+local binding slots, return positions, call arguments, record fields, match arm
+results, and constructor payloads.
 
-- local binding annotations or inferred local binding slots
-- return positions
-- call arguments
-- record fields
-- match arm results
-- constructor payloads
+Remaining planned work in this section extends empty collection inference into
+additional contexts:
+
 - prelude helper result context
 
 An empty list literal may infer `Vec<T>` when its context expects `Vec<T>`.
