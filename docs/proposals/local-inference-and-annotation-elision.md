@@ -191,10 +191,18 @@ initializer type, later use, earlier call site, helper body fact, expected
 return type, or constructor descriptor.
 
 JSON details should include stable fields for the inferred slot kind, current
-inferred type when any, and constraint provenance. Existing diagnostic ids may
-be reused where they already describe the failure; new ids should be added only
-when callers need to distinguish these planned inference failures from current
-private inference gaps.
+inferred type when any, and constraint provenance.
+
+The diagnostic-id policy is decided: inference failures should use the narrow
+stable id for the slot or failed fact rather than collapsing all omitted local
+facts into `type.private_inference_incomplete`. Implemented same-function local
+binding gaps use `type.local_inference_incomplete`, private helper signature
+gaps use `type.private_inference_incomplete`, ambiguous constructor or literal
+contexts use `type.inference_ambiguous`, and conflicting concrete facts use
+`type.mismatch` at the incompatible use. Future inference slices should reuse
+those ids when their failure shape matches; add a new id only when callers need
+to distinguish a new slot kind or ambiguity boundary from the existing local,
+private, ambiguous, or mismatch cases.
 
 ## Examples Acceptance
 
@@ -235,7 +243,5 @@ constraints is added.
 
 ## Open Questions
 
-- Whether inference failures should keep using `type.private_inference_incomplete`
-  for all local slots or split into more precise ids.
 - Whether callback literals need dedicated source syntax before callback
   inference can remove enough annotations from examples.

@@ -130,6 +130,13 @@ and type-mismatch diagnostics:
 When a body omits its final expression line, return checking uses `()` with
 `actual_type_source: "implicit_unit"`.
 
+`type.local_inference_incomplete` reports an omitted local binding annotation
+whose inferred type still contains `unknown` after same-function inference. Its
+`details` include `phase`, `node_id`, `slot_kind: "local_binding"`, `binding`,
+and `inferred_type`. Repair hints are related notes. Conflicting concrete uses
+are reported by `type.mismatch` at the incompatible use and keep the ordinary
+mismatch `details` shape.
+
 `type.private_inference_incomplete` reports a private parameter or private
 return type whose omitted annotation did not infer to a concrete type. Its
 `details` include `phase`, `node_id`, `boundary: "private_function"`,
