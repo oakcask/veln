@@ -1,5 +1,5 @@
-# Let statements only accept bindings, wildcards, and record patterns.
-pub fn main(value: Option<Int>) -> ()
-	let Some(amount) = value
+# Let statements reject literal patterns.
+pub fn main(value: Int) -> ()
+	let 1 = value
 	()
 end

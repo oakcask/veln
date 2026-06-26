@@ -21,6 +21,7 @@ use crate::types::{
     FunctionLookup, TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown,
 };
 
+#[derive(Clone)]
 struct CoreBinding {
     name: String,
     ty: CoreType,
@@ -314,7 +315,7 @@ impl<'a> CoreLowerer<'a> {
                     span: span.clone(),
                 });
             }
-            PatternKind::Record(_) => {
+            PatternKind::Record(_) | PatternKind::Constructor { .. } => {
                 let temp_name = self.generated_pattern_local();
                 body.push(CoreStmt {
                     node_id,
@@ -337,8 +338,7 @@ impl<'a> CoreLowerer<'a> {
             | PatternKind::IntLiteral(_)
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
-            | PatternKind::Unit
-            | PatternKind::Constructor { .. } => {
+            | PatternKind::Unit => {
                 body.push(CoreStmt {
                     node_id,
                     kind: CoreStmtKind::Expr { expr },
@@ -389,13 +389,59 @@ impl<'a> CoreLowerer<'a> {
                     self.lower_pattern_bindings(&field.pattern, field_value, &field_ty, body);
                 }
             }
+            PatternKind::Constructor { .. } => {
+                for binding in self.pattern_bindings(pattern, ty) {
+                    self.bindings.push(binding.clone());
+                    body.push(CoreStmt {
+                        node_id: pattern.node_id,
+                        kind: CoreStmtKind::Let {
+                            name: binding.name.clone(),
+                            ty: binding.ty.clone(),
+                            expr: self.lower_constructor_pattern_binding(
+                                pattern,
+                                value.clone(),
+                                ty,
+                                &binding,
+                            ),
+                        },
+                        span: pattern.span.clone(),
+                    });
+                }
+            }
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
-            | PatternKind::Unit
-            | PatternKind::Constructor { .. } => {}
+            | PatternKind::Unit => {}
+        }
+    }
+
+    fn lower_constructor_pattern_binding(
+        &self,
+        pattern: &Pattern,
+        value: CoreExpr,
+        ty: &CoreType,
+        binding: &CoreBinding,
+    ) -> CoreExpr {
+        CoreExpr {
+            node_id: pattern.node_id,
+            ty: binding.ty.clone(),
+            kind: CoreExprKind::Match {
+                scrutinee: Box::new(value),
+                arms: vec![CoreMatchArm {
+                    node_id: pattern.node_id,
+                    pattern: self.lower_pattern(pattern, Some(ty)),
+                    expr: CoreExpr {
+                        node_id: pattern.node_id,
+                        ty: binding.ty.clone(),
+                        kind: CoreExprKind::Local(binding.name.clone()),
+                        span: pattern.span.clone(),
+                    },
+                    span: pattern.span.clone(),
+                }],
+            },
+            span: pattern.span.clone(),
         }
     }
 
@@ -1479,7 +1525,10 @@ impl<'a> CoreLowerer<'a> {
                     .adts
                     .descriptor_for_core_type(scrutinee_type)
                 else {
-                    return Vec::new();
+                    return args
+                        .iter()
+                        .flat_map(|pattern| self.pattern_bindings(pattern, &CoreType::Unknown))
+                        .collect();
                 };
                 let Some(constructor) = self.environment.adts.constructor_for_descriptor(
                     name,
@@ -1487,7 +1536,10 @@ impl<'a> CoreLowerer<'a> {
                     self.function.module_name.as_deref(),
                     &self.environment.uses,
                 ) else {
-                    return Vec::new();
+                    return args
+                        .iter()
+                        .flat_map(|pattern| self.pattern_bindings(pattern, &CoreType::Unknown))
+                        .collect();
                 };
                 args.iter()
                     .enumerate()

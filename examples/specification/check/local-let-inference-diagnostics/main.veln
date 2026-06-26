@@ -23,6 +23,32 @@ fn conflicting() -> Int
 	consume_string(items)
 end
 
+fn unconstrained_record_pattern() -> Int
+	let {items: items} = {items: []}
+	1
+end
+
+fn conflicting_record_pattern() -> Int
+	let {items: items} = {items: []}
+	let first: Int = consume_int(items)
+	consume_string(items)
+end
+
+fn missing_record_pattern_field(input: {count: Int}) -> Int
+	let {missing: value} = input
+	value
+end
+
+fn conflicting_constructor_pattern(input: Option<Vec<Int>>) -> Int
+	let Some(items) = input
+	consume_string(items)
+end
+
+fn wrong_constructor_pattern(input: Option<Int>) -> Int
+	let Result::Ok(value) = input
+	value
+end
+
 fn ambiguous_empty_collection_arguments() -> Int
 	let vec_count: Int = vec_len([])
 	let list_empty: Bool = list_is_empty(Nil)

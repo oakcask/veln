@@ -158,11 +158,13 @@ impl<'a> FunctionChecker<'a> {
                     if let Some(expected) = &expected {
                         self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
                     }
+                    let pattern_diagnostic_count = self.diagnostics.len();
                     self.check_let_pattern_supported(pattern);
                     let binding_type = expected
                         .as_ref()
                         .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
                     let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
+                    let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
                     for binding in pattern_bindings {
                         if !self.declare_local_name(
                             &binding.name,
@@ -178,6 +180,7 @@ impl<'a> FunctionChecker<'a> {
                         });
                         if annotation.is_none()
                             && !initializer_has_diagnostic
+                            && !pattern_has_diagnostic
                             && type_contains_unknown(&binding.ty)
                         {
                             self.omitted_local_bindings.push(OmittedLocalBinding {
@@ -382,12 +385,16 @@ impl<'a> FunctionChecker<'a> {
                     self.check_let_pattern_supported(&field.pattern);
                 }
             }
+            PatternKind::Constructor { args, .. } => {
+                for arg in args {
+                    self.check_let_pattern_supported(arg);
+                }
+            }
             PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
-            | PatternKind::Unit
-            | PatternKind::Constructor { .. } => {
+            | PatternKind::Unit => {
                 let mut diagnostic = Diagnostic::new(
                     "pattern.refutable_let",
                     Severity::Error,
@@ -407,7 +414,7 @@ impl<'a> FunctionChecker<'a> {
                     (
                         "message",
                         JsonValue::string(
-                            "Use a binding, wildcard, or record pattern in a let statement.",
+                            "Use a binding, wildcard, record pattern, or constructor pattern in a let statement.",
                         ),
                     ),
                     ("span", span_json(&pattern.span)),
@@ -2226,9 +2233,37 @@ impl<'a> FunctionChecker<'a> {
                             (field.node_id.display("field"), field.span.clone()),
                         );
                     }
-                    let field_type = scrutinee_type
-                        .record_field(&field.name)
-                        .unwrap_or(&Type::Unknown);
+                    let field_type =
+                        if let Some(field_type) = scrutinee_type.record_field(&field.name) {
+                            field_type
+                        } else {
+                            if scrutinee_type != &Type::Unknown {
+                                self.diagnostics.push(Diagnostic::new(
+                                    "type.field_missing",
+                                    Severity::Error,
+                                    DiagnosticKind::Type,
+                                    format!(
+                                        "type `{}` has no field `{}`",
+                                        scrutinee_type.render(),
+                                        field.name
+                                    ),
+                                    Some(field.span.clone()),
+                                    type_details(
+                                        field.node_id.display("field"),
+                                        format!("record field `{}`", field.name),
+                                        scrutinee_type.render(),
+                                        "record_pattern",
+                                        "inferred_expression",
+                                        "record_pattern",
+                                        [
+                                            self.function.node_id.display("fn"),
+                                            pattern.node_id.display("pattern"),
+                                        ],
+                                    ),
+                                ));
+                            }
+                            &Type::Unknown
+                        };
                     bindings.extend(self.pattern_bindings(&field.pattern, field_type));
                 }
                 bindings
@@ -2236,23 +2271,62 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Constructor { name, args } => {
                 let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type)
                 else {
-                    return Vec::new();
+                    return args
+                        .iter()
+                        .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
+                        .collect();
                 };
-                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+                if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
                     name,
                     descriptor,
                     self.function.module_name.as_deref(),
                     &self.environment.uses,
-                ) else {
-                    return Vec::new();
-                };
+                ) {
+                    return args
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(index, pattern)| {
+                            let ty = adt::payload_type(scrutinee_type, constructor, index)
+                                .unwrap_or(Type::Unknown);
+                            self.pattern_bindings(pattern, &ty)
+                        })
+                        .collect();
+                }
+                if let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                    name,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ) {
+                    let actual = adt::constructed_type_from_args(
+                        constructor,
+                        &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
+                    );
+                    self.diagnostics.push(Diagnostic::new(
+                        "type.mismatch",
+                        Severity::Error,
+                        DiagnosticKind::Type,
+                        format!(
+                            "expected `{}`, but found `{}`",
+                            scrutinee_type.render(),
+                            actual.render()
+                        ),
+                        Some(pattern.span.clone()),
+                        type_details(
+                            pattern.node_id.display("pattern"),
+                            scrutinee_type.render(),
+                            actual.render(),
+                            "inferred_expression",
+                            "constructor_pattern",
+                            "constructor_pattern",
+                            [
+                                self.function.node_id.display("fn"),
+                                pattern.node_id.display("pattern"),
+                            ],
+                        ),
+                    ));
+                }
                 args.iter()
-                    .enumerate()
-                    .flat_map(|(index, pattern)| {
-                        let ty = adt::payload_type(scrutinee_type, constructor, index)
-                            .unwrap_or(Type::Unknown);
-                        self.pattern_bindings(pattern, &ty)
-                    })
+                    .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
                     .collect()
             }
         }

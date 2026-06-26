@@ -490,9 +490,10 @@ does not introduce a local binding, and later expressions cannot reference the
 discard target. A type annotation on the wildcard target still checks the
 right-hand expression against that type. `let` also accepts binding and record
 patterns. A record let pattern binds nested field values from the right-hand
-record expression. Literal and constructor patterns are match-only in the
-implemented slice; using one in a `let` statement reports
-`pattern.refutable_let`.
+record expression. Constructor let patterns bind payload values when semantic
+analysis can determine the right-hand ADT descriptor and concrete payload
+types. Literal patterns are match-only in the implemented slice; using one in a
+`let` statement reports `pattern.refutable_let`.
 
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the

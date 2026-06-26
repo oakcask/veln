@@ -142,6 +142,11 @@ against the built `veln` binary.
   context.
 - `check/private-helper-inference-diagnostics/`: non-concrete and conflicting
   private helper call-site inference failures.
+- `check/local-let-inference/` and
+  `check/local-let-inference-diagnostics/`: omitted local let annotations,
+  including collection literals, record pattern bindings, and constructor
+  pattern bindings, plus their incomplete, conflicting, ambiguous,
+  missing-field, and wrong-constructor diagnostics.
 - `check/function-effect-boundaries/`: function-typed value compatibility when
   callable effects are narrower or wider than the expected function type.
 - `check/type-annotation-boundaries/`: public API annotation requirements,

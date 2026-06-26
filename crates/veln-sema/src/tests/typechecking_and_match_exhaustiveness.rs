@@ -934,6 +934,239 @@ fn record_patterns_bind_field_types_through_core_and_ir() {
 }
 
 #[test]
+fn record_let_patterns_bind_nested_field_types_through_core_and_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: {outer: {count: Int, label: String}, ignored: Bool}) -> String\n",
+            "  let {outer: {count: count, label: label}, ignored: _} = value\n",
+            "  let _: Int = count + 1\n",
+            "  label\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            CoreStmtKind::Let { name, ty, .. }
+                if name == "count" && ty == &CoreType::int()
+        )
+    }));
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            CoreStmtKind::Let { name, ty, .. }
+                if name == "label" && ty == &CoreType::string()
+        )
+    }));
+
+    let ir = lowered.ir.expect("checked core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            IrStmtKind::Let { name, ty, .. }
+                if name == "count" && ty == &CoreType::int()
+        )
+    }));
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            IrStmtKind::Let { name, ty, .. }
+                if name == "label" && ty == &CoreType::string()
+        )
+    }));
+}
+
+#[test]
+fn record_let_pattern_missing_field_reports_field_missing() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: {count: Int}) -> Int\n",
+            "  let {missing: amount} = value\n",
+            "  amount\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.field_missing");
+    assert_eq!(
+        diagnostics[0].message,
+        "type `{count: Int}` has no field `missing`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type_source\":\"record_pattern\""));
+    assert!(details.contains("\"constraint\":\"record_pattern\""));
+}
+
+#[test]
+fn omitted_record_let_pattern_binding_requires_concrete_field_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  let {items: items} = {items: []}\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.local_inference_incomplete");
+    assert_eq!(
+        diagnostics[0].message,
+        "omitted local binding `items` has no concrete inferred type"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"inferred_type\":\"Vec<unknown>\"")
+    );
+}
+
+#[test]
+fn constructor_let_patterns_bind_payload_types_through_core_and_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option<Int>) -> Int\n",
+            "  let Some(count) = value\n",
+            "  count + 1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            CoreStmtKind::Let { name, ty, expr }
+                if name == "count"
+                    && ty == &CoreType::int()
+                    && matches!(expr.kind, CoreExprKind::Match { .. })
+        )
+    }));
+
+    let ir = lowered.ir.expect("checked core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            IrStmtKind::Let { name, ty, value }
+                if name == "count"
+                    && ty == &CoreType::int()
+                    && matches!(value.kind, IrExprKind::Match { .. })
+        )
+    }));
+}
+
+#[test]
+fn nested_constructor_let_patterns_bind_payload_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Result<Option<Int>, String>) -> Int\n",
+            "  let Ok(Some(count)) = value\n",
+            "  count + 1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert!(main.body.iter().any(|stmt| {
+        matches!(
+            &stmt.kind,
+            CoreStmtKind::Let { name, ty, .. }
+                if name == "count" && ty == &CoreType::int()
+        )
+    }));
+}
+
+#[test]
+fn constructor_let_pattern_wrong_descriptor_reports_mismatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option<Int>) -> Int\n",
+            "  let Result::Ok(count) = value\n",
+            "  count\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("wrong constructor descriptor should be diagnosed");
+    assert_eq!(
+        diagnostic.message,
+        "expected `Option<Int>`, but found `Result<unknown, unknown>`"
+    );
+    assert_diagnostic_span(diagnostic, 2, 7, 2, 24);
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"constraint\":\"constructor_pattern\"")
+    );
+}
+
+#[test]
 fn match_expression_type_checks_inside_call_argument() {
     let source = SourceFile::new(
         "main.veln",

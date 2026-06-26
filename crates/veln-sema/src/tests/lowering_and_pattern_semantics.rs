@@ -576,13 +576,13 @@ fn record_let_pattern_binds_field_values() {
 }
 
 #[test]
-fn refutable_let_pattern_reports_diagnostic() {
+fn constructor_let_pattern_lowers_payload_binding() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Option<Int>) -> ()\n",
+            "pub fn main(value: Option<Int>) -> Int\n",
             "  let Some(amount) = value\n",
-            "  ()\n",
+            "  amount\n",
             "end\n",
         ),
     );
@@ -590,13 +590,22 @@ fn refutable_let_pattern_reports_diagnostic() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
 
-    let diagnostics = analyze_surface_module(&module);
+    let lowered = lower_checked_surface_module(&module);
 
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "pattern.refutable_let"
-            && diagnostic.message == "refutable let pattern is not supported"
-            && diagnostic.related.len() == 1
-    }));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert_eq!(main.body.len(), 3);
+    let CoreStmtKind::Let { name, ty, expr } = &main.body[1].kind else {
+        panic!("payload binding should lower as a let statement");
+    };
+    assert_eq!(name, "amount");
+    assert_eq!(ty, &CoreType::int());
+    assert!(matches!(expr.kind, CoreExprKind::Match { .. }));
 }
 
 #[test]

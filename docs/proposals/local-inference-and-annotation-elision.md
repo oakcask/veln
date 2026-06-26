@@ -72,16 +72,29 @@ Non-empty collection literal initializers may also infer omitted local binding
 types when every element, key, and value agrees on one concrete type.
 Unconstrained bindings and later incompatible uses are diagnostics.
 
+Implemented current behavior also covers record, nested record, constructor,
+and nested constructor pattern lets: when the right-hand side or local
+annotation has a known record or ADT descriptor type, named bindings receive
+their concrete field or payload types. `_` checks the field or payload position
+without adding a binding, unconstrained nested bindings report
+`type.local_inference_incomplete`, conflicting later facts report
+`type.mismatch`, missing fields report `type.field_missing`, and constructors
+from the wrong descriptor report `type.mismatch`.
+
 Remaining planned work in this section extends omitted local annotations into
 broader expected-type paths that are not covered by the current same-function
-local `let`, non-empty collection initializer, and empty collection
-expected-type slices, including typed hole context and other nested initializer
-positions.
+local `let`, non-empty collection initializer, empty collection expected-type,
+and local pattern slices, including typed hole context and other nested
+initializer positions.
 
-Record and nested pattern lets may also omit annotations in a future slice when
-the right-hand side has a known record or ADT type and every named binding
-receives a concrete field or payload type. Wildcard lets follow the same
-checking rule but do not add a binding.
+## Completed Local Pattern Let Slice
+
+The completed local record and constructor pattern `let` slice is archived
+under
+`../reference/implemented-proposals/local-inference-local-pattern-let.md`.
+Current behavior is specified in `../specification/types.md#read-first`,
+`../specification/types-full.md#inference`, and the checked examples under
+`../../examples/specification/check/local-let-inference/`.
 
 ## Completed Private Helper Call-Site Slice
 
