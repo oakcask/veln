@@ -1446,6 +1446,7 @@ execution reference.
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
   `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)`,
+  `RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,

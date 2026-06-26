@@ -119,12 +119,13 @@ requiring the full command reference on the first read.
   dynamic-index and table-size update facts needed by those focused human
   diagnostics. Source-visible HTTP/2 protocol payloads for pending-byte close,
   continuation ordering, invalid frame kind, frame-size exceeded, header-list
-  receive-limit failures, fixed payload length, request header-list
-  validation, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency,
-  and stream-after-GOAWAY likewise use the same human runtime diagnostic
-  rendering as the compatibility helpers, with the stable id, protocol facts,
-  provenance, decoded header names, and bounded byte preview when present
-  projected from the returned `RuntimeDiagnostic(...)` value.
+  receive-limit failures, SETTINGS value range peer-limit failures, fixed
+  payload length, request header-list validation, invalid `WINDOW_UPDATE`
+  increment, invalid PRIORITY dependency, and stream-after-GOAWAY likewise use
+  the same human runtime diagnostic rendering as the compatibility helpers,
+  with the stable id, protocol facts, provenance, decoded header names, and
+  bounded byte preview when present projected from the returned
+  `RuntimeDiagnostic(...)` value.
   Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied

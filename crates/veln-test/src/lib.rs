@@ -4201,6 +4201,47 @@ mod tests {
     }
 
     #[test]
+    fn settings_value_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f322053455454494e47532076616c7565206f7574736964652061636365707465642072616e67652061742062797465206f66667365742039",
+            "\tprotocol_diagnostic\thttp2.peer_limit.settings_value_out_of_range\t9",
+            "\t7\tsetting_identifier\tnumber\t2",
+            "\tsetting_name\tstring\t53455454494e47535f454e41424c455f50555348",
+            "\tobserved_value\tnumber\t2",
+            "\taccepted_min_value\tnumber\t0",
+            "\taccepted_max_value\tnumber\t1",
+            "\tpeer_limit_provenance\tstring\t706565725f73657474696e6773",
+            "\tbyte_preview\tbyte_preview_v2\t303030323030303030303032:6:6:false\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 SETTINGS value outside accepted range at byte offset 9\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.settings_value_out_of_range\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":9},",
+                "\"setting_identifier\":2,",
+                "\"setting_name\":\"SETTINGS_ENABLE_PUSH\",",
+                "\"observed_value\":2,",
+                "\"accepted_min_value\":0,",
+                "\"accepted_max_value\":1,",
+                "\"peer_limit_provenance\":\"peer_settings\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"000200000002\",",
+                "\"preview_byte_count\":6,",
+                "\"total_byte_count\":6,",
+                "\"truncated\":false}}}"
+            )
+        );
+    }
+
+    #[test]
     fn header_table_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",
