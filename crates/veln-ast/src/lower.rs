@@ -519,6 +519,17 @@ impl AstBuilder {
             SyntaxExprKind::Match { scrutinee, arms } => {
                 Some(self.lower_match_expr(scrutinee, arms))
             }
+            SyntaxExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => Some(ExprKind::If {
+                condition: Box::new(self.lower_expr(condition)),
+                then_branch: Box::new(self.lower_expr(then_branch)),
+                else_if_branches: self.lower_if_branches(else_if_branches),
+                else_branch: Box::new(self.lower_expr(else_branch)),
+            }),
             _ => None,
         }
     }
@@ -561,6 +572,18 @@ impl AstBuilder {
                 })
                 .collect(),
         }
+    }
+
+    fn lower_if_branches(&mut self, branches: &[veln_syntax::IfBranch]) -> Vec<crate::IfBranch> {
+        branches
+            .iter()
+            .map(|branch| crate::IfBranch {
+                node_id: self.alloc(),
+                condition: self.lower_expr(&branch.condition),
+                expr: self.lower_expr(&branch.expr),
+                span: branch.span.clone(),
+            })
+            .collect()
     }
 
     fn lower_pattern(&mut self, pattern: &SyntaxPattern) -> Pattern {

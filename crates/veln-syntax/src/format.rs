@@ -804,6 +804,18 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
         ExprKind::Dict(entries) => format_dict_expr(entries, indent),
         ExprKind::List(items) => format_list_expr(items, indent),
         ExprKind::Match { scrutinee, arms } => format_match_expr(scrutinee, arms, indent),
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => format_if_expr(
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+            indent,
+        ),
         ExprKind::Prefix { op, expr: inner } => format_prefix_expr(*op, inner, prec, indent),
         ExprKind::Binary { op, left, right } => format_binary_expr(*op, left, right, prec, indent),
     }
@@ -896,6 +908,36 @@ fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) 
     text
 }
 
+fn format_if_expr(
+    condition: &Expr,
+    then_branch: &Expr,
+    else_if_branches: &[crate::IfBranch],
+    else_branch: &Expr,
+    indent: usize,
+) -> String {
+    let mut text = format!("if {}\n", format_expr_at_indent(condition, indent));
+    push_indent(&mut text, indent + 1);
+    text.push_str(&format_expr_at_indent(then_branch, indent + 1));
+    text.push('\n');
+    for branch in else_if_branches {
+        push_indent(&mut text, indent);
+        text.push_str("else if ");
+        text.push_str(&format_expr_at_indent(&branch.condition, indent));
+        text.push('\n');
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_expr_at_indent(&branch.expr, indent + 1));
+        text.push('\n');
+    }
+    push_indent(&mut text, indent);
+    text.push_str("else\n");
+    push_indent(&mut text, indent + 1);
+    text.push_str(&format_expr_at_indent(else_branch, indent + 1));
+    text.push('\n');
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
 fn format_prefix_expr(op: PrefixOp, inner: &Expr, prec: u8, indent: usize) -> String {
     match op {
         PrefixOp::Not => format!(
@@ -931,7 +973,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         },
         ExprKind::Prefix { .. } => 15,
         ExprKind::Call { .. } | ExprKind::FieldAccess { .. } | ExprKind::Try(_) => 17,
-        ExprKind::Match { .. } => 19,
+        ExprKind::Match { .. } | ExprKind::If { .. } => 19,
         _ => 19,
     }
 }

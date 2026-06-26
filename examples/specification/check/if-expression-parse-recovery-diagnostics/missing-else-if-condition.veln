@@ -1,0 +1,9 @@
+fn missing_else_if_condition(flag: Bool) -> Int
+	if flag
+		1
+	else if
+		2
+	else
+		3
+	end
+end

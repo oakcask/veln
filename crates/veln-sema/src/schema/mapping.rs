@@ -2073,6 +2073,7 @@ pub(crate) fn schema_mapping_expr_render(expr: &Expr) -> String {
             format!("[{items}]")
         }
         ExprKind::Match { .. } => "match".to_string(),
+        ExprKind::If { .. } => "if".to_string(),
         ExprKind::Prefix { op, expr } => match op {
             veln_ast::PrefixOp::Not => format!("not {}", schema_mapping_expr_render(expr)),
             veln_ast::PrefixOp::Negate => format!("-{}", schema_mapping_expr_render(expr)),

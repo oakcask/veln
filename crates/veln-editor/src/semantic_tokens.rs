@@ -575,6 +575,8 @@ impl<'a> Classifier<'a> {
             | TokenKind::Use
             | TokenKind::From
             | TokenKind::Match
+            | TokenKind::If
+            | TokenKind::Else
             | TokenKind::Or
             | TokenKind::And
             | TokenKind::Not => Some(self.simple(token, SemanticTokenType::Keyword)),

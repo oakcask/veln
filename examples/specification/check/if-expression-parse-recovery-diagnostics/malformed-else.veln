@@ -1,0 +1,6 @@
+fn malformed_else(flag: Bool) -> Int
+	if flag
+		1
+	else
+	end
+end

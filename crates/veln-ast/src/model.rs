@@ -336,6 +336,12 @@ pub enum ExprKind {
         scrutinee: Box<Expr>,
         arms: Vec<MatchArm>,
     },
+    If {
+        condition: Box<Expr>,
+        then_branch: Box<Expr>,
+        else_if_branches: Vec<IfBranch>,
+        else_branch: Box<Expr>,
+    },
     Prefix {
         op: PrefixOp,
         expr: Box<Expr>,
@@ -375,6 +381,14 @@ pub struct DictEntry {
 pub struct MatchArm {
     pub node_id: NodeId,
     pub pattern: Pattern,
+    pub expr: Expr,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct IfBranch {
+    pub node_id: NodeId,
+    pub condition: Expr,
     pub expr: Expr,
     pub span: SourceSpan,
 }

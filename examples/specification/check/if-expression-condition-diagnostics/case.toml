@@ -1,0 +1,39 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"constraint\":\"if_condition\"", "expected `Bool`, but found `Int`", "expected `Bool`, but found `String`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Bool`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 2
+column = 5
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Bool`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 4
+column = 10

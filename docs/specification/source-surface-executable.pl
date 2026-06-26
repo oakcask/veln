@@ -132,7 +132,7 @@ grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
 grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | \"(\" Expr \")\" | \"()\"").
-grammar_line(300, "                  | Record | Dict | List | Match").
+grammar_line(300, "                  | Record | Dict | List | Match | If").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
 grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
@@ -142,12 +142,14 @@ grammar_line(360, "Dict          ::= \"{\" Expr \":\" Expr (\",\" Expr \":\" Exp
 grammar_line(370, "List          ::= \"[\" ArgList? \"]\"").
 grammar_line(380, "Match         ::= \"match\" Expr NL MatchArm+ \"end\"").
 grammar_line(390, "MatchArm      ::= Pattern \"=>\" Expr NL").
-grammar_line(400, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
-grammar_line(410, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
-grammar_line(420, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
-grammar_line(430, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
-grammar_line(440, "PatternList   ::= Pattern (\",\" Pattern)* \",\"?").
-grammar_line(450, "PatternFieldList ::= PatternField (\",\" PatternField)* \",\"?").
+grammar_line(400, "If            ::= \"if\" Expr NL Expr NL ElseIf* \"else\" NL Expr NL \"end\"").
+grammar_line(410, "ElseIf        ::= \"else\" \"if\" Expr NL Expr NL").
+grammar_line(420, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
+grammar_line(430, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
+grammar_line(440, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
+grammar_line(450, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
+grammar_line(460, "PatternList   ::= Pattern (\",\" Pattern)* \",\"?").
+grammar_line(470, "PatternFieldList ::= PatternField (\",\" PatternField)* \",\"?").
 grammar_line(460, "PatternField  ::= Name \":\" Pattern").
 grammar_line(470, "MemberPath    ::= Name (\"::\" Name)*").
 
@@ -273,6 +275,8 @@ keyword_kind("mod", mod).
 keyword_kind("use", use).
 keyword_kind("from", from).
 keyword_kind("match", match).
+keyword_kind("if", if).
+keyword_kind("else", else).
 keyword_kind("or", or).
 keyword_kind("and", and).
 keyword_kind("not", not).
@@ -591,16 +595,16 @@ expr_line -->
     { Tokens \= [], phrase(expr, Tokens) }.
 
 expr_line_tokens(Tokens, S0, S) :-
-    collect_expr_line(S0, S, 0, 0, [], Reversed),
+    collect_expr_line(S0, S, 0, 0, none, [], Reversed),
     reverse(Reversed, Tokens).
 
-collect_expr_line([t(nl, _) | Rest], Rest, 0, 0, Acc, Acc) :- !.
-collect_expr_line([], [], 0, 0, Acc, Acc) :- !.
-collect_expr_line([Token | Rest], S, Depth0, Match0, Acc0, Acc) :-
+collect_expr_line([t(nl, _) | Rest], Rest, 0, 0, _, Acc, Acc) :- !.
+collect_expr_line([], [], 0, 0, _, Acc, Acc) :- !.
+collect_expr_line([Token | Rest], S, Depth0, Block0, Previous, Acc0, Acc) :-
     Token = t(Kind, _),
     next_depth(Kind, Depth0, Depth),
-    next_match_depth(Kind, Match0, Match),
-    collect_expr_line(Rest, S, Depth, Match, [Token | Acc0], Acc).
+    next_block_depth(Kind, Previous, Block0, Block),
+    collect_expr_line(Rest, S, Depth, Block, Kind, [Token | Acc0], Acc).
 
 line_tokens(Tokens, S0, S) :-
     collect_line(S0, S, [], Reversed),
@@ -651,9 +655,10 @@ next_depth(rbracket, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(rbrace, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(_, Depth, Depth).
 
-next_match_depth(match, Match0, Match) :- !, Match is Match0 + 1.
-next_match_depth(end, Match0, Match) :- Match0 > 0, !, Match is Match0 - 1.
-next_match_depth(_, Match, Match).
+next_block_depth(match, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(if, Previous, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
+next_block_depth(end, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
+next_block_depth(_, _, Block, Block).
 
 expr --> prefix_expr, binary_tail.
 binary_tail --> binary_op, prefix_expr, !, binary_tail.
@@ -679,6 +684,7 @@ primary_expr --> tok(lparen), nls, expr, nls, tok(rparen).
 primary_expr --> record_or_dict.
 primary_expr --> list_expr.
 primary_expr --> match_expr.
+primary_expr --> if_expr.
 
 satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
 satisfy_opt --> [].
@@ -709,6 +715,10 @@ match_arms --> match_arm, !, match_arms_tail.
 match_arms_tail --> match_arm, !, match_arms_tail.
 match_arms_tail --> [].
 match_arm --> pattern, tok(fat_arrow), expr, nls.
+
+if_expr --> tok(if), expr, nls, expr, nls, else_if_tail, tok(else), nls, expr, nls, tok(end).
+else_if_tail --> tok(else), tok(if), expr, nls, expr, nls, !, else_if_tail.
+else_if_tail --> [].
 
 let_pattern --> tok(underscore).
 let_pattern --> binding_name.

@@ -16,9 +16,9 @@ full type reference.
   such as a call argument or return-compatible expression when that use
   requires one concrete type. Empty `Vec<T>` literals, `Nil` for `List<T>`, and
   empty dictionary literals accept concrete expected collection types from
-  annotations, returns, call arguments, record fields, match arms, and
-  constructor payloads, plus compiler-known prelude helper result context for
-  callback return values.
+  annotations, returns, call arguments, record fields, match arms, `if`
+  branches, and constructor payloads, plus compiler-known prelude helper result
+  context for callback return values.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and
@@ -37,6 +37,10 @@ full type reference.
   values.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
+  `if` expressions require a final `else`; `if` and `else if` conditions
+  follow the same Boolean branching type rules as equivalent `match Bool`
+  expressions. Non-`Bool` conditions and incompatible branch result types
+  report `type.mismatch` at the failed condition or branch expression.
 - Assignment compatibility treats `unknown` as compatible with any type and
   checks records by required fields. Function compatibility preserves
   fixed-arity versus variadic shape. `Path` is distinct from `String`; the

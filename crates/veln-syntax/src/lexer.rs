@@ -169,6 +169,8 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
         "use" => TokenKind::Use,
         "from" => TokenKind::From,
         "match" => TokenKind::Match,
+        "if" => TokenKind::If,
+        "else" => TokenKind::Else,
         "or" => TokenKind::Or,
         "and" => TokenKind::And,
         "not" => TokenKind::Not,

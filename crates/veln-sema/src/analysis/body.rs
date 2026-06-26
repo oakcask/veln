@@ -1243,6 +1243,19 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Match { scrutinee, arms } => {
                 self.infer_match(expr, scrutinee, arms, expected)
             }
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => self.infer_if(
+                expr,
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+                expected,
+            ),
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }
@@ -1959,6 +1972,70 @@ impl<'a> FunctionChecker<'a> {
 
         self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
         result_type
+    }
+
+    pub(super) fn infer_if(
+        &mut self,
+        expr: &Expr,
+        condition: &Expr,
+        then_branch: &Expr,
+        else_if_branches: &[IfBranch],
+        else_branch: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        self.check_if_condition(expr, condition);
+
+        let mut result_type = expected
+            .map(|expected| expected.ty.clone())
+            .unwrap_or(Type::Unknown);
+        self.infer_if_branch(expr, then_branch, expected, &mut result_type);
+        for branch in else_if_branches {
+            self.check_if_condition(expr, &branch.condition);
+            self.infer_if_branch(expr, &branch.expr, expected, &mut result_type);
+        }
+        self.infer_if_branch(expr, else_branch, expected, &mut result_type);
+        result_type
+    }
+
+    fn check_if_condition(&mut self, if_expr: &Expr, condition: &Expr) {
+        let expected = ExpectedType {
+            ty: Type::bool(),
+            source: ExpectedTypeSource::Inferred,
+            origin_node_id: if_expr.node_id,
+            origin_span: Some(if_expr.span.clone()),
+            origin_message: "If condition expected `Bool` here.",
+        };
+        let actual = self.infer_expr(condition, Some(&expected));
+        self.check_assignable(condition, &expected.ty, &actual, &expected, "if_condition");
+    }
+
+    fn infer_if_branch(
+        &mut self,
+        if_expr: &Expr,
+        branch_expr: &Expr,
+        expected: Option<&ExpectedType>,
+        result_type: &mut Type,
+    ) {
+        let branch_expected = if let Some(expected) = expected {
+            Some(expected.clone())
+        } else if *result_type != Type::Unknown {
+            Some(ExpectedType {
+                ty: result_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: if_expr.node_id,
+                origin_span: Some(if_expr.span.clone()),
+                origin_message: "If result type inferred here.",
+            })
+        } else {
+            None
+        };
+        let actual = self.infer_expr(branch_expr, branch_expected.as_ref());
+        if let Some(expected) = &branch_expected {
+            self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
+        }
+        if *result_type == Type::Unknown {
+            *result_type = actual;
+        }
     }
 
     pub(super) fn check_match_exhaustiveness(
