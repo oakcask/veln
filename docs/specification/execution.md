@@ -1441,6 +1441,8 @@ execution reference.
   `Err(RuntimeDiagnostic(...))` payload can project directly to the same
   human runtime diagnostic and `details.protocol_diagnostic` JSON shape as
   the compatibility helper. The implemented HTTP/2 slice covers
+  `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)`,
+  `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)`,
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
   `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)`,

@@ -117,10 +117,10 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
-  diagnostics. Source-visible HTTP/2 protocol payloads for invalid frame kind,
-  frame-size exceeded, header-list receive-limit failures, fixed payload
-  length, invalid `WINDOW_UPDATE` increment, invalid PRIORITY dependency, and
-  stream-after-GOAWAY likewise use
+  diagnostics. Source-visible HTTP/2 protocol payloads for pending-byte close,
+  continuation ordering, invalid frame kind, frame-size exceeded, header-list
+  receive-limit failures, fixed payload length, invalid `WINDOW_UPDATE`
+  increment, invalid PRIORITY dependency, and stream-after-GOAWAY likewise use
   the same human runtime diagnostic rendering as the compatibility helpers,
   with the stable id, protocol facts, provenance, and bounded byte preview
   when present projected from the returned `RuntimeDiagnostic(...)` value.

@@ -273,6 +273,12 @@
     }
 
     private static ProtocolDiagnostic runtimeHttp2ProtocolDiagnostic(String id, Object detail) {
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic")) {
+            return runtimeHttp2ProtocolClosedWithPendingDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic")) {
+            return runtimeHttp2ProtocolContinuationExpectedDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
             return runtimeHttp2ProtocolInvalidFrameKindDiagnostic(id, (Adt) detail);
         }
@@ -295,6 +301,59 @@
             return runtimeHttp2ProtocolStreamAfterGoawayDiagnostic(id, (Adt) detail);
         }
         return null;
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolClosedWithPendingDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.closed_with_pending")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long pendingCount = asLong(detail.payloads[1]);
+        String activeContinuation = asString(detail.payloads[2]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[3], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("pending_count", pendingCount),
+                DiagnosticDetail.string("input_event", "end"),
+                DiagnosticDetail.string("active_continuation", activeContinuation),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolContinuationExpectedDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.continuation_expected")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long actualKind = asLong(detail.payloads[1]);
+        long actualStream = asLong(detail.payloads[2]);
+        long expectedStream = asLong(detail.payloads[3]);
+        long startedKind = asLong(detail.payloads[4]);
+        long startedOffset = asLong(detail.payloads[5]);
+        String activeContinuation = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("actual_frame_kind", actualKind),
+                DiagnosticDetail.number("actual_stream_id", actualStream),
+                DiagnosticDetail.number("expected_stream_id", expectedStream),
+                DiagnosticDetail.number("started_frame_kind", startedKind),
+                DiagnosticDetail.number("started_byte_offset", startedOffset),
+                DiagnosticDetail.string("active_continuation", activeContinuation),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
     }
 
     private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidFrameKindDiagnostic(

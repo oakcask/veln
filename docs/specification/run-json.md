@@ -72,6 +72,10 @@ When the returned error value is an HTTP/2 protocol
 `RuntimeDiagnostic(...)` payload, `details.value` keeps the rendered
 `RuntimeDiagnostic(...)` value and the detail projects to
 `details.protocol_diagnostic`. The implemented HTTP/2 payload constructors are
+`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for
+`http2.protocol.closed_with_pending`,
+`RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for
+`http2.protocol.continuation_expected`,
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
 `http2.protocol.invalid_frame_kind`,
 `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
@@ -414,7 +418,13 @@ bytes. These protocol-owned byte previews use the same `encoding`, `data`,
 schema-owned byte diagnostics, while byte offset, expected byte count, actual
 pending count, matched prefix count, expected byte, actual byte, active
 protocol state, active continuation state, and rule provenance stay in their
-own fields. The frame-size peer-limit slice uses id
+own fields. The checked closed-input pending-byte and continuation-ordering
+JSON examples return source-visible
+`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` and
+`RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields. The frame-size
+peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The

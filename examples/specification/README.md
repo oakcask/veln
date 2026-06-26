@@ -2392,8 +2392,9 @@ against the built `veln` binary.
   context, plus a bounded lowercase hex nearby-byte note.
 - `run/http2-protocol-core-closed-json/`: the same closed-input pending-byte
   failure reports `http2.protocol.closed_with_pending` through `run --json`
-  with byte offset, pending byte count, active continuation details, and
-  structured bounded byte preview fields for the retained bytes.
+  as a source-visible `RuntimeDiagnostic(...)` result value, with byte
+  offset, pending byte count, active continuation details, and structured
+  bounded byte preview fields for the retained bytes.
 - `run/http2-protocol-core-preface-partial-human/`: end-of-stream with a
   partial client connection preface reports `http2.protocol.partial_preface`
   through human `run` stderr with pending and expected byte counts, active
@@ -2414,8 +2415,9 @@ against the built `veln` binary.
   preview fields.
 - `run/http2-protocol-core-continuation-json/`: a continuation ordering
   failure reports `http2.protocol.continuation_expected` through `run --json`
-  with byte offset, frame kind, stream id, active continuation details, and
-  structured bounded byte preview fields for the inspected frame header.
+  as a source-visible `RuntimeDiagnostic(...)` result value, with byte
+  offset, frame kind, stream id, active continuation details, and structured
+  bounded byte preview fields for the inspected frame header.
 - `run/http2-protocol-core-continuation-human/`: the same continuation
   ordering failure reports `http2.protocol.continuation_expected` through
   human `run` stderr with active continuation details and a bounded lowercase
