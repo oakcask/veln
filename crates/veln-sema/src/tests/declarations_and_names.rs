@@ -113,6 +113,52 @@ fn omitted_local_binding_type_infers_from_return_compatible_use() {
 }
 
 #[test]
+fn omitted_local_list_nil_infers_from_later_call_use() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn consume(items: List<Int>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let items = Nil\n",
+            "  consume(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn omitted_local_empty_dictionary_infers_from_later_call_use() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn consume(items: Dict<String, Int>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let items = {}\n",
+            "  consume(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn omitted_local_binding_type_reports_unconstrained_unknown() {
     let source = SourceFile::new(
         "main.veln",
@@ -134,6 +180,37 @@ fn omitted_local_binding_type_reports_unconstrained_unknown() {
             .details
             .to_json()
             .contains("\"inferred_type\":\"Vec<unknown>\"")
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
+fn omitted_local_list_nil_reports_unconstrained_unknown() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  let items = Nil\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.local_inference_incomplete");
+    assert_eq!(
+        diagnostics[0].message,
+        "omitted local binding `items` has no concrete inferred type"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"inferred_type\":\"List<unknown>\"")
     );
     assert_eq!(diagnostics[0].related.len(), 1);
 }

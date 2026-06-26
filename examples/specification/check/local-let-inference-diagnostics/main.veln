@@ -12,8 +12,20 @@ fn unconstrained() -> Int
 	1
 end
 
+fn unconstrained_list() -> Int
+	let items = Nil
+	1
+end
+
 fn conflicting() -> Int
 	let items = []
 	let first: Int = consume_int(items)
 	consume_string(items)
+end
+
+fn ambiguous_empty_collection_arguments() -> Int
+	let vec_count: Int = vec_len([])
+	let list_empty: Bool = list_is_empty(Nil)
+	let has_key: Bool = dict_contains({}, "key")
+	1
 end

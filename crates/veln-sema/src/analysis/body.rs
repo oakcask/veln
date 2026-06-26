@@ -1230,7 +1230,11 @@ impl<'a> FunctionChecker<'a> {
                             .map(|_| expected.ty.clone())
                     })
                     .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
-                if expected.is_none() && type_contains_unknown(&inferred) {
+                if type_contains_unknown(&inferred)
+                    && ((expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
+                        || (expected.is_some()
+                            && constructor.variant.kind == AdtVariantKind::ListNil))
+                {
                     self.push_ambiguous_constructor_type(
                         expr.node_id,
                         expr.span.clone(),
@@ -1313,6 +1317,14 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .rposition(|binding| binding.name == name)?;
         let current = self.bindings[index].ty.clone();
+        if matches!(current, Type::Record(ref fields) if fields.is_empty())
+            && let Some(expected) = expected
+            && expected.ty.dict_parts().is_some()
+            && !type_contains_unknown(&expected.ty)
+        {
+            self.bindings[index].ty = expected.ty.clone();
+            return Some(expected.ty.clone());
+        }
         if type_contains_unknown(&current)
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
@@ -1805,6 +1817,18 @@ impl<'a> FunctionChecker<'a> {
         items: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if items.is_empty()
+            && let Some(expected) = expected
+            && expected.ty.vec_part().is_some()
+            && type_contains_unknown(&expected.ty)
+        {
+            self.push_ambiguous_empty_collection_type(
+                expr.node_id,
+                expr.span.clone(),
+                "Vec",
+                &expected.ty,
+            );
+        }
         let expected_item = expected
             .and_then(|expected| expected.ty.vec_part())
             .cloned()
@@ -2044,10 +2068,24 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn infer_record(
         &mut self,
-        _expr: &Expr,
+        expr: &Expr,
         fields: &[RecordField],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if fields.is_empty()
+            && let Some(expected) = expected
+            && expected.ty.dict_parts().is_some()
+        {
+            if type_contains_unknown(&expected.ty) {
+                self.push_ambiguous_empty_collection_type(
+                    expr.node_id,
+                    expr.span.clone(),
+                    "Dict",
+                    &expected.ty,
+                );
+            }
+            return expected.ty.clone();
+        }
         let mut actual_fields = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
         for field in fields {
@@ -2107,6 +2145,18 @@ impl<'a> FunctionChecker<'a> {
         entries: &[DictEntry],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if entries.is_empty()
+            && let Some(expected) = expected
+            && expected.ty.dict_parts().is_some()
+            && type_contains_unknown(&expected.ty)
+        {
+            self.push_ambiguous_empty_collection_type(
+                expr.node_id,
+                expr.span.clone(),
+                "Dict",
+                &expected.ty,
+            );
+        }
         let (expected_key, expected_value) = expected
             .and_then(|expected| expected.ty.dict_parts())
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
@@ -2635,6 +2685,32 @@ impl<'a> FunctionChecker<'a> {
                 ("constructor", JsonValue::string(symbol)),
                 ("inferred_type", JsonValue::string(ty.render())),
                 ("constraint", JsonValue::string("constructor_type_context")),
+            ]),
+        ));
+    }
+
+    pub(super) fn push_ambiguous_empty_collection_type(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        collection: &str,
+        ty: &Type,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            "type.inference_ambiguous",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("empty {collection} literal needs concrete type context"),
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("collection", JsonValue::string(collection)),
+                ("inferred_type", JsonValue::string(ty.render())),
+                (
+                    "constraint",
+                    JsonValue::string("empty_collection_type_context"),
+                ),
             ]),
         ));
     }

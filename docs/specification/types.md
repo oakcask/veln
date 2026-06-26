@@ -14,7 +14,10 @@ full type reference.
 - Local inference is monomorphic and flow-sensitive within one function body.
   An omitted local `let` binding type may be fixed by a later same-function use
   such as a call argument or return-compatible expression when that use
-  requires one concrete type.
+  requires one concrete type. Empty `Vec<T>` literals, `Nil` for `List<T>`, and
+  empty dictionary literals accept concrete expected collection types from
+  annotations, returns, call arguments, record fields, match arms, and
+  constructor payloads.
 - `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain

@@ -94,7 +94,8 @@ pub fn main() -> () effects [stdio]
 		Ok(items) => int_to_string(vec_len(items))
 		Err(error) => error
 	end
-	let eighth: String = match vec_is_empty([])
+	let empty_vec: Vec<Int> = []
+	let eighth: String = match vec_is_empty(empty_vec)
 		true => "empty"
 		false => "nonempty"
 	end

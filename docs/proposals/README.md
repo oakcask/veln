@@ -15,9 +15,9 @@ compare it with `../specification/` before changing behavior.
   finite-domain branch form.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for private helpers, callbacks,
-  constructors, match scrutinees, and broader empty collection contexts beyond
-  the implemented same-function local `let` inference slice specified in
-  `../specification/types.md`.
+  constructor type-argument inference from payloads, match scrutinees, and
+  other paths beyond the implemented same-function local `let` and empty
+  collection expected-type slices specified in `../specification/types.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

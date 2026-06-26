@@ -120,6 +120,16 @@ monomorphic: after one concrete type is fixed, a later incompatible use reports
 binding type, checking reports `type.local_inference_incomplete` at the
 omitted binding.
 
+Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
+accept concrete expected collection types from local annotations, return
+positions, call arguments, record fields, match arm results, and constructor
+payloads. `Nil` in an omitted local binding may also be fixed by a later
+same-function use. Empty dictionary literals use `{}` when the expected type is
+`Dict<K, V>`; a later same-function use may fix an omitted local `{}` binding
+to that dictionary type. Without a dictionary expectation, `{}` remains an
+empty record literal. An expected collection type that still contains `unknown`
+is not concrete enough for an empty collection literal.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
@@ -176,10 +186,11 @@ literal fields are name errors before record assignability chooses an expected
 field type.
 
 Dictionary literals infer `Dict<K, V>` from their expected type when available.
-Without an expected dictionary type, the first entry supplies the initial key
-and value types. Later entries are checked against the same key and value
-expectations. A dictionary key may be any implemented expression; the parser
-only reserves a first bare `name: value` entry for record literals.
+An empty `{}` expression becomes an empty dictionary only when the expected type
+is `Dict<K, V>`. Without an expected dictionary type, the first entry supplies
+the initial key and value types. Later entries are checked against the same key
+and value expectations. A dictionary key may be any implemented expression; the
+parser only reserves a first bare `name: value` entry for record literals.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a

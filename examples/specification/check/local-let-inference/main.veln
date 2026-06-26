@@ -3,12 +3,84 @@ fn consume(items: Vec<Int>) -> Int
 	1
 end
 
+fn consume_nodes(items: List<Int>) -> Int
+	1
+end
+
+fn consume_table(items: Dict<String, Int>) -> Int
+	1
+end
+
+type Box<A>
+	Box(value: A)
+end
+
 fn call_constrained() -> Int
 	let items = []
 	consume(items)
 end
 
+fn list_call_constrained() -> Int
+	let items = Nil
+	consume_nodes(items)
+end
+
+fn dict_call_constrained() -> Int
+	let items = {}
+	consume_table(items)
+end
+
 fn return_constrained() -> Vec<Int>
 	let items = []
 	items
+end
+
+fn annotated_empty_collections() -> {vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>}
+	let vec: Vec<Int> = []
+	let list: List<Int> = Nil
+	let dict: Dict<String, Int> = {}
+	{vec: vec, list: list, dict: dict}
+end
+
+fn return_empty_list() -> List<Int>
+	Nil
+end
+
+fn return_empty_dict() -> Dict<String, Int>
+	{}
+end
+
+fn call_argument_empty_collections() -> Int
+	let left: Int = consume([])
+	let middle: Int = consume_nodes(Nil)
+	left + middle + consume_table({})
+end
+
+fn record_field_empty_collections() -> {vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>}
+	{vec: [], list: Nil, dict: {}}
+end
+
+fn match_arm_empty_vec(flag: Bool) -> Vec<Int>
+	match flag
+		true => []
+		false => [1]
+	end
+end
+
+fn match_arm_empty_list(flag: Bool) -> List<Int>
+	match flag
+		true => Nil
+		false => Cons(1, Nil)
+	end
+end
+
+fn match_arm_empty_dict(flag: Bool) -> Dict<String, Int>
+	match flag
+		true => {}
+		false => {"one": 1}
+	end
+end
+
+fn constructor_payload_empty_collections() -> {vec: Box<Vec<Int>>, list: Box<List<Int>>, dict: Box<Dict<String, Int>>}
+	{vec: Box([]), list: Box(Nil), dict: Box({})}
 end

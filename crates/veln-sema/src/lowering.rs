@@ -659,7 +659,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_name_path(
-        &self,
+        &mut self,
         expr: &Expr,
         segments: &[String],
         expected: Option<&CoreType>,
@@ -705,13 +705,22 @@ impl<'a> CoreLowerer<'a> {
             }
             _ => match segments {
                 [name] => {
-                    if let Some(binding) = self
+                    if let Some(index) = self
                         .bindings
                         .iter()
-                        .rev()
-                        .find(|binding| binding.name == *name)
+                        .rposition(|binding| binding.name == *name)
                     {
-                        self.core_expr(expr, binding.ty.clone(), CoreExprKind::Local(name.clone()))
+                        let mut ty = self.bindings[index].ty.clone();
+                        if let Some(expected) = expected
+                            && !core_type_contains_unknown(expected)
+                            && (core_type_contains_unknown(&ty)
+                                || matches!(ty, CoreType::Record(ref fields) if fields.is_empty())
+                                    && expected.dict_parts().is_some())
+                        {
+                            ty = expected.clone();
+                            self.bindings[index].ty = ty.clone();
+                        }
+                        self.core_expr(expr, ty, CoreExprKind::Local(name.clone()))
                     } else {
                         match self
                             .environment
@@ -1167,6 +1176,12 @@ impl<'a> CoreLowerer<'a> {
         fields: &[RecordField],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if fields.is_empty()
+            && let Some(expected) = expected
+            && expected.dict_parts().is_some()
+        {
+            return self.core_expr(expr, expected.clone(), CoreExprKind::Dict(Vec::new()));
+        }
         let fields = fields
             .iter()
             .map(|field| {
@@ -1511,6 +1526,26 @@ fn render_core_type(ty: &CoreType) -> String {
                 format!(" effects [{}]", effects.join(", "))
             };
             format!("fn({params}) -> {}{effects}", render_core_type(return_type))
+        }
+    }
+}
+
+fn core_type_contains_unknown(ty: &CoreType) -> bool {
+    match ty {
+        CoreType::Unknown => true,
+        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
+        CoreType::Record(fields) => fields
+            .iter()
+            .any(|(_, field_ty)| core_type_contains_unknown(field_ty)),
+        CoreType::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(core_type_contains_unknown)
+                || variadic.as_deref().is_some_and(core_type_contains_unknown)
+                || core_type_contains_unknown(return_type)
         }
     }
 }
