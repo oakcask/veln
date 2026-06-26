@@ -1447,6 +1447,7 @@ execution reference.
   `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)`,
   `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)`,
+  `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`,
   `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)`,
   `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)`, and
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
@@ -1948,6 +1949,9 @@ execution reference.
   `http2.protocol.invalid_request_header_list`. Its primary message names the
   failed header-list fact; decoded header names, stream id, frame kind, active
   state, and rule provenance remain structured details or related notes.
+  A source-visible
+  `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` payload carries
+  those request header-list facts without using the legacy helper side table.
   Fixture-marked request `:scheme` values are valid only when they are `http`
   or `https`; any other value fails with `scheme_value_not_http_or_https`.
   Fixture-marked request `:path` values must be non-empty after `:path`

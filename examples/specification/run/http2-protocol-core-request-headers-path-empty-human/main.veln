@@ -1,7 +1,7 @@
 # HTTP/2 request :path values project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidRequestHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
+	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
 end
 
 type Http2DiagnosticContext
@@ -20,13 +20,13 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))
+		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))))
 	end
 end
 
-pub fn main() -> Result<(), String>
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("request-headers", "rfc9113_request_pseudo_headers")
-	http2_protocol_diagnostic(InvalidRequestHeaderList(12, 1, 1, "path_value_empty", ":path", ":method,:scheme,:path"), context)
+	http2_protocol_diagnostic(InvalidRequestHeaderList("HTTP/2 request header list contains empty :path at byte offset 12", 12, 1, 1, "path_value_empty", ":path", ":method,:scheme,:path"), context)
 end

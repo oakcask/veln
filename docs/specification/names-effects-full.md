@@ -1148,7 +1148,10 @@ descriptors remain outside the migration candidate pool.
 
 The source-visible `RuntimeDiagnosticDetail` constructor set includes
 `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for projecting
-`http2.peer_limit.header_list_size_exceeded` failures and
+`http2.peer_limit.header_list_size_exceeded` failures,
+`RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for projecting
+`http2.protocol.invalid_request_header_list` failures without using the legacy
+helper side table, and
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
 using the legacy helper side table.

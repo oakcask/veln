@@ -84,6 +84,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.peer_limit.header_list_size_exceeded`,
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for
 `http2.protocol.invalid_payload_length`,
+`RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for
+`http2.protocol.invalid_request_header_list`,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 `http2.protocol.invalid_window_update_increment`,
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for
@@ -92,7 +94,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.stream_after_goaway`. These constructors project the same
 public JSON fields as the compatibility helpers, including stream
 classification, peer-limit facts, active state, rule provenance, receive-limit
-provenance, and bounded byte previews where applicable.
+provenance, header-list facts, decoded header names, and bounded byte previews
+where applicable.
 
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:

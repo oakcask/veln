@@ -192,8 +192,9 @@ fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover pending-byte close,
 continuation ordering, invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, fixed payload length for SETTINGS ACK,
-PING, GOAWAY, and `RST_STREAM`, invalid `WINDOW_UPDATE` increment, invalid
-PRIORITY dependency, and stream-after-GOAWAY failures.
+PING, GOAWAY, and `RST_STREAM`, request header-list validation, invalid
+`WINDOW_UPDATE` increment, invalid PRIORITY dependency, and stream-after-GOAWAY
+failures.
 They project through the existing HTTP/2 human diagnostics and
 `details.protocol_diagnostic` JSON shape. The
 checked examples are
@@ -226,6 +227,21 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-human/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-content-length-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-connection-specific-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-duplicate-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-order-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-path-empty-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-path-empty-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-scheme-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-scheme-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-te-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-te-json/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-token-human/`,
+`../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,
