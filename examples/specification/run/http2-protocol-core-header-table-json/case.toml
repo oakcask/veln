@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 header table size exceeds receive maximum at byte offset 35"
+equals = "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -85,3 +85,23 @@ equals = 3
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
 equals = false
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.observed_header_table_size"
+equals = 289
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.allowed_header_table_size"
+equals = 160
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.receive_limit_provenance"
+equals = "local_configuration"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.fields.1.value"
+equals = 129

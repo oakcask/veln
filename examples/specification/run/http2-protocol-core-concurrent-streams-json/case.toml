@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 concurrent stream receive limit exceeded at byte offset 9"
+equals = "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -68,4 +68,24 @@ equals = "local_configuration"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
+equals = "peer_created_stream_receive_limit"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.attempted_concurrent_stream_count"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.allowed_concurrent_stream_count"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.endpoint_role"
+equals = "server"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.rule_provenance"
 equals = "peer_created_stream_receive_limit"

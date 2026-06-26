@@ -192,7 +192,8 @@ fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover pending-byte close,
 continuation ordering, invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
-fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
+header-table receive-limit failures, concurrent-stream receive-limit
+failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
 request header-list validation, invalid `WINDOW_UPDATE` increment, invalid
 PRIORITY dependency, and stream-after-GOAWAY failures.
 They project through the existing HTTP/2 human diagnostics and
@@ -248,6 +249,10 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
+`../../examples/specification/run/http2-protocol-core-header-table-human/`,
+`../../examples/specification/run/http2-protocol-core-header-table-json/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-human/`,
