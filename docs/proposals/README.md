@@ -9,6 +9,10 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
+- [If Else Expression Syntax](if-else-expression-syntax.md): add planned
+  `if` / `else if` / `else` / `end` expression syntax for ordinary Boolean
+  branching while preserving `match` as the implemented and still-supported
+  finite-domain branch form.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for private helpers, callbacks,
   constructors, match scrutinees, and broader empty collection contexts beyond
