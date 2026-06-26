@@ -263,6 +263,12 @@ Hole diagnostic `details` are stable for unfilled holes:
 - `local_bindings`
 - `candidate_queries`
 
+When a hole is checked inside a concrete expected-type context, such as a
+function return expression, call argument, record field initializer, `if`
+branch, `match` arm, or ADT constructor payload, `expected_type` contains the
+rendered concrete type and `expected_type_source` is stable as `declared` or
+`inferred`. The human diagnostic primary message uses the same concrete type.
+
 Each `candidate_queries` entry is advisory and contains:
 
 - `kind`

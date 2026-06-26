@@ -1,0 +1,8 @@
+# Human diagnostics name the concrete expected type at the hole span.
+fn accept(value: Int) -> Int
+	value
+end
+
+fn main(fallback: Int) -> Int
+	accept(_)
+end
