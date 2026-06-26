@@ -2257,7 +2257,7 @@ pub(crate) fn supported_encode_reserved_bits(
     {
         return Some((bit_width as u8, expected_value));
     }
-    if let Some(packed_storage_bit_width) = packed_reserved_storage_bit_width(bit_width)
+    if let Some(packed_storage_bit_width) = suffix_packed_reserved_storage_bit_width(bit_width)
         && !previous_previous_field.is_some_and(|field| {
             previous_field.is_some_and(|visible| supported_packed_reserved_prefix(field, visible))
         })
@@ -2499,6 +2499,16 @@ fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
     } else {
         None
     }
+}
+
+fn suffix_packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
+    packed_reserved_storage_bit_width(bit_width).or_else(|| {
+        if (33..=39).contains(&bit_width) {
+            Some(40)
+        } else {
+            None
+        }
+    })
 }
 
 fn parse_reserved_bits_integer(text: &str) -> Option<i64> {

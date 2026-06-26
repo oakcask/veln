@@ -487,12 +487,14 @@ mapping source field.
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-four-byte-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-suffix-json/`,
+`../../examples/specification/run/binary-schema-five-byte-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-truncated-json/`,
 and
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`
 pin the packed reserved suffix slice. The valid cases decode the visible high
 bits and omit the low reserved suffix field from the decoded record for
-one-byte, two-byte, three-byte, and four-byte shared storage units. The
+one-byte, two-byte, three-byte, four-byte, and five-byte shared storage
+units. The
 failing cases
 assert `schema.reserved_bits_mismatch` at the reserved suffix field path and
 `schema.truncated_field` at the visible field path when the shared storage
@@ -1197,11 +1199,13 @@ the value does not fit.
 `../../examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode/`,
+`../../examples/specification/run/binary-schema-five-byte-reserved-suffix-decode-encode/`,
 and
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`
 pin the packed reserved suffix encode slice. The helper writes the visible
 value in the high bits, writes the declared reserved value in the low bits for
-one-byte, two-byte, three-byte, and four-byte shared storage units, and reports
+one-byte, two-byte, three-byte, four-byte, and five-byte shared storage units,
+and reports
 `codec.encode_value_unrepresentable` against the visible field when the input
 record value exceeds the field range.
 `../../examples/specification/run/binary-schema-middle-reserved-decode-encode/`

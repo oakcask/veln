@@ -1,0 +1,13 @@
+schema FiveByteReservedSuffixHeader
+	format binary
+
+	control: UInt7
+	control_padding: ReservedBits(33, 5726623061)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ab55555556")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded: {control: Int} = byte_decode_five_byte_reserved_suffix_header(view)?
+	Ok(())
+end

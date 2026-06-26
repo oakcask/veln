@@ -293,8 +293,8 @@ byte-aligned `ReservedBits(width, value)` fields, the supported
 layouts, supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to
 eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN` plus
-reserved suffix layouts whose widths sum to eight, sixteen, twenty-four, or
-thirty-two bits, supported `UIntN` plus middle
+reserved suffix layouts whose widths sum to eight, sixteen, twenty-four,
+thirty-two, or forty bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
 including the narrow two-byte interleaved middle layout with a sub-byte
