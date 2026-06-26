@@ -3,7 +3,7 @@ use stdio
 
 type BodyLengthState
 	NoExpectedContentLength
-	ExpectedContentLength({stream_id: Int, expected_length: Int, observed_length: Int, connection_window: Int, stream_window: Int})
+	ExpectedContentLength {stream_id: Int, expected_length: Int, observed_length: Int, connection_window: Int, stream_window: Int}
 end
 
 type BodyLengthDecision
@@ -12,7 +12,7 @@ type BodyLengthDecision
 end
 
 type Http2ProtocolFailure
-	ContentLengthMismatch({offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView})
+	ContentLengthMismatch {offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
 end
 
 fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
@@ -27,22 +27,22 @@ end
 fn accepted_request_body_state() -> Result<BodyLengthState, String>
 	let headers: HpackHeaderList = request_headers_with_content_length()?
 	let expected_length: Int = hpack_fixture::header_list_accepted_content_length(headers)
-	Ok(ExpectedContentLength({stream_id: 1, expected_length: expected_length, observed_length: 0, connection_window: 65535, stream_window: 65535}))
+	Ok(ExpectedContentLength(1, expected_length, 0, 65535, 65535))
 end
 
 fn receive_data(state: BodyLengthState, offset: Int, frame_payload_length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
 	match state
 		NoExpectedContentLength => Ok(BodyLengthAccepted(state))
-		ExpectedContentLength(payload) => validate_body_length(payload.stream_id, payload.expected_length, payload.observed_length + application_length, payload.connection_window - frame_payload_length, payload.stream_window - frame_payload_length, offset, end_stream, preview)
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => validate_body_length(stream_id, expected_length, observed_length + application_length, connection_window - frame_payload_length, stream_window - frame_payload_length, offset, end_stream, preview)
 	end
 end
 
 fn validate_body_length(stream_id: Int, expected_length: Int, next_observed_length: Int, next_connection_window: Int, next_stream_window: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
 	match next_observed_length > expected_length
-		true => Ok(BodyLengthRejected(ContentLengthMismatch({offset: offset, frame_kind: 0, stream_id: stream_id, expected_length: expected_length, observed_length: next_observed_length, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body", preview: byte_chunk_view(preview)?})))
+		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
 		false => match end_stream and next_observed_length < expected_length
-			true => Ok(BodyLengthRejected(ContentLengthMismatch({offset: offset, frame_kind: 0, stream_id: stream_id, expected_length: expected_length, observed_length: next_observed_length, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body", preview: byte_chunk_view(preview)?})))
-			false => Ok(BodyLengthAccepted(ExpectedContentLength({stream_id: stream_id, expected_length: expected_length, observed_length: next_observed_length, connection_window: next_connection_window, stream_window: next_stream_window})))
+			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, next_observed_length, next_connection_window, next_stream_window)))
 		end
 	end
 end
@@ -57,28 +57,28 @@ end
 fn body_expected(state: BodyLengthState) -> Int
 	match state
 		NoExpectedContentLength => 0
-		ExpectedContentLength(payload) => payload.expected_length
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => expected_length
 	end
 end
 
 fn body_observed(state: BodyLengthState) -> Int
 	match state
 		NoExpectedContentLength => 0
-		ExpectedContentLength(payload) => payload.observed_length
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => observed_length
 	end
 end
 
 fn body_connection_window(state: BodyLengthState) -> Int
 	match state
 		NoExpectedContentLength => 0
-		ExpectedContentLength(payload) => payload.connection_window
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => connection_window
 	end
 end
 
 fn body_stream_window(state: BodyLengthState) -> Int
 	match state
 		NoExpectedContentLength => 0
-		ExpectedContentLength(payload) => payload.stream_window
+		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => stream_window
 	end
 end
 
