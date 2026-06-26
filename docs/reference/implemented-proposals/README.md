@@ -62,6 +62,8 @@ behavior.
   [local-inference-dictionary-callback-aliases.md](local-inference-dictionary-callback-aliases.md).
 - Local inference declared helper callback argument:
   [local-inference-declared-helper-callback-argument.md](local-inference-declared-helper-callback-argument.md).
+- Local inference record field callback:
+  [local-inference-record-field-callback.md](local-inference-record-field-callback.md).
 - Local inference non-empty collection initializer:
   [local-inference-non-empty-collection-initializer.md](local-inference-non-empty-collection-initializer.md).
 - Local inference ADT constructor payload:

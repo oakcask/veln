@@ -11,25 +11,26 @@ compare it with `../specification/` before changing behavior.
 
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for callback inputs outside the
-  compiler-known and concrete declared-helper signature paths, and other paths
-  beyond the implemented same-function local `let`, non-empty collection
-  initializer, empty collection expected-type, hole expected-type flow, empty
-  collection callback return, payload-carrying ADT constructor inference,
-  match scrutinee constructor-pattern inference, local pattern `let`
-  inference, compiler-known prelude callback argument, dictionary callback
-  alias, declared helper callback argument, and examples cleanup slices
-  specified in
+  compiler-known, concrete declared-helper signature, and concrete record-field
+  expected-type paths, and other paths beyond the implemented same-function
+  local `let`, non-empty collection initializer, empty collection expected-type,
+  hole expected-type flow, empty collection callback return, payload-carrying
+  ADT constructor inference, match scrutinee constructor-pattern inference,
+  local pattern `let` inference, compiler-known prelude callback argument,
+  dictionary callback alias, declared helper callback argument, record-field
+  callback, and examples cleanup slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference, dictionary callback alias inference, declared helper callback
-  argument inference, non-empty collection initializer inference, ADT
-  constructor payload inference, match scrutinee constructor-pattern
-  inference, local pattern `let` inference, hole expected-type flow, and
-  examples cleanup slices are archived under
+  argument inference, record-field callback inference, non-empty collection
+  initializer inference, ADT constructor payload inference, match scrutinee
+  constructor-pattern inference, local pattern `let` inference, hole
+  expected-type flow, and examples cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
   `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`,
+  `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,

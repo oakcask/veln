@@ -200,6 +200,14 @@ effectful compatibility checks. This rule does not infer public callback
 signatures, exported aliases, or helper signatures whose function parameter
 type still contains `unknown`.
 
+A concrete expected record type also pushes each expected field type into the
+matching record literal field initializer. When the expected field type is a
+concrete function type, a named private callback function value placed in that
+field receives the expected function parameter types for omitted callback
+parameter annotations. The callback return still has to satisfy the expected
+field function return type. Expected record field function types that still
+contain `unknown` do not constrain callback parameters.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
