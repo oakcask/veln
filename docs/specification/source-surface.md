@@ -122,7 +122,9 @@ Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
 schema helper path, including supported representation-only `ReservedBits`
-layouts. A same-module recursive dispatch case may name the
+layouts and length-bounded `ByteView(length_field)` fields whose length names
+an earlier visible `Int` field in that nested schema. A same-module recursive
+dispatch case may name the
 enclosing schema recursively, and a public imported recursive payload schema
 may be named through a written `use` path, only in the length-bounded form
 when selected `map to Target when tag_field == literal` clauses cover every

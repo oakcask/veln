@@ -179,8 +179,13 @@ selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, same-module representation-only reserved-bit payload
-round trips, extension-tolerant known payloads, recursive extension known
-payloads, unknown payload preservation, and nested helper diagnostics. A
+round trips, nested `ByteView(length_field)` payload fields whose length is an
+earlier visible `Int` in the same nested schema, extension-tolerant known
+payloads, recursive extension known payloads, unknown payload preservation,
+and nested helper diagnostics. The completed nested dispatch
+`ByteView(length_field)` payload helper slice is archived under
+`../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md`.
+A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. The mapping slice also accepts an
 ADT constructor target field whose constructor payload is selected from a
@@ -689,13 +694,16 @@ earlier visible `Int` fields in the same schema.
 `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`,
 `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`, `UInt64le`, or an
 eligible same-module or public imported nested binary schema payload named
-through a written `use` path, plus `ByteView(length_field)` when the length
-field is an earlier visible `Int` field.
+through a written `use` path, including when that nested schema contains
+`ByteView(length_field)` whose length field is an earlier visible `Int` field
+in the same nested schema, plus `ByteView(length_field)` when the repeat
+payload length field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices, support
 rather than rejection for recursive dispatch payload schemas outside the
 selected same-module or public imported length-bounded dispatch
 decode-and-encode slice, dispatch payload schemas outside the generated helper
-slice, and mapping beyond the implemented slices remain proposal work.
+slice beyond the implemented nested generated-helper vocabulary, and mapping
+beyond the implemented slices remain proposal work.
 A `UInt31be` field
 represents the 31-bit unsigned value in a big-endian field position whose
 remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
@@ -868,7 +876,7 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
-  beyond the checked unsupported `ReservedBits`, forward `ByteView` length,
-  and imported recursive diagnostics, and schema value mapping beyond the
-  implemented structural and constructor field-selection slices remain
-  proposal work.
+  beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
+  references, and imported recursive diagnostics, and schema value mapping
+  beyond the implemented structural and constructor field-selection slices
+  remain proposal work.

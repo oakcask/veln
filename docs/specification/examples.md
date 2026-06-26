@@ -1251,8 +1251,15 @@ including extension unknown raw payload preservation.
 pins closed and extension-tolerant nested payload encode through the generated
 schema helper path, including byte-aligned reserved fields and little-endian
 primitive output.
+`../../examples/specification/run/binary-schema-dispatch-byteview-payload-encode/`
+pins the same same-module helper path when the selected nested schema contains
+a `ByteView(length_field)` payload whose length field is earlier in that
+nested schema.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
+`../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-encode/`
+pins that public imported nested dispatch payload encode accepts the same
+`ByteView(length_field)` helper shape through a written `use` path.
 `../../examples/specification/run/binary-schema-mixed-dispatch-selected-mapping-encode/`
 pins direct generated encode over selected mappings that project one target
 record shape back to mixed primitive and nested closed dispatch payload cases,
@@ -1289,6 +1296,9 @@ generated schema helper path.
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`
 pins public imported nested payload encode through
 `SchemaDispatchPayload::Known`.
+`../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-encode/`
+also pins public imported extension-tolerant known payload encode for the same
+nested `ByteView(length_field)` helper shape.
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`
 pins unknown raw payload preservation when the known cases name public
 imported nested payload schemas.
@@ -1324,6 +1334,8 @@ pins the same mixed dispatch selected mapping encode boundary through
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
+`../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
@@ -1338,7 +1350,10 @@ decode selected same-module and public imported payload schemas as
 record-shaped fields. The general helper passing case proves selected nested
 payload schemas keep fixed-field validation, byte-aligned reserved fields, and
 little-endian primitive reads when reached through closed or extension
-dispatch. The recursive closed-dispatch case pins a same-module recursive
+dispatch. The byte-view payload cases prove the same same-module and public
+imported helper path accepts nested payload schemas with a
+`ByteView(length_field)` field whose length is an earlier field in that nested
+schema. The recursive closed-dispatch case pins a same-module recursive
 payload decoded through a length-bounded closed dispatch, selected mappings,
 the generated helper path, and a non-recursive base case. The recursive
 extension-dispatch case pins the same known-payload helper path while unknown
@@ -1383,6 +1398,8 @@ tag.
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
+`../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-recursive-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-unknown/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
@@ -1391,7 +1408,9 @@ and
 `../../examples/specification/run/binary-schema-extension-dispatch-length-human/`
 pin the narrow extension-tolerant dispatch slice. The known case decodes the
 selected exact-width, same-module nested, or public imported nested schema
-payload into `SchemaDispatchPayload::Known`. The recursive case decodes known
+payload into `SchemaDispatchPayload::Known`. The byte-view payload cases pin
+the same known-case path for same-module and public imported nested schemas
+whose own helper includes `ByteView(length_field)`. The recursive case decodes known
 recursive payloads through the same helper path. The unknown cases preserve
 the decoded tag and a bounded raw `ByteView` without reporting
 `schema.dispatch_unknown_tag`. The malformed structural case still reports

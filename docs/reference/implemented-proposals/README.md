@@ -80,6 +80,8 @@ behavior.
   [binary-schema-eight-byte-split-reserved-layouts.md](binary-schema-eight-byte-split-reserved-layouts.md).
 - Binary schema nested repeat payload helpers:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
+- Binary schema dispatch `ByteView(length_field)` payload helpers:
+  [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:
