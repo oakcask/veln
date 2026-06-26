@@ -14,15 +14,48 @@ fn context_active_continuation(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn invalid_continuation_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.continuation_expected",
+		error,
+		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, "headers", byte_chunk([]))
+	)
+end
+
+fn continuation_payload(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.continuation_expected",
+		"HTTP/2 expected CONTINUATION frame at byte offset 9",
+		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context), preview)
+		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview) => Err(continuation_payload(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("000000000000000001")?
-	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000000000000001")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_continuation_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_continuation_payload(error))
+		end
+		Err(error) => Err(invalid_continuation_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(bytes)?
 	let context: Http2DiagnosticContext = DiagnosticContext("headers")
 	http2_protocol_diagnostic(ContinuationExpected(9, 0, 1, 1, 1, 0, preview), context)
 end

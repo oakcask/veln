@@ -5353,6 +5353,45 @@ fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
 	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
 end
 
+fn closed_runtime_payload(offset: Int, pending_count: Int, active_continuation: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.closed_with_pending",
+		"HTTP/2 input ended with pending bytes",
+		RuntimeHttp2ProtocolClosedWithPendingDiagnostic(offset, pending_count, active_continuation, preview_chunk)
+	)
+end
+
+fn continuation_runtime_payload(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.continuation_expected",
+		"HTTP/2 expected CONTINUATION frame",
+		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, preview_chunk)
+	)
+end
+
+fn project_closed_with_pending_payload(offset: Int, pending_count: Int, active_continuation: String, preview_chunk: ByteChunk) -> Result<(), RuntimeDiagnostic>
+	Err(closed_runtime_payload(offset, pending_count, active_continuation, preview_chunk))
+end
+
+fn project_continuation_expected_payload(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview_chunk: ByteChunk) -> Result<(), RuntimeDiagnostic>
+	Err(continuation_runtime_payload(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, preview_chunk))
+end
+
+fn accept_runtime_diagnostic(result: Result<(), RuntimeDiagnostic>) -> Result<(), String>
+	match result
+		Ok(_) => Ok(())
+		Err(_) => Ok(())
+	end
+end
+
+fn project_closed_step_payload(step: Http2Step) -> Result<(), String>
+	accept_runtime_diagnostic(project_closed_with_pending_payload(failure_offset(step_failure(step)), failure_pending_count(step_failure(step)), state_continuation_label(step_state(step)), state_pending_chunk(step_state(step))))
+end
+
+fn project_continuation_step_payload(step: Http2Step, preview_chunk: ByteChunk) -> Result<(), String>
+	accept_runtime_diagnostic(project_continuation_expected_payload(failure_offset(step_failure(step)), failure_actual_kind(step_failure(step)), failure_actual_stream(step_failure(step)), context_expected_stream(step_failure(step), step_state(step)), context_started_kind(step_failure(step), step_state(step)), context_started_offset(step_failure(step), step_state(step)), state_continuation_label(step_state(step)), preview_chunk))
+end
+
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
 		ClosedWithPending(offset, pending_count, preview_chunk) => http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)
@@ -8364,6 +8403,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("incomplete", incomplete)
 	let truncated: Http2Step = receive(InputEnd, step_state(incomplete))?
 	print_failure("closed", truncated)
+	let ignored_closed_payload: () = project_closed_step_payload(truncated)?
 	let header_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001aabbcc")?), frame_state())?
 	print_step("headers", header_start)
 	let continuation_more: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002090000000001ddee")?), step_state(header_start))?
@@ -8382,14 +8422,18 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_trailing_headers_cases: () = print_trailing_headers_cases()?
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
+	let ignored_continuation_payload: () = project_continuation_step_payload(bad_continuation, byte_chunk_from_hex("000000000000000001")?)?
 	let wrong_stream_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000090400000003")?), step_state(header_start))?
 	print_failure("continuation-stream", wrong_stream_continuation)
+	let ignored_stream_continuation_payload: () = project_continuation_step_payload(wrong_stream_continuation, byte_chunk_from_hex("000000090400000003")?)?
 	let closed_continuation: Http2Step = receive(InputEnd, step_state(header_start))?
 	print_failure("continuation-closed", closed_continuation)
+	let ignored_closed_continuation_payload: () = project_closed_step_payload(closed_continuation)?
 	let unknown_extension: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000000aabbcc")?), frame_state())?
 	let ignored_unknown: () = print_unknown_frame("unknown-extension", unknown_extension)?
 	let unknown_during_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000001aabbcc")?), step_state(header_start))?
 	print_failure("unknown-continuation", unknown_during_continuation)
+	let ignored_unknown_continuation_payload: () = project_continuation_step_payload(unknown_during_continuation, byte_chunk_from_hex("0000030a2300000001aabbcc")?)?
 	let max_allowed_incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("004000000000000003")?), frame_state())?
 	print_step("frame-size-at-limit", max_allowed_incomplete)
 	let too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), frame_state())?
