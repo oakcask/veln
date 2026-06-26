@@ -47,6 +47,12 @@ fn nested_record_pattern_bindings() -> {count: Int, label: String}
 	{count: count, label: label}
 end
 
+fn annotated_record_pattern_bindings(input: {outer: {count: Int, label: String}, ignored: Bool}) -> String
+	let {outer: {count: count, label: label}, ignored: _}: {outer: {count: Int, label: String}, ignored: Bool} = input
+	let _: Int = count + 1
+	label
+end
+
 fn constructor_pattern_bindings(input: Option<Int>) -> Int
 	let Some(count) = input
 	count + 1
@@ -54,6 +60,11 @@ end
 
 fn nested_constructor_pattern_bindings(input: Result<Option<Int>, String>) -> Int
 	let Ok(Some(count)) = input
+	count + 1
+end
+
+fn annotated_constructor_pattern_bindings(input: Result<Option<Int>, String>) -> Int
+	let Ok(Some(count)): Result<Option<Int>, String> = input
 	count + 1
 end
 
