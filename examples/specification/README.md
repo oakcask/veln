@@ -2399,22 +2399,24 @@ against the built `veln` binary.
   bounded byte preview fields for the retained bytes.
 - `run/http2-protocol-core-preface-partial-human/`: end-of-stream with a
   partial client connection preface reports `http2.protocol.partial_preface`
-  through human `run` stderr with pending and expected byte counts, active
-  state, provenance, and a bounded lowercase hex nearby-byte note.
+  through human `run` stderr from a source-visible `RuntimeDiagnostic(...)`
+  result value with pending and expected byte counts, active state,
+  provenance, and a bounded lowercase hex nearby-byte note.
 - `run/http2-protocol-core-preface-partial-json/`: the same partial preface
-  failure reports `http2.protocol.partial_preface` through `run --json` with
-  byte offset, pending byte count, expected byte count, active state, and rule
-  provenance, plus structured bounded byte preview fields.
+  failure reports `http2.protocol.partial_preface` through `run --json` as a
+  source-visible `RuntimeDiagnostic(...)` result value, with byte offset,
+  pending byte count, expected byte count, active state, and rule provenance,
+  plus structured bounded byte preview fields.
 - `run/http2-protocol-core-preface-invalid-human/`: a mismatched client
   connection preface byte reports `http2.protocol.invalid_preface` through
-  human `run` stderr with expected and actual byte values, matched prefix
-  count, active state, provenance, and a bounded lowercase hex nearby-byte
-  note.
+  human `run` stderr from a source-visible `RuntimeDiagnostic(...)` result
+  value with expected and actual byte values, matched prefix count, active
+  state, provenance, and a bounded lowercase hex nearby-byte note.
 - `run/http2-protocol-core-preface-invalid-json/`: the same invalid preface
-  failure reports `http2.protocol.invalid_preface` through `run --json` with
-  byte offset, expected and actual byte values, matched prefix count, expected
-  byte count, active state, rule provenance, and structured bounded byte
-  preview fields.
+  failure reports `http2.protocol.invalid_preface` through `run --json` as a
+  source-visible `RuntimeDiagnostic(...)` result value, with byte offset,
+  expected and actual byte values, matched prefix count, expected byte count,
+  active state, rule provenance, and structured bounded byte preview fields.
 - `run/http2-protocol-core-continuation-json/`: a continuation ordering
   failure reports `http2.protocol.continuation_expected` through `run --json`
   as a source-visible `RuntimeDiagnostic(...)` result value, with byte

@@ -384,6 +384,8 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHpackFixtureDynamicIndexDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	RuntimeHpackFixtureTableSizeUpdateDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, observed_header_table_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolClosedWithPendingDiagnostic(byte_offset: Int, pending_count: Int, active_continuation: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolPartialPrefaceDiagnostic(byte_offset: Int, pending_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(byte_offset: Int, expected_byte: Int, actual_byte: Int, matched_prefix_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolContinuationExpectedDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_stream_id: Int, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, active_continuation: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String)

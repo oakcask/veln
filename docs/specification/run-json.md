@@ -74,6 +74,10 @@ When the returned error value is an HTTP/2 protocol
 `details.protocol_diagnostic`. The implemented HTTP/2 payload constructors are
 `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for
 `http2.protocol.closed_with_pending`,
+`RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` for
+`http2.protocol.partial_preface`,
+`RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for
+`http2.protocol.invalid_preface`,
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for
 `http2.protocol.continuation_expected`,
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
@@ -402,17 +406,20 @@ their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including checked Huffman-marked string literal
 fixtures for outbound HEADERS and `PUSH_PROMISE`.
 
-HTTP/2 protocol-core failures that originate from this source-visible
-projection helper attach `details.protocol_diagnostic`. End-of-stream with a
-partial client connection preface uses id `http2.protocol.partial_preface` and
-records
+HTTP/2 protocol-core failures that originate from a source-visible
+`RuntimeDiagnostic(...)` payload attach `details.protocol_diagnostic`.
+End-of-stream with a partial client connection preface uses id
+`http2.protocol.partial_preface` and records
 `byte_offset.value`, `pending_count`, `expected_count`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` for the pending
 raw input bytes. A mismatched client connection preface byte uses id
 `http2.protocol.invalid_preface` and records `byte_offset.value`,
 `expected_byte`, `actual_byte`, `matched_prefix_count`, `expected_count`,
 `active_state`, and `rule_provenance`, plus a structured bounded
-`byte_preview` for the raw input bytes inspected by the preface check. Input
+`byte_preview` for the raw input bytes inspected by the preface check. In both
+preface cases, `details.value` keeps the rendered `RuntimeDiagnostic(...)`
+value with `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` or
+`RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)`. Input
 end with pending bytes after the preface uses id
 `http2.protocol.closed_with_pending` and records `byte_offset.value`,
 `pending_count`, `input_event`, and `active_continuation`, plus a structured

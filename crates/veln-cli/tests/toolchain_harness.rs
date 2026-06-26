@@ -2644,6 +2644,39 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
 }
 
 #[test]
+fn result_value_parser_exposes_http2_preface_runtime_diagnostics() {
+    let partial = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.partial_preface, HTTP/2 input ended with partial client connection preface at byte offset 0, RuntimeHttp2ProtocolPartialPrefaceDiagnostic(0, 12, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32)])))",
+    )
+    .expect("partial preface runtime diagnostic value should parse");
+    let invalid = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_preface, HTTP/2 invalid client connection preface at byte offset 4, RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(4, 42, 43, 4, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(43)])))",
+    )
+    .expect("invalid preface runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&partial, "value.detail.pending_count"),
+        Some(&JsonValue::Number(12))
+    );
+    assert_eq!(
+        json_path(&partial, "value.detail.active_state"),
+        Some(&JsonValue::String("connection-preface".to_string()))
+    );
+    assert_eq!(
+        json_path(&invalid, "value.detail.expected_byte"),
+        Some(&JsonValue::Number(42))
+    );
+    assert_eq!(
+        json_path(&invalid, "value.detail.actual_byte"),
+        Some(&JsonValue::Number(43))
+    );
+    assert_eq!(
+        json_path(&invalid, "value.detail.preview.constructor"),
+        Some(&JsonValue::String("ByteChunk".to_string()))
+    );
+}
+
+#[test]
 fn manifest_output_chunk_lists_parse_ordered_hex_chunks() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -3241,6 +3274,48 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         JsonValue::String(args[8].trim().to_string()),
                     ),
                     ("preview", parse_veln_value(args[9])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolPartialPrefaceDiagnostic" => {
+            let args = expect_arity(name, args, 6)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("pending_count", parse_veln_value(args[1])?),
+                    ("expected_count", parse_veln_value(args[2])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[5])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("expected_byte", parse_veln_value(args[1])?),
+                    ("actual_byte", parse_veln_value(args[2])?),
+                    ("matched_prefix_count", parse_veln_value(args[3])?),
+                    ("expected_count", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
                 ],
             ))
         }

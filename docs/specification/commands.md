@@ -118,7 +118,8 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
   diagnostics. Source-visible HTTP/2 protocol payloads for pending-byte close,
-  continuation ordering, invalid frame kind, frame-size exceeded, header-list
+  partial and invalid client connection preface failures, continuation
+  ordering, invalid frame kind, frame-size exceeded, header-list
   receive-limit failures, SETTINGS value range peer-limit failures, fixed
   payload length, request header-list validation, invalid `WINDOW_UPDATE`
   increment, invalid PRIORITY dependency, stream-after-GOAWAY, header-table
