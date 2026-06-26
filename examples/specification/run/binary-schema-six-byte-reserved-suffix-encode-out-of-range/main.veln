@@ -1,0 +1,44 @@
+use stdio
+
+schema SixByteReservedSuffixHeader
+	format binary
+
+	control: UInt7
+	control_padding: ReservedBits(41, 1466015503701)
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn emit_encode_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let rejected: Result<ByteChunk, EncodeError> = byte_encode_six_byte_reserved_suffix_header({control: 128})
+	emit_encode_error(rejected)
+end

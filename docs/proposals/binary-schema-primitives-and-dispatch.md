@@ -44,11 +44,14 @@ and `codec.encode_value_unrepresentable` diagnostic shapes. Generated schema
 helpers also consume and encode the suffix form where a visible `UIntN` field
 is followed immediately by `ReservedBits(width, value)` and the two widths
 complete one byte or the same two-byte, three-byte, or four-byte big-endian
-storage unit, plus the five-byte case where the fields complete forty bits.
+storage unit, plus the five-byte case where the fields complete forty bits
+and the six-byte case where the fields complete forty-eight bits.
 The helpers decode or encode the visible field from the high bits, validate or
 emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
 truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
+The completed six-byte reserved suffix slice is archived under
+`../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md`.
 Generated schema helpers also consume and encode one-byte, two-byte,
 three-byte, four-byte, five-byte, and six-byte big-endian reserved prefix
 groups where
@@ -499,7 +502,7 @@ for:
 - reserved-bit forms beyond the implemented byte-aligned representation-only
   fields, one-byte, two-byte, three-byte, and four-byte packed reserved
   prefixes,
-  one-byte, two-byte, three-byte, four-byte, and five-byte packed reserved
+  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte packed reserved
   suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
@@ -725,7 +728,7 @@ Reserved bits are spelled as schema-local fixed fields that are consumed from
 the external representation but omitted from the mapped Veln value by default.
 The byte-aligned `ReservedBits(width, value)` slice, one-byte, two-byte,
 three-byte, and four-byte packed reserved prefix slices, one-byte, two-byte,
-three-byte, four-byte, and five-byte packed reserved suffix slice, and the
+three-byte, four-byte, five-byte, and six-byte packed reserved suffix slice, and the
 `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian

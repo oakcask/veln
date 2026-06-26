@@ -1018,7 +1018,7 @@ byte-aligned `ReservedBits(width, value)` fields, the supported
 layouts, supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one, two, three, or four big-endian bytes, supported `UIntN` plus
-reserved suffix layouts whose widths complete one, two, three, four, or five
+reserved suffix layouts whose widths complete one, two, three, four, five, or six
 big-endian bytes, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one,
 two, three, or four big-endian bytes, including the narrow two-byte

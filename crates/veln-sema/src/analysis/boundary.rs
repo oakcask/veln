@@ -4114,7 +4114,7 @@ fn reserved_bits_supported_layout_family(
         );
     }
     if previous_visible_bit_width.is_some()
-        && packed_reserved_storage_bit_width(bit_width).is_some()
+        && suffix_packed_reserved_storage_bit_width(bit_width).is_some()
     {
         return (
             "packed_reserved_suffix",
@@ -4151,6 +4151,18 @@ fn packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
     } else {
         None
     }
+}
+
+fn suffix_packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
+    packed_reserved_storage_bit_width(bit_width).or_else(|| {
+        if (33..=39).contains(&bit_width) {
+            Some(40)
+        } else if (41..=47).contains(&bit_width) {
+            Some(48)
+        } else {
+            None
+        }
+    })
 }
 
 fn reserved_bits_adjacent_width_note(

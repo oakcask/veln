@@ -100,7 +100,7 @@ compare it with `../specification/` before changing behavior.
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
-  one-byte, two-byte, three-byte, four-byte, and five-byte packed
+  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte packed
   reserved-suffix decode and encode,
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode, including the narrow two-byte byte-interleaved
@@ -193,6 +193,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
   The completed visible-only packed two-byte group slice is archived under
   [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
+  The completed six-byte reserved suffix slice is archived under
+  [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

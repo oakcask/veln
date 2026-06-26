@@ -797,6 +797,17 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for a five-byte
   reserved suffix with field path, byte offset, bit width, expected value,
   actual value, and byte preview details.
+- `run/binary-schema-six-byte-reserved-suffix-decode-encode/`: generated
+  schema helpers decode and encode a six-byte big-endian storage unit where a
+  visible `UIntN` field occupies the high bits and a `ReservedBits(width,
+  value)` suffix occupies the low bits.
+- `run/binary-schema-six-byte-reserved-suffix-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for a six-byte reserved
+  suffix with field path, byte offset, bit width, expected value, actual
+  value, and byte preview details.
+- `run/binary-schema-six-byte-reserved-suffix-truncated-json/`: generated
+  schema decode helpers report `schema.truncated_field` at the visible field
+  path when input ends before the six-byte suffix storage unit is complete.
 - `run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`:
   generated schema decode helpers report `schema.truncated_field` at the
   visible field path when input ends before the shared suffix storage unit is
@@ -1530,6 +1541,10 @@ against the built `veln` binary.
   schema encode helpers write a visible field into the high bits and write
   the declared reserved suffix value into the low bits of the same five-byte
   big-endian storage unit.
+- `run/binary-schema-six-byte-reserved-suffix-encode-out-of-range/`: generated
+  schema encode helpers report `codec.encode_value_unrepresentable` against
+  the visible high-bit field when a six-byte suffix source value is outside
+  its field range.
 - `run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`:
   generated schema encode helpers report `codec.encode_value_unrepresentable`
   against the visible high-bit field when a two-byte suffix source value is
@@ -2065,6 +2080,8 @@ against the built `veln` binary.
   encode item boundaries over the combined non-HTTP generated helper shape.
   The case checks successful decode, short-input readiness, successful encode,
   and helper-projected encode failure through the codec item.
+- `run/derived-codec-six-byte-reserved-suffix-boundary/`: derived codec decode
+  and encode item boundaries over a six-byte reserved suffix schema.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot project the mapping target
   value back to schema-local fields.

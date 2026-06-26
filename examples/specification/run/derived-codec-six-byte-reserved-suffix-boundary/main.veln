@@ -1,0 +1,58 @@
+use stdio
+
+schema SixByteReservedSuffixHeader
+	format binary
+
+	control: UInt7
+	control_padding: ReservedBits(41, 1466015503701)
+end
+
+codec SixByteReservedSuffixCodec for SixByteReservedSuffixHeader decode encode
+	derive decode
+	derive encode
+end
+
+fn step_kind(step: DecodeStep<{control: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_control(step: DecodeStep<{control: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.control
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{control: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn encode_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("ab5555555555")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let decoded: DecodeStep<{control: Int}> = SixByteReservedSuffixCodec(view, byte_offset(3)?)
+	stdio::println(step_kind(decoded))
+	stdio::println(int_to_string(decoded_control(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let encoded: EncodeStep<()> = SixByteReservedSuffixCodec({control: 85})
+	stdio::println(encode_kind(encoded))
+	Ok(())
+end

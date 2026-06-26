@@ -229,6 +229,10 @@ layout. It checks successful decode, short-input readiness, and a
 reserved-bit mismatch whose `DecodeError` preserves the reserved field path
 and byte offset.
 The executable specification case
+`../../examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`
+covers the same derived codec decode and encode item boundary for a six-byte
+reserved suffix layout.
+The executable specification case
 `../../examples/specification/run/codec-needmore-parser-state/` covers
 caller-owned parser state around the codec boundary. It checks that `Decoded`
 advances the retained suffix and explicit base offset by the consumed count,
@@ -494,12 +498,15 @@ mapping source field.
 `../../examples/specification/run/binary-schema-packed-reserved-four-byte-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-suffix-json/`,
 `../../examples/specification/run/binary-schema-five-byte-reserved-suffix-json/`,
+`../../examples/specification/run/binary-schema-six-byte-reserved-suffix-decode-encode/`,
+`../../examples/specification/run/binary-schema-six-byte-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-truncated-json/`,
+`../../examples/specification/run/binary-schema-six-byte-reserved-suffix-truncated-json/`,
 and
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`
 pin the packed reserved suffix slice. The valid cases decode the visible high
 bits and omit the low reserved suffix field from the decoded record for
-one-byte, two-byte, three-byte, four-byte, and five-byte shared storage
+one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte shared storage
 units. The
 failing cases
 assert `schema.reserved_bits_mismatch` at the reserved suffix field path and
@@ -1214,11 +1221,13 @@ the value does not fit.
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode/`,
 `../../examples/specification/run/binary-schema-five-byte-reserved-suffix-decode-encode/`,
+`../../examples/specification/run/binary-schema-six-byte-reserved-suffix-decode-encode/`,
+`../../examples/specification/run/binary-schema-six-byte-reserved-suffix-encode-out-of-range/`,
 and
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`
 pin the packed reserved suffix encode slice. The helper writes the visible
 value in the high bits, writes the declared reserved value in the low bits for
-one-byte, two-byte, three-byte, four-byte, and five-byte shared storage units,
+one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte shared storage units,
 and reports
 `codec.encode_value_unrepresentable` against the visible field when the input
 record value exceeds the field range.

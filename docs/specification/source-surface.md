@@ -344,7 +344,7 @@ layouts, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
-twenty-four, thirty-two, or forty bits, supported `UIntN` plus middle
+twenty-four, thirty-two, forty, or forty-eight bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
 including the narrow two-byte interleaved middle layout with a sub-byte
@@ -352,7 +352,7 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 `UIntN`,
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
-twenty-four, thirty-two, or forty bits,
+twenty-four, thirty-two, forty, or forty-eight bits,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
 sum to eight or sixteen bits, supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
