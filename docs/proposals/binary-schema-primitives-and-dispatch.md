@@ -182,7 +182,10 @@ payload fields, same-module representation-only reserved-bit payload
 round trips, nested `ByteView(length_field)` payload fields whose length is an
 earlier visible `Int` in the same nested schema, extension-tolerant known
 payloads, recursive extension known payloads, unknown payload preservation,
-and nested helper diagnostics. A
+and nested helper diagnostics. The completed nested dispatch
+`ByteView(length_field)` payload helper slice is archived under
+`../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md`.
+A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. The mapping slice also accepts an
 ADT constructor target field whose constructor payload is selected from a
