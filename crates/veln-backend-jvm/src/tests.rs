@@ -913,6 +913,64 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
 }
 
 #[test]
+fn bytecode_backend_runs_dict_callback_aliases_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn label(context: String, key: String, value: Int) -> String\n",
+        "  context\n",
+        "end\n",
+        "fn keep(context: Int, key: String, value: Int) -> Bool\n",
+        "  value == context\n",
+        "end\n",
+        "fn fold_label(context: String, acc: String, key: String, value: Int) -> String\n",
+        "  context\n",
+        "end\n",
+        "fn try_label(context: String, key: String, value: Int) -> Result<String, String>\n",
+        "  match key == \"second\"\n",
+        "    true => Err(context)\n",
+        "    false => Ok(context)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let table: Dict<String, Int> = {\"first\": 1, \"second\": 2}\n",
+        "  let mapped: Dict<String, String> = dict_map_with(\"mapped\", table, label)\n",
+        "  let filtered: Dict<String, Int> = dict_filter_with(2, table, keep)\n",
+        "  let folded: String = dict_fold_with(\"folded\", table, \"\", fold_label)\n",
+        "  let tried: Result<Dict<String, String>, String> = dict_try_map_with(\"err\", table, try_label)\n",
+        "  match dict_get(mapped, \"second\")\n",
+        "    Some(found) => stdio::println(found)\n",
+        "    None => stdio::println(\"missing\")\n",
+        "  end\n",
+        "  match dict_contains(filtered, \"first\")\n",
+        "    true => stdio::println(\"first\")\n",
+        "    false => stdio::println(\"no-first\")\n",
+        "  end\n",
+        "  stdio::println(folded)\n",
+        "  match tried\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(error) => stdio::println(error)\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-dict-callback-aliases", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "mapped\nno-first\nfolded\nerr\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_runs_list_helpers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "type List<A>\n",
@@ -2000,9 +2058,13 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("dict_insert", "dictInsert"),
         ("dict_remove", "dictRemove"),
         ("dict_map", "dictMap"),
+        ("dict_map_with", "dictMapWith"),
         ("dict_filter", "dictFilter"),
+        ("dict_filter_with", "dictFilterWith"),
         ("dict_fold", "dictFold"),
+        ("dict_fold_with", "dictFoldWith"),
         ("dict_try_map", "dictTryMap"),
+        ("dict_try_map_with", "dictTryMapWith"),
         ("option_map", "optionMap"),
         ("option_and_then", "optionAndThen"),
         ("option_unwrap_or", "optionUnwrapOr"),

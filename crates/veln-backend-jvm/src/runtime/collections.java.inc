@@ -9013,11 +9013,31 @@
         return freezeMap(mapped);
     }
 
+    public static Object dictMapWith(Object context, Object dict, Object fn) {
+        java.util.LinkedHashMap<Object, Object> mapped =
+            new java.util.LinkedHashMap<Object, Object>();
+        for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
+            mapped.put(entry.getKey(), call(fn, context, entry.getKey(), entry.getValue()));
+        }
+        return freezeMap(mapped);
+    }
+
     public static Object dictFilter(Object dict, Object fn) {
         java.util.LinkedHashMap<Object, Object> filtered =
             new java.util.LinkedHashMap<Object, Object>();
         for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
             if (asBool(call(fn, entry.getKey(), entry.getValue()))) {
+                filtered.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return freezeMap(filtered);
+    }
+
+    public static Object dictFilterWith(Object context, Object dict, Object fn) {
+        java.util.LinkedHashMap<Object, Object> filtered =
+            new java.util.LinkedHashMap<Object, Object>();
+        for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
+            if (asBool(call(fn, context, entry.getKey(), entry.getValue()))) {
                 filtered.put(entry.getKey(), entry.getValue());
             }
         }
@@ -9032,11 +9052,32 @@
         return accumulator;
     }
 
+    public static Object dictFoldWith(Object context, Object dict, Object initial, Object fn) {
+        Object accumulator = initial;
+        for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
+            accumulator = call(fn, context, accumulator, entry.getKey(), entry.getValue());
+        }
+        return accumulator;
+    }
+
     public static Object dictTryMap(Object dict, Object fn) {
         java.util.LinkedHashMap<Object, Object> mapped =
             new java.util.LinkedHashMap<Object, Object>();
         for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
             Object result = call(fn, entry.getKey(), entry.getValue());
+            if (isErr(result)) {
+                return result;
+            }
+            mapped.put(entry.getKey(), unwrapOk(result));
+        }
+        return ok(freezeMap(mapped));
+    }
+
+    public static Object dictTryMapWith(Object context, Object dict, Object fn) {
+        java.util.LinkedHashMap<Object, Object> mapped =
+            new java.util.LinkedHashMap<Object, Object>();
+        for (java.util.Map.Entry<Object, Object> entry : asMap(dict).entrySet()) {
+            Object result = call(fn, context, entry.getKey(), entry.getValue());
             if (isErr(result)) {
                 return result;
             }

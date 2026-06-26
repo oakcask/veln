@@ -9442,6 +9442,10 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "dict_mapper: fn(String, Int) -> String, dict_keep: fn(String, Int) -> Bool, ",
             "dict_folder: fn(String, String, Int) -> String, ",
             "dict_fallible: fn(String, Int) -> Result<String, AppError>, ",
+            "dict_mapper_with: fn(String, String, Int) -> String, ",
+            "dict_keep_with: fn(Int, String, Int) -> Bool, ",
+            "dict_folder_with: fn(String, String, String, Int) -> String, ",
+            "dict_fallible_with: fn(String, String, Int) -> Result<String, AppError>, ",
             "fallible: fn(Int) -> Result<String, AppError>, opt: Option<Int>, ",
             "fallible_with: fn(String, Int) -> Result<String, AppError>, ",
             "opt_map: fn(Int) -> String, opt_next: fn(Int) -> Option<String>, ",
@@ -9524,6 +9528,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "found: Option<Int>, has_key: Bool, inserted: Dict<String, Int>, removed: Dict<String, Int>, ",
             "dict_mapped: Dict<String, String>, dict_filtered: Dict<String, Int>, ",
             "dict_folded: String, dict_tried: Result<Dict<String, String>, AppError>, ",
+            "dict_mapped_with: Dict<String, String>, dict_filtered_with: Dict<String, Int>, ",
+            "dict_folded_with: String, dict_tried_with: Result<Dict<String, String>, AppError>, ",
             "opt_mapped: Option<String>, opt_nexted: Option<String>, opt_value: Int, ",
             "res_mapped: Result<String, AppError>, res_err: Result<Int, String>, ",
             "res_nexted: Result<String, AppError>}\n",
@@ -9636,6 +9642,10 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "inserted: dict_insert(table, \"b\", 2), removed: dict_remove(table, \"b\"), ",
             "dict_mapped: dict_map(table, dict_mapper), dict_filtered: dict_filter(table, dict_keep), ",
             "dict_folded: dict_fold(table, \"\", dict_folder), dict_tried: dict_try_map(table, dict_fallible), ",
+            "dict_mapped_with: dict_map_with(\"ctx\", table, dict_mapper_with), ",
+            "dict_filtered_with: dict_filter_with(2, table, dict_keep_with), ",
+            "dict_folded_with: dict_fold_with(\"ctx\", table, \"\", dict_folder_with), ",
+            "dict_tried_with: dict_try_map_with(\"ctx\", table, dict_fallible_with), ",
             "opt_mapped: option_map(opt, opt_map), opt_nexted: option_and_then(opt, opt_next), ",
             "opt_value: option_unwrap_or(opt, 0), res_mapped: result_map(res, opt_map), ",
             "res_err: result_map_err(res, err_map), res_nexted: result_and_then(res, res_next)}\n",
@@ -10743,6 +10753,74 @@ fn dictionary_prelude_callbacks_infer_key_and_value_parameters() {
     assert_eq!(folder.params[0].ty, CoreType::string());
     assert_eq!(folder.params[1].ty, CoreType::string());
     assert_eq!(folder.params[2].ty, CoreType::int());
+}
+
+#[test]
+fn dictionary_prelude_callback_aliases_infer_context_key_and_value_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn map_entry(context, key, value) -> String\n",
+            "  let label: String = context\n",
+            "  label\n",
+            "end\n",
+            "fn keep_entry(context, key, value) -> Bool\n",
+            "  let minimum: Int = context\n",
+            "  let current: Int = value\n",
+            "  true\n",
+            "end\n",
+            "fn fold_entry(context, acc, key, value) -> String\n",
+            "  let label: String = context\n",
+            "  acc\n",
+            "end\n",
+            "fn try_entry(context, key, value) -> Result<String, String>\n",
+            "  let label: String = context\n",
+            "  Ok(label)\n",
+            "end\n",
+            "pub fn main(table: Dict<String, Int>) -> {mapped: Dict<String, String>, filtered: Dict<String, Int>, folded: String, tried: Result<Dict<String, String>, String>}\n",
+            "  {\n",
+            "    mapped: dict_map_with(\"ctx\", table, map_entry),\n",
+            "    filtered: dict_filter_with(3, table, keep_entry),\n",
+            "    folded: dict_fold_with(\"ctx\", table, \"\", fold_entry),\n",
+            "    tried: dict_try_map_with(\"ctx\", table, try_entry)\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in ["map_entry", "try_entry"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("dictionary alias callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::string(), "{name}");
+        assert_eq!(function.params[1].ty, CoreType::string(), "{name}");
+        assert_eq!(function.params[2].ty, CoreType::int(), "{name}");
+    }
+    let keep = core
+        .functions
+        .iter()
+        .find(|function| function.name == "keep_entry")
+        .expect("filter callback should be lowered");
+    assert_eq!(keep.params[0].ty, CoreType::int());
+    assert_eq!(keep.params[1].ty, CoreType::string());
+    assert_eq!(keep.params[2].ty, CoreType::int());
+    let fold = core
+        .functions
+        .iter()
+        .find(|function| function.name == "fold_entry")
+        .expect("fold callback should be lowered");
+    assert_eq!(fold.params[0].ty, CoreType::string());
+    assert_eq!(fold.params[1].ty, CoreType::string());
+    assert_eq!(fold.params[2].ty, CoreType::string());
+    assert_eq!(fold.params[3].ty, CoreType::int());
 }
 
 #[test]

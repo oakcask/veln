@@ -93,25 +93,25 @@ Current behavior is specified in `../specification/types.md#read-first` and
 The completed compiler-known prelude callback argument inference slice is
 archived under
 `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`.
+The completed dictionary callback helper alias slice is archived under
+`../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
 `vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
 `list_fold`, `list_try_map`, `dict_map`, `dict_filter`, `dict_fold`,
-`dict_try_map`, `option_map`, `option_and_then`, `result_map`,
+`dict_try_map`, `dict_map_with`, `dict_filter_with`, `dict_fold_with`,
+`dict_try_map_with`, `option_map`, `option_and_then`, `result_map`,
 `result_map_err`, and `result_and_then`: concrete helper input types push item,
 key, value, success, or error types into named private callback function
-parameters.
+parameters. The dictionary `_with` aliases accept a context argument before the
+dictionary and pass that context as the first callback argument.
 
 Remaining planned work in this section covers callback inputs outside that
-implemented compiler-known helper path. Prelude higher-order helpers should
-eventually push their concrete element, value, key, success, and error types
-into callback parameters.
-
-Examples of intended sources:
-
-- proposal-spelled helper aliases not yet promoted into the same
-  compiler-known helper signature path
+implemented compiler-known helper path. Future prelude higher-order helpers
+should push their concrete element, value, key, success, and error types into
+callback parameters only after they enter an equally concrete helper signature
+path.
 
 When a helper input has type `Vec<Int>`, a callback parameter expected to
 receive the item should be checked as `Int`, not `unknown`. When the helper
@@ -217,10 +217,11 @@ Acceptance evidence should include:
    paths.
 2. Add empty collection and nullary constructor context propagation.
 3. Completed for current compiler-known collection, dictionary, option, and
-   result helpers: push concrete helper input types into named private
-   callback parameters while preserving helper result-context callback return
-   inference. Remaining callback work is limited to future aliases after they
-   enter an equally concrete helper signature path.
+   result helpers, including dictionary `_with` aliases: push concrete helper
+   input types into named private callback parameters while preserving helper
+   result-context callback return inference. Remaining callback work is
+   limited to future helpers after they enter an equally concrete helper
+   signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.

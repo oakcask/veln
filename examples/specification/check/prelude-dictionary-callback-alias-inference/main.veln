@@ -1,0 +1,29 @@
+fn map_entry(context, key, value) -> String
+	let label: String = context
+	label
+end
+
+fn keep_entry(context, key, value) -> Bool
+	let minimum: Int = context
+	let current: Int = value
+	true
+end
+
+fn fold_entry(context, acc, key, value) -> String
+	let label: String = context
+	acc
+end
+
+fn try_entry(context, key, value) -> Result<String, String>
+	let label: String = context
+	Ok(label)
+end
+
+pub fn main(items: Dict<String, Int>) -> { mapped: Dict<String, String>, filtered: Dict<String, Int>, folded: String, tried: Result<Dict<String, String>, String> }
+	{
+		mapped: dict_map_with("ctx", items, map_entry),
+		filtered: dict_filter_with(3, items, keep_entry),
+		folded: dict_fold_with("ctx", items, "", fold_entry),
+		tried: dict_try_map_with("ctx", items, try_entry)
+	}
+end

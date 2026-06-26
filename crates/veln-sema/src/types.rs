@@ -1042,10 +1042,10 @@ fn private_call_site_non_target_params(
 }
 
 fn private_prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr> {
-    if helper_name == "vec_try_map_with" {
-        args.get(1)
-    } else {
-        args.first()
+    match helper_name {
+        "vec_try_map_with" | "dict_map_with" | "dict_filter_with" | "dict_fold_with"
+        | "dict_try_map_with" => args.get(1),
+        _ => args.first(),
     }
 }
 
