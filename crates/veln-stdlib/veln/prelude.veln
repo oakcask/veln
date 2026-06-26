@@ -374,6 +374,29 @@ pub type EncodeError
 	EncodeError(id: String, field_path: String, reason: String)
 end
 
+pub type RuntimeDiagnostic
+	RuntimeDiagnostic(id: String, message: String, detail: RuntimeDiagnosticDetail)
+end
+
+pub type RuntimeDiagnosticDetail
+	RuntimeByteDiagnostic(byte_offset: ByteOffset, field_path: List<RuntimeDiagnosticFieldPathSegment>, facts: RuntimeByteDiagnosticFacts, preview: RuntimeBytePreview)
+end
+
+pub type RuntimeDiagnosticFieldPathSegment
+	RuntimeDiagnosticFieldPathSegment(kind: String, name: String)
+end
+
+pub type RuntimeByteDiagnosticFacts
+	RuntimeByteCountFacts(expected_count: ByteCount, available_count: ByteCount, readiness: String)
+	RuntimeByteRangeFacts(requested_count: ByteCount, available_count: ByteCount)
+	RuntimeByteReasonFacts(reason: String)
+end
+
+pub type RuntimeBytePreview
+	RuntimeBytePreview(data: String, preview_byte_count: ByteCount, total_byte_count: ByteCount, truncated: Bool)
+	NoRuntimeBytePreview
+end
+
 pub type EncodeStep<TState>
 	Encoded(chunks: List<ByteChunk>)
 	Partial(chunks: List<ByteChunk>, produced: ByteCount, state: TState)

@@ -39,6 +39,20 @@ value. When the result value is a compact fixture hex failure from
 - `nibble_position`: `high` or `low`
 - `nearby_context`: bounded fixture text around the failed span
 
+When the returned error value is
+`RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...))`,
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value and
+`details.byte_diagnostic` is projected from that value, not from a
+message-keyed runtime side table. The implemented byte detail constructor
+carries the stable id, message, `ByteOffset`, field-path segment list, one of
+the supported byte fact constructors, and an optional bounded byte preview.
+Count/readiness facts project to `expected_count`, `available_count`, and
+`readiness`; range facts project to `requested_count` and `available_count`;
+reason facts project to `reason`; and `RuntimeBytePreview` projects to the
+standard `byte_preview` object. Plain `Err(value)` values that do not use this
+diagnostic ADT remain ordinary result failures with no
+`details.byte_diagnostic`.
+
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
 

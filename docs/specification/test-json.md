@@ -16,6 +16,11 @@ This page routes implemented JSON output for `veln test --json`.
   remains visible source comment syntax.
 - Doctest expected-output comparison is a separate route; mismatches use
   `reason: "expected_output"` even when a runtime expectation matches.
+- The implemented runtime-diagnostic-payload slice does not add a separate
+  test-JSON assertion path over the in-memory error value. Its executable
+  evidence is the run command example whose JSON `details.value` preserves the
+  rendered `RuntimeDiagnostic(...)` error value while
+  `details.byte_diagnostic` is projected from that same returned value.
 
 ## Read When
 

@@ -215,13 +215,12 @@ compare it with `../specification/` before changing behavior.
   same-module recursive closed and extension dispatch payload helpers, and
   selected structural mapping encode slice, and derived helper eligibility
   diagnostics for unsupported generated decode and encode directions.
-- [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): define
-  runtime diagnostic details as source-visible `Err` values, not logs,
-  metrics, result-like wrapper types, or backend-local side tables keyed by
-  rendered `Err` text. This provides the language-level transport needed to
-  remove the side-table design debt and move HPACK fixture and HTTP/2 protocol
-  diagnostic projection logic out of narrow backend helpers, with harness
-  assertions over the returned `Err` structure.
+- [Runtime Diagnostic Payloads](runtime-diagnostic-payload.md): finish the
+  remaining runtime diagnostic payload migration after the implemented
+  source-visible byte diagnostic ADT and command projection slice. Remaining
+  work includes harness assertions over the returned `Err` structure, HPACK
+  fixture and HTTP/2 protocol diagnostic payload migration, and removing the
+  legacy side-table bridge once no specification case depends on it.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
