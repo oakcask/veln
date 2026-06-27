@@ -36,8 +36,9 @@ full type reference.
   scrutinee when the visible arms identify one finite descriptor domain.
   Compiler-known collection, dictionary, option, and result helper input
   types also constrain named private callback function parameters passed to
-  the implemented map, filter, fold, try-map, context-carrying dictionary
-  aliases, and and-then helpers. Same-module helpers and visible imported
+  the implemented map, filter, fold, try-map, `vec_try_map_with`,
+  context-carrying dictionary aliases, and and-then helpers. Same-module
+  helpers and visible imported
   helpers whose declared parameter type is a concrete function type also
   constrain named private callback parameters at that argument position. A
   concrete expected record field whose type is a concrete function type also

@@ -144,7 +144,8 @@ The completed record-field callback expected-type slice is archived under
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
-`vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
+`vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`, `list_map`,
+`list_filter`,
 `list_fold`, `list_try_map`, `dict_map`, `dict_filter`, `dict_fold`,
 `dict_try_map`, `dict_map_with`, `dict_filter_with`, `dict_fold_with`,
 `dict_try_map_with`, `option_map`, `option_and_then`, `result_map`,

@@ -19,6 +19,14 @@ fn vec_try(value) -> Result<String, String>
 	Ok("ok")
 end
 
+fn vec_try_with(context, value) -> Result<String, String>
+	Ok("ok")
+end
+
+fn qualified_vec_try_with(context, value) -> Result<String, String>
+	Ok("ok")
+end
+
 fn list_string(value) -> String
 	"ok"
 end
@@ -79,12 +87,14 @@ fn dict_try(key, value) -> Result<String, String>
 	Ok(key)
 end
 
-pub fn main(vec: Vec<Int>, list: List<Int>, table: Dict<String, Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, dict_mapped: Dict<String, String>, dict_filtered: Dict<String, Int>, dict_folded: String, dict_tried: Result<Dict<String, String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}
+pub fn main(vec: Vec<Int>, list: List<Int>, table: Dict<String, Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, vec_tried_with: Result<Vec<String>, String>, qualified_vec_tried_with: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, dict_mapped: Dict<String, String>, dict_filtered: Dict<String, Int>, dict_folded: String, dict_tried: Result<Dict<String, String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}
 	{
 		vec_mapped: vec_map(vec, vec_string),
 		vec_filtered: vec_filter(vec, vec_keep),
 		vec_folded: vec_fold(vec, "", vec_folder),
 		vec_tried: vec_try_map(vec, vec_try),
+		vec_tried_with: vec_try_map_with("ctx", vec, vec_try_with),
+		qualified_vec_tried_with: prelude::vec_try_map_with("ctx", vec, qualified_vec_try_with),
 		list_mapped: list_map(list, list_string),
 		list_filtered: list_filter(list, list_keep),
 		list_folded: list_fold(list, "", list_folder),

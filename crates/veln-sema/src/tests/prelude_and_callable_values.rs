@@ -10724,6 +10724,12 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
             "fn vec_try(value) -> Result<String, String>\n",
             "  Ok(\"ok\")\n",
             "end\n",
+            "fn vec_try_with(context, value) -> Result<String, String>\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
+            "fn qualified_vec_try_with(context, value) -> Result<String, String>\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
             "fn list_string(value) -> String\n",
             "  \"ok\"\n",
             "end\n",
@@ -10757,13 +10763,15 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
             "fn qualified_result_next(value) -> Result<String, String>\n",
             "  Ok(\"ok\")\n",
             "end\n",
-            "pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, qualified_vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}\n",
+            "pub fn main(vec: Vec<Int>, list: List<Int>, opt: Option<Int>, res: Result<Int, String>, err: Result<String, Int>) -> {vec_mapped: Vec<String>, qualified_vec_mapped: Vec<String>, vec_filtered: Vec<Int>, vec_folded: String, vec_tried: Result<Vec<String>, String>, vec_tried_with: Result<Vec<String>, String>, qualified_vec_tried_with: Result<Vec<String>, String>, list_mapped: List<String>, list_filtered: List<Int>, list_folded: String, list_tried: Result<List<String>, String>, option_mapped: Option<String>, option_nexted: Option<String>, qualified_option_nexted: Option<String>, result_mapped: Result<String, String>, result_error_mapped: Result<String, String>, result_nexted: Result<String, String>, qualified_result_nexted: Result<String, String>}\n",
             "  {\n",
             "    vec_mapped: vec_map(vec, vec_string),\n",
             "    qualified_vec_mapped: prelude::vec_map(vec, qualified_vec_string),\n",
             "    vec_filtered: vec_filter(vec, vec_keep),\n",
             "    vec_folded: vec_fold(vec, \"\", vec_folder),\n",
             "    vec_tried: vec_try_map(vec, vec_try),\n",
+            "    vec_tried_with: vec_try_map_with(\"ctx\", vec, vec_try_with),\n",
+            "    qualified_vec_tried_with: prelude::vec_try_map_with(\"ctx\", vec, qualified_vec_try_with),\n",
             "    list_mapped: list_map(list, list_string),\n",
             "    list_filtered: list_filter(list, list_keep),\n",
             "    list_folded: list_fold(list, \"\", list_folder),\n",
@@ -10815,6 +10823,15 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
             .iter()
             .find(|function| function.name == name)
             .expect("fold callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::string(), "{name}");
+        assert_eq!(function.params[1].ty, CoreType::int(), "{name}");
+    }
+    for name in ["vec_try_with", "qualified_vec_try_with"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("try-map-with callback should be lowered");
         assert_eq!(function.params[0].ty, CoreType::string(), "{name}");
         assert_eq!(function.params[1].ty, CoreType::int(), "{name}");
     }

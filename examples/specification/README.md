@@ -67,8 +67,8 @@ against the built `veln` binary.
   tail-shaped recursive calls, postcondition-bearing recursive functions,
   non-tail recursive calls, and function-typed callback calls.
 - `check/prelude-callback-argument-inference/`: named private callback
-  parameter inference from compiler-known collection, option, and result
-  helper input types.
+  parameter inference from compiler-known collection, context-carrying vector
+  try-map, option, and result helper input types.
 - `check/declared-helper-callback-inference/` and
   `check/declared-helper-callback-import-inference/`: named private callback
   parameter inference from same-module and imported helpers with concrete

@@ -23,11 +23,11 @@ examples. It is historical evidence, not the source for current behavior.
 ## Implemented Boundary
 
 Compiler-known collection, dictionary, option, and result prelude helpers push
-concrete input item, key, value, success, or error types into named private
-callback function parameters. The implemented helper set is `vec_map`,
-`vec_filter`, `vec_fold`, `vec_try_map`, `list_map`, `list_filter`,
-`list_fold`, `list_try_map`, `dict_map`, `dict_filter`, `dict_fold`,
-`dict_try_map`, `option_map`, `option_and_then`, `result_map`,
+concrete input item, context, key, value, success, or error types into named
+private callback function parameters. The implemented helper set is `vec_map`,
+`vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`, `list_map`,
+`list_filter`, `list_fold`, `list_try_map`, `dict_map`, `dict_filter`,
+`dict_fold`, `dict_try_map`, `option_map`, `option_and_then`, `result_map`,
 `result_map_err`, and `result_and_then`.
 
 The rule is local and monomorphic. It applies to named private callback
@@ -55,8 +55,9 @@ not in the compiler-known prelude signature path.
 - Existing helper diagnostic examples preserve the `vec_try_map` repair hint
   for a `Result`-returning callback passed to `vec_map`.
 - Semantic tests cover the helper set, including fold callbacks, try-map
-  callbacks, dictionary key/value callbacks, result success and error
-  callbacks, and qualified `prelude::` helper calls.
+  callbacks, `vec_try_map_with` context callbacks, dictionary key/value
+  callbacks, result success and error callbacks, and qualified `prelude::`
+  helper calls.
 - The proposal page keeps only remaining callback work outside this
   compiler-known helper path.
 
