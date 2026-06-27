@@ -250,7 +250,13 @@ for more bytes, end-of-stream truncation with pending frame bytes,
 continuation header-block assembly through a valid final CONTINUATION frame,
 the combined opaque header-block payload bytes from that completed block,
 single-frame HEADERS completion when `END_HEADERS` is set alongside
-`END_STREAM`, closed-by-peer stream lifecycle after accepted HEADERS
+`END_STREAM`, HEADERS with the PRIORITY flag on single-frame and continued
+header blocks, stripping the priority section before HPACK fixture decode,
+recording the decoded dependency, exclusive flag, and weight facts, preserving
+HEADERS `END_STREAM` lifecycle with the PRIORITY flag, rejecting HEADERS
+self-dependency, rejecting a PRIORITY-flagged HEADERS payload shorter than the
+priority section before HPACK fixture decode, closed-by-peer stream lifecycle
+after accepted HEADERS
 `END_STREAM` completion through both single-frame HEADERS and final
 CONTINUATION paths, inbound request trailers on an already-open stream when
 the trailing HEADERS sequence carries `END_STREAM`, accepted ordinary

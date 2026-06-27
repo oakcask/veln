@@ -646,12 +646,12 @@ end
 
 fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags)?
-	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, stream_id)?
+	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, flags, stream_id)?
 	let payload_decision: ProtocolPayloadDecision = validate_protocol_payload(next_offset, payload, length, kind, flags, stream_id)?
 	match settings_decision
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
-				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, receive_flow_control, header_preview)
+				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, receive_flow_control, header_preview)
 					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
 					Err(error) => Ok(Failed(consumed_state, error))
 				end
@@ -671,13 +671,19 @@ fn complete_after_data_padding(pending: ByteChunk, suffix: ByteChunk, next_offse
 	end
 end
 
-fn validate_priority_dependency(offset: Int, payload: ByteChunk, length: Int, kind: Int, stream_id: Int) -> Result<PriorityDependencyDecision, String>
+fn validate_priority_dependency(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PriorityDependencyDecision, String>
 	match kind == 2
 		true => match length == 5
 			true => validate_priority_dependency_payload(offset, payload, stream_id)
 			false => Ok(PriorityDependencyOk)
 		end
-		false => Ok(PriorityDependencyOk)
+		false => match headers_priority_set(kind, flags)
+			true => match length >= 5
+				true => validate_priority_dependency_payload(offset, payload, stream_id)
+				false => Ok(PriorityDependencyOk)
+			end
+			false => Ok(PriorityDependencyOk)
+		end
 	end
 end
 
@@ -1076,15 +1082,25 @@ fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind:
 						true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
 						false => match kind == 2
 							true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 5, "stream-control", "rfc9113_priority_payload_length")
-							false => match kind == 5
-								true => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
-								false => Ok(ProtocolPayloadOk)
+							false => match kind == 1
+								true => validate_headers_payload_length(offset, payload, length, kind, flags, stream_id)
+								false => match kind == 5
+									true => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
+									false => Ok(ProtocolPayloadOk)
+								end
 							end
 						end
 					end
 				end
 			end
 		end
+	end
+end
+
+fn validate_headers_payload_length(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
+	match headers_priority_set(kind, flags) and length < 5
+		true => Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, 5, "stream-control", "rfc9113_headers_priority_payload_length", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+		false => Ok(ProtocolPayloadOk)
 	end
 end
 
@@ -2560,10 +2576,27 @@ fn decoded_push_promise_payload(payload: ByteChunk) -> Result<{promised_stream_i
 	byte_decode_http2_push_promise_payload_wire(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
 end
 
-fn continuation_payload_chunk(payload: ByteChunk, kind: Int) -> Result<ByteChunk, String>
+fn continuation_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
 	match kind == 5
 		true => byte_drop(payload, byte_count(4)?)
+		false => match kind == 1
+			true => headers_payload_chunk(payload, kind, flags)
+			false => Ok(payload)
+		end
+	end
+end
+
+fn headers_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
+	match headers_priority_set(kind, flags)
+		true => byte_drop(payload, byte_count(5)?)
 		false => Ok(payload)
+	end
+end
+
+fn headers_priority_set(kind: Int, flags: Int) -> Bool
+	match kind == 1
+		true => ((flags / 32) * 32) != ((flags / 64) * 64)
+		false => false
 	end
 end
 
@@ -2805,7 +2838,7 @@ end
 
 fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match kind == 1
-		true => open_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, shutdown_state, receive_flow_control)
+		true => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, shutdown_state, receive_flow_control)
 		false => match kind == 0
 			true => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
 			false => match kind == 3
@@ -2841,14 +2874,15 @@ fn reserve_push_promise_stream(offset: Int, stream_id: Int, promised_stream_id: 
 	end
 end
 
-fn open_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	let headers_priority: StreamPriorityState = headers_priority_from_frame(pending, length, flags)?
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
-			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, end_stream, accepted_content_length)
+			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, headers_priority, end_stream, accepted_content_length)
 			ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 		end
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, headers_priority), end_stream, accepted_content_length)
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
 				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit")))
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
@@ -2865,7 +2899,7 @@ fn open_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_c
 			end
 		end
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, headers_priority), end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
 				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
 				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
@@ -2898,8 +2932,20 @@ fn open_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_c
 	end
 end
 
-fn initial_receive_stream_window_decision(offset: Int, connection_window: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
-	receive_stream_window_after_headers_decision(offset, connection_window, stream_id, 65535, NoStreamPriority, end_stream, accepted_content_length)
+fn initial_receive_stream_window_decision(offset: Int, connection_window: Int, stream_id: Int, priority: StreamPriorityState, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
+	receive_stream_window_after_headers_decision(offset, connection_window, stream_id, 65535, priority, end_stream, accepted_content_length)
+end
+
+fn headers_priority_from_frame(pending: ByteChunk, length: Int, flags: Int) -> Result<StreamPriorityState, String>
+	match headers_priority_set(1, flags)
+		true => headers_priority_from_payload(frame_payload_chunk(pending, length)?)
+		false => Ok(NoStreamPriority)
+	end
+end
+
+fn headers_priority_from_payload(payload: ByteChunk) -> Result<StreamPriorityState, String>
+	let payload_view: ByteView = byte_view(payload, byte_offset(0)?, byte_count(5)?)?
+	Ok(StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?))
 end
 
 fn receive_stream_window_after_headers_decision(offset: Int, connection_window: Int, stream_id: Int, stream_window: Int, priority: StreamPriorityState, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
@@ -2931,6 +2977,13 @@ fn stream_priority_with_priority(priority: StreamPriorityState, next_priority: S
 	match priority
 		ExpectedContentLength(expected_length, observed_length, _) => ExpectedContentLength(expected_length, observed_length, next_priority)
 		_ => next_priority
+	end
+end
+
+fn stream_priority_with_optional_priority(priority: StreamPriorityState, next_priority: StreamPriorityState) -> StreamPriorityState
+	match next_priority
+		NoStreamPriority => priority
+		_ => stream_priority_with_priority(priority, next_priority)
 	end
 end
 
@@ -7566,6 +7619,31 @@ fn print_headers_end_stream_cases(headers_done: Http2Step) -> Result<(), String>
 	Ok(())
 end
 
+fn print_headers_priority_cases() -> Result<(), String> effects [stdio]
+	let headers_priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008012400000001000000030f102030")?), frame_state())?
+	print_step("headers-priority", headers_priority)
+	let ignored_headers_priority_block: () = emit_header_block("http2-headers-priority-header-block", headers_priority, "102030")?
+	print_hpack_transition("headers-priority", headers_priority)
+	print_priority_state("headers-priority", step_state(headers_priority))
+	let headers_priority_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008012000000001800000030faabbcc")?), frame_state())?
+	print_step("headers-priority-continuation-start", headers_priority_continuation_start)
+	let headers_priority_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006090400000001ddeeff010203")?), step_state(headers_priority_continuation_start))?
+	print_step("headers-priority-continuation-done", headers_priority_continuation_done)
+	let ignored_headers_priority_continuation_block: () = emit_header_block("http2-headers-priority-continuation-header-block", headers_priority_continuation_done, "aabbccddeeff010203")?
+	print_hpack_transition("headers-priority-continuation-done", headers_priority_continuation_done)
+	print_priority_state("headers-priority-continuation", step_state(headers_priority_continuation_done))
+	let headers_priority_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008012500000001000000050f102030")?), frame_state())?
+	print_step("headers-priority-end-stream", headers_priority_end_stream)
+	let ignored_headers_priority_end_stream_block: () = emit_header_block("http2-headers-priority-end-stream-header-block", headers_priority_end_stream, "102030")?
+	print_hpack_transition("headers-priority-end-stream", headers_priority_end_stream)
+	print_closed_by_peer_stream("headers-priority-end-stream", step_state(headers_priority_end_stream))
+	let headers_priority_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008012400000001000000010f102030")?), frame_state())?
+	print_failure("headers-priority-self-dependency", headers_priority_self_dependency)
+	let headers_priority_short: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401240000000100000003")?), frame_state())?
+	print_failure("headers-priority-short", headers_priority_short)
+	Ok(())
+end
+
 fn request_headers_open_stream() -> Result<Http2Step, String>
 	receive(InputChunk(byte_chunk_from_hex("000003010400000001303132")?), frame_state())
 end
@@ -8774,6 +8852,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("headers-done", headers_done)
 	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
 	print_hpack_transition("headers-done", headers_done)
+	let ignored_headers_priority_cases: () = print_headers_priority_cases()?
 	let ignored_headers_end_stream_cases: () = print_headers_end_stream_cases(headers_done)?
 	let ignored_trailing_headers_cases: () = print_trailing_headers_cases()?
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
