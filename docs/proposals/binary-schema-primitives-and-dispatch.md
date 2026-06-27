@@ -104,6 +104,17 @@ validate or emit each reserved field at its declared position, omit reserved
 fields from decoded records and mapping source values, preserve visible fields
 in declaration order, and report the same reserved-bit mismatch, truncation,
 and `codec.encode_value_unrepresentable` diagnostic shapes.
+Generated schema helpers also consume and encode the narrow two-byte suffix
+group where two visible `UIntN` fields are followed by a non-byte-aligned
+`ReservedBits(width, value)` suffix, one visible field is `UInt8`, and all
+three widths complete the same two-byte big-endian storage unit. The helpers
+decode or encode the visible fields in declaration order, validate or emit
+the low reserved bits, omit the reserved field from decoded records and
+mapping source values, include the layout in derived codec eligibility, and
+report the same reserved-bit mismatch and
+`codec.encode_value_unrepresentable` diagnostic shapes.
+The completed two-byte suffix reserved group slice is archived under
+`../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md`.
 Generated schema
 helpers also decode and encode standalone visible
 `UInt1` through `UInt7` fields as one byte each, expose the declared low bits
@@ -759,7 +770,9 @@ a final sub-byte visible field, and consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups that complete one byte or one
 two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit, plus the narrow `ReservedBits(9, 0)` plus `UInt8`
-byte-prefix layout, are implemented under
+byte-prefix layout, and the narrow two-byte suffix group where two visible
+`UIntN` fields, one of them `UInt8`, are followed by a non-byte-aligned
+`ReservedBits(width, value)` suffix, are implemented under
 `../specification/execution.md`. Completed split reserved layout slices are
 recorded in
 [Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md)
@@ -768,6 +781,8 @@ and
 The completed seven-byte and eight-byte reserved prefix group slice is recorded
 in
 [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
+The completed two-byte suffix reserved group slice is recorded in
+[Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

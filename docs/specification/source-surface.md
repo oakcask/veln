@@ -96,7 +96,10 @@ unit; the five-byte form accepts reserved prefix width thirty-three, the
 six-byte form accepts reserved prefix width forty-one, the seven-byte form
 accepts reserved prefix width forty-nine, and the eight-byte form accepts
 reserved prefix width fifty-seven when the two visible fields complete the
-remaining bits. `Repeat(count_field, Payload)` is accepted as a
+remaining bits. Two visible `UIntN` fields may also be followed by a
+non-byte-aligned `ReservedBits(width, value)` suffix when one visible field is
+`UInt8` and all three widths complete the same two-byte big-endian storage
+unit. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
 Payload)`, `Repeat(left_count + right_count, Payload)`,
@@ -359,6 +362,8 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
+supported two-byte suffix groups where two visible `UIntN` fields, one of
+them `UInt8`, precede a non-byte-aligned `ReservedBits(width, value)` field,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
 sum to eight or sixteen bits, supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
@@ -428,7 +433,7 @@ through direct source-field assignments, mapping
 expressions that cannot be projected back to schema-local fields, recursive
 dispatch payload schemas, dispatch payload schemas outside the generated
 helper slice, non-byte-aligned reserved fields outside the supported packed,
-middle, and `UInt31be` shared-bit
+middle, suffix-group, and `UInt31be` shared-bit
 layouts, and derived codec encode execution over unsupported schemas are
 outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type

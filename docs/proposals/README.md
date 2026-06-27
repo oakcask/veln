@@ -129,6 +129,10 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` groups that complete one byte or one
   two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
   eight-byte big-endian storage unit,
+  two-byte suffix groups where two visible `UIntN` fields, one of them
+  `UInt8`, are followed by a non-byte-aligned
+  `ReservedBits(width, value)` field
+  ([Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md)),
   opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
   two-byte little-endian, `Flag24be` three-byte big-endian, `Flag24le`
   three-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`

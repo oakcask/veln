@@ -4253,7 +4253,12 @@ fn reserved_bits_unsupported_layout_context(
     let previous_field = field_index
         .and_then(|index| index.checked_sub(1))
         .and_then(|index| schema.fields.get(index));
+    let previous_previous_field = field_index
+        .and_then(|index| index.checked_sub(2))
+        .and_then(|index| schema.fields.get(index));
     let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
+    let previous_previous_visible_bit_width =
+        previous_previous_field.and_then(|field| exact_width_schema_primitive_bit_width(&field.ty));
     let previous_visible_bit_width =
         previous_field.and_then(|field| exact_width_schema_primitive_bit_width(&field.ty));
     let next_visible_bit_width =
@@ -4261,6 +4266,7 @@ fn reserved_bits_unsupported_layout_context(
 
     let (supported_layout_family, human_supported_note) = reserved_bits_supported_layout_family(
         bit_width,
+        previous_previous_visible_bit_width,
         previous_visible_bit_width,
         next_visible_bit_width,
     );
@@ -4280,6 +4286,7 @@ fn reserved_bits_unsupported_layout_context(
 
 fn reserved_bits_supported_layout_family(
     bit_width: i64,
+    previous_previous_visible_bit_width: Option<u8>,
     previous_visible_bit_width: Option<u8>,
     next_visible_bit_width: Option<u8>,
 ) -> (&'static str, &'static str) {
@@ -4292,6 +4299,12 @@ fn reserved_bits_supported_layout_family(
     if previous_visible_bit_width.is_some()
         && suffix_packed_reserved_storage_bit_width(bit_width).is_some()
     {
+        if previous_previous_visible_bit_width.is_some() && (1..=7).contains(&bit_width) {
+            return (
+                "suffix_reserved_group",
+                "two visible widths plus the reserved width must complete the same two-byte big-endian storage unit.",
+            );
+        }
         return (
             "packed_reserved_suffix",
             "the previous visible width plus the reserved width must complete one supported big-endian storage unit.",

@@ -4071,6 +4071,17 @@ pub(crate) fn supported_encode_reserved_bits(
             return Some((bit_width as u8, expected_value));
         }
     }
+    if let (Some(previous_previous_field), Some(previous_field)) =
+        (previous_previous_field, previous_field)
+        && supported_suffix_reserved_group(
+            previous_previous_field,
+            previous_field,
+            bit_width,
+            expected_value,
+        )
+    {
+        return Some((bit_width as u8, expected_value));
+    }
     if let (Some(previous_field), Some(next_field)) = (previous_field, next_field)
         && supported_middle_reserved_bits(previous_field, next_field, bit_width, expected_value)
     {
@@ -4190,6 +4201,37 @@ fn supported_prefix_reserved_group(
         || supported_six_byte_group
         || supported_seven_byte_group
         || supported_eight_byte_group)
+        && expected_value < (1_i64 << bit_width)
+}
+
+fn supported_suffix_reserved_group(
+    first_visible_field: &veln_ast::SchemaField,
+    second_visible_field: &veln_ast::SchemaField,
+    bit_width: i64,
+    expected_value: i64,
+) -> bool {
+    if bit_width <= 0 || bit_width > 7 {
+        return false;
+    }
+    if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
+        || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
+        || flag_schema_primitive(&first_visible_field.ty).is_some()
+        || flag_schema_primitive(&second_visible_field.ty).is_some()
+    {
+        return false;
+    }
+    let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_visible_field.ty)
+    else {
+        return false;
+    };
+    let Some(second_bit_width) = exact_width_schema_primitive_bit_width(&second_visible_field.ty)
+    else {
+        return false;
+    };
+    first_bit_width <= 8
+        && second_bit_width <= 8
+        && (first_bit_width == 8 || second_bit_width == 8)
+        && i64::from(first_bit_width) + i64::from(second_bit_width) + bit_width == 16
         && expected_value < (1_i64 << bit_width)
 }
 
