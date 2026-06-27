@@ -1,0 +1,34 @@
+# HTTP/2 SETTINGS value helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.settings_value_out_of_range",
+		error,
+		RuntimeHttp2PeerLimitSettingsValueDiagnostic(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000500003fff")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_count(6)
+			Ok(count) => match byte_view(bytes, offset, count)
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let item: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(item)?
+	http2_peer_limit_settings_value_out_of_range(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings", preview)
+end

@@ -17,6 +17,9 @@ compiler-known calls.
   [network and time](names-effects-full.md#network-and-time-boundary-calls),
   [process](names-effects-full.md#process-calls), and
   [concurrency](names-effects-full.md#concurrency-calls).
+  Prelude byte and protocol helper signatures, including HTTP/2 runtime
+  diagnostic payload helpers, are listed in
+  [Helper Signatures](names-effects-full.md#helper-signatures).
   The network and time boundary keeps the coarse `net` and `time` effect
   labels and includes descriptor-backed chunk calls, fixture-backed listener
   and stream calls, optional clean-end listener accepts and stream reads,
