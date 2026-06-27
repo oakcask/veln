@@ -4689,6 +4689,128 @@
         ));
     }
 
+    public static Object hpackFixtureDynamicNameContinuationMissing(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object requestedDynamicIndex,
+        Object dynamicTableEntryCount,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        String message = "HPACK dynamic-name continuation missing at byte offset "
+            + byteOffset;
+        return hpackFixtureDynamicNameDiagnostic(
+            "hpack.fixture.dynamic_name_continuation_missing",
+            message,
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            requestedDynamicIndex,
+            dynamicTableEntryCount,
+            expectedFixture,
+            codecModule,
+            preview
+        );
+    }
+
+    public static Object hpackFixtureDynamicNameContinuationMalformed(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object requestedDynamicIndex,
+        Object dynamicTableEntryCount,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        String message = "HPACK dynamic-name continuation malformed at byte offset "
+            + byteOffset;
+        return hpackFixtureDynamicNameDiagnostic(
+            "hpack.fixture.dynamic_name_continuation_malformed",
+            message,
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            requestedDynamicIndex,
+            dynamicTableEntryCount,
+            expectedFixture,
+            codecModule,
+            preview
+        );
+    }
+
+    public static Object hpackFixtureDynamicNameContinuationOutOfRange(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object requestedDynamicIndex,
+        Object dynamicTableEntryCount,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        String message = "HPACK dynamic-name continuation out of range at byte offset "
+            + byteOffset;
+        return hpackFixtureDynamicNameDiagnostic(
+            "hpack.fixture.dynamic_name_continuation_out_of_range",
+            message,
+            byteOffset,
+            observedSize,
+            observedFirstByte,
+            requestedDynamicIndex,
+            dynamicTableEntryCount,
+            expectedFixture,
+            codecModule,
+            preview
+        );
+    }
+
+    private static Object hpackFixtureDynamicNameDiagnostic(
+        String id,
+        String message,
+        long byteOffset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object requestedDynamicIndex,
+        Object dynamicTableEntryCount,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        long requestedIndex = asLong(requestedDynamicIndex);
+        long entryCount = asLong(dynamicTableEntryCount);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(requestedIndex),
+                Long.valueOf(entryCount),
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                id,
+                message,
+                detail
+            }
+        ));
+    }
+
     private static Object hpackFixtureDiagnostic(
         String id,
         String message,

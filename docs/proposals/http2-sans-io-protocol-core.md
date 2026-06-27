@@ -466,7 +466,14 @@ Unsupported HPACK bytes, including malformed non-terminating table-size
 updates and table-size updates with trailing bytes after a complete integer,
 remain on `hpack.fixture.unsupported_header_block`. Dynamic indexed lookup
 failures use `hpack.fixture.dynamic_index_out_of_range` with the requested
-dynamic index and current bounded dynamic table entry count. Malformed string
+dynamic index and current bounded dynamic table entry count. Missing,
+malformed, and out-of-range dynamic-name continuations use focused
+`hpack.fixture.dynamic_name_continuation_missing`,
+`hpack.fixture.dynamic_name_continuation_malformed`, and
+`hpack.fixture.dynamic_name_continuation_out_of_range` diagnostics with the
+same fixture byte offset, observed header-block facts, requested dynamic
+index, bounded dynamic table entry count, codec module, expected fixture, and
+bounded preview fields. Malformed string
 lengths, malformed raw string values on supported literal-name forms,
 malformed Huffman padding, and Huffman EOS use their focused HPACK fixture
 diagnostic ids; multi-byte non-visible Huffman strings decode as
@@ -789,13 +796,16 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 and
-`../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
+`../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal decoder and encoder, outbound table-size
-behavior beyond the checked fixture encoder update boundary, and production
-header validation beyond ordinary request, response,
+the checked fixture string literal and focused dynamic-name continuation
+diagnostic boundary, encoder boundaries, outbound table-size behavior beyond
+the checked fixture encoder update boundary, and production header validation
+beyond ordinary request,
+response,
 and trailer header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.
 The completed request-header and response-header validation slices are

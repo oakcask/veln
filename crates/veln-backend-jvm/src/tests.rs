@@ -2133,6 +2133,18 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureDynamicIndexOutOfRange",
         ),
         (
+            "hpack_fixture_dynamic_name_continuation_missing",
+            "hpackFixtureDynamicNameContinuationMissing",
+        ),
+        (
+            "hpack_fixture_dynamic_name_continuation_malformed",
+            "hpackFixtureDynamicNameContinuationMalformed",
+        ),
+        (
+            "hpack_fixture_dynamic_name_continuation_out_of_range",
+            "hpackFixtureDynamicNameContinuationOutOfRange",
+        ),
+        (
             "hpack_fixture_table_size_update_not_at_start",
             "hpackFixtureTableSizeUpdateNotAtStart",
         ),

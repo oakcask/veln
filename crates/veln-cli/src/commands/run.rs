@@ -1065,6 +1065,11 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             "hpack.fixture.dynamic_index_out_of_range" => {
                 return self.project_hpack_dynamic_index_rule();
             }
+            "hpack.fixture.dynamic_name_continuation_missing"
+            | "hpack.fixture.dynamic_name_continuation_malformed"
+            | "hpack.fixture.dynamic_name_continuation_out_of_range" => {
+                return self.project_hpack_dynamic_name_rule();
+            }
             "hpack.fixture.table_size_update_not_at_start" => {
                 return self.project_hpack_table_size_update_rule();
             }
@@ -1103,6 +1108,40 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         ));
         diagnostic.related.push(note_json(format!(
             "HPACK dynamic index {requested_index} was requested, but the fixture dynamic table currently contains {entry_count} entry/entries."
+        )));
+        diagnostic.related.push(note_json(format!(
+            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        diagnostic
+            .related
+            .push(note_json(format!("Expected {expected_fixture}.")));
+        Some(diagnostic)
+    }
+
+    fn project_hpack_dynamic_name_rule(&self) -> Option<Diagnostic> {
+        let observed_size = self.number("observed_header_block_size")?;
+        let observed_first_byte = self.number("observed_first_byte")?;
+        let requested_index = self.number("requested_dynamic_index")?;
+        let entry_count = self.number("dynamic_table_entry_count")?;
+        let expected_fixture = self.string("expected_fixture")?;
+        let codec_module = self.string("codec_module")?;
+        let message = match self.id.as_str() {
+            "hpack.fixture.dynamic_name_continuation_missing" => {
+                "HPACK dynamic-name continuation is missing a fixture table entry"
+            }
+            "hpack.fixture.dynamic_name_continuation_malformed" => {
+                "HPACK dynamic-name continuation is malformed"
+            }
+            "hpack.fixture.dynamic_name_continuation_out_of_range" => {
+                "HPACK dynamic-name continuation is out of range"
+            }
+            _ => return None,
+        };
+        let mut diagnostic =
+            self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
+        diagnostic.related.push(note_json(format!(
+            "HPACK dynamic-name continuation requested dynamic index {requested_index}, and the fixture dynamic table currently contains {entry_count} entry/entries."
         )));
         diagnostic.related.push(note_json(format!(
             "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
@@ -4567,6 +4606,59 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("be (showing 1 of 1 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_dynamic_name_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.dynamic_name_continuation_out_of_range"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(98)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(8)),
+            ("observed_first_byte", JsonValue::Number(127)),
+            ("requested_dynamic_index", JsonValue::Number(3)),
+            ("dynamic_table_entry_count", JsonValue::Number(3)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture dynamic-name continuation range"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("7f02055041544348")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK dynamic-name continuation out of range at byte offset 98".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "hpack.fixture.dynamic_name_continuation_out_of_range"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "HPACK dynamic-name continuation is out of range at byte offset 98"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(diagnostic.related[0].to_json().contains("dynamic index 3"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("7f 02 05 50 41 54 43 48")
         );
     }
 

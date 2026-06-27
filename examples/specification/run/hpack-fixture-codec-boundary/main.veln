@@ -341,8 +341,8 @@ fn print_dynamic_name_literal_cases(dynamic_state: HpackFixtureState, dynamic_in
 	print_transition("literal-never-indexed-dynamic-name-path-secret", literal_never_indexed_dynamic_name)
 	let literal_never_indexed_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_never_indexed_dynamic_name, ":path", "/secret")?
 	let ignored_never_indexed_retained_path: HpackFixtureState = print_required_header("dynamic-name-never-indexed-retains-path", decode_header_block(dynamic_indexed_block, literal_never_indexed_dynamic_name_state, 103), ":path", "/target")?
-	let ignored_dynamic_name_out_of_range: () = print_required_unsupported("literal-without-indexing-dynamic-name-out-of-range", decode_header_block(byte_chunk_from_hex("0f30032f626164")?, dynamic_state, 104))?
-	let ignored_never_indexed_dynamic_name_malformed: () = print_required_unsupported("malformed-literal-never-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("1f80")?, dynamic_state, 105))?
+	let ignored_dynamic_name_out_of_range: () = print_required_unsupported_with_id("literal-without-indexing-dynamic-name-out-of-range", decode_header_block(byte_chunk_from_hex("0f30032f626164")?, dynamic_state, 104))?
+	let ignored_never_indexed_dynamic_name_malformed: () = print_required_unsupported_with_id("malformed-literal-never-indexed-dynamic-name", decode_header_block(byte_chunk_from_hex("1f80")?, dynamic_state, 105))?
 	Ok(())
 end
 
@@ -374,7 +374,7 @@ fn print_dynamic_name_wide_continuation_cases() -> Result<(), String> effects [s
 	print_transition("literal-never-indexed-dynamic-name-wide-path-secret", literal_never_indexed_deep_name)
 	let literal_never_indexed_deep_name_state: HpackFixtureState = require_decoded_header(literal_never_indexed_deep_name, ":path", "/secret")?
 	print_transition("dynamic-name-wide-never-indexed-retains-older-path", decode_header_block(byte_chunk_from_hex("ff")?, literal_never_indexed_deep_name_state, 115))
-	print_transition("literal-indexed-dynamic-name-wide-out-of-range", decode_header_block(byte_chunk_from_hex("7f41052f64656570")?, deep_dynamic_state, 116))
+	let ignored_dynamic_name_wide_out_of_range: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-wide-out-of-range", decode_header_block(byte_chunk_from_hex("7f41052f64656570")?, deep_dynamic_state, 116))?
 	Ok(())
 end
 
@@ -567,9 +567,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("literal-indexed-dynamic-name-third-path", literal_indexed_dynamic_name_third)
 	let literal_indexed_dynamic_name_third_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name_third, ":path", "/third")?
 	let ignored_dynamic_name_third_newest: HpackFixtureState = print_required_header("dynamic-name-continuation-newest-path", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_third_state, 96), ":path", "/third")?
-	let ignored_dynamic_name_continuation_missing: () = print_required_unsupported("literal-indexed-dynamic-name-continuation-missing", decode_header_block(literal_indexed_dynamic_name_second_block, initial, 97))?
-	let ignored_dynamic_name_continuation_out_of_range: () = print_required_unsupported("literal-indexed-dynamic-name-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("7f02055041544348")?, three_entry_state, 98))?
-	let ignored_dynamic_name_continuation_malformed: () = print_required_unsupported("malformed-literal-indexed-dynamic-name-continuation", decode_header_block(byte_chunk_from_hex("7f80")?, three_entry_state, 99))?
+	let ignored_dynamic_name_continuation_missing: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-missing", decode_header_block(literal_indexed_dynamic_name_second_block, initial, 97))?
+	let ignored_dynamic_name_continuation_out_of_range: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("7f02055041544348")?, three_entry_state, 98))?
+	let ignored_dynamic_name_continuation_malformed: () = print_required_unsupported_with_id("malformed-literal-indexed-dynamic-name-continuation", decode_header_block(byte_chunk_from_hex("7f80")?, three_entry_state, 99))?
 	let ignored_dynamic_name_wide_continuation_cases: () = print_dynamic_name_wide_continuation_cases()?
 	let three_entry_reduction: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("3f37")?, three_entry_state, 89)
 	print_transition("dynamic-three-table-size-eviction", three_entry_reduction)

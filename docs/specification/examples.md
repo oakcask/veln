@@ -2374,8 +2374,12 @@ boundary: the focused fixture failure leaves the carried decode count
 unchanged, and a later
 accepted literal-with-indexing block inserts `:path: /target` so the following
 `0xbe` reads through the returned state. Missing, malformed, and out-of-range
-dynamic-name continuations remain unsupported. The fixture also accepts dynamic
-table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`, `0x3f 0x0b`,
+dynamic-name continuations use focused fixture diagnostics:
+`hpack.fixture.dynamic_name_continuation_missing`,
+`hpack.fixture.dynamic_name_continuation_malformed`, and
+`hpack.fixture.dynamic_name_continuation_out_of_range`. The fixture also
+accepts dynamic table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`,
+`0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the
 resulting checked table
 sizes `30`, `31`, `32`, `42`, `159`, `160`, and `289` through the fixture-state
@@ -2404,7 +2408,8 @@ checked `0xbe` reuse; table size `30` evicts both supported `:method: PUT` and
 `:path: /target` dynamic
 entries, so later dynamic indexed lookups report
 `hpack.fixture.dynamic_index_out_of_range`. Non-dynamic-indexed unsupported
-forms remain on `hpack.fixture.unsupported_header_block`. A later
+forms remain on `hpack.fixture.unsupported_header_block`, except for the
+focused dynamic-name continuation diagnostics listed above. A later
 literal-with-indexing insertion that exceeds remaining capacity keeps the
 inserted `:path: /target` entry readable at `0xbe` and evicts the older
 entries so `0xbf` reports the dynamic-index failure. The fixture

@@ -26,6 +26,9 @@ end
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	DynamicIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationMissing(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedStringLength(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedRawStringValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	MalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
@@ -601,6 +604,12 @@ fn dynamic_entry_count(dynamic_entry: HpackDynamicEntry) -> Int
 	end
 end
 
+fn state_dynamic_entry_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => dynamic_entry_count(dynamic_entry)
+	end
+end
+
 fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
@@ -723,6 +732,18 @@ end
 
 fn dynamic_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(DynamicIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic indexed header", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_missing(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationMissing(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic-name continuation entry", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_malformed(block: ByteChunk, offset: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationMalformed(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), -1, dynamic_table_entry_count, "fixture dynamic-name continuation integer", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic-name continuation range", "hpack_fixture", block))
 end
 
 fn unsupported_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
@@ -2823,7 +2844,13 @@ fn decode_indexed_name_literal_header_block(indexing: HpackLiteralIndexing, name
 		Some(name) => decode_literal_header_with_name(indexing, name, observed_size, state, block, offset, integer_prefix_size(name_index))
 		None => match dynamic_header_name_at(integer_prefix_value(name_index) - 62, state)
 			Some(name) => decode_literal_header_with_name(indexing, name, observed_size, state, block, offset, integer_prefix_size(name_index))
-			None => unsupported(block, offset)
+			None => match integer_prefix_size(name_index) > 1 and integer_prefix_value(name_index) >= 62
+				true => match state_dynamic_entry_count(state) == 0
+					true => dynamic_name_continuation_missing(block, offset, integer_prefix_value(name_index) - 62, state_dynamic_entry_count(state))
+					false => dynamic_name_continuation_out_of_range(block, offset, integer_prefix_value(name_index) - 62, state_dynamic_entry_count(state))
+				end
+				false => unsupported(block, offset)
+			end
 		end
 	end
 end
@@ -2832,7 +2859,7 @@ fn decode_four_bit_indexed_name_literal_header_block(indexing: HpackLiteralIndex
 	match observed_size >= 2
 		true => match decode_four_bit_dynamic_name_index(first_byte, prefix_base, observed_size, block, offset)
 			Ok(name_index) => decode_indexed_name_literal_header_block(indexing, name_index, observed_size, state, block, offset)
-			Err(failure) => Err(failure)
+			Err(_) => dynamic_name_continuation_malformed(block, offset, state_dynamic_entry_count(state))
 		end
 		false => unsupported(block, offset)
 	end
@@ -2846,7 +2873,7 @@ fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int
 	match observed_size >= 2
 		true => match decode_hpack_prefixed_integer(first_byte - 64, 63, block, observed_size, 1, offset)
 			Ok(name_index) => decode_indexed_name_literal_header_block(LiteralWithIndexing, name_index, observed_size, state, block, offset)
-			Err(failure) => Err(failure)
+			Err(_) => dynamic_name_continuation_malformed(block, offset, state_dynamic_entry_count(state))
 		end
 		false => unsupported(block, offset)
 	end
@@ -3772,6 +3799,9 @@ pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
 		DynamicIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationMissing(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationMalformed(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		MalformedStringLength(offset, _, _, _, _, _) => offset
 		MalformedRawStringValue(offset, _, _, _, _, _) => offset
 		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
@@ -3786,6 +3816,9 @@ pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
 		DynamicIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationMissing(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationMalformed(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
 		MalformedStringLength(_, observed_size, _, _, _, _) => observed_size
 		MalformedRawStringValue(_, observed_size, _, _, _, _) => observed_size
 		MalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
@@ -3800,6 +3833,9 @@ pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		DynamicIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationMissing(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationMalformed(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		MalformedStringLength(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedRawStringValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		MalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
@@ -3820,6 +3856,9 @@ end
 pub fn hpack_failure_requested_dynamic_index(failure: HpackFixtureFailure) -> Int
 	match failure
 		DynamicIndexOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationMissing(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationMalformed(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
 		_ => 0
 	end
 end
@@ -3827,6 +3866,9 @@ end
 pub fn hpack_failure_dynamic_table_entry_count(failure: HpackFixtureFailure) -> Int
 	match failure
 		DynamicIndexOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationMissing(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationMalformed(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
 		_ => 0
 	end
 end
@@ -3835,6 +3877,9 @@ pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => 0
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => 0
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => 0
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => 0
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => 0
 		MalformedStringLength(_, _, _, _, _, _) => 0
 		MalformedRawStringValue(_, _, _, _, _, _) => 0
 		MalformedHuffmanPadding(_, _, _, _, _, _) => 0
@@ -3849,6 +3894,9 @@ pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
 		DynamicIndexOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationMissing(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationMalformed(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedStringLength(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedRawStringValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		MalformedHuffmanPadding(_, _, _, expected_fixture, _, _) => expected_fixture
@@ -3863,6 +3911,9 @@ pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
 		DynamicIndexOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationMissing(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
 		MalformedStringLength(_, _, _, _, codec_module, _) => codec_module
 		MalformedRawStringValue(_, _, _, _, codec_module, _) => codec_module
 		MalformedHuffmanPadding(_, _, _, _, codec_module, _) => codec_module
@@ -3877,6 +3928,9 @@ pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, preview) => preview
 		MalformedStringLength(_, _, _, _, _, preview) => preview
 		MalformedRawStringValue(_, _, _, _, _, preview) => preview
 		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
@@ -3911,6 +3965,9 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_missing(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedStringLength(_, _, _, _, _, _) => hpack_fixture_malformed_string_length(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedRawStringValue(_, _, _, _, _, _) => hpack_fixture_malformed_raw_string_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)

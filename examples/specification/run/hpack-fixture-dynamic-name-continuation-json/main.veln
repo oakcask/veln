@@ -1,0 +1,28 @@
+use hpack_fixture
+
+fn fallback_payload(message: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.dynamic_name_continuation_missing",
+		message,
+		RuntimeHpackFixtureDynamicNameDiagnostic(0, 0, -1, -1, 0, "fixture dynamic-name continuation entry", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), RuntimeDiagnostic>
+	match result
+		Ok(_) => Err(fallback_payload("expected HPACK dynamic-name continuation failure"))
+		Err(error) => project_failure(error)
+	end
+end
+
+fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let block: ByteChunk = fixture_bytes("7f00055041544348")?
+	project_decode_result(decode_header_block(block, initial_state(), 97))
+end

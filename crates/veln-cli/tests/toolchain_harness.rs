@@ -2644,6 +2644,10 @@ fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
         "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 27, RuntimeHpackFixtureDynamicIndexDiagnostic(27, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)])))",
     )
     .expect("HPACK dynamic-index runtime diagnostic value should parse");
+    let dynamic_name = parse_result_value(
+        "RuntimeDiagnostic(hpack.fixture.dynamic_name_continuation_out_of_range, HPACK dynamic-name continuation out of range at byte offset 98, RuntimeHpackFixtureDynamicNameDiagnostic(98, 8, 127, 3, 3, fixture dynamic-name continuation range, hpack_fixture, ByteChunk([Byte(127), Byte(2), Byte(5), Byte(80), Byte(65), Byte(84), Byte(67), Byte(72)])))",
+    )
+    .expect("HPACK dynamic-name runtime diagnostic value should parse");
     let table_size = parse_result_value(
         "RuntimeDiagnostic(hpack.fixture.table_size_update_not_at_start, HPACK fixture table-size update after header field at byte offset 10, RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, hpack-fixture, fixture HPACK table-size update at header block start, hpack_fixture, ByteChunk([Byte(130), Byte(62)])))",
     )
@@ -2666,6 +2670,14 @@ fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
     assert_eq!(
         json_path(&dynamic_index, "value.detail.preview.bytes.0.value"),
         Some(&JsonValue::Number(190))
+    );
+    assert_eq!(
+        json_path(&dynamic_name, "value.detail.requested_dynamic_index"),
+        Some(&JsonValue::Number(3))
+    );
+    assert_eq!(
+        json_path(&dynamic_name, "value.detail.dynamic_table_entry_count"),
+        Some(&JsonValue::Number(3))
     );
     assert_eq!(
         json_path(&table_size, "value.detail.observed_header_table_size"),
@@ -3500,6 +3512,28 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
             let args = expect_arity(name, args, 8)?;
             Ok(result_value_object(
                 "RuntimeHpackFixtureDynamicIndexDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_block_size", parse_veln_value(args[1])?),
+                    ("observed_first_byte", parse_veln_value(args[2])?),
+                    ("requested_dynamic_index", parse_veln_value(args[3])?),
+                    ("dynamic_table_entry_count", parse_veln_value(args[4])?),
+                    (
+                        "expected_fixture",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "codec_module",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHpackFixtureDynamicNameDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHpackFixtureDynamicNameDiagnostic",
                 vec![
                     ("byte_offset", parse_veln_value(args[0])?),
                     ("observed_header_block_size", parse_veln_value(args[1])?),
