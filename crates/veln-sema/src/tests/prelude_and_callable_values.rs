@@ -3763,6 +3763,65 @@ fn generated_schema_helpers_reject_unsupported_four_byte_packed_reserved_suffix_
 }
 
 #[test]
+fn generated_schema_helpers_accept_two_visible_suffix_reserved_group() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ByteBeforeSuffixReservedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  channel: UInt3\n",
+            "  code: UInt8\n",
+            "  guard: ReservedBits(5, 21)\n",
+            "end\n",
+            "\n",
+            "pub fn read_packet(view: ByteView) -> Result<{code: Int, channel: Int}, String>\n",
+            "  byte_decode_byte_before_suffix_reserved_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_packet(packet: {code: Int, channel: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_byte_before_suffix_reserved_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "two-visible suffix reserved groups should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let high_schema = &ir.schema_decoders[0];
+    assert_eq!(
+        high_schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("channel", 1, 7, None),
+            ("code", 1, 255, None),
+            ("guard", 0, 0, Some((5, 21))),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_five_byte_reserved_suffix_shape() {
     let source = SourceFile::new(
         "main.veln",

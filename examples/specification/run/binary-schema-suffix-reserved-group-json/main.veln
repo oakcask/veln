@@ -1,0 +1,13 @@
+schema SuffixReservedGroupHeader
+	format binary
+
+	channel: UInt3
+	code: UInt8
+	guard: ReservedBits(5, 21)
+end
+
+pub fn main() -> Result<{code: Int, channel: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("b574")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	byte_decode_suffix_reserved_group_header(view)
+end

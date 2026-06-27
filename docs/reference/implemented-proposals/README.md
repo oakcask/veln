@@ -106,12 +106,16 @@ behavior.
   [binary-schema-packed-visible-two-byte-groups.md](binary-schema-packed-visible-two-byte-groups.md).
 - Binary schema six-byte reserved suffix:
   [binary-schema-six-byte-reserved-suffix.md](binary-schema-six-byte-reserved-suffix.md).
+- Binary schema split reserved groups:
+  [binary-schema-split-reserved-groups.md](binary-schema-split-reserved-groups.md).
 - Binary schema seven-byte split reserved layouts:
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema eight-byte split reserved layouts:
   [binary-schema-eight-byte-split-reserved-layouts.md](binary-schema-eight-byte-split-reserved-layouts.md).
 - Binary schema wide reserved prefix groups:
   [binary-schema-wide-reserved-prefix-groups.md](binary-schema-wide-reserved-prefix-groups.md).
+- Binary schema suffix reserved groups:
+  [binary-schema-suffix-reserved-groups.md](binary-schema-suffix-reserved-groups.md).
 - Binary schema nested repeat payload helpers:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:

@@ -175,6 +175,12 @@ The narrow `ReservedBits(2, 0)` and `ReservedBits(9, 0)` prefixes followed by
 validated first, the visible byte is decoded from the following byte position,
 trailing low padding bits are ignored when present, and the reserved field is
 omitted from decoded records and mapping source values.
+The narrow two-byte suffix group with two visible `UIntN` fields followed by
+a non-byte-aligned `ReservedBits(width, value)` suffix decodes the visible
+fields from their declared high-to-low positions, validates the low reserved
+bits, omits the reserved field, and advances by two bytes when the second
+visible field is `UInt8` and all three widths complete the same two-byte
+big-endian storage unit.
 The helper validates the high reserved bits, decodes the following visible
 bits from their declared high-to-low positions as ordinary `Int` values,
 omits the reserved field from decoded records and mapping source values, and
@@ -554,6 +560,11 @@ at the out-of-range visible field. The narrow `ReservedBits(2, 0)` and
 bitstream slice with the declared reserved prefix first, the visible byte
 after it, and zero low padding bits when present; the reserved field remains
 omitted from the encoder value record. A
+two-byte suffix group with two visible `UIntN` fields followed by a
+non-byte-aligned `ReservedBits(width, value)` suffix writes the visible values
+in declaration order followed by the declared low reserved bits when the
+second visible field is `UInt8` and all three widths complete the same
+two-byte big-endian storage unit. A
 visible `UIntN` field followed by a
 `ReservedBits(width, value)` suffix that completes the same one-byte,
 two-byte, three-byte, or four-byte big-endian storage unit, plus the

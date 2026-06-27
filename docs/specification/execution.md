@@ -525,7 +525,14 @@ execution reference.
   two visible fields complete the remaining bits in declaration order. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
-  advances by the shared storage width. The narrow `ReservedBits(2, 0)` and
+  advances by the shared storage width. A narrow two-byte suffix group may
+  place two visible `UIntN` fields before a non-byte-aligned
+  `ReservedBits(width, value)` suffix when the second visible field is
+  `UInt8` and all three widths complete the same two-byte big-endian storage
+  unit. That
+  form decodes the two visible fields from their declared high-to-low
+  positions, validates the low reserved bits, omits the reserved field, and
+  advances by two bytes. The narrow `ReservedBits(2, 0)` and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` also use a two-byte
   big-endian bitstream slice: the reserved prefix is validated first, the
   visible byte is decoded from the following byte position, trailing low
@@ -984,7 +991,12 @@ execution reference.
   the remaining bits, the eight-byte encode form accepts reserved prefix
   width fifty-seven when the visible fields complete the remaining bits,
   and reports `codec.encode_value_unrepresentable` at the
-  out-of-range visible field. The narrow `ReservedBits(2, 0)` and
+  out-of-range visible field. A narrow two-byte suffix group with two visible
+  `UIntN` fields followed by a non-byte-aligned
+  `ReservedBits(width, value)` suffix writes the visible values in
+  declaration order followed by the declared low reserved bits, when the
+  second visible field is `UInt8` and all three widths complete the same
+  two-byte big-endian storage unit. The narrow `ReservedBits(2, 0)` and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte
   big-endian bitstream slice with the declared reserved prefix first, the
   visible byte after it, and zero low padding bits when present; the reserved
@@ -1261,6 +1273,8 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-suffix-reserved-group-decode-encode/`,
+  `examples/specification/run/binary-schema-suffix-reserved-group-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-three-byte-group-decode-encode/`,
   `examples/specification/run/binary-schema-prefix-reserved-three-byte-group-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-four-byte-group-decode-encode/`,
@@ -1376,6 +1390,7 @@ execution reference.
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
+  `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
@@ -1422,6 +1437,7 @@ execution reference.
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
+  `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,

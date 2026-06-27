@@ -1,0 +1,141 @@
+use stdio
+
+schema SuffixReservedGroupHeader
+	format binary
+
+	channel: UInt3
+	code: UInt8
+	guard: ReservedBits(5, 21)
+end
+
+codec SuffixReservedGroupCodec for SuffixReservedGroupHeader decode encode
+	derive decode
+	derive encode
+end
+
+fn encoded_value(chunk: ByteChunk) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
+	byte_read_u16_be(view)
+end
+
+fn decode_step_kind(step: DecodeStep<{code: Int, channel: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_code(step: DecodeStep<{code: Int, channel: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.code
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_channel(step: DecodeStep<{code: Int, channel: Int}>) -> Int
+	match step
+		Decoded(header, _) => header.channel
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{code: Int, channel: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn encode_step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn encode_error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn encode_error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_unexpected_chunk_count(chunks: List<ByteChunk>) -> () effects [stdio]
+	stdio::println("unexpected chunk count")
+end
+
+fn emit_derived_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => emit_unexpected_chunk_count(chunks)
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+fn emit_direct_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	let ignored: () = match encoded
+		Ok(chunk) => stdio::println(int_to_string(encoded_value(chunk)?))
+		Err(_) => stdio::println("unexpected direct encode failure")
+	end
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("b575")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let decoded: {code: Int, channel: Int} = byte_decode_suffix_reserved_group_header(view)?
+	stdio::println(int_to_string(decoded.code))
+	stdio::println(int_to_string(decoded.channel))
+
+	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_suffix_reserved_group_header({code: 171, channel: 5})
+	let ignored: () = emit_direct_encoded(direct_encoded)?
+
+	let derived_decoded: DecodeStep<{code: Int, channel: Int}> = SuffixReservedGroupCodec(view, byte_offset(12)?)
+	stdio::println(decode_step_kind(derived_decoded))
+	stdio::println(int_to_string(decoded_code(derived_decoded)))
+	stdio::println(int_to_string(decoded_channel(derived_decoded)))
+	stdio::println(int_to_string(consumed_count(derived_decoded)))
+
+	let derived_encoded: EncodeStep<()> = SuffixReservedGroupCodec({code: 171, channel: 5})
+	stdio::println(encode_step_kind(derived_encoded))
+	emit_derived_encoded("suffix-reserved-group", derived_encoded, "b575")
+
+	let rejected: EncodeStep<()> = SuffixReservedGroupCodec({code: 171, channel: 8})
+	stdio::println(encode_step_kind(rejected))
+	stdio::println(encode_error_id(rejected))
+	stdio::println(encode_error_path(rejected))
+	Ok(())
+end
