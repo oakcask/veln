@@ -788,6 +788,10 @@ list order, `net::write_chunks_until` writes each chunk in list order until
 the full list completes or deadline expiry wins, and
 `net::write_chunks_until_cancellable` writes each chunk in list order until
 the full list completes, deadline expiry wins, or cancellation wins.
+`net::shutdown_write` records write-side shutdown for an adapter-owned
+`NetStream`, returns `()`, keeps clean read end observable through
+`net::read_chunk_or_end`, and leaves `net::close_stream` as the full cleanup
+operation.
 `net::close_stream` records a fixture-backed close event for an adapter-owned
 stream and returns `()`. `net::close_listener` records a
 fixture-backed listener close event and returns `()`. After explicit listener
@@ -813,8 +817,9 @@ response chunks to that stream in source list order,
 `net::write_chunks_until` writes response chunks in source list order before
 the supplied deadline or returns a write outcome value for deadline expiry,
 `net::write_chunks_until_cancellable` applies that outcome boundary to a
-source-owned `List<ByteChunk>` in list order, and `net::close_stream` closes
-it. `net::close_listener`
+source-owned `List<ByteChunk>` in list order, `net::shutdown_write` shuts
+down the write side while leaving the read path intact, and
+`net::close_stream` closes it. `net::close_listener`
 closes the owned listener resource or in-memory loopback listener state
 without closing already accepted streams; any later accept call on that
 listener fails through the runtime transport boundary. A configured
@@ -880,6 +885,8 @@ forced read failure through `net::read_chunk_until`, and forced write failure
 through `net::write_chunk_until`, `net::write_chunks_until`,
 `net::write_chunk_until_cancellable`, or
 `net::write_chunks_until_cancellable` stay runtime failures.
+Writes attempted after `net::shutdown_write` also stay runtime transport
+failures.
 They do not produce schema, codec, or HTTP/2 peer protocol diagnostics. The
 deadline boundary does not add a source timer handle beyond the returned
 `Deadline`, cancellation handle beyond `CancelToken`, routing API, or new
@@ -931,6 +938,10 @@ an adapter call. The checked examples are
 `examples/specification/check/socket-stream-adapter-owned-lifecycle-effects/`,
 `examples/specification/run/socket-stream-adapter-close-lifecycle/`,
 `examples/specification/check/socket-stream-close-effects/`,
+`examples/specification/run/socket-stream-adapter-shutdown-write-lifecycle/`,
+`examples/specification/run/socket-stream-adapter-production-shutdown-write-lifecycle/`,
+`examples/specification/run/socket-stream-adapter-shutdown-write-failure-json/`,
+`examples/specification/check/socket-stream-shutdown-write-effects/`,
 `examples/specification/run/socket-stream-adapter-deadline-lifecycle/`,
 `examples/specification/run/socket-stream-adapter-cancellable-lifecycle/`,
 `examples/specification/run/socket-stream-adapter-cancellable-deadline-lifecycle/`,

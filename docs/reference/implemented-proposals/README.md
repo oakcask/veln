@@ -132,6 +132,8 @@ behavior.
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:
   [network-stream-close-boundary.md](network-stream-close-boundary.md).
+- Network stream shutdown write boundary:
+  [network-stream-shutdown-write-boundary.md](network-stream-shutdown-write-boundary.md).
 - Network listener close boundary:
   [network-listener-close-boundary.md](network-listener-close-boundary.md).
 - Network write chunks boundary:

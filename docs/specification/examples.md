@@ -1701,6 +1701,8 @@ the optional clean-end read directly. The
 case pins that explicit listener close requires the `net` effect. The
 `../../examples/specification/check/socket-stream-close-effects/` case pins
 that explicit stream close requires the `net` effect. The
+`../../examples/specification/check/socket-stream-shutdown-write-effects/`
+case pins that write-side stream shutdown requires the `net` effect. The
 `../../examples/specification/run/transport-socket-listener-close-accept-until-failure-json/`,
 `../../examples/specification/run/transport-socket-listener-close-accept-until-cancellable-failure-json/`,
 and
@@ -1829,6 +1831,18 @@ stream input values through a channel, applies handler-produced `SendBytes`
 actions as ordered `net::write_chunk` calls, and then calls
 `net::close_stream`. The fixture event log pins the close event after the final
 write while the pure handler remains free of socket handles and `net` calls.
+
+The executable specification cases
+`../../examples/specification/run/socket-stream-adapter-shutdown-write-lifecycle/`
+and
+`../../examples/specification/run/socket-stream-adapter-production-shutdown-write-lifecycle/`
+cover adapter-owned write-side stream shutdown after an ordered write and
+before full stream close. The fixture and production-loopback logs pin the
+half-close event separately from `net::close_stream`, while clean read end
+remains observable through `net::read_chunk_or_end`. The matching
+`../../examples/specification/run/socket-stream-adapter-shutdown-write-failure-json/`
+case checks that later writes on the write-shutdown stream fail as runtime
+transport failures rather than protocol diagnostics.
 
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-production-lifecycle/`

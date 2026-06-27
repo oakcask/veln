@@ -206,6 +206,7 @@ net::write_chunk_until_cancellable(stream: NetStream, bytes: ByteChunk, deadline
 net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
 net::write_chunks_until(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
 net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
+net::shutdown_write(stream: NetStream) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
 time::monotonic_ms() -> Int effects [time]
@@ -225,8 +226,9 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
-`net::write_chunk`, `net::write_chunks`, `net::close_stream`, and
-`net::close_listener` also infer the same coarse `net` effect. Direct calls
+`net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
+`net::close_stream`, and `net::close_listener` also infer the same coarse
+`net` effect. Direct calls
 to `net::accept_until`,
 `net::read_chunk_until`, and
 `net::read_chunk_until_cancellable`,
@@ -288,6 +290,10 @@ returns `WriteCompleted` after every chunk is written before the deadline and
 before cancellation, returns `WriteDeadlineExpired` when deadline expiry wins
 before the list is fully written, and returns `WriteCancelled` when the
 supplied `CancelToken` wins before the list is fully written.
+`net::shutdown_write` records fixture-backed adapter-owned write-side
+shutdown, returns `()`, and leaves clean read end on the existing
+`net::read_chunk_or_end` path. Later writes on the same stream fail as runtime
+transport failures.
 `net::close_stream` records fixture-backed adapter-owned stream cleanup and
 returns `()`. `net::close_listener` records fixture-backed adapter-owned
 listener cleanup and returns `()`; after that close, `net::accept`,
@@ -303,8 +309,10 @@ listener end as `None`, `net::read_chunk` and `net::read_chunk_or_end` read
 bytes from that stream, `net::read_chunk_until` reads bytes before the
 supplied deadline or reports clean stream end as `None`, `net::write_chunk`
 writes bytes back to the stream, `net::write_chunks` writes each chunk in
-source list order, `net::close_stream` closes the owned stream, and a
-following optional or deadline-aware accept can observe clean listener end.
+source list order, `net::shutdown_write` shuts down the stream write side
+without replacing the read clean-end path, `net::close_stream` closes the
+owned stream, and a following optional or deadline-aware accept can observe
+clean listener end.
 `net::close_listener` closes the owned production listener or in-memory
 loopback listener state without closing already accepted `NetStream` handles;
 any later accept call on that listener fails through the same runtime

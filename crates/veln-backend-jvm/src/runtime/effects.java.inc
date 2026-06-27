@@ -90,6 +90,8 @@
         private final boolean lastProductionStream;
         private final java.io.InputStream input;
         private final java.io.OutputStream output;
+        private final java.util.concurrent.atomic.AtomicBoolean writeShutdown =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
         private NetStream(String id) {
             this(id, null, null, null, false, null, null);
@@ -138,6 +140,14 @@
 
         private boolean isProductionSocket() {
             return input != null && output != null;
+        }
+
+        private boolean isWriteShutdown() {
+            return writeShutdown.get();
+        }
+
+        private boolean shutdownWriteOnce() {
+            return writeShutdown.compareAndSet(false, true);
         }
 
         @Override
@@ -885,6 +895,7 @@
             throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamWriteShutdown(value);
         if (value.isProductionSocket()) {
             writeProductionChunk(value, bytes);
             return UNIT;
@@ -905,6 +916,7 @@
             throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamWriteShutdown(value);
         if (writeDeadlineExpired(deadline)) {
             try {
                 writeNetEvent("write-deadline " + value.id);
@@ -925,6 +937,7 @@
             throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamWriteShutdown(value);
         CancelToken cancelToken = asCancelToken(token);
         if (waitCancelled(cancelToken)) {
             try {
@@ -1002,6 +1015,25 @@
         return streamWriteOutcome("WriteCompleted");
     }
 
+    public static Object netShutdownWrite(Object stream) {
+        NetStream value = asNetStream(stream);
+        if (value.isProductionSocket()) {
+            shutdownProductionWrite(value);
+            return UNIT;
+        }
+        if (value.shutdownWriteOnce()) {
+            try {
+                writeNetEvent("shutdown-write " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport shutdown_write failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+        }
+        return UNIT;
+    }
+
     public static Object netCloseStream(Object stream) {
         if (forced("VELN_NET_CLOSE_FAILED")) {
             throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");
@@ -1061,6 +1093,12 @@
         }
     }
 
+    private static void failIfStreamWriteShutdown(NetStream stream) {
+        if (stream.isWriteShutdown()) {
+            throw new RuntimeFailure("transport write failed: stream write side is shut down");
+        }
+    }
+
     private static Object readProductionChunk(NetStream stream) {
         Object chunk = readProductionChunkOrNull(stream);
         if (chunk == null) {
@@ -1086,6 +1124,7 @@
     }
 
     private static void writeProductionChunk(NetStream stream, Object bytes) {
+        failIfStreamWriteShutdown(stream);
         try {
             byte[] raw = byteChunkToByteArray(bytes);
             stream.output.write(raw);
@@ -1093,6 +1132,26 @@
             writeNetEvent("write-production " + stream.id + " " + format(bytes));
         } catch (java.io.IOException | RuntimeException error) {
             throw new RuntimeFailure("transport write failed: production socket failed", error);
+        }
+    }
+
+    private static void shutdownProductionWrite(NetStream stream) {
+        if (!stream.shutdownWriteOnce()) {
+            return;
+        }
+        try {
+            stream.output.flush();
+            if (stream.socket != null) {
+                stream.socket.shutdownOutput();
+            } else {
+                stream.output.close();
+            }
+            writeNetEvent("shutdown-write-production " + stream.id);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure("transport shutdown_write failed: production socket failed", error);
+        }
+        if (stream.inMemoryLoopback != null) {
+            stream.inMemoryLoopback.capture();
         }
     }
 

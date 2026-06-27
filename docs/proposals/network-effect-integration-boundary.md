@@ -373,6 +373,9 @@ implemented in
 The explicit stream close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-close-boundary.md`.
 
+The write-side stream half-close lifecycle slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-shutdown-write-boundary.md`.
+
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.
 
