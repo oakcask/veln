@@ -1843,6 +1843,17 @@ closes the listener. The matching
 `../../examples/specification/check/socket-stream-adapter-production-cancellable-deadline-lifecycle-effects/`
 case pins the `net`, `time`, and `concurrency` adapter effect boundary while
 the handler remains free of transport, time, and channel effects. The existing
+`../../examples/specification/run/socket-stream-adapter-production-owner-drain-cancellable-deadline-lifecycle/`
+case combines that production-loopback cancellable deadline boundary with the
+adapter-owned cancellation owner and ordered chunk-list projection boundaries.
+The adapter creates a `CancelOwner`, gives only observer `CancelToken` values
+to accept/read and channel-routing code, drains production streams until clean
+listener end, writes ordered `SendBytes` actions through `net::write_chunks`,
+and keeps cancellation authority in cleanup while a second listener path
+observes accept cancellation as an ordinary adapter outcome. The matching
+`../../examples/specification/check/socket-stream-adapter-production-owner-drain-effects/`
+case pins the same `net`, `time`, and `concurrency` effect boundary while the
+handler remains callable without transport effects. The existing
 `../../examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
 and
 `../../examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`

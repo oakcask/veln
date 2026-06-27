@@ -36,7 +36,8 @@ slices, and narrow deadline and cancellation slices, for:
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
   deadline-aware read-failure boundary, production cancellable deadline-aware
   adapter lifecycle and outcome boundary, explicit listener-close boundary,
-  and adapter-owned cancellation owner lifecycle boundary, the
+  adapter-owned cancellation owner lifecycle boundary, and production
+  owner-drain cancellable deadline lifecycle boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -353,6 +354,18 @@ pure handler response projection. The failure remains a runtime transport
 failure owned by the adapter boundary; it does not become a protocol, schema,
 codec, or handler failure, and no response write or stream close is recorded.
 
+Implemented production owner-drain cancellable deadline lifecycle slice: an
+executable specification case creates a `CancelOwner` in adapter code, passes
+only observer `CancelToken` values to cancellable deadline-aware accept/read
+and channel-routing code, drains deterministic production-loopback streams
+until clean listener end, calls a pure handler with ordinary `StreamInput`
+values and explicit state, projects only ordered `SendBytes` actions through
+`net::write_chunks`, closes owned streams and the listener in cleanup, and
+checks accept cancellation as an ordinary adapter outcome. The matching
+effect-checking case requires `net`, `time`, and `concurrency` at the adapter
+boundary while keeping the handler free of transport, time, and concurrency
+effects.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -392,6 +405,10 @@ adapter close-failure runtime boundary slices are recorded as implemented in
 The production-loopback cancellable deadline-aware adapter lifecycle and
 accept/read outcome boundary slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-cancellable-deadline-lifecycle.md`.
+
+The production owner-drain cancellable deadline lifecycle slice is recorded
+as implemented in
+`../reference/implemented-proposals/network-production-owner-drain-lifecycle.md`.
 
 The bounded receiver-list select-many, timeout, timeout-result, and
 cancellable timeout-result channel-first stream routing slices, including the

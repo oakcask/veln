@@ -3065,6 +3065,12 @@ against the built `veln` binary.
   listener-drain adapter boundary reports a forced production read failure as
   a runtime transport failure after accept and before response writes or stream
   close.
+- `run/socket-stream-adapter-production-owner-drain-cancellable-deadline-lifecycle/`:
+  a production listener-draining adapter creates a `CancelOwner`, passes only
+  observer `CancelToken` values to cancellable deadline-aware accept/read and
+  channel-routing code, writes ordered `SendBytes` actions through
+  `net::write_chunks`, keeps cancellation authority in cleanup, and checks
+  both clean listener end and accept cancellation as adapter outcomes.
 - `run/socket-stream-adapter-production-deadline-lifecycle/`: the
   production loopback adapter accepts with `net::accept_until`, reads with
   `net::read_chunk_until` until clean stream end becomes `None`, routes the
@@ -3166,6 +3172,10 @@ against the built `veln` binary.
   handler boundary remains free of transport effects.
 - `check/socket-stream-adapter-cancel-owner-lifecycle-effects/`: the
   cancellation-owner adapter boundary must declare `net`, `time`, and
+  `concurrency`, while the handler boundary remains free of transport
+  effects.
+- `check/socket-stream-adapter-production-owner-drain-effects/`: the
+  production owner-drain adapter boundary must declare `net`, `time`, and
   `concurrency`, while the handler boundary remains free of transport
   effects.
 - `check/channel-first-stream-routing-effects/`: channel-first stream routing
