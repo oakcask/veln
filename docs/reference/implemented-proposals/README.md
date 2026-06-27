@@ -104,6 +104,8 @@ behavior.
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
+- Binary schema reserved fifteen-bit prefix:
+  [binary-schema-reserved-fifteen-bit-prefix.md](binary-schema-reserved-fifteen-bit-prefix.md).
 - Binary schema packed visible two-byte groups:
   [binary-schema-packed-visible-two-byte-groups.md](binary-schema-packed-visible-two-byte-groups.md).
 - Binary schema six-byte reserved suffix:

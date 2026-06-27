@@ -96,7 +96,9 @@ unit; the five-byte form accepts reserved prefix width thirty-three, the
 six-byte form accepts reserved prefix width forty-one, the seven-byte form
 accepts reserved prefix width forty-nine, and the eight-byte form accepts
 reserved prefix width fifty-seven when the two visible fields complete the
-remaining bits. Two visible `UIntN` fields may also be followed by a
+remaining bits. `ReservedBits(15, value)` may also be followed immediately by
+`UInt1` when the two fields complete the same two-byte big-endian storage
+unit. Two visible `UIntN` fields may also be followed by a
 non-byte-aligned `ReservedBits(width, value)` suffix when the second visible
 field is `UInt8` and all three widths complete the same two-byte big-endian
 storage unit. `Repeat(count_field, Payload)` is accepted as a
@@ -351,7 +353,8 @@ the supported `ReservedBits(1, 0)` before `UInt31be` layout, the supported
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` before `UInt8` byte-prefix
 layouts, supported
 packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
-sum to eight, sixteen, twenty-four, or thirty-two bits, supported `UIntN`
+sum to eight, sixteen, twenty-four, or thirty-two bits, including the
+two-field `ReservedBits(15, value)` plus `UInt1` boundary, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, or forty-eight bits, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,

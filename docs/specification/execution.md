@@ -481,7 +481,14 @@ execution reference.
   decodes the low
   visible bits as an ordinary `Int`, omits the reserved field from decoded
   records and mapping source values, and advances by the shared storage width
-  for the pair. The inverse suffix layout is also supported: a visible
+  for the pair. The width-fifteen two-byte boundary supports
+  `ReservedBits(15, value)` followed immediately by visible `UInt1`; it uses
+  the same reserved-bit mismatch shape, mapping-source omission, derived
+  codec eligibility, and encode range-failure path. Checked examples are
+  `examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-json/`.
+  The inverse suffix layout is also supported: a visible
   `UIntN` field followed immediately by `ReservedBits(width, value)` where
   the two widths complete one byte or the same two-byte, three-byte, or
   four-byte big-endian storage unit, plus the five-byte case where the fields
@@ -959,7 +966,9 @@ execution reference.
   followed by the visible `UIntN` primitive whose width completes the same
   one-byte, two-byte, three-byte, or four-byte big-endian storage unit is also
   representation-only: the helper emits the high reserved bits from the
-  declared value and the low visible bits from the encoder input record. A
+  declared value and the low visible bits from the encoder input record.
+  `ReservedBits(15, value)` followed by `UInt1` is the width-fifteen
+  two-byte boundary for that encode rule. A
   visible `UIntN` field followed by a `ReservedBits(width, value)` suffix
   that completes the same one-byte, two-byte, three-byte, or four-byte
   big-endian storage unit, plus the five-byte case where the fields complete
