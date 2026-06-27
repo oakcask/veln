@@ -396,6 +396,9 @@ The completed HTTP/2 standard helper payload slice for invalid
 dependency, stream-after-GOAWAY, and flow-control window diagnostics is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-helper-payloads.md`.
+The completed HTTP/2 standard helper payload slice for invalid DATA padding
+and unexpected SETTINGS ACK diagnostics is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-data-settings-helper-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

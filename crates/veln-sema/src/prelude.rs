@@ -610,7 +610,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_content_length_mismatch" => Some((
             vec![
@@ -641,7 +641,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
         )),
         "http2_protocol_unexpected_settings_ack" => Some((
             vec![T::int(), T::string(), T::string(), types.byte_view.clone()],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_invalid_priority_dependency" => Some((
             vec![

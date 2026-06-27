@@ -154,6 +154,11 @@ The `http2_protocol_invalid_stream_id(...)` standard helper likewise returns
 the source-visible HTTP/2 `RuntimeDiagnostic(...)` payload directly; its direct
 helper example keeps the rendered payload in `details.value` and projects the
 same stream id domain facts into `details.protocol_diagnostic`.
+The `http2_protocol_invalid_data_padding(...)` and
+`http2_protocol_unexpected_settings_ack(...)` standard helpers likewise return
+source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their direct
+helper examples keep the rendered payload in `details.value` and project the
+same DATA padding or SETTINGS ACK facts into `details.protocol_diagnostic`.
 The `http2_protocol_invalid_request_header_list(...)` and
 `http2_protocol_invalid_response_header_list(...)` standard helpers likewise
 return source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their
@@ -695,7 +700,9 @@ the `WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 failures use source-visible
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. A SETTINGS ACK
+`details.protocol_diagnostic` keeps the same public fields. The
+`http2_protocol_invalid_data_padding(...)` standard helper returns the same
+source-visible payload directly. A SETTINGS ACK
 received while no local SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `active_state`,
@@ -705,7 +712,9 @@ protocol-owned byte previews while SETTINGS ACK state facts stay in their own
 fields. The checked human and JSON examples return a source-visible
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` payload, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. A PRIORITY frame
+`details.protocol_diagnostic` keeps the same public fields. The
+`http2_protocol_unexpected_settings_ack(...)` standard helper returns the same
+source-visible payload directly. A PRIORITY frame
 whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,

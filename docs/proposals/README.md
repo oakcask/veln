@@ -299,6 +299,9 @@ compare it with `../specification/` before changing behavior.
   dependency, stream-after-GOAWAY, and flow-control window diagnostics is
   archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-helper-payloads.md`.
+  The completed HTTP/2 standard helper payload slice for invalid DATA padding
+  and unexpected SETTINGS ACK diagnostics is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-data-settings-helper-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.
