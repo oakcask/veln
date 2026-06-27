@@ -2145,6 +2145,10 @@ against the built `veln` binary.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.
+- `run/derived-codec-byteview-add-subtract-boundary/`: derived codec decode
+  and encode item boundaries over added and subtracted `ByteView` length
+  expressions. The case checks successful `Decoded` and `Encoded` outcomes for
+  both expression forms.
 - `run/derived-codec-byteview-product-boundary/`: derived codec decode and
   encode item boundaries over a product-sized `ByteView` schema. The case
   checks successful `Decoded` and `Encoded` outcomes, short-input readiness,
@@ -2220,6 +2224,9 @@ against the built `veln` binary.
 - `run/derived-codec-repeat-quotient-boundary/`: the same `derive decode`
   boundary observes generated decode-step helper output for a quotient-count
   repeated primitive field.
+- `run/derived-codec-byteview-add-subtract-boundary/`: the same `derive
+  decode` boundary observes generated decode-step helper output for added and
+  subtracted `ByteView` length expressions.
 - `run/derived-codec-byteview-product-boundary/`: the same `derive decode`
   boundary observes generated decode-step helper output for a product-sized
   `ByteView` field.

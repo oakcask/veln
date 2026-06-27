@@ -240,7 +240,8 @@ compare it with `../specification/` before changing behavior.
   encode preservation and resume, plus eligible derived codec decode and
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
-  quotient-sized and product-sized `ByteView` payload fields, quotient-count
+  additive, subtractive, quotient-sized, and product-sized `ByteView` payload
+  fields, quotient-count
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, visible-only packed two-byte groups, and selected
   structural mapping encode slice, and derived helper eligibility diagnostics
