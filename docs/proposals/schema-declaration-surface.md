@@ -71,8 +71,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
   structural `map to Target` clause whose assignments project the visible
   encode fields through direct field references, record-shaped direct field
-  projections, field selection from those record-shaped projections, and the
-  implemented direct ADT constructor wrapper forms, plus multiple selected
+  projections, field selection from those record-shaped projections, the
+  implemented direct ADT constructor wrapper forms, and narrow reversible
+  arithmetic inverse projection for `field + literal`, `literal + field`, and
+  `field - literal` mapped `Int` fields, plus multiple selected
   structural mapping clauses when all selected mappings resolve to one target
   record shape and every schema-local encode field projects back from that
   selected target record through direct source-field assignments
@@ -478,8 +480,10 @@ Implemented:
   codec boundaries accept one structural mapping target record when every
   visible encode field is projected through direct schema-local field
   references, record-shaped direct field projections, field selection from
-  those record-shaped projections, or the implemented direct ADT constructor
-  wrapper forms.
+  those record-shaped projections, the implemented direct ADT constructor
+  wrapper forms, or narrow reversible arithmetic assignments of the form
+  `target = field + literal`, `target = literal + field`, or
+  `target = field - literal` for `Int` target fields.
 - Eligible generated `byte_encode_<schema>` helpers evaluate supported
   field-local `where` predicates over schema-local visible `Int` values during
   encode and report `schema.validation_failed` with field path, predicate

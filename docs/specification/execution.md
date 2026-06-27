@@ -816,7 +816,12 @@ execution reference.
   arguments use those supported projectable field and record-expression forms
   already supported by the generated encode helper. Constructor payload
   arguments can themselves be nested ADT constructor calls when their leaves
-  use those same projectable field and record-expression forms. A target
+  use those same projectable field and record-expression forms. For `Int`
+  target fields, the inverse projection also supports the reversible
+  arithmetic forms `target = field + literal`, `target = literal + field`,
+  and `target = field - literal`; the helper recovers the schema-local field
+  value and then writes through the same schema-local encode path, including
+  primitive range checks and field-path diagnostics. A target
   field assigned from one pure same-module converter call or one imported
   public pure converter call through a written `use` path or alias is also
   projectable when the assignment names an explicit pure inverse converter
@@ -840,6 +845,8 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-record-expression-encode/`
   and
   `examples/specification/run/binary-schema-mapped-field-selection-encode/`,
+  `examples/specification/run/binary-schema-mapping-arithmetic-encode/`,
+  `examples/specification/run/binary-schema-mapping-arithmetic-encode-out-of-range/`,
   `examples/specification/run/binary-schema-mapped-converter-encode/`, and
   `examples/specification/run/binary-schema-mapped-converter-encode-mismatch/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-encode/`,
@@ -1326,6 +1333,7 @@ execution reference.
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-budgeted-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-mapping-arithmetic-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-converter-encode-boundary/`,
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,

@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
-    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
-    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl,
-    SchemaField, SurfaceModule, UseDecl, Visibility,
+    BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
+    Function, FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind,
+    SchemaDecl, SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -3536,10 +3536,66 @@ fn schema_encode_mapping_expr_sources(
                 exact_width_field_names,
             )
         }
-        SchemaDecodeMappingExpr::Literal(_)
-        | SchemaDecodeMappingExpr::Prefix { .. }
-        | SchemaDecodeMappingExpr::Binary { .. } => None,
+        SchemaDecodeMappingExpr::Binary { op, left, right } => {
+            schema_encode_mapping_arithmetic_sources(
+                *op,
+                left,
+                right,
+                schema_field_types,
+                exact_width_field_names,
+            )
+        }
+        SchemaDecodeMappingExpr::Literal(_) | SchemaDecodeMappingExpr::Prefix { .. } => None,
     }
+}
+
+fn schema_encode_mapping_arithmetic_sources(
+    op: BinaryOp,
+    left: &SchemaDecodeMappingExpr,
+    right: &SchemaDecodeMappingExpr,
+    schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
+) -> Option<Vec<String>> {
+    match op {
+        BinaryOp::Add => schema_encode_mapping_field_literal_source(
+            left,
+            right,
+            schema_field_types,
+            exact_width_field_names,
+        )
+        .or_else(|| {
+            schema_encode_mapping_field_literal_source(
+                right,
+                left,
+                schema_field_types,
+                exact_width_field_names,
+            )
+        }),
+        BinaryOp::Subtract => schema_encode_mapping_field_literal_source(
+            left,
+            right,
+            schema_field_types,
+            exact_width_field_names,
+        ),
+        _ => None,
+    }
+}
+
+fn schema_encode_mapping_field_literal_source(
+    field_expr: &SchemaDecodeMappingExpr,
+    literal_expr: &SchemaDecodeMappingExpr,
+    schema_field_types: &BTreeMap<String, Type>,
+    exact_width_field_names: &[String],
+) -> Option<Vec<String>> {
+    let SchemaDecodeMappingExpr::Field(source) = field_expr else {
+        return None;
+    };
+    let SchemaDecodeMappingExpr::Literal(_) = literal_expr else {
+        return None;
+    };
+    let source_ty = schema_field_types.get(source)?;
+    schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
+        .then(|| vec![source.clone()])
 }
 
 fn schema_encode_mapping_selected_record_source(

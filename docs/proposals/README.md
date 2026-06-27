@@ -71,7 +71,9 @@ compare it with `../specification/` before changing behavior.
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
-  support, derived selected-mapping encode boundary support, and codec decode
+  support, narrow reversible arithmetic inverse projection for
+  `field + literal`, `literal + field`, and `field - literal` mapped `Int`
+  fields, derived selected-mapping encode boundary support, and codec decode
   boundaries over multiple decoded-field selected mappings that resolve to one
   mapped record shape.
   The implemented source-surface slice also includes top-level public schema
