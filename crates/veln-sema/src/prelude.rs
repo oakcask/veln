@@ -696,7 +696,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_peer_limit_header_table_size_exceeded" => Some((
             vec![

@@ -130,6 +130,7 @@ The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
 `http2_protocol_invalid_preface(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
+`http2_peer_limit_header_list_size_exceeded(...)`,
 `http2_peer_limit_header_table_size_exceeded(...)`, and
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so

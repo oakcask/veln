@@ -2452,6 +2452,10 @@ against the built `veln` binary.
   `http2_peer_limit_frame_size_exceeded` helper reports the same
   `http2.peer_limit.frame_size_exceeded` JSON details from its returned
   `RuntimeDiagnostic(...)` error value.
+- `run/runtime-diagnostic-http2-header-list-helper-json/`: the standard
+  `http2_peer_limit_header_list_size_exceeded` helper reports the same
+  `http2.peer_limit.header_list_size_exceeded` JSON details from its returned
+  `RuntimeDiagnostic(...)` error value.
 - `run/runtime-diagnostic-http2-settings-value-helper-json/`: the standard
   `http2_peer_limit_settings_value_out_of_range` helper reports the same
   `http2.peer_limit.settings_value_out_of_range` JSON details from its
