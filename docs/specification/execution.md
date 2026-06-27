@@ -1287,6 +1287,8 @@ execution reference.
   `examples/specification/run/binary-schema-packed-reserved-suffix-encode-out-of-range/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-one-byte-reserved-suffix-decode-encode/`,
+  `examples/specification/run/binary-schema-one-byte-reserved-suffix-json/`,
   `examples/specification/run/binary-schema-five-byte-reserved-suffix-decode-encode/`,
   `examples/specification/run/binary-schema-five-byte-reserved-suffix-json/`,
   `examples/specification/run/binary-schema-six-byte-reserved-suffix-decode-encode/`,

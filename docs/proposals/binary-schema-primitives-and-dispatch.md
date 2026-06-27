@@ -54,6 +54,8 @@ The helpers decode or encode the visible field from the high bits, validate or
 emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
 truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
+The completed one-byte reserved suffix slice is archived under
+`../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md`.
 The completed six-byte reserved suffix slice is archived under
 `../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md`.
 Generated schema helpers also consume and encode one-byte, two-byte,
