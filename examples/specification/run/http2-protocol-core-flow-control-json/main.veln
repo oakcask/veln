@@ -4,14 +4,47 @@ type Http2ProtocolFailure
 	FlowControlWindowExceeded {offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView}
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.flow_control_window_exceeded",
+		error,
+		RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", byte_chunk([]))
+	)
+end
+
+fn flow_control_payload(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.flow_control_window_exceeded",
+		"HTTP/2 flow-control window exceeded at byte offset 0",
+		RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, byte_view_to_chunk(preview))
+	)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
 	match failure
-		FlowControlWindowExceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview) => http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview)
+		FlowControlWindowExceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview) => Err(flow_control_payload(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("01020304")?
-	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("01020304")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(bytes)?
 	project(FlowControlWindowExceeded(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", preview))
 end

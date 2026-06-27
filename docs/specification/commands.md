@@ -117,11 +117,13 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
-  diagnostics. Source-visible HTTP/2 protocol payloads for pending-byte close,
-  partial and invalid client connection preface failures, continuation
-  ordering, invalid frame kind, frame-size exceeded, header-list
-  receive-limit failures, SETTINGS value range peer-limit failures, fixed
-  payload length, request and response header-list validation, invalid
+  diagnostics. Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
+  payload projections for pending-byte close, partial and invalid client
+  connection preface failures, continuation ordering, invalid frame kind,
+  frame-size exceeded, header-list receive-limit failures, SETTINGS value
+  range peer-limit failures, fixed payload length, DATA padding,
+  flow-control window, content-length mismatch, request and response
+  header-list validation, invalid
   `WINDOW_UPDATE` increment, unexpected SETTINGS ACK, invalid PRIORITY dependency,
   stream-after-GOAWAY,
   header-table receive-limit failures, and concurrent-stream receive-limit failures

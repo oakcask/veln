@@ -1749,6 +1749,125 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "pad_length".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "remaining_payload_length".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "observed_payload_length".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "allowed_window_credit".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "frame_kind".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "frame_kind".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "expected_content_length".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "observed_body_length".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![

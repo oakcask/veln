@@ -306,6 +306,15 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic")) {
+            return runtimeHttp2ProtocolInvalidDataPaddingDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic")) {
+            return runtimeHttp2PeerLimitFlowControlWindowDiagnostic(id, (Adt) detail);
+        }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic")) {
+            return runtimeHttp2ProtocolContentLengthMismatchDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(id, (Adt) detail);
         }
@@ -644,6 +653,98 @@
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.number("observed_payload_length", observedLength),
                 DiagnosticDetail.number("expected_payload_length", expectedLength),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidDataPaddingDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_data_padding")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long streamId = asLong(detail.payloads[1]);
+        long padLength = asLong(detail.payloads[2]);
+        long remainingPayloadLength = asLong(detail.payloads[3]);
+        String activeState = asString(detail.payloads[4]);
+        String ruleProvenance = asString(detail.payloads[5]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[6], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", 0),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", "stream"),
+                DiagnosticDetail.number("pad_length", padLength),
+                DiagnosticDetail.number("remaining_payload_length", remainingPayloadLength),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2PeerLimitFlowControlWindowDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.peer_limit.flow_control_window_exceeded")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedLength = asLong(detail.payloads[1]);
+        long allowedWindowCredit = asLong(detail.payloads[2]);
+        long frameKind = asLong(detail.payloads[3]);
+        long streamId = asLong(detail.payloads[4]);
+        String activeState = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_payload_length", observedLength),
+                DiagnosticDetail.number("allowed_window_credit", allowedWindowCredit),
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolContentLengthMismatchDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.content_length_mismatch")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long frameKind = asLong(detail.payloads[1]);
+        long streamId = asLong(detail.payloads[2]);
+        long expectedLength = asLong(detail.payloads[3]);
+        long observedLength = asLong(detail.payloads[4]);
+        String activeState = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.number("expected_content_length", expectedLength),
+                DiagnosticDetail.number("observed_body_length", observedLength),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)

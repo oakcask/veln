@@ -1159,6 +1159,15 @@ The source-visible `RuntimeDiagnosticDetail` constructor set includes
 `http2.peer_limit.concurrent_streams_exceeded` failures,
 `RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)` for projecting
 `http2.peer_limit.settings_value_out_of_range` failures,
+`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for projecting
+`http2.protocol.invalid_data_padding` failures without using the legacy helper
+side table,
+`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` for projecting
+`http2.peer_limit.flow_control_window_exceeded` failures without using the
+legacy helper side table,
+`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` for projecting
+`http2.protocol.content_length_mismatch` failures without using the legacy
+helper side table,
 `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for projecting
 `http2.protocol.invalid_request_header_list` failures without using the legacy
 helper side table,
