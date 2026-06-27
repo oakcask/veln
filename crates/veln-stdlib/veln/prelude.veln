@@ -565,7 +565,7 @@ pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actua
 	prelude_builtin::http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, preview)
 end
 
-pub fn http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, preview)
 end
 

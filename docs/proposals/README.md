@@ -263,6 +263,9 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 invalid-preface standard helper migration slice is
   archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-preface-helper-payload.md`.
+  The completed HTTP/2 invalid frame-kind standard helper migration slice is
+  archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md`.
   The completed HTTP/2 frame-size peer-limit standard helper migration slice
   is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.

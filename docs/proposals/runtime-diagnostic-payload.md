@@ -223,6 +223,8 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-invalid-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-invalid-preface-helper-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-invalid-frame-kind-helper-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-stream-invalid-frame-kind-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`,
@@ -338,6 +340,9 @@ archived under
 The completed HTTP/2 invalid-preface standard helper migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-preface-helper-payload.md`.
+The completed HTTP/2 invalid frame-kind standard helper migration slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md`.
 The completed HTTP/2 frame-size peer-limit standard helper migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.

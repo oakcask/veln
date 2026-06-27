@@ -192,6 +192,8 @@ behavior.
   [runtime-diagnostic-http2-partial-preface-helper-payload.md](runtime-diagnostic-http2-partial-preface-helper-payload.md).
 - Runtime diagnostic HTTP/2 invalid preface helper payload:
   [runtime-diagnostic-http2-invalid-preface-helper-payload.md](runtime-diagnostic-http2-invalid-preface-helper-payload.md).
+- Runtime diagnostic HTTP/2 invalid frame-kind helper payload:
+  [runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md](runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md).
 - Runtime diagnostic HTTP/2 frame-size helper payload:
   [runtime-diagnostic-http2-frame-size-helper-payload.md](runtime-diagnostic-http2-frame-size-helper-payload.md).
 - Runtime diagnostic HTTP/2 SETTINGS value helper payload:

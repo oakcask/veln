@@ -626,8 +626,9 @@ preview uses the same object shape as other protocol-owned byte previews while
 frame-kind and stream-state facts stay in their own fields; the checked HTTP/2
 examples cover connection-control, idle-stream, reset-stream, and
 closed-by-peer stream state failures, plus peer-sent `PUSH_PROMISE` rejection
-on a nonzero stream. The closed-by-peer stream-state and peer-sent
-`PUSH_PROMISE` JSON examples return source-visible
+on a nonzero stream. The direct standard helper connection-level and
+stream-level JSON examples, closed-by-peer stream-state example, and
+peer-sent `PUSH_PROMISE` JSON examples return source-visible
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
