@@ -83,10 +83,11 @@ visible-ASCII value literal, advance only the decode count, and leave later
 `:path: /target` entries. The deeper table also accepts dynamic index `127`
 for both non-inserting forms with `0x0f 0x70 0x05 "/skip"` and
 `0x1f 0x70 0x07 "/secret"`; later `0xff` reads from their returned states
-still observe the older retained `:path: /a` entry. Missing, malformed,
-out-of-range, and unsupported dynamic-name continuations remain on the
-unsupported fixture path, including dynamic index `128` for the deep
-literal-with-indexing form.
+still observe the older retained `:path: /a` entry. Later
+[HTTP/2 HPACK Dynamic Name Continuation Diagnostics](http2-hpack-dynamic-name-continuation-diagnostics.md)
+work promoted missing, malformed, and out-of-range dynamic-name continuation
+failures from the unsupported fixture path into focused diagnostics while
+leaving broader unsupported HPACK behavior outside the bounded fixture model.
 The HTTP/2 protocol-core example continues to cover dynamic HPACK state carry
 through completed HEADERS and final CONTINUATION paths. It also checks the
 HTTP/2 boundary for a dynamic indexed `0xbe` lookup without any prior dynamic

@@ -796,13 +796,15 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 and
-`../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`.
+`../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal, dynamic-name continuation, and encoder
-boundaries, outbound table-size behavior beyond the checked fixture encoder
-update boundary, and production header validation beyond ordinary request,
+the checked fixture string literal and focused dynamic-name continuation
+diagnostic boundary, encoder boundaries, outbound table-size behavior beyond
+the checked fixture encoder update boundary, and production header validation
+beyond ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, and the
 fixture-marked `content-length` consistency rule.

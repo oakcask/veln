@@ -2032,7 +2032,12 @@ execution reference.
   requested dynamic index when available, current bounded dynamic table entry
   count, codec module, expected fixture, and bounded header-block byte
   preview. Those focused diagnostics project through both completed HEADERS
-  and final CONTINUATION paths. It also
+  and final CONTINUATION paths. The focused command-facing evidence is
+  checked by
+  `examples/specification/run/hpack-fixture-dynamic-name-continuation-json/`
+  and
+  `examples/specification/run/http2-protocol-core-hpack-dynamic-name-continuation-human/`.
+  It also
   accepts dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update

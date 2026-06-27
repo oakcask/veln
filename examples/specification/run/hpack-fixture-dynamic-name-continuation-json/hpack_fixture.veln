@@ -1,0 +1,2018 @@
+pub type HpackDynamicEntry
+	NoDynamicEntry
+	DynamicEntry(name: String, value: String, older: HpackDynamicEntry)
+end
+
+pub type HpackFixtureState
+	HpackFixtureState(table_size: Int, decode_count: Int, dynamic_entry: HpackDynamicEntry)
+end
+
+pub type HpackHeader
+	HpackHeader(name: String, value: String)
+end
+
+pub type HpackHeaderList
+	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
+end
+
+pub type HpackDecodeTransition
+	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
+end
+
+pub type HpackEncodeTransition
+	HpackEncodeTransition(encoded: ByteChunk, state: HpackFixtureState)
+end
+
+pub type HpackFixtureFailure
+	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationMissing(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	DynamicNameContinuationOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+end
+
+type HpackStringLiteral
+	HpackStringLiteral(value: String, wire_size: Int)
+end
+
+type HpackStringLength
+	HpackStringLength(huffman_marked: Bool, encoded_count: Int, prefix_size: Int)
+end
+
+type HpackIntegerPrefix
+	HpackIntegerPrefix(value: Int, prefix_size: Int)
+end
+
+type HpackLiteralIndexing
+	LiteralWithoutIndexing
+	LiteralWithIndexing
+	LiteralNeverIndexed
+end
+
+pub fn initial_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0, NoDynamicEntry)
+end
+
+pub fn initial_encode_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0, NoDynamicEntry)
+end
+
+fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn next_state(state: HpackFixtureState) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, dynamic_entry)
+	end
+end
+
+fn dynamic_entry_size(name: String, value: String) -> Int
+	string_byte_count(name) + string_byte_count(value) + 32
+end
+
+fn string_byte_count(value: String) -> Int
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		Err(_) => 0
+	end
+end
+
+fn bounded_dynamic_entry(table_size: Int, name: String, value: String, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	let entry_size: Int = dynamic_entry_size(name, value)
+	match entry_size > table_size
+		true => NoDynamicEntry
+		false => evict_for_table_size(table_size, DynamicEntry(name, value, dynamic_entry))
+	end
+end
+
+fn evict_for_table_size(table_size: Int, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	evict_for_remaining_table_size(table_size, dynamic_entry)
+end
+
+fn evict_for_remaining_table_size(remaining_table_size: Int, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	match dynamic_entry
+		NoDynamicEntry => NoDynamicEntry
+		DynamicEntry(name, value, older) => match dynamic_entry_size(name, value) <= remaining_table_size
+			true => DynamicEntry(name, value, evict_for_remaining_table_size(remaining_table_size - dynamic_entry_size(name, value), older))
+			false => NoDynamicEntry
+		end
+	end
+end
+
+fn state_with_dynamic_entry(state: HpackFixtureState, name: String, value: String) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, bounded_dynamic_entry(table_size, name, value, dynamic_entry))
+	end
+end
+
+fn state_with_table_size(state: HpackFixtureState, table_size: Int) -> HpackFixtureState
+	match state
+		HpackFixtureState(_, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, evict_for_table_size(table_size, dynamic_entry))
+	end
+end
+
+fn fixture_headers(label: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":fixture", label), HpackHeader(":status", "ok"), wire_size)
+end
+
+fn static_indexed_method_get_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn static_indexed_method_post_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_path_root_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
+end
+
+fn static_indexed_path_index_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/index.html"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_scheme_http_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "http"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn static_indexed_scheme_https_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_status_headers(value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", value), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_two_headers(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(first, second, wire_size)
+end
+
+fn static_indexed_header(name: String, value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+fn static_indexed_authority_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":authority", ""), HpackHeader(":fixture", "static-indexed"), 1)
+end
+
+fn dynamic_indexed_header(name: String, value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "dynamic-indexed"), 9)
+end
+
+fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
+end
+
+fn decoded_static_indexed_method_post(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_method_post_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_method_get(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_method_get_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_root(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_root_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_path_index(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_path_index_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_http(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_http_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_scheme_https(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_scheme_https_headers(), next_state(state)))
+end
+
+fn decoded_static_indexed_status(value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_status_headers(value), next_state(state)))
+end
+
+fn decoded_static_indexed_header(name: String, value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_header(name, value), next_state(state)))
+end
+
+fn decoded_static_indexed_two_headers(first: HpackHeader, second: HpackHeader, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_two_headers(first, second, 2), next_state(state)))
+end
+
+fn decoded_static_indexed_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(static_indexed_authority_headers(), next_state(state)))
+end
+
+fn literal_without_indexing_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), wire_size)
+end
+
+fn literal_with_indexing_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), wire_size)
+end
+
+fn literal_never_indexed_headers(name: String, value: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed"), wire_size)
+end
+
+fn decoded_literal_without_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_without_indexing_headers(name, value, wire_size), next_state(state)))
+end
+
+fn decoded_literal_with_indexing(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_with_indexing_headers(name, value, wire_size), state_with_dynamic_entry(state, name, value)))
+end
+
+fn decoded_literal_never_indexed(name: String, value: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(literal_never_indexed_headers(name, value, wire_size), next_state(state)))
+end
+
+fn dynamic_entry_at(dynamic_entry: HpackDynamicEntry, table_index: Int) -> Option<HpackHeader>
+	match dynamic_entry
+		NoDynamicEntry => None
+		DynamicEntry(name, value, older) => match table_index == 0
+			true => Some(HpackHeader(name, value))
+			false => dynamic_entry_at(older, table_index - 1)
+		end
+	end
+end
+
+fn dynamic_entry_count(dynamic_entry: HpackDynamicEntry) -> Int
+	match dynamic_entry
+		NoDynamicEntry => 0
+		DynamicEntry(_, _, older) => 1 + dynamic_entry_count(older)
+	end
+end
+
+fn state_dynamic_entry_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => dynamic_entry_count(dynamic_entry)
+	end
+end
+
+fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
+			Some(HpackHeader(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
+			None => dynamic_index_out_of_range(block, offset, table_index, dynamic_entry_count(dynamic_entry))
+		end
+	end
+end
+
+fn dynamic_header_name_at(table_index: Int, state: HpackFixtureState) -> Option<String>
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
+			Some(HpackHeader(name, _)) => Some(name)
+			None => None
+		end
+	end
+end
+
+fn decoded_table_size_update(state: HpackFixtureState, table_size: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(fixture_headers("table-size-update", 0), state_with_table_size(state, table_size)))
+end
+
+fn low_seven_bits(byte: Int) -> Int
+	byte - (byte / 128) * 128
+end
+
+fn decode_hpack_prefixed_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	let next_value: Int = value + low_seven_bits(current) * multiplier
+	match current < 128
+		true => Ok(HpackIntegerPrefix(next_value, index + 1))
+		false => decode_hpack_prefixed_integer_tail(block, observed_size, index + 1, multiplier * 128, next_value, offset)
+	end
+end
+
+fn decode_hpack_prefixed_integer_tail(block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	match index < observed_size
+		false => unsupported_integer_prefix(block, offset)
+		true => decode_hpack_prefixed_integer_tail_byte(byte_at_or_missing(block, index), block, observed_size, index, multiplier, value, offset)
+	end
+end
+
+fn decode_hpack_prefixed_integer(prefix_value: Int, prefix_max: Int, block: ByteChunk, observed_size: Int, next_index: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	match prefix_value < prefix_max
+		true => Ok(HpackIntegerPrefix(prefix_value, next_index))
+		false => decode_hpack_prefixed_integer_tail(block, observed_size, next_index, 1, prefix_max, offset)
+	end
+end
+
+fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match decode_hpack_prefixed_integer(31, 31, block, observed_size, 1, offset)
+		Ok(prefix) => match integer_prefix_size(prefix) == observed_size
+			true => decoded_table_size_update(state, integer_prefix_value(prefix))
+			false => unsupported(block, offset)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn integer_prefix_value(prefix: HpackIntegerPrefix) -> Int
+	match prefix
+		HpackIntegerPrefix(value, _) => value
+	end
+end
+
+fn integer_prefix_size(prefix: HpackIntegerPrefix) -> Int
+	match prefix
+		HpackIntegerPrefix(_, prefix_size) => prefix_size
+	end
+end
+
+fn decode_dynamic_name_index(first_byte: Int, observed_size: Int, block: ByteChunk, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	match first_byte >= 126 and first_byte <= 127
+		true => decode_hpack_prefixed_integer(first_byte - 64, 63, block, observed_size, 1, offset)
+		false => unsupported_integer_prefix(block, offset)
+	end
+end
+
+fn decode_four_bit_dynamic_name_index(first_byte: Int, prefix_base: Int, observed_size: Int, block: ByteChunk, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	let prefix_value: Int = first_byte - prefix_base
+	match prefix_value >= 0 and prefix_value <= 15
+		true => decode_hpack_prefixed_integer(prefix_value, 15, block, observed_size, 1, offset)
+		false => unsupported_integer_prefix(block, offset)
+	end
+end
+
+fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn dynamic_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic indexed header", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_missing(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationMissing(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic-name continuation entry", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_malformed(block: ByteChunk, offset: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationMalformed(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), -1, dynamic_table_entry_count, "fixture dynamic-name continuation integer", "hpack_fixture", block))
+end
+
+fn dynamic_name_continuation_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(DynamicNameContinuationOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "fixture dynamic-name continuation range", "hpack_fixture", block))
+end
+
+fn unsupported_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn unsupported_string_length(block: ByteChunk, offset: Int) -> Result<HpackStringLength, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn unsupported_integer_prefix(block: ByteChunk, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn unsupported_byte_chunk(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	Err(HuffmanNonVisibleValue(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK Huffman checked header value", "hpack_fixture", block))
+end
+
+fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let preview: ByteChunk = hpack_raw_string_unsupported_preview(value)
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture raw string encoding", "hpack_fixture", preview))
+end
+
+fn hpack_raw_string_unsupported_preview(value: String) -> ByteChunk
+	match value == "bad"
+		true => match byte_chunk_from_hex("626164")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		false => match value == "\n"
+			true => match byte_chunk_from_hex("0a")
+				Ok(preview) => preview
+				Err(_) => byte_chunk([])
+			end
+			false => match value == "hpack-byte-00"
+				true => match byte_chunk_from_hex("00")
+					Ok(preview) => preview
+					Err(_) => byte_chunk([])
+				end
+				false => byte_chunk([])
+			end
+		end
+	end
+end
+
+pub fn hpack_fixture_long_raw_string_value() -> String
+	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+end
+
+fn hpack_fixture_raw_string_value_bytes(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => Ok(bytes)
+		Err(_) => unsupported_raw_string_encoding(value, offset)
+	end
+end
+
+fn hpack_fixture_raw_string_length_prefix(count: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match count < 127
+		true => hpack_fixture_raw_string_length_prefix_byte(count, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte(127, value, offset)
+			Ok(prefix) => match hpack_fixture_raw_string_length_tail(count - 127, value, offset)
+				Ok(tail) => Ok(byte_append(prefix, tail))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn hpack_fixture_raw_string_length_tail(remaining: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match remaining < 128
+		true => hpack_fixture_raw_string_length_prefix_byte(remaining, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte((remaining - (remaining / 128) * 128) + 128, value, offset)
+			Ok(current) => match hpack_fixture_raw_string_length_tail(remaining / 128, value, offset)
+				Ok(next) => Ok(byte_append(current, next))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn hpack_fixture_raw_string_length_prefix_byte(value_byte: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_write_u8_be(value_byte)
+		Ok(prefix) => Ok(prefix)
+		Err(_) => unsupported_raw_string_encoding(value, offset)
+	end
+end
+
+pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match hpack_fixture_raw_string_value_bytes(value, offset)
+		Ok(bytes) => match hpack_fixture_raw_string_length_prefix(byte_count_to_int(byte_chunk_count(bytes)), value, offset)
+			Ok(prefix) => Ok(byte_append(prefix, bytes))
+			Err(failure) => Err(failure)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+pub fn outbound_literal_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
+end
+
+fn encoded_hex_or_failure(hex: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_chunk_from_hex(hex)
+		Ok(chunk) => Ok(chunk)
+		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
+fn unsupported_header_list_preview(headers: HpackHeaderList) -> ByteChunk
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+	end
+end
+
+fn unsupported_header_list_encoding(headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let preview: ByteChunk = unsupported_header_list_preview(headers)
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(preview)), byte_at_or_missing(preview, 0), "fixture header list encoding", "hpack_fixture", preview))
+end
+
+fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_size: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	let preview: ByteChunk = byte_chunk([])
+	Err(OutboundTableSizeUpdateExceeded(offset, table_size, allowed_size, "fixture outbound table-size update", "hpack_fixture", preview))
+end
+
+fn literal_static_name_index(name: String) -> Int
+	match name == ":authority"
+		true => 1
+		false => match name == ":method"
+			true => 2
+			false => match name == ":path"
+				true => 4
+				false => match name == ":scheme"
+					true => 6
+					false => match name == ":status"
+						true => 8
+						false => -1
+					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match name == ":authority" and value == ""
+		true => encoded_hex_or_failure("81", headers, offset)
+		false => match name == ":method" and value == "GET"
+			true => encoded_hex_or_failure("82", headers, offset)
+			false => match name == ":method" and value == "POST"
+				true => encoded_hex_or_failure("83", headers, offset)
+				false => match name == ":path" and value == "/"
+					true => encoded_hex_or_failure("84", headers, offset)
+					false => unsupported_header_list_encoding(headers, offset)
+				end
+			end
+		end
+	end
+end
+
+fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let index: Int = literal_static_name_index(name)
+	match index < 0
+		true => unsupported_header_list_encoding(headers, offset)
+		false => match byte_write_u8_be(prefix_offset + index)
+			Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
+				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
+pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_header_list_with_state(headers, initial_encode_state(), offset)
+		Ok(transition) => Ok(encode_transition_bytes(transition))
+		Err(failure) => Err(failure)
+	end
+end
+
+pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	let dynamic_index: Int = matching_dynamic_index(headers, state)
+	match dynamic_index < 0
+		true => encode_non_dynamic_header_list(headers, state, offset)
+		false => encode_dynamic_indexed_header_list(dynamic_index, headers, state, offset)
+	end
+end
+
+pub fn encode_table_size_update_with_state(table_size: Int, peer_advertised_limit: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match table_size > peer_advertised_limit
+		true => outbound_table_size_update_exceeded(offset, table_size, peer_advertised_limit)
+		false => encode_valid_table_size_update_with_state(table_size, state, offset)
+	end
+end
+
+fn encode_valid_table_size_update_with_state(table_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match table_size < 31
+		true => encode_table_size_update_prefix_byte(32 + table_size, table_size, state, offset)
+		false => match byte_write_u8_be(63)
+			Ok(prefix) => match encode_hpack_integer_tail(table_size - 31, offset)
+				Ok(tail) => Ok(HpackEncodeTransition(byte_append(prefix, tail), state_with_table_size(state, table_size)))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => outbound_table_size_update_exceeded(offset, table_size, table_size)
+		end
+	end
+end
+
+fn encode_table_size_update_prefix_byte(value: Int, table_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_write_u8_be(value)
+		Ok(encoded) => Ok(HpackEncodeTransition(encoded, state_with_table_size(state, table_size)))
+		Err(_) => outbound_table_size_update_exceeded(offset, table_size, table_size)
+	end
+end
+
+fn encode_hpack_integer_tail(remaining: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match remaining < 128
+		true => encode_hpack_integer_tail_byte(remaining, offset)
+		false => match encode_hpack_integer_tail_byte((remaining - (remaining / 128) * 128) + 128, offset)
+			Ok(current) => match encode_hpack_integer_tail(remaining / 128, offset)
+				Ok(next) => Ok(byte_append(current, next))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn encode_hpack_integer_tail_byte(value: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_write_u8_be(value)
+		Ok(encoded) => Ok(encoded)
+		Err(_) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture HPACK integer encoding", "hpack_fixture", byte_chunk([])))
+	end
+end
+
+fn encode_non_dynamic_header_list(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match headers
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), _) => encode_header_list_transition(encode_static_indexed_header(name, value, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 0, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_header_list_transition(encoded: Result<ByteChunk, HpackFixtureFailure>, state: HpackFixtureState) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encoded
+		Ok(bytes) => Ok(HpackEncodeTransition(bytes, state))
+		Err(failure) => Err(failure)
+	end
+end
+
+fn encode_dynamic_indexed_header_list(dynamic_index: Int, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_write_u8_be(190 + dynamic_index)
+		Ok(encoded) => Ok(HpackEncodeTransition(encoded, next_state(state)))
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn matching_dynamic_index(headers: HpackHeaderList, state: HpackFixtureState) -> Int
+	match headers
+		HpackHeaderList(HpackHeader(name, value), _, _) => match state
+			HpackFixtureState(_, _, dynamic_entry) => matching_dynamic_entry_index(dynamic_entry, name, value, 0)
+		end
+	end
+end
+
+fn matching_dynamic_entry_index(dynamic_entry: HpackDynamicEntry, name: String, value: String, index: Int) -> Int
+	match dynamic_entry
+		NoDynamicEntry => -1
+		DynamicEntry(entry_name, entry_value, older) => match entry_name == name and entry_value == value
+			true => index
+			false => matching_dynamic_entry_index(older, name, value, index + 1)
+		end
+	end
+end
+
+pub fn encode_transition_bytes(transition: HpackEncodeTransition) -> ByteChunk
+	match transition
+		HpackEncodeTransition(encoded, _) => encoded
+	end
+end
+
+pub fn encode_transition_state(transition: HpackEncodeTransition) -> HpackFixtureState
+	match transition
+		HpackEncodeTransition(_, state) => state
+	end
+end
+
+fn string_literal_value(literal: HpackStringLiteral) -> String
+	match literal
+		HpackStringLiteral(value, _) => value
+	end
+end
+
+fn string_literal_wire_size(literal: HpackStringLiteral) -> Int
+	match literal
+		HpackStringLiteral(_, wire_size) => wire_size
+	end
+end
+
+fn pow2(value: Int) -> Int
+	match value
+		0 => 1
+		1 => 2
+		2 => 4
+		3 => 8
+		4 => 16
+		5 => 32
+		6 => 64
+		7 => 128
+		_ => 256
+	end
+end
+
+fn byte_bit(byte: Int, bit_index: Int) -> Int
+	let divisor: Int = pow2(7 - bit_index)
+	byte / divisor - (byte / (divisor * 2)) * 2
+end
+
+fn hpack_static_huffman_symbol(code: Int, length: Int) -> Option<Int>
+	match length
+		5 => match code
+			0 => Some(48)
+			1 => Some(49)
+			2 => Some(50)
+			3 => Some(97)
+			4 => Some(99)
+			5 => Some(101)
+			6 => Some(105)
+			7 => Some(111)
+			8 => Some(115)
+			9 => Some(116)
+			_ => None
+		end
+		6 => match code
+			20 => Some(32)
+			21 => Some(37)
+			22 => Some(45)
+			23 => Some(46)
+			24 => Some(47)
+			25 => Some(51)
+			26 => Some(52)
+			27 => Some(53)
+			28 => Some(54)
+			29 => Some(55)
+			30 => Some(56)
+			31 => Some(57)
+			32 => Some(61)
+			33 => Some(65)
+			34 => Some(95)
+			35 => Some(98)
+			36 => Some(100)
+			37 => Some(102)
+			38 => Some(103)
+			39 => Some(104)
+			40 => Some(108)
+			41 => Some(109)
+			42 => Some(110)
+			43 => Some(112)
+			44 => Some(114)
+			45 => Some(117)
+			_ => None
+		end
+		7 => match code
+			92 => Some(58)
+			93 => Some(66)
+			94 => Some(67)
+			95 => Some(68)
+			96 => Some(69)
+			97 => Some(70)
+			98 => Some(71)
+			99 => Some(72)
+			100 => Some(73)
+			101 => Some(74)
+			102 => Some(75)
+			103 => Some(76)
+			104 => Some(77)
+			105 => Some(78)
+			106 => Some(79)
+			107 => Some(80)
+			108 => Some(81)
+			109 => Some(82)
+			110 => Some(83)
+			111 => Some(84)
+			112 => Some(85)
+			113 => Some(86)
+			114 => Some(87)
+			115 => Some(89)
+			116 => Some(106)
+			117 => Some(107)
+			118 => Some(113)
+			119 => Some(118)
+			120 => Some(119)
+			121 => Some(120)
+			122 => Some(121)
+			123 => Some(122)
+			_ => None
+		end
+		8 => match code
+			248 => Some(38)
+			249 => Some(42)
+			250 => Some(44)
+			251 => Some(59)
+			252 => Some(88)
+			253 => Some(90)
+			_ => None
+		end
+		10 => match code
+			1016 => Some(33)
+			1017 => Some(34)
+			1018 => Some(40)
+			1019 => Some(41)
+			1020 => Some(63)
+			_ => None
+		end
+		11 => match code
+			2042 => Some(39)
+			2043 => Some(43)
+			2044 => Some(124)
+			_ => None
+		end
+		12 => match code
+			4090 => Some(35)
+			4091 => Some(62)
+			_ => None
+		end
+		13 => match code
+			8184 => Some(0)
+			8185 => Some(36)
+			8186 => Some(64)
+			8187 => Some(91)
+			8188 => Some(93)
+			8189 => Some(126)
+			_ => None
+		end
+		14 => match code
+			16380 => Some(94)
+			16381 => Some(125)
+			_ => None
+		end
+		15 => match code
+			32764 => Some(60)
+			32765 => Some(96)
+			32766 => Some(123)
+			_ => None
+		end
+		19 => match code
+			524272 => Some(92)
+			524273 => Some(195)
+			524274 => Some(208)
+			_ => None
+		end
+		20 => match code
+			1048550 => Some(128)
+			1048551 => Some(130)
+			1048552 => Some(131)
+			1048553 => Some(162)
+			1048554 => Some(184)
+			1048555 => Some(194)
+			1048556 => Some(224)
+			1048557 => Some(226)
+			_ => None
+		end
+		21 => match code
+			2097116 => Some(153)
+			2097117 => Some(161)
+			2097118 => Some(167)
+			2097119 => Some(172)
+			2097120 => Some(176)
+			2097121 => Some(177)
+			2097122 => Some(179)
+			2097123 => Some(209)
+			2097124 => Some(216)
+			2097125 => Some(217)
+			2097126 => Some(227)
+			2097127 => Some(229)
+			2097128 => Some(230)
+			_ => None
+		end
+		22 => match code
+			4194258 => Some(129)
+			4194259 => Some(132)
+			4194260 => Some(133)
+			4194261 => Some(134)
+			4194262 => Some(136)
+			4194263 => Some(146)
+			4194264 => Some(154)
+			4194265 => Some(156)
+			4194266 => Some(160)
+			4194267 => Some(163)
+			4194268 => Some(164)
+			4194269 => Some(169)
+			4194270 => Some(170)
+			4194271 => Some(173)
+			4194272 => Some(178)
+			4194273 => Some(181)
+			4194274 => Some(185)
+			4194275 => Some(186)
+			4194276 => Some(187)
+			4194277 => Some(189)
+			4194278 => Some(190)
+			4194279 => Some(196)
+			4194280 => Some(198)
+			4194281 => Some(228)
+			4194282 => Some(232)
+			4194283 => Some(233)
+			_ => None
+		end
+		23 => match code
+			8388568 => Some(1)
+			8388569 => Some(135)
+			8388570 => Some(137)
+			8388571 => Some(138)
+			8388572 => Some(139)
+			8388573 => Some(140)
+			8388574 => Some(141)
+			8388575 => Some(143)
+			8388576 => Some(147)
+			8388577 => Some(149)
+			8388578 => Some(150)
+			8388579 => Some(151)
+			8388580 => Some(152)
+			8388581 => Some(155)
+			8388582 => Some(157)
+			8388583 => Some(158)
+			8388584 => Some(165)
+			8388585 => Some(166)
+			8388586 => Some(168)
+			8388587 => Some(174)
+			8388588 => Some(175)
+			8388589 => Some(180)
+			8388590 => Some(182)
+			8388591 => Some(183)
+			8388592 => Some(188)
+			8388593 => Some(191)
+			8388594 => Some(197)
+			8388595 => Some(231)
+			8388596 => Some(239)
+			_ => None
+		end
+		24 => match code
+			16777194 => Some(9)
+			16777195 => Some(142)
+			16777196 => Some(144)
+			16777197 => Some(145)
+			16777198 => Some(148)
+			16777199 => Some(159)
+			16777200 => Some(171)
+			16777201 => Some(206)
+			16777202 => Some(215)
+			16777203 => Some(225)
+			16777204 => Some(236)
+			16777205 => Some(237)
+			_ => None
+		end
+		25 => match code
+			33554412 => Some(199)
+			33554413 => Some(207)
+			33554414 => Some(234)
+			33554415 => Some(235)
+			_ => None
+		end
+		26 => match code
+			67108832 => Some(192)
+			67108833 => Some(193)
+			67108834 => Some(200)
+			67108835 => Some(201)
+			67108836 => Some(202)
+			67108837 => Some(205)
+			67108838 => Some(210)
+			67108839 => Some(213)
+			67108840 => Some(218)
+			67108841 => Some(219)
+			67108842 => Some(238)
+			67108843 => Some(240)
+			67108844 => Some(242)
+			67108845 => Some(243)
+			67108846 => Some(255)
+			_ => None
+		end
+		27 => match code
+			134217694 => Some(203)
+			134217695 => Some(204)
+			134217696 => Some(211)
+			134217697 => Some(212)
+			134217698 => Some(214)
+			134217699 => Some(221)
+			134217700 => Some(222)
+			134217701 => Some(223)
+			134217702 => Some(241)
+			134217703 => Some(244)
+			134217704 => Some(245)
+			134217705 => Some(246)
+			134217706 => Some(247)
+			134217707 => Some(248)
+			134217708 => Some(250)
+			134217709 => Some(251)
+			134217710 => Some(252)
+			134217711 => Some(253)
+			134217712 => Some(254)
+			_ => None
+		end
+		28 => match code
+			268435426 => Some(2)
+			268435427 => Some(3)
+			268435428 => Some(4)
+			268435429 => Some(5)
+			268435430 => Some(6)
+			268435431 => Some(7)
+			268435432 => Some(8)
+			268435433 => Some(11)
+			268435434 => Some(12)
+			268435435 => Some(14)
+			268435436 => Some(15)
+			268435437 => Some(16)
+			268435438 => Some(17)
+			268435439 => Some(18)
+			268435440 => Some(19)
+			268435441 => Some(20)
+			268435442 => Some(21)
+			268435443 => Some(23)
+			268435444 => Some(24)
+			268435445 => Some(25)
+			268435446 => Some(26)
+			268435447 => Some(27)
+			268435448 => Some(28)
+			268435449 => Some(29)
+			268435450 => Some(30)
+			268435451 => Some(31)
+			268435452 => Some(127)
+			268435453 => Some(220)
+			268435454 => Some(249)
+			_ => None
+		end
+		30 => match code
+			1073741820 => Some(10)
+			1073741821 => Some(13)
+			1073741822 => Some(22)
+			1073741823 => Some(256)
+			_ => None
+		end
+		_ => None
+	end
+end
+
+fn hpack_huffman_padding_valid(code: Int, length: Int) -> Bool
+	length == 0 or (length <= 7 and code == pow2(length) - 1)
+end
+
+fn hpack_huffman_decoded_wire_size(value: String, decoded_size: Int) -> Int
+	match value == ""
+		true => 2
+		false => match value == "www.example.com"
+			true => 13
+			false => decoded_size
+		end
+	end
+end
+
+fn append_hpack_huffman_symbol(decoded: ByteChunk, symbol: Int, block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match byte_write_u8_be(symbol)
+		Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
+		Err(_) => unsupported_byte_chunk(block, offset)
+	end
+end
+
+fn decode_hpack_huffman_done(decoded: ByteChunk, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match hpack_huffman_padding_valid(code, length)
+		false => unsupported_string_literal(block, offset)
+		true => match hpack_huffman_decoded_string(decoded, block, offset)
+			Ok(value) => Ok(HpackStringLiteral(value, hpack_huffman_decoded_wire_size(value, byte_count_to_int(byte_chunk_count(decoded)))))
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn hpack_huffman_decoded_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_chunk_to_visible_ascii_string(decoded)
+		Ok(value) => Ok(value)
+		Err(_) => hpack_huffman_fixture_non_visible_string(decoded, block, offset)
+	end
+end
+
+fn hpack_huffman_fixture_non_visible_string(decoded: ByteChunk, block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match byte_count_to_int(byte_chunk_count(decoded)) == 1 and byte_at_or_missing(decoded, 0) == 10
+		true => Ok("\n")
+		false => match byte_count_to_int(byte_chunk_count(decoded)) == 1
+			true => match hpack_fixture_huffman_byte_label(byte_at_or_missing(decoded, 0))
+				Some(label) => Ok(label)
+				None => hpack_huffman_unsupported_non_visible_string(block, offset)
+			end
+			false => match hpack_decoded_huffman_bytes_label(decoded)
+				Some(label) => Ok(label)
+				None => hpack_huffman_unsupported_non_visible_string(block, offset)
+			end
+		end
+	end
+end
+
+fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match huffman_non_visible_value(block, offset)
+		Ok(_) => Ok("")
+		Err(failure) => Err(failure)
+	end
+end
+
+fn hpack_decoded_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
+	Some(hpack_fixture_huffman_bytes_label(decoded))
+end
+
+fn hpack_fixture_huffman_byte_label(symbol: Int) -> Option<String>
+	match symbol
+		0 => Some("hpack-byte-00")
+		1 => Some("hpack-byte-01")
+		2 => Some("hpack-byte-02")
+		3 => Some("hpack-byte-03")
+		4 => Some("hpack-byte-04")
+		5 => Some("hpack-byte-05")
+		6 => Some("hpack-byte-06")
+		7 => Some("hpack-byte-07")
+		8 => Some("hpack-byte-08")
+		9 => Some("hpack-byte-09")
+		10 => Some("hpack-byte-0a")
+		11 => Some("hpack-byte-0b")
+		12 => Some("hpack-byte-0c")
+		13 => Some("hpack-byte-0d")
+		14 => Some("hpack-byte-0e")
+		15 => Some("hpack-byte-0f")
+		16 => Some("hpack-byte-10")
+		17 => Some("hpack-byte-11")
+		18 => Some("hpack-byte-12")
+		19 => Some("hpack-byte-13")
+		20 => Some("hpack-byte-14")
+		21 => Some("hpack-byte-15")
+		22 => Some("hpack-byte-16")
+		23 => Some("hpack-byte-17")
+		24 => Some("hpack-byte-18")
+		25 => Some("hpack-byte-19")
+		26 => Some("hpack-byte-1a")
+		27 => Some("hpack-byte-1b")
+		28 => Some("hpack-byte-1c")
+		29 => Some("hpack-byte-1d")
+		30 => Some("hpack-byte-1e")
+		31 => Some("hpack-byte-1f")
+		32 => Some("hpack-byte-20")
+		33 => Some("hpack-byte-21")
+		34 => Some("hpack-byte-22")
+		35 => Some("hpack-byte-23")
+		36 => Some("hpack-byte-24")
+		37 => Some("hpack-byte-25")
+		38 => Some("hpack-byte-26")
+		39 => Some("hpack-byte-27")
+		40 => Some("hpack-byte-28")
+		41 => Some("hpack-byte-29")
+		42 => Some("hpack-byte-2a")
+		43 => Some("hpack-byte-2b")
+		44 => Some("hpack-byte-2c")
+		45 => Some("hpack-byte-2d")
+		46 => Some("hpack-byte-2e")
+		47 => Some("hpack-byte-2f")
+		48 => Some("hpack-byte-30")
+		49 => Some("hpack-byte-31")
+		50 => Some("hpack-byte-32")
+		51 => Some("hpack-byte-33")
+		52 => Some("hpack-byte-34")
+		53 => Some("hpack-byte-35")
+		54 => Some("hpack-byte-36")
+		55 => Some("hpack-byte-37")
+		56 => Some("hpack-byte-38")
+		57 => Some("hpack-byte-39")
+		58 => Some("hpack-byte-3a")
+		59 => Some("hpack-byte-3b")
+		60 => Some("hpack-byte-3c")
+		61 => Some("hpack-byte-3d")
+		62 => Some("hpack-byte-3e")
+		63 => Some("hpack-byte-3f")
+		64 => Some("hpack-byte-40")
+		65 => Some("hpack-byte-41")
+		66 => Some("hpack-byte-42")
+		67 => Some("hpack-byte-43")
+		68 => Some("hpack-byte-44")
+		69 => Some("hpack-byte-45")
+		70 => Some("hpack-byte-46")
+		71 => Some("hpack-byte-47")
+		72 => Some("hpack-byte-48")
+		73 => Some("hpack-byte-49")
+		74 => Some("hpack-byte-4a")
+		75 => Some("hpack-byte-4b")
+		76 => Some("hpack-byte-4c")
+		77 => Some("hpack-byte-4d")
+		78 => Some("hpack-byte-4e")
+		79 => Some("hpack-byte-4f")
+		80 => Some("hpack-byte-50")
+		81 => Some("hpack-byte-51")
+		82 => Some("hpack-byte-52")
+		83 => Some("hpack-byte-53")
+		84 => Some("hpack-byte-54")
+		85 => Some("hpack-byte-55")
+		86 => Some("hpack-byte-56")
+		87 => Some("hpack-byte-57")
+		88 => Some("hpack-byte-58")
+		89 => Some("hpack-byte-59")
+		90 => Some("hpack-byte-5a")
+		91 => Some("hpack-byte-5b")
+		92 => Some("hpack-byte-5c")
+		93 => Some("hpack-byte-5d")
+		94 => Some("hpack-byte-5e")
+		95 => Some("hpack-byte-5f")
+		96 => Some("hpack-byte-60")
+		97 => Some("hpack-byte-61")
+		98 => Some("hpack-byte-62")
+		99 => Some("hpack-byte-63")
+		100 => Some("hpack-byte-64")
+		101 => Some("hpack-byte-65")
+		102 => Some("hpack-byte-66")
+		103 => Some("hpack-byte-67")
+		104 => Some("hpack-byte-68")
+		105 => Some("hpack-byte-69")
+		106 => Some("hpack-byte-6a")
+		107 => Some("hpack-byte-6b")
+		108 => Some("hpack-byte-6c")
+		109 => Some("hpack-byte-6d")
+		110 => Some("hpack-byte-6e")
+		111 => Some("hpack-byte-6f")
+		112 => Some("hpack-byte-70")
+		113 => Some("hpack-byte-71")
+		114 => Some("hpack-byte-72")
+		115 => Some("hpack-byte-73")
+		116 => Some("hpack-byte-74")
+		117 => Some("hpack-byte-75")
+		118 => Some("hpack-byte-76")
+		119 => Some("hpack-byte-77")
+		120 => Some("hpack-byte-78")
+		121 => Some("hpack-byte-79")
+		122 => Some("hpack-byte-7a")
+		123 => Some("hpack-byte-7b")
+		124 => Some("hpack-byte-7c")
+		125 => Some("hpack-byte-7d")
+		126 => Some("hpack-byte-7e")
+		127 => Some("hpack-byte-7f")
+		128 => Some("hpack-byte-80")
+		129 => Some("hpack-byte-81")
+		130 => Some("hpack-byte-82")
+		131 => Some("hpack-byte-83")
+		132 => Some("hpack-byte-84")
+		133 => Some("hpack-byte-85")
+		134 => Some("hpack-byte-86")
+		135 => Some("hpack-byte-87")
+		136 => Some("hpack-byte-88")
+		137 => Some("hpack-byte-89")
+		138 => Some("hpack-byte-8a")
+		139 => Some("hpack-byte-8b")
+		140 => Some("hpack-byte-8c")
+		141 => Some("hpack-byte-8d")
+		142 => Some("hpack-byte-8e")
+		143 => Some("hpack-byte-8f")
+		144 => Some("hpack-byte-90")
+		145 => Some("hpack-byte-91")
+		146 => Some("hpack-byte-92")
+		147 => Some("hpack-byte-93")
+		148 => Some("hpack-byte-94")
+		149 => Some("hpack-byte-95")
+		150 => Some("hpack-byte-96")
+		151 => Some("hpack-byte-97")
+		152 => Some("hpack-byte-98")
+		153 => Some("hpack-byte-99")
+		154 => Some("hpack-byte-9a")
+		155 => Some("hpack-byte-9b")
+		156 => Some("hpack-byte-9c")
+		157 => Some("hpack-byte-9d")
+		158 => Some("hpack-byte-9e")
+		159 => Some("hpack-byte-9f")
+		160 => Some("hpack-byte-a0")
+		161 => Some("hpack-byte-a1")
+		162 => Some("hpack-byte-a2")
+		163 => Some("hpack-byte-a3")
+		164 => Some("hpack-byte-a4")
+		165 => Some("hpack-byte-a5")
+		166 => Some("hpack-byte-a6")
+		167 => Some("hpack-byte-a7")
+		168 => Some("hpack-byte-a8")
+		169 => Some("hpack-byte-a9")
+		170 => Some("hpack-byte-aa")
+		171 => Some("hpack-byte-ab")
+		172 => Some("hpack-byte-ac")
+		173 => Some("hpack-byte-ad")
+		174 => Some("hpack-byte-ae")
+		175 => Some("hpack-byte-af")
+		176 => Some("hpack-byte-b0")
+		177 => Some("hpack-byte-b1")
+		178 => Some("hpack-byte-b2")
+		179 => Some("hpack-byte-b3")
+		180 => Some("hpack-byte-b4")
+		181 => Some("hpack-byte-b5")
+		182 => Some("hpack-byte-b6")
+		183 => Some("hpack-byte-b7")
+		184 => Some("hpack-byte-b8")
+		185 => Some("hpack-byte-b9")
+		186 => Some("hpack-byte-ba")
+		187 => Some("hpack-byte-bb")
+		188 => Some("hpack-byte-bc")
+		189 => Some("hpack-byte-bd")
+		190 => Some("hpack-byte-be")
+		191 => Some("hpack-byte-bf")
+		192 => Some("hpack-byte-c0")
+		193 => Some("hpack-byte-c1")
+		194 => Some("hpack-byte-c2")
+		195 => Some("hpack-byte-c3")
+		196 => Some("hpack-byte-c4")
+		197 => Some("hpack-byte-c5")
+		198 => Some("hpack-byte-c6")
+		199 => Some("hpack-byte-c7")
+		200 => Some("hpack-byte-c8")
+		201 => Some("hpack-byte-c9")
+		202 => Some("hpack-byte-ca")
+		203 => Some("hpack-byte-cb")
+		204 => Some("hpack-byte-cc")
+		205 => Some("hpack-byte-cd")
+		206 => Some("hpack-byte-ce")
+		207 => Some("hpack-byte-cf")
+		208 => Some("hpack-byte-d0")
+		209 => Some("hpack-byte-d1")
+		210 => Some("hpack-byte-d2")
+		211 => Some("hpack-byte-d3")
+		212 => Some("hpack-byte-d4")
+		213 => Some("hpack-byte-d5")
+		214 => Some("hpack-byte-d6")
+		215 => Some("hpack-byte-d7")
+		216 => Some("hpack-byte-d8")
+		217 => Some("hpack-byte-d9")
+		218 => Some("hpack-byte-da")
+		219 => Some("hpack-byte-db")
+		220 => Some("hpack-byte-dc")
+		221 => Some("hpack-byte-dd")
+		222 => Some("hpack-byte-de")
+		223 => Some("hpack-byte-df")
+		224 => Some("hpack-byte-e0")
+		225 => Some("hpack-byte-e1")
+		226 => Some("hpack-byte-e2")
+		227 => Some("hpack-byte-e3")
+		228 => Some("hpack-byte-e4")
+		229 => Some("hpack-byte-e5")
+		230 => Some("hpack-byte-e6")
+		231 => Some("hpack-byte-e7")
+		232 => Some("hpack-byte-e8")
+		233 => Some("hpack-byte-e9")
+		234 => Some("hpack-byte-ea")
+		235 => Some("hpack-byte-eb")
+		236 => Some("hpack-byte-ec")
+		237 => Some("hpack-byte-ed")
+		238 => Some("hpack-byte-ee")
+		239 => Some("hpack-byte-ef")
+		240 => Some("hpack-byte-f0")
+		241 => Some("hpack-byte-f1")
+		242 => Some("hpack-byte-f2")
+		243 => Some("hpack-byte-f3")
+		244 => Some("hpack-byte-f4")
+		245 => Some("hpack-byte-f5")
+		246 => Some("hpack-byte-f6")
+		247 => Some("hpack-byte-f7")
+		248 => Some("hpack-byte-f8")
+		249 => Some("hpack-byte-f9")
+		250 => Some("hpack-byte-fa")
+		251 => Some("hpack-byte-fb")
+		252 => Some("hpack-byte-fc")
+		253 => Some("hpack-byte-fd")
+		254 => Some("hpack-byte-fe")
+		255 => Some("hpack-byte-ff")
+		_ => None
+	end
+end
+
+fn decode_hpack_huffman_bit(block: ByteChunk, prefix_size: Int, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	let source_byte: Int = byte_at_or_missing(block, prefix_size + bit_index / 8)
+	let bit: Int = byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code: Int = code * 2 + bit
+	let next_length: Int = length + 1
+	match hpack_static_huffman_symbol(next_code, next_length)
+		Some(symbol) => match append_hpack_huffman_symbol(decoded, symbol, block, offset)
+			Ok(next_decoded) => decode_hpack_huffman_bits(block, prefix_size, bit_index + 1, total_bits, next_decoded, 0, 0, offset)
+			Err(failure) => Err(failure)
+		end
+		None => match next_length > 30
+			true => unsupported_string_literal(block, offset)
+			false => decode_hpack_huffman_bits(block, prefix_size, bit_index + 1, total_bits, decoded, next_code, next_length, offset)
+		end
+	end
+end
+
+fn decode_hpack_huffman_bits(block: ByteChunk, prefix_size: Int, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match bit_index == total_bits
+		true => decode_hpack_huffman_done(decoded, code, length, block, offset)
+		false => decode_hpack_huffman_bit(block, prefix_size, bit_index, total_bits, decoded, code, length, offset)
+	end
+end
+
+fn hpack_huffman_long_zero_value() -> String
+	"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+end
+
+fn hpack_huffman_long_zero_bytes_supported(block: ByteChunk, prefix_size: Int, index: Int) -> Bool
+	match index < 127
+		true => byte_at_or_missing(block, prefix_size + index) == 0 and hpack_huffman_long_zero_bytes_supported(block, prefix_size, index + 1)
+		false => byte_at_or_missing(block, prefix_size + 127) == 15
+	end
+end
+
+fn hpack_huffman_long_zero_fixture_supported(block: ByteChunk, prefix_size: Int) -> Bool
+	prefix_size == 3 and hpack_huffman_long_zero_bytes_supported(block, prefix_size, 0)
+end
+
+fn decode_hpack_huffman_literal_value(block: ByteChunk, encoded_count: Int, prefix_size: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match encoded_count == 128 and hpack_huffman_long_zero_fixture_supported(block, prefix_size)
+		true => Ok(HpackStringLiteral(hpack_huffman_long_zero_value(), 204))
+		false => decode_hpack_huffman_short_literal_value(block, encoded_count, prefix_size, offset)
+	end
+end
+
+fn decode_hpack_huffman_short_literal_value(block: ByteChunk, encoded_count: Int, prefix_size: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match encoded_count <= 32
+		true => decode_hpack_huffman_bits(block, prefix_size, 0, encoded_count * 8, byte_chunk([]), 0, 0, offset)
+		false => unsupported_string_literal(block, offset)
+	end
+end
+
+fn supported_literal_static_name(index: Int) -> Bool
+	index == 1 or index == 2 or index == 4 or index == 6
+end
+
+fn supported_no_huffman_literal_static_name(index: Int) -> Bool
+	supported_literal_static_name(index) or index == 8
+end
+
+fn literal_static_name(index: Int) -> String
+	match index == 1
+		true => ":authority"
+		false => match index == 2
+			true => ":method"
+			false => match index == 4
+				true => ":path"
+				false => match index == 6
+					true => ":scheme"
+					false => ":status"
+				end
+			end
+		end
+	end
+end
+
+fn string_length_huffman_marked(length: HpackStringLength) -> Bool
+	match length
+		HpackStringLength(huffman_marked, _, _) => huffman_marked
+	end
+end
+
+fn string_length_encoded_count(length: HpackStringLength) -> Int
+	match length
+		HpackStringLength(_, encoded_count, _) => encoded_count
+	end
+end
+
+fn string_length_prefix_size(length: HpackStringLength) -> Int
+	match length
+		HpackStringLength(_, _, prefix_size) => prefix_size
+	end
+end
+
+fn string_length_from_integer(huffman_marked: Bool, prefix: HpackIntegerPrefix) -> HpackStringLength
+	HpackStringLength(huffman_marked, integer_prefix_value(prefix), integer_prefix_size(prefix))
+end
+
+fn string_length_from_prefix_result(huffman_marked: Bool, result: Result<HpackIntegerPrefix, HpackFixtureFailure>) -> Result<HpackStringLength, HpackFixtureFailure>
+	match result
+		Ok(prefix) => Ok(string_length_from_integer(huffman_marked, prefix))
+		Err(failure) => Err(failure)
+	end
+end
+
+fn decode_hpack_string_length(block: ByteChunk, observed_size: Int, offset: Int) -> Result<HpackStringLength, HpackFixtureFailure>
+	decode_hpack_string_length_at(block, observed_size, 1, offset)
+end
+
+fn decode_hpack_string_length_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackStringLength, HpackFixtureFailure>
+	let value_count: Int = byte_at_or_missing(block, index)
+	let encoded_count: Int = low_seven_bits(value_count)
+	let huffman_marked: Bool = value_count >= 128
+	string_length_from_prefix_result(huffman_marked, decode_hpack_prefixed_integer(encoded_count, 127, block, observed_size, index + 1, offset))
+end
+
+fn decode_hpack_string_literal_value(block: ByteChunk, length: HpackStringLength, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	let encoded_count: Int = string_length_encoded_count(length)
+	let prefix_size: Int = string_length_prefix_size(length)
+	match string_length_huffman_marked(length)
+		true => decode_hpack_huffman_literal_value(block, encoded_count, prefix_size, offset)
+		false => match encoded_count > 0
+			true => no_huffman_literal_raw_value(block, encoded_count, prefix_size, offset)
+			false => unsupported_string_literal(block, offset)
+		end
+	end
+end
+
+fn no_huffman_literal_raw_value(block: ByteChunk, value_count: Int, prefix_size: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match byte_count(prefix_size)
+		Ok(prefix_count) => match byte_drop(block, prefix_count)
+			Ok(value_suffix) => match byte_count(value_count)
+				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
+					Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
+						Ok(value) => Ok(HpackStringLiteral(value, value_count + prefix_size))
+						Err(_) => unsupported_string_literal(block, offset)
+					end
+					Err(_) => unsupported_string_literal(block, offset)
+				end
+				Err(_) => unsupported_string_literal(block, offset)
+			end
+			Err(_) => unsupported_string_literal(block, offset)
+		end
+		Err(_) => unsupported_string_literal(block, offset)
+	end
+end
+
+fn decode_hpack_string_literal_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match decode_hpack_string_length_at(block, observed_size, index, offset)
+		Ok(length) => match observed_size == string_length_prefix_size(length) + string_length_encoded_count(length)
+			true => decode_hpack_string_literal_value(block, length, offset)
+			false => unsupported_string_literal(block, offset)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn decode_hpack_raw_string_literal_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
+	match decode_hpack_string_length_at(block, observed_size, index, offset)
+		Ok(length) => match string_length_huffman_marked(length)
+			true => unsupported_string_literal(block, offset)
+			false => match observed_size >= string_length_prefix_size(length) + string_length_encoded_count(length)
+				true => decode_hpack_string_literal_value(block, length, offset)
+				false => unsupported_string_literal(block, offset)
+			end
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn decoded_literal_for_indexing(indexing: HpackLiteralIndexing, name: String, literal: HpackStringLiteral, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match indexing
+		LiteralWithoutIndexing => decoded_literal_without_indexing(name, string_literal_value(literal), string_literal_wire_size(literal), state)
+		LiteralWithIndexing => decoded_literal_with_indexing(name, string_literal_value(literal), string_literal_wire_size(literal), state)
+		LiteralNeverIndexed => decoded_literal_never_indexed(name, string_literal_value(literal), string_literal_wire_size(literal), state)
+	end
+end
+
+fn decode_literal_header_with_name(indexing: HpackLiteralIndexing, name: String, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int, value_index: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match value_index < observed_size
+		true => match decode_hpack_string_literal_at(block, observed_size, value_index, offset)
+			Ok(literal) => decoded_literal_for_indexing(indexing, name, literal, state)
+			Err(failure) => Err(failure)
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_raw_name_literal_header_block(indexing: HpackLiteralIndexing, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size >= 3
+		true => match decode_hpack_raw_string_literal_prefix_at(block, observed_size, 1, offset)
+			Ok(name) => decode_literal_header_with_name(indexing, string_literal_value(name), observed_size, state, block, offset, string_literal_wire_size(name))
+			Err(failure) => Err(failure)
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_static_name_literal_header_block(indexing: HpackLiteralIndexing, name_index: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match supported_no_huffman_literal_static_name(name_index) and observed_size >= 2
+		true => decode_literal_header_with_name(indexing, literal_static_name(name_index), observed_size, state, block, offset, 1)
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_dynamic_name_literal_header_block(indexing: HpackLiteralIndexing, name_index: HpackIntegerPrefix, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let requested_dynamic_index: Int = integer_prefix_value(name_index) - 62
+	match dynamic_header_name_at(requested_dynamic_index, state)
+		Some(name) => decode_literal_header_with_name(indexing, name, observed_size, state, block, offset, integer_prefix_size(name_index))
+		None => match integer_prefix_size(name_index) > 1 and requested_dynamic_index >= 0
+			true => match state_dynamic_entry_count(state) == 0
+				true => dynamic_name_continuation_missing(block, offset, requested_dynamic_index, state_dynamic_entry_count(state))
+				false => dynamic_name_continuation_out_of_range(block, offset, requested_dynamic_index, state_dynamic_entry_count(state))
+			end
+			false => unsupported(block, offset)
+		end
+	end
+end
+
+fn decode_literal_without_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	decode_static_name_literal_header_block(LiteralWithoutIndexing, first_byte, observed_size, state, block, offset)
+end
+
+fn decode_literal_without_indexing_dynamic_name_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size >= 2
+		true => match decode_four_bit_dynamic_name_index(first_byte, 0, observed_size, block, offset)
+			Ok(name_index) => decode_dynamic_name_literal_header_block(LiteralWithoutIndexing, name_index, observed_size, state, block, offset)
+			Err(_) => dynamic_name_continuation_malformed(block, offset, state_dynamic_entry_count(state))
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_literal_with_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let name_index: Int = first_byte - 64
+	decode_static_name_literal_header_block(LiteralWithIndexing, name_index, observed_size, state, block, offset)
+end
+
+fn decode_literal_with_dynamic_name_indexing_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size >= 2
+		true => match decode_dynamic_name_index(first_byte, observed_size, block, offset)
+			Ok(name_index) => decode_dynamic_name_literal_header_block(LiteralWithIndexing, name_index, observed_size, state, block, offset)
+			Err(_) => dynamic_name_continuation_malformed(block, offset, state_dynamic_entry_count(state))
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn decode_literal_never_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let name_index: Int = first_byte - 16
+	decode_static_name_literal_header_block(LiteralNeverIndexed, name_index, observed_size, state, block, offset)
+end
+
+fn decode_literal_never_indexed_dynamic_name_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size >= 2
+		true => match decode_four_bit_dynamic_name_index(first_byte, 16, observed_size, block, offset)
+			Ok(name_index) => decode_dynamic_name_literal_header_block(LiteralNeverIndexed, name_index, observed_size, state, block, offset)
+			Err(_) => dynamic_name_continuation_malformed(block, offset, state_dynamic_entry_count(state))
+		end
+		false => unsupported(block, offset)
+	end
+end
+
+fn static_indexed_header_value(byte: Int) -> Option<HpackHeader>
+	match byte
+		129 => Some(HpackHeader(":authority", ""))
+		130 => Some(HpackHeader(":method", "GET"))
+		131 => Some(HpackHeader(":method", "POST"))
+		132 => Some(HpackHeader(":path", "/"))
+		133 => Some(HpackHeader(":path", "/index.html"))
+		134 => Some(HpackHeader(":scheme", "http"))
+		135 => Some(HpackHeader(":scheme", "https"))
+		136 => Some(HpackHeader(":status", "200"))
+		137 => Some(HpackHeader(":status", "204"))
+		138 => Some(HpackHeader(":status", "206"))
+		139 => Some(HpackHeader(":status", "304"))
+		140 => Some(HpackHeader(":status", "400"))
+		141 => Some(HpackHeader(":status", "404"))
+		142 => Some(HpackHeader(":status", "500"))
+		143 => Some(HpackHeader("accept-charset", ""))
+		144 => Some(HpackHeader("accept-encoding", "gzip, deflate"))
+		145 => Some(HpackHeader("accept-language", ""))
+		146 => Some(HpackHeader("accept-ranges", ""))
+		147 => Some(HpackHeader("accept", ""))
+		148 => Some(HpackHeader("access-control-allow-origin", ""))
+		149 => Some(HpackHeader("age", ""))
+		150 => Some(HpackHeader("allow", ""))
+		151 => Some(HpackHeader("authorization", ""))
+		152 => Some(HpackHeader("cache-control", ""))
+		153 => Some(HpackHeader("content-disposition", ""))
+		154 => Some(HpackHeader("content-encoding", ""))
+		155 => Some(HpackHeader("content-language", ""))
+		156 => Some(HpackHeader("content-length", ""))
+		157 => Some(HpackHeader("content-location", ""))
+		158 => Some(HpackHeader("content-range", ""))
+		159 => Some(HpackHeader("content-type", ""))
+		160 => Some(HpackHeader("cookie", ""))
+		161 => Some(HpackHeader("date", ""))
+		162 => Some(HpackHeader("etag", ""))
+		163 => Some(HpackHeader("expect", ""))
+		164 => Some(HpackHeader("expires", ""))
+		165 => Some(HpackHeader("from", ""))
+		166 => Some(HpackHeader("host", ""))
+		167 => Some(HpackHeader("if-match", ""))
+		168 => Some(HpackHeader("if-modified-since", ""))
+		169 => Some(HpackHeader("if-none-match", ""))
+		170 => Some(HpackHeader("if-range", ""))
+		171 => Some(HpackHeader("if-unmodified-since", ""))
+		172 => Some(HpackHeader("last-modified", ""))
+		173 => Some(HpackHeader("link", ""))
+		174 => Some(HpackHeader("location", ""))
+		175 => Some(HpackHeader("max-forwards", ""))
+		176 => Some(HpackHeader("proxy-authenticate", ""))
+		177 => Some(HpackHeader("proxy-authorization", ""))
+		178 => Some(HpackHeader("range", ""))
+		179 => Some(HpackHeader("referer", ""))
+		180 => Some(HpackHeader("refresh", ""))
+		181 => Some(HpackHeader("retry-after", ""))
+		182 => Some(HpackHeader("server", ""))
+		183 => Some(HpackHeader("set-cookie", ""))
+		184 => Some(HpackHeader("strict-transport-security", ""))
+		185 => Some(HpackHeader("transfer-encoding", ""))
+		186 => Some(HpackHeader("user-agent", ""))
+		187 => Some(HpackHeader("vary", ""))
+		188 => Some(HpackHeader("via", ""))
+		189 => Some(HpackHeader("www-authenticate", ""))
+		_ => None
+	end
+end
+
+fn decode_static_indexed_two_header_block(first_byte: Int, second_byte: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match static_indexed_header_value(first_byte)
+		Some(first) => match static_indexed_header_value(second_byte)
+			Some(second) => decoded_static_indexed_two_headers(first, second, state)
+			None => unsupported(block, offset)
+		end
+		None => unsupported(block, offset)
+	end
+end
+
+fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 2
+		true => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
+		false => match observed_size == 1
+			false => unsupported(block, offset)
+			true => match first_byte
+			129 => decoded_static_indexed_authority(state)
+			130 => decoded_static_indexed_method_get(state)
+			131 => decoded_static_indexed_method_post(state)
+			132 => decoded_static_indexed_path_root(state)
+			133 => decoded_static_indexed_path_index(state)
+			134 => decoded_static_indexed_scheme_http(state)
+			135 => decoded_static_indexed_scheme_https(state)
+			136 => decoded_static_indexed_status("200", state)
+			137 => decoded_static_indexed_status("204", state)
+			138 => decoded_static_indexed_status("206", state)
+			139 => decoded_static_indexed_status("304", state)
+			140 => decoded_static_indexed_status("400", state)
+			141 => decoded_static_indexed_status("404", state)
+			142 => decoded_static_indexed_status("500", state)
+			143 => decoded_static_indexed_header("accept-charset", "", state)
+			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
+			145 => decoded_static_indexed_header("accept-language", "", state)
+			146 => decoded_static_indexed_header("accept-ranges", "", state)
+			147 => decoded_static_indexed_header("accept", "", state)
+			148 => decoded_static_indexed_header("access-control-allow-origin", "", state)
+			149 => decoded_static_indexed_header("age", "", state)
+			150 => decoded_static_indexed_header("allow", "", state)
+			151 => decoded_static_indexed_header("authorization", "", state)
+			152 => decoded_static_indexed_header("cache-control", "", state)
+			153 => decoded_static_indexed_header("content-disposition", "", state)
+			154 => decoded_static_indexed_header("content-encoding", "", state)
+			155 => decoded_static_indexed_header("content-language", "", state)
+			156 => decoded_static_indexed_header("content-length", "", state)
+			157 => decoded_static_indexed_header("content-location", "", state)
+			158 => decoded_static_indexed_header("content-range", "", state)
+			159 => decoded_static_indexed_header("content-type", "", state)
+			160 => decoded_static_indexed_header("cookie", "", state)
+			161 => decoded_static_indexed_header("date", "", state)
+			162 => decoded_static_indexed_header("etag", "", state)
+			163 => decoded_static_indexed_header("expect", "", state)
+			164 => decoded_static_indexed_header("expires", "", state)
+			165 => decoded_static_indexed_header("from", "", state)
+			166 => decoded_static_indexed_header("host", "", state)
+			167 => decoded_static_indexed_header("if-match", "", state)
+			168 => decoded_static_indexed_header("if-modified-since", "", state)
+			169 => decoded_static_indexed_header("if-none-match", "", state)
+			170 => decoded_static_indexed_header("if-range", "", state)
+			171 => decoded_static_indexed_header("if-unmodified-since", "", state)
+			172 => decoded_static_indexed_header("last-modified", "", state)
+			173 => decoded_static_indexed_header("link", "", state)
+			174 => decoded_static_indexed_header("location", "", state)
+			175 => decoded_static_indexed_header("max-forwards", "", state)
+			176 => decoded_static_indexed_header("proxy-authenticate", "", state)
+			177 => decoded_static_indexed_header("proxy-authorization", "", state)
+			178 => decoded_static_indexed_header("range", "", state)
+			179 => decoded_static_indexed_header("referer", "", state)
+			180 => decoded_static_indexed_header("refresh", "", state)
+			181 => decoded_static_indexed_header("retry-after", "", state)
+			182 => decoded_static_indexed_header("server", "", state)
+			183 => decoded_static_indexed_header("set-cookie", "", state)
+			184 => decoded_static_indexed_header("strict-transport-security", "", state)
+			185 => decoded_static_indexed_header("transfer-encoding", "", state)
+			186 => decoded_static_indexed_header("user-agent", "", state)
+			187 => decoded_static_indexed_header("vary", "", state)
+			188 => decoded_static_indexed_header("via", "", state)
+			189 => decoded_static_indexed_header("www-authenticate", "", state)
+			_ => unsupported(block, offset)
+			end
+		end
+	end
+end
+
+pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte
+		62 => match observed_size == 1
+			true => decoded_table_size_update(state, 30)
+			false => unsupported(block, offset)
+		end
+		63 => match observed_size == 1
+			true => decoded_table_size_update(state, 31)
+			false => decode_saturated_table_size_update(block, observed_size, state, offset)
+		end
+		4 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		15 => decode_literal_without_indexing_dynamic_name_header_block(first_byte, observed_size, state, block, offset)
+		17 => match observed_size == 8 and byte_at_or_missing(block, 1) == 2
+			true => decoded("header-list-accepted", 8, state)
+			false => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		end
+		1 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		6 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		2 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		8 => decode_literal_without_indexing_header_block(first_byte, observed_size, state, block, offset)
+		18 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		20 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		22 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		24 => decode_literal_never_indexed_header_block(first_byte, observed_size, state, block, offset)
+		31 => decode_literal_never_indexed_dynamic_name_header_block(first_byte, observed_size, state, block, offset)
+		64 => decode_raw_name_literal_header_block(LiteralWithIndexing, observed_size, state, block, offset)
+		65 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		66 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		68 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		70 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		72 => decode_literal_with_indexing_header_block(first_byte, observed_size, state, block, offset)
+		126 => decode_literal_with_dynamic_name_indexing_header_block(first_byte, observed_size, state, block, offset)
+		127 => decode_literal_with_dynamic_name_indexing_header_block(first_byte, observed_size, state, block, offset)
+		16 => match observed_size == 3
+			true => decoded("single-headers", 8, state)
+			false => decode_raw_name_literal_header_block(LiteralNeverIndexed, observed_size, state, block, offset)
+		end
+		170 => match observed_size == 9
+			true => decoded("continuation", 9, state)
+			false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
+		end
+		_ => match first_byte >= 190
+			true => match observed_size == 1
+				true => decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
+				false => unsupported(block, offset)
+			end
+			false => match first_byte == 0
+				true => decode_raw_name_literal_header_block(LiteralWithoutIndexing, observed_size, state, block, offset)
+				false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
+			end
+		end
+	end
+end
+
+pub fn transition_headers(transition: HpackDecodeTransition) -> HpackHeaderList
+	match transition
+		HpackDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn transition_state(transition: HpackDecodeTransition) -> HpackFixtureState
+	match transition
+		HpackDecodeTransition(_, state) => state
+	end
+end
+
+pub fn header_list_wire_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(_, _, wire_size) => wire_size
+	end
+end
+
+pub fn header_list_first_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => name
+	end
+end
+
+pub fn header_list_first_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn header_list_second_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(_, HpackHeader(name, _), _) => name
+	end
+end
+
+pub fn header_list_second_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(_, HpackHeader(_, value), _) => value
+	end
+end
+
+pub fn state_decode_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, decode_count, _) => decode_count
+	end
+end
+
+pub fn state_encode_count(state: HpackFixtureState) -> Int
+	state_decode_count(state)
+end
+
+pub fn state_table_size(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(table_size, _, _) => table_size
+	end
+end
+
+pub fn failure_offset(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		DynamicIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationMissing(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationMalformed(offset, _, _, _, _, _, _, _) => offset
+		DynamicNameContinuationOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
+		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		DynamicIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationMissing(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationMalformed(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicNameContinuationOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
+		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
+		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
+	end
+end
+
+pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		DynamicIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationMissing(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationMalformed(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicNameContinuationOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
+	end
+end
+
+pub fn failure_requested_dynamic_index(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationMissing(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationMalformed(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		DynamicNameContinuationOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		_ => 0
+	end
+end
+
+pub fn failure_dynamic_table_entry_count(failure: HpackFixtureFailure) -> Int
+	match failure
+		DynamicIndexOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationMissing(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationMalformed(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		DynamicNameContinuationOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		_ => 0
+	end
+end
+
+pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicIndexOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationMissing(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationMalformed(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
+		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
+		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
+	end
+end
+
+pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		DynamicIndexOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationMissing(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, codec_module, _) => codec_module
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
+		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
+		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
+	end
+end
+
+pub fn failure_preview(failure: HpackFixtureFailure) -> ByteChunk
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, preview) => preview
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
+	end
+end
+
+pub fn failure_diagnostic_id(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_index_out_of_range"
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_name_continuation_missing"
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_name_continuation_malformed"
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_name_continuation_out_of_range"
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => "hpack.fixture.huffman_non_visible_value"
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
+	end
+end
+
+fn project_failure_fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.unsupported_header_block",
+		error,
+		RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn project_failure_preview(failure: HpackFixtureFailure) -> Result<ByteView, RuntimeDiagnostic>
+	let preview_chunk: ByteChunk = failure_preview(failure)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(preview_chunk, offset, byte_chunk_count(preview_chunk))
+			Ok(view) => Ok(view)
+			Err(error) => Err(project_failure_fallback_payload(error))
+		end
+		Err(error) => Err(project_failure_fallback_payload(error))
+	end
+end
+
+pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = project_failure_preview(failure)?
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_missing(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_malformed(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_out_of_range(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+	end
+end

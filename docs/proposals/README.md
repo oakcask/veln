@@ -337,6 +337,8 @@ compare it with `../specification/` before changing behavior.
   The completed accepted `content-length` body accounting slice is archived
   under
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
+  The completed dynamic-name continuation diagnostic slice is archived under
+  [HTTP/2 HPACK Dynamic Name Continuation Diagnostics](../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, richer production socket APIs, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior

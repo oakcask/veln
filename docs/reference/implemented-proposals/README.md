@@ -184,6 +184,8 @@ behavior.
   [http2-hpack-multibyte-non-visible-fixture.md](http2-hpack-multibyte-non-visible-fixture.md).
 - HTTP/2 HPACK malformed string diagnostics:
   [http2-hpack-malformed-string-diagnostics.md](http2-hpack-malformed-string-diagnostics.md).
+- HTTP/2 HPACK dynamic-name continuation diagnostics:
+  [http2-hpack-dynamic-name-continuation-diagnostics.md](http2-hpack-dynamic-name-continuation-diagnostics.md).
 - Runtime diagnostic HPACK fixture payloads:
   [runtime-diagnostic-hpack-fixture-payloads.md](runtime-diagnostic-hpack-fixture-payloads.md).
 - Runtime diagnostic HPACK fixture helper payload:
