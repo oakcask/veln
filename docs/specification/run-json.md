@@ -583,7 +583,10 @@ preview uses the same object shape as other protocol-owned byte previews while
 frame-kind and stream-state facts stay in their own fields; the checked HTTP/2
 examples cover connection-control, idle-stream, reset-stream, and
 closed-by-peer stream state failures, plus peer-sent `PUSH_PROMISE` rejection
-on a nonzero stream.
+on a nonzero stream. The closed-by-peer stream-state JSON example returns a
+source-visible `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` payload,
+so `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields.
 After receiving GOAWAY or after locally sending GOAWAY, a peer-created
 HEADERS stream or local outbound HEADERS send-intent greater than the recorded
 last stream id uses id `http2.protocol.stream_after_goaway` and records

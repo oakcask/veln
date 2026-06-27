@@ -172,6 +172,8 @@ behavior.
   [runtime-diagnostic-http2-settings-ack-payload.md](runtime-diagnostic-http2-settings-ack-payload.md).
 - Runtime diagnostic HTTP/2 DATA, flow-control, and content-length payloads:
   [runtime-diagnostic-http2-data-flow-content-length-payloads.md](runtime-diagnostic-http2-data-flow-content-length-payloads.md).
+- Runtime diagnostic HTTP/2 invalid frame-kind stream-state payload:
+  [runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md](runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

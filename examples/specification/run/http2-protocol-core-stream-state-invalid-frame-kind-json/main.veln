@@ -62,14 +62,45 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_frame_kind",
+		error,
+		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 0, 0, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames", byte_chunk([]))
+	)
+end
+
+fn invalid_frame_kind_payload(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_frame_kind",
+		"HTTP/2 invalid frame kind at byte offset 0",
+		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => Err(invalid_frame_kind_payload(offset, actual_kind, stream_id, expected_kind, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let step: Http2Step = receive(byte_chunk_from_hex("000000000100000001")?)?
+fn input_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000000100000001")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn receive_step(bytes: ByteChunk) -> Result<Http2Step, RuntimeDiagnostic>
+	match receive(bytes)
+		Ok(step) => Ok(step)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = input_bytes()?
+	let step: Http2Step = receive_step(bytes)?
 	let context: Http2DiagnosticContext = DiagnosticContext("closed-by-peer-stream", "closed_by_peer_rejects_later_frames")
 	match step
 		Failed(failure) => http2_protocol_diagnostic(failure, context)

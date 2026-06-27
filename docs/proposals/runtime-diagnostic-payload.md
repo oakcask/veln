@@ -223,6 +223,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-stream-state-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-header-list-human/`,
@@ -292,6 +293,9 @@ existing fixture, value, other unmigrated HTTP/2 protocol and peer-limit, and
 generated-schema helpers. The completed DATA padding, flow-control window,
 and content-length mismatch migration slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`.
+The completed HTTP/2 invalid frame-kind stream-state migration slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 
