@@ -342,9 +342,10 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 These slices deliberately leave legacy side-table support in place for
-existing fixture, value, other unmigrated HTTP/2 protocol and peer-limit, and
-unmigrated generated-schema helpers. The completed DATA padding, flow-control
-window, and content-length mismatch migration slice is archived under
+existing fixture, value, and generated-schema helpers that have not yet moved
+to returned runtime diagnostic payloads. The completed DATA padding,
+flow-control window, and content-length mismatch migration slice is archived
+under
 `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`.
 The completed HTTP/2 invalid frame-kind stream-state migration slice is
 archived under
@@ -407,13 +408,17 @@ archived under
 The completed HTTP/2 standard helper payload slice for invalid DATA padding
 and unexpected SETTINGS ACK diagnostics is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-data-settings-helper-payload.md`.
+The completed cleanup of obsolete HTTP/2 runtime diagnostic side-table
+registrations is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-side-table-cleanup.md`.
 
 A staged migration can keep compatibility for the remaining work:
 
-1. Convert the remaining HTTP/2 protocol and peer-limit projection helpers to
-   the same model.
-2. Remove narrow backend helpers and side-table registrations once no
-   specification case depends on them.
+1. Convert remaining fixture, value, and generated-schema helpers to the same
+   returned-payload model where public diagnostics still depend on the
+   compatibility bridge.
+2. Remove the remaining narrow backend helpers and side-table registrations
+   once no specification case depends on them.
 
 During migration, existing Java runtime helpers can keep producing the same
 public output. The specification should describe the payload semantics, not

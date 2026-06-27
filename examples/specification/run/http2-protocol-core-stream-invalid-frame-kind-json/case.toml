@@ -89,15 +89,15 @@ equals = "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.actual_frame_kind"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5"
+path = "value.detail.rule_provenance"
 equals = "idle_streams_require_headers"

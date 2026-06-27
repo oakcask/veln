@@ -2774,6 +2774,124 @@ fn result_value_parser_exposes_http2_preface_runtime_diagnostics() {
 }
 
 #[test]
+fn result_value_parser_exposes_http2_control_runtime_diagnostics() {
+    let closed = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))",
+    )
+    .expect("closed-input runtime diagnostic value should parse");
+    let continuation = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, ByteChunk([Byte(0), Byte(0), Byte(0)])))",
+    )
+    .expect("continuation runtime diagnostic value should parse");
+    let frame_kind = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_frame_kind, HTTP/2 invalid frame kind at byte offset 0, RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 0, 1, 1, idle-stream, idle_streams_require_headers, ByteChunk([Byte(0)])))",
+    )
+    .expect("invalid frame-kind runtime diagnostic value should parse");
+    let stream_id = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_stream_id, HTTP/2 invalid stream id at byte offset 0, RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, nonzero client-initiated stream id, server, stream-id-domain, server_receives_client_initiated_streams, ByteChunk([Byte(0)])))",
+    )
+    .expect("invalid stream-id runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&closed, "value.detail.pending_count"),
+        Some(&JsonValue::Number(4))
+    );
+    assert_eq!(
+        json_path(&closed, "value.detail.active_continuation"),
+        Some(&JsonValue::String("none".to_string()))
+    );
+    assert_eq!(
+        json_path(&continuation, "value.detail.expected_stream_id"),
+        Some(&JsonValue::Number(1))
+    );
+    assert_eq!(
+        json_path(&continuation, "value.detail.active_continuation"),
+        Some(&JsonValue::String("headers".to_string()))
+    );
+    assert_eq!(
+        json_path(&frame_kind, "value.detail.expected_frame_kind"),
+        Some(&JsonValue::Number(1))
+    );
+    assert_eq!(
+        json_path(&frame_kind, "value.detail.active_state"),
+        Some(&JsonValue::String("idle-stream".to_string()))
+    );
+    assert_eq!(
+        json_path(&stream_id, "value.detail.required_stream_id_domain"),
+        Some(&JsonValue::String(
+            "nonzero client-initiated stream id".to_string()
+        ))
+    );
+    assert_eq!(
+        json_path(&stream_id, "value.detail.rule_provenance"),
+        Some(&JsonValue::String(
+            "server_receives_client_initiated_streams".to_string()
+        ))
+    );
+}
+
+#[test]
+fn result_value_parser_exposes_http2_limit_and_shutdown_runtime_diagnostics() {
+    let payload_length = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 9, RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 8, 0, 3, 4, connection-flow-control, rfc9113_window_update_payload_length, ByteChunk([Byte(1), Byte(2), Byte(3)])))",
+    )
+    .expect("invalid payload-length runtime diagnostic value should parse");
+    let settings_value = parse_result_value(
+        "RuntimeDiagnostic(http2.peer_limit.settings_value_out_of_range, HTTP/2 SETTINGS value outside accepted range at byte offset 9, RuntimeHttp2PeerLimitSettingsValueDiagnostic(9, 5, SETTINGS_MAX_FRAME_SIZE, 16383, 16384, 16777215, peer_settings, ByteChunk([Byte(0), Byte(5)])))",
+    )
+    .expect("settings value runtime diagnostic value should parse");
+    let window_update = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_window_update_increment, HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0, RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, connection-flow-control, window_update_increment_nonzero, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0)])))",
+    )
+    .expect("window-update runtime diagnostic value should parse");
+    let priority = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_priority_dependency, HTTP/2 invalid PRIORITY dependency at byte offset 0, RuntimeHttp2ProtocolPriorityDependencyDiagnostic(0, 1, 1, stream-control, rfc9113_priority_dependency, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(15)])))",
+    )
+    .expect("priority runtime diagnostic value should parse");
+    let goaway = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 9, RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, graceful_shutdown, server, goaway_last_stream_id))",
+    )
+    .expect("stream-after-GOAWAY runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&payload_length, "value.detail.observed_payload_length"),
+        Some(&JsonValue::Number(3))
+    );
+    assert_eq!(
+        json_path(&payload_length, "value.detail.expected_payload_length"),
+        Some(&JsonValue::Number(4))
+    );
+    assert_eq!(
+        json_path(&settings_value, "value.detail.setting_name"),
+        Some(&JsonValue::String("SETTINGS_MAX_FRAME_SIZE".to_string()))
+    );
+    assert_eq!(
+        json_path(&settings_value, "value.detail.peer_limit_provenance"),
+        Some(&JsonValue::String("peer_settings".to_string()))
+    );
+    assert_eq!(
+        json_path(&window_update, "value.detail.accepted_max_window_increment"),
+        Some(&JsonValue::Number(2147483647))
+    );
+    assert_eq!(
+        json_path(&priority, "value.detail.dependency_stream_id"),
+        Some(&JsonValue::Number(1))
+    );
+    assert_eq!(
+        json_path(&priority, "value.detail.preview.constructor"),
+        Some(&JsonValue::String("ByteChunk".to_string()))
+    );
+    assert_eq!(
+        json_path(&goaway, "value.detail.shutdown_state"),
+        Some(&JsonValue::String("graceful_shutdown".to_string()))
+    );
+    assert_eq!(
+        json_path(&goaway, "value.detail.rule_provenance"),
+        Some(&JsonValue::String("goaway_last_stream_id".to_string()))
+    );
+}
+
+#[test]
 fn manifest_output_chunk_lists_parse_ordered_hex_chunks() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -3426,6 +3544,172 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHttp2ProtocolClosedWithPendingDiagnostic" => {
+            let args = expect_arity(name, args, 4)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("pending_count", parse_veln_value(args[1])?),
+                    (
+                        "active_continuation",
+                        JsonValue::String(args[2].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[3])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolContinuationExpectedDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("actual_frame_kind", parse_veln_value(args[1])?),
+                    ("actual_stream_id", parse_veln_value(args[2])?),
+                    ("expected_stream_id", parse_veln_value(args[3])?),
+                    ("started_frame_kind", parse_veln_value(args[4])?),
+                    ("started_byte_offset", parse_veln_value(args[5])?),
+                    (
+                        "active_continuation",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic" => {
+            let args = expect_arity(name, args, 7)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("actual_frame_kind", parse_veln_value(args[1])?),
+                    ("stream_id", parse_veln_value(args[2])?),
+                    ("expected_frame_kind", parse_veln_value(args[3])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[6])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("frame_kind", parse_veln_value(args[1])?),
+                    ("stream_id", parse_veln_value(args[2])?),
+                    (
+                        "required_stream_id_domain",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "endpoint_role",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitFrameSizeDiagnostic" => {
+            let args = expect_arity(name, args, 6)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_payload_length", parse_veln_value(args[1])?),
+                    ("allowed_max_frame_size", parse_veln_value(args[2])?),
+                    ("frame_kind", parse_veln_value(args[3])?),
+                    ("stream_id", parse_veln_value(args[4])?),
+                    (
+                        "receive_limit_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_header_list_size", parse_veln_value(args[1])?),
+                    ("allowed_header_list_size", parse_veln_value(args[2])?),
+                    ("frame_kind", parse_veln_value(args[3])?),
+                    ("stream_id", parse_veln_value(args[4])?),
+                    (
+                        "receive_limit_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitSettingsValueDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("setting_identifier", parse_veln_value(args[1])?),
+                    (
+                        "setting_name",
+                        JsonValue::String(args[2].trim().to_string()),
+                    ),
+                    ("observed_value", parse_veln_value(args[3])?),
+                    ("accepted_min_value", parse_veln_value(args[4])?),
+                    ("accepted_max_value", parse_veln_value(args[5])?),
+                    (
+                        "peer_limit_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("frame_kind", parse_veln_value(args[1])?),
+                    ("stream_id", parse_veln_value(args[2])?),
+                    ("observed_payload_length", parse_veln_value(args[3])?),
+                    ("expected_payload_length", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
         "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic" => {
             let args = expect_arity(name, args, 7)?;
             Ok(result_value_object(
@@ -3576,6 +3860,28 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    ("observed_window_increment", parse_veln_value(args[2])?),
+                    ("accepted_min_window_increment", parse_veln_value(args[3])?),
+                    ("accepted_max_window_increment", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
         "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic" => {
             let args = expect_arity(name, args, 4)?;
             Ok(result_value_object(
@@ -3591,6 +3897,49 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         JsonValue::String(args[2].trim().to_string()),
                     ),
                     ("preview", parse_veln_value(args[3])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolPriorityDependencyDiagnostic" => {
+            let args = expect_arity(name, args, 6)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    ("dependency_stream_id", parse_veln_value(args[2])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[5])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic" => {
+            let args = expect_arity(name, args, 6)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    ("last_stream_id", parse_veln_value(args[2])?),
+                    (
+                        "shutdown_state",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "endpoint_role",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
                 ],
             ))
         }

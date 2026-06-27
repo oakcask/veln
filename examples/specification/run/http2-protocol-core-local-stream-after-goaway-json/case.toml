@@ -69,25 +69,25 @@ equals = "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.0"
+path = "value.detail.byte_offset"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.stream_id"
 equals = 7
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.last_stream_id"
 equals = 5
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.4"
+path = "value.detail.endpoint_role"
 equals = "local"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6"
+path = "value.detail.fields"
 missing = true

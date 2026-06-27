@@ -85,15 +85,15 @@ equals = "RuntimeHttp2PeerLimitSettingsValueDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.setting_identifier"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.setting_name"
 equals = "SETTINGS_ENABLE_PUSH"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6"
+path = "value.detail.peer_limit_provenance"
 equals = "peer_settings"

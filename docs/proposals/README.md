@@ -302,7 +302,9 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 standard helper payload slice for invalid DATA padding
   and unexpected SETTINGS ACK diagnostics is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-data-settings-helper-payload.md`.
-  Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
+  The completed HTTP/2 runtime diagnostic side-table cleanup is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-side-table-cleanup.md`.
+  Remaining work includes migrating other fixture, value, and generated-schema
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
