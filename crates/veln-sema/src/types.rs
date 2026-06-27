@@ -1005,6 +1005,7 @@ fn private_call_site_non_target_params(
                     .map(|(index, _)| {
                         expected
                             .and_then(|expected| adt::payload_type(expected, constructor, index))
+                            .filter(|ty| !type_has_unknown(ty))
                             .unwrap_or(Type::Unknown)
                     })
                     .collect::<Vec<_>>()

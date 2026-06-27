@@ -1,0 +1,61 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "expected `fn(Int) -> String`, but found `fn(String) -> String`", "\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private parameter `fixed` has no inferred type"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 20
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `fixed` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(Int) -> String`, but found `fn(String) -> String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 19
+column = 12
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `GenericProcessor` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 23
+column = 18

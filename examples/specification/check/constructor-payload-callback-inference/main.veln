@@ -1,0 +1,20 @@
+type CallbackCarrier
+	Processor(run: fn(Int) -> String)
+	OptionalProcessor(run: fn(Int) -> Option<Vec<String>>)
+end
+
+fn stringify(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
+fn optional_items(value)
+	Some([])
+end
+
+pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier}
+	{
+		processor: Processor(stringify),
+		optional: OptionalProcessor(optional_items)
+	}
+end

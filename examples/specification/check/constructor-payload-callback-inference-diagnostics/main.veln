@@ -1,0 +1,25 @@
+type CallbackCarrier
+	Processor(run: fn(Int) -> String)
+end
+
+type GenericCarrier<A>
+	GenericProcessor(run: fn(A, Int) -> String)
+end
+
+fn string_body(value) -> String
+	let text: String = value
+	text
+end
+
+fn missing_context(value, fixed) -> String
+	"ok"
+end
+
+pub fn body_conflict() -> CallbackCarrier
+	Processor(string_body)
+end
+
+pub fn non_concrete_payload() -> String
+	let processor = GenericProcessor(missing_context)
+	"ok"
+end
