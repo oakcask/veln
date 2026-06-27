@@ -73,11 +73,17 @@
     }
 
     public static Object equal(Object left, Object right) {
-        return Boolean.valueOf(java.util.Objects.equals(left, right));
+        return Boolean.valueOf(java.util.Objects.equals(
+            diagnosticResultValue(left),
+            diagnosticResultValue(right)
+        ));
     }
 
     public static Object notEqual(Object left, Object right) {
-        return Boolean.valueOf(!java.util.Objects.equals(left, right));
+        return Boolean.valueOf(!java.util.Objects.equals(
+            diagnosticResultValue(left),
+            diagnosticResultValue(right)
+        ));
     }
 
     public static Object less(Object left, Object right) {

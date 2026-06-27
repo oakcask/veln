@@ -20,6 +20,16 @@
 
     @SuppressWarnings("unchecked")
     private static Object freezeValue(Object value) {
+        if (value instanceof DiagnosticResultValue) {
+            DiagnosticResultValue diagnostic = (DiagnosticResultValue) value;
+            return new DiagnosticResultValue(
+                diagnostic.value,
+                diagnostic.fixtureHexDiagnostic,
+                diagnostic.byteDiagnostic,
+                diagnostic.valueDiagnostic,
+                diagnostic.protocolDiagnostic
+            );
+        }
         if (value instanceof java.util.List) {
             return freezeList((java.util.List<Object>) value);
         }
@@ -51,6 +61,16 @@
 
     @SuppressWarnings("unchecked")
     private static Object freezeBoundaryValue(Object value) {
+        if (value instanceof DiagnosticResultValue) {
+            DiagnosticResultValue diagnostic = (DiagnosticResultValue) value;
+            return new DiagnosticResultValue(
+                freezeBoundaryValue(diagnostic.value),
+                diagnostic.fixtureHexDiagnostic,
+                diagnostic.byteDiagnostic,
+                diagnostic.valueDiagnostic,
+                diagnostic.protocolDiagnostic
+            );
+        }
         if (isByteViewValue(value)) {
             return freezeByteView(value);
         }
@@ -95,6 +115,7 @@
         throw new IllegalStateException("value is not callable");
     }
     public static String format(Object value) {
+        value = diagnosticResultValue(value);
         if (value == UNIT) {
             return "()";
         }
@@ -133,6 +154,7 @@
     }
 
     private static String asString(Object value) {
+        value = diagnosticResultValue(value);
         return (String) value;
     }
 
@@ -163,9 +185,16 @@
     }
 
     private static Adt asAdt(Object value, String name) {
+        value = diagnosticResultValue(value);
         Adt adt = (Adt) value;
         if (!adt.name.equals(name)) {
             throw new IllegalStateException("expected " + name + ", found " + adt.name);
         }
         return adt;
+    }
+
+    private static Object diagnosticResultValue(Object value) {
+        return value instanceof DiagnosticResultValue
+            ? ((DiagnosticResultValue) value).value
+            : value;
     }

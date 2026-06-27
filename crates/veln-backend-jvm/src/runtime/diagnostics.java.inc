@@ -34,16 +34,19 @@
         }
         Object resultValue = asResult(result).value();
         String value = format(resultValue);
-        FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
+        DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
+        FixtureHexDiagnostic fixtureHex = carriedDiagnostic == null
+            ? null
+            : carriedDiagnostic.fixtureHexDiagnostic;
         RuntimeDiagnosticPayload runtimeDiagnostic = runtimeDiagnosticPayload(resultValue);
         ByteDiagnostic byteDiagnostic = runtimeDiagnostic == null
-            ? resultByteDiagnostic(resultValue, value)
+            ? carriedByteDiagnostic(resultValue, carriedDiagnostic)
             : runtimeDiagnostic.byteDiagnostic;
         ValueDiagnostic valueDiagnostic = runtimeDiagnostic == null
-            ? resultValueDiagnostic(resultValue, value)
+            ? carriedValueDiagnostic(resultValue, carriedDiagnostic)
             : runtimeDiagnostic.valueDiagnostic;
         ProtocolDiagnostic protocolDiagnostic = runtimeDiagnostic == null
-            ? null
+            ? carriedProtocolDiagnostic(carriedDiagnostic)
             : runtimeDiagnostic.protocolDiagnostic;
         String line = "result"
             + "\t" + hex(value);
@@ -99,23 +102,14 @@
         }
     }
 
-    private static final ThreadLocal<java.util.Map<String, FixtureHexDiagnostic>> fixtureHexDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static final ThreadLocal<java.util.Map<String, ByteDiagnostic>> byteDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static final ThreadLocal<java.util.Map<String, ValueDiagnostic>> valueDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static ByteDiagnostic byteDiagnosticForMessage(Object message) {
-        if (!(message instanceof String)) {
-            return null;
-        }
-        return byteDiagnostics.get().get(asString(message));
+    private static DiagnosticResultValue carriedDiagnosticValue(Object value) {
+        return value instanceof DiagnosticResultValue ? (DiagnosticResultValue) value : null;
     }
 
-    private static ByteDiagnostic resultByteDiagnostic(Object value, String message) {
+    private static ByteDiagnostic carriedByteDiagnostic(
+        Object value,
+        DiagnosticResultValue carriedDiagnostic
+    ) {
         ByteDiagnostic diagnostic = decodeErrorByteDiagnostic(value);
         if (diagnostic != null) {
             return diagnostic;
@@ -124,15 +118,23 @@
         if (diagnostic != null) {
             return diagnostic;
         }
-        return byteDiagnostics.get().remove(message);
+        return carriedDiagnostic == null ? null : carriedDiagnostic.byteDiagnostic;
     }
 
-    private static ValueDiagnostic resultValueDiagnostic(Object value, String message) {
-        ValueDiagnostic carried = valueDiagnostics.get().remove(message);
-        if (carried != null) {
-            return carried;
+    private static ValueDiagnostic carriedValueDiagnostic(
+        Object value,
+        DiagnosticResultValue carriedDiagnostic
+    ) {
+        if (carriedDiagnostic != null && carriedDiagnostic.valueDiagnostic != null) {
+            return carriedDiagnostic.valueDiagnostic;
         }
         return encodeErrorValueDiagnostic(value);
+    }
+
+    private static ProtocolDiagnostic carriedProtocolDiagnostic(
+        DiagnosticResultValue carriedDiagnostic
+    ) {
+        return carriedDiagnostic == null ? null : carriedDiagnostic.protocolDiagnostic;
     }
 
     private static RuntimeDiagnosticPayload runtimeDiagnosticPayload(Object value) {
@@ -1102,13 +1104,41 @@
         );
     }
 
-    private static void registerCodecIncompleteInputDiagnostic(
+    private static Object diagnosticErr(
+        Object value,
+        FixtureHexDiagnostic fixtureHexDiagnostic,
+        ByteDiagnostic byteDiagnostic,
+        ValueDiagnostic valueDiagnostic,
+        ProtocolDiagnostic protocolDiagnostic
+    ) {
+        return err(new DiagnosticResultValue(
+            value,
+            fixtureHexDiagnostic,
+            byteDiagnostic,
+            valueDiagnostic,
+            protocolDiagnostic
+        ));
+    }
+
+    private static Object diagnosticErr(Object value, FixtureHexDiagnostic fixtureHexDiagnostic) {
+        return diagnosticErr(value, fixtureHexDiagnostic, null, null, null);
+    }
+
+    private static Object diagnosticErr(Object value, ByteDiagnostic byteDiagnostic) {
+        return diagnosticErr(value, null, byteDiagnostic, null, null);
+    }
+
+    private static Object diagnosticErr(Object value, ValueDiagnostic valueDiagnostic) {
+        return diagnosticErr(value, null, null, valueDiagnostic, null);
+    }
+
+    private static Object codecIncompleteInputDiagnostic(
         String message,
         long byteOffset,
         long expectedCount,
         long availableCount
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "codec.incomplete_input",
@@ -1123,14 +1153,14 @@
         );
     }
 
-    private static void registerCodecByteRangeOutOfBoundsDiagnostic(
+    private static Object codecByteRangeOutOfBoundsDiagnostic(
         String message,
         long byteOffset,
         long requestedCount,
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "codec.byte_range_out_of_bounds",
@@ -1145,7 +1175,7 @@
         );
     }
 
-    private static void registerSchemaTruncatedFieldDiagnostic(
+    private static Object schemaTruncatedFieldDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1154,7 +1184,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        registerSchemaTruncatedFieldPathDiagnostic(
+        return schemaTruncatedFieldPathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -1164,7 +1194,7 @@
         );
     }
 
-    private static void registerSchemaTruncatedFieldPathDiagnostic(
+    private static Object schemaTruncatedFieldPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1172,7 +1202,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.truncated_field",
@@ -1188,7 +1218,7 @@
         );
     }
 
-    private static void registerSchemaFixedFieldMismatchDiagnostic(
+    private static Object schemaFixedFieldMismatchStringDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1197,7 +1227,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        registerSchemaFixedFieldMismatchPathDiagnostic(
+        return schemaFixedFieldMismatchPathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -1207,7 +1237,7 @@
         );
     }
 
-    private static void registerSchemaFixedFieldMismatchPathDiagnostic(
+    private static Object schemaFixedFieldMismatchPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1215,7 +1245,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.fixed_field_mismatch",
@@ -1230,7 +1260,7 @@
         );
     }
 
-    private static void registerSchemaReservedBitsMismatchDiagnostic(
+    private static Object schemaReservedBitsMismatchDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1240,7 +1270,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.reserved_bits_mismatch",
@@ -1259,7 +1289,7 @@
         );
     }
 
-    private static void registerSchemaLengthOutOfBoundsDiagnostic(
+    private static Object schemaLengthOutOfBoundsDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1268,7 +1298,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_out_of_bounds",
@@ -1286,7 +1316,7 @@
         );
     }
 
-    private static void registerSchemaLengthOutOfBoundsPathDiagnostic(
+    private static Object schemaLengthOutOfBoundsPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1294,7 +1324,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_out_of_bounds",
@@ -1309,7 +1339,7 @@
         );
     }
 
-    private static void registerSchemaIntegerOutOfRangeDiagnostic(
+    private static Object schemaIntegerOutOfRangeDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1320,7 +1350,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        registerSchemaIntegerOutOfRangePathDiagnostic(
+        return schemaIntegerOutOfRangePathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -1332,7 +1362,7 @@
         );
     }
 
-    private static void registerSchemaIntegerOutOfRangePathDiagnostic(
+    private static Object schemaIntegerOutOfRangePathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1342,7 +1372,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.integer_out_of_range",
@@ -1396,7 +1426,7 @@
         return path;
     }
 
-    private static void registerSchemaValidationFailedDiagnostic(
+    private static Object schemaValidationFailedDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1415,7 +1445,7 @@
             details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
         }
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.validation_failed",
@@ -1429,7 +1459,7 @@
         );
     }
 
-    private static void registerSchemaStructuralValidationFailedDiagnostic(
+    private static Object schemaStructuralValidationFailedDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1445,7 +1475,7 @@
             details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
         }
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.validation_failed",
@@ -1458,7 +1488,7 @@
         );
     }
 
-    private static void registerSchemaMappingDivisionByZeroDiagnostic(
+    private static Object schemaMappingDivisionByZeroDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1470,7 +1500,7 @@
         details.add(DiagnosticDetail.string("target_field", targetField));
         details.add(DiagnosticDetail.string("operator", "/"));
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.mapping_division_by_zero",
@@ -1484,7 +1514,7 @@
         );
     }
 
-    private static void registerSchemaLengthDivisionByZeroDiagnostic(
+    private static Object schemaLengthDivisionByZeroDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1498,7 +1528,7 @@
         details.add(DiagnosticDetail.string("divisor_operand", divisorOperand));
         details.add(DiagnosticDetail.string("operator", "/"));
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_division_by_zero",
@@ -1509,8 +1539,8 @@
         );
     }
 
-    private static void registerSchemaValueValidationFailedDiagnostic(
-        String message,
+    private static Object schemaValueValidationFailedDiagnostic(
+        Object value,
         String schemaName,
         String fieldName,
         String predicate,
@@ -1533,13 +1563,13 @@
         if (fieldName != null && !fieldName.isEmpty()) {
             path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
         }
-        valueDiagnostics.get().put(
-            message,
+        return diagnosticErr(
+            value,
             new ValueDiagnostic("schema.validation_failed", path, details)
         );
     }
 
-    private static void registerByteWriteValueDiagnostic(
+    private static Object byteWriteValueDiagnostic(
         String message,
         String helperName,
         long suppliedValue,
@@ -1548,7 +1578,7 @@
         long width,
         boolean littleEndian
     ) {
-        valueDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ValueDiagnostic(
                 "codec.byte_write_value_unrepresentable",
@@ -1583,7 +1613,7 @@
         return new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details);
     }
 
-    private static void registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+    private static Object schemaByteViewEncodeLengthMismatchDiagnostic(
         Object error,
         Object view,
         long expectedCount,
@@ -1603,9 +1633,12 @@
         details.add(DiagnosticDetail.string("length_expression", lengthExpression));
         details.add(DiagnosticDetail.number("byte_offset", byteViewOffset(view)));
         details.add(DiagnosticDetail.bytePreview("byte_preview", byteViewPreviewTrace(view, 8)));
-        valueDiagnostics.get().put(
-            format(error),
-            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
+        return new DiagnosticResultValue(
+            error,
+            null,
+            null,
+            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details),
+            null
         );
     }
 
@@ -1629,9 +1662,10 @@
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
         if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
-            String reason = asString(error.payloads[3]);
+            Object reasonValue = error.payloads[3];
+            String reason = asString(reasonValue);
             details.add(DiagnosticDetail.string("reason", reason));
-            mergeDecodeErrorReasonByteContext(details, reason);
+            mergeDecodeErrorReasonByteContext(details, reasonValue);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
         return new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details);
@@ -1639,9 +1673,10 @@
 
     private static void mergeDecodeErrorReasonByteContext(
         java.util.ArrayList<DiagnosticDetail> details,
-        String reason
+        Object reason
     ) {
-        ByteDiagnostic carried = byteDiagnostics.get().remove(reason);
+        DiagnosticResultValue diagnostic = carriedDiagnosticValue(reason);
+        ByteDiagnostic carried = diagnostic == null ? null : diagnostic.byteDiagnostic;
         if (carried == null) {
             return;
         }
@@ -1707,7 +1742,7 @@
         return path;
     }
 
-    private static void registerSchemaDispatchUnknownTagDiagnostic(
+    private static Object schemaDispatchUnknownTagDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1717,7 +1752,7 @@
         String expectedTags,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.dispatch_unknown_tag",
@@ -1787,7 +1822,7 @@
         return out;
     }
 
-    private static void registerFixtureHexDiagnostic(
+    private static Object fixtureHexDiagnostic(
         String message,
         String id,
         String input,
@@ -1798,7 +1833,7 @@
     ) {
         int contextStart = Math.max(0, textStart - 8);
         int contextEnd = Math.min(input.length(), textEnd + 8);
-        fixtureHexDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new FixtureHexDiagnostic(
                 id,

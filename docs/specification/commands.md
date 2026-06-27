@@ -110,7 +110,7 @@ requiring the full command reference on the first read.
   requested count, available count, and bounded nearby byte preview in related
   notes. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` value uses
-  the same human byte-diagnostic rendering as side-table-backed runtime byte
+  the same human byte-diagnostic rendering as value-carried runtime byte
   failures, with the id, byte offset, field path, counts, readiness,
   fixed-field expected and actual values, reason, and optional preview
   projected from the returned error value itself. Generated binary schema

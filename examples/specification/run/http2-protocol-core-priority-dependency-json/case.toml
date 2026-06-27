@@ -129,7 +129,7 @@ equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.fields.3.value"
+path = "value.detail.preview.bytes.3.value"
 equals = 1
 
 [[result_value_assert]]

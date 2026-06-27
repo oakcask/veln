@@ -1996,7 +1996,7 @@ execution reference.
   state, and rule provenance remain structured details or related notes.
   A source-visible
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` payload carries
-  those request header-list facts without using the legacy helper side table.
+  those request header-list facts in the returned diagnostic value.
   The standard `http2_protocol_invalid_request_header_list(...)` helper returns
   this payload directly as `Result<(), RuntimeDiagnostic>`, so direct helper
   command output is rendered from the returned value.
@@ -2024,7 +2024,7 @@ execution reference.
   fields. The raw HPACK uppercase and invalid-token trailer-name cases carry
   those facts in source-visible
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` payloads
-  instead of relying on the legacy helper side table.
+  returned by the failing command path.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers
@@ -2038,8 +2038,7 @@ execution reference.
   detail shape as request validation while naming the response-specific
   failed header-list fact. A source-visible
   `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payload
-  carries those response header-list facts without using the legacy helper
-  side table.
+  carries those response header-list facts in the returned diagnostic value.
   The standard `http2_protocol_invalid_response_header_list(...)` helper
   returns this payload directly as `Result<(), RuntimeDiagnostic>`, so direct
   helper command output is rendered from the returned value.

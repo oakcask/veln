@@ -42,8 +42,8 @@ value. When the result value is a compact fixture hex failure from
 When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...))`,
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value and
-`details.byte_diagnostic` is projected from that value, not from a
-message-keyed runtime side table. The implemented byte detail constructor
+`details.byte_diagnostic` is projected from that value. The implemented byte
+detail constructor
 carries the stable id, message, `ByteOffset`, field-path segment list, one of
 the supported byte fact constructors, and an optional bounded byte preview.
 Count/readiness facts project to `expected_count`, `available_count`, and
@@ -518,8 +518,7 @@ JSON examples return source-visible
 `http2_peer_limit_header_table_size_exceeded`, and
 `http2_peer_limit_concurrent_streams_exceeded` standard helpers return the
 same `RuntimeDiagnostic(...)` values directly, so their JSON result details
-are also derived from the returned value rather than a compatibility
-side-table entry.
+are also derived from the returned value.
 The frame-size
 peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
@@ -598,8 +597,7 @@ id `http2.peer_limit.header_table_size_exceeded` and records
 as the receive-limit provenance for rejecting incoming table-size updates.
 The `http2_peer_limit_header_table_size_exceeded(...)` standard helper
 returns the same `RuntimeDiagnostic(...)` value directly, so its JSON result
-details are also derived from the returned value rather than a compatibility
-side-table entry.
+details are also derived from the returned value.
 The `http2_peer_limit_concurrent_streams_exceeded(...)` standard helper
 likewise returns the same `RuntimeDiagnostic(...)` value directly, preserving
 `details.value` and the structured concurrent-stream protocol fields from the
@@ -651,8 +649,7 @@ while byte offset, setting identity, observed value, accepted range, and
 peer-limit provenance remain separate fields. The
 `http2_peer_limit_settings_value_out_of_range(...)` standard helper returns
 the same `RuntimeDiagnostic(...)` value directly, so its JSON result details
-are also derived from the returned value rather than a compatibility
-side-table entry. The
+are also derived from the returned value. The
 stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `required_stream_id_domain`, `endpoint_role`, `active_state`, and
@@ -663,7 +660,7 @@ rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the same
 protocol diagnostic fields. The standard
 `http2_protocol_invalid_stream_id(...)` helper returns the same
 `RuntimeDiagnostic(...)` value directly, so its JSON result details are also
-derived from the returned value rather than a compatibility side-table entry.
+derived from the returned value.
 The preview uses the same object shape as other protocol-owned byte previews
 while stream id domain facts stay in their own fields; the checked HTTP/2
 examples cover invalid zero stream ids, even client stream ids, nonzero stream
@@ -745,8 +742,8 @@ supported literal-name forms,
 symbol, and `hpack.fixture.huffman_non_visible_value` for HPACK Huffman output
 that decodes to a non-visible checked header value. The source-visible runtime
 diagnostic payload path for those ids uses the same
-`details.protocol_diagnostic` field shape as the legacy side-table-backed
-fixture helpers. These diagnostics record
+`details.protocol_diagnostic` field shape as the standard fixture helpers.
+These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
 structured bounded `byte_preview` for the inspected header-block bytes.

@@ -103,5 +103,5 @@ equals = "local_configuration"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.fields.1.value"
+path = "value.detail.preview.bytes.1.value"
 equals = 129

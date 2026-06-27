@@ -226,6 +226,8 @@ behavior.
   [runtime-diagnostic-test-json-payload.md](runtime-diagnostic-test-json-payload.md).
 - Runtime diagnostic result value trace projection:
   [runtime-diagnostic-result-value-trace-projection.md](runtime-diagnostic-result-value-trace-projection.md).
+- Runtime diagnostic payloads:
+  [runtime-diagnostic-payload.md](runtime-diagnostic-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

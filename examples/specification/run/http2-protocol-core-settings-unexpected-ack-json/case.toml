@@ -100,5 +100,5 @@ equals = "rfc9113_settings_ack_requires_outstanding_local_settings"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.fields.4.value"
+path = "value.detail.preview.bytes.4.value"
 equals = 1

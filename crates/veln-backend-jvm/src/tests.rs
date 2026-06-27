@@ -117,7 +117,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
             VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(2) }),
             VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(3) })
         )).value();
-        String byteReadReason = (String) ((VelnRuntime.Result) VelnRuntime.byteReadU32Be(view)).value();
+        Object byteReadReason = ((VelnRuntime.Result) VelnRuntime.byteReadU32Be(view)).value();
         Object contextualDecodeError = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
             new Object[] {
