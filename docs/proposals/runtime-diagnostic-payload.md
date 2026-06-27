@@ -202,7 +202,8 @@ invalid frame kind including peer-sent `PUSH_PROMISE`, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, stream id domain failures, fixed payload length for SETTINGS ACK,
-PING, GOAWAY, and `RST_STREAM`, DATA padding, flow-control window,
+PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`, DATA padding,
+flow-control window,
 content-length mismatch,
 request and response header-list validation, invalid `WINDOW_UPDATE`
 increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
@@ -257,6 +258,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-human/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
+`../../examples/specification/run/http2-protocol-core-window-update-length-json/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
@@ -309,6 +311,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-concurrent-streams-helper-human/`,
 `../../examples/specification/run/runtime-diagnostic-http2-concurrent-streams-helper-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-window-update-payload-length-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-human/`,
@@ -365,6 +368,9 @@ slice is archived under
 The completed HTTP/2 concurrent-stream receive-limit standard helper
 migration slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-concurrent-streams-helper-payload.md`.
+The completed HTTP/2 invalid payload-length standard helper migration slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-payload-length-helper-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

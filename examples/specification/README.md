@@ -2637,6 +2637,12 @@ against the built `veln` binary.
   through `run --json` with byte offset, frame kind, stream reference,
   observed and expected payload lengths, structured byte preview, active
   state, and rule provenance.
+- `run/http2-protocol-core-window-update-length-json/`: a wrong-length
+  `WINDOW_UPDATE` payload reports `http2.protocol.invalid_payload_length`
+  through `run --json` with byte offset, frame kind, connection stream
+  reference, observed and expected payload lengths, structured payload byte
+  preview, active state, rule provenance, and a rendered
+  `RuntimeDiagnostic(...)` result value.
 - `run/http2-protocol-core-stream-after-goaway-human/`: a peer-created
   HEADERS stream greater than a recorded GOAWAY last stream id reports
   `http2.protocol.stream_after_goaway` through human `run` stderr with

@@ -3778,18 +3778,27 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidPayloadLengthDiagnostic(
-            message,
-            byteOffset,
-            kind,
-            stream,
-            observed,
-            expected,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                Long.valueOf(observed),
+                Long.valueOf(expected),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_payload_length",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidWindowUpdateIncrement(

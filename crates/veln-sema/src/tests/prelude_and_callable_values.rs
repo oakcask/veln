@@ -9620,7 +9620,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "closed_http2: Result<(), RuntimeDiagnostic>, partial_preface_http2: Result<(), RuntimeDiagnostic>, ",
             "invalid_preface_http2: Result<(), RuntimeDiagnostic>, continuation_http2: Result<(), RuntimeDiagnostic>, ",
             "invalid_kind_http2: Result<(), RuntimeDiagnostic>, invalid_stream_http2: Result<(), String>, ",
-            "invalid_payload_http2: Result<(), String>, invalid_window_update_increment_http2: Result<(), String>, ",
+            "invalid_payload_http2: Result<(), RuntimeDiagnostic>, invalid_window_update_increment_http2: Result<(), String>, ",
             "invalid_data_padding_http2: Result<(), String>, content_length_http2: Result<(), String>, ",
             "invalid_request_headers_http2: Result<(), String>, unexpected_settings_ack_http2: Result<(), String>, ",
             "invalid_priority_dependency_http2: Result<(), String>, ",

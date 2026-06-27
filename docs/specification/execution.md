@@ -1475,12 +1475,16 @@ execution reference.
   `http2_protocol_partial_preface`, `http2_protocol_invalid_preface`,
   `http2_protocol_continuation_expected`,
   `http2_protocol_invalid_frame_kind`,
+  `http2_protocol_invalid_payload_length`,
   `http2_peer_limit_frame_size_exceeded`,
   `http2_peer_limit_header_list_size_exceeded`,
   `http2_peer_limit_header_table_size_exceeded`,
   `http2_peer_limit_concurrent_streams_exceeded`, and
   `http2_peer_limit_settings_value_out_of_range` standard helpers return
   their HTTP/2 protocol payloads directly as `Result<(), RuntimeDiagnostic>`.
+  The checked fixed-payload-length protocol examples include SETTINGS ACK,
+  PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` as source-visible
+  `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
