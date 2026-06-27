@@ -1,0 +1,96 @@
+# Derived codec encode boundaries include quotient-sized ByteView helpers.
+use stdio
+
+schema PacketWire
+	format binary
+
+	total_length: UInt8
+	chunk_count: UInt8
+	payload: ByteView(total_length / chunk_count)
+end
+
+codec PacketCodec for PacketWire encode
+	derive encode
+end
+
+fn step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::println("output_chunk_list byteview-quotient-derived count 1")
+	emit_output_chunk("byteview-quotient-derived", 0, chunk, expected_hex)
+end
+
+fn emit_encoded(step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(chunk, expected_hex)
+		Encoded(_) => stdio::println("unexpected encoded chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccdd")?
+	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(4)?)?
+	let encoded: EncodeStep<()> = PacketCodec({total_length: 8, chunk_count: 2, payload: payload})
+	stdio::println(step_kind(encoded))
+	emit_encoded(encoded, "0802aabbccdd")
+
+	let short_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
+	let short_payload: ByteView = byte_view(short_payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let length_mismatch: EncodeStep<()> = PacketCodec({total_length: 8, chunk_count: 2, payload: short_payload})
+	stdio::println(step_kind(length_mismatch))
+	stdio::println(error_id(length_mismatch))
+	stdio::println(error_path(length_mismatch))
+	stdio::println(error_reason(length_mismatch))
+
+	let empty_payload_bytes: ByteChunk = byte_chunk_from_hex("")?
+	let empty_payload: ByteView = byte_view(empty_payload_bytes, byte_offset(0)?, byte_count(0)?)?
+	let division_by_zero: EncodeStep<()> = PacketCodec({total_length: 8, chunk_count: 0, payload: empty_payload})
+	stdio::println(step_kind(division_by_zero))
+	stdio::println(error_id(division_by_zero))
+	stdio::println(error_path(division_by_zero))
+	stdio::println(error_reason(division_by_zero))
+	Ok(())
+end
