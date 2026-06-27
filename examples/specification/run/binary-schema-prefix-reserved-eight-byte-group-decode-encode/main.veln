@@ -1,0 +1,39 @@
+use stdio
+
+schema EightBytePrefixReservedGroupHeader
+	format binary
+
+	prefix: ReservedBits(57, 96076792050570581)
+	high: UInt3
+	low: UInt4
+end
+
+fn emit_decoded(decoded: {high: Int, low: Int}) -> () effects [stdio]
+	stdio::println(int_to_string(decoded.high))
+	stdio::println(int_to_string(decoded.low))
+end
+
+fn emit_encoded_round_trip(chunk: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	let view: ByteView = byte_view(chunk, byte_offset(0)?, byte_count(8)?)?
+	let decoded: {high: Int, low: Int} = byte_decode_eight_byte_prefix_reserved_group_header(view)?
+	emit_decoded(decoded)
+	Ok(())
+end
+
+fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => emit_encoded_round_trip(chunk)
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaaaaada")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded: {high: Int, low: Int} = byte_decode_eight_byte_prefix_reserved_group_header(view)?
+	emit_decoded(decoded)
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_eight_byte_prefix_reserved_group_header({high: 5, low: 10})
+	emit_encoded(encoded)
+end

@@ -1,0 +1,13 @@
+schema SevenBytePrefixReservedGroupHeader
+	format binary
+
+	prefix: ReservedBits(49, 375299968947541)
+	high: UInt3
+	low: UInt4
+end
+
+pub fn main() -> Result<{high: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaab5a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	byte_decode_seven_byte_prefix_reserved_group_header(view)
+end

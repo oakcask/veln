@@ -4150,7 +4150,7 @@ fn supported_prefix_reserved_group(
     bit_width: i64,
     expected_value: i64,
 ) -> bool {
-    if bit_width <= 0 || bit_width > 48 {
+    if bit_width <= 0 || bit_width > 57 {
         return false;
     }
     if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
@@ -4180,12 +4180,16 @@ fn supported_prefix_reserved_group(
     let supported_four_byte_group = (25..=31).contains(&bit_width) && total_bit_width == 32;
     let supported_five_byte_group = bit_width == 33 && total_bit_width == 40;
     let supported_six_byte_group = bit_width == 41 && total_bit_width == 48;
+    let supported_seven_byte_group = bit_width == 49 && total_bit_width == 56;
+    let supported_eight_byte_group = bit_width == 57 && total_bit_width == 64;
     (supported_one_byte_group
         || supported_two_byte_group
         || supported_three_byte_group
         || supported_four_byte_group
         || supported_five_byte_group
-        || supported_six_byte_group)
+        || supported_six_byte_group
+        || supported_seven_byte_group
+        || supported_eight_byte_group)
         && expected_value < (1_i64 << bit_width)
 }
 

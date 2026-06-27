@@ -115,12 +115,15 @@ compare it with `../specification/` before changing behavior.
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode, including the narrow two-byte byte-interleaved
   middle layout,
-  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte
+  one-byte, two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte,
+  and eight-byte
   reserved prefix groups followed by two visible `UIntN` fields, including
   two-byte reserved prefix widths one through fourteen, three-byte reserved
   prefix widths seventeen through twenty-three, four-byte reserved prefix
   widths twenty-five through thirty-one, five-byte reserved prefix width
-  thirty-three, and six-byte reserved prefix width forty-one, and
+  thirty-three, six-byte reserved prefix width forty-one, seven-byte reserved
+  prefix width forty-nine, and eight-byte reserved prefix width fifty-seven,
+  and
   consecutive non-byte-aligned
   `UIntN` and
   `ReservedBits(width, value)` groups that complete one byte or one
@@ -207,6 +210,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
   [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
+  The completed seven-byte and eight-byte reserved prefix group slice is
+  archived under
+  [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

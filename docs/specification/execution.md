@@ -495,7 +495,8 @@ execution reference.
   sub-byte or byte-width `UIntN` fields when all three widths complete one
   byte, a two-byte big-endian storage unit, a three-byte big-endian
   storage unit, a four-byte big-endian storage unit, a five-byte
-  big-endian storage unit, or a six-byte big-endian storage unit. In the
+  big-endian storage unit, a six-byte big-endian storage unit, a seven-byte
+  big-endian storage unit, or an eight-byte big-endian storage unit. In the
   two-byte form,
   reserved prefix widths one through
   fourteen are accepted when the two visible fields complete the remaining
@@ -507,6 +508,10 @@ execution reference.
   five-byte form, a reserved prefix width thirty-three is accepted when the
   two visible fields complete the remaining bits in declaration order; in the
   six-byte form, a reserved prefix width forty-one is accepted when the
+  two visible fields complete the remaining bits in declaration order; in the
+  seven-byte form, a reserved prefix width forty-nine is accepted when the
+  two visible fields complete the remaining bits in declaration order; in the
+  eight-byte form, a reserved prefix width fifty-seven is accepted when the
   two visible fields complete the remaining bits in declaration order. That
   form validates the high reserved bits, decodes the following visible fields
   from their declared high-to-low positions, omits the reserved field, and
@@ -951,9 +956,10 @@ execution reference.
   visible sub-byte or byte-width `UIntN` fields whose widths complete one
   byte, a two-byte big-endian storage unit, a three-byte big-endian
   storage unit, a four-byte big-endian storage unit, a five-byte
-  big-endian storage unit, or a six-byte big-endian storage unit writes the
-  declared reserved value first, then the two visible values in declaration
-  order. The two-byte encode form accepts
+  big-endian storage unit, a six-byte big-endian storage unit, a seven-byte
+  big-endian storage unit, or an eight-byte big-endian storage unit writes
+  the declared reserved value first, then the two visible values in
+  declaration order. The two-byte encode form accepts
   reserved
   prefix widths one through fourteen when the visible fields complete the
   remaining bits, the three-byte encode form accepts reserved prefix widths
@@ -963,7 +969,10 @@ execution reference.
   remaining bits, the five-byte encode form accepts reserved prefix width
   thirty-three when the visible fields complete the remaining bits, the
   six-byte encode form accepts reserved prefix width forty-one when the
-  visible fields complete the remaining bits,
+  visible fields complete the remaining bits, the seven-byte encode form
+  accepts reserved prefix width forty-nine when the visible fields complete
+  the remaining bits, the eight-byte encode form accepts reserved prefix
+  width fifty-seven when the visible fields complete the remaining bits,
   and reports `codec.encode_value_unrepresentable` at the
   out-of-range visible field. The narrow `ReservedBits(2, 0)` and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte
@@ -1257,6 +1266,14 @@ execution reference.
   `examples/specification/run/binary-schema-prefix-reserved-six-byte-group-json/`,
   `examples/specification/run/binary-schema-prefix-reserved-six-byte-group-human/`,
   `examples/specification/run/binary-schema-prefix-reserved-six-byte-group-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-decode-encode/`,
+  `examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-human/`,
+  `examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-decode-encode/`,
+  `examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-json/`,
+  `examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-human/`,
+  `examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-encode-out-of-range/`,
   `examples/specification/run/binary-schema-split-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-interleaved-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-interleaved-reserved-json/`,

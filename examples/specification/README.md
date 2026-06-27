@@ -659,6 +659,16 @@ against the built `veln` binary.
   prefix group where `ReservedBits(41, value)` is followed by two visible
   sub-byte `UIntN` fields, omit the reserved field from the value record, and
   preserve both visible fields in declaration order.
+- `run/binary-schema-prefix-reserved-seven-byte-group-decode-encode/`:
+  generated schema helpers decode and encode a seven-byte big-endian reserved
+  prefix group where `ReservedBits(49, value)` is followed by two visible
+  sub-byte `UIntN` fields, omit the reserved field from the value record, and
+  preserve both visible fields in declaration order.
+- `run/binary-schema-prefix-reserved-eight-byte-group-decode-encode/`:
+  generated schema helpers decode and encode an eight-byte big-endian reserved
+  prefix group where `ReservedBits(57, value)` is followed by two visible
+  sub-byte `UIntN` fields, omit the reserved field from the value record, and
+  preserve both visible fields in declaration order.
 - `run/binary-schema-prefix-reserved-three-byte-group-json/`: generated
   schema decode helpers report `schema.reserved_bits_mismatch` for the
   three-byte reserved prefix group with stable field path, byte offset, bit
@@ -675,11 +685,25 @@ against the built `veln` binary.
   decode helpers report `schema.reserved_bits_mismatch` for the six-byte
   reserved prefix group with stable field path, byte offset, bit width,
   expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-seven-byte-group-json/`: generated
+  schema decode helpers report `schema.reserved_bits_mismatch` for the
+  seven-byte reserved prefix group with stable field path, byte offset, bit
+  width, expected value, actual value, and byte preview details.
+- `run/binary-schema-prefix-reserved-eight-byte-group-json/`: generated
+  schema decode helpers report `schema.reserved_bits_mismatch` for the
+  eight-byte reserved prefix group with stable field path, byte offset, bit
+  width, expected value, actual value, and byte preview details.
 - `run/binary-schema-prefix-reserved-five-byte-group-human/`: the same
   five-byte reserved prefix group mismatch renders stable human output with
   the field path and nearby byte preview notes.
 - `run/binary-schema-prefix-reserved-six-byte-group-human/`: the same
   six-byte reserved prefix group mismatch renders stable human output with
+  the field path and nearby byte preview notes.
+- `run/binary-schema-prefix-reserved-seven-byte-group-human/`: the same
+  seven-byte reserved prefix group mismatch renders stable human output with
+  the field path and nearby byte preview notes.
+- `run/binary-schema-prefix-reserved-eight-byte-group-human/`: the same
+  eight-byte reserved prefix group mismatch renders stable human output with
   the field path and nearby byte preview notes.
 - `run/binary-schema-prefix-reserved-four-byte-group-truncated-json/`:
   generated schema decode helpers report `schema.truncated_field` at the
@@ -1602,6 +1626,14 @@ against the built `veln` binary.
 - `run/binary-schema-prefix-reserved-six-byte-group-encode-out-of-range/`:
   generated schema encode helpers report `codec.encode_value_unrepresentable`
   against an out-of-range visible field in that six-byte reserved prefix
+  group.
+- `run/binary-schema-prefix-reserved-seven-byte-group-encode-out-of-range/`:
+  generated schema encode helpers report `codec.encode_value_unrepresentable`
+  against an out-of-range visible field in that seven-byte reserved prefix
+  group.
+- `run/binary-schema-prefix-reserved-eight-byte-group-encode-out-of-range/`:
+  generated schema encode helpers report `codec.encode_value_unrepresentable`
+  against an out-of-range visible field in that eight-byte reserved prefix
   group.
 - `run/binary-schema-prefix-reserved-byte-group-encode-out-of-range/`:
   generated schema encode helpers write a declared `ReservedBits(8, value)`
