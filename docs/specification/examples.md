@@ -566,6 +566,8 @@ keeps visible-field encode range failures on the ordinary
 offset, bit width, expected value, actual value, and byte preview.
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-json/`,
+`../../examples/specification/run/binary-schema-one-byte-reserved-suffix-decode-encode/`,
+`../../examples/specification/run/binary-schema-one-byte-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-decode/`,
@@ -1322,6 +1324,7 @@ reports
 the value does not fit.
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-encode-out-of-range/`,
+`../../examples/specification/run/binary-schema-one-byte-reserved-suffix-decode-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-four-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-three-byte-encode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode/`,

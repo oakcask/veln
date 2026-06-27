@@ -1,0 +1,12 @@
+schema OneByteReservedSuffixHeader
+	format binary
+
+	value: UInt7
+	reserved: ReservedBits(1, 0)
+end
+
+pub fn main() -> Result<{value: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ab")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	byte_decode_one_byte_reserved_suffix_header(view)
+end

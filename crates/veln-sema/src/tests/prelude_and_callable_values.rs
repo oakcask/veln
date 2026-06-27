@@ -3102,6 +3102,60 @@ fn generated_schema_helpers_accept_eight_byte_split_reserved_bit_groups() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_isolated_one_byte_reserved_suffix_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema OneByteReservedSuffixHeader\n",
+            "  format binary\n",
+            "\n",
+            "  value: UInt7\n",
+            "  reserved: ReservedBits(1, 0)\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{value: Int}, String>\n",
+            "  byte_decode_one_byte_reserved_suffix_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_one_byte_reserved_suffix_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "isolated one-byte reserved suffix should be accepted: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![("value", 1, 127, None), ("reserved", 0, 0, Some((1, 0))),]
+    );
+}
+
+#[test]
 fn generated_schema_helpers_accept_all_two_byte_packed_reserved_suffix_widths() {
     for visible_width in 1..=7 {
         let reserved_width = 16 - visible_width;

@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "85\n170\ndecoded\n85\n1\nencoded\noutput_chunk_list one-byte-reserved-suffix count 1\noutput_chunk one-byte-reserved-suffix index 0 hex \"aa\" count 1\ninvalid\ncodec.encode_value_unrepresentable\nOneByteReservedSuffixHeader.value\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "one-byte-reserved-suffix"
+chunks = ["aa"]
