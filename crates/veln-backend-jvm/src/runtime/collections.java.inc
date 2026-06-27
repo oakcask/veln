@@ -3564,14 +3564,23 @@
         String continuation = asString(activeContinuation);
         String message = "HTTP/2 input ended with " + pending
             + " pending byte(s) at byte offset " + byteOffset;
-        registerHttp2ProtocolClosedWithPendingDiagnostic(
-            message,
-            byteOffset,
-            pending,
-            continuation,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(pending),
+                continuation,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.closed_with_pending",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolPartialPreface(

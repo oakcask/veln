@@ -66,6 +66,7 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
   `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-json/`,
   `../../examples/specification/run/http2-protocol-core-push-promise-json/`,
+  `../../examples/specification/run/runtime-diagnostic-http2-closed-helper-json/`,
   `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
   and
   `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.

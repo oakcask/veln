@@ -363,6 +363,10 @@ fn unit_result<T: BytePreludeType>() -> T {
     result_string(T::unit())
 }
 
+fn unit_runtime_diagnostic_result<T: BytePreludeType>() -> T {
+    T::result(T::unit(), T::named("RuntimeDiagnostic"))
+}
+
 fn byte_constructor_signature<T: BytePreludeType>(
     name: &str,
     types: &BytePreludeTypes<T>,
@@ -507,7 +511,7 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
     match name {
         "http2_protocol_closed_with_pending" => Some((
             vec![T::int(), T::int(), T::string(), types.byte_view.clone()],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_partial_preface" => Some((
             vec![T::int(), T::int(), types.byte_view.clone()],

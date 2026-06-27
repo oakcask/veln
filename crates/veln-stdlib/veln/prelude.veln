@@ -548,7 +548,7 @@ pub fn byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: I
 	prelude_builtin::byte_decode_schema_validation_sample(view)
 end
 
-pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation, preview)
 end
 

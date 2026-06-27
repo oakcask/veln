@@ -178,6 +178,8 @@ behavior.
   [runtime-diagnostic-http2-invalid-stream-id-payload.md](runtime-diagnostic-http2-invalid-stream-id-payload.md).
 - Runtime diagnostic HTTP/2 HPACK raw request-trailer payload:
   [runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md](runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md).
+- Runtime diagnostic HTTP/2 closed-input helper payload:
+  [runtime-diagnostic-http2-closed-helper-payload.md](runtime-diagnostic-http2-closed-helper-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:
