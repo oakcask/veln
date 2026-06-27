@@ -145,6 +145,9 @@ The completed local callback binding expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-local-callback-binding.md`.
 The completed callback return expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`.
+The completed constructor payload callback expected-type slice is archived
+under
+`../reference/implemented-proposals/local-inference-constructor-payload-callback.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
@@ -166,14 +169,18 @@ matching record field initializer. Local bindings whose annotations are
 concrete function types also push that function parameter list into named
 private callbacks assigned as the binding initializer, and later calls or
 returns through the local binding use that concrete function type. When those
-concrete helper, record-field, local-binding, or prelude helper contexts fix a
-named private callback return type, that return type propagates into non-empty
-callback tail expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source
-ADT constructors, record literals, and collection literals.
+concrete helper, record-field, local-binding, source ADT constructor payload,
+or prelude helper contexts fix a named private callback return type, that
+return type propagates into non-empty callback tail expressions such as
+`Some(...)`, `Ok(...)`, `Err(...)`, source ADT constructors, record literals,
+and collection literals. Source ADT constructor payloads whose expected type is
+a concrete function type also push that function parameter list into named
+private callbacks passed at the matching payload position.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete declared-helper signature, concrete
-record-field expected-type, and concrete local-binding expected-type paths.
+record-field expected-type, concrete local-binding expected-type, and concrete
+constructor-payload expected-type paths.
 Future prelude higher-order helpers should push their concrete element, value,
 key, success, and error types into callback parameters only after they enter an
 equally concrete helper signature path.
@@ -289,11 +296,12 @@ Acceptance evidence includes:
    result helpers, including dictionary `_with` aliases, and for same-module
    or visible imported declared helpers with concrete function-typed
    parameters, concrete record-field expected types, and concrete local
-   function binding annotations: push concrete helper, expected-field, or
-   binding input types into named private callback parameters, and push
-   concrete callback return types into non-empty callback tail expressions.
-   Remaining callback work is limited to future helpers after they enter an
-   equally concrete helper signature path.
+   function binding annotations, and source ADT constructor payload positions
+   with concrete function payload types: push concrete helper, expected-field,
+   binding, or payload input types into named private callback parameters, and
+   push concrete callback return types into non-empty callback tail
+   expressions. Remaining callback work is limited to future helpers after
+   they enter an equally concrete helper signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.

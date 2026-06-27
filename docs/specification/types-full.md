@@ -240,6 +240,19 @@ callback returns. Ordinary function effect assignment keeps pure and effectful
 callback compatibility. Local binding function types that still contain
 `unknown` do not constrain callback parameters.
 
+When a source-declared constructor call is checked against a concrete expected
+ADT type, each concrete payload type provides expected-type context for the
+matching payload expression. When an expected payload type is a concrete
+function type, a named private callback function value passed at that payload
+position receives the function parameter types for omitted callback parameter
+annotations. The callback return still has to satisfy the expected payload
+function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Ordinary
+function effect assignment keeps pure and effectful callback compatibility.
+Constructor payload function types that still contain `unknown` do not
+constrain callback parameters.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding

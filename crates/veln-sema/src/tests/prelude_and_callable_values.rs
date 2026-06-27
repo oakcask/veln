@@ -11671,6 +11671,99 @@ fn record_field_expected_type_infers_private_callback_parameters() {
 }
 
 #[test]
+fn constructor_payload_expected_type_infers_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type CallbackCarrier\n",
+            "  Processor(run: fn(Int) -> String)\n",
+            "  OptionalProcessor(run: fn(Int) -> Option<Vec<String>>)\n",
+            "end\n",
+            "fn stringify(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn optional_items(value)\n",
+            "  Some([])\n",
+            "end\n",
+            "pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier}\n",
+            "  {\n",
+            "    processor: Processor(stringify),\n",
+            "    optional: OptionalProcessor(optional_items)\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let stringify = core
+        .functions
+        .iter()
+        .find(|function| function.name == "stringify")
+        .expect("string callback should be lowered");
+    assert_eq!(stringify.params[0].ty, CoreType::int());
+    let optional = core
+        .functions
+        .iter()
+        .find(|function| function.name == "optional_items")
+        .expect("optional callback should be lowered");
+    assert_eq!(optional.params[0].ty, CoreType::int());
+    assert_eq!(
+        optional.return_type,
+        CoreType::option(CoreType::vec(CoreType::string()))
+    );
+}
+
+#[test]
+fn non_concrete_constructor_payload_does_not_infer_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type GenericCarrier<A>\n",
+            "  GenericProcessor(run: fn(A, Int) -> String)\n",
+            "end\n",
+            "fn stringify(value, fixed) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  let processor = GenericProcessor(stringify)\n",
+            "  \"ok\"\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.private_inference_incomplete"
+                && diagnostic.message == "private parameter `value` has no inferred type"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.private_inference_incomplete"
+                && diagnostic.message == "private parameter `fixed` has no inferred type"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.inference_ambiguous"
+                && diagnostic.message == "constructor `GenericProcessor` needs type context"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn local_function_binding_infers_private_callback_parameters() {
     let source = SourceFile::new(
         "main.veln",
