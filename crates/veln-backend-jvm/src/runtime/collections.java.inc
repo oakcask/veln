@@ -3867,17 +3867,26 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid DATA padding at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidDataPaddingDiagnostic(
-            message,
-            byteOffset,
-            stream,
-            pad,
-            remaining,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(stream),
+                Long.valueOf(pad),
+                Long.valueOf(remaining),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_data_padding",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolContentLengthMismatch(
@@ -3931,14 +3940,23 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 unexpected SETTINGS ACK at byte offset " + byteOffset;
-        registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
-            message,
-            byteOffset,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.unexpected_settings_ack",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidRequestHeaderList(
