@@ -496,6 +496,8 @@ observer tokens reject direct `time::cancel(token)` at the runtime boundary;
 direct tokens from `time::cancel_token` keep the existing compatibility path.
 The completion record is archived under
 `../reference/implemented-proposals/network-cancel-owner-boundary.md`.
+The monotonic clock completion record is archived under
+`../reference/implemented-proposals/network-monotonic-clock-boundary.md`.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
