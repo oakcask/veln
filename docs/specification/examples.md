@@ -241,6 +241,11 @@ The executable specification case
 covers the same derived codec decode and encode item boundary for a six-byte
 reserved suffix layout.
 The executable specification case
+`../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
+covers the same derived codec decode and encode item boundary for seven-byte
+and eight-byte reserved prefix groups, including non-consuming `Invalid`
+results for reserved-bit mismatch.
+The executable specification case
 `../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
 covers the same derived codec decode and encode item boundary for a
 visible-only packed two-byte group. It checks successful `Decoded`,
@@ -414,6 +419,10 @@ The executable specification case
 covers the derived codec encode boundary over a visible-only packed two-byte
 group, including budgeted partial output, resumed `Encoded` output, and
 helper-projected `Invalid(EncodeError(...))`.
+The executable specification case
+`../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
+covers derived codec encode projection over the generated seven-byte and
+eight-byte reserved prefix group helpers.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.derive_helper_unsupported` rejection for generated encode boundaries.
 
