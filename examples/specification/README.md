@@ -2460,6 +2460,22 @@ against the built `veln` binary.
   `http2_peer_limit_header_list_size_exceeded` helper reports the same
   `http2.peer_limit.header_list_size_exceeded` JSON details from its returned
   `RuntimeDiagnostic(...)` error value.
+- `run/runtime-diagnostic-http2-request-header-list-helper-human/`: a direct
+  `http2_protocol_invalid_request_header_list(...)` helper failure reports
+  the focused request header-list human diagnostic from its returned
+  `RuntimeDiagnostic(...)` value.
+- `run/runtime-diagnostic-http2-request-header-list-helper-json/`: the same
+  direct request header-list helper failure keeps the rendered
+  `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
+- `run/runtime-diagnostic-http2-response-header-list-helper-human/`: a direct
+  `http2_protocol_invalid_response_header_list(...)` helper failure reports
+  the focused response header-list human diagnostic from its returned
+  `RuntimeDiagnostic(...)` value.
+- `run/runtime-diagnostic-http2-response-header-list-helper-json/`: the same
+  direct response header-list helper failure keeps the rendered
+  `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
 - `run/runtime-diagnostic-http2-settings-value-helper-json/`: the standard
   `http2_peer_limit_settings_value_out_of_range` helper reports the same
   `http2.peer_limit.settings_value_out_of_range` JSON details from its

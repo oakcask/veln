@@ -200,6 +200,8 @@ behavior.
   [runtime-diagnostic-http2-frame-size-helper-payload.md](runtime-diagnostic-http2-frame-size-helper-payload.md).
 - Runtime diagnostic HTTP/2 header-list helper payload:
   [runtime-diagnostic-http2-header-list-helper-payload.md](runtime-diagnostic-http2-header-list-helper-payload.md).
+- Runtime diagnostic HTTP/2 header-list validation helper payload:
+  [runtime-diagnostic-http2-header-list-validation-helper-payload.md](runtime-diagnostic-http2-header-list-validation-helper-payload.md).
 - Runtime diagnostic HTTP/2 SETTINGS value helper payload:
   [runtime-diagnostic-http2-settings-value-helper-payload.md](runtime-diagnostic-http2-settings-value-helper-payload.md).
 - Runtime diagnostic HTTP/2 header-table helper payload:

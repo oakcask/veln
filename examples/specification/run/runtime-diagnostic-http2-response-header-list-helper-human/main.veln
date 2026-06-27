@@ -1,0 +1,4 @@
+# HTTP/2 response header-list helper projects human runtime diagnostics from the payload.
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_protocol_invalid_response_header_list(12, 1, 1, "request_only_pseudo_header", ":method", ":status,:method,server", "response-headers", "rfc9113_response_pseudo_headers")
+end

@@ -637,7 +637,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 T::string(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_unexpected_settings_ack" => Some((
             vec![T::int(), T::string(), T::string(), types.byte_view.clone()],

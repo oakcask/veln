@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_response_header_list]: response header list contains request-only :method at byte offset 12", "note: Frame kind 1 on stream 1 decoded response header names: :status,:method,server.", "note: Active protocol state: response-headers.", "note: Rule provenance: rfc9113_response_pseudo_headers."]

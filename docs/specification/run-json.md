@@ -137,6 +137,12 @@ The `http2_protocol_closed_with_pending(...)`,
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
+The `http2_protocol_invalid_request_header_list(...)` and
+`http2_protocol_invalid_response_header_list(...)` standard helpers likewise
+return source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their
+direct helper examples keep the rendered payload in `details.value` and
+project the same request or response header-list facts into
+`details.protocol_diagnostic`.
 
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
