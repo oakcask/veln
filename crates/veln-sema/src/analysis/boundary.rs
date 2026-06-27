@@ -4300,9 +4300,8 @@ fn reserved_bits_supported_layout_family(
         && suffix_packed_reserved_storage_bit_width(bit_width).is_some()
     {
         if previous_visible_bit_width == Some(8)
-            && previous_previous_visible_bit_width.is_some_and(|width| {
-                i64::from(width) + 8 + bit_width == 16
-            })
+            && previous_previous_visible_bit_width
+                .is_some_and(|width| i64::from(width) + 8 + bit_width == 16)
             && (1..=7).contains(&bit_width)
         {
             return (
