@@ -1145,6 +1145,10 @@
         return UNIT;
     }
 
+    public static Object timeMonotonicMs() {
+        return Long.valueOf(System.nanoTime() / 1000000L);
+    }
+
     public static Object timeTimeoutMs(Object milliseconds) {
         long value = asLong(milliseconds);
         String forcedExpiry = System.getenv("VELN_TIME_TIMEOUT_EXPIRED");

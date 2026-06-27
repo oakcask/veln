@@ -44,9 +44,12 @@ compiler-known calls.
   `time::cancel_owned` requests cancellation through the owner under the
   same `time` effect. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
-  cancellation. Direct `time::cancel` remains available for direct tokens
-  created by `time::cancel_token`, while owner-derived observer tokens reject
-  direct cancellation at runtime. The value-returning cancellable wait returns
+  cancellation. `time::monotonic_ms` returns a host-owned monotonic
+  millisecond counter under the same `time` effect for elapsed-time
+  measurement without exposing wall-clock dates. Direct `time::cancel`
+  remains available for direct tokens created by `time::cancel_token`, while
+  owner-derived observer tokens reject direct cancellation at runtime. The
+  value-returning cancellable wait returns
   `CancellableWaitOutcome` under the same `time` effect so adapter code can
   treat completion, deadline expiry, and cancellation as ordinary values.
   Stream adapter routing that combines those outcomes with channel-routed

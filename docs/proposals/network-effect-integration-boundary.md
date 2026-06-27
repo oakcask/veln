@@ -84,8 +84,8 @@ slices, and narrow deadline and cancellation slices, for:
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
   another same-shaped spawned-handler arity.
 - richer deadline, timeout, and cancellation adapter APIs beyond
-  `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
-  `time::cancel_token`, `time::cancel`, and
+  `time::monotonic_ms`, `time::timeout_ms`, `time::deadline_after_ms`,
+  `time::wait_until`, `time::cancel_token`, `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
   `time::wait_until_cancellable_outcome`, deadline-aware listener accept,
   cancellable deadline-aware listener accept, and deadline-aware and
@@ -457,10 +457,12 @@ adapter surface with related connection and stream context when available.
 
 Implemented first slices: `time::timeout_ms(milliseconds)`,
 `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
-`time::cancel_token()`, `time::cancel(token)`, and
+`time::monotonic_ms()`, `time::cancel_token()`, `time::cancel(token)`, and
 `time::wait_until_cancellable(deadline, token)` use the existing `time` effect
-label and wait at the runtime boundary. `CancelToken` is the first
-source-visible cancellation handle for adapter-owned waits.
+label at the runtime boundary. `time::monotonic_ms()` returns a host-owned
+monotonic millisecond counter for elapsed-time measurement without exposing a
+wall-clock date API. `CancelToken` is the first source-visible cancellation
+handle for adapter-owned waits.
 `time::is_cancelled(token)` observes that handle as `Bool` without waiting or
 requesting cancellation.
 `time::wait_until_cancellable_outcome(deadline, token)` returns
@@ -494,6 +496,8 @@ observer tokens reject direct `time::cancel(token)` at the runtime boundary;
 direct tokens from `time::cancel_token` keep the existing compatibility path.
 The completion record is archived under
 `../reference/implemented-proposals/network-cancel-owner-boundary.md`.
+The monotonic clock completion record is archived under
+`../reference/implemented-proposals/network-monotonic-clock-boundary.md`.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
@@ -504,10 +508,10 @@ does not read time, sleep, or observe host timers or cancellation handles.
 
 This keeps the first integration boundary aligned with the current coarse
 effect model. A later runtime proposal may add richer timer handles,
-monotonic-clock values, cancellation-owner capabilities beyond the current
-owner/token split, or scheduler APIs if examples need them, but that work
-should extend the `time` standard-library surface rather than introduce
-deadline behavior into schemas or the pure protocol core.
+cancellation-owner capabilities beyond the current owner/token split, or
+scheduler APIs if examples need them, but that work should extend the `time`
+standard-library surface rather than introduce deadline behavior into schemas
+or the pure protocol core.
 
 ## Non-Goals
 

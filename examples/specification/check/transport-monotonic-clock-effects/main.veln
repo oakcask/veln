@@ -1,0 +1,4 @@
+# Public monotonic-clock functions must declare the inferred time effect.
+pub fn monotonic_value() -> Int
+	time::monotonic_ms()
+end

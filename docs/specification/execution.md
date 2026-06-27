@@ -55,8 +55,8 @@ execution reference.
   read, optional clean-end stream read, deadline-aware optional stream read,
   cancellable deadline-aware listener accept, cancellable deadline-aware
   stream read, stream write, ordered stream chunk-list write, stream close,
-  listener close, timeout, deadline waits, and cancellable deadline waits
-  execute outside the
+  listener close, monotonic clock reads, timeout, deadline waits, and
+  cancellable deadline waits execute outside the
   pure protocol core. The
   default socket path is fixture-backed. With `VELN_NET_RUNTIME` set to
   `production-loopback`, the same public listen, accept, read, write, and
@@ -110,6 +110,10 @@ execution reference.
   `examples/specification/run/transport-cancel-owner-observer-only-json/`
   case keeps direct cancellation of an owner-derived observer token on the
   runtime-failure surface.
+  The checked `examples/specification/run/transport-monotonic-clock/` case
+  observes two `time::monotonic_ms` values and checks only monotonic ordering;
+  the runtime exposes no wall-clock timestamp, date, time zone, sleep handle,
+  or calendar-time conversion.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.

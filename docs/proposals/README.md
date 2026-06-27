@@ -366,6 +366,8 @@ compare it with `../specification/` before changing behavior.
   The completed cancellable deadline-aware chunk-list stream-write boundary is
   archived under
   [Network Write Chunks Until Cancellable Boundary](../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md).
+  The completed source-visible monotonic clock boundary is archived under
+  [Network Monotonic Clock Boundary](../reference/implemented-proposals/network-monotonic-clock-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering and
