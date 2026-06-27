@@ -50,6 +50,11 @@ general generated helper shape with successful decode, short-input
 `NeedMore`, successful encode, and helper-projected encode failure. They also
 cover generated-helper-backed quotient-count repeated primitive fields and
 visible-only packed two-byte groups.
+The implemented command-facing diagnostic boundary also covers direct
+source-visible `DecodeError`, `DecodeErrorWithReason`, and `EncodeError`
+result failures returned by `veln run` entries with the same structured JSON
+facts used by their `DecodeStep::Invalid(...)` and `EncodeStep::Invalid(...)`
+counterparts.
 
 Define codec support for:
 

@@ -1,0 +1,16 @@
+# Direct DecodeErrorWithReason result failures populate byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.invalid_input", offset(62), "ManualPacketWire.kind", "kind value exceeds declared length"))
+end

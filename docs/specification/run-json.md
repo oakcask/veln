@@ -342,8 +342,9 @@ When the result value is a checked `byte_write_*` conversion failure,
 - `width`: the write width in bytes
 - `byte_order`: `big_endian` or `little_endian`
 
-When the result value is a generated binary schema encode failure represented
-as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
+When the result value is a source-visible
+`EncodeError(id, field_path, reason)` with a supported generated encode
+diagnostic id, or a `veln run` entry returns
 `EncodeStep::Invalid(EncodeError(id, field_path, reason))`, or the entry
 returns `Err(RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(field_path,
 reason)))` for the same generated encode ids,
@@ -369,8 +370,10 @@ reason)))` for the same generated encode ids,
 `EncodeStep::Encoded(...)` and `EncodeStep::Partial(...)` entry results do not
 populate `error` or `details.value_diagnostic`.
 
-When a `veln run` entry returns
-`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
+When a `veln run` entry returns a source-visible
+`DecodeError(id, byte_offset, field_path)`,
+`DecodeErrorWithReason(id, byte_offset, field_path, reason)`,
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, or
 `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`,
 `details.byte_diagnostic` includes:
 
@@ -393,12 +396,13 @@ When a `veln run` entry returns
 
 This shape also covers codec-owned invalid-input facts returned by a
 hand-written `decode with` codec boundary, such as `codec.invalid_input` and
-`codec.packet_kind_invalid`. A plain `DecodeErrorWithReason` reason is kept
-only as `reason`; helper-only fields are omitted unless the reason matches
-registered helper context. If the reason is a byte-helper failure message with
-registered helper context, the command-facing projection keeps the reason text
-and adds the carried helper counts, local byte offset, and byte preview to the
-same `details.byte_diagnostic`.
+`codec.packet_kind_invalid`, and direct `Result<_, DecodeError>` failures. A
+plain `DecodeErrorWithReason` reason is kept only as `reason`; helper-only
+fields are omitted unless the reason matches registered helper context. If the
+reason is a byte-helper failure message with registered helper context, the
+command-facing projection keeps the reason text and adds the carried helper
+counts, local byte offset, and byte preview to the same
+`details.byte_diagnostic`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from a
 hand-written `decode with` codec boundary whose returned `Decoded` consumed

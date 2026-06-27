@@ -1084,7 +1084,8 @@ execution reference.
   command value diagnostics preserve the schema field path, predicate text,
   owning field value, and available schema-local `Int` values.
   When a `veln run` entry returns these generated `EncodeError` values
-  directly, command diagnostics preserve the source-visible
+  directly, including as direct `Result<_, EncodeError>` failures, command
+  diagnostics preserve the source-visible
   `EncodeError(id, field_path, reason)` shape and attach
   `details.value_diagnostic` for
   `codec.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
@@ -1565,10 +1566,12 @@ execution reference.
   The checked fixed-payload-length protocol examples include SETTINGS ACK,
   PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` as source-visible
   `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads.
-- For `veln run` entries, a returned
-  `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
-  `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
-  projected to a focused human runtime diagnostic and
+- For `veln run` entries, a returned source-visible
+  `DecodeError(id, byte_offset, field_path)`,
+  `DecodeErrorWithReason(id, byte_offset, field_path, reason)`,
+  `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, or
+  `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`
+  is projected to a focused human runtime diagnostic and
   `details.byte_diagnostic` JSON using the contained diagnostic id, byte
   offset, field path, optional reason, and optional byte-helper context
   carried by the reason. The carried context includes local byte offset,
@@ -1590,6 +1593,8 @@ execution reference.
   `examples/specification/run/codec-decode-invalid-byte-context-json/`,
   `examples/specification/run/codec-decode-invalid-byte-read-context-human/`,
   `examples/specification/run/codec-decode-invalid-byte-read-context-json/`,
+  `examples/specification/run/codec-decode-error-direct-json/`,
+  `examples/specification/run/codec-decode-error-reason-direct-json/`,
   `examples/specification/run/codec-decode-invalid-boundary-human/`,
   `examples/specification/run/codec-decode-invalid-boundary-json/`,
   `examples/specification/run/codec-decode-invalid-owned-id-human/`,
@@ -1613,7 +1618,8 @@ execution reference.
   `veln run` entries, a returned `Invalid(EncodeError(...))` is projected to
   the same focused human and `details.value_diagnostic` JSON diagnostics used
   for command-facing `EncodeError` result values. The checked examples are
-  `examples/specification/run/codec-encode-invalid-step-human/` and
+  `examples/specification/run/codec-encode-error-direct-json/`,
+  `examples/specification/run/codec-encode-invalid-step-human/`, and
   `examples/specification/run/codec-encode-invalid-step-json/`. For the
   implemented structural `map to Target` schema slice, the first encoder
   parameter remains the mapped target record shape.

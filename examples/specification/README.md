@@ -1968,6 +1968,11 @@ against the built `veln` binary.
   `veln run` projects local byte offset, expected and available byte counts,
   and bounded byte preview through related human notes and `run --json`
   `details.byte_diagnostic`.
+- `run/codec-decode-error-direct-json/` and
+  `run/codec-decode-error-reason-direct-json/`: direct
+  `Result<_, DecodeError>` entry failures keep the rendered source-visible
+  error value and populate `run --json` `details.byte_diagnostic`, including
+  the optional reason when returned as `DecodeErrorWithReason(...)`.
 - `run/codec-decode-invalid-step-human/` and
   `run/codec-decode-invalid-step-json/`: when a `veln run` entry returns
   `Invalid(DecodeError(...))`, `veln run` projects the contained decode error
@@ -2101,6 +2106,10 @@ against the built `veln` binary.
   `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged. The partial
   path keeps the emitted chunk list, produced byte count, and resumed encoder
   state visible to ordinary source before resuming to a complete encode.
+- `run/codec-encode-error-direct-json/`: a direct
+  `Result<_, EncodeError>` entry failure keeps the rendered source-visible
+  error value and populates `run --json` `details.value_diagnostic` with the
+  codec id, field path, display path, and reason.
 - `run/codec-encode-invalid-step-human/` and
   `run/codec-encode-invalid-step-json/`: when a hand-written codec encode
   entry returns `Invalid(EncodeError(...))`, `veln run` projects the contained

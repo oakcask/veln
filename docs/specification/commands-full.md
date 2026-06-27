@@ -250,6 +250,10 @@ When generated binary schema encode returns encode-time
 `schema.validation_failed`, human mode reports the failed encode validation
 fact and puts predicate text, supplied schema-local `Int` values, field path,
 and the source-visible `EncodeError` value in related notes.
+When a source-visible `EncodeError(...)` is returned directly from a run entry,
+human mode uses the same focused encode diagnostic as the corresponding
+generated encode or `EncodeStep::Invalid(EncodeError(...))` value and keeps the
+rendered `EncodeError` value in related notes.
 When generated length-bounded `ByteView` schema encode returns
 `codec.encode_value_unrepresentable` for a count mismatch, human mode reports
 the failed encode fact and puts the field path, mismatch reason, expected byte
@@ -260,7 +264,9 @@ reports the failed integer range fact at the field byte offset and puts byte
 width, accepted range, actual value, bounded nearby byte preview, and field
 path in related notes.
 When a `veln run` entry returns
-`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
+`DecodeError(id, byte_offset, field_path)`,
+`DecodeErrorWithReason(id, byte_offset, field_path, reason)`,
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, or
 `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`,
 human mode reports the failed decode fact at the contained byte offset and
 puts field path plus the source-visible `DecodeError` value in related notes.

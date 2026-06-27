@@ -226,7 +226,9 @@ compare it with `../specification/` before changing behavior.
   declaration source-surface slice, decode function signature boundary,
   mapped decode value boundary, encode function return and mapped value
   parameter boundaries, derived codec mapping value boundary checks,
-  source-visible decode and encode result vocabulary, generated binary schema
+  source-visible decode and encode result vocabulary, direct source-visible
+  `DecodeError`, `DecodeErrorWithReason`, and `EncodeError` command-facing
+  projection from run entry result failures, generated binary schema
   decode-step helper slice for implemented exact-width, middle reserved,
   repeat-backed, and same-module and public imported nested dispatch payload
   boundaries,
@@ -271,7 +273,8 @@ compare it with `../specification/` before changing behavior.
   command-facing projection for encode value, dispatch unknown tag, dispatch
   length mismatch, and dispatch mismatch failures, command-facing projection
   for `EncodeStep::Invalid(EncodeError(...))` entry results,
-  command-facing projection for
+  direct source-visible `DecodeError`, `DecodeErrorWithReason`, and
+  `EncodeError` result failures, command-facing projection for
   `DecodeStep::Invalid(DecodeError(...))` and `DecodeStep::NeedMore(...)`
   entry results, reason-carrying hand-written codec invalid-input decode
   projection with optional carried byte-helper context, generated binary

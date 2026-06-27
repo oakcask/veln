@@ -1,0 +1,12 @@
+# Direct EncodeError result failures populate value_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	payload: ByteView(length)
+end
+
+pub fn main() -> Result<(), EncodeError>
+	Err(EncodeError("codec.encode_value_unrepresentable", "ManualPacketWire.payload", "byte view count 3 does not match length field `length` value 2"))
+end

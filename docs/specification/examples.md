@@ -190,6 +190,14 @@ short-input byte read helper rather than a byte-view range helper; this pins
 the helper offset and count fields without requiring a preview when that
 helper did not produce one.
 The executable specification cases
+`../../examples/specification/run/codec-decode-error-direct-json/` and
+`../../examples/specification/run/codec-decode-error-reason-direct-json/`
+cover command-facing JSON projection when a `veln run` entry returns direct
+`DecodeError(...)` or `DecodeErrorWithReason(...)` result failures without
+wrapping them in `DecodeStep::Invalid`: `run --json` keeps the rendered result
+value and attaches the same structured `details.byte_diagnostic` id, byte
+offset, field path, display path, and optional reason.
+The executable specification cases
 `../../examples/specification/run/codec-decode-invalid-step-human/` and
 `../../examples/specification/run/codec-decode-invalid-step-json/` cover
 command-facing projection when a `veln run` entry returns
@@ -328,6 +336,13 @@ its returned `Encoded`, `Partial`, and `Invalid(EncodeError)`
 `EncodeStep<TState>` values unchanged. The partial path keeps the emitted
 chunk list, produced `ByteCount`, and resumed encoder state source-visible,
 then uses the returned state to complete a later encode call.
+The executable specification case
+`../../examples/specification/run/codec-encode-error-direct-json/` covers
+command-facing JSON projection when a `veln run` entry returns a direct
+`EncodeError(...)` result failure without wrapping it in
+`EncodeStep::Invalid`: `run --json` keeps the rendered result value and
+attaches the same structured `details.value_diagnostic` id, field path,
+display path, and reason.
 The executable specification cases
 `../../examples/specification/run/codec-encode-invalid-step-human/` and
 `../../examples/specification/run/codec-encode-invalid-step-json/` cover
