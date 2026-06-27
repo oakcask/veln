@@ -130,7 +130,7 @@ compare it with `../specification/` before changing behavior.
   two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
   eight-byte big-endian storage unit
   ([Binary Schema Split Reserved Groups](../reference/implemented-proposals/binary-schema-split-reserved-groups.md)),
-  two-byte suffix groups where two visible `UIntN` fields, one of them
+  two-byte suffix groups where two visible `UIntN` fields, the second one
   `UInt8`, are followed by a non-byte-aligned
   `ReservedBits(width, value)` field
   ([Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md)),

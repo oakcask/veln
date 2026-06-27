@@ -4229,8 +4229,7 @@ fn supported_suffix_reserved_group(
         return false;
     };
     first_bit_width <= 8
-        && second_bit_width <= 8
-        && (first_bit_width == 8 || second_bit_width == 8)
+        && second_bit_width == 8
         && i64::from(first_bit_width) + i64::from(second_bit_width) + bit_width == 16
         && expected_value < (1_i64 << bit_width)
 }

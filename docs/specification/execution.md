@@ -527,8 +527,9 @@ execution reference.
   from their declared high-to-low positions, omits the reserved field, and
   advances by the shared storage width. A narrow two-byte suffix group may
   place two visible `UIntN` fields before a non-byte-aligned
-  `ReservedBits(width, value)` suffix when one visible field is `UInt8` and
-  all three widths complete the same two-byte big-endian storage unit. That
+  `ReservedBits(width, value)` suffix when the second visible field is
+  `UInt8` and all three widths complete the same two-byte big-endian storage
+  unit. That
   form decodes the two visible fields from their declared high-to-low
   positions, validates the low reserved bits, omits the reserved field, and
   advances by two bytes. The narrow `ReservedBits(2, 0)` and
@@ -993,9 +994,9 @@ execution reference.
   out-of-range visible field. A narrow two-byte suffix group with two visible
   `UIntN` fields followed by a non-byte-aligned
   `ReservedBits(width, value)` suffix writes the visible values in
-  declaration order followed by the declared low reserved bits, when one
-  visible field is `UInt8` and all three widths complete the same two-byte
-  big-endian storage unit. The narrow `ReservedBits(2, 0)` and
+  declaration order followed by the declared low reserved bits, when the
+  second visible field is `UInt8` and all three widths complete the same
+  two-byte big-endian storage unit. The narrow `ReservedBits(2, 0)` and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte
   big-endian bitstream slice with the declared reserved prefix first, the
   visible byte after it, and zero low padding bits when present; the reserved

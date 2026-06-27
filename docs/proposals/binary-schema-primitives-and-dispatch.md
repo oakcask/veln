@@ -106,8 +106,8 @@ in declaration order, and report the same reserved-bit mismatch, truncation,
 and `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode the narrow two-byte suffix
 group where two visible `UIntN` fields are followed by a non-byte-aligned
-`ReservedBits(width, value)` suffix, one visible field is `UInt8`, and all
-three widths complete the same two-byte big-endian storage unit. The helpers
+`ReservedBits(width, value)` suffix, the second visible field is `UInt8`, and
+all three widths complete the same two-byte big-endian storage unit. The helpers
 decode or encode the visible fields in declaration order, validate or emit
 the low reserved bits, omit the reserved field from decoded records and
 mapping source values, include the layout in derived codec eligibility, and
@@ -771,7 +771,7 @@ a final sub-byte visible field, and consecutive non-byte-aligned
 two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit, plus the narrow `ReservedBits(9, 0)` plus `UInt8`
 byte-prefix layout, and the narrow two-byte suffix group where two visible
-`UIntN` fields, one of them `UInt8`, are followed by a non-byte-aligned
+`UIntN` fields, the second one `UInt8`, are followed by a non-byte-aligned
 `ReservedBits(width, value)` suffix, are implemented under
 `../specification/execution.md`. Completed split reserved group history is
 recorded in

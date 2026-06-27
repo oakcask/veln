@@ -3,8 +3,8 @@ use stdio
 schema SuffixReservedGroupHeader
 	format binary
 
-	code: UInt8
 	channel: UInt3
+	code: UInt8
 	guard: ReservedBits(5, 21)
 end
 
@@ -114,7 +114,7 @@ fn emit_direct_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), St
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("abb5")?
+	let bytes: ByteChunk = byte_chunk_from_hex("b575")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
 	let decoded: {code: Int, channel: Int} = byte_decode_suffix_reserved_group_header(view)?
 	stdio::println(int_to_string(decoded.code))
@@ -131,7 +131,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let derived_encoded: EncodeStep<()> = SuffixReservedGroupCodec({code: 171, channel: 5})
 	stdio::println(encode_step_kind(derived_encoded))
-	emit_derived_encoded("suffix-reserved-group", derived_encoded, "abb5")
+	emit_derived_encoded("suffix-reserved-group", derived_encoded, "b575")
 
 	let rejected: EncodeStep<()> = SuffixReservedGroupCodec({code: 171, channel: 8})
 	stdio::println(encode_step_kind(rejected))

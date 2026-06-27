@@ -4299,7 +4299,12 @@ fn reserved_bits_supported_layout_family(
     if previous_visible_bit_width.is_some()
         && suffix_packed_reserved_storage_bit_width(bit_width).is_some()
     {
-        if previous_previous_visible_bit_width.is_some() && (1..=7).contains(&bit_width) {
+        if previous_visible_bit_width == Some(8)
+            && previous_previous_visible_bit_width.is_some_and(|width| {
+                i64::from(width) + 8 + bit_width == 16
+            })
+            && (1..=7).contains(&bit_width)
+        {
             return (
                 "suffix_reserved_group",
                 "two visible widths plus the reserved width must complete the same two-byte big-endian storage unit.",

@@ -327,8 +327,8 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
-supported two-byte suffix groups where two visible `UIntN` fields, one of
-them `UInt8`, precede a non-byte-aligned `ReservedBits(width, value)` field,
+supported two-byte suffix groups where two visible `UIntN` fields, the second
+one `UInt8`, precede a non-byte-aligned `ReservedBits(width, value)` field,
 supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,

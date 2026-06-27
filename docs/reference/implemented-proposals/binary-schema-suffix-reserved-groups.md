@@ -12,8 +12,9 @@ specified by `../../specification/source-surface.md`,
 
 Generated binary schema decode and encode helpers accept two visible
 big-endian `UIntN` fields followed by a non-byte-aligned
-`ReservedBits(width, value)` suffix when one visible field is `UInt8` and the
-three declared widths complete one shared two-byte big-endian storage unit.
+`ReservedBits(width, value)` suffix when the second visible field is `UInt8`
+and the three declared widths complete one shared two-byte big-endian storage
+unit.
 
 Decode reads the shared two-byte storage unit, decodes the visible fields from
 their declared high-to-low positions as ordinary `Int` values, validates the
@@ -36,8 +37,8 @@ decode and encode boundaries when the surrounding schema is otherwise eligible.
   checks the JSON `schema.reserved_bits_mismatch` diagnostic with the reserved
   field path, bit width, expected value, actual value, and byte preview.
 - `crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks generated
-  helper eligibility for both supported field orders where one visible field is
-  `UInt8`.
+  helper eligibility for the supported field order where the byte-width visible
+  field immediately precedes the reserved suffix.
 
 ## Remaining Work
 

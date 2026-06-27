@@ -727,8 +727,7 @@
         return firstBitWidth > 0
             && secondBitWidth > 0
             && firstBitWidth <= 8
-            && secondBitWidth <= 8
-            && (firstBitWidth == 8 || secondBitWidth == 8)
+            && secondBitWidth == 8
             && totalBitWidth == 16
             ? 2
             : 0;
