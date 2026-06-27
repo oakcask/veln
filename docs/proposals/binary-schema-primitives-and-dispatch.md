@@ -187,7 +187,9 @@ schemas outside that helper slice include structured expected decode and
 encode helper fields plus related notes for the payload declaration; checked
 coverage includes a nested payload whose `ByteView` length field is not an
 earlier decoded `Int` field and a nested payload with an unsupported
-representation-only `ReservedBits` layout.
+representation-only `ReservedBits` layout, plus a mapped payload schema that
+decodes but cannot project its mapping assignment back to schema-local fields
+for generated encode.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching
@@ -222,8 +224,9 @@ ADT constructor target field whose constructor payload is selected from a
 record-shaped schema mapping expression and keeps malformed selections rejected
 through the existing `schema.mapping_expression_unsupported` diagnostic.
 Broader unsupported field layouts and schema value mapping beyond the
-implemented structural and constructor field-selection slices remain proposal
-work. The completed reserved-byte-prefix encode slice for
+implemented structural, constructor field-selection, and mapped-payload
+eligibility diagnostic slices remain proposal work. The completed
+reserved-byte-prefix encode slice for
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is
 archived under
 `../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md`.
@@ -924,6 +927,7 @@ author likely referred to an earlier field with a compatible role.
 
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
-  references, and imported recursive diagnostics, and schema value mapping
-  beyond the implemented structural and constructor field-selection slices
-  remain proposal work.
+  references, mapped encode projection diagnostics, and imported recursive
+  diagnostics, and schema value mapping beyond the implemented structural,
+  constructor field-selection, and mapped-payload eligibility diagnostic
+  slices remain proposal work.

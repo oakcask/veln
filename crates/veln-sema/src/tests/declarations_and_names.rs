@@ -2966,6 +2966,75 @@ fn dispatch_payload_schema_incompatible_helper_reports_helper_boundaries() {
 }
 
 #[test]
+fn dispatch_payload_schema_requires_encode_helper_projection() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type MappedPayload\n",
+            "  MappedPayload {code: Int}\n",
+            "end\n",
+            "\n",
+            "schema UnsupportedMappedPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "\n",
+            "  map to MappedPayload\n",
+            "    code = code * 2\n",
+            "end\n",
+            "\n",
+            "schema ClosedPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UnsupportedMappedPayload)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.dispatch_payload")
+        .expect("mapped payload helper eligibility should report a dispatch payload diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "dispatch payload schema `UnsupportedMappedPayload` is outside the generated binary schema helper slice"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"reason\":\"incompatible_payload_schema\""));
+    assert!(
+        details
+            .contains("\"expected_decode_helper\":\"byte_decode_step_unsupported_mapped_payload\"")
+    );
+    assert!(
+        details.contains("\"expected_encode_helper\":\"byte_encode_unsupported_mapped_payload\"")
+    );
+    assert!(details.contains("\"unavailable_helper_directions\":[\"encode\"]"));
+    assert!(
+        details.contains("\"unsupported_nested_layout_reason\":\"ineligible_mapping_projection\"")
+    );
+    assert!(details.contains("mapping assignment `code * 2` cannot be projected back to schema-local fields for generated encode"));
+    assert_eq!(diagnostic.related.len(), 3);
+    assert!(
+        diagnostic.related[0].to_json().contains(
+            "does not expose the generated `byte_encode_unsupported_mapped_payload` helper"
+        )
+    );
+    assert!(
+        diagnostic.related[1]
+            .to_json()
+            .contains("Nested dispatch payload mapping `UnsupportedMappedPayload.code` prevents generated encode helpers")
+    );
+    assert!(
+        diagnostic.related[2]
+            .to_json()
+            .contains("expected `byte_encode_unsupported_mapped_payload`")
+    );
+}
+
+#[test]
 fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
     let app_source = SourceFile::new(
         "app.veln",
