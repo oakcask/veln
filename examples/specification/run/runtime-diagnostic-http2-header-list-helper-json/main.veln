@@ -1,0 +1,32 @@
+# HTTP/2 header-list helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_list_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("060708090a0b0c0d0e")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let header_block: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(header_block)?
+	http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", preview)
+end

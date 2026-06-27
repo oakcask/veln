@@ -247,6 +247,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/runtime-diagnostic-http2-frame-size-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-header-list-human/`,
 `../../examples/specification/run/http2-protocol-core-header-list-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-header-list-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/`,
@@ -346,6 +347,9 @@ archived under
 The completed HTTP/2 frame-size peer-limit standard helper migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.
+The completed HTTP/2 header-list receive-limit standard helper migration
+slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-header-list-helper-payload.md`.
 The completed HTTP/2 SETTINGS value peer-limit standard helper migration
 slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-settings-value-helper-payload.md`.
