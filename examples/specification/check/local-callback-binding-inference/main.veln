@@ -1,0 +1,28 @@
+fn stringify(value) -> String
+	"ok"
+end
+
+fn emit(value) -> () effects [stdio]
+	()
+end
+
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn apply_effect(value: String, callback: fn(String) -> () effects [stdio]) -> () effects [stdio]
+	callback(value)
+end
+
+fn callback_factory() -> fn(Int) -> String
+	let callback: fn(Int) -> String = stringify
+	callback
+end
+
+pub fn main() -> {called: String, returned: String} effects [stdio]
+	let callback: fn(Int) -> String = stringify
+	let effectful: fn(String) -> () effects [stdio] = emit
+	apply_effect("ready", effectful)
+	let returned: fn(Int) -> String = callback_factory()
+	{called: apply_int(1, callback), returned: returned(2)}
+end
