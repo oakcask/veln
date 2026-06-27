@@ -4164,21 +4164,29 @@
         long stream = asLong(streamId);
         String limitProvenance = asString(receiveLimitProvenance);
         String rule = asString(ruleProvenance);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 header table size exceeds receive maximum at byte offset "
             + byteOffset;
-        registerHttp2PeerLimitHeaderTableSizeExceededDiagnostic(
-            message,
-            byteOffset,
-            observed,
-            allowed,
-            kind,
-            stream,
-            limitProvenance,
-            rule,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(observed),
+                Long.valueOf(allowed),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                limitProvenance,
+                rule,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.peer_limit.header_table_size_exceeded",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2PeerLimitFlowControlWindowExceeded(

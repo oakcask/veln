@@ -685,8 +685,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
             ],
             unit_runtime_diagnostic_result(),
         )),
-        "http2_peer_limit_header_list_size_exceeded"
-        | "http2_peer_limit_header_table_size_exceeded" => Some((
+        "http2_peer_limit_header_list_size_exceeded" => Some((
             vec![
                 T::int(),
                 T::int(),
@@ -698,6 +697,19 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 types.byte_view.clone(),
             ],
             unit_result(),
+        )),
+        "http2_peer_limit_header_table_size_exceeded" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_runtime_diagnostic_result(),
         )),
         "http2_peer_limit_flow_control_window_exceeded" => Some((
             vec![

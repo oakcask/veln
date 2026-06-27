@@ -300,6 +300,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/runtime-diagnostic-http2-settings-value-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-header-table-human/`,
 `../../examples/specification/run/http2-protocol-core-header-table-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-header-table-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/`,
@@ -343,6 +344,9 @@ archived under
 The completed HTTP/2 SETTINGS value peer-limit standard helper migration
 slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-settings-value-helper-payload.md`.
+The completed HTTP/2 header-table receive-limit standard helper migration
+slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-header-table-helper-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

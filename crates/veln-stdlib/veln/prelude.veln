@@ -617,7 +617,7 @@ pub fn http2_peer_limit_header_list_size_exceeded(offset: Int, observed_size: In
 	prelude_builtin::http2_peer_limit_header_list_size_exceeded(offset, observed_size, allowed_size, frame_kind, stream_id, receive_limit_provenance, rule_provenance, preview)
 end
 
-pub fn http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+pub fn http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_peer_limit_header_table_size_exceeded(offset, observed_size, allowed_size, frame_kind, stream_id, receive_limit_provenance, rule_provenance, preview)
 end
 

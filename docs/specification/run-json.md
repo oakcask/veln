@@ -127,9 +127,10 @@ classification, peer-limit facts, active state, rule provenance, receive-limit
 provenance, header-list facts, decoded header names, and bounded byte previews
 where applicable.
 The `http2_protocol_closed_with_pending(...)`,
-`http2_protocol_partial_preface(...)`, and
-`http2_protocol_invalid_preface(...)`, and
-`http2_peer_limit_frame_size_exceeded(...)` and
+`http2_protocol_partial_preface(...)`,
+`http2_protocol_invalid_preface(...)`,
+`http2_peer_limit_frame_size_exceeded(...)`,
+`http2_peer_limit_header_table_size_exceeded(...)`, and
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
@@ -469,11 +470,12 @@ JSON examples return source-visible
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
-`http2_protocol_closed_with_pending` and
-`http2_peer_limit_frame_size_exceeded` standard helpers return the same
-`RuntimeDiagnostic(...)` values directly, so their JSON result details are
-also derived from the returned value rather than a compatibility side-table
-entry.
+`http2_protocol_closed_with_pending`,
+`http2_peer_limit_frame_size_exceeded`, and
+`http2_peer_limit_header_table_size_exceeded` standard helpers return the
+same `RuntimeDiagnostic(...)` values directly, so their JSON result details
+are also derived from the returned value rather than a compatibility
+side-table entry.
 The frame-size
 peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
@@ -550,6 +552,10 @@ id `http2.peer_limit.header_table_size_exceeded` and records
 `byte_preview` for the inspected header-block bytes; peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` remains outbound peer state and is not reported
 as the receive-limit provenance for rejecting incoming table-size updates.
+The `http2_peer_limit_header_table_size_exceeded(...)` standard helper
+returns the same `RuntimeDiagnostic(...)` value directly, so its JSON result
+details are also derived from the returned value rather than a compatibility
+side-table entry.
 Received
 request header-list validation failures use id
 `http2.protocol.invalid_request_header_list` and record
