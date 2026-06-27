@@ -2510,6 +2510,14 @@ against the built `veln` binary.
   byte offset, stream reference, current open count, attempted and allowed
   counts, endpoint role, active state, receive-limit provenance, and rule
   provenance.
+- `run/runtime-diagnostic-http2-concurrent-streams-helper-human/`: a direct
+  `http2_peer_limit_concurrent_streams_exceeded(...)` helper failure reports
+  the same focused human diagnostic from its returned
+  `RuntimeDiagnostic(...)` value.
+- `run/runtime-diagnostic-http2-concurrent-streams-helper-json/`: a direct
+  `http2_peer_limit_concurrent_streams_exceeded(...)` helper failure returns a
+  source-visible `RuntimeDiagnostic(...)` value while preserving the same
+  structured `details.protocol_diagnostic` fields.
 - `run/http2-protocol-core-header-table-human/`: an HPACK dynamic table-size
   update above the active local receive limit reports
   `http2.peer_limit.header_table_size_exceeded` through human `run` stderr
