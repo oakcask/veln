@@ -301,7 +301,7 @@ executable decode boundary in ordinary source calls, including supported
 middle reserved-bit layouts, same-module nested dispatch payload schemas whose
 own helpers may include length-bounded `ByteView(length_field)` fields,
 same-module recursive closed and extension dispatch payload schemas,
-repeat-backed schemas, quotient-sized
+repeat-backed schemas, quotient-count repeat schemas, quotient-sized
 `ByteView(left_length / right_length)` payload fields, and multiple
 decoded-field selected schema mappings already accepted by
 `byte_decode_step_<schema>`. The call accepts the bounded
@@ -381,8 +381,9 @@ A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
 executable encode boundary in ordinary source calls, including eligible nested
 dispatch payload schemas, same-module recursive closed and extension dispatch
-payload schemas, repeat-backed schemas, direct structural mappings, and
-selected structural mappings already accepted by `byte_encode_<schema>`.
+payload schemas, repeat-backed schemas, quotient-count repeat schemas, direct
+structural mappings, and selected structural mappings already accepted by
+`byte_encode_<schema>`.
 The call accepts the generated helper's schema-local value record or mapped
 target record, invokes the generated schema encode helper, and returns
 `EncodeStep<()>`. Successful helper output is projected from `Ok(ByteChunk)`

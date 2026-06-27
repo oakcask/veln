@@ -33,8 +33,8 @@ path.
   checks visible field encode range failure projection on the schema-local
   field path.
 - `../../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
-  checks derived codec decode readiness and budgeted encode resume boundaries
-  for the same packed group.
+  checks derived codec decode readiness, budgeted encode resume, and
+  helper-projected encode failure boundaries for the same packed group.
 
 ## Remaining Work
 

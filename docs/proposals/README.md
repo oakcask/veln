@@ -152,7 +152,7 @@ compare it with `../specification/` before changing behavior.
   boundary coverage, bounded `Repeat(left_count * right_count, Payload)`
   decode and encode with count-mismatch and invalid-count coverage, bounded
   `Repeat(left_count / right_count, Payload)` decode and encode plus
-  division-by-zero coverage,
+  division-by-zero and derived codec boundary coverage,
   bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
   derived codec boundary slices, length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
@@ -224,10 +224,11 @@ compare it with `../specification/` before changing behavior.
   encode preservation and resume, plus eligible derived codec decode and
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
-  quotient-sized `ByteView` payload fields, same-module recursive closed and
-  extension dispatch payload helpers, and selected structural mapping encode
-  slice, and derived helper eligibility
-  diagnostics for unsupported generated decode and encode directions.
+  quotient-sized `ByteView` payload fields, quotient-count repeated primitive
+  fields, same-module recursive closed and extension dispatch payload helpers,
+  visible-only packed two-byte groups, and selected structural mapping encode
+  slice, and derived helper eligibility diagnostics for unsupported generated
+  decode and encode directions.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema

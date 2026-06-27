@@ -1,0 +1,203 @@
+# Derived codec boundaries include quotient-count Repeat schema helpers.
+use stdio
+
+schema CountedValues
+	format binary
+
+	total_count: UInt8
+	group_count: UInt8
+	items: Repeat(total_count / group_count, UInt16be)
+end
+
+codec CountedValuesCodec for CountedValues decode encode
+	derive decode
+	derive encode
+end
+
+fn list_count(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn decode_step_kind(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_item_count(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(sample, _) => list_count(sample.items)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_item_sum(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(sample, _) => list_sum(sample.items)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn decode_error_id(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn decode_error_offset(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn decode_error_path(step: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+	end
+end
+
+fn encode_step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn encode_error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn encode_error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn encode_error_reason(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_one_chunk(chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::println("output_chunk_list repeat-quotient count 1")
+	emit_output_chunk("repeat-quotient", 0, chunk, expected_hex)
+end
+
+fn emit_encoded(step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_one_chunk(chunk, expected_hex)
+		Encoded(_) => stdio::println("unexpected encoded chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let complete_bytes: ByteChunk = byte_chunk_from_hex("08020001000200030004")?
+	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(10)?)?
+	let complete: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = CountedValuesCodec(complete_view, byte_offset(31)?)
+	stdio::println(decode_step_kind(complete))
+	stdio::println(int_to_string(decoded_item_count(complete)))
+	stdio::println(int_to_string(decoded_item_sum(complete)))
+	stdio::println(int_to_string(consumed_count(complete)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("08")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = CountedValuesCodec(short_view, byte_offset(37)?)
+	stdio::println(decode_step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let zero_group_bytes: ByteChunk = byte_chunk_from_hex("0800")?
+	let zero_group_view: ByteView = byte_view(zero_group_bytes, byte_offset(0)?, byte_count(2)?)?
+	let invalid_decode: DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}> = CountedValuesCodec(zero_group_view, byte_offset(41)?)
+	stdio::println(decode_step_kind(invalid_decode))
+	stdio::println(decode_error_id(invalid_decode))
+	stdio::println(int_to_string(decode_error_offset(invalid_decode)))
+	stdio::println(decode_error_path(invalid_decode))
+	stdio::println(int_to_string(consumed_count(invalid_decode)))
+
+	let items: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_cons(4, list_nil()))))
+	let encoded: EncodeStep<()> = CountedValuesCodec({total_count: 8, group_count: 2, items: items})
+	stdio::println(encode_step_kind(encoded))
+	emit_encoded(encoded, "08020001000200030004")
+
+	let short_items: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))
+	let invalid_encode: EncodeStep<()> = CountedValuesCodec({total_count: 8, group_count: 2, items: short_items})
+	stdio::println(encode_step_kind(invalid_encode))
+	stdio::println(encode_error_id(invalid_encode))
+	stdio::println(encode_error_path(invalid_encode))
+	stdio::println(encode_error_reason(invalid_encode))
+	Ok(())
+end

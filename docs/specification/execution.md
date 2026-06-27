@@ -1321,10 +1321,12 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
-  repeat-backed schemas, the implemented direct structural mapping and
-  selected structural mapping slices, eligible nested dispatch payload
-  schemas, and same-module recursive closed and extension dispatch payload
-  helpers already accepted by `byte_encode_<schema>`.
+  visible-only packed two-byte groups, repeat-backed schemas,
+  quotient-count repeat schemas, the implemented
+  direct structural mapping and selected structural mapping slices, eligible
+  nested dispatch payload schemas, and same-module recursive closed and
+  extension dispatch payload helpers already accepted by
+  `byte_encode_<schema>`.
   The call accepts the generated helper's value record or mapped target
   record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
   helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
@@ -1341,6 +1343,8 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
@@ -1375,11 +1379,13 @@ execution reference.
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
   supported middle reserved-bit layouts, including byte-interleaved middle
-  reserved layouts, repeat-backed schemas, quotient-sized
-  `ByteView(left_length / right_length)` payload fields, same-module or
-  public imported nested dispatch payload schemas, same-module recursive
-  closed and extension dispatch payload helpers, and multiple decoded-field
-  selected schema mappings already accepted by `byte_decode_step_<schema>`.
+  reserved layouts, visible-only packed two-byte groups, repeat-backed
+  schemas, quotient-count repeat schemas, quotient-sized
+  `ByteView(left_length / right_length)` payload fields,
+  same-module or public imported nested dispatch payload schemas, same-module
+  recursive closed and extension dispatch payload helpers, and multiple
+  decoded-field selected schema mappings already accepted by
+  `byte_decode_step_<schema>`.
   The call accepts a bounded
   `ByteView` and explicit base `ByteOffset` and returns the same
   `DecodeStep<T>` value as
@@ -1390,7 +1396,10 @@ execution reference.
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,

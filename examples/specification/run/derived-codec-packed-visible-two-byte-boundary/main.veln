@@ -82,6 +82,30 @@ fn encoded_offset(step: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int,
 	end
 end
 
+fn error_id(step: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
 fn partial_state(step: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}>) -> Result<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}, String>
 	match step
 		Encoded(_) => Err("expected partial encode")
@@ -146,5 +170,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(encode_step_kind(resumed))
 	stdio::println(int_to_string(emitted_bytes(resumed)))
 	emit_step_chunk("packed-visible-two-byte-resume", resumed, "cd")
+
+	let invalid: EncodeStep<{high: Int, middle: Int, low: Int, tail: Int, encoded_offset: ByteCount}> = PackedVisibleTwoByteCodec({high: 10, middle: 32, low: 4, tail: 13}, byte_count(2)?)
+	stdio::println(encode_step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
 	Ok(())
 end

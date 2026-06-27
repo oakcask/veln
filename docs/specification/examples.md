@@ -233,6 +233,13 @@ The executable specification case
 covers the same derived codec decode and encode item boundary for a six-byte
 reserved suffix layout.
 The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
+covers the same derived codec decode and encode item boundary for a
+visible-only packed two-byte group. It checks successful `Decoded`,
+short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
+and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
+item.
+The executable specification case
 `../../examples/specification/run/codec-needmore-parser-state/` covers
 caller-owned parser state around the codec boundary. It checks that `Decoded`
 advances the retained suffix and explicit base offset by the consumed count,
@@ -243,6 +250,16 @@ The executable specification case
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a bounded repeated primitive field and reports repeat-backed
 readiness or helper failure through the codec item.
+The executable specification case
+`../../examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`
+covers the same boundary for repeated bounded `ByteView` fields.
+The executable specification case
+`../../examples/specification/run/derived-codec-repeat-quotient-boundary/`
+covers the same derived codec decode and encode item boundary when the
+generated helper uses `Repeat(total_count / group_count, UInt16be)`, including
+successful `Decoded` and `Encoded` outcomes, short-input `NeedMore`, division
+by zero projected to `Invalid(DecodeError)`, and list-count mismatch
+projected to `Invalid(EncodeError)`.
 The executable specification case
 `../../examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
@@ -345,6 +362,10 @@ The executable specification case
 covers the same derived codec call boundary when the generated encode helper
 writes a bounded repeated primitive field.
 The executable specification case
+`../../examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`
+covers repeated bounded `ByteView` encode through the same derived codec
+boundary.
+The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
 writes a same-module nested dispatch payload schema whose generated helper
@@ -366,6 +387,11 @@ The executable specification case
 covers the derived codec encode boundary over the same general generated
 helper shape through the codec item name, including successful encode and
 helper-projected encode failure.
+The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
+covers the derived codec encode boundary over a visible-only packed two-byte
+group, including budgeted partial output, resumed `Encoded` output, and
+helper-projected `Invalid(EncodeError(...))`.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.derive_helper_unsupported` rejection for generated encode boundaries.
 
@@ -1209,6 +1235,8 @@ and
 `../../examples/specification/run/binary-schema-repeat-quotient-division-by-zero-json/`
 pin `Repeat(total_count / group_count, UInt16be)` decode, encode, direct
 helper encode mismatch, and division-by-zero diagnostics.
+The derived codec boundary for that same helper shape is pinned by
+`../../examples/specification/run/derived-codec-repeat-quotient-boundary/`.
 
 `../../examples/specification/run/binary-schema-repeat-truncated-json/` and
 `../../examples/specification/run/binary-schema-repeat-truncated-human/` pin
