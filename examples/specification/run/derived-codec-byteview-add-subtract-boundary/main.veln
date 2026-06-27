@@ -1,0 +1,120 @@
+# Derived codec boundaries include added and subtracted ByteView helpers.
+use stdio
+
+schema AddPacketWire
+	format binary
+
+	header_length: UInt8
+	body_length: UInt8
+	payload: ByteView(header_length + body_length)
+end
+
+schema SubtractPacketWire
+	format binary
+
+	length: UInt8
+	padding_length: UInt8
+	payload: ByteView(length - padding_length)
+end
+
+codec AddPacketCodec for AddPacketWire decode encode
+	derive decode
+	derive encode
+end
+
+codec SubtractPacketCodec for SubtractPacketWire decode encode
+	derive decode
+	derive encode
+end
+
+fn emit_add_packet(packet: {header_length: Int, body_length: Int, payload: ByteView}, consumed: ByteCount) -> () effects [stdio]
+	stdio::print("add decoded ")
+	stdio::print(int_to_string(packet.header_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.body_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(packet.payload))))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_read_u16_be(packet.payload)?))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+end
+
+fn emit_add_decoded(step: DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}>) -> () effects [stdio]
+	match step
+		Decoded(packet, consumed) => emit_add_packet(packet, consumed)
+		NeedMore(_) => stdio::println("unexpected add readiness")
+		Invalid(_) => stdio::println("unexpected add decode failure")
+	end
+end
+
+fn emit_subtract_packet(packet: {length: Int, padding_length: Int, payload: ByteView}, consumed: ByteCount) -> () effects [stdio]
+	stdio::print("subtract decoded ")
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.padding_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(packet.payload))))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_read_u16_be(packet.payload)?))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_count_to_int(consumed)))
+end
+
+fn emit_subtract_decoded(step: DecodeStep<{length: Int, padding_length: Int, payload: ByteView}>) -> () effects [stdio]
+	match step
+		Decoded(packet, consumed) => emit_subtract_packet(packet, consumed)
+		NeedMore(_) => stdio::println("unexpected subtract readiness")
+		Invalid(_) => stdio::println("unexpected subtract decode failure")
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(_) => stdio::println("unexpected chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let add_bytes: ByteChunk = byte_chunk_from_hex("0203aabbccddee")?
+	let add_view: ByteView = byte_view(add_bytes, byte_offset(0)?, byte_count(7)?)?
+	let add_decoded: DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}> = AddPacketCodec(add_view, byte_offset(11)?)
+	emit_add_decoded(add_decoded)
+
+	let subtract_bytes: ByteChunk = byte_chunk_from_hex("0502aabbcc")?
+	let subtract_view: ByteView = byte_view(subtract_bytes, byte_offset(0)?, byte_count(5)?)?
+	let subtract_decoded: DecodeStep<{length: Int, padding_length: Int, payload: ByteView}> = SubtractPacketCodec(subtract_view, byte_offset(21)?)
+	emit_subtract_decoded(subtract_decoded)
+
+	let add_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddee")?
+	let add_payload: ByteView = byte_view(add_payload_bytes, byte_offset(0)?, byte_count(5)?)?
+	let add_encoded: EncodeStep<()> = AddPacketCodec({header_length: 2, body_length: 3, payload: add_payload})
+	emit_encoded("byteview-add-derived", add_encoded, "0203aabbccddee")
+
+	let subtract_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
+	let subtract_payload: ByteView = byte_view(subtract_payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let subtract_encoded: EncodeStep<()> = SubtractPacketCodec({length: 5, padding_length: 2, payload: subtract_payload})
+	emit_encoded("byteview-subtract-derived", subtract_encoded, "0502aabbcc")
+	Ok(())
+end

@@ -275,6 +275,13 @@ helper decodes a quotient-sized `ByteView(left_length / right_length)`
 payload field and reports success, prefix readiness, or truncation failure
 through the codec item.
 The executable specification case
+`../../examples/specification/run/derived-codec-byteview-add-subtract-boundary/`
+covers the same derived codec decode and encode boundary when generated
+helpers decode and encode `ByteView(left_length + right_length)` and
+`ByteView(left_length - right_length)` payload fields. It checks successful
+`Decoded` values, consumed counts, and `Encoded(List<ByteChunk>)` projections
+through the codec item.
+The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a same-module nested dispatch payload schema whose generated
@@ -1235,6 +1242,9 @@ field path, and the view-count mismatch reason. The derived codec boundary
 case
 `../../examples/specification/run/derived-codec-byteview-encode-boundary/`
 pins the same helper eligibility through `derive encode`.
+`../../examples/specification/run/derived-codec-byteview-add-subtract-boundary/`
+also pins `derive encode` helper eligibility for added and subtracted
+`ByteView` length expressions.
 The repeated byte-view encode cases listed in
 `../../examples/specification/README.md` pin generated encode for
 `Repeat(count_field, ByteView(length_field))`. The passing case writes the

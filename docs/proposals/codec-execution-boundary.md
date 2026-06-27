@@ -37,7 +37,9 @@ structural mapping encode slice, and caller-owned parser-state retention
 around `Decoded` and `NeedMore` in `../specification/execution.md`. The
 implemented derived decode boundary also covers generated-helper-backed
 schemas with quotient-sized `ByteView(left_length / right_length)` and
-product-sized `ByteView(left_length * right_length)` payload fields. The
+product-sized `ByteView(left_length * right_length)` payload fields, plus
+additive `ByteView(left_length + right_length)` and subtractive
+`ByteView(left_length - right_length)` payload fields. The
 implemented hand-written decode boundary also covers a bounded `ByteView` plus
 caller-supplied base `ByteOffset` example that returns `Decoded` with a
 consumed `ByteCount`, returns non-consuming `NeedMore` for short input, and
@@ -244,8 +246,8 @@ decode-step slice, including same-module nested dispatch payload helper
 schemas, public imported nested dispatch payload helper schemas,
 repeat-backed schemas, quotient-count repeated primitive fields, supported
 middle reserved layouts, and the checked non-HTTP general helper shape, plus
-quotient-sized and product-sized `ByteView` payload fields and visible-only
-packed two-byte groups.
+additive, subtractive, quotient-sized, and product-sized `ByteView` payload
+fields and visible-only packed two-byte groups.
 The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated
@@ -254,8 +256,8 @@ implemented binary schema encode helper slice, including direct structural
 mapped schemas, same-module nested dispatch payload helper schemas, public
 imported nested dispatch payload helper schemas, repeat-backed schemas,
 quotient-count repeated primitive fields, and the checked non-HTTP general
-helper shape, plus product-sized `ByteView` payload fields and visible-only
-packed two-byte groups.
+helper shape, plus additive, subtractive, and product-sized `ByteView` payload
+fields and visible-only packed two-byte groups.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 

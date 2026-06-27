@@ -8895,6 +8895,184 @@ fn codec_derive_decode_resolves_as_schema_decode_step_boundary() {
 }
 
 #[test]
+fn codec_derive_decode_resolves_added_and_subtracted_byte_view_schema_decode_step_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema AddPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  header_length: UInt8\n",
+            "  body_length: UInt8\n",
+            "  payload: ByteView(header_length + body_length)\n",
+            "end\n",
+            "\n",
+            "schema SubtractPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  payload: ByteView(length - padding_length)\n",
+            "end\n",
+            "\n",
+            "codec AddPacketCodec for AddPacketWire decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec SubtractPacketCodec for SubtractPacketWire decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "pub fn read_add(view: ByteView, base: ByteOffset) -> DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}>\n",
+            "  AddPacketCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn read_subtract(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, padding_length: Int, payload: ByteView}>\n",
+            "  SubtractPacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for (function_name, schema_name) in [
+        ("read_add", "AddPacketWire"),
+        ("read_subtract", "SubtractPacketWire"),
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("codec wrapper should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaDecodeStep(name),
+                ..
+            } if name == schema_name
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for (function_name, schema_name) in [
+        ("read_add", "AddPacketWire"),
+        ("read_subtract", "SubtractPacketWire"),
+    ] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("codec wrapper should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaDecodeStep(name),
+                ..
+            } if name == schema_name
+        ));
+    }
+}
+
+#[test]
+fn codec_derive_encode_resolves_added_and_subtracted_byte_view_schema_encode_step_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema AddPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  header_length: UInt8\n",
+            "  body_length: UInt8\n",
+            "  payload: ByteView(header_length + body_length)\n",
+            "end\n",
+            "\n",
+            "schema SubtractPacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  payload: ByteView(length - padding_length)\n",
+            "end\n",
+            "\n",
+            "codec AddPacketCodec for AddPacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "codec SubtractPacketCodec for SubtractPacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn write_add(packet: {header_length: Int, body_length: Int, payload: ByteView}) -> EncodeStep<()>\n",
+            "  AddPacketCodec(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn write_subtract(packet: {length: Int, padding_length: Int, payload: ByteView}) -> EncodeStep<()>\n",
+            "  SubtractPacketCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for (function_name, schema_name) in [
+        ("write_add", "AddPacketWire"),
+        ("write_subtract", "SubtractPacketWire"),
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("codec wrapper should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaEncodeStep(name),
+                ..
+            } if name == schema_name
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for (function_name, schema_name) in [
+        ("write_add", "AddPacketWire"),
+        ("write_subtract", "SubtractPacketWire"),
+    ] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("codec wrapper should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaEncodeStep(name),
+                ..
+            } if name == schema_name
+        ));
+    }
+}
+
+#[test]
 fn codec_derive_decode_resolves_quotient_byte_view_schema_decode_step_boundary() {
     let source = SourceFile::new(
         "main.veln",
