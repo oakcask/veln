@@ -737,7 +737,8 @@ reference, current open peer-created stream count, attempted and allowed
 concurrent-stream counts, endpoint role, active protocol state,
 receive-limit provenance, and rule provenance in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details.
-Non-HEADERS frames on idle streams keep using the existing invalid frame-kind
+Except for the implemented PRIORITY idle-stream receive slice below,
+non-HEADERS frames on idle streams keep using the existing invalid frame-kind
 failure.
 The implemented slice also receives `RST_STREAM` frames on the tracked open
 peer-created stream. It decodes the four-byte error-code payload into
@@ -752,11 +753,12 @@ client-initiated stream ids. It decodes the five-byte payload into
 source-visible dependency stream id, exclusive flag, and weight facts. On the
 currently tracked open stream, it records those facts and lets a later
 accepted PRIORITY frame for that stream replace the tracked dependency,
-exclusive flag, and weight. On an idle stream when no peer-created stream is
-tracked, it exposes those facts while leaving the stream idle and leaving the
-concurrent-stream receive count unchanged. PRIORITY on closed-by-peer, reset,
-or mismatched streams uses the existing stream-state failure boundary rather
-than opening or retargeting stream state. PRIORITY on stream id zero uses the
+exclusive flag, and weight. On an idle stream, including when another
+peer-created stream is already tracked as open, it exposes those facts while
+leaving tracked open-stream state unchanged and leaving the concurrent-stream
+receive count unchanged. PRIORITY on closed-by-peer or reset streams uses the
+existing stream-state failure boundary rather than opening or retargeting
+stream state. PRIORITY on stream id zero uses the
 existing stream id domain failure, wrong-length PRIORITY payloads use
 `http2.protocol.invalid_payload_length`, and PRIORITY self-dependency uses
 `http2.protocol.invalid_priority_dependency` in ordinary output, human

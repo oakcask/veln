@@ -2716,7 +2716,7 @@ fn validate_priority_stream_state(offset: Int, kind: Int, stream_id: Int, receiv
 		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
 		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
 			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			false => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
 		end
 		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _)) => match stream_id == first_stream_id
 			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
@@ -3348,7 +3348,7 @@ fn update_priority_receive_state(pending: ByteChunk, offset: Int, length: Int, s
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
 			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, stream_priority_with_priority(priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?))))))
-			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority))))
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match stream_id == first_stream_id
 			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, stream_priority_with_priority(first_priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)), second_stream_id, second_stream_window, second_priority))))
@@ -8194,8 +8194,11 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority_reset_state: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000100000008")?), step_state(priority_reset_open))?
 	let priority_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), step_state(priority_reset_state))?
 	print_failure("priority-reset", priority_reset)
-	let priority_mismatch: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000003800000010f")?), step_state(priority))?
-	print_failure("priority-mismatch", priority_mismatch)
+	let priority_idle_with_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000003800000010f")?), step_state(priority))?
+	print_step("priority-idle-with-open", priority_idle_with_open)
+	let ignored_priority_idle_with_open: () = print_priority_frame("priority-idle-with-open", priority_idle_with_open)?
+	print_priority_state("priority-idle-with-open", step_state(priority_idle_with_open))
+	print_peer_streams("priority-idle-with-open", step_state(priority_idle_with_open))
 	let priority_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000000000000010f")?), frame_state())?
 	print_stream_id_failure("priority-zero-stream", priority_zero_stream)
 	let priority_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000402000000000100000001")?), frame_state())?
