@@ -54,8 +54,8 @@ requiring the full command reference on the first read.
   flow-control peer-limits with bounded DATA payload byte previews,
   header-list and header-table receive-limit peer-limits with bounded
   header-block byte previews,
-  standard helper-returned frame-size and SETTINGS value runtime diagnostic
-  payloads,
+  standard helper-returned frame-size, SETTINGS value, and header-table
+  runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and
   HPACK dynamic table-size update placement failures with frame and stream
   context,

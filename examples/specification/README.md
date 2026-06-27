@@ -2515,6 +2515,10 @@ against the built `veln` binary.
   `http2.peer_limit.header_table_size_exceeded` through `run --json` with
   byte offset, observed and allowed header-table sizes, frame kind, stream
   reference, receive-limit provenance, and rule provenance.
+- `run/runtime-diagnostic-http2-header-table-helper-json/`: a direct
+  `http2_peer_limit_header_table_size_exceeded(...)` helper failure returns a
+  source-visible `RuntimeDiagnostic(...)` value while preserving the same
+  structured `details.protocol_diagnostic` fields.
 - `run/http2-protocol-core-settings-value-human/`: a received
   `SETTINGS_ENABLE_PUSH` value above the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr

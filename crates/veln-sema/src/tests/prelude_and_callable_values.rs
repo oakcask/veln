@@ -9626,6 +9626,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "invalid_priority_dependency_http2: Result<(), String>, ",
             "stream_after_goaway_http2: Result<(), String>, ",
             "frame_size_http2: Result<(), RuntimeDiagnostic>, header_list_http2: Result<(), String>, ",
+            "header_table_http2: Result<(), RuntimeDiagnostic>, ",
             "flow_control_http2: Result<(), String>, ",
             "concurrent_streams_http2: Result<(), String>, ",
             "settings_value_http2: Result<(), RuntimeDiagnostic>, ",
