@@ -304,6 +304,8 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/runtime-diagnostic-http2-data-settings-helper-payload.md`.
   The completed HTTP/2 runtime diagnostic side-table cleanup is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-side-table-cleanup.md`.
+  The completed top-level test JSON payload projection slice is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-test-json-payload.md`.
   Remaining work includes migrating other fixture, value, and generated-schema
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

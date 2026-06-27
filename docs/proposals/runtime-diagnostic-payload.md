@@ -411,6 +411,8 @@ and unexpected SETTINGS ACK diagnostics is archived under
 The completed cleanup of obsolete HTTP/2 runtime diagnostic side-table
 registrations is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-side-table-cleanup.md`.
+The completed top-level test JSON payload projection slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-test-json-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

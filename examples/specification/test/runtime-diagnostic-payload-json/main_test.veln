@@ -1,0 +1,37 @@
+# RuntimeDiagnostic result values keep payload details in test JSON failures.
+fn byte_diagnostic() -> RuntimeDiagnostic
+	let field_path: List<RuntimeDiagnosticFieldPathSegment> = Cons(
+		RuntimeDiagnosticFieldPathSegment("schema", "Payload"),
+		Cons(RuntimeDiagnosticFieldPathSegment("field", "body"), Nil)
+	)
+	RuntimeDiagnostic(
+		"codec.incomplete_input",
+		"byte read requires 3 bytes but view has 2",
+		RuntimeByteDiagnostic(
+			byte_offset(2)?,
+			field_path,
+			RuntimeByteCountFacts(byte_count(3)?, byte_count(2)?, "need_bytes"),
+			RuntimeBytePreview("0001", byte_count(2)?, byte_count(2)?, false)
+		)
+	)
+end
+
+test returned_payload() -> Result<(), RuntimeDiagnostic>
+	Err(byte_diagnostic())
+end
+
+fn value_diagnostic() -> RuntimeDiagnostic
+	let field_path: List<RuntimeDiagnosticFieldPathSegment> = Cons(
+		RuntimeDiagnosticFieldPathSegment("schema", "RuntimeValuePacket"),
+		Cons(RuntimeDiagnosticFieldPathSegment("field", "value"), Nil)
+	)
+	RuntimeDiagnostic(
+		"codec.encode_value_unrepresentable",
+		"encode value is unrepresentable",
+		RuntimeValueDiagnostic(field_path, "value must be between 0 and 255")
+	)
+end
+
+test returned_value_payload() -> Result<(), RuntimeDiagnostic>
+	Err(value_diagnostic())
+end

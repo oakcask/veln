@@ -22,6 +22,10 @@ This page routes implemented JSON output for `veln test --json`.
   exposes path assertions over the returned value shape, including
   `RuntimeDiagnostic`, `RuntimeByteDiagnostic`, byte offset, field path,
   count/range/fixed-value/reason facts, and optional byte preview fields.
+- Runtime result failures in top-level tests keep returned
+  `RuntimeDiagnostic(...)` payloads in `cases.*.failure.details.value` and
+  project contained byte and value payload fields into the same structured
+  diagnostic details used by `run --json`.
 
 ## Read When
 
@@ -43,6 +47,7 @@ This page routes implemented JSON output for `veln test --json`.
 - Readable coverage for runtime expectation plus output mismatch:
   `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
 - Runtime diagnostic payload value-shape assertion coverage:
+  `../../examples/specification/test/runtime-diagnostic-payload-json/`,
   `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`
   and
   `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`.
