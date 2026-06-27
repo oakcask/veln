@@ -2551,8 +2551,9 @@ active continuation, connection state, or stream state, observed and allowed
 frame sizes, malformed HPACK Huffman padding fixture context, setting identity,
 observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length including SETTINGS ACK length zero and `RST_STREAM`
-length four, unexpected SETTINGS ACK state, flow-control window credit,
+expected payload length including SETTINGS ACK length zero, `RST_STREAM`
+length four, and `WINDOW_UPDATE` length four, unexpected SETTINGS ACK state,
+flow-control window credit,
 expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface, invalid-stream-id frame-header,

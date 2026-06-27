@@ -206,6 +206,8 @@ behavior.
   [runtime-diagnostic-http2-header-table-helper-payload.md](runtime-diagnostic-http2-header-table-helper-payload.md).
 - Runtime diagnostic HTTP/2 concurrent-streams helper payload:
   [runtime-diagnostic-http2-concurrent-streams-helper-payload.md](runtime-diagnostic-http2-concurrent-streams-helper-payload.md).
+- Runtime diagnostic HTTP/2 payload-length helper payload:
+  [runtime-diagnostic-http2-payload-length-helper-payload.md](runtime-diagnostic-http2-payload-length-helper-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

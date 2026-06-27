@@ -659,11 +659,12 @@ structured bounded `byte_preview` for the inspected payload bytes. The preview
 uses the same object shape as other protocol-owned byte previews while
 payload length facts stay in their own fields. The SETTINGS ACK, PING,
 GOAWAY, and `RST_STREAM` checked human and JSON examples return source-visible
-`RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, so
+`RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, and the
+`http2_protocol_invalid_payload_length(...)` helper returns the same
+source-visible payload directly. The checked helper JSON example covers the
+`WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. Other checked
-HTTP/2 examples cover the PRIORITY fixed-length failure and `WINDOW_UPDATE`
-fixed-length failure through the compatibility projection. PADDED DATA
+`details.protocol_diagnostic` keeps the same public fields. PADDED DATA
 failures use source-visible
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
