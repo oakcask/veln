@@ -538,7 +538,7 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         _ => None,
     }

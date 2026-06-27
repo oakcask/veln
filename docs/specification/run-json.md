@@ -129,6 +129,7 @@ where applicable.
 The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
 `http2_protocol_invalid_preface(...)`,
+`http2_protocol_continuation_expected(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
 `http2_peer_limit_header_list_size_exceeded(...)`,
 `http2_peer_limit_header_table_size_exceeded(...)`,
@@ -473,6 +474,7 @@ JSON examples return source-visible
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
 `http2_protocol_closed_with_pending`,
+`http2_protocol_continuation_expected`,
 `http2_peer_limit_frame_size_exceeded`,
 `http2_peer_limit_header_table_size_exceeded`, and
 `http2_peer_limit_concurrent_streams_exceeded` standard helpers return the

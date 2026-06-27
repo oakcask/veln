@@ -561,7 +561,7 @@ pub fn http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_by
 	prelude_builtin::http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, preview)
 end
 
-pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, preview)
 end
 
