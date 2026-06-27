@@ -280,6 +280,12 @@ helper decodes a quotient-sized `ByteView(left_length / right_length)`
 payload field and reports success, prefix readiness, or truncation failure
 through the codec item.
 The executable specification case
+`../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
+covers the same derived codec call boundary when the generated encode helper
+encodes a quotient-sized `ByteView(left_length / right_length)` payload field
+and projects helper success, count mismatch, or division by zero to
+`EncodeStep<()>`.
+The executable specification case
 `../../examples/specification/run/derived-codec-byteview-add-subtract-boundary/`
 covers the same derived codec decode and encode boundary when generated
 helpers decode and encode `ByteView(left_length + right_length)` and
@@ -1288,10 +1294,13 @@ and derived codec encode success.
 pin `ByteView(row_count * column_count)` decode, short-input failure, derived
 codec encode success, and direct helper encode mismatch.
 `../../examples/specification/run/binary-schema-byteview-quotient-decode/`,
-`../../examples/specification/run/binary-schema-byteview-quotient-encode/`, and
-`../../examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`
-pin `ByteView(total_length / chunk_count)` decode, derived codec encode
-success, and direct helper encode mismatch.
+`../../examples/specification/run/binary-schema-byteview-quotient-encode/`,
+`../../examples/specification/run/binary-schema-byteview-quotient-encode-length-mismatch/`,
+and
+`../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
+pin `ByteView(total_length / chunk_count)` decode, direct helper encode,
+derived codec encode success, and helper failure projection through
+`EncodeStep::Invalid`.
 `../../examples/specification/run/binary-schema-repeat-quotient-decode/`,
 `../../examples/specification/run/binary-schema-repeat-quotient-encode/`,
 `../../examples/specification/run/binary-schema-repeat-quotient-encode-count-mismatch/`,

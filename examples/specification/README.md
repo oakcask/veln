@@ -2197,6 +2197,10 @@ against the built `veln` binary.
   case checks successful `Decoded` and `Encoded` outcomes, short-input
   readiness, division-by-zero helper failure projection, and encode list-count
   mismatch projection.
+- `run/derived-codec-byteview-quotient-encode-boundary/`: derived codec
+  encode item boundaries over a quotient-sized `ByteView` schema. The case
+  checks successful `Encoded` output, helper count mismatch projection, and
+  helper division-by-zero projection.
 - `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
   encode` codec item boundary over a same-module nested dispatch payload
   schema whose generated helper uses reserved fields and little-endian output,

@@ -21,8 +21,9 @@ without advancing caller-owned parser state.
 
 Derived codec encode calls expose the same source-call boundary as the
 generated `byte_encode_<schema>` helper when the named schema is already
-eligible for that helper. The completed slices cover opt-in visible flag
-bitset fields and seven-byte or eight-byte reserved prefix groups. A codec
+eligible for that helper. The completed slices cover quotient-sized
+`ByteView(left_length / right_length)` payload fields, opt-in visible flag
+bitset fields, and seven-byte or eight-byte reserved prefix groups. A codec
 call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists.
@@ -33,6 +34,10 @@ call receives the helper value record, returns helper success as
   successful flag-bitset decode, consumed count, short-input readiness,
   successful encode, output chunk projection, and helper encode failure
   projection through the derived codec item.
+- `../../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
+  checks quotient-sized `ByteView` encode success, length-mismatch helper
+  failure projection, and division-by-zero helper failure projection through
+  the derived codec item.
 - `../../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,

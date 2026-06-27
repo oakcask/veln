@@ -1417,6 +1417,7 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
+  `examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
