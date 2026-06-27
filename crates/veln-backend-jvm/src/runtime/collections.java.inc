@@ -3972,18 +3972,27 @@
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }
-        registerHttp2ProtocolInvalidRequestHeaderListDiagnostic(
-            message,
-            byteOffset,
-            kind,
-            stream,
-            fact,
-            header,
-            names,
-            state,
-            provenance
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                fact,
+                header,
+                names,
+                state,
+                provenance
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_request_header_list",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidResponseHeaderList(
@@ -4035,18 +4044,27 @@
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }
-        registerHttp2ProtocolInvalidResponseHeaderListDiagnostic(
-            message,
-            byteOffset,
-            kind,
-            stream,
-            fact,
-            header,
-            names,
-            state,
-            provenance
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                fact,
+                header,
+                names,
+                state,
+                provenance
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_response_header_list",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidPriorityDependency(

@@ -776,8 +776,8 @@ http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int,
 http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
-http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), String>
-http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), String>
+http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
+http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
@@ -1209,7 +1209,9 @@ legacy helper side table.
 `http2_peer_limit_header_list_size_exceeded(...)`,
 `http2_peer_limit_header_table_size_exceeded(...)`,
 `http2_peer_limit_concurrent_streams_exceeded(...)`, and
-`http2_peer_limit_settings_value_out_of_range(...)` return these payloads
+`http2_peer_limit_settings_value_out_of_range(...)`,
+`http2_protocol_invalid_request_header_list(...)`, and
+`http2_protocol_invalid_response_header_list(...)` return these payloads
 directly as `Result<(), RuntimeDiagnostic>`.
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
