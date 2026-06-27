@@ -48,10 +48,13 @@ carries the stable id, message, `ByteOffset`, field-path segment list, one of
 the supported byte fact constructors, and an optional bounded byte preview.
 Count/readiness facts project to `expected_count`, `available_count`, and
 `readiness`; range facts project to `requested_count` and `available_count`;
-reason facts project to `reason`; and `RuntimeBytePreview` projects to the
-standard `byte_preview` object. Plain `Err(value)` values that do not use this
+fixed-value facts project to `expected_value` and `actual_value`; reason facts
+project to `reason`; and `RuntimeBytePreview` projects to the standard
+`byte_preview` object. Plain `Err(value)` values that do not use this
 diagnostic ADT remain ordinary result failures with no
-`details.byte_diagnostic`.
+`details.byte_diagnostic`. Generated binary schema decode fixed-field
+mismatches return this `RuntimeDiagnostic(...)` payload while preserving the
+same `schema.fixed_field_mismatch` byte diagnostic shape.
 
 When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(...))` for a generated

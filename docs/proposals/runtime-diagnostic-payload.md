@@ -165,6 +165,9 @@ The completed HPACK fixture payload migration slice is archived under
 The completed generated encode value-diagnostic payload slice is archived
 under
 `../reference/implemented-proposals/runtime-diagnostic-encode-value-payload.md`.
+The completed generated binary schema fixed-field mismatch payload slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-schema-fixed-field-payload.md`.
 The completed HTTP/2 PRIORITY dependency payload slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-priority-dependency-payload.md`.
 
@@ -332,8 +335,8 @@ and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 These slices deliberately leave legacy side-table support in place for
 existing fixture, value, other unmigrated HTTP/2 protocol and peer-limit, and
-generated-schema helpers. The completed DATA padding, flow-control window,
-and content-length mismatch migration slice is archived under
+unmigrated generated-schema helpers. The completed DATA padding, flow-control
+window, and content-length mismatch migration slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`.
 The completed HTTP/2 invalid frame-kind stream-state migration slice is
 archived under

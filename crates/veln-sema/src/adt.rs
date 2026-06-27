@@ -2210,6 +2210,22 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeByteFixedValueFacts".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "expected_value".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "actual_value".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                    ],
+                    coverage_case: "RuntimeByteFixedValueFacts(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeByteReasonFacts".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {

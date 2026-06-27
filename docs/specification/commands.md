@@ -111,8 +111,11 @@ requiring the full command reference on the first read.
   notes. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` value uses
   the same human byte-diagnostic rendering as side-table-backed runtime byte
-  failures, with the id, byte offset, field path, counts, readiness or reason,
-  and optional preview projected from the returned error value itself. Plain
+  failures, with the id, byte offset, field path, counts, readiness,
+  fixed-field expected and actual values, reason, and optional preview
+  projected from the returned error value itself. Generated binary schema
+  decode fixed-field mismatches return this payload directly and keep the
+  focused `schema.fixed_field_mismatch` human diagnostic. Plain
   `Err(value)` values remain ordinary result failures. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
   value for unsupported-header-block, malformed-string-length,

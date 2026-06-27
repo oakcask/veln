@@ -21,7 +21,7 @@ This page routes implemented JSON output for `veln test --json`.
   `error.details.value`. The harness wraps that value as the outer `Err` and
   exposes path assertions over the returned value shape, including
   `RuntimeDiagnostic`, `RuntimeByteDiagnostic`, byte offset, field path,
-  count/range/reason facts, and optional byte preview fields.
+  count/range/fixed-value/reason facts, and optional byte preview fields.
 
 ## Read When
 

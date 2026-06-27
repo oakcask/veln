@@ -5382,7 +5382,7 @@
         if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "fixed field mismatch at byte offset " + byteOffset;
-            registerSchemaFixedFieldMismatchPathDiagnostic(
+            return schemaFixedFieldMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -5390,7 +5390,6 @@
                 fieldValue,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         decoded.put(field.name, Long.valueOf(fieldValue));
         values.put(
@@ -6083,7 +6082,7 @@
             if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "fixed field mismatch at byte offset " + byteOffset;
-                registerSchemaFixedFieldMismatchPathDiagnostic(
+                return schemaFixedFieldMismatchDiagnostic(
                     message,
                     byteOffset,
                     schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -6091,7 +6090,6 @@
                     fieldValue,
                     byteViewPreviewTrace(view, 8)
                 );
-                return err(message);
             }
             decoded.put(field.name, Long.valueOf(fieldValue));
             values.put(
@@ -6670,6 +6668,88 @@
             byteOffsetObject(diagnostic.byteOffset),
             byteDiagnosticFieldPathDisplay(diagnostic)
         );
+    }
+
+    private static Object schemaFixedFieldMismatchDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long expectedValue,
+        long actualValue,
+        String nearbyContext
+    ) {
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeByteDiagnostic",
+            new Object[] {
+                byteOffsetObject(byteOffset),
+                runtimeDiagnosticFieldPathObject(fieldPath),
+                adt(
+                    "RuntimeByteDiagnosticFacts::RuntimeByteFixedValueFacts",
+                    new Object[] { Long.valueOf(expectedValue), Long.valueOf(actualValue) }
+                ),
+                runtimeBytePreviewObject(nearbyContext)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "schema.fixed_field_mismatch",
+                message,
+                detail
+            }
+        ));
+    }
+
+    private static Object runtimeDiagnosticFieldPathObject(
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
+    ) {
+        Object out = listNil();
+        for (int index = fieldPath.size() - 1; index >= 0; index -= 1) {
+            ByteDiagnosticFieldPathSegment segment = fieldPath.get(index);
+            out = listCons(
+                adt(
+                    "RuntimeDiagnosticFieldPathSegment::RuntimeDiagnosticFieldPathSegment",
+                    new Object[] { segment.kind, segment.name }
+                ),
+                out
+            );
+        }
+        return out;
+    }
+
+    private static Object runtimeBytePreviewObject(String nearbyContext) {
+        String[] parts = nearbyContext.split(":", -1);
+        if (parts.length != 4) {
+            return adt(
+                "RuntimeBytePreview::NoRuntimeBytePreview",
+                new Object[] {}
+            );
+        }
+        return adt(
+            "RuntimeBytePreview::RuntimeBytePreview",
+            new Object[] {
+                unhex(parts[0]),
+                byteCountObject(Long.parseLong(parts[1])),
+                byteCountObject(Long.parseLong(parts[2])),
+                Boolean.valueOf(Boolean.parseBoolean(parts[3]))
+            }
+        );
+    }
+
+    private static String unhex(String text) {
+        if (text.length() % 2 != 0) {
+            return "";
+        }
+        byte[] bytes = new byte[text.length() / 2];
+        for (int index = 0; index < bytes.length; index += 1) {
+            int high = hexNibble(text.charAt(index * 2));
+            int low = hexNibble(text.charAt(index * 2 + 1));
+            if (high < 0 || low < 0) {
+                return "";
+            }
+            bytes[index] = (byte) ((high << 4) | low);
+        }
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static Object schemaDecodedRecord(

@@ -3625,6 +3625,16 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeByteFixedValueFacts" => {
+            let args = expect_arity(name, args, 2)?;
+            Ok(result_value_object(
+                "RuntimeByteFixedValueFacts",
+                vec![
+                    ("expected_value", parse_veln_value(args[0])?),
+                    ("actual_value", parse_veln_value(args[1])?),
+                ],
+            ))
+        }
         "RuntimeByteReasonFacts" => {
             let args = expect_arity(name, args, 1)?;
             Ok(result_value_object(

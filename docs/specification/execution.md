@@ -535,9 +535,12 @@ execution reference.
   equality predicate of the form `field == literal` or `literal == field` as a
   visible schema-owned fixed field when the literal fits the field's external
   integer range. The decoded field remains visible in the result when the
-  value matches. A mismatch reports `schema.fixed_field_mismatch` at the field
-  byte offset with schema field path, expected value, actual value, and
-  structured byte preview fields.
+  value matches. A mismatch returns
+  `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` and
+  reports `schema.fixed_field_mismatch` at the field byte offset with schema
+  field path, expected value, actual value, and structured byte preview
+  fields. The rendered `RuntimeDiagnostic(...)` is the result value projected
+  by command output.
 - The binary schema field-local validation slice decodes fields in declaration
   order for generated `byte_decode_<schema>` helpers when every field uses an
   implemented exact-width unsigned binary primitive. It checks each supported

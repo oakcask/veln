@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "fixed field mismatch at byte offset 1"
+equals = "RuntimeDiagnostic(schema.fixed_field_mismatch, fixed field mismatch at byte offset 1, RuntimeByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, ClosedNestedPacket), Cons(RuntimeDiagnosticFieldPathSegment(field, payload), Cons(RuntimeDiagnosticFieldPathSegment(schema, SettingsPayload), Cons(RuntimeDiagnosticFieldPathSegment(field, version), Nil)))), RuntimeByteFixedValueFacts(1, 2), RuntimeBytePreview(0200073412, ByteCount(5), ByteCount(5), false)))"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
@@ -57,3 +57,73 @@ equals = 5
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.truncated"
 equals = false
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "schema.fixed_field_mismatch"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeByteDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset.value"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.0.name"
+equals = "ClosedNestedPacket"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.1.name"
+equals = "payload"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.2.name"
+equals = "SettingsPayload"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.3.name"
+equals = "version"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.field_path.4"
+missing = true
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.constructor"
+equals = "RuntimeByteFixedValueFacts"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.expected_value"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.facts.actual_value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.data"
+equals = "0200073412"
