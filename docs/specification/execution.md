@@ -1477,9 +1477,14 @@ execution reference.
   `http2_protocol_invalid_frame_kind`,
   `http2_protocol_invalid_stream_id`,
   `http2_protocol_invalid_payload_length`,
+  `http2_protocol_invalid_window_update_increment`,
+  `http2_protocol_content_length_mismatch`,
+  `http2_protocol_invalid_priority_dependency`,
+  `http2_protocol_stream_after_goaway`,
   `http2_peer_limit_frame_size_exceeded`,
   `http2_peer_limit_header_list_size_exceeded`,
   `http2_peer_limit_header_table_size_exceeded`,
+  `http2_peer_limit_flow_control_window_exceeded`,
   `http2_peer_limit_concurrent_streams_exceeded`, and
   `http2_peer_limit_settings_value_out_of_range` standard helpers return
   their HTTP/2 protocol payloads directly as `Result<(), RuntimeDiagnostic>`.

@@ -775,16 +775,16 @@ http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_strea
 http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
-http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
-http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
-http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
+http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_header_list_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
@@ -1196,9 +1196,12 @@ projecting `http2.protocol.invalid_window_update_increment` failures without
 using the legacy helper side table,
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
 `http2.protocol.unexpected_settings_ack` failures without using the legacy
-helper side table, and
+helper side table,
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for projecting
 `http2.protocol.invalid_priority_dependency` failures without using the
+legacy helper side table, and
+`RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for projecting
+`http2.protocol.stream_after_goaway` failures without using the
 legacy helper side table.
 `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
@@ -1206,9 +1209,14 @@ legacy helper side table.
 `http2_protocol_continuation_expected(...)`,
 `http2_protocol_invalid_frame_kind(...)`,
 `http2_protocol_invalid_stream_id(...)`,
+`http2_protocol_invalid_window_update_increment(...)`,
+`http2_protocol_content_length_mismatch(...)`,
+`http2_protocol_invalid_priority_dependency(...)`,
+`http2_protocol_stream_after_goaway(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
 `http2_peer_limit_header_list_size_exceeded(...)`,
 `http2_peer_limit_header_table_size_exceeded(...)`,
+`http2_peer_limit_flow_control_window_exceeded(...)`,
 `http2_peer_limit_concurrent_streams_exceeded(...)`, and
 `http2_peer_limit_settings_value_out_of_range(...)`,
 `http2_protocol_invalid_request_header_list(...)`, and

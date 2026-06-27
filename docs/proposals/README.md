@@ -293,6 +293,11 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 invalid payload-length standard helper migration slice
   is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-payload-length-helper-payload.md`.
+  The completed HTTP/2 standard helper payload slice for invalid
+  `WINDOW_UPDATE` increment, content-length mismatch, invalid PRIORITY
+  dependency, stream-after-GOAWAY, and flow-control window diagnostics is
+  archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-helper-payloads.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

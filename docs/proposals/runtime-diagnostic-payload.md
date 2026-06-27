@@ -268,10 +268,12 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-flow-control-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-connection-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-connection-json/`,
 `../../examples/specification/run/http2-protocol-core-content-length-early-human/`,
 `../../examples/specification/run/http2-protocol-core-content-length-early-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-content-length-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-content-length-over-human/`,
 `../../examples/specification/run/http2-protocol-core-content-length-over-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/`,
@@ -304,8 +306,10 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-response-headers-uppercase-json/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-human/`,
 `../../examples/specification/run/http2-protocol-core-window-update-increment-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-window-update-increment-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-human/`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-priority-dependency-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-settings-value-helper-json/`,
@@ -321,6 +325,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-stream-after-goaway-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-human/`,
 and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
@@ -382,6 +387,11 @@ migration slice is archived under
 The completed HTTP/2 invalid payload-length standard helper migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-payload-length-helper-payload.md`.
+The completed HTTP/2 standard helper payload slice for invalid
+`WINDOW_UPDATE` increment, content-length mismatch, invalid PRIORITY
+dependency, stream-after-GOAWAY, and flow-control window diagnostics is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-helper-payloads.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

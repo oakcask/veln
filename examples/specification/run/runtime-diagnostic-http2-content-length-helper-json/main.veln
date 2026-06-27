@@ -1,0 +1,32 @@
+# HTTP/2 content-length helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.content_length_mismatch",
+		error,
+		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("aabbcc")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let payload: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(payload)?
+	http2_protocol_content_length_mismatch(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", preview)
+end

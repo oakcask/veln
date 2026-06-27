@@ -2484,6 +2484,10 @@ against the built `veln` binary.
   `http2_peer_limit_settings_value_out_of_range` helper reports the same
   `http2.peer_limit.settings_value_out_of_range` JSON details from its
   returned `RuntimeDiagnostic(...)` error value.
+- `run/runtime-diagnostic-http2-flow-control-helper-json/`: a direct
+  `http2_peer_limit_flow_control_window_exceeded(...)` helper failure returns
+  a source-visible `RuntimeDiagnostic(...)` value while preserving the same
+  structured `details.protocol_diagnostic` fields.
 - `run/http2-protocol-core-flow-control-human/`: a DATA payload that exceeds
   available stream receive-window credit reports
   `http2.peer_limit.flow_control_window_exceeded` through human `run` stderr
@@ -2523,6 +2527,10 @@ against the built `veln` binary.
   `http2.protocol.content_length_mismatch` through `run --json` with byte
   offset, stream reference, expected and observed body lengths, structured
   byte preview, active state, and rule provenance.
+- `run/runtime-diagnostic-http2-content-length-helper-json/`: a direct
+  `http2_protocol_content_length_mismatch(...)` helper failure keeps the
+  rendered `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
 - `run/http2-protocol-core-concurrent-streams-human/`: a peer-created stream
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
@@ -2555,6 +2563,18 @@ against the built `veln` binary.
   `http2_peer_limit_header_table_size_exceeded(...)` helper failure returns a
   source-visible `RuntimeDiagnostic(...)` value while preserving the same
   structured `details.protocol_diagnostic` fields.
+- `run/runtime-diagnostic-http2-window-update-increment-helper-json/`: a
+  direct `http2_protocol_invalid_window_update_increment(...)` helper failure
+  keeps the rendered `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
+- `run/runtime-diagnostic-http2-priority-dependency-helper-json/`: a direct
+  `http2_protocol_invalid_priority_dependency(...)` helper failure keeps the
+  rendered `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
+- `run/runtime-diagnostic-http2-stream-after-goaway-helper-json/`: a direct
+  `http2_protocol_stream_after_goaway(...)` helper failure keeps the rendered
+  `RuntimeDiagnostic(...)` value and structured
+  `details.protocol_diagnostic` fields.
 - `run/http2-protocol-core-settings-value-human/`: a received
   `SETTINGS_ENABLE_PUSH` value above the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr

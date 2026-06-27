@@ -1,0 +1,4 @@
+# HTTP/2 stream-after-GOAWAY helper returns a RuntimeDiagnostic payload.
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_protocol_stream_after_goaway(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id")
+end

@@ -3828,18 +3828,27 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid WINDOW_UPDATE increment at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(
-            message,
-            byteOffset,
-            stream,
-            observed,
-            acceptedMin,
-            acceptedMax,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(stream),
+                Long.valueOf(observed),
+                Long.valueOf(acceptedMin),
+                Long.valueOf(acceptedMax),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_window_update_increment",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidDataPadding(
@@ -3889,18 +3898,27 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 content-length body length mismatch at byte offset " + byteOffset;
-        registerHttp2ProtocolContentLengthMismatchDiagnostic(
-            message,
-            byteOffset,
-            kind,
-            stream,
-            expected,
-            observed,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                Long.valueOf(expected),
+                Long.valueOf(observed),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.content_length_mismatch",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolUnexpectedSettingsAck(
@@ -4090,16 +4108,25 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid PRIORITY dependency at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
-            message,
-            byteOffset,
-            stream,
-            dependency,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(stream),
+                Long.valueOf(dependency),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_priority_dependency",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolStreamAfterGoaway(
@@ -4118,18 +4145,26 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 stream opened after graceful shutdown at byte offset "
             + byteOffset;
-        registerHttp2ProtocolStreamAfterGoawayDiagnostic(
-            message,
-            byteOffset,
-            stream,
-            lastStream,
-            shutdown,
-            role,
-            provenance
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(stream),
+                Long.valueOf(lastStream),
+                shutdown,
+                role,
+                provenance
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.stream_after_goaway",
+                message,
+                detail
+            }
+        ));
     }
-
     public static Object http2PeerLimitFrameSizeExceeded(
         Object offset,
         Object observedLength,
@@ -4268,21 +4303,29 @@
         long stream = asLong(streamId);
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 flow-control window exceeded at byte offset "
             + byteOffset;
-        registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
-            message,
-            byteOffset,
-            observed,
-            allowed,
-            kind,
-            stream,
-            state,
-            provenance,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(observed),
+                Long.valueOf(allowed),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.peer_limit.flow_control_window_exceeded",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2PeerLimitConcurrentStreamsExceeded(
