@@ -71,11 +71,11 @@ compare it with `../specification/` before changing behavior.
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
-  support, narrow reversible arithmetic inverse projection for
-  `field + literal`, `literal + field`, and `field - literal` mapped `Int`
-  fields, derived selected-mapping encode boundary support, and codec decode
+  support, derived selected-mapping encode boundary support, and codec decode
   boundaries over multiple decoded-field selected mappings that resolve to one
-  mapped record shape.
+  mapped record shape. The completed narrow arithmetic mapped encode slice is
+  archived under
+  [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup and documentation comments that reference schemas through
@@ -190,6 +190,8 @@ compare it with `../specification/` before changing behavior.
   The completed nested schema
   repeat payload helper slice is archived under
   [Binary Schema Repeat Schema Payload Helpers](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+  The completed narrow arithmetic mapped encode slice is archived under
+  [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).

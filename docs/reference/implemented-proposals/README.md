@@ -114,6 +114,8 @@ behavior.
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
+- Binary schema mapping arithmetic encode:
+  [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:
