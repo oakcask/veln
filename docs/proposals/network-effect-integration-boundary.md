@@ -47,8 +47,8 @@ slices, and narrow deadline and cancellation slices, for:
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
-  write-side stream half-close lifecycle, adapter-owned clean shutdown
-  lifecycle, and explicit listener close lifecycle slices
+  adapter-owned clean shutdown lifecycle, and explicit listener close
+  lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, deadline-aware lifecycle,
   cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
