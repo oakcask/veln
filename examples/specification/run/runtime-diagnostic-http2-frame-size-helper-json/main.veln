@@ -1,0 +1,4 @@
+# HTTP/2 frame-size helper returns a RuntimeDiagnostic payload.
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_peer_limit_frame_size_exceeded(0, 1025, 1024, 0, 3, "local_configuration")
+end

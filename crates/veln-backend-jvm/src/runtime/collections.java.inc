@@ -4092,16 +4092,25 @@
         String provenance = asString(receiveLimitProvenance);
         String message = "HTTP/2 frame payload length exceeds receive maximum at byte offset "
             + byteOffset;
-        registerHttp2PeerLimitFrameSizeExceededDiagnostic(
-            message,
-            byteOffset,
-            observed,
-            allowed,
-            kind,
-            stream,
-            provenance
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(observed),
+                Long.valueOf(allowed),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                provenance
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.peer_limit.frame_size_exceeded",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2PeerLimitHeaderListSizeExceeded(

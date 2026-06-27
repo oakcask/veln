@@ -238,7 +238,8 @@ compare it with `../specification/` before changing behavior.
   generated encode value-diagnostic payload, HPACK fixture, HTTP/2 preface
   payload, HTTP/2 unexpected SETTINGS ACK, HTTP/2 DATA padding, flow-control
   window, and content-length mismatch, HTTP/2 invalid frame-kind stream-state,
-  and HTTP/2 invalid stream id slices are archived under
+  HTTP/2 invalid stream id, and HTTP/2 PRIORITY dependency slices are archived
+  under
   `../reference/implemented-proposals/runtime-diagnostic-encode-value-payload.md`,
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-preface-payloads.md`,
@@ -247,6 +248,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`,
   [Runtime Diagnostic HTTP/2 WINDOW_UPDATE Payload](../reference/implemented-proposals/runtime-diagnostic-http2-window-update-payload.md),
+  `../reference/implemented-proposals/runtime-diagnostic-http2-priority-dependency-payload.md`,
   and
   `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
   The completed HTTP/2 HPACK raw request-trailer invalid-token name migration
@@ -261,6 +263,9 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 invalid-preface standard helper migration slice is
   archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-preface-helper-payload.md`.
+  The completed HTTP/2 frame-size peer-limit standard helper migration slice
+  is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

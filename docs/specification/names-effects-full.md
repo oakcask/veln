@@ -781,7 +781,7 @@ http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream
 http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
-http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), String>
+http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_header_list_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
@@ -1186,12 +1186,17 @@ helper side table,
 legacy helper side table,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
-using the legacy helper side table, and
+using the legacy helper side table,
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
 `http2.protocol.unexpected_settings_ack` failures without using the legacy
-helper side table.
-`http2_protocol_closed_with_pending(...)` and
-`http2_protocol_partial_preface(...)` return these payloads directly as
+helper side table, and
+`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for projecting
+`http2.protocol.invalid_priority_dependency` failures without using the
+legacy helper side table.
+`http2_protocol_closed_with_pending(...)`,
+`http2_protocol_partial_preface(...)`,
+`http2_protocol_invalid_preface(...)`, and
+`http2_peer_limit_frame_size_exceeded(...)` return these payloads directly as
 `Result<(), RuntimeDiagnostic>`.
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
