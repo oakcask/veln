@@ -33,6 +33,9 @@ outside this slice.
   `RuntimeDiagnostic(...)` result value and structured
   `details.protocol_diagnostic` fields for the `WINDOW_UPDATE` fixed payload
   length case.
+- `../../../examples/specification/run/http2-protocol-core-window-update-length-json/`
+  checks the same `WINDOW_UPDATE` fixed payload-length failure through the
+  source-visible protocol-core projection boundary after frame-header decode.
 - `../../../examples/specification/run/http2-protocol-core-settings-ack-length-human/`,
   `../../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
   `../../../examples/specification/run/http2-protocol-core-ping-length-human/`,

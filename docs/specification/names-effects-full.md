@@ -1141,6 +1141,11 @@ The implemented standard symbol table has this current pure-helper split:
   `string_parse_int`, and `int_to_string`
 - descriptor-only pure helpers: none
 
+The `http2_protocol_invalid_payload_length` helper is source-backed and
+returns `Result<(), RuntimeDiagnostic>`, matching the source-visible
+invalid-payload-length detail used by the HTTP/2 protocol-core fixed
+payload-length examples, including `WINDOW_UPDATE`.
+
 This empty descriptor-only pure-helper list is the implemented completion
 condition for the self-hosting prelude helper migration. Every compiler-known
 pure helper in this split is source-backed, while float operator compatibility

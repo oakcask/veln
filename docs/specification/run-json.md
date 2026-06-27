@@ -658,11 +658,12 @@ Wrong-length protocol payloads use id
 structured bounded `byte_preview` for the inspected payload bytes. The preview
 uses the same object shape as other protocol-owned byte previews while
 payload length facts stay in their own fields. The SETTINGS ACK, PING,
-GOAWAY, and `RST_STREAM` checked human and JSON examples return source-visible
+GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` checked JSON examples return
+source-visible
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, and the
 `http2_protocol_invalid_payload_length(...)` helper returns the same
-source-visible payload directly. The checked helper JSON example covers the
-`WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
+source-visible payload directly. The checked helper JSON example also covers
+the `WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. PADDED DATA
 failures use source-visible

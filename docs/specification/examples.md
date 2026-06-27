@@ -2543,7 +2543,8 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/case.toml`,
-and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
+`../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`,
+and `../../examples/specification/run/http2-protocol-core-window-update-length-json/case.toml`
 pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,
