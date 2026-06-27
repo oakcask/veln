@@ -151,9 +151,9 @@ details.
 ## Implemented Baseline
 
 Current behavior for the completed source-visible byte diagnostic value, HPACK
-fixture runtime diagnostic payloads, the representative HTTP/2 protocol
-payload slice, command projection, and executable harness assertion slices is
-specified in
+fixture runtime diagnostic payloads, the generated encode value-diagnostic
+payload slice, the representative HTTP/2 protocol payload slice, command
+projection, and executable harness assertion slices is specified in
 `../specification/run-json.md`, `../specification/commands.md`,
 `../specification/execution.md`, and `../specification/test-json.md`.
 
@@ -162,6 +162,9 @@ should add executable examples under `../../examples/specification/run/`
 before updating specification prose.
 The completed HPACK fixture payload migration slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
+The completed generated encode value-diagnostic payload slice is archived
+under
+`../reference/implemented-proposals/runtime-diagnostic-encode-value-payload.md`.
 
 ## Logs And Metrics
 
@@ -182,11 +185,13 @@ to remove. They may remain temporarily for legacy helpers, but new helpers
 should return source-visible diagnostic error values.
 
 Implemented slices define the standard `RuntimeDiagnostic` value shape for
-byte diagnostics, HPACK fixture diagnostics, and representative HTTP/2
-protocol diagnostics.
+byte diagnostics, generated encode value diagnostics, HPACK fixture
+diagnostics, and representative HTTP/2 protocol diagnostics.
 `veln run` and `veln run --json` project
 `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` through the
-same human and JSON byte-diagnostic surfaces used by legacy helpers, and
+same human and JSON byte-diagnostic surfaces used by legacy helpers, project
+generated encode `RuntimeValueDiagnostic(...)` values through the existing
+`details.value_diagnostic` JSON shape, and
 project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
 fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover pending-byte close,

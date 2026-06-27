@@ -1052,6 +1052,13 @@ execution reference.
   output keeps the primary message focused on the failed encode fact and
   reports field path, predicate or reason details, and rendered result value
   as related notes.
+  A generated encode failure can also be projected at a source-visible
+  reporting boundary as
+  `Err(RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(field_path,
+  reason)))`. In that form the command keeps the rendered
+  `RuntimeDiagnostic(...)` as the result value and attaches the same
+  `details.value_diagnostic` fields for supported generated encode ids such
+  as `codec.encode_value_unrepresentable`.
   When a `veln run` entry returns
   `EncodeStep::Invalid(EncodeError(id, field_path, reason))`, the command
   reports the contained `EncodeError` through the same command-facing value

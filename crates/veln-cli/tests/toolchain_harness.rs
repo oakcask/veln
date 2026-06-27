@@ -2612,6 +2612,29 @@ fn result_value_parser_exposes_runtime_diagnostic_shape() {
 }
 
 #[test]
+fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
+    let parsed = parse_result_value(
+        "RuntimeDiagnostic(codec.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))",
+    )
+    .expect("runtime value diagnostic should parse");
+
+    assert_eq!(
+        json_path(&parsed, "value.detail.constructor"),
+        Some(&JsonValue::String("RuntimeValueDiagnostic".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.detail.field_path.1.name"),
+        Some(&JsonValue::String("value".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "value.detail.reason"),
+        Some(&JsonValue::String(
+            "value must be between 0 and 255".to_string()
+        ))
+    );
+}
+
+#[test]
 fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
     let header_table = parse_result_value(
         "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)])))",
@@ -3279,6 +3302,16 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                     ("field_path", parse_veln_list(args[1])?),
                     ("facts", parse_veln_value(args[2])?),
                     ("preview", parse_veln_value(args[3])?),
+                ],
+            ))
+        }
+        "RuntimeValueDiagnostic" => {
+            let args = expect_arity(name, args, 2)?;
+            Ok(result_value_object(
+                "RuntimeValueDiagnostic",
+                vec![
+                    ("field_path", parse_veln_list(args[0])?),
+                    ("reason", JsonValue::String(args[1].trim().to_string())),
                 ],
             ))
         }

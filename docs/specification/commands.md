@@ -80,6 +80,9 @@ requiring the full command reference on the first read.
   `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
   message on the failed encode fact and put field path, reason or predicate
   details, and source-visible `EncodeError` value in related notes.
+  Source-visible `RuntimeDiagnostic(..., RuntimeValueDiagnostic(...))`
+  generated encode payloads keep the same public value diagnostic details
+  while preserving the rendered `RuntimeDiagnostic(...)` value.
   Length-bounded `ByteView` encode count mismatches also put expected and
   actual byte counts, byte offset, and bounded nearby byte preview in related
   notes.

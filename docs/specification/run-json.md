@@ -54,6 +54,16 @@ diagnostic ADT remain ordinary result failures with no
 `details.byte_diagnostic`.
 
 When the returned error value is
+`RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(...))` for a generated
+binary schema encode failure id such as
+`codec.encode_value_unrepresentable`, `details.value` keeps the rendered
+`RuntimeDiagnostic(...)` value and `details.value_diagnostic` is projected
+from that value. The value detail constructor carries the schema-local field
+path segment list and reason text; run JSON derives `field_path`,
+`field_path_display`, and `reason` from those fields while keeping the public
+`value_diagnostic` shape used by generated `EncodeError(...)` result values.
+
+When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...))`,
 `details.value` likewise keeps the rendered `RuntimeDiagnostic(...)` value and
 the HPACK fixture detail projects to `details.protocol_diagnostic`. The
@@ -284,7 +294,9 @@ When the result value is a checked `byte_write_*` conversion failure,
 
 When the result value is a generated binary schema encode failure represented
 as `EncodeError(id, field_path, reason)`, or a `veln run` entry returns
-`EncodeStep::Invalid(EncodeError(id, field_path, reason))`,
+`EncodeStep::Invalid(EncodeError(id, field_path, reason))`, or the entry
+returns `Err(RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(field_path,
+reason)))` for the same generated encode ids,
 `details.value_diagnostic` includes:
 
 - `kind: "value_diagnostic"`
