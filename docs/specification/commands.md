@@ -45,9 +45,11 @@ requiring the full command reference on the first read.
   division-by-zero failures, generated binary schema
   `EncodeError` value failures for primitive representability, dispatch
   unknown tags, dispatch length mismatches, and dispatch tag/payload
-  mismatches, hand-written codec `EncodeStep::Invalid(EncodeError(...))`
-  entry results, source-visible
-  `DecodeStep::Invalid(DecodeError(...))` and
+  mismatches, direct source-visible `EncodeError(...)` result failures,
+  hand-written codec `EncodeStep::Invalid(EncodeError(...))` entry results,
+  direct source-visible `DecodeError(...)` and
+  `DecodeErrorWithReason(...)` result failures,
+  source-visible `DecodeStep::Invalid(DecodeError(...))` and
   `DecodeStep::NeedMore(...)` entry results,
   HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
@@ -80,7 +82,8 @@ requiring the full command reference on the first read.
   byte offsets, field paths, expected counts, actual counts, accepted ranges,
   actual values, matched prefix counts, byte values, active continuation
   state, and rule provenance in separate notes or structured details.
-  Generated binary schema encode diagnostics and
+  Generated binary schema encode diagnostics, direct source-visible
+  `EncodeError(...)` result failures, and
   `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
   message on the failed encode fact and put field path, reason or predicate
   details, and source-visible `EncodeError` value in related notes.
@@ -90,6 +93,8 @@ requiring the full command reference on the first read.
   Length-bounded `ByteView` encode count mismatches also put expected and
   actual byte counts, byte offset, and bounded nearby byte preview in related
   notes.
+  Direct source-visible `DecodeError(...)`,
+  `DecodeErrorWithReason(...)`, and
   `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
   message on the failed decode fact at the reported byte offset and put field
   path plus the source-visible `DecodeError` value in related notes. When the
