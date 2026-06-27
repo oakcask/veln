@@ -683,7 +683,10 @@ projected back to a schema-local field by a projectable direct field,
 record-shaped, field-selection, same-module pure converter-call mapping with
 an explicitly named same-module pure inverse converter, or imported public
 pure converter-call mapping with an explicitly named imported public pure
-inverse converter through written import paths. A single target
+inverse converter through written import paths. The completed narrow arithmetic
+mapped encode slice is archived under
+[Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
+A single target
 field assigned from a direct ADT constructor call is also implemented when
 every constructor payload argument is a schema-local field supported by the
 generated encode helper, including the single-payload flag and exact-width

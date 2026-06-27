@@ -71,7 +71,7 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - generated `byte_encode_<schema>` helper and `derive encode` support for one
   structural `map to Target` clause whose assignments project the visible
   encode fields through direct field references, record-shaped direct field
-  projections, field selection from those record-shaped projections, and the
+  projections, field selection from those record-shaped projections, the
   implemented direct ADT constructor wrapper forms, plus multiple selected
   structural mapping clauses when all selected mappings resolve to one target
   record shape and every schema-local encode field projects back from that
@@ -108,6 +108,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface, including documentation comments that reference
   schemas through schema-aware lookup
+
+The completed narrow arithmetic mapped encode slice is archived under
+[Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
 
 This proposal remains open for:
 
@@ -478,7 +481,7 @@ Implemented:
   codec boundaries accept one structural mapping target record when every
   visible encode field is projected through direct schema-local field
   references, record-shaped direct field projections, field selection from
-  those record-shaped projections, or the implemented direct ADT constructor
+  those record-shaped projections, the implemented direct ADT constructor
   wrapper forms.
 - Eligible generated `byte_encode_<schema>` helpers evaluate supported
   field-local `where` predicates over schema-local visible `Int` values during

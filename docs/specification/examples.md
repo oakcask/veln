@@ -717,6 +717,15 @@ value whose fields recover schema-local fields.
 `../../examples/specification/run/binary-schema-mapped-field-selection-encode/`
 pins the same inverse projection when a mapped target field selects a direct
 schema-local field from a record-shaped mapping expression.
+`../../examples/specification/run/binary-schema-mapping-arithmetic-encode/`
+pins reversible arithmetic inverse projection for `field + literal`,
+`literal + field`, and `field - literal` `Int` mapping assignments. The
+companion
+`../../examples/specification/run/binary-schema-mapping-arithmetic-encode-out-of-range/`
+case asserts that an unrepresentable recovered schema-local field keeps the
+ordinary `codec.encode_value_unrepresentable` field path and range reason.
+`../../examples/specification/run/derived-codec-mapping-arithmetic-encode-boundary/`
+pins the same arithmetic projection through a `derive encode` codec boundary.
 `../../examples/specification/run/binary-schema-imported-mapped-converter-encode/`
 and
 `../../examples/specification/run/binary-schema-imported-mapped-converter-encode-mismatch/`

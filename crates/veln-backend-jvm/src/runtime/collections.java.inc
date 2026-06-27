@@ -7261,7 +7261,53 @@
                 "converter projection"
             );
         }
+        if (spec.size() == 4 && asString(spec.get(0)).equals("binary")) {
+            SchemaEncodeMappingValue projected = schemaEncodeArithmeticMappingValue(
+                targetValue,
+                asString(spec.get(1)),
+                spec.get(2),
+                spec.get(3)
+            );
+            if (projected == null) {
+                return err("unsupported schema encode mapping arithmetic");
+            }
+            return ok(schemaEncodeMappingValueList(projected));
+        }
         return err("unsupported schema encode mapping");
+    }
+
+    private static SchemaEncodeMappingValue schemaEncodeArithmeticMappingValue(
+        Object targetValue,
+        String op,
+        Object left,
+        Object right
+    ) {
+        String leftSource = schemaMappingDirectSource(left);
+        Long leftLiteral = schemaMappingLiteralValue(left);
+        String rightSource = schemaMappingDirectSource(right);
+        Long rightLiteral = schemaMappingLiteralValue(right);
+        long targetInt = asLong(targetValue);
+        if (op.equals("+")) {
+            if (leftSource != null && rightLiteral != null) {
+                return new SchemaEncodeMappingValue(
+                    leftSource,
+                    Long.valueOf(targetInt - rightLiteral.longValue())
+                );
+            }
+            if (leftLiteral != null && rightSource != null) {
+                return new SchemaEncodeMappingValue(
+                    rightSource,
+                    Long.valueOf(targetInt - leftLiteral.longValue())
+                );
+            }
+        }
+        if (op.equals("-") && leftSource != null && rightLiteral != null) {
+            return new SchemaEncodeMappingValue(
+                leftSource,
+                Long.valueOf(targetInt + rightLiteral.longValue())
+            );
+        }
+        return null;
     }
 
     private static String schemaMappingSelectedRecordDirectSource(
@@ -7419,6 +7465,17 @@
         java.util.List<Object> spec = asList(expr);
         if (spec.size() == 2 && asString(spec.get(0)).equals("field")) {
             return asString(spec.get(1));
+        }
+        return null;
+    }
+
+    private static Long schemaMappingLiteralValue(Object expr) {
+        if (!(expr instanceof java.util.List)) {
+            return null;
+        }
+        java.util.List<Object> spec = asList(expr);
+        if (spec.size() == 2 && asString(spec.get(0)).equals("literal")) {
+            return Long.valueOf(asLong(spec.get(1)));
         }
         return null;
     }

@@ -1250,6 +1250,12 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-field-selection-encode/`: generated schema encode
   helpers project a mapped target field selected from a record-shaped mapping
   expression back to one schema-local field.
+- `run/binary-schema-mapping-arithmetic-encode/`: generated schema encode
+  helpers project reversible `Int` arithmetic assignments back to
+  schema-local fields and write the recovered values.
+- `run/binary-schema-mapping-arithmetic-encode-out-of-range/`: arithmetic
+  mapped encode keeps the ordinary primitive range diagnostic when the
+  recovered schema-local value cannot be encoded.
 - `run/binary-schema-mapped-converter-encode/`: generated schema encode
   helpers project a mapped target field through an explicitly named
   same-module inverse converter and write the recovered schema-local field.
@@ -2068,6 +2074,8 @@ against the built `veln` binary.
 - `run/derived-codec-mapped-encode-boundary/`: the same `derive encode`
   boundary accepts the direct structural mapping target record and projects
   one encoded output chunk.
+- `run/derived-codec-mapping-arithmetic-encode-boundary/`: the same `derive
+  encode` boundary accepts reversible arithmetic mapped target records.
 - `run/derived-codec-mapped-converter-encode-boundary/`: the same `derive
   encode` boundary remains eligible for a converter-backed mapped schema when
   the mapping assignment names an explicit same-module inverse converter.
