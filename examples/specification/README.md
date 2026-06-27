@@ -2515,6 +2515,14 @@ against the built `veln` binary.
   offset, frame kind, stream reference, required stream id domain, endpoint
   role, structured frame-header byte preview, active state, and rule
   provenance.
+- `run/http2-protocol-core-invalid-stream-reference-human/`: a connection-only
+  PING frame on stream 1 reports `http2.protocol.invalid_stream_id` through
+  human `run` stderr with focused stream id domain, bounded frame-header byte
+  preview, endpoint role, state, and provenance notes.
+- `run/http2-protocol-core-invalid-stream-reference-json/`: the same
+  connection-only stream reference failure reports
+  `http2.protocol.invalid_stream_id` through `run --json` with the rendered
+  `RuntimeDiagnostic(...)` value and structured protocol diagnostic fields.
 - `run/http2-protocol-core-invalid-frame-kind-human/`: a DATA frame kind on
   the connection stream reports `http2.protocol.invalid_frame_kind` through
   human `run` stderr with a focused primary message and related frame-kind,

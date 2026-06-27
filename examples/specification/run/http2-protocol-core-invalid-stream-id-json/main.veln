@@ -69,14 +69,44 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		error,
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([]))
+	)
+end
+
+fn invalid_stream_id_payload(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		"HTTP/2 invalid stream id at byte offset 0",
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, preview) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, preview) => Err(invalid_stream_id_payload(offset, frame_kind, stream_id, required_domain, endpoint_role, context, preview))
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let step: Http2Step = receive(byte_chunk_from_hex("000000010400000002")?)?
+fn input_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000002")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn receive_step(bytes: ByteChunk) -> Result<Http2Step, RuntimeDiagnostic>
+	match receive(bytes)
+		Ok(step) => Ok(step)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let step: Http2Step = receive_step(input_bytes()?)?
 	let context: Http2DiagnosticContext = DiagnosticContext("stream-id-domain", "server_receives_client_initiated_streams")
 	match step
 		Failed(failure) => http2_protocol_diagnostic(failure, context)

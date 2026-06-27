@@ -569,7 +569,10 @@ stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `required_stream_id_domain`, `endpoint_role`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` for the inspected
-frame-header bytes. The preview uses the same object shape as other
+frame-header bytes. Source-visible
+`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` payloads keep the
+rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the same
+protocol diagnostic fields. The preview uses the same object shape as other
 protocol-owned byte previews while stream id domain facts stay in their own
 fields; the checked HTTP/2 examples cover invalid zero stream ids, even
 client stream ids, nonzero stream ids on connection-only frames, and
