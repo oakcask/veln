@@ -3697,17 +3697,26 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid frame kind at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidFrameKindDiagnostic(
-            message,
-            byteOffset,
-            frameKind,
-            stream,
-            expectedFrameKind,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(frameKind),
+                Long.valueOf(stream),
+                Long.valueOf(expectedFrameKind),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_frame_kind",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidStreamId(

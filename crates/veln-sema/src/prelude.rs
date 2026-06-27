@@ -559,7 +559,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_invalid_stream_id" => Some((
             vec![

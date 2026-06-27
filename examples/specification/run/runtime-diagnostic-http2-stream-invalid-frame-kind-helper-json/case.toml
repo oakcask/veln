@@ -35,10 +35,6 @@ path = "error.details.protocol_diagnostic.byte_offset.value"
 equals = 0
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.byte_offset.kind"
-equals = "ByteOffset"
-
-[[json_assert]]
 path = "error.details.protocol_diagnostic.actual_frame_kind"
 equals = 0
 
@@ -95,6 +91,11 @@ equals = 0
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.fields.2"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.3"
 equals = 1
 
 [[result_value_assert]]
