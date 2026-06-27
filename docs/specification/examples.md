@@ -2477,6 +2477,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,

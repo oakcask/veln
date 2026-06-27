@@ -1,4 +1,4 @@
-# HTTP/2 HPACK raw field-name token failure projects to human runtime diagnostics.
+# HTTP/2 HPACK raw field-name token failure projects structured runtime details.
 
 type Http2ProtocolFailure
 	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}

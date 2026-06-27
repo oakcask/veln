@@ -248,6 +248,9 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`,
   and
   `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
+  The completed HTTP/2 HPACK raw request-trailer invalid-token name migration
+  slice is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md`.
   The completed HTTP/2 closed-input standard helper migration slice is
   archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-closed-helper-payload.md`.

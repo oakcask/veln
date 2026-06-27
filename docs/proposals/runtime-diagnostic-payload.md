@@ -274,6 +274,8 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-token-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-uppercase-json/`,
 `../../examples/specification/run/http2-protocol-core-hpack-raw-name-uppercase-json/`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-human/`,
+`../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-json/`,
 `../../examples/specification/run/http2-protocol-core-response-headers-human/`,
 `../../examples/specification/run/http2-protocol-core-response-headers-json/`,
 `../../examples/specification/run/http2-protocol-core-response-headers-content-length-human/`,
@@ -312,6 +314,9 @@ archived under
 The completed HTTP/2 HPACK raw request-trailer uppercase name migration slice
 is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
+The completed HTTP/2 HPACK raw request-trailer invalid-token name migration
+slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md`.
 The completed HTTP/2 closed-input standard helper migration slice is archived
 under
 `../reference/implemented-proposals/runtime-diagnostic-http2-closed-helper-payload.md`.
