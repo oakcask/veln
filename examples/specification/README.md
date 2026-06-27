@@ -2142,6 +2142,10 @@ against the built `veln` binary.
 - `run/derived-codec-record-payload-mapped-encode-boundary/`: the same
   `derive encode` boundary accepts a mapped target record containing an ADT
   constructor record payload and projects it to one encoded output chunk.
+- `run/derived-codec-flag-boundary/`: derived codec decode and encode item
+  boundaries over opt-in visible flag bitset fields. The case checks
+  successful `Decoded`, short-input `NeedMore`, successful `Encoded`, and
+  helper-projected `Invalid(EncodeError)` outcomes.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.
@@ -2185,6 +2189,9 @@ against the built `veln` binary.
   and helper-projected encode failure through the codec item.
 - `run/derived-codec-six-byte-reserved-suffix-boundary/`: derived codec decode
   and encode item boundaries over a six-byte reserved suffix schema.
+- `run/derived-codec-wide-reserved-prefix-boundary/`: derived codec decode
+  and encode item boundaries over seven-byte and eight-byte reserved prefix
+  groups, including non-consuming reserved-bit mismatch `Invalid` values.
 - `run/derived-codec-split-reserved-boundary/`: derived codec decode and
   encode item boundaries over a split reserved-bit group with multiple
   representation-only reserved fields.

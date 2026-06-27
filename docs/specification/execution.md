@@ -1363,7 +1363,8 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
-  visible-only packed two-byte groups, repeat-backed schemas,
+  opt-in visible flag bitset fields, visible-only packed two-byte groups,
+  repeat-backed schemas,
   quotient-count repeat schemas, additive, subtractive, product-sized, and
   quotient-sized `ByteView` payload fields, the implemented
   direct structural mapping and selected structural mapping slices, eligible
@@ -1383,6 +1384,7 @@ execution reference.
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
+  `examples/specification/run/derived-codec-flag-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
@@ -1396,6 +1398,7 @@ execution reference.
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
+  `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The recursive dispatch boundary case covers same-module recursive closed and
@@ -1424,8 +1427,10 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
+  opt-in visible flag bitset fields,
   supported middle reserved-bit layouts, including byte-interleaved middle
-  reserved layouts, visible-only packed two-byte groups, repeat-backed
+  reserved layouts, wide reserved prefix groups, visible-only packed
+  two-byte groups, repeat-backed
   schemas, quotient-count repeat schemas, quotient-sized
   `ByteView(left_length / right_length)` payload fields, product-sized
   `ByteView(left_length * right_length)` payload fields,
@@ -1451,12 +1456,14 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
+  `examples/specification/run/derived-codec-flag-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
+  `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The recursive dispatch boundary case covers same-module recursive closed and

@@ -1,0 +1,159 @@
+# Derived codec calls preserve generated flag-bitset helper behavior.
+use stdio
+
+schema FlagControlPacket
+	format binary
+
+	marker: Flag8
+	window: Flag16le
+end
+
+codec FlagControlCodec for FlagControlPacket decode encode
+	derive decode
+	derive encode
+end
+
+fn flag8_bits(flags: Flag8) -> Int
+	match flags
+		Flag8(bits) => bits
+	end
+end
+
+fn flag16le_bits(flags: Flag16le) -> Int
+	match flags
+		Flag16le(bits) => bits
+	end
+end
+
+fn decode_step_kind(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn marker_bits(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> Int
+	match step
+		Decoded(value, _) => flag8_bits(value.marker)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn window_bits(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> Int
+	match step
+		Decoded(value, _) => flag16le_bits(value.window)
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{marker: Flag8, window: Flag16le}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_one_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn encode_step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("283412")?
+	let full_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let decoded: DecodeStep<{marker: Flag8, window: Flag16le}> = FlagControlCodec(full_view, byte_offset(12)?)
+	stdio::println(decode_step_kind(decoded))
+	stdio::println(int_to_string(marker_bits(decoded)))
+	stdio::println(int_to_string(window_bits(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting: DecodeStep<{marker: Flag8, window: Flag16le}> = FlagControlCodec(short_view, byte_offset(12)?)
+	stdio::println(decode_step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let encoded: EncodeStep<()> = FlagControlCodec({marker: Flag8(40), window: Flag16le(4660)})
+	stdio::println(encode_step_kind(encoded))
+	let encoded_output: () = match encoded
+		Encoded(Cons(chunk, Nil)) => emit_one_chunk("derived-codec-flag", chunk, "283412")
+		Encoded(_) => stdio::println("unexpected encoded chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+
+	let invalid: EncodeStep<()> = FlagControlCodec({marker: Flag8(40), window: Flag16le(65536)})
+	stdio::println(encode_step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

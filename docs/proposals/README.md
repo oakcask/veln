@@ -243,9 +243,11 @@ compare it with `../specification/` before changing behavior.
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload
   fields, quotient-count
   repeated primitive fields, same-module recursive closed and extension
-  dispatch payload helpers, visible-only packed two-byte groups, and selected
-  structural mapping encode slice, and derived helper eligibility diagnostics
-  for unsupported generated decode and encode directions.
+  dispatch payload helpers, visible-only packed two-byte groups, opt-in
+  visible flag bitset fields, wide reserved prefix groups, and selected
+  structural mapping encode slice,
+  and derived helper eligibility diagnostics for unsupported generated decode
+  and encode directions.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema

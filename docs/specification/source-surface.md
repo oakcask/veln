@@ -511,11 +511,12 @@ returns its `EncodeStep<TState>` value unchanged. General codec-generated
 decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width including standalone
-`UInt1` through `UInt7`, supported reserved-bit, closed dispatch, extension
-dispatch, length-bounded `ByteView`, repeated primitive, nested schema, and
-`ByteView(length_field)` payloads, quotient-count repeat fields, same-module
-or imported public nested dispatch payload encode slices, and same-module
-recursive closed and extension dispatch payload slices,
+`UInt1` through `UInt7`, opt-in visible flag bitset fields, supported
+reserved-bit, closed dispatch, extension dispatch, length-bounded `ByteView`,
+repeated primitive, nested schema, and `ByteView(length_field)` payloads,
+quotient-count repeat fields, same-module or imported public nested dispatch
+payload encode slices, and same-module recursive closed and extension
+dispatch payload slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice, including the combined non-HTTP
