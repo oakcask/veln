@@ -547,6 +547,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "time",
+        "monotonic_ms",
+        TIME_EFFECTS,
+        "runtime.time.monotonic_ms",
+        StandardSignature {
+            params: &[],
+            return_type: StandardType::Int,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
         "timeout_ms",
         TIME_EFFECTS,
         "runtime.time.timeout_ms",

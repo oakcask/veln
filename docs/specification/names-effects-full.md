@@ -208,6 +208,7 @@ net::write_chunks_until(stream: NetStream, chunks: List<ByteChunk>, deadline: De
 net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
+time::monotonic_ms() -> Int effects [time]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::wait_until(deadline: Deadline) -> () effects [time]
@@ -236,7 +237,7 @@ to `net::accept_until`,
 the adapter-owned accept, read, or write attempt observes a `Deadline` or
 `CancelToken`.
 Direct calls to `time::timeout_ms`,
-`time::deadline_after_ms`, `time::wait_until`,
+`time::monotonic_ms`, `time::deadline_after_ms`, `time::wait_until`,
 `time::cancel_token`,
 `time::cancel_owner`, `time::cancel_token_from`,
 `time::cancel_owned`,
@@ -322,8 +323,10 @@ failure through the deadline-aware paths, remain runtime transport failures.
 This production path uses the same coarse `net` and `time` effects as the
 fixture-backed deadline-aware path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
-creates a relative `Deadline`; `time::wait_until` waits until that deadline
-expires; `time::cancel_token` returns a source-visible cancellation handle;
+creates a relative `Deadline`; `time::monotonic_ms` returns a host-owned
+monotonic millisecond counter for elapsed-time measurement without exposing
+wall-clock dates; `time::wait_until` waits until that deadline expires;
+`time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;
 `time::cancel_token_from` exposes an observer `CancelToken` from that owner
 for existing cancellable wait, channel, and socket calls;

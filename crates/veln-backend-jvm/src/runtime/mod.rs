@@ -268,6 +268,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "process::env" => "processEnv",
         "process::cwd" => "processCwd",
         "process::exit" => "processExit",
+        "time::monotonic_ms" => "timeMonotonicMs",
         "time::timeout_ms" => "timeTimeoutMs",
         "time::deadline_after_ms" => "timeDeadlineAfterMs",
         "time::wait_until" => "timeWaitUntil",

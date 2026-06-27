@@ -921,6 +921,11 @@ mod tests {
         assert_eq!(return_type, Type::unit());
 
         let (params, return_type) =
+            standard_library_signature(&path("time", "monotonic_ms")).expect("time signature");
+        assert!(params.is_empty());
+        assert_eq!(return_type, Type::int());
+
+        let (params, return_type) =
             standard_library_signature(&path("time", "timeout_ms")).expect("time signature");
         assert_eq!(params, vec![Type::int()]);
         assert_eq!(return_type, Type::unit());

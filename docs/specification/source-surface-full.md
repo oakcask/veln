@@ -772,6 +772,7 @@ Implemented expressions:
   `net::write_chunk_until_cancellable(stream, bytes, deadline, token)`,
   `net::write_chunks_until(stream, chunks, deadline)`,
   `net::write_chunks_until_cancellable(stream, chunks, deadline, token)`,
+  `time::monotonic_ms()`,
   `time::timeout_ms(milliseconds)`,
   `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
   `time::cancel_token()`, `time::cancel_owner()`,

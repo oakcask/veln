@@ -1685,6 +1685,11 @@ The executable specification cases
 `../../examples/specification/check/transport-cancellable-wait-effects/`
 cover descriptor-backed time waits, relative deadlines, and source-visible
 `CancelToken` values under the existing `time` effect. The
+`../../examples/specification/run/transport-monotonic-clock/` and
+`../../examples/specification/check/transport-monotonic-clock-effects/`
+cases pin the source-visible `time::monotonic_ms` boundary: public callers
+must declare `time`, and executable coverage checks only monotonic ordering
+rather than exact host time. The
 `../../examples/specification/run/transport-cancel-token-status/` and
 `../../examples/specification/check/transport-cancel-token-status-effects/`
 cases pin cancellation-token status observation before and after
