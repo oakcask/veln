@@ -267,7 +267,7 @@ compare it with `../specification/` before changing behavior.
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY, PING, GOAWAY, local GOAWAY outbound HEADERS
   boundary, server-side `PUSH_PROMISE` rejection, server-side outbound
-  `PUSH_PROMISE` send-intent, and
+  `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive, and
   half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, and request-trailer header-list validation,
   the source-visible request `:path` value rule, the source-visible `te`

@@ -2300,7 +2300,9 @@ against the built `veln` binary.
   and CONTINUATION on the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
   peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an
-  unknown extension frame, and valid
+  unknown extension frame, client-side peer-sent `PUSH_PROMISE` receive with
+  stripped header-block output, reserved-by-peer promised stream state, and
+  focused stream-id, payload-length, and HPACK fixture failures, and valid
   GOAWAY graceful shutdown facts plus post-GOAWAY stream rejection, into
   stable ids and related context. The
   case keeps local receive-limit

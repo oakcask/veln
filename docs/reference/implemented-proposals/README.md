@@ -244,6 +244,8 @@ behavior.
   [http2-outbound-data-goaway-boundary.md](http2-outbound-data-goaway-boundary.md).
 - HTTP/2 half-closed-by-peer outbound DATA:
   [http2-half-closed-by-peer-outbound-data.md](http2-half-closed-by-peer-outbound-data.md).
+- HTTP/2 client PUSH_PROMISE receive:
+  [http2-client-push-promise-receive.md](http2-client-push-promise-receive.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
 - HTTP/2 response header validation:
