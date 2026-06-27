@@ -1,0 +1,26 @@
+schema RuntimeValuePacket
+	format binary
+
+	value: UInt8
+end
+
+fn value_field_path() -> List<RuntimeDiagnosticFieldPathSegment>
+	Cons(
+		RuntimeDiagnosticFieldPathSegment("schema", "RuntimeValuePacket"),
+		Cons(RuntimeDiagnosticFieldPathSegment("field", "value"), Nil)
+	)
+end
+
+fn project_encode_error(error: EncodeError) -> RuntimeDiagnostic
+	match error
+		EncodeError(id, _, reason) => RuntimeDiagnostic(id, "encode value is unrepresentable", RuntimeValueDiagnostic(value_field_path(), reason))
+	end
+end
+
+pub fn main() -> Result<ByteChunk, RuntimeDiagnostic>
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_runtime_value_packet({value: 256})
+	match encoded
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(project_encode_error(error))
+	end
+end

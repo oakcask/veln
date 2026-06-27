@@ -40,7 +40,9 @@
         ByteDiagnostic byteDiagnostic = runtimeDiagnostic == null
             ? byteDiagnostics.get().remove(value)
             : runtimeDiagnostic.byteDiagnostic;
-        ValueDiagnostic valueDiagnostic = valueDiagnostics.get().remove(value);
+        ValueDiagnostic valueDiagnostic = runtimeDiagnostic == null
+            ? valueDiagnostics.get().remove(value)
+            : runtimeDiagnostic.valueDiagnostic;
         ProtocolDiagnostic protocolDiagnostic = runtimeDiagnostic == null
             ? protocolDiagnostics.get().remove(value)
             : runtimeDiagnostic.protocolDiagnostic;
@@ -125,12 +127,16 @@
         String id = asString(diagnostic.payloads[0]);
         ByteDiagnostic byteDiagnostic = runtimeByteDiagnostic(id, diagnostic.payloads[2]);
         if (byteDiagnostic != null) {
-            return new RuntimeDiagnosticPayload(byteDiagnostic, null);
+            return new RuntimeDiagnosticPayload(byteDiagnostic, null, null);
+        }
+        ValueDiagnostic valueDiagnostic = runtimeValueDiagnostic(id, diagnostic.payloads[2]);
+        if (valueDiagnostic != null) {
+            return new RuntimeDiagnosticPayload(null, valueDiagnostic, null);
         }
         ProtocolDiagnostic protocolDiagnostic =
             runtimeProtocolDiagnostic(id, diagnostic.payloads[2]);
         if (protocolDiagnostic != null) {
-            return new RuntimeDiagnosticPayload(null, protocolDiagnostic);
+            return new RuntimeDiagnosticPayload(null, null, protocolDiagnostic);
         }
         return null;
     }
@@ -156,6 +162,28 @@
             details.add(preview);
         }
         return new ByteDiagnostic(id, byteOffset, fieldPath, details);
+    }
+
+    private static ValueDiagnostic runtimeValueDiagnostic(String id, Object detail) {
+        if (!isCommandEncodeDiagnosticId(id)
+            || !isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeValueDiagnostic")) {
+            return null;
+        }
+        Adt valueDetail = (Adt) detail;
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath =
+            runtimeDiagnosticFieldPath(valueDetail.payloads[0]);
+        if (fieldPath == null) {
+            return null;
+        }
+        String reason = asString(valueDetail.payloads[1]);
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("reason", reason));
+        details.add(DiagnosticDetail.string(
+            "field_path_display",
+            diagnosticFieldPathDisplay(fieldPath)
+        ));
+        return new ValueDiagnostic(id, fieldPath, details);
     }
 
     private static ProtocolDiagnostic runtimeProtocolDiagnostic(String id, Object detail) {
@@ -2532,8 +2560,14 @@
     }
 
     private static String byteDiagnosticFieldPathDisplay(ByteDiagnostic diagnostic) {
+        return diagnosticFieldPathDisplay(diagnostic.fieldPath);
+    }
+
+    private static String diagnosticFieldPathDisplay(
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
+    ) {
         String out = "";
-        for (ByteDiagnosticFieldPathSegment segment : diagnostic.fieldPath) {
+        for (ByteDiagnosticFieldPathSegment segment : fieldPath) {
             if (out.isEmpty()) {
                 out = segment.name;
             } else {
@@ -2663,13 +2697,16 @@
 
     private static final class RuntimeDiagnosticPayload {
         final ByteDiagnostic byteDiagnostic;
+        final ValueDiagnostic valueDiagnostic;
         final ProtocolDiagnostic protocolDiagnostic;
 
         RuntimeDiagnosticPayload(
             ByteDiagnostic byteDiagnostic,
+            ValueDiagnostic valueDiagnostic,
             ProtocolDiagnostic protocolDiagnostic
         ) {
             this.byteDiagnostic = byteDiagnostic;
+            this.valueDiagnostic = valueDiagnostic;
             this.protocolDiagnostic = protocolDiagnostic;
         }
     }

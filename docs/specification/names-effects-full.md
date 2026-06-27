@@ -1147,6 +1147,8 @@ pure helper in this split is source-backed, while float operator compatibility
 descriptors remain outside the migration candidate pool.
 
 The source-visible `RuntimeDiagnosticDetail` constructor set includes
+`RuntimeValueDiagnostic(...)` for projecting generated binary schema encode
+value diagnostics from source-visible `RuntimeDiagnostic(...)` error values,
 `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for projecting
 `http2.protocol.closed_with_pending` failures,
 `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` for projecting

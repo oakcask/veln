@@ -1222,6 +1222,25 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeValueDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "field_path".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named(
+                                "List",
+                                vec![Type::named("RuntimeDiagnosticFieldPathSegment", Vec::new())],
+                            )),
+                        },
+                        AdtPayloadField {
+                            name: "reason".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                    ],
+                    coverage_case: "RuntimeValueDiagnostic(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeHpackFixtureDiagnostic".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![

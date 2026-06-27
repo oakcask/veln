@@ -166,6 +166,8 @@ behavior.
   [http2-hpack-malformed-string-diagnostics.md](http2-hpack-malformed-string-diagnostics.md).
 - Runtime diagnostic HPACK fixture payloads:
   [runtime-diagnostic-hpack-fixture-payloads.md](runtime-diagnostic-hpack-fixture-payloads.md).
+- Runtime diagnostic generated encode value payload:
+  [runtime-diagnostic-encode-value-payload.md](runtime-diagnostic-encode-value-payload.md).
 - Runtime diagnostic HTTP/2 preface payloads:
   [runtime-diagnostic-http2-preface-payloads.md](runtime-diagnostic-http2-preface-payloads.md).
 - Runtime diagnostic HTTP/2 SETTINGS ACK payload:
