@@ -1984,7 +1984,9 @@ execution reference.
   with active state `request-trailers`, and rejects uppercase ordinary names,
   invalid field-name tokens, connection-specific ordinary names, and invalid
   `te` values through the same structured request header-list diagnostic
-  fields.
+  fields. The raw HPACK uppercase trailer-name case carries those facts in a
+  source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
+  payload instead of relying on the legacy helper side table.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers

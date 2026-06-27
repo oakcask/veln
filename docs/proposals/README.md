@@ -243,8 +243,9 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/runtime-diagnostic-http2-settings-ack-payload.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`,
+  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`,
   and
-  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`.
+  `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.
