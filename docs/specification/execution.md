@@ -1637,7 +1637,9 @@ execution reference.
   failures including the idle-stream case, peer-sent `PUSH_PROMISE`
   rejection,
   server-side outbound `PUSH_PROMISE` send-intents for open
-  client-created streams,
+  client-created streams, client-side peer-sent `PUSH_PROMISE` receive on an
+  open client-created associated stream with reserved-by-peer promised stream
+  state,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS streams and local outbound
   HEADERS send-intents above a received boundary, and accepted
@@ -2214,6 +2216,23 @@ execution reference.
   generated payload helper's representable range stay as
   `codec.encode_value_unrepresentable` failures with the generated field
   path.
+- The same HTTP/2 protocol-core example also covers the narrow client-side
+  peer-sent `PUSH_PROMISE` receive slice. A client receive fixture state marks
+  the associated client-created stream as open for this boundary. The receive
+  path accepts a `PUSH_PROMISE` frame on that stream when the payload carries
+  a nonzero server-initiated promised stream id followed by a supported HPACK
+  fixture request header block. It strips the four-byte promised-stream
+  payload before routing the header block through the same completed HEADERS
+  and final CONTINUATION HPACK fixture decode paths used by ordinary header
+  blocks, and records the promised stream as reserved by peer while keeping
+  later DATA and HEADERS behavior for that promised stream outside this
+  slice. Associated stream id zero and wrong-parity associated stream ids keep
+  the existing stream-id diagnostic route. Promised stream id zero and
+  representable client-initiated promised stream ids use
+  `http2.protocol.invalid_stream_id` with client receive rule provenance.
+  Payloads shorter than the promised-stream field use
+  `http2.protocol.invalid_payload_length`, and unsupported promised header
+  blocks keep the existing HPACK fixture diagnostic shape.
 - The same HTTP/2 protocol-core example also covers the outbound GOAWAY
   send-intent. Ordinary source validates the selected last stream id and
   error code through a schema-declared `Http2GoawayPayloadWire` payload record

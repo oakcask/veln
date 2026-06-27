@@ -680,6 +680,14 @@ peer-sent `PUSH_PROMISE` JSON examples return source-visible
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
+The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
+for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
+final-CONTINUATION cases expose the stripped promised header block as checked
+lowercase hex output and print the reserved-by-peer promised stream state,
+while stream id zero, promised stream id zero, wrong promised-stream parity,
+wrong associated-stream parity, short payload, and unsupported HPACK fixture
+inputs keep their existing structured diagnostic shapes inside the
+`run --json` stdout envelope.
 After receiving GOAWAY or after locally sending GOAWAY, a peer-created
 HEADERS stream or local outbound HEADERS send-intent greater than the recorded
 last stream id uses id `http2.protocol.stream_after_goaway` and records
