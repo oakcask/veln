@@ -1363,7 +1363,8 @@ execution reference.
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
   visible-only packed two-byte groups, repeat-backed schemas,
-  quotient-count repeat schemas, the implemented
+  quotient-count repeat schemas, product-sized and quotient-sized
+  `ByteView` payload fields, the implemented
   direct structural mapping and selected structural mapping slices, eligible
   nested dispatch payload schemas, and same-module recursive closed and
   extension dispatch payload helpers already accepted by
@@ -1382,6 +1383,7 @@ execution reference.
   `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
+  `examples/specification/run/derived-codec-byteview-product-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
@@ -1423,7 +1425,8 @@ execution reference.
   supported middle reserved-bit layouts, including byte-interleaved middle
   reserved layouts, visible-only packed two-byte groups, repeat-backed
   schemas, quotient-count repeat schemas, quotient-sized
-  `ByteView(left_length / right_length)` payload fields,
+  `ByteView(left_length / right_length)` payload fields, product-sized
+  `ByteView(left_length * right_length)` payload fields,
   same-module or public imported nested dispatch payload schemas, same-module
   recursive closed and extension dispatch payload helpers, and multiple
   decoded-field selected schema mappings already accepted by
@@ -1442,6 +1445,7 @@ execution reference.
   `examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
+  `examples/specification/run/derived-codec-byteview-product-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
