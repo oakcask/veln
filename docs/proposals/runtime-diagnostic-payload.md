@@ -413,6 +413,10 @@ registrations is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-side-table-cleanup.md`.
 The completed top-level test JSON payload projection slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-test-json-payload.md`.
+The completed result-value trace projection cleanup for plain `EncodeError`,
+`DecodeError`, `DecodeErrorWithReason`, and `DecodeStep::NeedMore` command
+result values is archived under
+`../reference/implemented-proposals/runtime-diagnostic-result-value-trace-projection.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

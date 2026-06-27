@@ -222,6 +222,8 @@ behavior.
   [runtime-diagnostic-http2-side-table-cleanup.md](runtime-diagnostic-http2-side-table-cleanup.md).
 - Runtime diagnostic test JSON payload:
   [runtime-diagnostic-test-json-payload.md](runtime-diagnostic-test-json-payload.md).
+- Runtime diagnostic result value trace projection:
+  [runtime-diagnostic-result-value-trace-projection.md](runtime-diagnostic-result-value-trace-projection.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

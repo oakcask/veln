@@ -34,14 +34,13 @@
         }
         Object resultValue = asResult(result).value();
         String value = format(resultValue);
-        registerEncodeErrorValueDiagnostic(resultValue, value);
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
         RuntimeDiagnosticPayload runtimeDiagnostic = runtimeDiagnosticPayload(resultValue);
         ByteDiagnostic byteDiagnostic = runtimeDiagnostic == null
-            ? byteDiagnostics.get().remove(value)
+            ? resultByteDiagnostic(resultValue, value)
             : runtimeDiagnostic.byteDiagnostic;
         ValueDiagnostic valueDiagnostic = runtimeDiagnostic == null
-            ? valueDiagnostics.get().remove(value)
+            ? resultValueDiagnostic(resultValue, value)
             : runtimeDiagnostic.valueDiagnostic;
         ProtocolDiagnostic protocolDiagnostic = runtimeDiagnostic == null
             ? protocolDiagnostics.get().remove(value)
@@ -117,6 +116,26 @@
             return null;
         }
         return byteDiagnostics.get().get(asString(message));
+    }
+
+    private static ByteDiagnostic resultByteDiagnostic(Object value, String message) {
+        ByteDiagnostic diagnostic = decodeErrorByteDiagnostic(value);
+        if (diagnostic != null) {
+            return diagnostic;
+        }
+        diagnostic = decodeNeedMoreByteDiagnostic(value);
+        if (diagnostic != null) {
+            return diagnostic;
+        }
+        return byteDiagnostics.get().remove(message);
+    }
+
+    private static ValueDiagnostic resultValueDiagnostic(Object value, String message) {
+        ValueDiagnostic carried = valueDiagnostics.get().remove(message);
+        if (carried != null) {
+            return carried;
+        }
+        return encodeErrorValueDiagnostic(value);
     }
 
     private static RuntimeDiagnosticPayload runtimeDiagnosticPayload(Object value) {
@@ -1764,17 +1783,14 @@
         );
     }
 
-    private static void registerEncodeErrorValueDiagnostic(Object value, String message) {
+    private static ValueDiagnostic encodeErrorValueDiagnostic(Object value) {
         if (!isAdtNamed(value, "EncodeError::EncodeError")) {
-            return;
-        }
-        if (valueDiagnostics.get().containsKey(message)) {
-            return;
+            return null;
         }
         Adt error = asAdt(value, "EncodeError::EncodeError");
         String id = asString(error.payloads[0]);
         if (!isCommandEncodeDiagnosticId(id)) {
-            return;
+            return null;
         }
         String fieldPath = asString(error.payloads[1]);
         String reason = asString(error.payloads[2]);
@@ -1782,10 +1798,7 @@
             new java.util.ArrayList<DiagnosticDetail>();
         details.add(DiagnosticDetail.string("reason", reason));
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
-        valueDiagnostics.get().put(
-            message,
-            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
-        );
+        return new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details);
     }
 
     private static void registerSchemaByteViewEncodeLengthMismatchDiagnostic(
@@ -1822,10 +1835,10 @@
             || id.equals("codec.dispatch_mismatch");
     }
 
-    public static void registerDecodeErrorByteDiagnostic(Object value, String message) {
+    private static ByteDiagnostic decodeErrorByteDiagnostic(Object value) {
         if (!isAdtNamed(value, "DecodeError::DecodeError")
             && !isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
-            return;
+            return null;
         }
         Adt error = (Adt) value;
         String id = asString(error.payloads[0]);
@@ -1839,10 +1852,7 @@
             mergeDecodeErrorReasonByteContext(details, reason);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
-        byteDiagnostics.get().put(
-            message,
-            new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details)
-        );
+        return new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details);
     }
 
     private static void mergeDecodeErrorReasonByteContext(
@@ -1870,9 +1880,9 @@
         }
     }
 
-    public static void registerDecodeNeedMoreByteDiagnostic(Object value, String message) {
+    private static ByteDiagnostic decodeNeedMoreByteDiagnostic(Object value) {
         if (!isAdt(value, "DecodeStep::NeedMore")) {
-            return;
+            return null;
         }
         Object readiness = adtPayload(value, 0);
         java.util.ArrayList<DiagnosticDetail> details =
@@ -1886,16 +1896,13 @@
         } else if (isAdt(readiness, "DecodeReadiness::NeedEnd")) {
             details.add(DiagnosticDetail.string("readiness", "need_end"));
         } else {
-            return;
+            return null;
         }
-        byteDiagnostics.get().put(
-            message,
-            new ByteDiagnostic(
-                "codec.incomplete_input",
-                byteOffset,
-                new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(),
-                details
-            )
+        return new ByteDiagnostic(
+            "codec.incomplete_input",
+            byteOffset,
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(),
+            details
         );
     }
 

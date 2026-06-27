@@ -16,7 +16,6 @@
 
     public static Object decodeStepInvalidAsErr(Object value) {
         Object error = adtPayload(value, 0);
-        registerDecodeErrorByteDiagnostic(error, format(error));
         return Result.err(error);
     }
 
@@ -25,7 +24,6 @@
     }
 
     public static Object decodeStepNeedMoreAsErr(Object value) {
-        registerDecodeNeedMoreByteDiagnostic(value, format(value));
         return Result.err(value);
     }
 
