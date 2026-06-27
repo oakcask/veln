@@ -4266,21 +4266,29 @@
         long acceptedMin = asLong(acceptedMinValue);
         long acceptedMax = asLong(acceptedMaxValue);
         String provenance = asString(peerLimitProvenance);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HTTP/2 SETTINGS value outside accepted range at byte offset "
             + byteOffset;
-        registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
-            message,
-            byteOffset,
-            identifier,
-            name,
-            observed,
-            acceptedMin,
-            acceptedMax,
-            provenance,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(identifier),
+                name,
+                Long.valueOf(observed),
+                Long.valueOf(acceptedMin),
+                Long.valueOf(acceptedMax),
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.peer_limit.settings_value_out_of_range",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object hpackFixtureUnsupportedHeaderBlock(

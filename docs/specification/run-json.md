@@ -129,7 +129,8 @@ where applicable.
 The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`, and
 `http2_protocol_invalid_preface(...)`, and
-`http2_peer_limit_frame_size_exceeded(...)` helpers return their
+`http2_peer_limit_frame_size_exceeded(...)` and
+`http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
 
@@ -594,6 +595,10 @@ structured bounded `byte_preview` for the offending six-byte SETTINGS item.
 The preview uses the same object shape as other protocol-owned byte previews
 while byte offset, setting identity, observed value, accepted range, and
 peer-limit provenance remain separate fields. The
+`http2_peer_limit_settings_value_out_of_range(...)` standard helper returns
+the same `RuntimeDiagnostic(...)` value directly, so its JSON result details
+are also derived from the returned value rather than a compatibility
+side-table entry. The
 stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `required_stream_id_domain`, `endpoint_role`, `active_state`, and

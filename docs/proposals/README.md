@@ -266,6 +266,9 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 frame-size peer-limit standard helper migration slice
   is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.
+  The completed HTTP/2 SETTINGS value peer-limit standard helper migration
+  slice is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-settings-value-helper-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

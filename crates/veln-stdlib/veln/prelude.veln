@@ -629,7 +629,7 @@ pub fn http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int,
 	prelude_builtin::http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
 end
 
-pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), String>
+pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview)
 end
 
