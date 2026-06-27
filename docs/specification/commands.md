@@ -153,7 +153,9 @@ requiring the full command reference on the first read.
   `http2_peer_limit_concurrent_streams_exceeded(...)`, and
   `http2_peer_limit_settings_value_out_of_range(...)`,
   `http2_protocol_invalid_window_update_increment(...)`,
+  `http2_protocol_invalid_data_padding(...)`,
   `http2_protocol_content_length_mismatch(...)`,
+  `http2_protocol_unexpected_settings_ack(...)`,
   `http2_protocol_invalid_priority_dependency(...)`,
   `http2_protocol_stream_after_goaway(...)`,
   `http2_peer_limit_flow_control_window_exceeded(...)`,
