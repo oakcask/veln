@@ -195,7 +195,9 @@ compare it with `../specification/` before changing behavior.
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not
   an earlier decoded `Int` field and unsupported representation-only
-  `ReservedBits` payload layouts. The completed nested dispatch
+  `ReservedBits` payload layouts, and mapped payload schemas that decode but
+  cannot project their mapping assignment back to schema-local fields for
+  generated encode. The completed nested dispatch
   `ByteView(length_field)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md).
   The completed nested schema

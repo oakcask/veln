@@ -202,13 +202,20 @@ failures with `id: "schema.dispatch_payload"` and `kind: "type"`. Their
 
 When `reason` is `incompatible_payload_schema`, details also include
 `expected_decode_helper`, `decode_helper_boundary`, `expected_encode_helper`,
-and `encode_helper_boundary`. When the payload schema fails because a nested
-field layout cannot expose generated helpers, details also include
-`unsupported_nested_schema`, `unsupported_nested_field`,
-`unsupported_nested_field_path`, `unsupported_nested_layout_reason`,
-`unsupported_nested_layout_fact`, and `unavailable_helper_directions`. A
+`encode_helper_boundary`, and `unavailable_helper_directions`. When the
+payload schema fails because a nested field layout cannot expose generated
+helpers, details also include `unsupported_nested_schema`,
+`unsupported_nested_field`, `unsupported_nested_field_path`,
+`unsupported_nested_layout_reason`, and `unsupported_nested_layout_fact`. A
 related note with `kind: "unsupported_nested_field"` carries the nested field
-span, the same field path, and a human-readable unsupported layout fact.
+span, the same field path, and a human-readable unsupported layout fact. When
+the payload schema decodes but a mapping assignment cannot be projected back
+to schema-local encode fields, details instead include
+`unsupported_nested_schema`, `unsupported_nested_mapping_target`,
+`unsupported_nested_mapping_target_path`,
+`unsupported_nested_layout_reason`, and `unsupported_nested_layout_fact`. A
+related note with `kind: "unsupported_nested_mapping"` carries the mapping
+assignment span, target field, and projection fact.
 
 Effect diagnostic `details` are stable for `effect.missing_public`:
 

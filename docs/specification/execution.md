@@ -619,7 +619,12 @@ execution reference.
   record shape, with at least one non-recursive case as the base case. The
   recursive helper path decodes the nested payload from the bounded dispatch
   range before continuing with later fields and preserves the same outer
-  dispatch plus nested schema field path on failures. The checked
+  dispatch plus nested schema field path on failures. Resolved nested payload
+  schemas must expose both generated decode-step and encode helpers before a
+  parent dispatch helper can use them; a payload schema that can decode but
+  whose mapping assignment cannot be projected back to schema-local fields for
+  generated encode is rejected at check time with `schema.dispatch_payload`.
+  The checked
   examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
@@ -1137,13 +1142,16 @@ execution reference.
   dispatch case, all mappings resolve to one record shape, and at least one
   case is non-recursive. The generated encode helper writes the selected
   recursive payload through the same schema helper path and checks the encoded
-  payload byte count against the earlier length field. This slice excludes selected
-  mappings that cannot reconstruct
-  all schema-local encode fields, mapping expressions that cannot be projected
-  back to schema-local fields, recursive dispatch payload schemas outside that
-  selected same-module or public imported length-bounded dispatch slice, dispatch payload
-  schemas outside the generated helper slice, nested mappings, and derived
-  codec encode execution for unsupported schemas.
+  payload byte count against the earlier length field. This slice excludes
+  selected mappings that cannot reconstruct all schema-local encode fields,
+  mapping expressions that cannot be projected back to schema-local fields,
+  recursive dispatch payload schemas outside that selected same-module or
+  public imported length-bounded dispatch slice, dispatch payload schemas
+  outside the generated helper slice, nested mappings, and derived codec
+  encode execution for unsupported schemas. Ineligible resolved nested payload
+  schemas are rejected before helper generation; the checked
+  `schema.dispatch_payload` diagnostics include payload schemas whose mapping
+  assignments decode but cannot project back to schema-local encode fields.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,

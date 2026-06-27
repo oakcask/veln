@@ -2562,11 +2562,16 @@ fn check_schema_dispatch_field(
                     } else {
                         schema_recursive_dispatch_payload_type(module, schema).or_else(|| {
                             diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
+                                module,
                                 schema,
                                 field,
                                 case.tag,
                                 schema_name,
                                 schema,
+                                SchemaHelperAvailability {
+                                    decode: false,
+                                    encode: false,
+                                },
                             ));
                             None
                         })
@@ -2603,16 +2608,15 @@ fn check_schema_dispatch_field(
                             ));
                             return None;
                         }
-                        schema_decode_value_type(module, payload_schema).or_else(|| {
-                            diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
-                                schema,
-                                field,
-                                case.tag,
-                                schema_name,
-                                payload_schema,
-                            ));
-                            None
-                        })
+                        schema_dispatch_payload_helper_type(
+                            module,
+                            schema,
+                            field,
+                            case.tag,
+                            schema_name,
+                            payload_schema,
+                            diagnostics,
+                        )
                     })
                 }
             }
@@ -3068,16 +3072,19 @@ fn schema_dispatch_payload_diagnostic<const N: usize>(
 }
 
 fn incompatible_schema_dispatch_payload_diagnostic(
+    module: &SurfaceModule,
     schema: &SchemaDecl,
     field: &SchemaField,
     tag: i64,
     payload_name: &str,
     payload_schema: &SchemaDecl,
+    helper_availability: SchemaHelperAvailability,
 ) -> Diagnostic {
     let payload_schema_name = schema_payload_name_last_segment(payload_name);
     let decode_helper = schema_decode_step_function_name(payload_schema_name);
     let encode_helper = schema_encode_function_name(payload_schema_name);
-    let unsupported_field = unsupported_dispatch_payload_helper_field(payload_schema);
+    let unsupported_blocker =
+        unsupported_dispatch_payload_helper_blocker(module, payload_schema, helper_availability);
     let mut diagnostic = schema_dispatch_payload_diagnostic(
         schema,
         field,
@@ -3106,37 +3113,123 @@ fn incompatible_schema_dispatch_payload_diagnostic(
             ),
         ],
     );
-    if let Some(unsupported_field) = &unsupported_field {
-        diagnostic.details =
-            add_dispatch_payload_unsupported_field_details(diagnostic.details, unsupported_field);
+    diagnostic.details =
+        add_dispatch_payload_helper_unavailable_details(diagnostic.details, helper_availability);
+    if let Some(unsupported_blocker) = &unsupported_blocker {
+        diagnostic.details = add_dispatch_payload_unsupported_blocker_details(
+            diagnostic.details,
+            unsupported_blocker,
+        );
     }
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("schema_declaration")),
         (
             "message",
-            JsonValue::string(format!(
-                "Schema `{payload_schema_name}` is declared here and does not expose the generated `{decode_helper}` helper required for dispatch payload decoding."
+            JsonValue::string(dispatch_payload_schema_declaration_message(
+                payload_schema_name,
+                &decode_helper,
+                &encode_helper,
+                helper_availability,
             )),
         ),
         ("span", span_json(&payload_schema.span)),
     ]));
-    if let Some(unsupported_field) = unsupported_field {
+    if let Some(unsupported_blocker) = unsupported_blocker {
         diagnostic
             .related
-            .push(dispatch_payload_unsupported_field_related(
-                &unsupported_field,
+            .push(dispatch_payload_unsupported_blocker_related(
+                &unsupported_blocker,
             ));
     }
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("helper_boundary")),
         (
             "message",
-            JsonValue::string(format!(
-                "Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `{decode_helper}` and `{encode_helper}`."
+            JsonValue::string(dispatch_payload_helper_boundary_message(
+                &decode_helper,
+                &encode_helper,
+                helper_availability,
             )),
         ),
     ]));
     diagnostic
+}
+
+#[derive(Clone, Copy)]
+struct SchemaHelperAvailability {
+    decode: bool,
+    encode: bool,
+}
+
+fn schema_dispatch_payload_helper_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    tag: i64,
+    payload_name: &str,
+    payload_schema: &SchemaDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    let decode_type = schema_decode_value_type(module, payload_schema);
+    let encode_type = schema_encode_value_type(module, payload_schema);
+    match (decode_type, encode_type) {
+        (Some(payload_ty), Some(_)) => Some(payload_ty),
+        (decode_type, encode_type) => {
+            diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
+                module,
+                schema,
+                field,
+                tag,
+                payload_name,
+                payload_schema,
+                SchemaHelperAvailability {
+                    decode: decode_type.is_some(),
+                    encode: encode_type.is_some(),
+                },
+            ));
+            None
+        }
+    }
+}
+
+fn dispatch_payload_schema_declaration_message(
+    payload_schema_name: &str,
+    decode_helper: &str,
+    encode_helper: &str,
+    helper_availability: SchemaHelperAvailability,
+) -> String {
+    match (helper_availability.decode, helper_availability.encode) {
+        (false, false) => format!(
+            "Schema `{payload_schema_name}` is declared here and does not expose the generated `{decode_helper}` helper required for dispatch payload decoding."
+        ),
+        (false, true) => format!(
+            "Schema `{payload_schema_name}` is declared here and does not expose the generated `{decode_helper}` helper required for dispatch payload decoding."
+        ),
+        (true, false) => format!(
+            "Schema `{payload_schema_name}` is declared here and does not expose the generated `{encode_helper}` helper required for dispatch payload encoding."
+        ),
+        (true, true) => format!(
+            "Schema `{payload_schema_name}` is declared here and exposes the generated dispatch payload helpers."
+        ),
+    }
+}
+
+fn dispatch_payload_helper_boundary_message(
+    decode_helper: &str,
+    encode_helper: &str,
+    helper_availability: SchemaHelperAvailability,
+) -> String {
+    match (helper_availability.decode, helper_availability.encode) {
+        (false, false) | (true, true) => format!(
+            "Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `{decode_helper}` and `{encode_helper}`."
+        ),
+        (false, true) => format!(
+            "Dispatch payload schemas must expose generated decode helpers before parent dispatch helpers can use them; expected `{decode_helper}`."
+        ),
+        (true, false) => format!(
+            "Dispatch payload schemas must expose generated encode helpers before parent dispatch helpers or derived codecs can use them; expected `{encode_helper}`."
+        ),
+    }
 }
 
 struct UnsupportedDispatchPayloadHelperField<'a> {
@@ -3145,6 +3238,33 @@ struct UnsupportedDispatchPayloadHelperField<'a> {
     field_path_display: String,
     layout_fact: String,
     reason: &'static str,
+}
+
+struct UnsupportedDispatchPayloadMappingProjection<'a> {
+    schema_name: String,
+    assignment: &'a SchemaMappingAssignment,
+    layout_fact: String,
+    reason: &'static str,
+}
+
+enum UnsupportedDispatchPayloadHelperBlocker<'a> {
+    Field(UnsupportedDispatchPayloadHelperField<'a>),
+    MappingProjection(UnsupportedDispatchPayloadMappingProjection<'a>),
+}
+
+fn unsupported_dispatch_payload_helper_blocker<'a>(
+    module: &'a SurfaceModule,
+    schema: &'a SchemaDecl,
+    helper_availability: SchemaHelperAvailability,
+) -> Option<UnsupportedDispatchPayloadHelperBlocker<'a>> {
+    unsupported_dispatch_payload_helper_field(schema)
+        .map(UnsupportedDispatchPayloadHelperBlocker::Field)
+        .or_else(|| {
+            (!helper_availability.encode && helper_availability.decode)
+                .then(|| unsupported_dispatch_payload_mapping_projection(module, schema))
+                .flatten()
+                .map(UnsupportedDispatchPayloadHelperBlocker::MappingProjection)
+        })
 }
 
 fn unsupported_dispatch_payload_helper_field(
@@ -3211,6 +3331,28 @@ fn unsupported_dispatch_payload_helper_field(
     None
 }
 
+fn unsupported_dispatch_payload_mapping_projection<'a>(
+    _module: &'a SurfaceModule,
+    schema: &'a SchemaDecl,
+) -> Option<UnsupportedDispatchPayloadMappingProjection<'a>> {
+    let schema_name = schema.name.clone().unwrap_or_default();
+    schema.mappings.iter().find_map(|mapping| {
+        mapping
+            .assignments
+            .iter()
+            .find(|assignment| !assignment.source.trim().is_empty())
+            .map(|assignment| UnsupportedDispatchPayloadMappingProjection {
+                schema_name: schema_name.clone(),
+                assignment,
+                layout_fact: format!(
+                    "mapping assignment `{}` cannot be projected back to schema-local fields for generated encode",
+                    assignment.source
+                ),
+                reason: "ineligible_mapping_projection",
+            })
+    })
+}
+
 fn byte_view_ineligible_length_fact(
     schema: &SchemaDecl,
     field: &SchemaField,
@@ -3229,6 +3371,49 @@ fn byte_view_ineligible_length_fact(
         )
     } else {
         format!("length reference `{reference}` to name an earlier decoded `Int` field")
+    }
+}
+
+fn add_dispatch_payload_helper_unavailable_details(
+    details: JsonValue,
+    helper_availability: SchemaHelperAvailability,
+) -> JsonValue {
+    let JsonValue::Object(mut fields) = details else {
+        return details;
+    };
+    fields.push((
+        "unavailable_helper_directions".to_string(),
+        JsonValue::array(dispatch_payload_unavailable_helper_directions(
+            helper_availability,
+        )),
+    ));
+    JsonValue::Object(fields)
+}
+
+fn dispatch_payload_unavailable_helper_directions(
+    helper_availability: SchemaHelperAvailability,
+) -> Vec<JsonValue> {
+    let mut directions = Vec::new();
+    if !helper_availability.decode {
+        directions.push(JsonValue::string("decode"));
+    }
+    if !helper_availability.encode {
+        directions.push(JsonValue::string("encode"));
+    }
+    directions
+}
+
+fn add_dispatch_payload_unsupported_blocker_details(
+    details: JsonValue,
+    unsupported: &UnsupportedDispatchPayloadHelperBlocker<'_>,
+) -> JsonValue {
+    match unsupported {
+        UnsupportedDispatchPayloadHelperBlocker::Field(field) => {
+            add_dispatch_payload_unsupported_field_details(details, field)
+        }
+        UnsupportedDispatchPayloadHelperBlocker::MappingProjection(mapping) => {
+            add_dispatch_payload_unsupported_mapping_projection_details(details, mapping)
+        }
     }
 }
 
@@ -3259,11 +3444,62 @@ fn add_dispatch_payload_unsupported_field_details(
         "unsupported_nested_layout_fact".to_string(),
         JsonValue::string(unsupported.layout_fact.clone()),
     ));
+    JsonValue::Object(fields)
+}
+
+fn add_dispatch_payload_unsupported_mapping_projection_details(
+    details: JsonValue,
+    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
+) -> JsonValue {
+    let JsonValue::Object(mut fields) = details else {
+        return details;
+    };
     fields.push((
-        "unavailable_helper_directions".to_string(),
-        JsonValue::array([JsonValue::string("decode"), JsonValue::string("encode")]),
+        "unsupported_nested_schema".to_string(),
+        JsonValue::string(unsupported.schema_name.clone()),
+    ));
+    fields.push((
+        "unsupported_nested_mapping_target".to_string(),
+        JsonValue::string(unsupported.assignment.target.clone()),
+    ));
+    fields.push((
+        "unsupported_nested_mapping_target_path".to_string(),
+        JsonValue::array([
+            JsonValue::object([
+                ("kind", JsonValue::string("schema")),
+                ("name", JsonValue::string(unsupported.schema_name.clone())),
+            ]),
+            JsonValue::object([
+                ("kind", JsonValue::string("mapping_target")),
+                (
+                    "name",
+                    JsonValue::string(unsupported.assignment.target.clone()),
+                ),
+            ]),
+        ]),
+    ));
+    fields.push((
+        "unsupported_nested_layout_reason".to_string(),
+        JsonValue::string(unsupported.reason),
+    ));
+    fields.push((
+        "unsupported_nested_layout_fact".to_string(),
+        JsonValue::string(unsupported.layout_fact.clone()),
     ));
     JsonValue::Object(fields)
+}
+
+fn dispatch_payload_unsupported_blocker_related(
+    unsupported: &UnsupportedDispatchPayloadHelperBlocker<'_>,
+) -> JsonValue {
+    match unsupported {
+        UnsupportedDispatchPayloadHelperBlocker::Field(field) => {
+            dispatch_payload_unsupported_field_related(field)
+        }
+        UnsupportedDispatchPayloadHelperBlocker::MappingProjection(mapping) => {
+            dispatch_payload_unsupported_mapping_projection_related(mapping)
+        }
+    }
 }
 
 fn dispatch_payload_unsupported_field_related(
@@ -3282,6 +3518,27 @@ fn dispatch_payload_unsupported_field_related(
             JsonValue::string(format!(
                 "Nested dispatch payload field `{}` prevents generated decode and encode helpers: {}.",
                 unsupported.field_path_display, layout_fact
+            )),
+        ),
+    ])
+}
+
+fn dispatch_payload_unsupported_mapping_projection_related(
+    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
+) -> JsonValue {
+    let layout_fact = unsupported.layout_fact.trim_end_matches('.');
+    JsonValue::object([
+        ("kind", JsonValue::string("unsupported_nested_mapping")),
+        ("span", span_json(&unsupported.assignment.span)),
+        (
+            "mapping_target",
+            JsonValue::string(unsupported.assignment.target.clone()),
+        ),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Nested dispatch payload mapping `{}.{}` prevents generated encode helpers: {}.",
+                unsupported.schema_name, unsupported.assignment.target, layout_fact
             )),
         ),
     ])
