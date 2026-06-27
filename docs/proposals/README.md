@@ -351,6 +351,7 @@ compare it with `../specification/` before changing behavior.
   `task::spawn_with<Result, Context>` handler spawn,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
+  write-side stream half-close lifecycle,
   adapter-owned clean shutdown after cancellation and deadline expiry,
   source-visible ordered `net::write_chunks` chunk-list writes,
   source-visible deadline-aware `net::write_chunk_until` writes,
@@ -393,6 +394,8 @@ compare it with `../specification/` before changing behavior.
   [Network Write Chunks Until Cancellable Boundary](../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md).
   The completed source-visible monotonic clock boundary is archived under
   [Network Monotonic Clock Boundary](../reference/implemented-proposals/network-monotonic-clock-boundary.md).
+  The completed write-side stream half-close boundary is archived under
+  [Network Stream Shutdown Write Boundary](../reference/implemented-proposals/network-stream-shutdown-write-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering and

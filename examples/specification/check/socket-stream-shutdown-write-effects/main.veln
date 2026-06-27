@@ -1,0 +1,4 @@
+# Stream write-side shutdown is a net boundary operation.
+pub fn missing_net(stream: NetStream) -> ()
+	net::shutdown_write(stream)
+end

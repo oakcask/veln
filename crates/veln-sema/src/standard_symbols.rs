@@ -487,6 +487,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "net",
+        "shutdown_write",
+        NET_EFFECTS,
+        "runtime.net.shutdown_write",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::Unit,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
         "close_stream",
         NET_EFFECTS,
         "runtime.net.close_stream",

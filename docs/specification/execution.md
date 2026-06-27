@@ -101,6 +101,16 @@ execution reference.
   channel, observes cancellation and deadline-expiry decisions as ordinary
   source values, projects only `SendBytes` actions to `net::write_chunk`, and
   then records `net::close_stream` followed by `net::close_listener`.
+  `net::shutdown_write` is the narrower write-side half-close operation for an
+  adapter-owned `NetStream`: it records write-side shutdown, leaves clean
+  read end on the `net::read_chunk_or_end` path, makes later writes fail as
+  runtime transport failures, and keeps `net::close_stream` as full cleanup.
+  The checked fixture and production-loopback cases are
+  `examples/specification/run/socket-stream-adapter-shutdown-write-lifecycle/`
+  and
+  `examples/specification/run/socket-stream-adapter-production-shutdown-write-lifecycle/`;
+  the checked failure surface is
+  `examples/specification/run/socket-stream-adapter-shutdown-write-failure-json/`.
   The checked cancellation-owner adapter example is
   `examples/specification/run/socket-stream-adapter-cancel-owner-lifecycle/`;
   it keeps the `CancelOwner` in adapter cleanup, passes only the observer

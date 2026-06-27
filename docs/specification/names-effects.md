@@ -260,8 +260,8 @@ compiler-known calls.
   listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
-- Descriptor-backed standard symbols, source metadata, and the
-  compiler-support source-loading trial:
+- Descriptor-backed standard symbols, including network stream write-side
+  shutdown, source metadata, and the compiler-support source-loading trial:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
 
 ## Fast Routes

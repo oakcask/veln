@@ -3105,6 +3105,17 @@ against the built `veln` binary.
 - `run/socket-stream-adapter-close-lifecycle/`: one adapter path reads until
   clean stream end, applies ordered `SendBytes` writes, then records explicit
   stream close through `net::close_stream`.
+- `run/socket-stream-adapter-shutdown-write-lifecycle/`: one adapter path
+  reads a stream chunk, writes a response chunk, shuts down only the write
+  side, observes clean read end through `net::read_chunk_or_end`, and then
+  records full stream close.
+- `run/socket-stream-adapter-production-shutdown-write-lifecycle/`: the same
+  write-side half-close boundary is checked through production loopback event
+  logs and client-observed byte capture.
+- `run/socket-stream-adapter-shutdown-write-failure-json/`: a later write on
+  a write-shutdown stream stays a run JSON runtime transport failure.
+- `check/socket-stream-shutdown-write-effects/`: explicit stream write-side
+  shutdown requires the `net` effect.
 - `run/socket-stream-adapter-production-two-streams/`: one production
   loopback listener accepts two independent streams, routes each through the
   ordinary adapter handler/action boundary, writes ordered response bytes,
