@@ -84,8 +84,23 @@ equals = "rfc9113_priority_dependency"
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.id"
+equals = "http2.protocol.invalid_priority_dependency"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.message"
+equals = "HTTP/2 invalid PRIORITY dependency at byte offset 0"
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.constructor"
 equals = "RuntimeHttp2ProtocolPriorityDependencyDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.0"
+equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
@@ -99,8 +114,23 @@ equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.detail.fields.3"
+equals = "stream-control"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.4"
+equals = "rfc9113_priority_dependency"
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.fields.5.constructor"
 equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.fields.5.fields.3.value"
+equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"

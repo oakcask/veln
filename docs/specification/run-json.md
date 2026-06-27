@@ -128,9 +128,10 @@ provenance, header-list facts, decoded header names, and bounded byte previews
 where applicable.
 The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`, and
-`http2_protocol_invalid_preface(...)` helpers return their source-visible
-HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so `details.value` is the
-rendered payload instead of a plain string.
+`http2_protocol_invalid_preface(...)`, and
+`http2_peer_limit_frame_size_exceeded(...)` helpers return their
+source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
+`details.value` is the rendered payload instead of a plain string.
 
 When the result value is a closed-input fixed-width `ByteView` read
 truncation, `details.byte_diagnostic` includes:
@@ -467,9 +468,11 @@ JSON examples return source-visible
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
-`http2_protocol_closed_with_pending` standard helper returns the same
-`RuntimeDiagnostic(...)` value directly, so its JSON result details are also
-derived from the returned value rather than a compatibility side-table entry.
+`http2_protocol_closed_with_pending` and
+`http2_peer_limit_frame_size_exceeded` standard helpers return the same
+`RuntimeDiagnostic(...)` values directly, so their JSON result details are
+also derived from the returned value rather than a compatibility side-table
+entry.
 The frame-size
 peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
@@ -659,6 +662,10 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
+The checked human and JSON examples return a source-visible
+`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` payload, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
 for unsupported header blocks, `hpack.fixture.malformed_string_length` for
 malformed HPACK string-length encodings,

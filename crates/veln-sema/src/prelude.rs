@@ -683,7 +683,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::int(),
                 T::string(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_peer_limit_header_list_size_exceeded"
         | "http2_peer_limit_header_table_size_exceeded" => Some((

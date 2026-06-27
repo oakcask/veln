@@ -2448,6 +2448,10 @@ against the built `veln` binary.
   failure reports `http2.peer_limit.frame_size_exceeded` through `run --json`
   with byte offset, observed and allowed lengths, frame kind, stream
   reference, and local-configuration receive-limit provenance.
+- `run/runtime-diagnostic-http2-frame-size-helper-json/`: the standard
+  `http2_peer_limit_frame_size_exceeded` helper reports the same
+  `http2.peer_limit.frame_size_exceeded` JSON details from its returned
+  `RuntimeDiagnostic(...)` error value.
 - `run/http2-protocol-core-flow-control-human/`: a DATA payload that exceeds
   available stream receive-window credit reports
   `http2.peer_limit.flow_control_window_exceeded` through human `run` stderr

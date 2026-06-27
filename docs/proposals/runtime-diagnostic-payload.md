@@ -165,6 +165,8 @@ The completed HPACK fixture payload migration slice is archived under
 The completed generated encode value-diagnostic payload slice is archived
 under
 `../reference/implemented-proposals/runtime-diagnostic-encode-value-payload.md`.
+The completed HTTP/2 PRIORITY dependency payload slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-priority-dependency-payload.md`.
 
 ## Logs And Metrics
 
@@ -240,6 +242,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-frame-size-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-header-list-human/`,
 `../../examples/specification/run/http2-protocol-core-header-list-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/`,
@@ -316,6 +319,8 @@ archived under
 The completed HTTP/2 invalid `WINDOW_UPDATE` increment migration slice is
 archived under
 [Runtime Diagnostic HTTP/2 WINDOW_UPDATE Payload](../reference/implemented-proposals/runtime-diagnostic-http2-window-update-payload.md).
+The completed HTTP/2 PRIORITY dependency migration slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-priority-dependency-payload.md`.
 The completed HTTP/2 HPACK raw request-trailer uppercase name migration slice
 is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
@@ -331,6 +336,9 @@ archived under
 The completed HTTP/2 invalid-preface standard helper migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-preface-helper-payload.md`.
+The completed HTTP/2 frame-size peer-limit standard helper migration slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-frame-size-helper-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 
