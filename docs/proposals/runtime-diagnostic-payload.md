@@ -57,6 +57,9 @@ not carried by the `Err` value that caused the command failure.
   own domain ADTs.
 - Do not require every `Err` value to have a diagnostic payload.
 - Do not introduce a second result-like type only for diagnostics.
+- Do not attach diagnostic payloads to `Result` containers, command records,
+  runtime handles, backend wrapper objects, or any other structure outside the
+  error value itself.
 - Do not expose backend trace-file formats as source-visible API.
 
 ## Proposed Model
@@ -86,6 +89,11 @@ The names above are illustrative. The important rule is that the diagnostic
 payload is the `Err` value, or is contained directly in the `Err` value.
 Command execution should not need to rediscover details from a backend-local
 side table keyed by rendered text.
+
+Implementations must not preserve diagnostic facts by adding hidden payload
+fields to the surrounding `Result` container or to backend-specific result
+wrappers. Moving or copying a `Result` may preserve the error value, but it
+must not create a second diagnostic carrier outside that error value.
 
 Plain error values continue to work:
 
