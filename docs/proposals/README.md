@@ -224,8 +224,9 @@ compare it with `../specification/` before changing behavior.
   remaining runtime diagnostic payload migration after the implemented
   source-visible byte diagnostic ADT, HPACK fixture payloads, HTTP/2 protocol
   payload slices for pending-byte close, partial and invalid client connection
-  preface failures, continuation ordering, invalid frame kind, frame-size peer
-  limit, header-list receive-limit, SETTINGS value range peer-limit,
+  preface failures, continuation ordering, invalid frame kind including
+  peer-sent `PUSH_PROMISE`, frame-size peer limit, header-list receive-limit,
+  SETTINGS value range peer-limit,
   header-table receive-limit, concurrent-stream receive-limit, stream id
   domain, fixed payload length, DATA padding, flow-control window,
   content-length mismatch, request and response header-list validation,

@@ -2546,7 +2546,8 @@ against the built `veln` binary.
 - `run/http2-protocol-core-push-promise-json/`: the same peer-sent
   `PUSH_PROMISE` rejection reports `http2.protocol.invalid_frame_kind` through
   `run --json` with byte offset, actual frame kind, stream reference, expected
-  frame kind, active state, and rule provenance.
+  frame kind, active state, rule provenance, and a rendered
+  `RuntimeDiagnostic(...)` result value.
   The focused frame-kind, stream-id, and `PUSH_PROMISE` projection cases
   declare `Http2FrameHeaderWire` locally and decode with the generated schema
   helper before projecting protocol diagnostics.

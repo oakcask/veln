@@ -191,7 +191,7 @@ project HPACK fixture `RuntimeDiagnostic` values through the existing HPACK
 fixture human diagnostic and `details.protocol_diagnostic` JSON shape.
 HTTP/2 `RuntimeDiagnostic` payloads currently cover pending-byte close,
 partial and invalid client connection preface failures, continuation ordering,
-invalid frame kind, frame-size exceeded,
+invalid frame kind including peer-sent `PUSH_PROMISE`, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, stream id domain failures, fixed payload length for SETTINGS ACK,
@@ -225,6 +225,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-state-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-push-promise-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-human/`,
