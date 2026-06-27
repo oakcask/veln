@@ -1048,6 +1048,12 @@
             details.add(DiagnosticDetail.number("available_count", byteCountLong(facts.payloads[1])));
             return details;
         }
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteFixedValueFacts")) {
+            Adt facts = (Adt) value;
+            details.add(DiagnosticDetail.number("expected_value", asLong(facts.payloads[0])));
+            details.add(DiagnosticDetail.number("actual_value", asLong(facts.payloads[1])));
+            return details;
+        }
         if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteReasonFacts")) {
             Adt facts = (Adt) value;
             details.add(DiagnosticDetail.string("reason", asString(facts.payloads[0])));

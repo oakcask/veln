@@ -414,6 +414,7 @@ end
 pub type RuntimeByteDiagnosticFacts
 	RuntimeByteCountFacts(expected_count: ByteCount, available_count: ByteCount, readiness: String)
 	RuntimeByteRangeFacts(requested_count: ByteCount, available_count: ByteCount)
+	RuntimeByteFixedValueFacts(expected_value: Int, actual_value: Int)
 	RuntimeByteReasonFacts(reason: String)
 end
 
