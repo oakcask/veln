@@ -771,7 +771,10 @@ fn hpack_fixture_signature<T: BytePreludeType>(
             ],
             unit_runtime_diagnostic_result(),
         )),
-        "hpack_fixture_dynamic_index_out_of_range" => Some((
+        "hpack_fixture_dynamic_index_out_of_range"
+        | "hpack_fixture_dynamic_name_continuation_missing"
+        | "hpack_fixture_dynamic_name_continuation_malformed"
+        | "hpack_fixture_dynamic_name_continuation_out_of_range" => Some((
             vec![
                 T::int(),
                 T::int(),

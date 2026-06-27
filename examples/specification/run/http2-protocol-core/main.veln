@@ -4955,7 +4955,16 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 							true => "hpack.fixture.table_size_update_not_at_start"
 							false => match expected_fixture == "fixture dynamic indexed header"
 								true => "hpack.fixture.dynamic_index_out_of_range"
-								false => "hpack.fixture.unsupported_header_block"
+								false => match expected_fixture == "fixture dynamic-name continuation entry"
+									true => "hpack.fixture.dynamic_name_continuation_missing"
+									false => match expected_fixture == "fixture dynamic-name continuation integer"
+										true => "hpack.fixture.dynamic_name_continuation_malformed"
+										false => match expected_fixture == "fixture dynamic-name continuation range"
+											true => "hpack.fixture.dynamic_name_continuation_out_of_range"
+											false => "hpack.fixture.unsupported_header_block"
+										end
+									end
+								end
 							end
 						end
 					end
@@ -5750,23 +5759,23 @@ end
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
 		ClosedWithPending(offset, pending_count, preview_chunk) => accept_runtime_diagnostic(http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
-		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count, diagnostic_context_pending_view(context)?)
-		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, diagnostic_context_pending_view(context)?)
-		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)
+		ClosedWithPartialPreface(offset, pending_count) => accept_runtime_diagnostic(http2_protocol_partial_preface(offset, pending_count, diagnostic_context_pending_view(context)?))
+		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => accept_runtime_diagnostic(http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, diagnostic_context_pending_view(context)?))
+		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => accept_runtime_diagnostic(http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?))
-			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?)
+			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?))
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview))
-			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview)
-			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure))
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure))
-			UnexpectedSettingsAck(offset, active_state, rule_provenance, preview) => http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview)
+			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview))
+			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => accept_runtime_diagnostic(http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure)))
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => accept_runtime_diagnostic(http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure)))
+			UnexpectedSettingsAck(offset, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview))
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_priority_dependency_payload(offset, stream_id, dependency_stream_id, active_state, rule_provenance, byte_view_to_chunk(preview)))
-		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
+		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => accept_runtime_diagnostic(http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance))
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => accept_runtime_diagnostic(http2_peer_limit_frame_size_exceeded(offset, observed_length, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit)))
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance, preview_chunk) => accept_runtime_diagnostic(project_flow_control_window_payload(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview_chunk))
-		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance) => http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
-		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => http2_peer_limit_header_list_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
-		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => http2_peer_limit_header_table_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?)
+		ConcurrentStreamsExceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance) => accept_runtime_diagnostic(http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance))
+		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => accept_runtime_diagnostic(http2_peer_limit_header_list_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => accept_runtime_diagnostic(http2_peer_limit_header_table_size_exceeded(offset, observed_size, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), rule_provenance, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => accept_runtime_diagnostic(http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview))
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_invalid_data_padding_payload(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, byte_view_to_chunk(preview)))
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_content_length_mismatch_payload(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, byte_view_to_chunk(preview)))
@@ -5783,7 +5792,16 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 							true => accept_runtime_diagnostic(hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 							false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_index_out_of_range"
 								true => accept_runtime_diagnostic(hpack_fixture_dynamic_index_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-								false => accept_runtime_diagnostic(hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+								false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_missing"
+									true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_missing(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+									false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_malformed"
+										true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+										false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
+											true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+											false => accept_runtime_diagnostic(hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+										end
+									end
+								end
 							end
 						end
 					end
@@ -6971,11 +6989,32 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start"
 			true => Ok(())
 			false => Err("expected HTTP/2 HPACK fixture failure")
 		end
 	end
+end
+
+fn project_hpack_fixture_decode_failure(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_missing"
+			true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_missing(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_malformed"
+				true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
+					true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+					false => Err("expected projected HPACK dynamic-name fixture failure")
+				end
+			end
+		end
+		_ => Err("expected projected HPACK fixture failure")
+	end
+end
+
+fn require_projected_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
+	let ignored_failure: () = require_hpack_fixture_failure(step)?
+	project_hpack_fixture_decode_failure(step_failure(step))
 end
 
 fn continue_http2_deep_dynamic_path_state(inserted: Http2Step, state: Http2DecodeState, remaining: Int) -> Result<Http2DecodeState, String>
@@ -7075,6 +7114,34 @@ fn print_hpack_insertion_eviction_cases(three_entry_reduced_state: Http2DecodeSt
 	let insertion_evicted_second: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000001dbf")?), insertion_eviction_state)?
 	print_failure("hpack-stateful-insertion-eviction-second-missing", insertion_evicted_second)
 	let ignored_insertion_evicted_second: () = require_hpack_fixture_failure(insertion_evicted_second)?
+	Ok(())
+end
+
+fn dynamic_name_failure_scheme_state() -> Result<Http2DecodeState, String>
+	let inserted_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000144072f746172676574")?), frame_state())?
+	let path_state: Http2DecodeState = hpack_carry_only_state(step_state(inserted_path))
+	let inserted_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000034203505554")?), path_state)?
+	let method_state: Http2DecodeState = hpack_carry_only_state(step_state(inserted_method))
+	let inserted_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000546849d29ad1f")?), method_state)?
+	Ok(hpack_carry_only_state(step_state(inserted_scheme)))
+end
+
+fn print_hpack_dynamic_name_failure_cases() -> Result<(), String> effects [stdio]
+	let scheme_state: Http2DecodeState = dynamic_name_failure_scheme_state()?
+	let dynamic_name_continuation_missing: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000137f00055041544348")?), frame_state())?
+	print_failure("hpack-stateful-dynamic-name-continuation-missing", dynamic_name_continuation_missing)
+	let ignored_dynamic_name_continuation_missing: () = require_projected_hpack_fixture_failure(dynamic_name_continuation_missing)?
+	let dynamic_name_continuation_out_of_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000157f02055041544348")?), scheme_state)?
+	print_failure("hpack-stateful-dynamic-name-continuation-out-of-range", dynamic_name_continuation_out_of_range)
+	let ignored_dynamic_name_continuation_out_of_range: () = require_projected_hpack_fixture_failure(dynamic_name_continuation_out_of_range)?
+	let malformed_dynamic_name_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000177f80")?), scheme_state)?
+	print_failure("hpack-stateful-dynamic-name-continuation-malformed", malformed_dynamic_name_continuation)
+	let ignored_malformed_dynamic_name_continuation: () = require_projected_hpack_fixture_failure(malformed_dynamic_name_continuation)?
+	let dynamic_name_failure_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030100000000197f0205")?), scheme_state)?
+	print_step("hpack-continuation-dynamic-name-failure-start", dynamic_name_failure_continuation_start)
+	let dynamic_name_failure_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000195041544348")?), step_state(dynamic_name_failure_continuation_start))?
+	print_failure("hpack-continuation-dynamic-name-failure-done", dynamic_name_failure_continuation_done)
+	let ignored_dynamic_name_failure_continuation_done: () = require_projected_hpack_fixture_failure(dynamic_name_failure_continuation_done)?
 	Ok(())
 end
 
@@ -7346,6 +7413,7 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let http2_ordinary_evicted: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000003be")?), http2_ordinary_reduced_state)?
 	print_failure("hpack-stateful-ordinary-after-table-size-eviction", http2_ordinary_evicted)
 	let ignored_http2_ordinary_evicted: () = require_hpack_fixture_failure(http2_ordinary_evicted)?
+	let ignored_dynamic_name_failure_cases: () = print_hpack_dynamic_name_failure_cases()?
 	Ok(())
 end
 

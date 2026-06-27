@@ -2022,8 +2022,17 @@ execution reference.
   through the returned state. A literal-never-indexed decode without a prior
   dynamic entry still inserts no dynamic table entry, so a later `0xbe`
   lookup from that returned state reports the same dynamic-index diagnostic.
-  Missing, malformed, and out-of-range dynamic-name continuations remain on
-  `hpack.fixture.unsupported_header_block`. It also
+  Missing dynamic-name continuation table entries report
+  `hpack.fixture.dynamic_name_continuation_missing`, malformed dynamic-name
+  continuation integers report
+  `hpack.fixture.dynamic_name_continuation_malformed`, and decoded
+  dynamic-name continuation indexes outside the bounded fixture table report
+  `hpack.fixture.dynamic_name_continuation_out_of_range`; each diagnostic
+  preserves the header-block byte offset, observed size, observed first byte,
+  requested dynamic index when available, current bounded dynamic table entry
+  count, codec module, expected fixture, and bounded header-block byte
+  preview. Those focused diagnostics project through both completed HEADERS
+  and final CONTINUATION paths. It also
   accepts dynamic table-size updates `0x3e`, `0x3f`, one-byte HPACK integer
   continuations such as `0x3f 0x01`, and the fixture-boundary slice of
   general multi-byte HPACK integer continuations with the table-size update
@@ -2078,8 +2087,10 @@ execution reference.
   Huffman padding, Huffman EOS, and Huffman non-visible checked header values
   stay on the HPACK fixture boundary and can be carried by the same
   source-visible `RuntimeHpackFixtureDiagnostic` payload shape. Dynamic-index
-  and table-size update placement fixture diagnostics use source-visible
-  `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
+  lookup, dynamic-name continuation, and table-size update placement fixture
+  diagnostics use source-visible
+  `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
+  `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` payloads so their extra
   public facts are also carried by the returned `Err` value.
   That

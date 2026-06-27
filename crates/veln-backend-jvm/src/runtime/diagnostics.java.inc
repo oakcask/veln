@@ -219,6 +219,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic")) {
             return runtimeHpackFixtureDynamicIndexDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic")) {
+            return runtimeHpackFixtureDynamicNameDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic")) {
             return runtimeHpackFixtureTableSizeUpdateDiagnostic(id, (Adt) detail);
         }
@@ -258,6 +261,38 @@
         Adt detail
     ) {
         if (!id.equals("hpack.fixture.dynamic_index_out_of_range")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long observedSize = asLong(detail.payloads[1]);
+        long observedFirstByte = asLong(detail.payloads[2]);
+        long requestedDynamicIndex = asLong(detail.payloads[3]);
+        long dynamicTableEntryCount = asLong(detail.payloads[4]);
+        String expectedFixture = asString(detail.payloads[5]);
+        String codecModule = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("observed_header_block_size", observedSize),
+                DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                DiagnosticDetail.number("requested_dynamic_index", requestedDynamicIndex),
+                DiagnosticDetail.number("dynamic_table_entry_count", dynamicTableEntryCount),
+                DiagnosticDetail.string("expected_fixture", expectedFixture),
+                DiagnosticDetail.string("codec_module", codecModule),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHpackFixtureDynamicNameDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("hpack.fixture.dynamic_name_continuation_missing")
+            && !id.equals("hpack.fixture.dynamic_name_continuation_malformed")
+            && !id.equals("hpack.fixture.dynamic_name_continuation_out_of_range")) {
             return null;
         }
         long byteOffset = asLong(detail.payloads[0]);
