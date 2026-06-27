@@ -1516,20 +1516,23 @@ fn receive_settings_ack(offset: Int, decode_state: Http2DecodeState, outstanding
 end
 
 fn send_local_max_frame_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match connection
-		ConnectionState(decode_state, _) => encode_local_settings_intent(value, decode_state)
+	match validate_local_max_frame_size_setting(0, value)?
+		SettingsValueOk => match connection
+			ConnectionState(decode_state, _) => encode_local_settings_intent(value, decode_state)
+		end
+		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
 	end
 end
 
 fn send_local_max_frame_size_and_enable_push_settings(max_frame_size_value: Int, enable_push_value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match enable_push_value < 0
-		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings", empty_byte_preview()?)))
-		false => match enable_push_value > 1
-			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(6, 2, "SETTINGS_ENABLE_PUSH", enable_push_value, 0, 1, "local_settings", empty_byte_preview()?)))
-			false => match connection
+	match validate_local_max_frame_size_setting(0, max_frame_size_value)?
+		SettingsValueOk => match validate_local_enable_push_setting(6, enable_push_value)?
+			SettingsValueOk => match connection
 				ConnectionState(decode_state, _) => encode_local_settings_batch_intent(max_frame_size_value, enable_push_value, decode_state)
 			end
+			SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
 		end
+		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
 	end
 end
 
@@ -1554,8 +1557,11 @@ fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState) -> R
 end
 
 fn send_local_initial_window_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match connection
-		ConnectionState(decode_state, _) => encode_local_initial_window_size_intent(value, decode_state)
+	match validate_local_initial_window_size_setting(0, value)?
+		SettingsValueOk => match connection
+			ConnectionState(decode_state, _) => encode_local_initial_window_size_intent(value, decode_state)
+		end
+		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
 	end
 end
 
@@ -1584,13 +1590,40 @@ fn encode_local_max_concurrent_streams_intent(value: Int, decode_state: Http2Dec
 end
 
 fn send_local_enable_push_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match validate_local_enable_push_setting(0, value)?
+		SettingsValueOk => match connection
+			ConnectionState(decode_state, _) => encode_local_enable_push_intent(value, decode_state)
+		end
+		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
+	end
+end
+
+fn validate_local_max_frame_size_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+	match value < 16384
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_byte_preview()?)))
+		false => match value > 16777215
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_byte_preview()?)))
+			false => Ok(SettingsValueOk)
+		end
+	end
+end
+
+fn validate_local_initial_window_size_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
 	match value < 0
-		true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_byte_preview()?)))
+		false => match value > 2147483647
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_byte_preview()?)))
+			false => Ok(SettingsValueOk)
+		end
+	end
+end
+
+fn validate_local_enable_push_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+	match value < 0
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
 		false => match value > 1
-			true => Ok(OutboundSettingsRejected(SettingsValueOutOfRange(0, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
-			false => match connection
-				ConnectionState(decode_state, _) => encode_local_enable_push_intent(value, decode_state)
-			end
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
+			false => Ok(SettingsValueOk)
 		end
 	end
 end
@@ -5967,6 +6000,14 @@ fn print_outbound_settings(label: String, decision: OutboundSettingsDecision) ->
 end
 
 fn print_local_initial_window_size_settings_case() -> Result<(), String> effects [stdio]
+	let max_frame_size_rejected: OutboundSettingsDecision = send_local_max_frame_size_setting(16383, connection_state(frame_state()))?
+	print_outbound_settings("local-settings-max-frame-size-range", max_frame_size_rejected)
+	let ignored_max_frame_size_chunk: () = print_empty_output_chunks("http2-local-settings-max-frame-size-range")?
+	print_settings_failure("local-settings-max-frame-size-range", Failed(frame_state(), outbound_settings_failure(max_frame_size_rejected)))
+	let batch_max_frame_size_rejected: OutboundSettingsDecision = send_local_max_frame_size_and_enable_push_settings(16777216, 1, connection_state(frame_state()))?
+	print_outbound_settings("local-settings-batch-max-frame-size-range", batch_max_frame_size_rejected)
+	let ignored_batch_max_frame_size_chunk: () = print_empty_output_chunks("http2-local-settings-batch-max-frame-size-range")?
+	print_settings_failure("local-settings-batch-max-frame-size-range", Failed(frame_state(), outbound_settings_failure(batch_max_frame_size_rejected)))
 	let sent: OutboundSettingsDecision = send_local_initial_window_size_setting(65535, connection_state(frame_state()))?
 	print_outbound_settings("local-initial-window-size-settings-sent", sent)
 	let ignored_chunk: () = emit_encoded_header("http2-local-initial-window-size-settings", outbound_settings_chunk(sent), "00000604000000000000040000ffff")?
@@ -5974,6 +6015,10 @@ fn print_local_initial_window_size_settings_case() -> Result<(), String> effects
 	let ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(sent))?
 	print_step("local-initial-window-size-settings-ack", connection_step_decode_step(ack))
 	print_outstanding_settings("local-initial-window-size-settings-ack", connection_step_state(ack))
+	let rejected: OutboundSettingsDecision = send_local_initial_window_size_setting(2147483648, connection_state(frame_state()))?
+	print_outbound_settings("local-initial-window-size-settings-range", rejected)
+	let ignored_rejected_chunk: () = print_empty_output_chunks("http2-local-initial-window-size-settings-range")?
+	print_settings_failure("local-initial-window-size-settings-range", Failed(frame_state(), outbound_settings_failure(rejected)))
 	let ignored_max_concurrent_streams_case: () = print_local_max_concurrent_streams_settings_case()?
 	Ok(())
 end
