@@ -40,12 +40,16 @@ unit. The helpers
 validate the high reserved bits, decode or encode the low visible bits from
 the ordinary record field, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,
-and `codec.encode_value_unrepresentable` diagnostic shapes. Generated schema
-helpers also consume and encode the suffix form where a visible `UIntN` field
-is followed immediately by `ReservedBits(width, value)` and the two widths
-complete one byte or the same two-byte, three-byte, or four-byte big-endian
-storage unit, plus the five-byte case where the fields complete forty bits
-and the six-byte case where the fields complete forty-eight bits.
+and `codec.encode_value_unrepresentable` diagnostic shapes. Helper history
+for the `ReservedBits(15, value)` plus `UInt1` two-field boundary is recorded
+in
+[Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
+Generated schema helpers also consume and encode the suffix form where a
+visible `UIntN` field is followed immediately by
+`ReservedBits(width, value)` and the two widths complete one byte or the same
+two-byte, three-byte, or four-byte big-endian storage unit, plus the five-byte
+case where the fields complete forty bits and the six-byte case where the
+fields complete forty-eight bits.
 The helpers decode or encode the visible field from the high bits, validate or
 emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
@@ -788,6 +792,9 @@ in
 [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
 The completed two-byte suffix reserved group slice is recorded in
 [Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md).
+The completed `ReservedBits(15, value)` plus `UInt1` two-field boundary is
+recorded in
+[Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

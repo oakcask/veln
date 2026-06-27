@@ -553,6 +553,17 @@ diagnostics case
 `../../examples/specification/check/schema-packed-reserved-mapping-diagnostics/`
 asserts that the packed reserved field is not available as a structural
 mapping source field.
+`../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`
+and
+`../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-json/`
+pin the two-field width-fifteen boundary. The valid case decodes and encodes
+`ReservedBits(15, value)` followed immediately by `UInt1` from one two-byte
+big-endian storage unit, omits the reserved field from decoded and mapped
+values, preserves generated decode-step and derived codec eligibility, and
+keeps visible-field encode range failures on the ordinary
+`codec.encode_value_unrepresentable` path. The failing case asserts
+`schema.reserved_bits_mismatch` details for the reserved field path, byte
+offset, bit width, expected value, actual value, and byte preview.
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-decode/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-decode/`,

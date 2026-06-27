@@ -597,6 +597,11 @@ against the built `veln` binary.
   nine through fifteen plus visible `UIntN` fields that complete two
   big-endian bytes, omit the reserved fields, and continue after the shared
   storage unit.
+- `run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`: generated
+  schema helpers decode and encode the two-field `ReservedBits(15, value)`
+  plus `UInt1` boundary from one two-byte big-endian storage unit, omit the
+  reserved field from decoded and mapped values, preserve derived codec
+  eligibility, and reject an out-of-range visible encode value.
 - `run/binary-schema-packed-reserved-three-byte-decode/`: generated schema
   decode helpers consume packed `ReservedBits(width, value)` prefixes and
   suffixes that share one three-byte big-endian storage unit with visible
@@ -615,6 +620,9 @@ against the built `veln` binary.
   helpers report `schema.reserved_bits_mismatch` for a two-byte packed
   reserved prefix with field path, byte offset, bit width, expected value,
   actual value, and byte preview details.
+- `run/binary-schema-reserved-fifteen-bit-prefix-json/`: generated schema
+  decode helpers report the same `schema.reserved_bits_mismatch` shape for
+  the two-field `ReservedBits(15, value)` plus `UInt1` boundary.
 - `run/binary-schema-packed-reserved-four-byte-json/`: generated schema
   decode helpers report `schema.reserved_bits_mismatch` for a four-byte
   packed reserved prefix with field path, byte offset, bit width, expected

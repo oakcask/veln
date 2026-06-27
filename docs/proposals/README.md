@@ -216,6 +216,9 @@ compare it with `../specification/` before changing behavior.
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
   and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
+  The completed `ReservedBits(15, value)` followed by `UInt1` two-field
+  boundary is archived under
+  [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
   The completed visible-only packed two-byte group slice is archived under
   [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
