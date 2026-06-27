@@ -48,7 +48,8 @@ cover same-module recursive closed and extension dispatch payload helpers
 already accepted by the generated helper path, and the checked non-HTTP
 general generated helper shape with successful decode, short-input
 `NeedMore`, successful encode, and helper-projected encode failure. They also
-cover generated-helper-backed quotient-count repeated primitive fields.
+cover generated-helper-backed quotient-count repeated primitive fields and
+visible-only packed two-byte groups.
 
 Define codec support for:
 
@@ -238,7 +239,8 @@ decode-step slice, including same-module nested dispatch payload helper
 schemas, public imported nested dispatch payload helper schemas,
 repeat-backed schemas, quotient-count repeated primitive fields, supported
 middle reserved layouts, and the checked non-HTTP general helper shape, plus
-quotient-sized `ByteView` payload fields.
+quotient-sized `ByteView` payload fields and visible-only packed two-byte
+groups.
 The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated
@@ -247,7 +249,7 @@ implemented binary schema encode helper slice, including direct structural
 mapped schemas, same-module nested dispatch payload helper schemas, public
 imported nested dispatch payload helper schemas, repeat-backed schemas,
 quotient-count repeated primitive fields, and the checked non-HTTP general
-helper shape.
+helper shape, plus visible-only packed two-byte groups.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 
@@ -346,9 +348,9 @@ encoder state owns only the remaining encode work.
   over generated helper output, selected structural mapping encode cases
   already accepted by the generated helper, same-module recursive closed and
   extension dispatch payload helpers, quotient-count repeated primitive
-  fields, the checked non-HTTP general helper shape, and the caller-owned
-  parser-state retention and hand-written bounded `ByteView` base-offset
-  `NeedMore` examples.
+  fields, visible-only packed two-byte groups, the checked non-HTTP general
+  helper shape, and the caller-owned parser-state retention and hand-written
+  bounded `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.

@@ -233,6 +233,13 @@ The executable specification case
 covers the same derived codec decode and encode item boundary for a six-byte
 reserved suffix layout.
 The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
+covers the same derived codec decode and encode item boundary for a
+visible-only packed two-byte group. It checks successful `Decoded`,
+short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
+and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
+item.
+The executable specification case
 `../../examples/specification/run/codec-needmore-parser-state/` covers
 caller-owned parser state around the codec boundary. It checks that `Decoded`
 advances the retained suffix and explicit base offset by the consumed count,
@@ -380,6 +387,11 @@ The executable specification case
 covers the derived codec encode boundary over the same general generated
 helper shape through the codec item name, including successful encode and
 helper-projected encode failure.
+The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
+covers the derived codec encode boundary over a visible-only packed two-byte
+group, including budgeted partial output, resumed `Encoded` output, and
+helper-projected `Invalid(EncodeError(...))`.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.derive_helper_unsupported` rejection for generated encode boundaries.
 

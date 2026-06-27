@@ -2129,6 +2129,10 @@ against the built `veln` binary.
   and helper-projected encode failure through the codec item.
 - `run/derived-codec-six-byte-reserved-suffix-boundary/`: derived codec decode
   and encode item boundaries over a six-byte reserved suffix schema.
+- `run/derived-codec-packed-visible-two-byte-boundary/`: derived codec decode
+  and encode item boundaries over a visible-only packed two-byte group,
+  including short-input readiness, budgeted encode resume, and
+  helper-projected encode failure.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot project the mapping target
   value back to schema-local fields.

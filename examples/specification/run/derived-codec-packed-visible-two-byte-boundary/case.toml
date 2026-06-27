@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n10\n2\nneed_more\nneed_bytes\n2\n0\npartial\n1\n1\noutput_chunk_list packed-visible-two-byte-partial count 1\noutput_chunk packed-visible-two-byte-partial index 0 hex \"ab\" count 1\nencoded\n1\noutput_chunk_list packed-visible-two-byte-resume count 1\noutput_chunk packed-visible-two-byte-resume index 0 hex \"cd\" count 1\n"
+equals = "decoded\n10\n2\nneed_more\nneed_bytes\n2\n0\npartial\n1\n1\noutput_chunk_list packed-visible-two-byte-partial count 1\noutput_chunk packed-visible-two-byte-partial index 0 hex \"ab\" count 1\nencoded\n1\noutput_chunk_list packed-visible-two-byte-resume count 1\noutput_chunk packed-visible-two-byte-resume index 0 hex \"cd\" count 1\ninvalid\ncodec.encode_value_unrepresentable\nPackedVisibleTwoByteHeader.middle\nvalue must be between 0 and 31\n"
 
 [[json_assert]]
 path = "error"
