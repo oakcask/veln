@@ -126,8 +126,9 @@ public JSON fields as the compatibility helpers, including stream
 classification, peer-limit facts, active state, rule provenance, receive-limit
 provenance, header-list facts, decoded header names, and bounded byte previews
 where applicable.
-The `http2_protocol_closed_with_pending(...)` and
-`http2_protocol_partial_preface(...)` helpers return their source-visible
+The `http2_protocol_closed_with_pending(...)`,
+`http2_protocol_partial_preface(...)`, and
+`http2_protocol_invalid_preface(...)` helpers return their source-visible
 HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so `details.value` is the
 rendered payload instead of a plain string.
 

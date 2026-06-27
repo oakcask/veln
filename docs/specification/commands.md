@@ -137,7 +137,10 @@ requiring the full command reference on the first read.
   compatibility helpers, with the stable id, protocol facts, provenance,
   decoded header names, and bounded byte preview when present projected from
   the returned
-  `RuntimeDiagnostic(...)` value.
+  `RuntimeDiagnostic(...)` value. The standard
+  `http2_protocol_invalid_preface(...)` helper also returns this payload form,
+  so its human runtime diagnostic is rendered from the returned value rather
+  than from helper-local registration.
   Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied

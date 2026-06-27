@@ -1,0 +1,26 @@
+# HTTP/2 invalid preface helper returns a RuntimeDiagnostic payload.
+fn fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_preface",
+		error,
+		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([]))
+	)
+end
+
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("505249202b")
+		Ok(bytes) => match byte_offset(0)
+			Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+				Ok(view) => Ok(view)
+				Err(error) => Err(fallback_payload(error))
+			end
+			Err(error) => Err(fallback_payload(error))
+		end
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = preview_view()?
+	http2_protocol_invalid_preface(4, 42, 43, 4, preview)
+end

@@ -188,6 +188,8 @@ behavior.
   [runtime-diagnostic-http2-closed-helper-payload.md](runtime-diagnostic-http2-closed-helper-payload.md).
 - Runtime diagnostic HTTP/2 partial preface helper payload:
   [runtime-diagnostic-http2-partial-preface-helper-payload.md](runtime-diagnostic-http2-partial-preface-helper-payload.md).
+- Runtime diagnostic HTTP/2 invalid preface helper payload:
+  [runtime-diagnostic-http2-invalid-preface-helper-payload.md](runtime-diagnostic-http2-invalid-preface-helper-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

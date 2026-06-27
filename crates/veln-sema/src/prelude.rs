@@ -525,7 +525,7 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
                 T::int(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_continuation_expected" => Some((
             vec![

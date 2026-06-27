@@ -1471,9 +1471,10 @@ execution reference.
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
-  where the diagnostic owns one. The `http2_protocol_closed_with_pending`
-  and `http2_protocol_partial_preface` standard helpers return their HTTP/2
-  protocol payloads directly as `Result<(), RuntimeDiagnostic>`.
+  where the diagnostic owns one. The `http2_protocol_closed_with_pending`,
+  `http2_protocol_partial_preface`, and `http2_protocol_invalid_preface`
+  standard helpers return their HTTP/2 protocol payloads directly as
+  `Result<(), RuntimeDiagnostic>`.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
