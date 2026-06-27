@@ -1,0 +1,27 @@
+fn string_body(value) -> String
+	let text: String = value
+	text
+end
+
+fn returns_int(value) -> Int
+	1
+end
+
+fn ignore_unknown(value) -> String
+	"ok"
+end
+
+pub fn body_conflict() -> String
+	let callback: fn(Int) -> String = string_body
+	callback(1)
+end
+
+pub fn return_conflict() -> String
+	let callback: fn(Int) -> String = returns_int
+	callback(1)
+end
+
+pub fn unknown_annotation() -> String
+	let callback: fn(unknown) -> String = ignore_unknown
+	callback("ok")
+end

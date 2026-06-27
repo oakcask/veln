@@ -1,0 +1,50 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "expected `fn(Int) -> String`, but found `fn(String) -> String`", "expected `fn(Int) -> String`, but found `fn(Int) -> Int`", "expected `unknown`, but found `String`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(Int) -> String`, but found `fn(String) -> String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 15
+column = 36
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(Int) -> String`, but found `fn(Int) -> Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 20
+column = 36
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `unknown`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 26
+column = 11

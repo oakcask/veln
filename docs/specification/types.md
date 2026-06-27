@@ -43,6 +43,9 @@ full type reference.
   constrain named private callback parameters at that argument position. A
   concrete expected record field whose type is a concrete function type also
   constrains a named private callback placed in that record field initializer.
+  A local binding whose annotation is a concrete function type also constrains
+  a named private callback assigned as that binding initializer; later calls or
+  returns through that local binding use the same concrete function type.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

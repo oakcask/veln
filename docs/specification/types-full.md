@@ -216,6 +216,17 @@ parameter annotations. The callback return still has to satisfy the expected
 field function return type. Expected record field function types that still
 contain `unknown` do not constrain callback parameters.
 
+A local binding annotation whose type is a concrete function type also
+provides expected-type context for its initializer. When a named private
+callback function value is assigned to that binding, omitted callback parameter
+annotations receive the binding function parameter types. Later calls through
+the local binding, or returns where the same concrete function type is
+expected, use the local binding's function type. The callback return still has
+to satisfy the binding function return type, and ordinary function effect
+assignment keeps pure and effectful callback compatibility. Local binding
+function types that still contain `unknown` do not constrain callback
+parameters.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding
