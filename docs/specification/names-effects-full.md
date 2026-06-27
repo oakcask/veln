@@ -773,7 +773,7 @@ http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteVie
 http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
@@ -1205,6 +1205,7 @@ legacy helper side table.
 `http2_protocol_invalid_preface(...)`,
 `http2_protocol_continuation_expected(...)`,
 `http2_protocol_invalid_frame_kind(...)`,
+`http2_protocol_invalid_stream_id(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
 `http2_peer_limit_header_list_size_exceeded(...)`,
 `http2_peer_limit_header_table_size_exceeded(...)`,

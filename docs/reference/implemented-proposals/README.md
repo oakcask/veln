@@ -196,6 +196,8 @@ behavior.
   [runtime-diagnostic-http2-continuation-helper-payload.md](runtime-diagnostic-http2-continuation-helper-payload.md).
 - Runtime diagnostic HTTP/2 invalid frame-kind helper payload:
   [runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md](runtime-diagnostic-http2-invalid-frame-kind-helper-payload.md).
+- Runtime diagnostic HTTP/2 invalid stream id helper payload:
+  [runtime-diagnostic-http2-invalid-stream-id-helper-payload.md](runtime-diagnostic-http2-invalid-stream-id-helper-payload.md).
 - Runtime diagnostic HTTP/2 frame-size helper payload:
   [runtime-diagnostic-http2-frame-size-helper-payload.md](runtime-diagnostic-http2-frame-size-helper-payload.md).
 - Runtime diagnostic HTTP/2 header-list helper payload:

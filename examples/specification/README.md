@@ -2410,6 +2410,10 @@ against the built `veln` binary.
   `http2_protocol_invalid_preface` helper reports
   `http2.protocol.invalid_preface` JSON details from its returned
   `RuntimeDiagnostic(...)` error value.
+- `run/runtime-diagnostic-http2-invalid-stream-id-helper-json/`: the standard
+  `http2_protocol_invalid_stream_id` helper reports
+  `http2.protocol.invalid_stream_id` JSON details from its returned
+  `RuntimeDiagnostic(...)` error value.
 - `run/runtime-diagnostic-http2-continuation-helper-json/`: the standard
   `http2_protocol_continuation_expected` helper reports
   `http2.protocol.continuation_expected` JSON details from its returned
