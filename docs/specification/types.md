@@ -46,6 +46,11 @@ full type reference.
   A local binding whose annotation is a concrete function type also constrains
   a named private callback assigned as that binding initializer; later calls or
   returns through that local binding use the same concrete function type.
+  When such a concrete helper, record-field, local-binding, or prelude helper
+  result context fixes a named private callback return type, that expected
+  return type propagates into non-empty callback tail expressions such as
+  `Some(...)`, `Ok(...)`, `Err(...)`, source ADT constructors, records, and
+  collection literals.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

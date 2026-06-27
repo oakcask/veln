@@ -194,7 +194,13 @@ as the first callback argument.
 parameter from the `Result<T, E>` success type, and `result_map_err` constrains
 its callback parameter from the error type. These helpers still use the
 surrounding expected result type to constrain the callback return type when
-that expected result is concrete.
+that expected result is concrete. That concrete callback return type also
+flows into non-empty private callback tail expressions whose shape can use the
+context, including `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
+constructors, record literals, `Vec` literals, and dictionary literals. The
+callback body remains monomorphic: incompatible payload, field, element, key,
+or value facts report the ordinary `type.mismatch` at the incompatible
+expression.
 
 Ordinary same-module helpers and visible imported public helpers can provide
 the same expected-type context when their declared parameter type is already a
@@ -203,18 +209,23 @@ concrete function type such as `fn(Int) -> String`,
 private callback function value passed at that argument position receives the
 declared function parameter types for any omitted callback parameter
 annotations. The callback return still has to satisfy the helper's declared
-function return type, and function effect assignment keeps the usual pure and
-effectful compatibility checks. This rule does not infer public callback
-signatures, exported aliases, or helper signatures whose function parameter
-type still contains `unknown`.
+function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Function
+effect assignment keeps the usual pure and effectful compatibility checks.
+This rule does not infer public callback signatures, exported aliases, or
+helper signatures whose function parameter type still contains `unknown`.
 
 A concrete expected record type also pushes each expected field type into the
 matching record literal field initializer. When the expected field type is a
 concrete function type, a named private callback function value placed in that
 field receives the expected function parameter types for omitted callback
 parameter annotations. The callback return still has to satisfy the expected
-field function return type. Expected record field function types that still
-contain `unknown` do not constrain callback parameters.
+field function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Expected
+record field function types that still contain `unknown` do not constrain
+callback parameters.
 
 A local binding annotation whose type is a concrete function type also
 provides expected-type context for its initializer. When a named private
@@ -222,10 +233,12 @@ callback function value is assigned to that binding, omitted callback parameter
 annotations receive the binding function parameter types. Later calls through
 the local binding, or returns where the same concrete function type is
 expected, use the local binding's function type. The callback return still has
-to satisfy the binding function return type, and ordinary function effect
-assignment keeps pure and effectful callback compatibility. Local binding
-function types that still contain `unknown` do not constrain callback
-parameters.
+to satisfy the binding function return type. When that return type is
+concrete, it flows into non-empty callback tail expressions using the same
+constructor, record, and collection expected-type rules as prelude helper
+callback returns. Ordinary function effect assignment keeps pure and effectful
+callback compatibility. Local binding function types that still contain
+`unknown` do not constrain callback parameters.
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a

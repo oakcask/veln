@@ -8,7 +8,7 @@ use veln_ast::{
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
-use crate::adt::{self, AdtRegistry, AdtVariantKind};
+use crate::adt::{self, AdtRegistry};
 use crate::effects::{concurrency_effects, is_stdio_call, standard_library_effects};
 use crate::schema::mapping::{
     SchemaDecodeMappingExpr, SchemaMappingSelectorComparison, SchemaMappingTyper,
@@ -559,6 +559,9 @@ fn infer_private_function_body_return_types(
                 continue;
             };
             if signature.return_type == inferred {
+                continue;
+            }
+            if !type_has_unknown(&signature.return_type) {
                 continue;
             }
             signature.return_type = inferred;
@@ -1549,7 +1552,7 @@ fn collect_private_callback_return_constraint(
     let Some(function) = context.function_by_path.get(&key) else {
         return;
     };
-    if !private_tail_empty_collection_can_use_expected(function, return_type, context.adts) {
+    if !private_tail_can_use_expected(function, return_type, context.uses, context.adts) {
         return;
     }
     if context.returns_by_path.get(&key) == Some(return_type) {
@@ -1561,35 +1564,66 @@ fn collect_private_callback_return_constraint(
     *context.changed = true;
 }
 
-fn private_tail_empty_collection_can_use_expected(
+fn private_tail_can_use_expected(
     function: &Function,
     expected: &Type,
+    uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> bool {
     let Some(BodyLineKind::Expr { expr }) = function.body.last().map(|line| &line.kind) else {
         return false;
     };
-    tail_empty_collection_can_use_expected(expr, expected, function.module_name.as_deref(), adts)
+    tail_expr_can_use_expected(expr, expected, function.module_name.as_deref(), uses, adts)
 }
 
-fn tail_empty_collection_can_use_expected(
+fn tail_expr_can_use_expected(
     expr: &Expr,
     expected: &Type,
     current_module: Option<&str>,
+    uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> bool {
     match &expr.kind {
-        ExprKind::List(items) => items.is_empty() && expected.vec_part().is_some(),
-        ExprKind::Record(fields) => fields.is_empty() && expected.dict_parts().is_some(),
-        ExprKind::Dict(entries) => entries.is_empty() && expected.dict_parts().is_some(),
+        ExprKind::List(_) => expected.vec_part().is_some(),
+        ExprKind::Dict(_) => expected.dict_parts().is_some(),
+        ExprKind::Record(fields) => {
+            if fields.is_empty() && expected.dict_parts().is_some() {
+                return true;
+            }
+            !fields.is_empty()
+                && fields
+                    .iter()
+                    .all(|field| expected.record_field(&field.name).is_some())
+        }
         ExprKind::NamePath(segments) => {
             matches!(
-                adts.nullary_constructor(segments, current_module, &[]),
+                adts.nullary_constructor(segments, current_module, uses),
                 crate::adt::ConstructorLookup::Found(constructor)
-                    if constructor.variant.kind == AdtVariantKind::ListNil
-                        && adt::list_part(expected).is_some()
+                    if adt::adt_args(expected, constructor.descriptor).is_some()
             )
         }
+        ExprKind::Call { callee, .. } => {
+            let ExprKind::NamePath(segments) = &callee.kind else {
+                return false;
+            };
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                crate::adt::ConstructorLookup::Found(constructor)
+                    if adt::adt_args(expected, constructor.descriptor).is_some()
+            )
+        }
+        ExprKind::Match { arms, .. } => arms
+            .iter()
+            .all(|arm| tail_expr_can_use_expected(&arm.expr, expected, current_module, uses, adts)),
+        ExprKind::If {
+            then_branch,
+            else_if_branches,
+            else_branch,
+            ..
+        } => std::iter::once(then_branch.as_ref())
+            .chain(else_if_branches.iter().map(|branch| &branch.expr))
+            .chain(std::iter::once(else_branch.as_ref()))
+            .all(|branch| tail_expr_can_use_expected(branch, expected, current_module, uses, adts)),
         _ => false,
     }
 }

@@ -1,0 +1,3 @@
+pub fn apply_option(value: Int, callback: fn(Int) -> Option<Vec<String>>) -> Option<Vec<String>>
+	callback(value)
+end

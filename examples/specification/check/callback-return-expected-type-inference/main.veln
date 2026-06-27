@@ -1,0 +1,68 @@
+use helpers
+
+type Box<A>
+	Box(value: A)
+end
+
+fn optional_items(value: Int)
+	Some([])
+end
+
+fn tried_items(value: Int)
+	Ok({items: []})
+end
+
+fn error_items(value: Int)
+	Err([])
+end
+
+fn boxed_items(value: Int)
+	Box([])
+end
+
+fn dict_items(value: Int)
+	{"one": 1}
+end
+
+fn apply_option(value: Int, callback: fn(Int) -> Option<Vec<String>>) -> Option<Vec<String>>
+	callback(value)
+end
+
+fn declared_items(value)
+	Some([])
+end
+
+fn imported_items(value)
+	Some([])
+end
+
+fn use_record(options: {map: fn(Int) -> Option<Vec<String>>}) -> Option<Vec<String>>
+	Some([])
+end
+
+fn record_items(value)
+	Some([])
+end
+
+fn local_items(value)
+	Some([])
+end
+
+fn local_binding() -> Option<Vec<String>>
+	let callback: fn(Int) -> Option<Vec<String>> = local_items
+	callback(1)
+end
+
+pub fn main() -> {optional: Vec<Option<Vec<String>>>, tried: Result<Vec<{items: Vec<String>}>, String>, error: Vec<Result<String, Vec<String>>>, boxed: Vec<Box<Vec<String>>>, dict: Vec<Dict<String, Int>>, declared: Option<Vec<String>>, imported: Option<Vec<String>>, record: Option<Vec<String>>, local: Option<Vec<String>>}
+	{
+		optional: vec_map([1], optional_items),
+		tried: vec_try_map([1], tried_items),
+		error: vec_map([1], error_items),
+		boxed: vec_map([1], boxed_items),
+		dict: vec_map([1], dict_items),
+		declared: apply_option(1, declared_items),
+		imported: helpers::apply_option(1, imported_items),
+		record: use_record({map: record_items}),
+		local: local_binding()
+	}
+end

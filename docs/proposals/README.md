@@ -20,13 +20,15 @@ compare it with `../specification/` before changing behavior.
   constructor-pattern inference, local pattern `let` inference, compiler-known
   prelude callback argument including `vec_try_map_with`, dictionary callback
   alias, declared helper callback argument, record-field callback, local
-  callback binding, and examples cleanup slices specified in
+  callback binding, callback return expected-type, and examples cleanup slices
+  specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
   declared helper callback argument inference, record-field callback
-  inference, local callback binding inference, non-empty collection initializer
-  inference, ADT constructor payload inference, match scrutinee
+  inference, local callback binding inference, callback return expected-type
+  inference, non-empty collection initializer inference, ADT constructor
+  payload inference, match scrutinee
   constructor-pattern inference, local pattern `let` inference, nested
   initializer expected-type propagation, hole expected-type flow, and examples
   cleanup slices are archived under
@@ -36,6 +38,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
+  `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
