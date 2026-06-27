@@ -9628,7 +9628,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "frame_size_http2: Result<(), RuntimeDiagnostic>, header_list_http2: Result<(), RuntimeDiagnostic>, ",
             "header_table_http2: Result<(), RuntimeDiagnostic>, ",
             "flow_control_http2: Result<(), String>, ",
-            "concurrent_streams_http2: Result<(), String>, ",
+            "concurrent_streams_http2: Result<(), RuntimeDiagnostic>, ",
             "settings_value_http2: Result<(), RuntimeDiagnostic>, ",
             "hpack_bytes_label: String, hpack_label_bytes: Option<ByteChunk>, ",
             "read_u16: Result<Int, String>, read_u24: Result<Int, String>, ",

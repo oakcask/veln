@@ -735,7 +735,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::string(),
                 T::string(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_peer_limit_settings_value_out_of_range" => Some((
             vec![
