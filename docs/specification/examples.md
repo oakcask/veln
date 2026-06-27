@@ -1171,6 +1171,23 @@ pin the six-byte big-endian reserved prefix group with a forty-one-bit
 reserved prefix followed by two visible sub-byte `UIntN` fields. The cases
 mirror the five-byte coverage and keep the reserved prefix representation-only
 while preserving visible-field order.
+`../../examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-human/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-seven-byte-group-encode-out-of-range/`
+pin the seven-byte big-endian reserved prefix group with a forty-nine-bit
+reserved prefix followed by two visible sub-byte `UIntN` fields. The cases
+mirror the six-byte coverage and keep the reserved prefix representation-only
+while preserving visible-field order.
+`../../examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-decode-encode/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-json/`,
+`../../examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-human/`,
+and
+`../../examples/specification/run/binary-schema-prefix-reserved-eight-byte-group-encode-out-of-range/`
+pin the eight-byte big-endian reserved prefix group with a fifty-seven-bit
+reserved prefix followed by two visible sub-byte `UIntN` fields. The cases
+close the exact-width storage-boundary slice for reserved prefix groups.
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-decode-encode/`,
 `../../examples/specification/run/binary-schema-prefix-reserved-byte-group-json/`,
 and

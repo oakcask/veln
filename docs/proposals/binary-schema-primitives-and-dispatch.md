@@ -53,7 +53,8 @@ truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
 The completed six-byte reserved suffix slice is archived under
 `../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md`.
 Generated schema helpers also consume and encode one-byte, two-byte,
-three-byte, four-byte, five-byte, and six-byte big-endian reserved prefix
+three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte
+big-endian reserved prefix
 groups where
 `ReservedBits(width, value)` is followed by two visible sub-byte or
 byte-width `UIntN` fields and all three widths complete the storage unit. The
@@ -65,7 +66,10 @@ widths twenty-five through thirty-one when the visible fields complete the
 remaining bits. The five-byte form includes reserved prefix width
 thirty-three when the visible fields complete the remaining bits, and the
 six-byte form includes reserved prefix width forty-one when the visible
-fields complete the remaining bits.
+fields complete the remaining bits. The seven-byte form includes reserved
+prefix width forty-nine when the visible fields complete the remaining bits,
+and the eight-byte form includes reserved prefix width fifty-seven when the
+visible fields complete the remaining bits.
 The helpers
 validate or emit the high reserved bits, decode or
 encode the two visible
@@ -508,12 +512,14 @@ for:
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
   or four-byte big-endian storage unit, one-byte, two-byte, three-byte,
-  four-byte, five-byte, and six-byte reserved prefix groups followed by two
-  visible `UIntN` fields, including two-byte reserved prefix widths one
-  through fourteen, three-byte reserved prefix widths seventeen through
-  twenty-three, four-byte reserved prefix widths twenty-five through
-  thirty-one, five-byte reserved prefix width thirty-three, and six-byte
-  reserved prefix width forty-one, and
+  four-byte, five-byte, six-byte, seven-byte, and eight-byte reserved prefix
+  groups followed by two visible `UIntN` fields, including two-byte reserved
+  prefix widths one through fourteen, three-byte reserved prefix widths
+  seventeen through twenty-three, four-byte reserved prefix widths
+  twenty-five through thirty-one, five-byte reserved prefix width
+  thirty-three, six-byte reserved prefix width forty-one, seven-byte reserved
+  prefix width forty-nine, and eight-byte reserved prefix width fifty-seven,
+  and
   consecutive non-byte-aligned
   `UIntN` and `ReservedBits(width, value)` groups that complete one byte or
   one two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
@@ -735,13 +741,15 @@ three-byte, four-byte, five-byte, and six-byte packed reserved suffix slice, and
 `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
-storage unit, and one-byte, two-byte, three-byte, four-byte, five-byte, and
-six-byte
+storage unit, and one-byte, two-byte, three-byte, four-byte, five-byte,
+six-byte, seven-byte, and eight-byte
 reserved prefix groups followed by two visible `UIntN` fields, including
 two-byte reserved prefix widths one through fourteen, three-byte reserved
 prefix widths seventeen through twenty-three, four-byte reserved prefix widths
 twenty-five through thirty-one, five-byte reserved prefix width
-thirty-three, and six-byte reserved prefix width forty-one, the narrow
+thirty-three, six-byte reserved prefix width forty-one, seven-byte reserved
+prefix width forty-nine, and eight-byte reserved prefix width fifty-seven,
+the narrow
 two-byte byte-interleaved middle
 layout with a sub-byte visible field, a sub-byte reserved field, `UInt8`, and
 a final sub-byte visible field, and consecutive non-byte-aligned

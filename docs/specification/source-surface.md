@@ -91,9 +91,11 @@ eight-byte range.
 non-negative integers. `ReservedBits(width, value)` may start a supported
 reserved prefix group followed by two visible sub-byte or byte-width `UIntN`
 fields whose widths complete one byte or the same two-byte, three-byte,
-four-byte, five-byte, or six-byte big-endian storage unit; the five-byte form
-accepts reserved prefix width thirty-three and the six-byte form accepts
-reserved prefix width forty-one when the two visible fields complete the
+four-byte, five-byte, six-byte, seven-byte, or eight-byte big-endian storage
+unit; the five-byte form accepts reserved prefix width thirty-three, the
+six-byte form accepts reserved prefix width forty-one, the seven-byte form
+accepts reserved prefix width forty-nine, and the eight-byte form accepts
+reserved prefix width fifty-seven when the two visible fields complete the
 remaining bits. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
@@ -356,7 +358,7 @@ visible `UIntN`, a reserved field, `UInt8`, and a final sub-byte visible
 `UIntN`,
 supported `ReservedBits(width, value)` plus two visible sub-byte or
 byte-width `UIntN` prefix groups whose widths sum to eight, sixteen,
-twenty-four, thirty-two, forty, or forty-eight bits,
+twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
 sum to eight or sixteen bits, supported consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
