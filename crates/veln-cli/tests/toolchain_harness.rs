@@ -2644,6 +2644,47 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
 }
 
 #[test]
+fn result_value_parser_exposes_http2_data_flow_content_length_diagnostics() {
+    let data_padding = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.invalid_data_padding, HTTP/2 invalid DATA padding at byte offset 9, RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(9, 1, 2, 0, open-stream, rfc9113_data_padding, ByteChunk([Byte(2)])))",
+    )
+    .expect("DATA padding runtime diagnostic value should parse");
+    let flow_control = parse_result_value(
+        "RuntimeDiagnostic(http2.peer_limit.flow_control_window_exceeded, HTTP/2 flow-control window exceeded at byte offset 0, RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, open-stream, stream_receive_window, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))",
+    )
+    .expect("flow-control runtime diagnostic value should parse");
+    let content_length = parse_result_value(
+        "RuntimeDiagnostic(http2.protocol.content_length_mismatch, HTTP/2 content-length body length mismatch at byte offset 9, RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, open-stream, rfc9113_content_length_body, ByteChunk([Byte(170), Byte(187), Byte(204)])))",
+    )
+    .expect("content-length runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&data_padding, "value.detail.pad_length"),
+        Some(&JsonValue::Number(2))
+    );
+    assert_eq!(
+        json_path(&data_padding, "value.detail.preview.constructor"),
+        Some(&JsonValue::String("ByteChunk".to_string()))
+    );
+    assert_eq!(
+        json_path(&flow_control, "value.detail.allowed_window_credit"),
+        Some(&JsonValue::Number(3))
+    );
+    assert_eq!(
+        json_path(&flow_control, "value.detail.rule_provenance"),
+        Some(&JsonValue::String("stream_receive_window".to_string()))
+    );
+    assert_eq!(
+        json_path(&content_length, "value.detail.expected_content_length"),
+        Some(&JsonValue::Number(5))
+    );
+    assert_eq!(
+        json_path(&content_length, "value.detail.observed_body_length"),
+        Some(&JsonValue::Number(3))
+    );
+}
+
+#[test]
 fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
     let request = parse_result_value(
         "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers))",
@@ -3340,6 +3381,71 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                     ("actual_byte", parse_veln_value(args[2])?),
                     ("matched_prefix_count", parse_veln_value(args[3])?),
                     ("expected_count", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic" => {
+            let args = expect_arity(name, args, 7)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    ("pad_length", parse_veln_value(args[2])?),
+                    ("remaining_payload_length", parse_veln_value(args[3])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[6])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("observed_payload_length", parse_veln_value(args[1])?),
+                    ("allowed_window_credit", parse_veln_value(args[2])?),
+                    ("frame_kind", parse_veln_value(args[3])?),
+                    ("stream_id", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
+        "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("frame_kind", parse_veln_value(args[1])?),
+                    ("stream_id", parse_veln_value(args[2])?),
+                    ("expected_content_length", parse_veln_value(args[3])?),
+                    ("observed_body_length", parse_veln_value(args[4])?),
                     (
                         "active_state",
                         JsonValue::String(args[5].trim().to_string()),

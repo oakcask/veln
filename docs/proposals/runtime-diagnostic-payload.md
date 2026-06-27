@@ -195,6 +195,7 @@ invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
 failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
+DATA padding, flow-control window, content-length mismatch,
 request and response header-list validation, invalid `WINDOW_UPDATE`
 increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
 stream-after-GOAWAY failures.
@@ -234,6 +235,16 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-human/`,
 `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
+`../../examples/specification/run/http2-protocol-core-data-padding-human/`,
+`../../examples/specification/run/http2-protocol-core-data-padding-json/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-human/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-json/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-connection-human/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-connection-json/`,
+`../../examples/specification/run/http2-protocol-core-content-length-early-human/`,
+`../../examples/specification/run/http2-protocol-core-content-length-early-json/`,
+`../../examples/specification/run/http2-protocol-core-content-length-over-human/`,
+`../../examples/specification/run/http2-protocol-core-content-length-over-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-human/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-json/`,
 `../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/`,
@@ -278,7 +289,9 @@ and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 These slices deliberately leave legacy side-table support in place for
 existing fixture, value, other unmigrated HTTP/2 protocol and peer-limit, and
-generated-schema helpers.
+generated-schema helpers. The completed DATA padding, flow-control window,
+and content-length mismatch migration slice is archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

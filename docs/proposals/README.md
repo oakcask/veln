@@ -227,16 +227,19 @@ compare it with `../specification/` before changing behavior.
   preface failures, continuation ordering, invalid frame kind, frame-size peer
   limit, header-list receive-limit, SETTINGS value range peer-limit,
   header-table receive-limit, concurrent-stream receive-limit, fixed payload
-  length, request and response header-list validation, invalid `WINDOW_UPDATE`
+  length, DATA padding, flow-control window, content-length mismatch, request
+  and response header-list validation, invalid `WINDOW_UPDATE`
   increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
   stream-after-GOAWAY diagnostics,
   command projection, and executable harness assertion slices. The completed
-  HPACK fixture, HTTP/2 preface payload, and HTTP/2 unexpected SETTINGS ACK
-  slices are archived under
+  HPACK fixture, HTTP/2 preface payload, HTTP/2 unexpected SETTINGS ACK, and
+  HTTP/2 DATA padding, flow-control window, and content-length mismatch slices
+  are archived under
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-preface-payloads.md`,
+  `../reference/implemented-proposals/runtime-diagnostic-http2-settings-ack-payload.md`,
   and
-  `../reference/implemented-proposals/runtime-diagnostic-http2-settings-ack-payload.md`.
+  `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

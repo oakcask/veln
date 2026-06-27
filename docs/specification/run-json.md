@@ -96,6 +96,12 @@ When the returned error value is an HTTP/2 protocol
 `http2.peer_limit.settings_value_out_of_range`,
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for
 `http2.protocol.invalid_payload_length`,
+`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for
+`http2.protocol.invalid_data_padding`,
+`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` for
+`http2.peer_limit.flow_control_window_exceeded`,
+`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` for
+`http2.protocol.content_length_mismatch`,
 `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for
 `http2.protocol.invalid_request_header_list`,
 `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for
@@ -470,7 +476,10 @@ growth, use id
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` for the inspected
 payload bytes. The checked HTTP/2 examples cover both stream-window and
-connection-window DATA receive credit failures.
+connection-window DATA receive credit failures through source-visible
+`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` payloads, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields.
 Zero received `WINDOW_UPDATE` increments use id
 `http2.protocol.invalid_window_update_increment` and record
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
@@ -489,7 +498,8 @@ payload byte preview. Accepted `content-length` body-length mismatches use id
 `frame_kind`, `stream_id`, `stream_ref`, `expected_content_length`,
 `observed_body_length`, `active_state`, `rule_provenance`, and a bounded DATA
 application-byte preview. The checked run examples cover both over-length DATA
-and an early peer `END_STREAM` shortfall through the same projection. A
+and an early peer `END_STREAM` shortfall through source-visible
+`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` payloads. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
@@ -596,7 +606,11 @@ GOAWAY, and `RST_STREAM` checked human and JSON examples return source-visible
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. Other checked
 HTTP/2 examples cover the PRIORITY fixed-length failure and `WINDOW_UPDATE`
-fixed-length failure through the compatibility projection. A SETTINGS ACK
+fixed-length failure through the compatibility projection. PADDED DATA
+failures use source-visible
+`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
+`details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
+`details.protocol_diagnostic` keeps the same public fields. A SETTINGS ACK
 received while no local SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `active_state`,

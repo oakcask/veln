@@ -20,7 +20,17 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HTTP/2 content-length body length mismatch at byte offset 9"
+equals = "RuntimeDiagnostic(http2.protocol.content_length_mismatch, HTTP/2 content-length body length mismatch at byte offset 9, RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 6, open-stream, rfc9113_content_length_body, ByteChunk([Byte(170), Byte(187), Byte(204), Byte(221), Byte(238), Byte(255)])))"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"
