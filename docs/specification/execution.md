@@ -1695,8 +1695,13 @@ execution reference.
   wrong-length PING, GOAWAY, and `RST_STREAM` payloads with source-visible
   runtime diagnostic payloads, bounded inspected-payload previews, and
   command-facing human and JSON projection cases, wrong-length PRIORITY
-  payloads with bounded inspected-payload previews, accepted PING
-  ACK distinction,
+  payloads with bounded inspected-payload previews, PRIORITY-flagged HEADERS
+  payloads shorter than five bytes before HPACK fixture decode, accepted PING
+  ACK distinction, accepted single-frame and continued HEADERS with the
+  PRIORITY flag after stripping the leading priority section from the HPACK
+  header-block bytes, accepted HEADERS `END_STREAM` lifecycle with the
+  PRIORITY flag, HEADERS priority self-dependency failures with the inspected
+  priority payload preview,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority
   facts by a later accepted PRIORITY frame for the same stream, accepted

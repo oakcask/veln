@@ -2297,7 +2297,13 @@ against the built `veln` binary.
   combined with `END_STREAM`, completed HEADERS blocks that carry every HPACK
   static indexed table entry from `0x81` `:authority` through `0xbd`
   `www-authenticate:`, a completed final CONTINUATION path that carries
-  static indexed `0x85` `:path: /index.html`, plus a completed HEADERS block
+  static indexed `0x85` `:path: /index.html`, a completed HEADERS block
+  whose PRIORITY flag strips the leading dependency, exclusive, and weight
+  bytes before HPACK fixture decode, a split PRIORITY-flagged HEADERS block
+  completed by CONTINUATION, a PRIORITY-flagged HEADERS `END_STREAM`
+  closed-by-peer lifecycle, HEADERS priority self-dependency rejection, and a
+  focused short priority-section payload-length rejection, plus a completed
+  HEADERS block
 	  carrying `0x82 0x84`
 	  through the HPACK fixture boundary as `:method: GET` followed by
 	  `:path: /` with both headers preserved in the fixture header list,
