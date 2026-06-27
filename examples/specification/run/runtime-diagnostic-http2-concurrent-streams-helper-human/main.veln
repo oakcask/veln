@@ -1,0 +1,4 @@
+# HTTP/2 concurrent-stream helper projects human runtime diagnostics from the payload.
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit")
+end

@@ -4260,18 +4260,27 @@
         String rule = asString(ruleProvenance);
         String message = "HTTP/2 concurrent stream receive limit exceeded at byte offset "
             + byteOffset;
-        registerHttp2PeerLimitConcurrentStreamsExceededDiagnostic(
-            message,
-            byteOffset,
-            stream,
-            attempted,
-            allowed,
-            role,
-            state,
-            limitProvenance,
-            rule
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(stream),
+                Long.valueOf(attempted),
+                Long.valueOf(allowed),
+                role,
+                state,
+                limitProvenance,
+                rule
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.peer_limit.concurrent_streams_exceeded",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2PeerLimitSettingsValueOutOfRange(

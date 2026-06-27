@@ -131,7 +131,8 @@ The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_invalid_preface(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
 `http2_peer_limit_header_list_size_exceeded(...)`,
-`http2_peer_limit_header_table_size_exceeded(...)`, and
+`http2_peer_limit_header_table_size_exceeded(...)`,
+`http2_peer_limit_concurrent_streams_exceeded(...)`, and
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
@@ -472,8 +473,9 @@ JSON examples return source-visible
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
 `http2_protocol_closed_with_pending`,
-`http2_peer_limit_frame_size_exceeded`, and
-`http2_peer_limit_header_table_size_exceeded` standard helpers return the
+`http2_peer_limit_frame_size_exceeded`,
+`http2_peer_limit_header_table_size_exceeded`, and
+`http2_peer_limit_concurrent_streams_exceeded` standard helpers return the
 same `RuntimeDiagnostic(...)` values directly, so their JSON result details
 are also derived from the returned value rather than a compatibility
 side-table entry.
@@ -557,6 +559,10 @@ The `http2_peer_limit_header_table_size_exceeded(...)` standard helper
 returns the same `RuntimeDiagnostic(...)` value directly, so its JSON result
 details are also derived from the returned value rather than a compatibility
 side-table entry.
+The `http2_peer_limit_concurrent_streams_exceeded(...)` standard helper
+likewise returns the same `RuntimeDiagnostic(...)` value directly, preserving
+`details.value` and the structured concurrent-stream protocol fields from the
+returned payload.
 Received
 request header-list validation failures use id
 `http2.protocol.invalid_request_header_list` and record

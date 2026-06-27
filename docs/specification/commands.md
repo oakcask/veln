@@ -144,7 +144,8 @@ requiring the full command reference on the first read.
   `http2_protocol_invalid_frame_kind(...)`,
   `http2_peer_limit_frame_size_exceeded(...)`,
   `http2_peer_limit_header_list_size_exceeded(...)`,
-  `http2_peer_limit_header_table_size_exceeded(...)`, and
+  `http2_peer_limit_header_table_size_exceeded(...)`,
+  `http2_peer_limit_concurrent_streams_exceeded(...)`, and
   `http2_peer_limit_settings_value_out_of_range(...)` helpers also return
   this payload form, so their human runtime diagnostics are rendered from the
   returned value rather than from helper-local registration.

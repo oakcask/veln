@@ -278,6 +278,9 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 header-table receive-limit standard helper migration
   slice is archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-header-table-helper-payload.md`.
+  The completed HTTP/2 concurrent-stream receive-limit standard helper
+  migration slice is archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-concurrent-streams-helper-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.
