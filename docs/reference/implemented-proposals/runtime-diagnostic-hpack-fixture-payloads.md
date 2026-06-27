@@ -60,8 +60,10 @@ remaining runtime diagnostic payload migration continues.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`
   checks the dedicated dynamic-index payload constructor and JSON projection.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-human/`
-  checks the dedicated table-size update placement payload constructor and
-  human projection.
+  and
+  `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-json/`
+  check the dedicated table-size update placement payload constructor, human
+  projection, JSON protocol fields, and returned value shape.
 - `../../specification/run-json.md`, `../../specification/commands.md`,
   `../../specification/execution.md`, and `../../specification/test-json.md`
   summarize the implemented behavior and route readers to executable
