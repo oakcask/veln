@@ -143,6 +143,8 @@ The completed record-field callback expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-record-field-callback.md`.
 The completed local callback binding expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-local-callback-binding.md`.
+The completed callback return expected-type slice is archived under
+`../reference/implemented-proposals/local-inference-callback-return-expected-type.md`.
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
@@ -163,7 +165,11 @@ push that function parameter list into named private callbacks placed in the
 matching record field initializer. Local bindings whose annotations are
 concrete function types also push that function parameter list into named
 private callbacks assigned as the binding initializer, and later calls or
-returns through the local binding use that concrete function type.
+returns through the local binding use that concrete function type. When those
+concrete helper, record-field, local-binding, or prelude helper contexts fix a
+named private callback return type, that return type propagates into non-empty
+callback tail expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source
+ADT constructors, record literals, and collection literals.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete declared-helper signature, concrete
@@ -171,13 +177,6 @@ record-field expected-type, and concrete local-binding expected-type paths.
 Future prelude higher-order helpers should push their concrete element, value,
 key, success, and error types into callback parameters only after they enter an
 equally concrete helper signature path.
-
-When a helper input has type `Vec<Int>`, a callback parameter expected to
-receive the item should be checked as `Int`, not `unknown`. When the helper
-result has an expected type such as `Vec<String>` or `Result<List<String>, E>`,
-that expected result may also constrain non-empty callback return types.
-The implemented empty collection callback return slice is specified in
-`../specification/types-full.md#inference`.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
@@ -291,9 +290,10 @@ Acceptance evidence includes:
    or visible imported declared helpers with concrete function-typed
    parameters, concrete record-field expected types, and concrete local
    function binding annotations: push concrete helper, expected-field, or
-   binding input types into named private callback parameters while preserving
-   callback return checking. Remaining callback work is limited to future
-   helpers after they enter an equally concrete helper signature path.
+   binding input types into named private callback parameters, and push
+   concrete callback return types into non-empty callback tail expressions.
+   Remaining callback work is limited to future helpers after they enter an
+   equally concrete helper signature path.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.

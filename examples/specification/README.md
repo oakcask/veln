@@ -69,6 +69,13 @@ against the built `veln` binary.
 - `check/prelude-callback-argument-inference/`: named private callback
   parameter inference from compiler-known collection, context-carrying vector
   try-map, option, and result helper input types.
+- `check/callback-return-expected-type-inference/` and
+  `check/callback-return-expected-type-inference-diagnostics/`: concrete
+  prelude, same-module and imported declared-helper, record-field,
+  local-binding, and source ADT callback return contexts propagate into
+  non-empty named private callback tail expressions, with incompatible
+  payload facts reported at the
+  conflicting expression.
 - `check/declared-helper-callback-inference/` and
   `check/declared-helper-callback-import-inference/`: named private callback
   parameter inference from same-module and imported helpers with concrete

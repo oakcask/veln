@@ -11163,6 +11163,107 @@ fn prelude_helper_result_context_refines_empty_callback_return_type() {
 }
 
 #[test]
+fn prelude_helper_result_context_refines_non_empty_callback_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn optional_items(value: Int)\n",
+            "  Some([])\n",
+            "end\n",
+            "fn tried_items(value: Int)\n",
+            "  Ok({items: []})\n",
+            "end\n",
+            "fn error_items(value: Int)\n",
+            "  Err([])\n",
+            "end\n",
+            "fn dict_items(value: Int)\n",
+            "  {\"one\": 1}\n",
+            "end\n",
+            "pub fn main() -> {optional: Vec<Option<Vec<String>>>, tried: Result<Vec<{items: Vec<String>}>, String>, error: Vec<Result<String, Vec<String>>>, dict: Vec<Dict<String, Int>>}\n",
+            "  {\n",
+            "    optional: vec_map([1], optional_items),\n",
+            "    tried: vec_try_map([1], tried_items),\n",
+            "    error: vec_map([1], error_items),\n",
+            "    dict: vec_map([1], dict_items)\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let optional = core
+        .functions
+        .iter()
+        .find(|function| function.name == "optional_items")
+        .expect("optional callback should be lowered");
+    assert_eq!(
+        optional.return_type,
+        CoreType::option(CoreType::vec(CoreType::string()))
+    );
+    let tried = core
+        .functions
+        .iter()
+        .find(|function| function.name == "tried_items")
+        .expect("try callback should be lowered");
+    assert_eq!(
+        tried.return_type,
+        CoreType::result(
+            CoreType::Record(vec![(
+                "items".to_string(),
+                CoreType::vec(CoreType::string())
+            )]),
+            CoreType::string(),
+        )
+    );
+    let error = core
+        .functions
+        .iter()
+        .find(|function| function.name == "error_items")
+        .expect("error callback should be lowered");
+    assert_eq!(
+        error.return_type,
+        CoreType::result(CoreType::string(), CoreType::vec(CoreType::string()))
+    );
+    let dict = core
+        .functions
+        .iter()
+        .find(|function| function.name == "dict_items")
+        .expect("dict callback should be lowered");
+    assert_eq!(
+        dict.return_type,
+        CoreType::dict(CoreType::string(), CoreType::int())
+    );
+}
+
+#[test]
+fn prelude_helper_result_context_reports_conflicting_callback_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn bad_optional(value: Int)\n",
+            "  Some([1])\n",
+            "end\n",
+            "pub fn main() -> Vec<Option<Vec<String>>>\n",
+            "  vec_map([1], bad_optional)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `String`, but found `Int`");
+}
+
+#[test]
 fn prelude_helper_input_types_infer_private_callback_parameters() {
     let source = SourceFile::new(
         "main.veln",

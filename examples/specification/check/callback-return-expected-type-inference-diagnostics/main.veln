@@ -1,0 +1,7 @@
+fn bad_optional(value: Int)
+	Some([1])
+end
+
+pub fn main() -> Vec<Option<Vec<String>>>
+	vec_map([1], bad_optional)
+end
