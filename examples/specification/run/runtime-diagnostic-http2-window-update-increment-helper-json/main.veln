@@ -1,0 +1,32 @@
+# HTTP/2 WINDOW_UPDATE increment helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_window_update_increment",
+		error,
+		RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, "connection-flow-control", "window_update_increment_nonzero", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("00000000")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let payload: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(payload)?
+	http2_protocol_invalid_window_update_increment(0, 0, 0, 1, 2147483647, "connection-flow-control", "window_update_increment_nonzero", preview)
+end

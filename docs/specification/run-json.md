@@ -139,6 +139,14 @@ The `http2_protocol_closed_with_pending(...)`,
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
+The `http2_protocol_invalid_window_update_increment(...)`,
+`http2_protocol_content_length_mismatch(...)`,
+`http2_protocol_invalid_priority_dependency(...)`,
+`http2_protocol_stream_after_goaway(...)`, and
+`http2_peer_limit_flow_control_window_exceeded(...)` standard helpers also
+return their source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly;
+their direct helper examples keep the rendered payload in `details.value` and
+project the same protocol facts into `details.protocol_diagnostic`.
 The `http2_protocol_invalid_stream_id(...)` standard helper likewise returns
 the source-visible HTTP/2 `RuntimeDiagnostic(...)` payload directly; its direct
 helper example keeps the rendered payload in `details.value` and projects the

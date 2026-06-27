@@ -598,7 +598,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_invalid_data_padding" => Some((
             vec![
@@ -623,7 +623,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_invalid_request_header_list"
         | "http2_protocol_invalid_response_header_list" => Some((
@@ -652,7 +652,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_protocol_stream_after_goaway" => Some((
             vec![
@@ -663,7 +663,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 T::string(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         _ => None,
     }
@@ -722,7 +722,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "http2_peer_limit_concurrent_streams_exceeded" => Some((
             vec![

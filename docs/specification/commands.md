@@ -149,6 +149,11 @@ requiring the full command reference on the first read.
   `http2_peer_limit_header_table_size_exceeded(...)`,
   `http2_peer_limit_concurrent_streams_exceeded(...)`, and
   `http2_peer_limit_settings_value_out_of_range(...)`,
+  `http2_protocol_invalid_window_update_increment(...)`,
+  `http2_protocol_content_length_mismatch(...)`,
+  `http2_protocol_invalid_priority_dependency(...)`,
+  `http2_protocol_stream_after_goaway(...)`,
+  `http2_peer_limit_flow_control_window_exceeded(...)`,
   `http2_protocol_invalid_request_header_list(...)`, and
   `http2_protocol_invalid_response_header_list(...)` helpers also return
   this payload form, so their human runtime diagnostics are rendered from the
