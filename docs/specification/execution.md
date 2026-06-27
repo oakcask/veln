@@ -1718,9 +1718,10 @@ execution reference.
   facts by a later accepted PRIORITY frame for the same stream, accepted
   PRIORITY dependency stream id, exclusive flag, and weight facts on an idle
   client-initiated stream without opening a peer-created stream or changing
-  the concurrent-stream receive count, PRIORITY stream-state failures for
-  closed-by-peer, reset, and mismatched streams, PRIORITY self-dependency
-  failures including the idle-stream case, peer-sent `PUSH_PROMISE`
+  the concurrent-stream receive count, including when another peer-created
+  stream is already tracked as open and stays unchanged, PRIORITY
+  stream-state failures for closed-by-peer and reset streams, PRIORITY
+  self-dependency failures including the idle-stream case, peer-sent `PUSH_PROMISE`
   rejection,
   server-side outbound `PUSH_PROMISE` send-intents for open
   client-created streams, client-side peer-sent `PUSH_PROMISE` receive on an

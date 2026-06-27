@@ -2095,8 +2095,9 @@ frame that exposes dependency stream id, exclusive flag, and weight facts in
 the frame value and tracked open-stream state, replacement of those tracked
 facts by a later PRIORITY frame for the same stream, a PRIORITY frame on an
 idle client-initiated stream that exposes the same priority facts without
-opening a peer-created stream, PRIORITY stream-state failures for
-closed-by-peer, reset, and mismatched streams, PRIORITY stream id zero,
+opening a peer-created stream, including when stream `1` remains the tracked
+open stream and the concurrent-stream count stays unchanged, PRIORITY
+stream-state failures for closed-by-peer and reset streams, PRIORITY stream id zero,
 wrong-length, and self-dependency failures including the idle-stream case, a
 GOAWAY frame that moves the connection into
 graceful shutdown with last-stream-id and error-code facts, wrong-length
