@@ -2412,11 +2412,16 @@ single-item and two-item batch intents emit one frame-header-plus-payload
 chunk with length `6 * item_count`, kind `4`, flags `0`, stream id `0`, and
 the selected setting identifier and four-byte unsigned value pairs in order,
 then record one outstanding local SETTINGS batch with the selected item
-count. Local `SETTINGS_ENABLE_PUSH` values outside `0..1` are rejected before
-bytes are emitted with the SETTINGS range failure shape, including when the
-invalid value appears in a batch. A valid SETTINGS ACK clears that outstanding
-state, including a multi-item batch, and an ACK with no outstanding local
-SETTINGS stays on the typed unexpected-ACK failure path.
+count. Local `SETTINGS_MAX_FRAME_SIZE` values outside `16384..16777215`,
+`SETTINGS_INITIAL_WINDOW_SIZE` values outside `0..2147483647`, and
+`SETTINGS_ENABLE_PUSH` values outside `0..1` are rejected before bytes are
+emitted with the SETTINGS range failure shape and `local_settings`
+provenance, including when the invalid value appears in a batch. The checked
+case leaves `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
+and `SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
+settings. A valid SETTINGS ACK clears that outstanding state, including a
+multi-item batch, and an ACK with no outstanding local SETTINGS stays on the
+typed unexpected-ACK failure path.
 The outbound PING ACK send-intent slice accepts a valid inbound non-ACK PING,
 emits one frame-header plus opaque-payload output chunk with length `8`, kind
 `6`, ACK flag `1`, and stream id `0`, and preserves the original eight-byte

@@ -399,11 +399,13 @@ another source whose total length is not known in advance.
 The core already covers client connection preface validation, frame header
 decode and encode, SETTINGS maximum-frame-size state, PING, GOAWAY, DATA
 receive-window accounting, HEADERS opaque header-block payload preservation,
-CONTINUATION handling needed to keep header-block boundaries valid, and typed
-protocol errors for those slices in the ordinary-source protocol-core example.
-Remaining target coverage includes broader SETTINGS, stream lifecycle,
-outbound flow control, graceful shutdown interactions, and typed protocol
-errors beyond the implemented frame and stream rules.
+CONTINUATION handling needed to keep header-block boundaries valid, local
+SETTINGS send-intent value ranges for supported items, and typed protocol
+errors for those slices in the ordinary-source protocol-core example.
+Remaining target coverage includes SETTINGS behavior beyond those local
+send-intent value ranges, stream lifecycle, outbound flow control, graceful
+shutdown interactions, and typed protocol errors beyond the implemented frame
+and stream rules.
 
 HPACK starts outside the frame schema at a deliberately small library codec
 boundary. The reserved boundary is an explicit codec module because header

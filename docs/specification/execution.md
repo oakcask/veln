@@ -2162,10 +2162,16 @@ execution reference.
   kind `4`, flags `0`, stream id `0`, and the selected setting identifier and
   four-byte unsigned value pairs in order. The connection records one
   outstanding local SETTINGS batch with the selected item count. Local
-  `SETTINGS_ENABLE_PUSH` accepts values `0` and `1`; other values are
+  `SETTINGS_MAX_FRAME_SIZE` accepts `16384..16777215`,
+  `SETTINGS_INITIAL_WINDOW_SIZE` accepts `0..2147483647`, and
+  `SETTINGS_ENABLE_PUSH` accepts `0..1`; values outside those ranges are
   rejected before bytes are emitted with the SETTINGS value range failure
-  shape, including when the invalid value appears in a batch. A valid received
-  SETTINGS ACK clears that outstanding state, including a multi-item batch.
+  shape and `local_settings` provenance, including when the invalid value
+  appears in a batch. The checked example leaves
+  `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
+  `SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
+  settings. A valid received SETTINGS ACK clears that outstanding state,
+  including a multi-item batch.
   A valid received SETTINGS ACK when no local SETTINGS batch is outstanding
   fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
