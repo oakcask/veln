@@ -1464,7 +1464,9 @@ execution reference.
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
-  where the diagnostic owns one.
+  where the diagnostic owns one. The `http2_protocol_closed_with_pending`
+  standard helper returns the closed-input payload directly as
+  `Result<(), RuntimeDiagnostic>`.
 - For `veln run` entries, a returned
   `DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))` or
   `DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))` is
@@ -1984,7 +1986,9 @@ execution reference.
   with active state `request-trailers`, and rejects uppercase ordinary names,
   invalid field-name tokens, connection-specific ordinary names, and invalid
   `te` values through the same structured request header-list diagnostic
-  fields.
+  fields. The raw HPACK uppercase trailer-name case carries those facts in a
+  source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
+  payload instead of relying on the legacy helper side table.
   Fixture-marked response header lists are validated at the same boundary.
   Missing or duplicate `:status`, request-only `:authority`, `:method`,
   `:scheme`, or `:path`, and response pseudo-headers after regular headers

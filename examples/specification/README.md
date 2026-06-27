@@ -2397,6 +2397,10 @@ against the built `veln` binary.
   as a source-visible `RuntimeDiagnostic(...)` result value, with byte
   offset, pending byte count, active continuation details, and structured
   bounded byte preview fields for the retained bytes.
+- `run/runtime-diagnostic-http2-closed-helper-json/`: the standard
+  `http2_protocol_closed_with_pending` helper reports the same
+  `http2.protocol.closed_with_pending` JSON details from its returned
+  `RuntimeDiagnostic(...)` error value.
 - `run/http2-protocol-core-preface-partial-human/`: end-of-stream with a
   partial client connection preface reports `http2.protocol.partial_preface`
   through human `run` stderr from a source-visible `RuntimeDiagnostic(...)`

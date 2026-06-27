@@ -5430,7 +5430,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		ClosedWithPending(offset, pending_count, preview_chunk) => http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)
+		ClosedWithPending(offset, pending_count, preview_chunk) => accept_runtime_diagnostic(http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count, diagnostic_context_pending_view(context)?)
 		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, diagnostic_context_pending_view(context)?)
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?)

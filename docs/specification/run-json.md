@@ -449,7 +449,11 @@ JSON examples return source-visible
 `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` and
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. The frame-size
+`details.protocol_diagnostic` keeps the same public fields. The
+`http2_protocol_closed_with_pending` standard helper returns the same
+`RuntimeDiagnostic(...)` value directly, so its JSON result details are also
+derived from the returned value rather than a compatibility side-table entry.
+The frame-size
 peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
@@ -539,7 +543,11 @@ connection-specific ordinary header name and invalid `te` value on an inbound
 request, and invalid and mismatched `content-length` values; the larger
 protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `te: trailers` and accepted
-`content-length` values.
+`content-length` values. The focused request header-list JSON examples,
+including the raw HPACK uppercase trailer-name projection, return
+source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
+payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
+value while `details.protocol_diagnostic` keeps the same public fields.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
 fields. The checked projections cover a missing required `:status`, duplicate

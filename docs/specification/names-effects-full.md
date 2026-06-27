@@ -768,7 +768,7 @@ byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, fiel
 byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
 byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
 byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
-http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
+http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), String>
 http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), String>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, preview: ByteView) -> Result<(), String>
@@ -1147,6 +1147,8 @@ pure helper in this split is source-backed, while float operator compatibility
 descriptors remain outside the migration candidate pool.
 
 The source-visible `RuntimeDiagnosticDetail` constructor set includes
+`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for projecting
+`http2.protocol.closed_with_pending` failures,
 `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` for projecting
 `http2.protocol.partial_preface` failures,
 `RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for projecting
