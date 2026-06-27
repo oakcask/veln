@@ -246,6 +246,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`,
+  [Runtime Diagnostic HTTP/2 WINDOW_UPDATE Payload](../reference/implemented-proposals/runtime-diagnostic-http2-window-update-payload.md),
   and
   `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
   The completed HTTP/2 HPACK raw request-trailer invalid-token name migration
@@ -254,6 +255,12 @@ compare it with `../specification/` before changing behavior.
   The completed HTTP/2 closed-input standard helper migration slice is
   archived under
   `../reference/implemented-proposals/runtime-diagnostic-http2-closed-helper-payload.md`.
+  The completed HTTP/2 partial-preface standard helper migration slice is
+  archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-partial-preface-helper-payload.md`.
+  The completed HTTP/2 invalid-preface standard helper migration slice is
+  archived under
+  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-preface-helper-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

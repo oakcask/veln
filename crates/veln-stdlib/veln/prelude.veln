@@ -553,11 +553,11 @@ pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, activ
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation, preview)
 end
 
-pub fn http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_partial_preface(offset, pending_count, preview)
 end
 
-pub fn http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, preview)
 end
 

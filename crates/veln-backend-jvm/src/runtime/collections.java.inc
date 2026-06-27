@@ -3592,13 +3592,25 @@
         long pending = asLong(pendingCount);
         String message = "HTTP/2 input ended with partial client connection preface at byte offset "
             + byteOffset;
-        registerHttp2ProtocolPartialPrefaceDiagnostic(
-            message,
-            byteOffset,
-            pending,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(pending),
+                Long.valueOf(24L),
+                "connection-preface",
+                "rfc9113_client_connection_preface",
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.partial_preface",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidPreface(
@@ -3614,15 +3626,27 @@
         long matched = asLong(matchedCount);
         String message = "HTTP/2 invalid client connection preface at byte offset "
             + byteOffset;
-        registerHttp2ProtocolInvalidPrefaceDiagnostic(
-            message,
-            byteOffset,
-            expected,
-            actual,
-            matched,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(expected),
+                Long.valueOf(actual),
+                Long.valueOf(matched),
+                Long.valueOf(24L),
+                "connection-preface",
+                "rfc9113_client_connection_preface",
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_preface",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolContinuationExpected(

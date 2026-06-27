@@ -2406,6 +2406,10 @@ against the built `veln` binary.
   `http2_protocol_closed_with_pending` helper reports the same
   `http2.protocol.closed_with_pending` JSON details from its returned
   `RuntimeDiagnostic(...)` error value.
+- `run/runtime-diagnostic-http2-invalid-preface-helper-json/`: the standard
+  `http2_protocol_invalid_preface` helper reports
+  `http2.protocol.invalid_preface` JSON details from its returned
+  `RuntimeDiagnostic(...)` error value.
 - `run/http2-protocol-core-preface-partial-human/`: end-of-stream with a
   partial client connection preface reports `http2.protocol.partial_preface`
   through human `run` stderr from a source-visible `RuntimeDiagnostic(...)`

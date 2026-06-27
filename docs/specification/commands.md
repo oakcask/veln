@@ -70,13 +70,15 @@ requiring the full command reference on the first read.
   and run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules. Human schema-owned byte diagnostics and HTTP/2 client
-  connection preface, continuation-ordering, and pending-byte close protocol
-  diagnostics render preview bytes as bounded lowercase hex pairs grouped
-  with spaces and keep byte offsets, field paths, expected counts, actual
-  counts, accepted ranges, actual values, matched prefix counts, byte values,
-  active continuation state, and rule provenance in separate notes or
-  structured details. Generated binary schema encode diagnostics and
+  command rules. Standard helper calls for pending-byte close and partial
+  preface failures return the same source-visible HTTP/2 protocol diagnostics.
+  Human schema-owned byte diagnostics and HTTP/2 client connection preface,
+  continuation-ordering, and pending-byte close protocol diagnostics render
+  preview bytes as bounded lowercase hex pairs grouped with spaces and keep
+  byte offsets, field paths, expected counts, actual counts, accepted ranges,
+  actual values, matched prefix counts, byte values, active continuation
+  state, and rule provenance in separate notes or structured details.
+  Generated binary schema encode diagnostics and
   `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
   message on the failed encode fact and put field path, reason or predicate
   details, and source-visible `EncodeError` value in related notes.
@@ -135,7 +137,10 @@ requiring the full command reference on the first read.
   compatibility helpers, with the stable id, protocol facts, provenance,
   decoded header names, and bounded byte preview when present projected from
   the returned
-  `RuntimeDiagnostic(...)` value.
+  `RuntimeDiagnostic(...)` value. The standard
+  `http2_protocol_invalid_preface(...)` helper also returns this payload form,
+  so its human runtime diagnostic is rendered from the returned value rather
+  than from helper-local registration.
   Checked byte write
   conversion failures report
   `codec.byte_write_value_unrepresentable` and put the helper name, supplied
