@@ -1,0 +1,130 @@
+# Derived codec decode boundaries include quotient-sized ByteView helpers.
+use stdio
+
+schema PacketWire
+	format binary
+
+	total_length: UInt8
+	chunk_count: UInt8
+	payload: ByteView(total_length / chunk_count)
+end
+
+codec PacketCodec for PacketWire decode
+	derive decode
+end
+
+fn step_kind(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_total_length(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(packet, _) => packet.total_length
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_payload_count(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(packet, _) => byte_count_to_int(byte_view_count(packet.payload))
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_payload_prefix(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(packet, _) => byte_read_u16_be(packet.payload)?
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn error_offset(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn error_path(step: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let full_bytes: ByteChunk = byte_chunk_from_hex("0802aabbccdd")?
+	let full_view: ByteView = byte_view(full_bytes, byte_offset(0)?, byte_count(6)?)?
+	let decoded: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}> = PacketCodec(full_view, byte_offset(11)?)
+	stdio::println(step_kind(decoded))
+	stdio::println(int_to_string(decoded_total_length(decoded)))
+	stdio::println(int_to_string(decoded_payload_count(decoded)))
+	stdio::println(int_to_string(decoded_payload_prefix(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let prefix_short_bytes: ByteChunk = byte_chunk_from_hex("08")?
+	let prefix_short_view: ByteView = byte_view(prefix_short_bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}> = PacketCodec(prefix_short_view, byte_offset(19)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let truncated_bytes: ByteChunk = byte_chunk_from_hex("0802aabbcc")?
+	let truncated_view: ByteView = byte_view(truncated_bytes, byte_offset(0)?, byte_count(5)?)?
+	let invalid: DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}> = PacketCodec(truncated_view, byte_offset(23)?)
+	stdio::println(step_kind(invalid))
+	stdio::println(readiness_kind(invalid))
+	stdio::println(int_to_string(readiness_count(invalid)))
+	stdio::println(int_to_string(consumed_count(invalid)))
+	stdio::println(error_id(invalid))
+	stdio::println(int_to_string(error_offset(invalid)))
+	stdio::println(error_path(invalid))
+	Ok(())
+end

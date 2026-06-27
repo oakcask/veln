@@ -301,8 +301,10 @@ executable decode boundary in ordinary source calls, including supported
 middle reserved-bit layouts, same-module nested dispatch payload schemas whose
 own helpers may include length-bounded `ByteView(length_field)` fields,
 same-module recursive closed and extension dispatch payload schemas,
-repeat-backed schemas, and multiple decoded-field selected schema mappings
-already accepted by `byte_decode_step_<schema>`. The call accepts the bounded
+repeat-backed schemas, quotient-sized
+`ByteView(left_length / right_length)` payload fields, and multiple
+decoded-field selected schema mappings already accepted by
+`byte_decode_step_<schema>`. The call accepts the bounded
 `ByteView` and explicit base `ByteOffset` and returns the same
 `DecodeStep<T>` value as
 `byte_decode_step_<schema>`, including mapped record values. `Decoded` reports

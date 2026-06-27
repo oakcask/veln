@@ -1367,8 +1367,9 @@ execution reference.
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
   supported middle reserved-bit layouts, including byte-interleaved middle
-  reserved layouts, repeat-backed schemas, same-module or public imported
-  nested dispatch payload schemas, same-module recursive
+  reserved layouts, repeat-backed schemas, quotient-sized
+  `ByteView(left_length / right_length)` payload fields, same-module or
+  public imported nested dispatch payload schemas, same-module recursive
   closed and extension dispatch payload helpers, and multiple decoded-field
   selected schema mappings already accepted by `byte_decode_step_<schema>`.
   The call accepts a bounded
@@ -1381,6 +1382,7 @@ execution reference.
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
+  `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
