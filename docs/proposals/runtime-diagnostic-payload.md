@@ -215,6 +215,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/hpack-fixture-codec-json/`,
 `../../examples/specification/run/http2-protocol-core-closed-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-closed-helper-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-partial-preface-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
 `../../examples/specification/run/http2-protocol-core-preface-invalid-human/`,
@@ -311,6 +312,9 @@ and content-length mismatch migration slice is archived under
 The completed HTTP/2 invalid frame-kind stream-state migration slice is
 archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`.
+The completed HTTP/2 invalid `WINDOW_UPDATE` increment migration slice is
+archived under
+[Runtime Diagnostic HTTP/2 WINDOW_UPDATE Payload](../reference/implemented-proposals/runtime-diagnostic-http2-window-update-payload.md).
 The completed HTTP/2 HPACK raw request-trailer uppercase name migration slice
 is archived under
 `../reference/implemented-proposals/runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md`.
@@ -320,6 +324,9 @@ slice is archived under
 The completed HTTP/2 closed-input standard helper migration slice is archived
 under
 `../reference/implemented-proposals/runtime-diagnostic-http2-closed-helper-payload.md`.
+The completed HTTP/2 partial-preface standard helper migration slice is
+archived under
+`../reference/implemented-proposals/runtime-diagnostic-http2-partial-preface-helper-payload.md`.
 
 A staged migration can keep compatibility for the remaining work:
 

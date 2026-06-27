@@ -553,7 +553,7 @@ pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, activ
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation, preview)
 end
 
-pub fn http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), String>
+pub fn http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_partial_preface(offset, pending_count, preview)
 end
 

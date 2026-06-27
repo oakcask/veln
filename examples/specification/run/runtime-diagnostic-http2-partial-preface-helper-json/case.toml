@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_window_update_increment, HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0, RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, connection-flow-control, window_update_increment_nonzero, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0)])))"
+equals = "RuntimeDiagnostic(http2.protocol.partial_preface, HTTP/2 input ended with partial client connection preface at byte offset 0, RuntimeHttp2ProtocolPartialPrefaceDiagnostic(0, 12, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -28,39 +28,19 @@ equals = "protocol_diagnostic"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"
-equals = "http2.protocol.invalid_window_update_increment"
+equals = "http2.protocol.partial_preface"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_offset.value"
 equals = 0
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.byte_offset.kind"
-equals = "ByteOffset"
+path = "error.details.protocol_diagnostic.pending_count"
+equals = 12
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.frame_kind"
-equals = 8
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.stream_id"
-equals = 0
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.stream_ref"
-equals = "connection"
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.observed_window_increment"
-equals = 0
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.accepted_min_window_increment"
-equals = 1
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.accepted_max_window_increment"
-equals = 2147483647
+path = "error.details.protocol_diagnostic.expected_count"
+equals = 24
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.encoding"
@@ -68,59 +48,54 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "00000000"
+equals = "505249202a204854"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
-equals = 4
+equals = 8
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
-equals = 4
+equals = 12
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
-equals = false
+equals = true
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
-equals = "connection-flow-control"
+equals = "connection-preface"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
-equals = "window_update_increment_nonzero"
+equals = "rfc9113_client_connection_preface"
 
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.constructor"
-equals = "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic"
+equals = "RuntimeHttp2ProtocolPartialPrefaceDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
-equals = 0
+path = "value.detail.pending_count"
+equals = 12
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
-equals = 0
+path = "value.detail.expected_count"
+equals = 24
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.3"
-equals = 1
+path = "value.detail.active_state"
+equals = "connection-preface"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.4"
-equals = 2147483647
+path = "value.detail.rule_provenance"
+equals = "rfc9113_client_connection_preface"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.7.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"
-
-[[result_value_assert]]
-value_path = "error.details.value"
-path = "value.detail.fields.8"
-missing = true
