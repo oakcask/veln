@@ -2635,6 +2635,49 @@ fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
 }
 
 #[test]
+fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
+    let fixture = parse_result_value(
+        "RuntimeDiagnostic(hpack.fixture.malformed_raw_string_value, HPACK fixture malformed raw string value at byte offset 9, RuntimeHpackFixtureDiagnostic(9, 5, 8, fixture HPACK raw string value, hpack_fixture, ByteChunk([Byte(8), Byte(3), Byte(50), Byte(31), Byte(48)])))",
+    )
+    .expect("HPACK fixture runtime diagnostic value should parse");
+    let dynamic_index = parse_result_value(
+        "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 27, RuntimeHpackFixtureDynamicIndexDiagnostic(27, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)])))",
+    )
+    .expect("HPACK dynamic-index runtime diagnostic value should parse");
+    let table_size = parse_result_value(
+        "RuntimeDiagnostic(hpack.fixture.table_size_update_not_at_start, HPACK fixture table-size update after header field at byte offset 10, RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, hpack-fixture, fixture HPACK table-size update at header block start, hpack_fixture, ByteChunk([Byte(130), Byte(62)])))",
+    )
+    .expect("HPACK table-size runtime diagnostic value should parse");
+
+    assert_eq!(
+        json_path(&fixture, "value.detail.expected_fixture"),
+        Some(&JsonValue::String(
+            "fixture HPACK raw string value".to_string()
+        ))
+    );
+    assert_eq!(
+        json_path(&fixture, "value.detail.preview.bytes.2.value"),
+        Some(&JsonValue::Number(50))
+    );
+    assert_eq!(
+        json_path(&dynamic_index, "value.detail.requested_dynamic_index"),
+        Some(&JsonValue::Number(0))
+    );
+    assert_eq!(
+        json_path(&dynamic_index, "value.detail.preview.bytes.0.value"),
+        Some(&JsonValue::Number(190))
+    );
+    assert_eq!(
+        json_path(&table_size, "value.detail.observed_header_table_size"),
+        Some(&JsonValue::Number(30))
+    );
+    assert_eq!(
+        json_path(&table_size, "value.detail.active_state"),
+        Some(&JsonValue::String("hpack-fixture".to_string()))
+    );
+}
+
+#[test]
 fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
     let header_table = parse_result_value(
         "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)])))",
@@ -2650,7 +2693,7 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
         Some(&JsonValue::Number(289))
     );
     assert_eq!(
-        json_path(&header_table, "value.detail.preview.fields.1.value"),
+        json_path(&header_table, "value.detail.preview.bytes.1.value"),
         Some(&JsonValue::Number(129))
     );
     assert_eq!(
@@ -4004,6 +4047,13 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "ByteChunk" => {
+            let args = expect_arity(name, args, 1)?;
+            Ok(result_value_object(
+                "ByteChunk",
+                vec![("bytes", parse_veln_bracketed_list(args[0])?)],
+            ))
+        }
         "Byte" | "ByteOffset" | "ByteCount" => {
             let args = expect_arity(name, args, 1)?;
             Ok(result_value_object(
@@ -4045,6 +4095,23 @@ fn parse_veln_list_items(text: &str) -> Result<Vec<JsonValue>, String> {
     let mut values = vec![parse_veln_value(args[0])?];
     values.extend(parse_veln_list_items(args[1])?);
     Ok(values)
+}
+
+fn parse_veln_bracketed_list(text: &str) -> Result<JsonValue, String> {
+    let text = text.trim();
+    let inner = text
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .ok_or_else(|| format!("expected bracketed list, got `{text}`"))?;
+    if inner.trim().is_empty() {
+        return Ok(JsonValue::Array(Vec::new()));
+    }
+    Ok(JsonValue::Array(
+        split_top_level_args(inner)
+            .into_iter()
+            .map(parse_veln_value)
+            .collect::<Result<Vec<_>, _>>()?,
+    ))
 }
 
 fn parse_veln_atom(text: &str) -> JsonValue {
@@ -4091,12 +4158,15 @@ fn constructor_arg<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 fn split_top_level_args(text: &str) -> Vec<&str> {
     let mut args = Vec::new();
     let mut start = 0;
-    let mut depth = 0usize;
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
     for (index, ch) in text.char_indices() {
         match ch {
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            ',' if depth == 0 => {
+            '(' => paren_depth += 1,
+            ')' => paren_depth = paren_depth.saturating_sub(1),
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            ',' if paren_depth == 0 && bracket_depth == 0 => {
                 args.push(text[start..index].trim());
                 start = index + 1;
             }

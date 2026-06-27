@@ -50,3 +50,13 @@ equals = "048100"
 value_path = "error.details.value"
 path = "value.id"
 equals = "hpack.fixture.malformed_huffman_padding"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHpackFixtureDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.2.value"
+equals = 0

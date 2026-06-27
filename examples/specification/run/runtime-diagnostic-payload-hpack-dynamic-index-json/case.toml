@@ -63,3 +63,13 @@ equals = "RuntimeHpackFixtureDynamicIndexDiagnostic"
 value_path = "error.details.value"
 path = "value.detail.requested_dynamic_index"
 equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.dynamic_table_entry_count"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 190

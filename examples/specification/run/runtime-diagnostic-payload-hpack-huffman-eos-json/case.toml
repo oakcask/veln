@@ -50,3 +50,13 @@ equals = "0484ffffffff"
 value_path = "error.details.value"
 path = "value.detail.constructor"
 equals = "RuntimeHpackFixtureDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.expected_fixture"
+equals = "fixture HPACK Huffman data symbol instead of EOS"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.5.value"
+equals = 255
