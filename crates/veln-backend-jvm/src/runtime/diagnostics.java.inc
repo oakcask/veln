@@ -1151,35 +1151,6 @@
         );
     }
 
-    private static void registerHttp2ProtocolContinuationExpectedDiagnostic(
-        String message,
-        long byteOffset,
-        long actualKind,
-        long actualStream,
-        long expectedStream,
-        long startedKind,
-        long startedOffset,
-        String activeContinuation,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.continuation_expected",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("actual_frame_kind", actualKind),
-                    DiagnosticDetail.number("actual_stream_id", actualStream),
-                    DiagnosticDetail.number("expected_stream_id", expectedStream),
-                    DiagnosticDetail.number("started_frame_kind", startedKind),
-                    DiagnosticDetail.number("started_byte_offset", startedOffset),
-                    DiagnosticDetail.string("active_continuation", activeContinuation),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
     private static void registerHttp2ProtocolInvalidFrameKindDiagnostic(
         String message,
         long byteOffset,

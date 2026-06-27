@@ -2530,6 +2530,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-json/`,
+`../../examples/specification/run/runtime-diagnostic-http2-continuation-helper-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-invalid-frame-kind-helper-json/`,
 `../../examples/specification/run/runtime-diagnostic-http2-stream-invalid-frame-kind-helper-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,

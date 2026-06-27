@@ -9618,7 +9618,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "decoded_widths: Result<{short_value: Int, wide_value: Int}, String>, ",
             "decoded_validation: Result<{length: Int, padding_length: Int}, String>, ",
             "closed_http2: Result<(), RuntimeDiagnostic>, partial_preface_http2: Result<(), RuntimeDiagnostic>, ",
-            "invalid_preface_http2: Result<(), RuntimeDiagnostic>, continuation_http2: Result<(), String>, ",
+            "invalid_preface_http2: Result<(), RuntimeDiagnostic>, continuation_http2: Result<(), RuntimeDiagnostic>, ",
             "invalid_kind_http2: Result<(), RuntimeDiagnostic>, invalid_stream_http2: Result<(), String>, ",
             "invalid_payload_http2: Result<(), String>, invalid_window_update_increment_http2: Result<(), String>, ",
             "invalid_data_padding_http2: Result<(), String>, content_length_http2: Result<(), String>, ",

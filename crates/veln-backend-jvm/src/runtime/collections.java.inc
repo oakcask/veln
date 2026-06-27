@@ -3667,18 +3667,27 @@
         long startedByteOffset = asLong(startedOffset);
         String continuation = asString(activeContinuation);
         String message = "HTTP/2 expected CONTINUATION frame at byte offset " + byteOffset;
-        registerHttp2ProtocolContinuationExpectedDiagnostic(
-            message,
-            byteOffset,
-            frameKind,
-            streamId,
-            expectedStreamId,
-            startedFrameKind,
-            startedByteOffset,
-            continuation,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(frameKind),
+                Long.valueOf(streamId),
+                Long.valueOf(expectedStreamId),
+                Long.valueOf(startedFrameKind),
+                Long.valueOf(startedByteOffset),
+                continuation,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.continuation_expected",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidFrameKind(
