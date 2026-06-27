@@ -5324,6 +5324,106 @@ fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
 }
 
 #[test]
+fn derived_codec_resolves_quotient_repeat_count_helper_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedValues\n",
+            "  format binary\n",
+            "\n",
+            "  total_count: UInt8\n",
+            "  group_count: UInt8\n",
+            "  items: Repeat(total_count / group_count, UInt16be)\n",
+            "end\n",
+            "\n",
+            "codec CountedCodec for CountedValues decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>\n",
+            "  CountedCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn encode_main(packet: {total_count: Int, group_count: Int, items: List<Int>}) -> EncodeStep<()>\n",
+            "  CountedCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let decode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let encode_main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be lowered");
+    let CoreStmtKind::Return { expr } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let decode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_main")
+        .expect("decode_main should be in IR");
+    let IrStmtKind::Return { value } = &decode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+
+    let encode_main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_main")
+        .expect("encode_main should be in IR");
+    let IrStmtKind::Return { value } = &encode_main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "CountedValues"
+    ));
+}
+
+#[test]
 fn generated_schema_helpers_resolve_reserved_payload_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",

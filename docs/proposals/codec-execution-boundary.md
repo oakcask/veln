@@ -47,7 +47,8 @@ The eligible derived codec decode and encode execution boundaries now also
 cover same-module recursive closed and extension dispatch payload helpers
 already accepted by the generated helper path, and the checked non-HTTP
 general generated helper shape with successful decode, short-input
-`NeedMore`, successful encode, and helper-projected encode failure.
+`NeedMore`, successful encode, and helper-projected encode failure. They also
+cover generated-helper-backed quotient-count repeated primitive fields.
 
 Define codec support for:
 
@@ -235,16 +236,18 @@ ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
 decode-step slice, including same-module nested dispatch payload helper
 schemas, public imported nested dispatch payload helper schemas,
-repeat-backed schemas, supported middle reserved layouts, and the checked
-non-HTTP general helper shape, plus quotient-sized `ByteView` payload fields.
+repeat-backed schemas, quotient-count repeated primitive fields, supported
+middle reserved layouts, and the checked non-HTTP general helper shape, plus
+quotient-sized `ByteView` payload fields.
 The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated
 `byte_encode_<schema>` behavior when the schema is in the currently
 implemented binary schema encode helper slice, including direct structural
 mapped schemas, same-module nested dispatch payload helper schemas, public
-imported nested dispatch payload helper schemas, repeat-backed schemas, and
-the checked non-HTTP general helper shape.
+imported nested dispatch payload helper schemas, repeat-backed schemas,
+quotient-count repeated primitive fields, and the checked non-HTTP general
+helper shape.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 
@@ -342,9 +345,10 @@ encoder state owns only the remaining encode work.
   derived codec encode execution boundaries, including budgeted derived encode
   over generated helper output, selected structural mapping encode cases
   already accepted by the generated helper, same-module recursive closed and
-  extension dispatch payload helpers, the checked non-HTTP general helper
-  shape, and the caller-owned parser-state retention and hand-written bounded
-  `ByteView` base-offset `NeedMore` examples.
+  extension dispatch payload helpers, quotient-count repeated primitive
+  fields, the checked non-HTTP general helper shape, and the caller-owned
+  parser-state retention and hand-written bounded `ByteView` base-offset
+  `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.

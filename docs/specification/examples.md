@@ -244,6 +244,16 @@ covers the same derived codec call boundary when the generated decode-step
 helper decodes a bounded repeated primitive field and reports repeat-backed
 readiness or helper failure through the codec item.
 The executable specification case
+`../../examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`
+covers the same boundary for repeated bounded `ByteView` fields.
+The executable specification case
+`../../examples/specification/run/derived-codec-repeat-quotient-boundary/`
+covers the same derived codec decode and encode item boundary when the
+generated helper uses `Repeat(total_count / group_count, UInt16be)`, including
+successful `Decoded` and `Encoded` outcomes, short-input `NeedMore`, division
+by zero projected to `Invalid(DecodeError)`, and list-count mismatch
+projected to `Invalid(EncodeError)`.
+The executable specification case
 `../../examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a quotient-sized `ByteView(left_length / right_length)`
@@ -344,6 +354,10 @@ The executable specification case
 `../../examples/specification/run/derived-codec-repeat-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
 writes a bounded repeated primitive field.
+The executable specification case
+`../../examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`
+covers repeated bounded `ByteView` encode through the same derived codec
+boundary.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`
 covers the same derived codec call boundary when the generated encode helper
@@ -1209,6 +1223,8 @@ and
 `../../examples/specification/run/binary-schema-repeat-quotient-division-by-zero-json/`
 pin `Repeat(total_count / group_count, UInt16be)` decode, encode, direct
 helper encode mismatch, and division-by-zero diagnostics.
+The derived codec boundary for that same helper shape is pinned by
+`../../examples/specification/run/derived-codec-repeat-quotient-boundary/`.
 
 `../../examples/specification/run/binary-schema-repeat-truncated-json/` and
 `../../examples/specification/run/binary-schema-repeat-truncated-human/` pin
