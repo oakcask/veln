@@ -1035,8 +1035,24 @@ fn private_call_site_non_target_params(
                 context.constraints.adts,
             )
         });
-        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
-            .map(|(params, _)| params)
+        let mut params =
+            crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
+                .map(|(params, _)| params)?;
+        if name == "vec_try_map_with" {
+            let context_type = args.first().map(|arg| {
+                infer_private_signature_expr_type(
+                    arg,
+                    None,
+                    context.current_module,
+                    context.constraints.uses,
+                    context.bindings,
+                    context.constraints.returns_by_path,
+                    context.constraints.adts,
+                )
+            });
+            apply_vec_try_map_with_context_param(&mut params, context_type);
+        }
+        Some(params)
     })
     .unwrap_or_default()
 }
@@ -1448,14 +1464,47 @@ fn collect_private_prelude_callback_call_constraints(
             context.adts,
         )
     });
-    let Some((params, _)) =
+    let Some((mut params, _)) =
         crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
     else {
         return;
     };
+    if name == "vec_try_map_with" {
+        let context_type = args.first().map(|arg| {
+            infer_private_signature_expr_type(
+                arg,
+                None,
+                context.current_module,
+                context.uses,
+                context.bindings,
+                context.returns_by_path,
+                context.adts,
+            )
+        });
+        apply_vec_try_map_with_context_param(&mut params, context_type);
+    }
     for (arg, param) in args.iter().zip(params.iter()) {
         collect_private_callback_return_constraint(arg, param, context);
         collect_private_prelude_callback_expr_constraints(arg, Some(param), context);
+    }
+}
+
+fn apply_vec_try_map_with_context_param(params: &mut [Type], context_type: Option<Type>) {
+    let Some(context_type) = context_type else {
+        return;
+    };
+    if let Some(param) = params.first_mut() {
+        *param = context_type.clone();
+    }
+    let Some(Type::Function {
+        params: callback_params,
+        ..
+    }) = params.get_mut(2)
+    else {
+        return;
+    };
+    if let Some(callback_context) = callback_params.first_mut() {
+        *callback_context = context_type;
     }
 }
 

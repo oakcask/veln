@@ -17,17 +17,17 @@ compare it with `../specification/` before changing behavior.
   nested initializer expected-type propagation, hole expected-type flow, empty
   collection callback return, payload-carrying ADT constructor inference, match
   scrutinee constructor-pattern inference, local pattern `let` inference,
-  compiler-known prelude callback argument, dictionary callback alias, declared
-  helper callback argument, record-field callback, and examples cleanup slices
-  specified in
+  compiler-known prelude callback argument including `vec_try_map_with`,
+  dictionary callback alias, declared helper callback argument, record-field
+  callback, and examples cleanup slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
-  inference, dictionary callback alias inference, declared helper callback
-  argument inference, record-field callback inference, non-empty collection
-  initializer inference, ADT constructor payload inference, match scrutinee
-  constructor-pattern inference, local pattern `let` inference, nested
-  initializer expected-type propagation, hole expected-type flow, and examples
-  cleanup slices are archived under
+  inference including `vec_try_map_with`, dictionary callback alias inference,
+  declared helper callback argument inference, record-field callback
+  inference, non-empty collection initializer inference, ADT constructor
+  payload inference, match scrutinee constructor-pattern inference, local
+  pattern `let` inference, nested initializer expected-type propagation, hole
+  expected-type flow, and examples cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,

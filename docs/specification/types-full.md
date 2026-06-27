@@ -177,7 +177,10 @@ surrounding type context.
 Compiler-known prelude helpers push concrete input item types into named
 private callback function values. For `vec_map`, `vec_filter`, `vec_fold`, and
 `vec_try_map`, a concrete `Vec<T>` input constrains the callback parameter that
-receives each element to `T`. The same rule applies to `list_map`,
+receives each element to `T`. `vec_try_map_with` also constrains the callback
+context parameter from its first helper argument and the callback item
+parameter from the concrete `Vec<T>` input, including qualified
+`prelude::vec_try_map_with` calls. The same rule applies to `list_map`,
 `list_filter`, `list_fold`, and `list_try_map` for concrete `List<T>` inputs.
 For concrete `Dict<K, V>` inputs, `dict_map`, `dict_map_with`,
 `dict_filter`, `dict_filter_with`, `dict_try_map`, and `dict_try_map_with`
