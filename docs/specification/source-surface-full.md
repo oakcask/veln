@@ -176,7 +176,11 @@ field-reference-ineligible `ByteView` payload layout, or incompatible report
 `schema.dispatch_payload`.
 Helper-slice payload diagnostics name the expected generated decode and
 encode helpers in structured fields and keep the payload schema declaration
-in related notes. The checked field-reference diagnostics case is
+in related notes. When the nested schema has a field layout that prevents
+helper exposure, the diagnostic details and related notes also name the nested
+schema field path, the unavailable decode and encode helper directions, and
+the specific unsupported `ReservedBits` or `ByteView` layout fact. The checked
+field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;

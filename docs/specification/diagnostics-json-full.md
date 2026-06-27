@@ -188,6 +188,28 @@ Arity mismatch details also include:
 
 Concurrency runtime blockers also include `facts.symbol`.
 
+Schema dispatch payload diagnostics report declaration-time payload eligibility
+failures with `id: "schema.dispatch_payload"` and `kind: "type"`. Their
+`details` include:
+
+- `phase: "schema"`
+- `node_id`
+- `schema`
+- `field`
+- `reason`
+- `case_tag`
+- `payload`
+
+When `reason` is `incompatible_payload_schema`, details also include
+`expected_decode_helper`, `decode_helper_boundary`, `expected_encode_helper`,
+and `encode_helper_boundary`. When the payload schema fails because a nested
+field layout cannot expose generated helpers, details also include
+`unsupported_nested_schema`, `unsupported_nested_field`,
+`unsupported_nested_field_path`, `unsupported_nested_layout_reason`,
+`unsupported_nested_layout_fact`, and `unavailable_helper_directions`. A
+related note with `kind: "unsupported_nested_field"` carries the nested field
+span, the same field path, and a human-readable unsupported layout fact.
+
 Effect diagnostic `details` are stable for `effect.missing_public`:
 
 - `phase`

@@ -2937,12 +2937,28 @@ fn dispatch_payload_schema_incompatible_helper_reports_helper_boundaries() {
                 .contains("\"expected_encode_helper\":\"byte_encode_forward_byte_view_payload\"")
         );
         assert!(details.contains("\"encode_helper_boundary\":\"generated_binary_schema_encode\""));
-        assert_eq!(diagnostic.related.len(), 2);
+        assert!(details.contains("\"unsupported_nested_schema\":\"ForwardByteViewPayload\""));
+        assert!(details.contains("\"unsupported_nested_field\":\"payload\""));
+        assert!(details.contains(
+            "\"unsupported_nested_layout_reason\":\"ineligible_byte_view_length_reference\""
+        ));
+        assert!(details.contains("\"unavailable_helper_directions\":[\"decode\",\"encode\"]"));
+        assert_eq!(diagnostic.related.len(), 3);
         assert!(diagnostic.related[0].to_json().contains(
             "does not expose the generated `byte_decode_step_forward_byte_view_payload` helper"
         ));
         assert!(
             diagnostic.related[1]
+                .to_json()
+                .contains("Nested dispatch payload field `ForwardByteViewPayload.payload` prevents generated decode and encode helpers")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("length reference `later_length` to be declared before field `payload`")
+        );
+        assert!(
+            diagnostic.related[2]
                 .to_json()
                 .contains("expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`")
         );

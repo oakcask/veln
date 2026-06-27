@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `UnsupportedReservedPayload` is outside the generated binary schema helper slice", "dispatch payload schema `UnsupportedReservedSuffixPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_unsupported_reserved_payload\"", "\"expected_encode_helper\":\"byte_encode_unsupported_reserved_payload\"", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
+contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "dispatch payload schema `wire::MissingPayload` is not declared", "dispatch payload `wire::WireShape` resolves to a type, not a schema", "dispatch payload schema `UnsupportedReservedPayload` is outside the generated binary schema helper slice", "dispatch payload schema `UnsupportedReservedSuffixPayload` is outside the generated binary schema helper slice", "dispatch payload schema `UnsupportedByteViewPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_unsupported_reserved_payload\"", "\"expected_encode_helper\":\"byte_encode_unsupported_reserved_payload\"", "\"expected_decode_helper\":\"byte_decode_step_unsupported_byte_view_payload\"", "\"expected_encode_helper\":\"byte_encode_unsupported_byte_view_payload\"", "\"unsupported_nested_field_path\":[{\"kind\":\"schema\",\"name\":\"UnsupportedByteViewPayload\"},{\"kind\":\"field\",\"name\":\"payload\"}]", "\"unsupported_nested_layout_fact\":\"`ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`\"", "\"unavailable_helper_directions\":[\"decode\",\"encode\"]", "Nested dispatch payload field `UnsupportedByteViewPayload.payload` prevents generated decode and encode helpers", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload schema `ExtensionSelfPacket` cannot reference itself", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
 
 [stderr]
 format = "empty"
@@ -53,6 +53,12 @@ id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
 message = "dispatch payload schema `UnsupportedReservedSuffixPayload` is outside the generated binary schema helper slice"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `UnsupportedByteViewPayload` is outside the generated binary schema helper slice"
 
 [[diagnostics]]
 id = "schema.dispatch_payload"
