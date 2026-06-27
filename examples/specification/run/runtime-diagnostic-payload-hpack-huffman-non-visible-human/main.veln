@@ -1,4 +1,4 @@
-# RuntimeDiagnostic values can project human HPACK Huffman non-visible payloads.
+# HPACK fixture helpers return human Huffman non-visible RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.huffman_non_visible_value",
@@ -7,18 +7,20 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn preview_block() -> Result<ByteChunk, RuntimeDiagnostic>
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
 	match byte_chunk_from_hex("0484ffc7fe3f")
-		Ok(block) => Ok(block)
+		Ok(block) => match byte_offset(0)
+			Ok(offset) => match byte_view(block, offset, byte_chunk_count(block))
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
 		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let block: ByteChunk = preview_block()?
-	Err(RuntimeDiagnostic(
-		"hpack.fixture.huffman_non_visible_value",
-		"HPACK Huffman decoded non-visible header value at byte offset 9",
-		RuntimeHpackFixtureDiagnostic(9, 6, 4, "fixture HPACK Huffman checked header value", "hpack_fixture", block)
-	))
+	let preview: ByteView = preview_view()?
+	hpack_fixture_huffman_non_visible_value(9, 6, 4, "fixture HPACK Huffman checked header value", "hpack_fixture", preview)
 end

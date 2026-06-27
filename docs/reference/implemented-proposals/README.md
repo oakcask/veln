@@ -166,6 +166,8 @@ behavior.
   [http2-hpack-malformed-string-diagnostics.md](http2-hpack-malformed-string-diagnostics.md).
 - Runtime diagnostic HPACK fixture payloads:
   [runtime-diagnostic-hpack-fixture-payloads.md](runtime-diagnostic-hpack-fixture-payloads.md).
+- Runtime diagnostic HPACK fixture helper payload:
+  [runtime-diagnostic-hpack-helper-payload.md](runtime-diagnostic-hpack-helper-payload.md).
 - Runtime diagnostic generated encode value payload:
   [runtime-diagnostic-encode-value-payload.md](runtime-diagnostic-encode-value-payload.md).
 - Runtime diagnostic generated schema fixed-field payload:
@@ -218,6 +220,14 @@ behavior.
   [runtime-diagnostic-http2-helper-payloads.md](runtime-diagnostic-http2-helper-payloads.md).
 - Runtime diagnostic HTTP/2 DATA padding and SETTINGS ACK helper payload:
   [runtime-diagnostic-http2-data-settings-helper-payload.md](runtime-diagnostic-http2-data-settings-helper-payload.md).
+- Runtime diagnostic HTTP/2 side-table cleanup:
+  [runtime-diagnostic-http2-side-table-cleanup.md](runtime-diagnostic-http2-side-table-cleanup.md).
+- Runtime diagnostic test JSON payload:
+  [runtime-diagnostic-test-json-payload.md](runtime-diagnostic-test-json-payload.md).
+- Runtime diagnostic result value trace projection:
+  [runtime-diagnostic-result-value-trace-projection.md](runtime-diagnostic-result-value-trace-projection.md).
+- Runtime diagnostic payloads:
+  [runtime-diagnostic-payload.md](runtime-diagnostic-payload.md).
 - HTTP/2 HPACK string literal fixture:
   [http2-hpack-string-literal-fixture.md](http2-hpack-string-literal-fixture.md).
 - HTTP/2 HPACK static name literal fixture:

@@ -65,3 +65,48 @@ equals = 4
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
 equals = false
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "http2.protocol.closed_with_pending"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.message"
+equals = "HTTP/2 input ended with 4 pending byte(s) at byte offset 0"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHttp2ProtocolClosedWithPendingDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.pending_count"
+equals = 4
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.active_continuation"
+equals = "none"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"

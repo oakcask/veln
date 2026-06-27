@@ -93,25 +93,25 @@ equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.frame_kind"
 equals = 7
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.3"
+path = "value.detail.observed_payload_length"
 equals = 7
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.4"
+path = "value.detail.expected_payload_length"
 equals = 8
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.7.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.8"
+path = "value.detail.fields"
 missing = true

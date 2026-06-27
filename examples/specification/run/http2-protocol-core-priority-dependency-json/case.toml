@@ -99,40 +99,40 @@ equals = "RuntimeHttp2ProtocolPriorityDependencyDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.0"
+path = "value.detail.byte_offset"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.dependency_stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.3"
+path = "value.detail.active_state"
 equals = "stream-control"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.4"
+path = "value.detail.rule_provenance"
 equals = "rfc9113_priority_dependency"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5.fields.3.value"
+path = "value.detail.preview.bytes.3.value"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6"
+path = "value.detail.fields"
 missing = true

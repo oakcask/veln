@@ -1,0 +1,243 @@
+command = ["test", "--json"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-test-json/v0"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 2
+
+[[json_assert]]
+path = "summary.failed"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "returned_payload"
+
+[[json_assert]]
+path = "cases.0.kind"
+equals = "test"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = null
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.0.failure.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.0.failure.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.0.failure.details.value"
+equals = "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.id"
+equals = "codec.incomplete_input"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"Payload"},{"kind":"field","name":"body"}]
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.expected_count"
+equals = 3
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.readiness"
+equals = "need_bytes"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_preview.data"
+equals = "0001"
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.failure.details.byte_diagnostic.byte_preview.truncated"
+equals = false
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.id"
+equals = "codec.incomplete_input"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeByteDiagnostic"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.byte_offset.value"
+equals = 2
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.field_path.0.kind"
+equals = "schema"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.field_path.1.name"
+equals = "body"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.facts.constructor"
+equals = "RuntimeByteCountFacts"
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.facts.expected_count.value"
+equals = 3
+
+[[result_value_assert]]
+value_path = "cases.0.failure.details.value"
+path = "value.detail.preview.data"
+equals = "0001"
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "returned_value_payload"
+
+[[json_assert]]
+path = "cases.1.kind"
+equals = "test"
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.1.reason"
+equals = null
+
+[[json_assert]]
+path = "cases.1.failure.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.1.failure.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.1.failure.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.1.failure.details.value"
+equals = "RuntimeDiagnostic(codec.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))"
+
+[[json_assert]]
+path = "cases.1.failure.details.value_diagnostic.kind"
+equals = "value_diagnostic"
+
+[[json_assert]]
+path = "cases.1.failure.details.value_diagnostic.id"
+equals = "codec.encode_value_unrepresentable"
+
+[[json_assert]]
+path = "cases.1.failure.details.value_diagnostic.field_path"
+equals = [{"kind":"schema","name":"RuntimeValuePacket"},{"kind":"field","name":"value"}]
+
+[[json_assert]]
+path = "cases.1.failure.details.value_diagnostic.field_path_display"
+equals = "RuntimeValuePacket.value"
+
+[[json_assert]]
+path = "cases.1.failure.details.value_diagnostic.reason"
+equals = "value must be between 0 and 255"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "value.id"
+equals = "codec.encode_value_unrepresentable"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeValueDiagnostic"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "value.detail.field_path.0.name"
+equals = "RuntimeValuePacket"
+
+[[result_value_assert]]
+value_path = "cases.1.failure.details.value"
+path = "value.detail.reason"
+equals = "value must be between 0 and 255"

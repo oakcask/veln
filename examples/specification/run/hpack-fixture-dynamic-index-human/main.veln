@@ -1,21 +1,39 @@
 use hpack_fixture
 
-fn require_state(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<HpackFixtureState, String>
+fn fallback_payload(message: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.unsupported_header_block",
+		message,
+		RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn require_state(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<HpackFixtureState, RuntimeDiagnostic>
 	match result
 		Ok(transition) => Ok(transition_state(transition))
-		Err(_) => Err("expected HPACK fixture decode")
+		Err(_) => Err(fallback_payload("expected HPACK fixture decode"))
 	end
 end
 
-fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String>
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), RuntimeDiagnostic>
 	match result
-		Ok(_) => Err("expected HPACK dynamic index lookup failure")
+		Ok(_) => Err(fallback_payload("expected HPACK dynamic index lookup failure"))
 		Err(error) => project_failure(error)
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let literal_state: HpackFixtureState = require_state(decode_header_block(byte_chunk_from_hex("44072f746172676574")?, initial_state(), 27))?
-	let evicted_state: HpackFixtureState = require_state(decode_header_block(byte_chunk_from_hex("3e")?, literal_state, 28))?
-	project_decode_result(decode_header_block(byte_chunk_from_hex("be")?, evicted_state, 29))
+fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let literal_block: ByteChunk = fixture_bytes("44072f746172676574")?
+	let literal_state: HpackFixtureState = require_state(decode_header_block(literal_block, initial_state(), 27))?
+	let evict_block: ByteChunk = fixture_bytes("3e")?
+	let evicted_state: HpackFixtureState = require_state(decode_header_block(evict_block, literal_state, 28))?
+	let bad_block: ByteChunk = fixture_bytes("be")?
+	project_decode_result(decode_header_block(bad_block, evicted_state, 29))
 end

@@ -1930,9 +1930,27 @@ pub fn failure_diagnostic_id(failure: HpackFixtureFailure) -> String
 	end
 end
 
-pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
+fn project_failure_fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.unsupported_header_block",
+		error,
+		RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn project_failure_preview(failure: HpackFixtureFailure) -> Result<ByteView, RuntimeDiagnostic>
 	let preview_chunk: ByteChunk = failure_preview(failure)
-	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?
+	match byte_offset(0)
+		Ok(offset) => match byte_view(preview_chunk, offset, byte_chunk_count(preview_chunk))
+			Ok(view) => Ok(view)
+			Err(error) => Err(project_failure_fallback_payload(error))
+		end
+		Err(error) => Err(project_failure_fallback_payload(error))
+	end
+end
+
+pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = project_failure_preview(failure)?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)

@@ -34,17 +34,19 @@
         }
         Object resultValue = asResult(result).value();
         String value = format(resultValue);
-        registerEncodeErrorValueDiagnostic(resultValue, value);
-        FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
+        DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
+        FixtureHexDiagnostic fixtureHex = carriedDiagnostic == null
+            ? null
+            : carriedDiagnostic.fixtureHexDiagnostic;
         RuntimeDiagnosticPayload runtimeDiagnostic = runtimeDiagnosticPayload(resultValue);
         ByteDiagnostic byteDiagnostic = runtimeDiagnostic == null
-            ? byteDiagnostics.get().remove(value)
+            ? carriedByteDiagnostic(resultValue, carriedDiagnostic)
             : runtimeDiagnostic.byteDiagnostic;
         ValueDiagnostic valueDiagnostic = runtimeDiagnostic == null
-            ? valueDiagnostics.get().remove(value)
+            ? carriedValueDiagnostic(resultValue, carriedDiagnostic)
             : runtimeDiagnostic.valueDiagnostic;
         ProtocolDiagnostic protocolDiagnostic = runtimeDiagnostic == null
-            ? protocolDiagnostics.get().remove(value)
+            ? carriedProtocolDiagnostic(carriedDiagnostic)
             : runtimeDiagnostic.protocolDiagnostic;
         String line = "result"
             + "\t" + hex(value);
@@ -100,23 +102,39 @@
         }
     }
 
-    private static final ThreadLocal<java.util.Map<String, FixtureHexDiagnostic>> fixtureHexDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
+    private static DiagnosticResultValue carriedDiagnosticValue(Object value) {
+        return value instanceof DiagnosticResultValue ? (DiagnosticResultValue) value : null;
+    }
 
-    private static final ThreadLocal<java.util.Map<String, ByteDiagnostic>> byteDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static final ThreadLocal<java.util.Map<String, ValueDiagnostic>> valueDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static final ThreadLocal<java.util.Map<String, ProtocolDiagnostic>> protocolDiagnostics =
-        ThreadLocal.withInitial(java.util.HashMap::new);
-
-    private static ByteDiagnostic byteDiagnosticForMessage(Object message) {
-        if (!(message instanceof String)) {
-            return null;
+    private static ByteDiagnostic carriedByteDiagnostic(
+        Object value,
+        DiagnosticResultValue carriedDiagnostic
+    ) {
+        ByteDiagnostic diagnostic = decodeErrorByteDiagnostic(value);
+        if (diagnostic != null) {
+            return diagnostic;
         }
-        return byteDiagnostics.get().get(asString(message));
+        diagnostic = decodeNeedMoreByteDiagnostic(value);
+        if (diagnostic != null) {
+            return diagnostic;
+        }
+        return carriedDiagnostic == null ? null : carriedDiagnostic.byteDiagnostic;
+    }
+
+    private static ValueDiagnostic carriedValueDiagnostic(
+        Object value,
+        DiagnosticResultValue carriedDiagnostic
+    ) {
+        if (carriedDiagnostic != null && carriedDiagnostic.valueDiagnostic != null) {
+            return carriedDiagnostic.valueDiagnostic;
+        }
+        return encodeErrorValueDiagnostic(value);
+    }
+
+    private static ProtocolDiagnostic carriedProtocolDiagnostic(
+        DiagnosticResultValue carriedDiagnostic
+    ) {
+        return carriedDiagnostic == null ? null : carriedDiagnostic.protocolDiagnostic;
     }
 
     private static RuntimeDiagnosticPayload runtimeDiagnosticPayload(Object value) {
@@ -1086,730 +1104,41 @@
         );
     }
 
-    private static void registerHttp2ProtocolClosedWithPendingDiagnostic(
-        String message,
-        long byteOffset,
-        long pendingCount,
-        String activeContinuation,
-        String nearbyContext
+    private static Object diagnosticErr(
+        Object value,
+        FixtureHexDiagnostic fixtureHexDiagnostic,
+        ByteDiagnostic byteDiagnostic,
+        ValueDiagnostic valueDiagnostic,
+        ProtocolDiagnostic protocolDiagnostic
     ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.closed_with_pending",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("pending_count", pendingCount),
-                    DiagnosticDetail.string("input_event", "end"),
-                    DiagnosticDetail.string("active_continuation", activeContinuation),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
+        return err(new DiagnosticResultValue(
+            value,
+            fixtureHexDiagnostic,
+            byteDiagnostic,
+            valueDiagnostic,
+            protocolDiagnostic
+        ));
     }
 
-    private static void registerHttp2ProtocolPartialPrefaceDiagnostic(
-        String message,
-        long byteOffset,
-        long pendingCount,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.partial_preface",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("pending_count", pendingCount),
-                    DiagnosticDetail.number("expected_count", 24),
-                    DiagnosticDetail.string("input_event", "end"),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", "connection-preface"),
-                    DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
-                )
-            )
-        );
+    private static Object diagnosticErr(Object value, FixtureHexDiagnostic fixtureHexDiagnostic) {
+        return diagnosticErr(value, fixtureHexDiagnostic, null, null, null);
     }
 
-    private static void registerHttp2ProtocolInvalidPrefaceDiagnostic(
-        String message,
-        long byteOffset,
-        long expectedByte,
-        long actualByte,
-        long matchedCount,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_preface",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("expected_byte", expectedByte),
-                    DiagnosticDetail.number("actual_byte", actualByte),
-                    DiagnosticDetail.number("matched_prefix_count", matchedCount),
-                    DiagnosticDetail.number("expected_count", 24),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", "connection-preface"),
-                    DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
-                )
-            )
-        );
+    private static Object diagnosticErr(Object value, ByteDiagnostic byteDiagnostic) {
+        return diagnosticErr(value, null, byteDiagnostic, null, null);
     }
 
-    private static void registerHttp2ProtocolInvalidFrameKindDiagnostic(
-        String message,
-        long byteOffset,
-        long actualKind,
-        long streamId,
-        long expectedKind,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_frame_kind",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("actual_frame_kind", actualKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.number("expected_frame_kind", expectedKind),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
+    private static Object diagnosticErr(Object value, ValueDiagnostic valueDiagnostic) {
+        return diagnosticErr(value, null, null, valueDiagnostic, null);
     }
 
-    private static void registerHttp2ProtocolInvalidStreamIdDiagnostic(
-        String message,
-        long byteOffset,
-        long frameKind,
-        long streamId,
-        String requiredDomain,
-        String endpointRole,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_stream_id",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("required_stream_id_domain", requiredDomain),
-                    DiagnosticDetail.string("endpoint_role", endpointRole),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidPayloadLengthDiagnostic(
-        String message,
-        long byteOffset,
-        long frameKind,
-        long streamId,
-        long observedLength,
-        long expectedLength,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_payload_length",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.number("observed_payload_length", observedLength),
-                    DiagnosticDetail.number("expected_payload_length", expectedLength),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(
-        String message,
-        long byteOffset,
-        long streamId,
-        long observedIncrement,
-        long acceptedMinIncrement,
-        long acceptedMaxIncrement,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_window_update_increment",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", 8),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.number("observed_window_increment", observedIncrement),
-                    DiagnosticDetail.number("accepted_min_window_increment", acceptedMinIncrement),
-                    DiagnosticDetail.number("accepted_max_window_increment", acceptedMaxIncrement),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidDataPaddingDiagnostic(
-        String message,
-        long byteOffset,
-        long streamId,
-        long padLength,
-        long remainingPayloadLength,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_data_padding",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", 0),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", "stream"),
-                    DiagnosticDetail.number("pad_length", padLength),
-                    DiagnosticDetail.number("remaining_payload_length", remainingPayloadLength),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolContentLengthMismatchDiagnostic(
-        String message,
-        long byteOffset,
-        long frameKind,
-        long streamId,
-        long expectedLength,
-        long observedLength,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.content_length_mismatch",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.number("expected_content_length", expectedLength),
-                    DiagnosticDetail.number("observed_body_length", observedLength),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
-        String message,
-        long byteOffset,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.unexpected_settings_ack",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", 4),
-                    DiagnosticDetail.number("stream_id", 0),
-                    DiagnosticDetail.string("stream_ref", "connection"),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidRequestHeaderListDiagnostic(
-        String message,
-        long byteOffset,
-        long frameKind,
-        long streamId,
-        String failedHeaderFact,
-        String headerName,
-        String decodedHeaderNames,
-        String activeState,
-        String ruleProvenance
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_request_header_list",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
-                    DiagnosticDetail.string("header_name", headerName),
-                    DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidResponseHeaderListDiagnostic(
-        String message,
-        long byteOffset,
-        long frameKind,
-        long streamId,
-        String failedHeaderFact,
-        String headerName,
-        String decodedHeaderNames,
-        String activeState,
-        String ruleProvenance
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_response_header_list",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
-                    DiagnosticDetail.string("header_name", headerName),
-                    DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
-        String message,
-        long byteOffset,
-        long streamId,
-        long dependencyStreamId,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.invalid_priority_dependency",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("frame_kind", 2),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", "stream"),
-                    DiagnosticDetail.number("dependency_stream_id", dependencyStreamId),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2ProtocolStreamAfterGoawayDiagnostic(
-        String message,
-        long byteOffset,
-        long streamId,
-        long lastStreamId,
-        String shutdownState,
-        String endpointRole,
-        String ruleProvenance
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.protocol.stream_after_goaway",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", "stream"),
-                    DiagnosticDetail.number("last_stream_id", lastStreamId),
-                    DiagnosticDetail.string("shutdown_state", shutdownState),
-                    DiagnosticDetail.string("endpoint_role", endpointRole),
-                    DiagnosticDetail.string("active_state", shutdownState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2PeerLimitFrameSizeExceededDiagnostic(
-        String message,
-        long byteOffset,
-        long observedLength,
-        long allowedLength,
-        long frameKind,
-        long streamId,
-        String receiveLimitProvenance
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.peer_limit.frame_size_exceeded",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_payload_length", observedLength),
-                    DiagnosticDetail.number("allowed_max_frame_size", allowedLength),
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2PeerLimitHeaderListSizeExceededDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long allowedSize,
-        long frameKind,
-        long streamId,
-        String receiveLimitProvenance,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.peer_limit.header_list_size_exceeded",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_header_list_size", observedSize),
-                    DiagnosticDetail.number("allowed_header_list_size", allowedSize),
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
-        String message,
-        long byteOffset,
-        long observedLength,
-        long allowedWindowCredit,
-        long frameKind,
-        long streamId,
-        String activeState,
-        String ruleProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.peer_limit.flow_control_window_exceeded",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_payload_length", observedLength),
-                    DiagnosticDetail.number("allowed_window_credit", allowedWindowCredit),
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("rule_provenance", ruleProvenance),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
-        String message,
-        long byteOffset,
-        long settingIdentifier,
-        String settingName,
-        long observedValue,
-        long acceptedMinValue,
-        long acceptedMaxValue,
-        String peerLimitProvenance,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "http2.peer_limit.settings_value_out_of_range",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("setting_identifier", settingIdentifier),
-                    DiagnosticDetail.string("setting_name", settingName),
-                    DiagnosticDetail.number("observed_value", observedValue),
-                    DiagnosticDetail.number("accepted_min_value", acceptedMinValue),
-                    DiagnosticDetail.number("accepted_max_value", acceptedMaxValue),
-                    DiagnosticDetail.string("peer_limit_provenance", peerLimitProvenance),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.unsupported_header_block",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureMalformedStringLengthDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.malformed_string_length",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureMalformedRawStringValueDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.malformed_raw_string_value",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureMalformedHuffmanPaddingDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.malformed_huffman_padding",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureHuffmanEosSymbolDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.huffman_eos_symbol",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureHuffmanNonVisibleValueDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        registerHpackFixtureHeaderBlockDiagnostic(
-            message,
-            "hpack.fixture.huffman_non_visible_value",
-            byteOffset,
-            observedSize,
-            observedFirstByte,
-            expectedFixture,
-            codecModule,
-            nearbyContext
-        );
-    }
-
-    private static void registerHpackFixtureDynamicIndexOutOfRangeDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        long requestedDynamicIndex,
-        long dynamicTableEntryCount,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "hpack.fixture.dynamic_index_out_of_range",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_header_block_size", observedSize),
-                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
-                    DiagnosticDetail.number("requested_dynamic_index", requestedDynamicIndex),
-                    DiagnosticDetail.number("dynamic_table_entry_count", dynamicTableEntryCount),
-                    DiagnosticDetail.string("expected_fixture", expectedFixture),
-                    DiagnosticDetail.string("codec_module", codecModule),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
-        String message,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        long observedUpdateSize,
-        long frameKind,
-        long streamId,
-        String activeState,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                "hpack.fixture.table_size_update_not_at_start",
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_header_block_size", observedSize),
-                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
-                    DiagnosticDetail.number("observed_header_table_size", observedUpdateSize),
-                    DiagnosticDetail.number("frame_kind", frameKind),
-                    DiagnosticDetail.number("stream_id", streamId),
-                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                    DiagnosticDetail.string("active_state", activeState),
-                    DiagnosticDetail.string("expected_fixture", expectedFixture),
-                    DiagnosticDetail.string("codec_module", codecModule),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerHpackFixtureHeaderBlockDiagnostic(
-        String message,
-        String id,
-        long byteOffset,
-        long observedSize,
-        long observedFirstByte,
-        String expectedFixture,
-        String codecModule,
-        String nearbyContext
-    ) {
-        protocolDiagnostics.get().put(
-            message,
-            new ProtocolDiagnostic(
-                id,
-                byteOffset,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("observed_header_block_size", observedSize),
-                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
-                    DiagnosticDetail.string("expected_fixture", expectedFixture),
-                    DiagnosticDetail.string("codec_module", codecModule),
-                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
-                )
-            )
-        );
-    }
-
-    private static void registerCodecIncompleteInputDiagnostic(
+    private static Object codecIncompleteInputDiagnostic(
         String message,
         long byteOffset,
         long expectedCount,
         long availableCount
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "codec.incomplete_input",
@@ -1824,14 +1153,14 @@
         );
     }
 
-    private static void registerCodecByteRangeOutOfBoundsDiagnostic(
+    private static Object codecByteRangeOutOfBoundsDiagnostic(
         String message,
         long byteOffset,
         long requestedCount,
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "codec.byte_range_out_of_bounds",
@@ -1846,7 +1175,7 @@
         );
     }
 
-    private static void registerSchemaTruncatedFieldDiagnostic(
+    private static Object schemaTruncatedFieldDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1855,7 +1184,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        registerSchemaTruncatedFieldPathDiagnostic(
+        return schemaTruncatedFieldPathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -1865,7 +1194,7 @@
         );
     }
 
-    private static void registerSchemaTruncatedFieldPathDiagnostic(
+    private static Object schemaTruncatedFieldPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1873,7 +1202,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.truncated_field",
@@ -1889,7 +1218,7 @@
         );
     }
 
-    private static void registerSchemaFixedFieldMismatchDiagnostic(
+    private static Object schemaFixedFieldMismatchStringDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1898,7 +1227,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        registerSchemaFixedFieldMismatchPathDiagnostic(
+        return schemaFixedFieldMismatchPathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -1908,7 +1237,7 @@
         );
     }
 
-    private static void registerSchemaFixedFieldMismatchPathDiagnostic(
+    private static Object schemaFixedFieldMismatchPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1916,7 +1245,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.fixed_field_mismatch",
@@ -1931,7 +1260,7 @@
         );
     }
 
-    private static void registerSchemaReservedBitsMismatchDiagnostic(
+    private static Object schemaReservedBitsMismatchDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1941,7 +1270,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.reserved_bits_mismatch",
@@ -1960,7 +1289,7 @@
         );
     }
 
-    private static void registerSchemaLengthOutOfBoundsDiagnostic(
+    private static Object schemaLengthOutOfBoundsDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -1969,7 +1298,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_out_of_bounds",
@@ -1987,7 +1316,7 @@
         );
     }
 
-    private static void registerSchemaLengthOutOfBoundsPathDiagnostic(
+    private static Object schemaLengthOutOfBoundsPathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -1995,7 +1324,7 @@
         long availableCount,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_out_of_bounds",
@@ -2010,7 +1339,7 @@
         );
     }
 
-    private static void registerSchemaIntegerOutOfRangeDiagnostic(
+    private static Object schemaIntegerOutOfRangeDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -2021,7 +1350,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        registerSchemaIntegerOutOfRangePathDiagnostic(
+        return schemaIntegerOutOfRangePathDiagnostic(
             message,
             byteOffset,
             schemaFieldPath(schemaName, fieldName),
@@ -2033,7 +1362,7 @@
         );
     }
 
-    private static void registerSchemaIntegerOutOfRangePathDiagnostic(
+    private static Object schemaIntegerOutOfRangePathDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -2043,7 +1372,7 @@
         long actualValue,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.integer_out_of_range",
@@ -2097,7 +1426,7 @@
         return path;
     }
 
-    private static void registerSchemaValidationFailedDiagnostic(
+    private static Object schemaValidationFailedDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -2116,7 +1445,7 @@
             details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
         }
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.validation_failed",
@@ -2130,7 +1459,7 @@
         );
     }
 
-    private static void registerSchemaStructuralValidationFailedDiagnostic(
+    private static Object schemaStructuralValidationFailedDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -2146,7 +1475,7 @@
             details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
         }
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.validation_failed",
@@ -2159,7 +1488,7 @@
         );
     }
 
-    private static void registerSchemaMappingDivisionByZeroDiagnostic(
+    private static Object schemaMappingDivisionByZeroDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -2171,7 +1500,7 @@
         details.add(DiagnosticDetail.string("target_field", targetField));
         details.add(DiagnosticDetail.string("operator", "/"));
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.mapping_division_by_zero",
@@ -2185,7 +1514,7 @@
         );
     }
 
-    private static void registerSchemaLengthDivisionByZeroDiagnostic(
+    private static Object schemaLengthDivisionByZeroDiagnostic(
         String message,
         long byteOffset,
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
@@ -2199,7 +1528,7 @@
         details.add(DiagnosticDetail.string("divisor_operand", divisorOperand));
         details.add(DiagnosticDetail.string("operator", "/"));
         details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.length_division_by_zero",
@@ -2210,8 +1539,8 @@
         );
     }
 
-    private static void registerSchemaValueValidationFailedDiagnostic(
-        String message,
+    private static Object schemaValueValidationFailedDiagnostic(
+        Object value,
         String schemaName,
         String fieldName,
         String predicate,
@@ -2234,13 +1563,13 @@
         if (fieldName != null && !fieldName.isEmpty()) {
             path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
         }
-        valueDiagnostics.get().put(
-            message,
+        return diagnosticErr(
+            value,
             new ValueDiagnostic("schema.validation_failed", path, details)
         );
     }
 
-    private static void registerByteWriteValueDiagnostic(
+    private static Object byteWriteValueDiagnostic(
         String message,
         String helperName,
         long suppliedValue,
@@ -2249,7 +1578,7 @@
         long width,
         boolean littleEndian
     ) {
-        valueDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ValueDiagnostic(
                 "codec.byte_write_value_unrepresentable",
@@ -2266,17 +1595,14 @@
         );
     }
 
-    private static void registerEncodeErrorValueDiagnostic(Object value, String message) {
+    private static ValueDiagnostic encodeErrorValueDiagnostic(Object value) {
         if (!isAdtNamed(value, "EncodeError::EncodeError")) {
-            return;
-        }
-        if (valueDiagnostics.get().containsKey(message)) {
-            return;
+            return null;
         }
         Adt error = asAdt(value, "EncodeError::EncodeError");
         String id = asString(error.payloads[0]);
         if (!isCommandEncodeDiagnosticId(id)) {
-            return;
+            return null;
         }
         String fieldPath = asString(error.payloads[1]);
         String reason = asString(error.payloads[2]);
@@ -2284,13 +1610,10 @@
             new java.util.ArrayList<DiagnosticDetail>();
         details.add(DiagnosticDetail.string("reason", reason));
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
-        valueDiagnostics.get().put(
-            message,
-            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
-        );
+        return new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details);
     }
 
-    private static void registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+    private static Object schemaByteViewEncodeLengthMismatchDiagnostic(
         Object error,
         Object view,
         long expectedCount,
@@ -2310,9 +1633,12 @@
         details.add(DiagnosticDetail.string("length_expression", lengthExpression));
         details.add(DiagnosticDetail.number("byte_offset", byteViewOffset(view)));
         details.add(DiagnosticDetail.bytePreview("byte_preview", byteViewPreviewTrace(view, 8)));
-        valueDiagnostics.get().put(
-            format(error),
-            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details)
+        return new DiagnosticResultValue(
+            error,
+            null,
+            null,
+            new ValueDiagnostic(id, encodeErrorFieldPath(fieldPath), details),
+            null
         );
     }
 
@@ -2324,10 +1650,10 @@
             || id.equals("codec.dispatch_mismatch");
     }
 
-    public static void registerDecodeErrorByteDiagnostic(Object value, String message) {
+    private static ByteDiagnostic decodeErrorByteDiagnostic(Object value) {
         if (!isAdtNamed(value, "DecodeError::DecodeError")
             && !isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
-            return;
+            return null;
         }
         Adt error = (Adt) value;
         String id = asString(error.payloads[0]);
@@ -2336,22 +1662,21 @@
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
         if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
-            String reason = asString(error.payloads[3]);
+            Object reasonValue = error.payloads[3];
+            String reason = asString(reasonValue);
             details.add(DiagnosticDetail.string("reason", reason));
-            mergeDecodeErrorReasonByteContext(details, reason);
+            mergeDecodeErrorReasonByteContext(details, reasonValue);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
-        byteDiagnostics.get().put(
-            message,
-            new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details)
-        );
+        return new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details);
     }
 
     private static void mergeDecodeErrorReasonByteContext(
         java.util.ArrayList<DiagnosticDetail> details,
-        String reason
+        Object reason
     ) {
-        ByteDiagnostic carried = byteDiagnostics.get().remove(reason);
+        DiagnosticResultValue diagnostic = carriedDiagnosticValue(reason);
+        ByteDiagnostic carried = diagnostic == null ? null : diagnostic.byteDiagnostic;
         if (carried == null) {
             return;
         }
@@ -2372,9 +1697,9 @@
         }
     }
 
-    public static void registerDecodeNeedMoreByteDiagnostic(Object value, String message) {
+    private static ByteDiagnostic decodeNeedMoreByteDiagnostic(Object value) {
         if (!isAdt(value, "DecodeStep::NeedMore")) {
-            return;
+            return null;
         }
         Object readiness = adtPayload(value, 0);
         java.util.ArrayList<DiagnosticDetail> details =
@@ -2388,16 +1713,13 @@
         } else if (isAdt(readiness, "DecodeReadiness::NeedEnd")) {
             details.add(DiagnosticDetail.string("readiness", "need_end"));
         } else {
-            return;
+            return null;
         }
-        byteDiagnostics.get().put(
-            message,
-            new ByteDiagnostic(
-                "codec.incomplete_input",
-                byteOffset,
-                new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(),
-                details
-            )
+        return new ByteDiagnostic(
+            "codec.incomplete_input",
+            byteOffset,
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(),
+            details
         );
     }
 
@@ -2420,7 +1742,7 @@
         return path;
     }
 
-    private static void registerSchemaDispatchUnknownTagDiagnostic(
+    private static Object schemaDispatchUnknownTagDiagnostic(
         String message,
         long byteOffset,
         String schemaName,
@@ -2430,7 +1752,7 @@
         String expectedTags,
         String nearbyContext
     ) {
-        byteDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.dispatch_unknown_tag",
@@ -2500,7 +1822,7 @@
         return out;
     }
 
-    private static void registerFixtureHexDiagnostic(
+    private static Object fixtureHexDiagnostic(
         String message,
         String id,
         String input,
@@ -2511,7 +1833,7 @@
     ) {
         int contextStart = Math.max(0, textStart - 8);
         int contextEnd = Math.min(input.length(), textEnd + 8);
-        fixtureHexDiagnostics.get().put(
+        return diagnosticErr(
             message,
             new FixtureHexDiagnostic(
                 id,

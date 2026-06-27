@@ -2224,7 +2224,7 @@
             + " "
             + nibble
             + " nibble";
-        registerFixtureHexDiagnostic(
+        return fixtureHexDiagnostic(
             message,
             "fixture.hex.invalid_character",
             input,
@@ -2233,14 +2233,13 @@
             byteOffset,
             nibble
         );
-        return err(message);
     }
 
     private static Object fixtureHexOddLength(String input, int textIndex, int byteOffset) {
         String message = "fixture.hex.odd_length: dangling hex nibble at byte offset "
             + byteOffset
             + " high nibble";
-        registerFixtureHexDiagnostic(
+        return fixtureHexDiagnostic(
             message,
             "fixture.hex.odd_length",
             input,
@@ -2249,7 +2248,6 @@
             byteOffset,
             "high"
         );
-        return err(message);
     }
 
     private static boolean isAsciiWhitespace(char value) {
@@ -2314,14 +2312,13 @@
         if (requestedCount > bytes.size() - requestedOffset) {
             String message = "byte view range exceeds chunk length";
             long availableCount = Math.max(0L, bytes.size() - requestedOffset);
-            registerCodecByteRangeOutOfBoundsDiagnostic(
+            return codecByteRangeOutOfBoundsDiagnostic(
                 message,
                 requestedOffset,
                 requestedCount,
                 availableCount,
                 byteRangePreviewTrace(bytes, requestedOffset, availableCount, 8)
             );
-            return err(message);
         }
         return ok(byteViewObject(chunk, requestedOffset, requestedCount));
     }
@@ -2374,7 +2371,7 @@
         if (requestedOffset > available || requestedCount > available - requestedOffset) {
             String message = "byte view range exceeds view length";
             long availableCount = Math.max(0L, available - requestedOffset);
-            registerCodecByteRangeOutOfBoundsDiagnostic(
+            return codecByteRangeOutOfBoundsDiagnostic(
                 message,
                 byteViewOffset(view) + requestedOffset,
                 requestedCount,
@@ -2386,7 +2383,6 @@
                     8
                 )
             );
-            return err(message);
         }
         return ok(byteViewDerivedObject(view, requestedOffset, requestedCount));
     }
@@ -2442,7 +2438,7 @@
         String schema = asString(schemaName);
         String field = asString(fieldName);
         String message = "fixed field mismatch at byte offset " + offset;
-        registerSchemaFixedFieldMismatchDiagnostic(
+        return schemaFixedFieldMismatchStringDiagnostic(
             message,
             offset,
             schema,
@@ -2451,7 +2447,6 @@
             actualValue,
             byteViewPreviewTrace(view, 8)
         );
-        return err(message);
     }
 
     public static Object byteDecodeHttp2FrameHeader(Object view) {
@@ -2510,7 +2505,7 @@
         if (actualReserved != 0L) {
             long offset = byteViewOffset(view) + 5L;
             String message = "reserved bits mismatch at byte offset " + offset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 offset,
                 "Http2FrameHeader",
@@ -2520,7 +2515,6 @@
                 actualReserved,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
 
         return ok(record(
@@ -2550,7 +2544,7 @@
         if (length > availablePayload) {
             long byteOffset = baseOffset + headerCount + availablePayload;
             String message = "payload length out of bounds at byte offset " + byteOffset;
-            registerSchemaLengthOutOfBoundsDiagnostic(
+            return schemaLengthOutOfBoundsDiagnostic(
                 message,
                 byteOffset,
                 "Http2FrameHeader",
@@ -2559,7 +2553,6 @@
                 availablePayload,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
 
         Object payload = byteViewDerivedObject(view, headerCount, length);
@@ -2811,7 +2804,7 @@
             }
             if (!passed) {
                 String message = "schema value validation failed for field `" + fieldName + "`";
-                registerSchemaValueValidationFailedDiagnostic(
+                return schemaValueValidationFailedDiagnostic(
                     message,
                     name,
                     fieldName,
@@ -2819,7 +2812,6 @@
                     intValue,
                     supplied
                 );
-                return err(message);
             }
         }
         if (validation != null) {
@@ -2831,7 +2823,7 @@
             }
             if (!passed) {
                 String message = "schema value validation failed for schema `" + name + "`";
-                registerSchemaValueValidationFailedDiagnostic(
+                return schemaValueValidationFailedDiagnostic(
                     message,
                     name,
                     "",
@@ -2839,7 +2831,6 @@
                     null,
                     supplied
                 );
-                return err(message);
             }
         }
         return ok(value);
@@ -3379,15 +3370,14 @@
                     schema.name + "." + field.name,
                     "schema encode validation failed for field `" + field.name + "`"
                 );
-                registerSchemaValueValidationFailedDiagnostic(
-                    format(error),
+                return schemaValueValidationFailedDiagnostic(
+                    error,
                     schema.name,
                     field.name,
                     field.predicate.text,
                     intValue,
                     supplied
                 );
-                return err(error);
             }
         }
         return ok(null);
@@ -4444,19 +4434,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture unsupported header block at byte offset "
             + byteOffset;
-        registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.unsupported_header_block",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedStringLength(
@@ -4472,19 +4461,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed string length at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedStringLengthDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_string_length",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedRawStringValue(
@@ -4500,19 +4488,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed raw string value at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedRawStringValueDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_raw_string_value",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedHuffmanPadding(
@@ -4528,19 +4515,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed Huffman padding at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedHuffmanPaddingDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_huffman_padding",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureHuffmanEosSymbol(
@@ -4556,19 +4542,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture Huffman EOS symbol at byte offset "
             + byteOffset;
-        registerHpackFixtureHuffmanEosSymbolDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.huffman_eos_symbol",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureHuffmanNonVisibleValue(
@@ -4584,19 +4569,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture Huffman non-visible value at byte offset "
             + byteOffset;
-        registerHpackFixtureHuffmanNonVisibleValueDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.huffman_non_visible_value",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureDynamicIndexOutOfRange(
@@ -4616,21 +4600,60 @@
         long entryCount = asLong(dynamicTableEntryCount);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK dynamic index out of range at byte offset "
             + byteOffset;
-        registerHpackFixtureDynamicIndexOutOfRangeDiagnostic(
-            message,
-            byteOffset,
-            size,
-            firstByte,
-            requestedIndex,
-            entryCount,
-            expected,
-            module,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(requestedIndex),
+                Long.valueOf(entryCount),
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "hpack.fixture.dynamic_index_out_of_range",
+                message,
+                detail
+            }
+        ));
+    }
+
+    private static Object hpackFixtureDiagnostic(
+        String id,
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        Object preview
+    ) {
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(observedSize),
+                Long.valueOf(observedFirstByte),
+                expectedFixture,
+                codecModule,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                id,
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object hpackFixtureTableSizeUpdateNotAtStart(
@@ -4654,23 +4677,31 @@
         String state = asString(activeState);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture table-size update after header field at byte offset "
             + byteOffset;
-        registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
-            message,
-            byteOffset,
-            size,
-            firstByte,
-            updateSize,
-            kind,
-            stream,
-            state,
-            expected,
-            module,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(updateSize),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                state,
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "hpack.fixture.table_size_update_not_at_start",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object byteReadU16Be(Object view) {
@@ -4746,8 +4777,7 @@
         }
         if (count < width) {
             String message = "byte read requires " + width + " bytes but view has " + count;
-            registerCodecIncompleteInputDiagnostic(message, offset + count, width, count);
-            return err(message);
+            return codecIncompleteInputDiagnostic(message, offset + count, width, count);
         }
         long value = 0;
         for (int index = 0; index < width; index += 1) {
@@ -4829,7 +4859,7 @@
         if (available < width) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldPathDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
                 fieldPath,
@@ -4837,7 +4867,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
 
         long value = 0;
@@ -4852,7 +4881,7 @@
             } else {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "schema integer out of range at byte offset " + byteOffset;
-                registerSchemaIntegerOutOfRangePathDiagnostic(
+                return schemaIntegerOutOfRangePathDiagnostic(
                     message,
                     byteOffset,
                     fieldPath,
@@ -4862,7 +4891,6 @@
                     value,
                     byteViewPreviewTrace(view, 8)
                 );
-                return err(message);
             }
         }
         return ok(Long.valueOf(value));
@@ -4899,7 +4927,7 @@
         if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldDiagnostic(
+            return schemaTruncatedFieldDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -4908,7 +4936,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long actualValue = 0L;
         if (byteWidth > 0) {
@@ -4931,7 +4958,7 @@
         if (actualValue != expectedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -4941,7 +4968,6 @@
                 actualValue,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         return ok(Long.valueOf(actualValue));
     }
@@ -4966,7 +4992,7 @@
         if (available < storageByteWidth) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldDiagnostic(
+            return schemaTruncatedFieldDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -4975,7 +5001,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < storageByteWidth; index += 1) {
@@ -5009,7 +5034,7 @@
         if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldPathDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
                 fieldPath,
@@ -5017,7 +5042,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < requiredBytes; index += 1) {
@@ -5029,7 +5053,7 @@
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5039,7 +5063,6 @@
                 actualReserved,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long value = (combined >> reserved.reservedBitWidth) & reservedMaxValue(visibleBitWidth);
         return ok(Long.valueOf(value));
@@ -5066,7 +5089,7 @@
         if (available < storageByteWidth) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + visible.name + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldPathDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
                 fieldPath,
@@ -5074,7 +5097,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < storageByteWidth; index += 1) {
@@ -5091,7 +5113,7 @@
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5101,7 +5123,6 @@
                 actualReserved,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         int visibleBitWidth = reservedBytePrefixVisibleBitWidth(reserved, visible);
         int lowPaddingBitWidth =
@@ -5133,7 +5154,7 @@
         if (available < storageByteWidth) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + left.name + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldDiagnostic(
+            return schemaTruncatedFieldDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5142,7 +5163,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < storageByteWidth; index += 1) {
@@ -5157,7 +5177,7 @@
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5167,7 +5187,6 @@
                 actualReserved,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long leftValue =
             (combined >> (reserved.reservedBitWidth + rightBitWidth))
@@ -5199,7 +5218,7 @@
             long byteOffset = diagnosticBaseOffset + count;
             String message =
                 "truncated schema field `" + first.name + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldPathDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
                 schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, first.name),
@@ -5207,7 +5226,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < storageByteWidth; index += 1) {
@@ -5228,7 +5246,7 @@
                 if (value != field.reservedValue) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset;
                     String message = "reserved bits mismatch at byte offset " + byteOffset;
-                    registerSchemaReservedBitsMismatchDiagnostic(
+                    return schemaReservedBitsMismatchDiagnostic(
                         message,
                         byteOffset,
                         schemaName,
@@ -5238,7 +5256,6 @@
                         value,
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
             } else {
                 groupValues[offset] = value;
@@ -5277,7 +5294,7 @@
             long byteOffset = diagnosticBaseOffset + count;
             String message =
                 "truncated schema field `" + truncatedField.name + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldPathDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
                 schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, truncatedField.name),
@@ -5285,7 +5302,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < group.storageByteWidth; index += 1) {
@@ -5304,7 +5320,7 @@
                 if (value != field.reservedValue) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset;
                     String message = "reserved bits mismatch at byte offset " + byteOffset;
-                    registerSchemaReservedBitsMismatchDiagnostic(
+                    return schemaReservedBitsMismatchDiagnostic(
                         message,
                         byteOffset,
                         schemaName,
@@ -5314,7 +5330,6 @@
                         value,
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
             } else {
                 groupValues[offset] = value;
@@ -5344,7 +5359,7 @@
         if (available < storageByteWidth) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + reserved.name + "` at byte offset " + byteOffset;
-            registerSchemaTruncatedFieldDiagnostic(
+            return schemaTruncatedFieldDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5353,7 +5368,6 @@
                 available,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long combined = 0L;
         for (int index = 0; index < storageByteWidth; index += 1) {
@@ -5369,7 +5383,7 @@
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            registerSchemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchDiagnostic(
                 message,
                 byteOffset,
                 schemaName,
@@ -5379,7 +5393,6 @@
                 actualReserved,
                 byteViewPreviewTrace(view, 8)
             );
-            return err(message);
         }
         long firstValue = (combined >> secondBitWidth) & reservedMaxValue(firstBitWidth);
         long secondValue = combined & reservedMaxValue(secondBitWidth);
@@ -5427,7 +5440,7 @@
             if (!passed) {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "schema validation failed at byte offset " + byteOffset;
-                registerSchemaValidationFailedDiagnostic(
+                return schemaValidationFailedDiagnostic(
                     message,
                     byteOffset,
                     schema.name,
@@ -5437,7 +5450,6 @@
                     decoded,
                     byteViewPreviewTrace(view, 8)
                 );
-                return err(message);
             }
         }
         return ok(null);
@@ -5768,7 +5780,7 @@
                 if (payloadLength < 0L || payloadLength > availablePayload) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "payload length out of bounds at byte offset " + byteOffset;
-                    registerSchemaLengthOutOfBoundsPathDiagnostic(
+                    return schemaLengthOutOfBoundsPathDiagnostic(
                         message,
                         byteOffset,
                         schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -5776,7 +5788,6 @@
                         availablePayload,
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
                 Object payloadView = byteViewDerivedObject(view, relativeOffset, payloadLength);
                 values.put(field.name, payloadView);
@@ -5801,7 +5812,7 @@
                     long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "repeat count out of bounds at byte offset " + byteOffset;
-                    registerSchemaLengthOutOfBoundsPathDiagnostic(
+                    return schemaLengthOutOfBoundsPathDiagnostic(
                         message,
                         byteOffset,
                         schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -5809,7 +5820,6 @@
                         availablePayload,
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
                 java.util.ArrayList<Object> elements = new java.util.ArrayList<Object>();
                 long repeatRelativeOffset = relativeOffset;
@@ -5835,7 +5845,7 @@
                                 diagnosticBaseOffset + repeatRelativeOffset + availablePayload;
                             String message =
                                 "truncated schema field `" + field.name + "` at byte offset " + byteOffset;
-                            registerSchemaTruncatedFieldPathDiagnostic(
+                            return schemaTruncatedFieldPathDiagnostic(
                                 message,
                                 byteOffset,
                                 schemaRepeatedFieldPath(schema.name, field.name, elementIndex),
@@ -5843,7 +5853,6 @@
                                 availablePayload,
                                 byteViewPreviewTrace(view, 8)
                             );
-                            return err(message);
                         }
                         Object payloadView =
                             byteViewDerivedObject(view, repeatRelativeOffset, payloadLength);
@@ -5917,7 +5926,7 @@
                                 diagnosticBaseOffset + relativeOffset + availablePayload;
                             String message = "payload length out of bounds at byte offset "
                                 + byteOffset;
-                            registerSchemaLengthOutOfBoundsPathDiagnostic(
+                            return schemaLengthOutOfBoundsPathDiagnostic(
                                 message,
                                 byteOffset,
                                 schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -5925,7 +5934,6 @@
                                 availablePayload,
                                 byteViewPreviewTrace(view, 8)
                             );
-                            return err(message);
                         }
                         Object payload = byteViewDerivedObject(view, relativeOffset, payloadLength.longValue());
                         values.put(
@@ -5940,7 +5948,7 @@
                     }
                     long byteOffset = diagnosticBaseOffset + relativeOffset;
                     String message = "unknown dispatch tag at byte offset " + byteOffset;
-                    registerSchemaDispatchUnknownTagDiagnostic(
+                    return schemaDispatchUnknownTagDiagnostic(
                         message,
                         byteOffset,
                         schema.name,
@@ -5950,7 +5958,6 @@
                         schemaDispatchExpectedTags(field.dispatch),
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
                 BinarySchemaSpec dispatchPayloadSchema = dispatchCase.payloadSchema(schema);
                 long payloadWidth = dispatchPayloadSchema == null ? dispatchCase.width : 0L;
@@ -5972,7 +5979,7 @@
                             diagnosticBaseOffset + relativeOffset + availablePayload;
                         String message = "payload length out of bounds at byte offset "
                             + byteOffset;
-                        registerSchemaLengthOutOfBoundsPathDiagnostic(
+                        return schemaLengthOutOfBoundsPathDiagnostic(
                             message,
                             byteOffset,
                             schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
@@ -5980,7 +5987,6 @@
                             availablePayload,
                             byteViewPreviewTrace(view, 8)
                         );
-                        return err(message);
                     }
                     payloadWidth = payloadLength.longValue();
                 }
@@ -6127,7 +6133,7 @@
                 if (!passed) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset;
                     String message = "schema validation failed at byte offset " + byteOffset;
-                    registerSchemaValidationFailedDiagnostic(
+                    return schemaValidationFailedDiagnostic(
                         message,
                         byteOffset,
                         schema.name,
@@ -6137,7 +6143,6 @@
                         decoded,
                         byteViewPreviewTrace(view, 8)
                     );
-                    return err(message);
                 }
             }
 
@@ -6160,7 +6165,7 @@
             if (!passed) {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "schema validation failed at byte offset " + byteOffset;
-                registerSchemaStructuralValidationFailedDiagnostic(
+                return schemaStructuralValidationFailedDiagnostic(
                     message,
                     byteOffset,
                     schema.name,
@@ -6168,7 +6173,6 @@
                     decoded,
                     byteViewPreviewTrace(view, 8)
                 );
-                return err(message);
             }
         }
 
@@ -6677,7 +6681,8 @@
         Object baseOffset,
         String schemaName
     ) {
-        ByteDiagnostic diagnostic = byteDiagnosticForMessage(resultValue(decoded));
+        DiagnosticResultValue carried = carriedDiagnosticValue(resultValue(decoded));
+        ByteDiagnostic diagnostic = carried == null ? null : carried.byteDiagnostic;
         if (diagnostic == null) {
             return invalidDecodeStep("schema.decode_failed", baseOffset, schemaName);
         }
@@ -6798,14 +6803,13 @@
                     entries.add(schemaMappingExprValue(mappingDecoded, field.expr));
                 } catch (ArithmeticException failure) {
                     String message = "schema mapping division by zero at byte offset " + byteOffset;
-                    registerSchemaMappingDivisionByZeroDiagnostic(
+                    return schemaMappingDivisionByZeroDiagnostic(
                         message,
                         byteOffset,
                         schema.name,
                         field.target,
                         nearbyContext
                     );
-                    return err(message);
                 }
             }
             return record(entries.toArray(new Object[entries.size()]));
@@ -8263,7 +8267,7 @@
         long unsigned = asLong(value);
         if (unsigned < 0 || unsigned > maxValue) {
             String message = name + " value must be between 0 and " + maxValue;
-            registerByteWriteValueDiagnostic(
+            return byteWriteValueDiagnostic(
                 message,
                 name,
                 unsigned,
@@ -8272,7 +8276,6 @@
                 width,
                 littleEndian
             );
-            return err(message);
         }
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
         for (int index = width - 1; index >= 0; index -= 1) {
@@ -8546,14 +8549,13 @@
                         + schemaLengthDescription(field.repeat.byteViewLengthField)
                         + " value " + suppliedLength
                 );
-                registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+                return err(schemaByteViewEncodeLengthMismatchDiagnostic(
                     error,
                     current.head,
                     suppliedLength,
                     actualLength,
                     field.repeat.byteViewLengthField
-                );
-                return err(error);
+                ));
             }
             bytes.addAll(byteChunkBytes(byteViewToChunk(current.head)));
             actualCount += 1L;
@@ -8592,6 +8594,7 @@
     }
 
     private static boolean isAdtNamed(Object value, String name) {
+        value = diagnosticResultValue(value);
         return value instanceof Adt && ((Adt) value).name.equals(name);
     }
 
@@ -8751,7 +8754,7 @@
                 message = message + " at byte offset " + byteOffset.longValue();
             }
             if (byteOffset != null && fieldPath != null && nearbyContext != null) {
-                registerSchemaLengthDivisionByZeroDiagnostic(
+                return schemaLengthDivisionByZeroDiagnostic(
                     message,
                     byteOffset.longValue(),
                     fieldPath,
@@ -8897,14 +8900,13 @@
                     + schemaLengthDescription(field.lengthField)
                     + " value " + suppliedLength
             );
-            registerSchemaByteViewEncodeLengthMismatchDiagnostic(
+            return err(schemaByteViewEncodeLengthMismatchDiagnostic(
                 error,
                 view,
                 suppliedLength,
                 actualLength,
                 field.lengthField
-            );
-            return err(error);
+            ));
         }
         return ok(byteViewToChunk(view));
     }

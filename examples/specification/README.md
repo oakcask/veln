@@ -2009,24 +2009,22 @@ against the built `veln` binary.
   projects through `hpack.fixture.unsupported_header_block`, separate from
   schema diagnostics and HTTP/2 frame-state diagnostics.
 - `run/runtime-diagnostic-payload-hpack-string-length-json/` and
-  `run/runtime-diagnostic-payload-hpack-string-length-human/`: a
-  source-visible
-  `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` entry
-  result carries the malformed HPACK string-length payload that `veln run`
-  projects through `hpack.fixture.malformed_string_length` in JSON and human
-  command output.
+  `run/runtime-diagnostic-payload-hpack-string-length-human/`: the standard
+  HPACK fixture helper returns the malformed HPACK string-length payload that
+  `veln run` projects through `hpack.fixture.malformed_string_length` in JSON
+  and human command output.
 - `run/runtime-diagnostic-payload-hpack-raw-string-json/`,
   `run/runtime-diagnostic-payload-hpack-huffman-padding-json/`,
   `run/runtime-diagnostic-payload-hpack-huffman-eos-json/`, and
   `run/runtime-diagnostic-payload-hpack-huffman-non-visible-human/`:
-  source-visible
-  `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` entry
-  results carry the remaining common HPACK fixture payloads that `veln run`
-  projects through focused JSON and human diagnostics.
+  standard HPACK fixture helpers return the remaining common HPACK fixture
+  payloads that `veln run` projects through focused JSON and human
+  diagnostics.
 - `run/runtime-diagnostic-payload-hpack-dynamic-index-json/` and
-  `run/runtime-diagnostic-payload-hpack-table-size-human/`: source-visible
-  HPACK fixture payloads carry the extra dynamic-index and table-size update
-  placement facts needed by the focused JSON and human diagnostics.
+  `run/runtime-diagnostic-payload-hpack-table-size-human/`: standard HPACK
+  fixture helpers return payloads carrying the extra dynamic-index and
+  table-size update placement facts needed by the focused JSON and human
+  diagnostics.
 - `run/hpack-fixture-dynamic-index-json/` and
   `run/hpack-fixture-dynamic-index-human/`: standalone HPACK fixture dynamic
   indexed lookups without a current bounded dynamic-table entry project

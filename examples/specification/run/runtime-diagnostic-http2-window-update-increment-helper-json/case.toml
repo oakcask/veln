@@ -69,5 +69,5 @@ equals = "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.7.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"

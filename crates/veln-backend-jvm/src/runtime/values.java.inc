@@ -214,6 +214,43 @@
         }
     }
 
+    private static final class DiagnosticResultValue {
+        final Object value;
+        final FixtureHexDiagnostic fixtureHexDiagnostic;
+        final ByteDiagnostic byteDiagnostic;
+        final ValueDiagnostic valueDiagnostic;
+        final ProtocolDiagnostic protocolDiagnostic;
+
+        DiagnosticResultValue(
+            Object value,
+            FixtureHexDiagnostic fixtureHexDiagnostic,
+            ByteDiagnostic byteDiagnostic,
+            ValueDiagnostic valueDiagnostic,
+            ProtocolDiagnostic protocolDiagnostic
+        ) {
+            this.value = freezeValue(value);
+            this.fixtureHexDiagnostic = fixtureHexDiagnostic;
+            this.byteDiagnostic = byteDiagnostic;
+            this.valueDiagnostic = valueDiagnostic;
+            this.protocolDiagnostic = protocolDiagnostic;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return java.util.Objects.equals(value, diagnosticResultValue(other));
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hashCode(value);
+        }
+
+        @Override
+        public String toString() {
+            return format(value);
+        }
+    }
+
     public interface Fn {
         Object call(Object... args);
     }

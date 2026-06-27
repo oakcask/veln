@@ -110,7 +110,7 @@ requiring the full command reference on the first read.
   requested count, available count, and bounded nearby byte preview in related
   notes. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` value uses
-  the same human byte-diagnostic rendering as side-table-backed runtime byte
+  the same human byte-diagnostic rendering as value-carried runtime byte
   failures, with the id, byte offset, field path, counts, readiness,
   fixed-field expected and actual values, reason, and optional preview
   projected from the returned error value itself. Generated binary schema
@@ -127,7 +127,10 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
-  diagnostics. Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
+  diagnostics. The standard `hpack_fixture_*` reporting helpers return their
+  HPACK fixture payloads directly as `Result<(), RuntimeDiagnostic>`, so their
+  command-facing detail projection is derived from the returned value.
+  Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
   payload projections for pending-byte close, partial and invalid client
   connection preface failures, continuation ordering, invalid frame kind,
   frame-size exceeded, header-list receive-limit failures, SETTINGS value

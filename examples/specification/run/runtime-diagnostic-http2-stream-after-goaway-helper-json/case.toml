@@ -53,5 +53,5 @@ equals = "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6"
+path = "value.detail.fields"
 missing = true

@@ -87,6 +87,82 @@ public final class RuntimeByteHexHarness {
 }
 "#;
 
+const RUNTIME_RESULT_DIAGNOSTIC_TRACE_HARNESS: &str = r#"
+public final class RuntimeResultDiagnosticTraceHarness {
+    public static void main(String[] args) {
+        Object encodeError = VelnRuntime.adt(
+            "EncodeError::EncodeError",
+            new Object[] {
+                "codec.encode_value_unrepresentable",
+                "Packet.value",
+                "too large"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(encodeError));
+
+        Object decodeError = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.decode_failed",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
+                "Packet.value",
+                "plain reason"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(decodeError));
+
+        Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
+        Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
+            bytes,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(2) }),
+            VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(3) })
+        )).value();
+        Object byteReadReason = ((VelnRuntime.Result) VelnRuntime.byteReadU32Be(view)).value();
+        Object contextualDecodeError = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.invalid_input",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(42) }),
+                "ManualPacket.checksum",
+                byteReadReason
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(contextualDecodeError));
+
+        Object plainDecodeError = VelnRuntime.adt(
+            "DecodeError::DecodeError",
+            new Object[] {
+                "codec.consumed_count_invalid",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(11) }),
+                "Packet.count"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainDecodeError));
+
+        Object needMore = VelnRuntime.adt(
+            "DecodeStep::NeedMore",
+            new Object[] {
+                VelnRuntime.adt(
+                    "DecodeReadiness::NeedBytes",
+                    new Object[] {
+                        VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(5) })
+                    }
+                )
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(needMore));
+
+        Object needEnd = VelnRuntime.adt(
+            "DecodeStep::NeedMore",
+            new Object[] {
+                VelnRuntime.adt("DecodeReadiness::NeedEnd", new Object[] {})
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(needEnd));
+    }
+}
+"#;
+
 const RUNTIME_BYTE_VIEW_HARNESS: &str = r#"
 public final class RuntimeByteViewHarness {
     public static void main(String[] args) {
@@ -1399,6 +1475,106 @@ fn jvm_runtime_decodes_compact_hex_fixtures_when_java_is_available() {
             "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)\n",
             "Err(fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble)\n",
         )
+    );
+}
+
+#[test]
+fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-result-diagnostic-trace");
+    write_jvm_program(&root, &program);
+    fs::write(
+        root.join("RuntimeResultDiagnosticTraceHarness.java"),
+        RUNTIME_RESULT_DIAGNOSTIC_TRACE_HARNESS,
+    )
+    .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimeResultDiagnosticTraceHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let trace_path = root.join("result-errors.tsv");
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimeResultDiagnosticTraceHarness")
+        .current_dir(&root)
+        .env("VELN_RESULT_ERRORS", &trace_path)
+        .output()
+        .expect("java should run");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let trace = fs::read_to_string(&trace_path).expect("result trace should be written");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        trace.contains("\tvalue_diagnostic\tcodec.encode_value_unrepresentable\t"),
+        "{trace}"
+    );
+    assert!(trace.contains("\tschema\t5061636b6574"), "{trace}");
+    assert!(trace.contains("\tfield\t76616c7565"), "{trace}");
+    assert!(
+        trace.contains("\treason\tstring\t746f6f206c61726765"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.decode_failed\t7\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t706c61696e20726561736f6e"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t6279746520726561642072657175697265732034206279746573206275742076696577206861732033"),
+        "{trace}"
+    );
+    assert!(trace.contains("\tlocal_byte_offset\tnumber\t5"), "{trace}");
+    assert!(trace.contains("\texpected_count\tnumber\t4"), "{trace}");
+    assert!(trace.contains("\tavailable_count\tnumber\t3"), "{trace}");
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t11\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.incomplete_input\t5\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treadiness\tstring\t6e6565645f6279746573"),
+        "{trace}"
+    );
+    assert!(trace.contains("\tneeded_count\tnumber\t5"), "{trace}");
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.incomplete_input\t0\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treadiness\tstring\t6e6565645f656e64"),
+        "{trace}"
     );
 }
 

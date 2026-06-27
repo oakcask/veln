@@ -93,30 +93,30 @@ equals = "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.observed_header_list_size"
 equals = 10
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.allowed_header_list_size"
 equals = 9
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5"
+path = "value.detail.receive_limit_provenance"
 equals = "local_configuration"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6"
+path = "value.detail.rule_provenance"
 equals = "header_list_receive_limit"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.7.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.8"
+path = "value.detail.fields"
 missing = true

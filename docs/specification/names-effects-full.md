@@ -1171,38 +1171,35 @@ value diagnostics from source-visible `RuntimeDiagnostic(...)` error values,
 `RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)` for projecting
 `http2.peer_limit.settings_value_out_of_range` failures,
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for projecting
-`http2.protocol.invalid_frame_kind` failures without using the legacy helper
-side table,
+`http2.protocol.invalid_frame_kind` failures from returned diagnostic values,
 `RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` for projecting
-`http2.protocol.invalid_stream_id` failures without using the legacy helper
-side table,
+`http2.protocol.invalid_stream_id` failures from returned diagnostic values,
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for projecting
-`http2.protocol.invalid_data_padding` failures without using the legacy helper
-side table,
+`http2.protocol.invalid_data_padding` failures from returned diagnostic
+values,
 `RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` for projecting
-`http2.peer_limit.flow_control_window_exceeded` failures without using the
-legacy helper side table,
+`http2.peer_limit.flow_control_window_exceeded` failures from returned
+diagnostic values,
 `RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` for projecting
-`http2.protocol.content_length_mismatch` failures without using the legacy
-helper side table,
+`http2.protocol.content_length_mismatch` failures from returned diagnostic
+values,
 `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for projecting
-`http2.protocol.invalid_request_header_list` failures without using the legacy
-helper side table,
+`http2.protocol.invalid_request_header_list` failures from returned diagnostic
+values,
 `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for projecting
-`http2.protocol.invalid_response_header_list` failures without using the
-legacy helper side table,
+`http2.protocol.invalid_response_header_list` failures from returned
+diagnostic values,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
-projecting `http2.protocol.invalid_window_update_increment` failures without
-using the legacy helper side table,
+projecting `http2.protocol.invalid_window_update_increment` failures from
+returned diagnostic values,
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
-`http2.protocol.unexpected_settings_ack` failures without using the legacy
-helper side table,
+`http2.protocol.unexpected_settings_ack` failures from returned diagnostic
+values,
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for projecting
-`http2.protocol.invalid_priority_dependency` failures without using the
-legacy helper side table, and
+`http2.protocol.invalid_priority_dependency` failures from returned diagnostic
+values, and
 `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for projecting
-`http2.protocol.stream_after_goaway` failures without using the
-legacy helper side table.
+`http2.protocol.stream_after_goaway` failures from returned diagnostic values.
 `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
 `http2_protocol_invalid_preface(...)`,

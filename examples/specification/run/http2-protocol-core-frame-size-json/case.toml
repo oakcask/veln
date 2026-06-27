@@ -65,15 +65,15 @@ equals = "RuntimeHttp2PeerLimitFrameSizeDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.observed_payload_length"
 equals = 1025
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.allowed_max_frame_size"
 equals = 1024
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5"
+path = "value.detail.receive_limit_provenance"
 equals = "local_configuration"

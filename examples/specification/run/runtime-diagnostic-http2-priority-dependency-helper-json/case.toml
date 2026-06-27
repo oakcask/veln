@@ -57,5 +57,5 @@ equals = "RuntimeHttp2ProtocolPriorityDependencyDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"

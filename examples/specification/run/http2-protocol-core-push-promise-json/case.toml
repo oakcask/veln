@@ -89,25 +89,25 @@ equals = "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.actual_frame_kind"
 equals = 5
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.3"
+path = "value.detail.expected_frame_kind"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.6.constructor"
+path = "value.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.7"
+path = "value.detail.fields"
 missing = true

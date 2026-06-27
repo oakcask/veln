@@ -85,20 +85,20 @@ equals = "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.1"
+path = "value.detail.actual_frame_kind"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.2"
+path = "value.detail.stream_id"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.3"
+path = "value.detail.expected_frame_kind"
 equals = 4
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields.5"
+path = "value.detail.rule_provenance"
 equals = "connection_frames_require_settings"

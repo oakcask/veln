@@ -16,7 +16,6 @@
 
     public static Object decodeStepInvalidAsErr(Object value) {
         Object error = adtPayload(value, 0);
-        registerDecodeErrorByteDiagnostic(error, format(error));
         return Result.err(error);
     }
 
@@ -25,7 +24,6 @@
     }
 
     public static Object decodeStepNeedMoreAsErr(Object value) {
-        registerDecodeNeedMoreByteDiagnostic(value, format(value));
         return Result.err(value);
     }
 
@@ -95,6 +93,7 @@
     }
 
     public static boolean isAdt(Object value, String name) {
+        value = diagnosticResultValue(value);
         if (value instanceof FrozenByteView) {
             return name.equals("ByteView") || name.endsWith("::ByteView");
         }
@@ -103,6 +102,7 @@
     }
 
     public static Object adtPayload(Object value, int index) {
+        value = diagnosticResultValue(value);
         if (value instanceof FrozenByteView) {
             FrozenByteView view = (FrozenByteView) value;
             if (index == 0) {
