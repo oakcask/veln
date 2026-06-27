@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_stream_id, HTTP/2 invalid stream id at byte offset 0, RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, nonzero client-initiated stream id, server, stream-id-domain, server_receives_client_initiated_streams, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(2)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_stream_id, HTTP/2 invalid stream id at byte offset 0, RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, connection stream id zero, server, stream-id-domain, connection_frames_require_stream_zero, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(6), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -40,11 +40,11 @@ equals = "ByteOffset"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.frame_kind"
-equals = 1
+equals = 6
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.stream_id"
-equals = 2
+equals = 1
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.stream_ref"
@@ -52,7 +52,7 @@ equals = "stream"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.required_stream_id_domain"
-equals = "nonzero client-initiated stream id"
+equals = "connection stream id zero"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.endpoint_role"
@@ -64,7 +64,7 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "0000000104000000"
+equals = "0000000600000000"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
@@ -84,4 +84,4 @@ equals = "stream-id-domain"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
-equals = "server_receives_client_initiated_streams"
+equals = "connection_frames_require_stream_zero"

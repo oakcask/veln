@@ -194,8 +194,9 @@ partial and invalid client connection preface failures, continuation ordering,
 invalid frame kind, frame-size exceeded,
 header-list receive-limit failures, SETTINGS value range peer-limit failures,
 header-table receive-limit failures, concurrent-stream receive-limit
-failures, fixed payload length for SETTINGS ACK, PING, GOAWAY, and `RST_STREAM`,
-DATA padding, flow-control window, content-length mismatch,
+failures, stream id domain failures, fixed payload length for SETTINGS ACK,
+PING, GOAWAY, and `RST_STREAM`, DATA padding, flow-control window,
+content-length mismatch,
 request and response header-list validation, invalid `WINDOW_UPDATE`
 increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
 stream-after-GOAWAY failures.
@@ -224,6 +225,10 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-state-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-reference-human/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-reference-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-header-list-human/`,

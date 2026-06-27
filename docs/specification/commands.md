@@ -121,7 +121,8 @@ requiring the full command reference on the first read.
   payload projections for pending-byte close, partial and invalid client
   connection preface failures, continuation ordering, invalid frame kind,
   frame-size exceeded, header-list receive-limit failures, SETTINGS value
-  range peer-limit failures, fixed payload length, DATA padding,
+  range peer-limit failures, stream id domain failures, fixed payload length,
+  DATA padding,
   flow-control window, content-length mismatch, request and response
   header-list validation, invalid
   `WINDOW_UPDATE` increment, unexpected SETTINGS ACK, invalid PRIORITY dependency,

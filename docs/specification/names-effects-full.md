@@ -1162,6 +1162,9 @@ The source-visible `RuntimeDiagnosticDetail` constructor set includes
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for projecting
 `http2.protocol.invalid_frame_kind` failures without using the legacy helper
 side table,
+`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` for projecting
+`http2.protocol.invalid_stream_id` failures without using the legacy helper
+side table,
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for projecting
 `http2.protocol.invalid_data_padding` failures without using the legacy helper
 side table,
@@ -1176,7 +1179,7 @@ helper side table,
 helper side table,
 `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for projecting
 `http2.protocol.invalid_response_header_list` failures without using the
-legacy helper side table, and
+legacy helper side table,
 `RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
 projecting `http2.protocol.invalid_window_update_increment` failures without
 using the legacy helper side table, and

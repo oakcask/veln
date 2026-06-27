@@ -226,21 +226,24 @@ compare it with `../specification/` before changing behavior.
   payload slices for pending-byte close, partial and invalid client connection
   preface failures, continuation ordering, invalid frame kind, frame-size peer
   limit, header-list receive-limit, SETTINGS value range peer-limit,
-  header-table receive-limit, concurrent-stream receive-limit, fixed payload
-  length, DATA padding, flow-control window, content-length mismatch, request
-  and response header-list validation, invalid `WINDOW_UPDATE`
+  header-table receive-limit, concurrent-stream receive-limit, stream id
+  domain, fixed payload length, DATA padding, flow-control window,
+  content-length mismatch, request and response header-list validation,
+  invalid `WINDOW_UPDATE`
   increment, unexpected SETTINGS ACK, invalid PRIORITY dependency, and
   stream-after-GOAWAY diagnostics,
   command projection, and executable harness assertion slices. The completed
-  HPACK fixture, HTTP/2 preface payload, HTTP/2 unexpected SETTINGS ACK, and
-  HTTP/2 DATA padding, flow-control window, and content-length mismatch slices
+  HPACK fixture, HTTP/2 preface payload, HTTP/2 unexpected SETTINGS ACK,
+  HTTP/2 DATA padding, flow-control window, and content-length mismatch,
+  HTTP/2 invalid frame-kind stream-state, and HTTP/2 invalid stream id slices
   are archived under
   `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-preface-payloads.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-settings-ack-payload.md`,
   `../reference/implemented-proposals/runtime-diagnostic-http2-data-flow-content-length-payloads.md`,
+  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`,
   and
-  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-frame-kind-stream-state-payload.md`.
+  `../reference/implemented-proposals/runtime-diagnostic-http2-invalid-stream-id-payload.md`.
   Remaining work includes other unmigrated HTTP/2 protocol and peer-limit
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.

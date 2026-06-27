@@ -288,6 +288,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
             return runtimeHttp2ProtocolInvalidFrameKindDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic")) {
+            return runtimeHttp2ProtocolInvalidStreamIdDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
@@ -468,6 +471,37 @@
                 DiagnosticDetail.number("stream_id", streamId),
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.number("expected_frame_kind", expectedKind),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolInvalidStreamIdDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.invalid_stream_id")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long frameKind = asLong(detail.payloads[1]);
+        long streamId = asLong(detail.payloads[2]);
+        String requiredDomain = asString(detail.payloads[3]);
+        String endpointRole = asString(detail.payloads[4]);
+        String activeState = asString(detail.payloads[5]);
+        String ruleProvenance = asString(detail.payloads[6]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("frame_kind", frameKind),
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                DiagnosticDetail.string("required_stream_id_domain", requiredDomain),
+                DiagnosticDetail.string("endpoint_role", endpointRole),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)

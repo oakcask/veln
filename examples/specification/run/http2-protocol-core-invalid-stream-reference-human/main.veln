@@ -1,0 +1,28 @@
+# HTTP/2 connection frame stream references project to human diagnostics.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		error,
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000060000000001")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn invalid_stream_reference_payload(bytes: ByteChunk) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		"HTTP/2 invalid stream id at byte offset 0",
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", bytes)
+	)
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	Err(invalid_stream_reference_payload(preview_bytes()?))
+end
