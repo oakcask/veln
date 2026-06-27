@@ -2046,6 +2046,11 @@ against the built `veln` binary.
   table-size update after a decoded header field projects
   `hpack.fixture.table_size_update_not_at_start` with frame, stream,
   requested table-size, fixture state, and byte-preview details.
+- `run/http2-protocol-core-hpack-raw-name-token-human/` and
+  `run/http2-protocol-core-hpack-raw-name-token-json/`: an invalid ordinary
+  request-trailer field-name token decoded from raw HPACK data projects
+  `http2.protocol.invalid_request_header_list` through stable human output
+  and source-visible JSON runtime diagnostic details.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded`, `Partial`, and

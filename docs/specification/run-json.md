@@ -556,7 +556,8 @@ request, and invalid and mismatched `content-length` values; the larger
 protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `te: trailers` and accepted
 `content-length` values. The focused request header-list JSON examples,
-including the raw HPACK uppercase trailer-name projection, return
+including the raw HPACK uppercase and invalid-token trailer-name projections,
+return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
 payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
 value while `details.protocol_diagnostic` keeps the same public fields.
