@@ -773,8 +773,10 @@ big-endian storage unit, plus the narrow `ReservedBits(9, 0)` plus `UInt8`
 byte-prefix layout, and the narrow two-byte suffix group where two visible
 `UIntN` fields, one of them `UInt8`, are followed by a non-byte-aligned
 `ReservedBits(width, value)` suffix, are implemented under
-`../specification/execution.md`. Completed split reserved layout slices are
+`../specification/execution.md`. Completed split reserved group history is
 recorded in
+[Binary Schema Split Reserved Groups](../reference/implemented-proposals/binary-schema-split-reserved-groups.md),
+with focused seven-byte and eight-byte companion records in
 [Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md)
 and
 [Binary Schema Eight-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-eight-byte-split-reserved-layouts.md).

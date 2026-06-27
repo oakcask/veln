@@ -1389,6 +1389,7 @@ execution reference.
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
+  `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
@@ -1435,6 +1436,7 @@ execution reference.
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
+  `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,

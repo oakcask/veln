@@ -106,6 +106,8 @@ behavior.
   [binary-schema-packed-visible-two-byte-groups.md](binary-schema-packed-visible-two-byte-groups.md).
 - Binary schema six-byte reserved suffix:
   [binary-schema-six-byte-reserved-suffix.md](binary-schema-six-byte-reserved-suffix.md).
+- Binary schema split reserved groups:
+  [binary-schema-split-reserved-groups.md](binary-schema-split-reserved-groups.md).
 - Binary schema seven-byte split reserved layouts:
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema eight-byte split reserved layouts:

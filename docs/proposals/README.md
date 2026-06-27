@@ -128,7 +128,8 @@ compare it with `../specification/` before changing behavior.
   `UIntN` and
   `ReservedBits(width, value)` groups that complete one byte or one
   two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or
-  eight-byte big-endian storage unit,
+  eight-byte big-endian storage unit
+  ([Binary Schema Split Reserved Groups](../reference/implemented-proposals/binary-schema-split-reserved-groups.md)),
   two-byte suffix groups where two visible `UIntN` fields, one of them
   `UInt8`, are followed by a non-byte-aligned
   `ReservedBits(width, value)` field
