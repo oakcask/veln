@@ -244,6 +244,12 @@ covers the same derived codec call boundary when the generated decode-step
 helper decodes a bounded repeated primitive field and reports repeat-backed
 readiness or helper failure through the codec item.
 The executable specification case
+`../../examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`
+covers the same derived codec call boundary when the generated decode-step
+helper decodes a quotient-sized `ByteView(left_length / right_length)`
+payload field and reports success, prefix readiness, or truncation failure
+through the codec item.
+The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a same-module nested dispatch payload schema whose generated
