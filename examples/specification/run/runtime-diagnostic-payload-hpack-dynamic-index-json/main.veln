@@ -1,4 +1,4 @@
-# RuntimeDiagnostic values can project HPACK dynamic-index payloads.
+# HPACK fixture helpers return dynamic-index RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.dynamic_index_out_of_range",
@@ -7,18 +7,20 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn preview_block() -> Result<ByteChunk, RuntimeDiagnostic>
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
 	match byte_chunk_from_hex("be")
-		Ok(block) => Ok(block)
+		Ok(block) => match byte_offset(0)
+			Ok(offset) => match byte_view(block, offset, byte_chunk_count(block))
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
 		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let block: ByteChunk = preview_block()?
-	Err(RuntimeDiagnostic(
-		"hpack.fixture.dynamic_index_out_of_range",
-		"HPACK dynamic index out of range at byte offset 27",
-		RuntimeHpackFixtureDynamicIndexDiagnostic(27, 1, 190, 0, 0, "fixture dynamic indexed header", "hpack_fixture", block)
-	))
+	let preview: ByteView = preview_view()?
+	hpack_fixture_dynamic_index_out_of_range(27, 1, 190, 0, 0, "fixture dynamic indexed header", "hpack_fixture", preview)
 end

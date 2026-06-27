@@ -1,4 +1,4 @@
-# RuntimeDiagnostic values can project malformed HPACK Huffman padding payloads.
+# HPACK fixture helpers return malformed Huffman padding RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.malformed_huffman_padding",
@@ -7,18 +7,20 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn preview_block() -> Result<ByteChunk, RuntimeDiagnostic>
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
 	match byte_chunk_from_hex("048100")
-		Ok(block) => Ok(block)
+		Ok(block) => match byte_offset(0)
+			Ok(offset) => match byte_view(block, offset, byte_chunk_count(block))
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
 		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let block: ByteChunk = preview_block()?
-	Err(RuntimeDiagnostic(
-		"hpack.fixture.malformed_huffman_padding",
-		"HPACK fixture malformed Huffman padding at byte offset 9",
-		RuntimeHpackFixtureDiagnostic(9, 3, 4, "fixture HPACK Huffman padding", "hpack_fixture", block)
-	))
+	let preview: ByteView = preview_view()?
+	hpack_fixture_malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_fixture", preview)
 end

@@ -46,7 +46,8 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
 - Readable coverage for runtime expectation plus output mismatch:
   `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
-- Runtime diagnostic payload value-shape assertion coverage:
+- Runtime diagnostic payload and helper-returned value-shape assertion
+  coverage:
   `../../examples/specification/test/runtime-diagnostic-payload-json/`,
   `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`
   and

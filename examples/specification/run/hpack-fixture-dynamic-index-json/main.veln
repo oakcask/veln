@@ -1,13 +1,28 @@
 use hpack_fixture
 
-fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), String>
+fn fallback_payload(message: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.unsupported_header_block",
+		message,
+		RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), RuntimeDiagnostic>
 	match result
-		Ok(_) => Err("expected HPACK dynamic index lookup failure")
+		Ok(_) => Err(fallback_payload("expected HPACK dynamic index lookup failure"))
 		Err(error) => project_failure(error)
 	end
 end
 
-pub fn main() -> Result<(), String>
-	let bad_block: ByteChunk = byte_chunk_from_hex("be")?
+fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bad_block: ByteChunk = fixture_bytes("be")?
 	project_decode_result(decode_header_block(bad_block, initial_state(), 27))
 end

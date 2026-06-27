@@ -310,7 +310,10 @@ compare it with `../specification/` before changing behavior.
   `DecodeError`, `DecodeErrorWithReason`, and `DecodeStep::NeedMore` command
   result values is archived under
   `../reference/implemented-proposals/runtime-diagnostic-result-value-trace-projection.md`.
-  Remaining work includes migrating other fixture, value, and generated-schema
+  The completed HPACK fixture standard helper side-table cleanup is archived
+  under
+  [Runtime Diagnostic HPACK Helper Payload](../reference/implemented-proposals/runtime-diagnostic-hpack-helper-payload.md).
+  Remaining work includes migrating other value and generated-schema
   diagnostic payloads and removing the legacy side-table bridge once no
   specification case depends on it.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):

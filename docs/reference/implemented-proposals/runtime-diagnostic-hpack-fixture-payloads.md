@@ -37,9 +37,11 @@ human HPACK fixture diagnostic and `details.protocol_diagnostic` JSON shapes.
 Plain `Err(value)` values remain ordinary result failures and do not opt into
 runtime diagnostic projection.
 
-This slice deliberately keeps legacy backend side-table support for existing
+This slice originally kept legacy backend side-table support for existing
 fixture, value, protocol, HTTP/2, and generated-schema helpers while the
-remaining runtime diagnostic payload migration continues.
+remaining runtime diagnostic payload migration continued. The later standard
+HPACK fixture helper cleanup is archived under
+`runtime-diagnostic-hpack-helper-payload.md`.
 
 ## Evidence
 
@@ -49,21 +51,22 @@ remaining runtime diagnostic payload migration continues.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-human/`
   and
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`
-  check the source-visible malformed-string-length projection and returned
+  check the helper-returned malformed-string-length projection and returned
   value shape.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-raw-string-json/`,
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-padding-json/`,
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
   and
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-non-visible-human/`
-  check the additional common HPACK fixture payload ids.
+  check the additional common helper-returned HPACK fixture payload ids.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`
-  checks the dedicated dynamic-index payload constructor and JSON projection.
+  checks the helper-returned dynamic-index payload constructor and JSON
+  projection.
 - `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-human/`
   and
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-json/`
-  check the dedicated table-size update placement payload constructor, human
-  projection, JSON protocol fields, and returned value shape.
+  check the helper-returned table-size update placement payload constructor,
+  human projection, JSON protocol fields, and returned value shape.
 - `../../specification/run-json.md`, `../../specification/commands.md`,
   `../../specification/execution.md`, and `../../specification/test-json.md`
   summarize the implemented behavior and route readers to executable

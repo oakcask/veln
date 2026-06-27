@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "HPACK fixture Huffman EOS symbol at byte offset 9"
+equals = "RuntimeDiagnostic(hpack.fixture.huffman_eos_symbol, HPACK fixture Huffman EOS symbol at byte offset 9, RuntimeHpackFixtureDiagnostic(9, 6, 4, fixture HPACK Huffman data symbol instead of EOS, hpack_fixture, ByteChunk([Byte(4), Byte(132), Byte(255), Byte(255), Byte(255), Byte(255)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

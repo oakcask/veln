@@ -127,7 +127,10 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index and table-size update facts needed by those focused human
-  diagnostics. Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
+  diagnostics. The standard `hpack_fixture_*` reporting helpers return their
+  HPACK fixture payloads directly as `Result<(), RuntimeDiagnostic>`, so their
+  command-facing detail projection is derived from the returned value.
+  Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
   payload projections for pending-byte close, partial and invalid client
   connection preface failures, continuation ordering, invalid frame kind,
   frame-size exceeded, header-list receive-limit failures, SETTINGS value

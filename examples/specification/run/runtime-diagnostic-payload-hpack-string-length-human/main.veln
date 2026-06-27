@@ -1,5 +1,5 @@
-# RuntimeDiagnostic values can project to human HPACK fixture string-length diagnostics.
-fn invalid_byte_diagnostic(error: String) -> RuntimeDiagnostic
+# HPACK fixture helpers return human string-length RuntimeDiagnostic payloads.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.malformed_string_length",
 		error,
@@ -7,26 +7,20 @@ fn invalid_byte_diagnostic(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn malformed_block() -> Result<ByteChunk, RuntimeDiagnostic>
-	match byte(4)
-		Ok(first) => match byte(255)
-			Ok(second) => Ok(byte_chunk([first, second]))
-			Err(error) => Err(invalid_byte_diagnostic(error))
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("04ff")
+		Ok(block) => match byte_offset(0)
+			Ok(offset) => match byte_view(block, offset, byte_chunk_count(block))
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
 		end
-		Err(error) => Err(invalid_byte_diagnostic(error))
+		Err(error) => Err(invalid_payload(error))
 	end
 end
 
-fn malformed_string_length_diagnostic() -> Result<RuntimeDiagnostic, RuntimeDiagnostic>
-	let block: ByteChunk = malformed_block()?
-	Ok(RuntimeDiagnostic(
-		"hpack.fixture.malformed_string_length",
-		"HPACK fixture malformed string length at byte offset 9",
-		RuntimeHpackFixtureDiagnostic(9, 2, 4, "fixture HPACK string length", "hpack_fixture", block)
-	))
-end
-
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let diagnostic: RuntimeDiagnostic = malformed_string_length_diagnostic()?
-	Err(diagnostic)
+	let preview: ByteView = preview_view()?
+	hpack_fixture_malformed_string_length(9, 2, 4, "fixture HPACK string length", "hpack_fixture", preview)
 end

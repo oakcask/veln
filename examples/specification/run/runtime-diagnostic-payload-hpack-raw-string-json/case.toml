@@ -19,6 +19,10 @@ path = "error.kind"
 equals = "result"
 
 [[json_assert]]
+path = "error.details.value"
+equals = "RuntimeDiagnostic(hpack.fixture.malformed_raw_string_value, HPACK fixture malformed raw string value at byte offset 9, RuntimeHpackFixtureDiagnostic(9, 5, 8, fixture HPACK raw string value, hpack_fixture, ByteChunk([Byte(8), Byte(3), Byte(50), Byte(31), Byte(48)])))"
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
 equals = "protocol_diagnostic"
 

@@ -359,10 +359,6 @@ fn result_string<T: BytePreludeType>(value: T) -> T {
     T::result(value, T::string())
 }
 
-fn unit_result<T: BytePreludeType>() -> T {
-    result_string(T::unit())
-}
-
 fn unit_runtime_diagnostic_result<T: BytePreludeType>() -> T {
     T::result(T::unit(), T::named("RuntimeDiagnostic"))
 }
@@ -773,7 +769,7 @@ fn hpack_fixture_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "hpack_fixture_dynamic_index_out_of_range" => Some((
             vec![
@@ -786,7 +782,7 @@ fn hpack_fixture_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         "hpack_fixture_table_size_update_not_at_start" => Some((
             vec![
@@ -801,7 +797,7 @@ fn hpack_fixture_signature<T: BytePreludeType>(
                 T::string(),
                 types.byte_view.clone(),
             ],
-            unit_result(),
+            unit_runtime_diagnostic_result(),
         )),
         _ => None,
     }

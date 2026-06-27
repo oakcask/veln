@@ -80,6 +80,17 @@ the returned error value itself. Dynamic-index fixture payloads use
 placement payloads use `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to
 add `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`,
 and `active_state`.
+The standard `hpack_fixture_unsupported_header_block(...)`,
+`hpack_fixture_malformed_string_length(...)`,
+`hpack_fixture_malformed_raw_string_value(...)`,
+`hpack_fixture_malformed_huffman_padding(...)`,
+`hpack_fixture_huffman_eos_symbol(...)`,
+`hpack_fixture_huffman_non_visible_value(...)`,
+`hpack_fixture_dynamic_index_out_of_range(...)`, and
+`hpack_fixture_table_size_update_not_at_start(...)` helpers return their
+source-visible HPACK fixture `RuntimeDiagnostic(...)` payloads directly, so
+their direct helper examples keep the rendered payload in `details.value` and
+project the same HPACK fixture facts into `details.protocol_diagnostic`.
 
 When the returned error value is an HTTP/2 protocol
 `RuntimeDiagnostic(...)` payload, `details.value` keeps the rendered

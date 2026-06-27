@@ -170,6 +170,9 @@ should add executable examples under `../../examples/specification/run/`
 before updating specification prose.
 The completed HPACK fixture payload migration slice is archived under
 `../reference/implemented-proposals/runtime-diagnostic-hpack-fixture-payloads.md`.
+The completed HPACK fixture standard helper payload migration slice is
+archived under
+[Runtime Diagnostic HPACK Helper Payload](../reference/implemented-proposals/runtime-diagnostic-hpack-helper-payload.md).
 The completed generated encode value-diagnostic payload slice is archived
 under
 `../reference/implemented-proposals/runtime-diagnostic-encode-value-payload.md`.
@@ -342,7 +345,7 @@ plus `../../examples/specification/run/hpack-fixture-codec-human/`,
 and
 `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
 These slices deliberately leave legacy side-table support in place for
-existing fixture, value, and generated-schema helpers that have not yet moved
+existing value and generated-schema helpers that have not yet moved
 to returned runtime diagnostic payloads. The completed DATA padding,
 flow-control window, and content-length mismatch migration slice is archived
 under
@@ -417,10 +420,13 @@ The completed result-value trace projection cleanup for plain `EncodeError`,
 `DecodeError`, `DecodeErrorWithReason`, and `DecodeStep::NeedMore` command
 result values is archived under
 `../reference/implemented-proposals/runtime-diagnostic-result-value-trace-projection.md`.
+The completed HPACK fixture standard helper side-table cleanup is archived
+under
+[Runtime Diagnostic HPACK Helper Payload](../reference/implemented-proposals/runtime-diagnostic-hpack-helper-payload.md).
 
 A staged migration can keep compatibility for the remaining work:
 
-1. Convert remaining fixture, value, and generated-schema helpers to the same
+1. Convert remaining value and generated-schema helpers to the same
    returned-payload model where public diagnostics still depend on the
    compatibility bridge.
 2. Remove the remaining narrow backend helpers and side-table registrations

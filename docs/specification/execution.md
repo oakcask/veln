@@ -1447,6 +1447,9 @@ execution reference.
   observed header block size, observed first byte, expected fixture, codec
   module, and bounded header-block preview into the same human diagnostic and
   `details.protocol_diagnostic` JSON shape used by the compatibility helper.
+  The standard `hpack_fixture_*` reporting helpers return those HPACK fixture
+  payloads directly as `Result<(), RuntimeDiagnostic>`, so direct helper
+  command diagnostics are rendered from the returned value.
 - For `veln run` entries, a returned HTTP/2 protocol
   `Err(RuntimeDiagnostic(...))` payload can project directly to the same
   human runtime diagnostic and `details.protocol_diagnostic` JSON shape as

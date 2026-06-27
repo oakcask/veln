@@ -1,6 +1,23 @@
 # HTTP/2 HPACK table-size update placement projects structured runtime details.
 
-fn main() -> Result<(), String>
-	let preview: ByteView = byte_view(byte_chunk_from_hex("823e")?, byte_offset(0)?, byte_count(2)?)?
+fn fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic("hpack.fixture.table_size_update_not_at_start", error, RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", byte_chunk([])))
+end
+
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("823e")
+		Ok(bytes) => match byte_offset(0)
+			Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+				Ok(view) => Ok(view)
+				Err(error) => Err(fallback_payload(error))
+			end
+			Err(error) => Err(fallback_payload(error))
+		end
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = preview_view()?
 	hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", preview)
 end

@@ -4444,19 +4444,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture unsupported header block at byte offset "
             + byteOffset;
-        registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.unsupported_header_block",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedStringLength(
@@ -4472,19 +4471,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed string length at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedStringLengthDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_string_length",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedRawStringValue(
@@ -4500,19 +4498,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed raw string value at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedRawStringValueDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_raw_string_value",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureMalformedHuffmanPadding(
@@ -4528,19 +4525,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture malformed Huffman padding at byte offset "
             + byteOffset;
-        registerHpackFixtureMalformedHuffmanPaddingDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.malformed_huffman_padding",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureHuffmanEosSymbol(
@@ -4556,19 +4552,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture Huffman EOS symbol at byte offset "
             + byteOffset;
-        registerHpackFixtureHuffmanEosSymbolDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.huffman_eos_symbol",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureHuffmanNonVisibleValue(
@@ -4584,19 +4579,18 @@
         long firstByte = asLong(observedFirstByte);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture Huffman non-visible value at byte offset "
             + byteOffset;
-        registerHpackFixtureHuffmanNonVisibleValueDiagnostic(
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.huffman_non_visible_value",
             message,
             byteOffset,
             size,
             firstByte,
             expected,
             module,
-            nearbyContext
+            preview
         );
-        return err(message);
     }
 
     public static Object hpackFixtureDynamicIndexOutOfRange(
@@ -4616,21 +4610,60 @@
         long entryCount = asLong(dynamicTableEntryCount);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK dynamic index out of range at byte offset "
             + byteOffset;
-        registerHpackFixtureDynamicIndexOutOfRangeDiagnostic(
-            message,
-            byteOffset,
-            size,
-            firstByte,
-            requestedIndex,
-            entryCount,
-            expected,
-            module,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(requestedIndex),
+                Long.valueOf(entryCount),
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "hpack.fixture.dynamic_index_out_of_range",
+                message,
+                detail
+            }
+        ));
+    }
+
+    private static Object hpackFixtureDiagnostic(
+        String id,
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule,
+        Object preview
+    ) {
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(observedSize),
+                Long.valueOf(observedFirstByte),
+                expectedFixture,
+                codecModule,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                id,
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object hpackFixtureTableSizeUpdateNotAtStart(
@@ -4654,23 +4687,31 @@
         String state = asString(activeState);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        String nearbyContext = byteViewPreviewTrace(preview, 8);
         String message = "HPACK fixture table-size update after header field at byte offset "
             + byteOffset;
-        registerHpackFixtureTableSizeUpdateNotAtStartDiagnostic(
-            message,
-            byteOffset,
-            size,
-            firstByte,
-            updateSize,
-            kind,
-            stream,
-            state,
-            expected,
-            module,
-            nearbyContext
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(updateSize),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                state,
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "hpack.fixture.table_size_update_not_at_start",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object byteReadU16Be(Object view) {
