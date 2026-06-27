@@ -4150,7 +4150,7 @@ fn supported_prefix_reserved_group(
     bit_width: i64,
     expected_value: i64,
 ) -> bool {
-    if bit_width <= 0 || bit_width > 56 {
+    if bit_width <= 0 || bit_width > 57 {
         return false;
     }
     if exact_width_schema_primitive_little_endian(&first_visible_field.ty)

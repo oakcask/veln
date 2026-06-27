@@ -76,6 +76,9 @@ encode the two visible
 fields from high to low, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch, truncation,
 and `codec.encode_value_unrepresentable` diagnostic shapes.
+The completed seven-byte and eight-byte reserved prefix group slice is
+archived under
+`../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md`.
 Generated schema helpers also consume and encode the narrow two-byte
 byte-interleaved middle layout where one visible sub-byte `UIntN` field is
 followed by one sub-byte `ReservedBits(width, value)` field, one visible
@@ -762,6 +765,9 @@ recorded in
 [Binary Schema Seven-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-seven-byte-split-reserved-layouts.md)
 and
 [Binary Schema Eight-Byte Split Reserved Layouts](../reference/implemented-proposals/binary-schema-eight-byte-split-reserved-layouts.md).
+The completed seven-byte and eight-byte reserved prefix group slice is recorded
+in
+[Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts and any later opt-in mapping exposure.
 

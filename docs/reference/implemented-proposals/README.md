@@ -110,6 +110,8 @@ behavior.
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema eight-byte split reserved layouts:
   [binary-schema-eight-byte-split-reserved-layouts.md](binary-schema-eight-byte-split-reserved-layouts.md).
+- Binary schema wide reserved prefix groups:
+  [binary-schema-wide-reserved-prefix-groups.md](binary-schema-wide-reserved-prefix-groups.md).
 - Binary schema nested repeat payload helpers:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:

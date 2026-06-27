@@ -120,7 +120,7 @@ spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported packed
 reserved prefix or suffix paired with a visible unsigned field, and supported
 reserved prefix groups followed by two visible sub-byte or byte-width
-unsigned fields in one-byte, two-byte, three-byte, four-byte, five-byte, or
+unsigned fields in one-byte, two-byte, three-byte, four-byte, five-byte,
 six-byte, seven-byte, or eight-byte big-endian storage.
 Binary schema
 fields
