@@ -176,6 +176,12 @@ execution reference.
   for the same production handler/action boundary through cancellable
   deadline-aware accept/read outcomes, explicit stream close, clean listener
   end, and explicit listener close,
+  `examples/specification/run/socket-stream-adapter-production-owner-drain-cancellable-deadline-lifecycle/`
+  for a production listener-draining adapter that creates a `CancelOwner`,
+  passes only observer `CancelToken` values to cancellable deadline-aware
+  accept/read and channel-routing code, projects ordered `SendBytes` actions
+  through `net::write_chunks`, and keeps cancellation authority in adapter
+  cleanup while checking clean listener end and accept cancellation,
   `examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
   and
   `examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`
