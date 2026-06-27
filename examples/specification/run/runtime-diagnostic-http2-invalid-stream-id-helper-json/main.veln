@@ -1,0 +1,34 @@
+# HTTP/2 invalid stream id helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		error,
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000002")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_count(9)
+			Ok(count) => match byte_view(bytes, offset, count)
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(header)?
+	http2_protocol_invalid_stream_id(0, 1, 2, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", preview)
+end

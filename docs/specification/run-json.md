@@ -94,6 +94,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.unexpected_settings_ack`,
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
 `http2.protocol.invalid_frame_kind`,
+`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` for
+`http2.protocol.invalid_stream_id`,
 `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
 `http2.peer_limit.frame_size_exceeded`,
 `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for
@@ -137,6 +139,10 @@ The `http2_protocol_closed_with_pending(...)`,
 `http2_peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
+The `http2_protocol_invalid_stream_id(...)` standard helper likewise returns
+the source-visible HTTP/2 `RuntimeDiagnostic(...)` payload directly; its direct
+helper example keeps the rendered payload in `details.value` and projects the
+same stream id domain facts into `details.protocol_diagnostic`.
 The `http2_protocol_invalid_request_header_list(...)` and
 `http2_protocol_invalid_response_header_list(...)` standard helpers likewise
 return source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their
@@ -627,12 +633,15 @@ stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 frame-header bytes. Source-visible
 `RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` payloads keep the
 rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the same
-protocol diagnostic fields. The preview uses the same object shape as other
-protocol-owned byte previews while stream id domain facts stay in their own
-fields; the checked HTTP/2 examples cover invalid zero stream ids, even
-client stream ids, nonzero stream ids on connection-only frames, and
-CONTINUATION on the connection stream while a nonzero-stream header block is
-pending. The
+protocol diagnostic fields. The standard
+`http2_protocol_invalid_stream_id(...)` helper returns the same
+`RuntimeDiagnostic(...)` value directly, so its JSON result details are also
+derived from the returned value rather than a compatibility side-table entry.
+The preview uses the same object shape as other protocol-owned byte previews
+while stream id domain facts stay in their own fields; the checked HTTP/2
+examples cover invalid zero stream ids, even client stream ids, nonzero stream
+ids on connection-only frames, and CONTINUATION on the connection stream while
+a nonzero-stream header block is pending. The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`, plus a

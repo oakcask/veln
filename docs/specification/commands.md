@@ -143,6 +143,7 @@ requiring the full command reference on the first read.
   `http2_protocol_invalid_preface(...)`,
   `http2_protocol_continuation_expected(...)`, and
   `http2_protocol_invalid_frame_kind(...)`,
+  `http2_protocol_invalid_stream_id(...)`,
   `http2_peer_limit_frame_size_exceeded(...)`,
   `http2_peer_limit_header_list_size_exceeded(...)`,
   `http2_peer_limit_header_table_size_exceeded(...)`,

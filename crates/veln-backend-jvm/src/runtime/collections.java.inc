@@ -3746,18 +3746,27 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid stream id at byte offset " + byteOffset;
-        registerHttp2ProtocolInvalidStreamIdDiagnostic(
-            message,
-            byteOffset,
-            kind,
-            stream,
-            domain,
-            role,
-            state,
-            provenance,
-            byteViewPreviewTrace(preview, 8)
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                domain,
+                role,
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
         );
-        return err(message);
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_stream_id",
+                message,
+                detail
+            }
+        ));
     }
 
     public static Object http2ProtocolInvalidPayloadLength(
