@@ -60,12 +60,26 @@ schema UnsupportedReservedSuffixPayload
 	control_padding: ReservedBits(9, 0)
 end
 
+schema UnsupportedByteViewPayload
+	format binary
+
+	payload: ByteView(later_length)
+	later_length: UInt8
+end
+
 schema ExtensionUnsupportedReservedPacket
 	format binary
 
 	length: UInt8
 	kind: UInt8
 	payload: ExtensionDispatch(kind, length, 1 => UnsupportedReservedSuffixPayload)
+end
+
+schema UnsupportedByteViewPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnsupportedByteViewPayload)
 end
 
 schema ImportedPublicPacket

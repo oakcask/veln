@@ -11,12 +11,13 @@ use crate::schema::mapping::{
 };
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
     flag_schema_primitive, recursive_dispatch_payload_case_is_eligible,
-    recursive_dispatch_payload_is_eligible, repeat_schema_primitive, schema_decode_record_type,
-    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_encode_function_name, schema_encode_value_type, schema_has_recursive_dispatch_payload,
+    recursive_dispatch_payload_is_eligible, repeat_schema_primitive,
+    reserved_bits_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
+    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
+    schema_encode_value_type, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, schema_recursive_dispatch_payload_type,
     selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
@@ -3076,6 +3077,7 @@ fn incompatible_schema_dispatch_payload_diagnostic(
     let payload_schema_name = schema_payload_name_last_segment(payload_name);
     let decode_helper = schema_decode_step_function_name(payload_schema_name);
     let encode_helper = schema_encode_function_name(payload_schema_name);
+    let unsupported_field = unsupported_dispatch_payload_helper_field(payload_schema);
     let mut diagnostic = schema_dispatch_payload_diagnostic(
         schema,
         field,
@@ -3104,6 +3106,10 @@ fn incompatible_schema_dispatch_payload_diagnostic(
             ),
         ],
     );
+    if let Some(unsupported_field) = &unsupported_field {
+        diagnostic.details =
+            add_dispatch_payload_unsupported_field_details(diagnostic.details, unsupported_field);
+    }
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("schema_declaration")),
         (
@@ -3114,6 +3120,13 @@ fn incompatible_schema_dispatch_payload_diagnostic(
         ),
         ("span", span_json(&payload_schema.span)),
     ]));
+    if let Some(unsupported_field) = unsupported_field {
+        diagnostic
+            .related
+            .push(dispatch_payload_unsupported_field_related(
+                &unsupported_field,
+            ));
+    }
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("helper_boundary")),
         (
@@ -3124,6 +3137,169 @@ fn incompatible_schema_dispatch_payload_diagnostic(
         ),
     ]));
     diagnostic
+}
+
+struct UnsupportedDispatchPayloadHelperField<'a> {
+    schema_name: String,
+    field: &'a SchemaField,
+    field_path_display: String,
+    layout_fact: String,
+    reason: &'static str,
+}
+
+fn unsupported_dispatch_payload_helper_field(
+    schema: &SchemaDecl,
+) -> Option<UnsupportedDispatchPayloadHelperField<'_>> {
+    let schema_name = schema.name.clone().unwrap_or_default();
+    let mut decoded_fields = BTreeMap::<String, Type>::new();
+    for (index, field) in schema.fields.iter().enumerate() {
+        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+            if supported_encode_reserved_bits(&schema.fields, index, reserved).is_none() {
+                let layout =
+                    reserved_bits_unsupported_layout_context(schema, Some(index), reserved.0);
+                return Some(UnsupportedDispatchPayloadHelperField {
+                    field,
+                    field_path_display: format!("{schema_name}.{}", field.name),
+                    layout_fact: format!(
+                        "`ReservedBits({}, {})` is outside the supported `{}` layout: {}",
+                        reserved.0,
+                        reserved.1,
+                        layout.supported_layout_family,
+                        layout.human_supported_note
+                    ),
+                    reason: "unsupported_reserved_bits_layout",
+                    schema_name,
+                });
+            }
+            continue;
+        }
+        if let Some(width) = exact_width_schema_primitive(&field.ty) {
+            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
+                Type::named(flag_type, Vec::new())
+            } else {
+                Type::int()
+            };
+            decoded_fields.insert(field.name.clone(), ty);
+            if width == 0 {
+                return None;
+            }
+            continue;
+        }
+        if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+            if let Some(reference) = length_expr
+                .references()
+                .into_iter()
+                .find(|reference| decoded_fields.get(*reference) != Some(&Type::int()))
+            {
+                let reference_fact =
+                    byte_view_ineligible_length_fact(schema, field, &decoded_fields, reference);
+                return Some(UnsupportedDispatchPayloadHelperField {
+                    field,
+                    field_path_display: format!("{schema_name}.{}", field.name),
+                    layout_fact: format!(
+                        "`ByteView({})` requires {reference_fact}",
+                        length_expr.render()
+                    ),
+                    reason: "ineligible_byte_view_length_reference",
+                    schema_name,
+                });
+            }
+            decoded_fields.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
+            continue;
+        }
+    }
+    None
+}
+
+fn byte_view_ineligible_length_fact(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    decoded_fields: &BTreeMap<String, Type>,
+    reference: &str,
+) -> String {
+    if let Some(actual) = decoded_fields.get(reference) {
+        format!(
+            "length reference `{reference}` to decode as `Int`; it decodes as `{}`",
+            actual.render()
+        )
+    } else if schema_field_declared_after(schema, field, reference) {
+        format!(
+            "length reference `{reference}` to be declared before field `{}`",
+            field.name
+        )
+    } else {
+        format!("length reference `{reference}` to name an earlier decoded `Int` field")
+    }
+}
+
+fn add_dispatch_payload_unsupported_field_details(
+    details: JsonValue,
+    unsupported: &UnsupportedDispatchPayloadHelperField<'_>,
+) -> JsonValue {
+    let JsonValue::Object(mut fields) = details else {
+        return details;
+    };
+    fields.push((
+        "unsupported_nested_schema".to_string(),
+        JsonValue::string(unsupported.schema_name.clone()),
+    ));
+    fields.push((
+        "unsupported_nested_field".to_string(),
+        JsonValue::string(unsupported.field.name.clone()),
+    ));
+    fields.push((
+        "unsupported_nested_field_path".to_string(),
+        dispatch_payload_unsupported_field_path(unsupported),
+    ));
+    fields.push((
+        "unsupported_nested_layout_reason".to_string(),
+        JsonValue::string(unsupported.reason),
+    ));
+    fields.push((
+        "unsupported_nested_layout_fact".to_string(),
+        JsonValue::string(unsupported.layout_fact.clone()),
+    ));
+    fields.push((
+        "unavailable_helper_directions".to_string(),
+        JsonValue::array([JsonValue::string("decode"), JsonValue::string("encode")]),
+    ));
+    JsonValue::Object(fields)
+}
+
+fn dispatch_payload_unsupported_field_related(
+    unsupported: &UnsupportedDispatchPayloadHelperField<'_>,
+) -> JsonValue {
+    let layout_fact = unsupported.layout_fact.trim_end_matches('.');
+    JsonValue::object([
+        ("kind", JsonValue::string("unsupported_nested_field")),
+        ("span", span_json(&unsupported.field.span)),
+        (
+            "field_path",
+            dispatch_payload_unsupported_field_path(unsupported),
+        ),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Nested dispatch payload field `{}` prevents generated decode and encode helpers: {}.",
+                unsupported.field_path_display, layout_fact
+            )),
+        ),
+    ])
+}
+
+fn dispatch_payload_unsupported_field_path(
+    unsupported: &UnsupportedDispatchPayloadHelperField<'_>,
+) -> JsonValue {
+    JsonValue::array([
+        JsonValue::object([
+            ("kind", JsonValue::string("schema")),
+            ("name", JsonValue::string(unsupported.schema_name.clone())),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("field")),
+            ("name", JsonValue::string(unsupported.field.name.clone())),
+        ]),
+    ])
 }
 
 fn schema_dispatch_details(
