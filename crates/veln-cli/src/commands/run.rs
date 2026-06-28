@@ -899,7 +899,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 diagnostic
                     .related
                     .push(note_json(format!("Endpoint role: {endpoint_role}.")));
-                self.push_state_and_provenance(&mut diagnostic)?;
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
                 Some(diagnostic)
             }
             _ => None,
@@ -5295,6 +5295,10 @@ mod tests {
             ("last_stream_id", JsonValue::Number(5)),
             ("shutdown_state", JsonValue::string("graceful_shutdown")),
             ("endpoint_role", JsonValue::string("server")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000104000000", 9, true),
+            ),
             ("active_state", JsonValue::string("graceful_shutdown")),
             (
                 "rule_provenance",
@@ -5316,7 +5320,7 @@ mod tests {
             diagnostic.message,
             "stream opened after graceful shutdown at byte offset 9"
         );
-        assert_eq!(diagnostic.related.len(), 5);
+        assert_eq!(diagnostic.related.len(), 6);
         assert!(diagnostic.related[0].to_json().contains("stream 7"));
         assert!(diagnostic.related[0].to_json().contains("last stream id 5"));
         assert!(
@@ -5326,7 +5330,12 @@ mod tests {
         );
         assert!(diagnostic.related[2].to_json().contains("server"));
         assert!(
-            diagnostic.related[4]
+            diagnostic.related[3]
+                .to_json()
+                .contains("00 00 00 01 04 00 00 00 (showing 8 of 9 byte(s), truncated)")
+        );
+        assert!(
+            diagnostic.related[5]
                 .to_json()
                 .contains("goaway_last_stream_id")
         );

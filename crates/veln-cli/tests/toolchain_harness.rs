@@ -2908,7 +2908,7 @@ fn result_value_parser_exposes_http2_limit_and_shutdown_runtime_diagnostics() {
     )
     .expect("priority runtime diagnostic value should parse");
     let goaway = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 9, RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, graceful_shutdown, server, goaway_last_stream_id))",
+        "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 9, RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, graceful_shutdown, server, goaway_last_stream_id, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(7)])))",
     )
     .expect("stream-after-GOAWAY runtime diagnostic value should parse");
 
@@ -2947,6 +2947,10 @@ fn result_value_parser_exposes_http2_limit_and_shutdown_runtime_diagnostics() {
     assert_eq!(
         json_path(&goaway, "value.detail.rule_provenance"),
         Some(&JsonValue::String("goaway_last_stream_id".to_string()))
+    );
+    assert_eq!(
+        json_path(&goaway, "value.detail.preview.constructor"),
+        Some(&JsonValue::String("ByteChunk".to_string()))
     );
 }
 
@@ -4004,7 +4008,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
             ))
         }
         "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic" => {
-            let args = expect_arity(name, args, 6)?;
+            let args = expect_arity(name, args, 7)?;
             Ok(result_value_object(
                 "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
                 vec![
@@ -4023,6 +4027,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "rule_provenance",
                         JsonValue::String(args[5].trim().to_string()),
                     ),
+                    ("preview", parse_veln_value(args[6])?),
                 ],
             ))
         }

@@ -1,4 +1,32 @@
 # HTTP/2 stream-after-GOAWAY helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.stream_after_goaway",
+		error,
+		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000007")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2_protocol_stream_after_goaway(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id")
+	let frame_header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(frame_header)?
+	http2_protocol_stream_after_goaway(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id", preview)
 end

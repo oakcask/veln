@@ -48,6 +48,7 @@ HTTP/2 `WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and
 HTTP/2 unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2
 DATA receive flow-control protocol-owned byte diagnostics, and HTTP/2
 frame-size, header-list, header-table, and concurrent-stream receive-limit
+protocol-owned byte diagnostics, plus HTTP/2 stream-after-GOAWAY
 protocol-owned byte diagnostics.
 Current behavior belongs to the specification pages, not this proposal.
 
@@ -158,7 +159,7 @@ bounded by default.
   SETTINGS value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment
   slice, the HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive
   flow-control slice, and the HTTP/2 frame-size, header-list, header-table,
-  and concurrent-stream receive-limit slices cover
+  concurrent-stream receive-limit, and stream-after-GOAWAY slices cover
   protocol-owned byte previews,
   field paths,
   expected and actual counts, and absolute offsets where those diagnostics

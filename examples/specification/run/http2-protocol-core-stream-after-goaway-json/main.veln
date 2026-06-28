@@ -1,7 +1,7 @@
 # HTTP/2 streams opened after GOAWAY project structured runtime details.
 
 type Http2ProtocolFailure
-	StreamAfterGoaway(Int, Int, Int)
+	StreamAfterGoaway(Int, Int, Int, ByteView)
 end
 
 type Http2DiagnosticContext
@@ -26,21 +26,49 @@ fn context_rule_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn stream_after_goaway_payload(offset: Int, stream_id: Int, last_stream_id: Int, context: Http2DiagnosticContext) -> RuntimeDiagnostic
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.stream_after_goaway",
+		error,
+		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id", byte_chunk([]))
+	)
+end
+
+fn stream_after_goaway_payload(offset: Int, stream_id: Int, last_stream_id: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.stream_after_goaway",
 		"HTTP/2 stream opened after graceful shutdown at byte offset 9",
-		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(offset, stream_id, last_stream_id, context_shutdown_state(context), context_endpoint_role(context), context_rule_provenance(context))
+		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(offset, stream_id, last_stream_id, context_shutdown_state(context), context_endpoint_role(context), context_rule_provenance(context), byte_view_to_chunk(preview))
 	)
 end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		StreamAfterGoaway(offset, stream_id, last_stream_id) => Err(stream_after_goaway_payload(offset, stream_id, last_stream_id, context))
+		StreamAfterGoaway(offset, stream_id, last_stream_id, preview) => Err(stream_after_goaway_payload(offset, stream_id, last_stream_id, context, preview))
+	end
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000007")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("graceful_shutdown", "server", "goaway_last_stream_id")
-	http2_protocol_diagnostic(StreamAfterGoaway(9, 7, 5), context)
+	let frame_header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(frame_header)?
+	http2_protocol_diagnostic(StreamAfterGoaway(9, 7, 5, preview), context)
 end

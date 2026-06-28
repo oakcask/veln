@@ -405,7 +405,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(byte_offset: Int, stream_id: Int, observed_window_increment: Int, accepted_min_window_increment: Int, accepted_max_window_increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(byte_offset: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String)
+	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
 end
 
 pub type RuntimeDiagnosticFieldPathSegment
@@ -607,8 +607,8 @@ pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, d
 	prelude_builtin::http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview)
 end
 
-pub fn http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
-	prelude_builtin::http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
+pub fn http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview)
 end
 
 pub fn http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
