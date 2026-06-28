@@ -1,0 +1,67 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "truncated schema field `high` at byte offset 2"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.truncated_field"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"PackedVisibleThreeByteHeader"},{"kind":"field","name":"high"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+equals = "need_bytes"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "abcd"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false

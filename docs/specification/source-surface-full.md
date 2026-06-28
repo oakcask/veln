@@ -313,7 +313,8 @@ schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, including standalone
 `UInt1` through `UInt7` fields that consume one byte each and consecutive
 visible-only `UInt1` through `UInt7` groups of at least two fields whose
-widths complete exactly one byte or one two-byte big-endian storage unit,
+widths complete exactly one byte, one two-byte big-endian storage unit, or
+one three-byte big-endian storage unit,
 plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, the supported
