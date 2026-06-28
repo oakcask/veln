@@ -1,0 +1,108 @@
+# Imported hand-written encode codecs call their declaring-module encoder.
+use stdio
+use wire
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_byte_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_chunks(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_count(chunks)
+		Partial(chunks, _, _) => chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn pending_bytes(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> Int
+	match step
+		Encoded(_) => 0
+		Partial(_, _, state) => byte_count_to_int(byte_chunk_count(state.remaining))
+		Invalid(_) => 0
+	end
+end
+
+fn pending_budget(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> Int
+	match step
+		Encoded(_) => 0
+		Partial(_, _, state) => byte_count_to_int(state.next_budget)
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0007")?
+	let second: ByteChunk = byte_chunk_from_hex("03")?
+	let empty: ByteChunk = byte_chunk_from_hex("")?
+	let chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
+	let no_remaining: {remaining: ByteChunk, next_budget: ByteCount} = {remaining: empty, next_budget: byte_count(0)?}
+	let encoded: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}> = wire::PacketCodec({length: 7, kind: 3}, chunks, byte_count(3)?, no_remaining)
+	stdio::println(step_kind(encoded))
+	stdio::println(int_to_string(emitted_chunks(encoded)))
+	stdio::println(int_to_string(emitted_bytes(encoded)))
+
+	let partial_state: {remaining: ByteChunk, next_budget: ByteCount} = {remaining: second, next_budget: byte_count(1)?}
+	let partial: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}> = wire::PacketCodec({length: 7, kind: 3}, list_cons(first, list_nil()), byte_count(2)?, partial_state)
+	stdio::println(step_kind(partial))
+	stdio::println(int_to_string(emitted_chunks(partial)))
+	stdio::println(int_to_string(emitted_bytes(partial)))
+	stdio::println(int_to_string(pending_bytes(partial)))
+	stdio::println(int_to_string(pending_budget(partial)))
+
+	let invalid: EncodeStep<{remaining: ByteChunk, next_budget: ByteCount}> = wire::PacketCodec({length: 1, kind: 7}, list_nil(), byte_count(0)?, no_remaining)
+	stdio::println(step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

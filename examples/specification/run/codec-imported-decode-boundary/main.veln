@@ -1,0 +1,107 @@
+# Imported hand-written decode codecs call their declaring-module decoder.
+use stdio
+use wire
+
+fn step_kind(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_length(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.length
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_kind(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.kind
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn invalid_error_id(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn invalid_error_offset(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn invalid_error_path(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, field_path)) => field_path
+		Invalid(DecodeErrorWithReason(_, _, field_path, _)) => field_path
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let complete_bytes: ByteChunk = byte_chunk_from_hex("000703")?
+	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(3)?)?
+	let complete: DecodeStep<{length: Int, kind: Int}> = wire::PacketCodec(complete_view, byte_offset(10)?)
+	stdio::println(step_kind(complete))
+	stdio::println(int_to_string(decoded_length(complete)))
+	stdio::println(int_to_string(decoded_kind(complete)))
+	stdio::println(int_to_string(consumed_count(complete)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("0003")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(2)?)?
+	let waiting: DecodeStep<{length: Int, kind: Int}> = wire::PacketCodec(short_view, byte_offset(20)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("000107")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(3)?)?
+	let invalid: DecodeStep<{length: Int, kind: Int}> = wire::PacketCodec(invalid_view, byte_offset(30)?)
+	stdio::println(step_kind(invalid))
+	stdio::println(invalid_error_id(invalid))
+	stdio::println(int_to_string(invalid_error_offset(invalid)))
+	stdio::println(invalid_error_path(invalid))
+	Ok(())
+end

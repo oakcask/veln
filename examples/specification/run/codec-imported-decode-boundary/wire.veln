@@ -1,0 +1,22 @@
+type Packet
+	Packet {length: Int, kind: Int}
+end
+
+schema PacketWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8 where wire_kind <= wire_length
+
+	map to Packet
+		length = wire_length
+		kind = wire_kind
+end
+
+pub codec PacketCodec for PacketWire decode
+	decode with decode_packet
+end
+
+fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	byte_decode_step_packet_wire(input, base)
+end

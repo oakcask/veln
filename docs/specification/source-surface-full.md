@@ -410,7 +410,9 @@ also be called through a written import-qualified module path. The call
 expects the same `ByteView` and `ByteOffset` arguments as the referenced
 function. It returns valid `Decoded`, `NeedMore`, and `Invalid` results
 unchanged, and projects an oversized consumed count to
-`codec.consumed_count_invalid` as specified in `execution.md`.
+`codec.consumed_count_invalid` as specified in `execution.md`. Importing the
+codec item does not make the referenced decoder function or the codec schema
+available through the importing module.
 
 When a codec has `derive decode` and the referenced schema is eligible for the
 generated `byte_decode_step_<schema>` helper, the codec item name is also an
@@ -439,7 +441,9 @@ declaration. When the clause is valid, the codec item name is an ordinary call
 target for the hand-written encode boundary in the declaring module. A
 `pub codec` can also be called through a written import-qualified module path.
 The call expects the same parameters as the referenced function and returns
-that function's `EncodeStep<TState>` value unchanged.
+that function's `EncodeStep<TState>` value unchanged. Importing the codec item
+does not make the referenced encoder function or the codec schema available
+through the importing module.
 
 When a codec has `derive encode`, a referenced schema whose implemented
 structural mapping changes the value boundary uses the mapping target value

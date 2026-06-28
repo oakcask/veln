@@ -272,8 +272,9 @@ compare it with `../specification/` before changing behavior.
   encode and decode execution boundaries including caller-owned parser-state
   retention around `Decoded` and `NeedMore`, the bounded `ByteView` plus base
   `ByteOffset` hand-written decode example with non-consuming short-input
-  readiness and absolute malformed-input offsets, source-visible partial
-  encode preservation and resume, plus eligible derived codec decode and
+  readiness and absolute malformed-input offsets,
+  source-visible partial encode preservation and resume, plus eligible derived
+  codec decode and
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload
@@ -285,6 +286,8 @@ compare it with `../specification/` before changing behavior.
   structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.
+  The completed imported hand-written codec boundary is archived under
+  [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema

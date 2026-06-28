@@ -1,0 +1,6 @@
+# Private imported codecs are unavailable through qualified module paths.
+use wire
+
+pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	wire::PacketCodec(view, base)
+end
