@@ -1,0 +1,191 @@
+# Derived codec boundaries preserve packed visible four-byte helper behavior.
+use stdio
+
+schema PackedVisibleFourByteHeader
+	format binary
+
+	high: UInt5
+	upper: UInt7
+	middle: UInt6
+	lower: UInt5
+	tail: UInt4
+	flag: UInt5
+end
+
+codec PackedVisibleFourByteCodec for PackedVisibleFourByteHeader decode encode
+	derive decode
+	derive encode
+end
+
+fn decode_step_kind(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_high(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.high
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_upper(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.upper
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn encode_step_kind(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(Cons(chunk, Nil)) => byte_count_to_int(byte_chunk_count(chunk))
+		Encoded(_) => 0
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn encoded_offset(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(_) => 0
+		Partial(_, _, state) => byte_count_to_int(state.encoded_offset)
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn partial_state(step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}, String>
+	match step
+		Encoded(_) => Err("expected partial encode")
+		Partial(_, _, state) => Ok(state)
+		Invalid(_) => Err("expected partial encode")
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_one_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_step_chunk(name: String, step: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_one_chunk(name, chunk, expected_hex)
+		Partial(Cons(chunk, Nil), _, _) => emit_one_chunk(name, chunk, expected_hex)
+		Encoded(_) => stdio::println("unexpected encoded chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial chunk count")
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let full_bytes: ByteChunk = byte_chunk_from_hex("abcdef12")?
+	let full_view: ByteView = byte_view(full_bytes, byte_offset(0)?, byte_count(4)?)?
+	let decoded: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}> = PackedVisibleFourByteCodec(full_view, byte_offset(64)?)
+	stdio::println(decode_step_kind(decoded))
+	stdio::println(int_to_string(decoded_high(decoded)))
+	stdio::println(int_to_string(decoded_upper(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("abcdef")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(3)?)?
+	let waiting: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}> = PackedVisibleFourByteCodec(short_view, byte_offset(96)?)
+	stdio::println(decode_step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let value: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int} = {high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 18}
+	let partial: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}> = PackedVisibleFourByteCodec(value, byte_count(2)?)
+	stdio::println(encode_step_kind(partial))
+	stdio::println(int_to_string(emitted_bytes(partial)))
+	stdio::println(int_to_string(encoded_offset(partial)))
+	emit_step_chunk("packed-visible-four-byte-partial", partial, "abcd")
+
+	let resume: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount} = partial_state(partial)?
+	let resumed: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}> = PackedVisibleFourByteCodec(resume, byte_count(2)?)
+	stdio::println(encode_step_kind(resumed))
+	stdio::println(int_to_string(emitted_bytes(resumed)))
+	emit_step_chunk("packed-visible-four-byte-resume", resumed, "ef12")
+
+	let invalid: EncodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, encoded_offset: ByteCount}> = PackedVisibleFourByteCodec({high: 21, upper: 128, middle: 55, lower: 23, tail: 8, flag: 18}, byte_count(4)?)
+	stdio::println(encode_step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

@@ -1318,8 +1318,16 @@ against the built `veln` binary.
   whose widths complete three bytes, decode them from high to low bits, and
   keep decode-step, derived decode codec, generated encode, and derived encode
   codec boundaries eligible.
+- `run/binary-schema-packed-visible-four-byte-decode-encode/`: generated
+  schema helpers pack consecutive visible `UInt1` through `UInt7` fields
+  whose widths complete four bytes, decode them from high to low bits, and
+  keep decode-step, derived decode codec, generated encode, and derived encode
+  codec boundaries eligible.
 - `run/binary-schema-packed-visible-three-byte-truncated-json/`: packed
   visible three-byte decode reports `schema.truncated_field` at the first
+  field in the group when the shared storage unit is incomplete.
+- `run/binary-schema-packed-visible-four-byte-truncated-json/`: packed
+  visible four-byte decode reports `schema.truncated_field` at the first
   field in the group when the shared storage unit is incomplete.
 - `run/binary-schema-primitive-encode/`: a generated binary schema encode
   helper writes visible exact-width unsigned primitive `Int` fields in
@@ -1368,6 +1376,9 @@ against the built `veln` binary.
   offending field path when a value exceeds its declared bit width.
 - `run/binary-schema-packed-visible-three-byte-encode-out-of-range/`: packed
   visible three-byte encode reports `codec.encode_value_unrepresentable` at
+  the offending field path when a value exceeds its declared bit width.
+- `run/binary-schema-packed-visible-four-byte-encode-out-of-range/`: packed
+  visible four-byte encode reports `codec.encode_value_unrepresentable` at
   the offending field path when a value exceeds its declared bit width.
 - `run/binary-schema-primitive-encode-out-of-range/`: the same encode helper
   slice returns a structured `EncodeError` with
@@ -2327,6 +2338,10 @@ against the built `veln` binary.
   representation-only reserved fields.
 - `run/derived-codec-packed-visible-two-byte-boundary/`: derived codec decode
   and encode item boundaries over a visible-only packed two-byte group,
+  including short-input readiness, budgeted encode resume, and
+  helper-projected encode failure.
+- `run/derived-codec-packed-visible-four-byte-boundary/`: derived codec decode
+  and encode item boundaries over a visible-only packed four-byte group,
   including short-input readiness, budgeted encode resume, and
   helper-projected encode failure.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
