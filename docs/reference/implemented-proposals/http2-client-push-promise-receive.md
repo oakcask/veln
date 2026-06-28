@@ -20,7 +20,9 @@ The receive path validates the associated stream and promised stream id before
 ordinary state update, strips the four-byte promised-stream field before HPACK
 fixture decoding, and routes the remaining header block through the same
 completed HEADERS and final CONTINUATION paths used by existing header-block
-fixtures. The accepted state records the promised stream as reserved by peer.
+fixtures. The decoded promised request header list then passes the same
+request header-list validation used by ordinary request HEADERS. Only accepted
+promised request headers record the promised stream as reserved by peer.
 
 The promised-stream lifecycle slice accepts the first valid response HEADERS
 block on that reserved-by-peer promised stream. Without `END_STREAM`, the
@@ -37,8 +39,10 @@ id zero and wrong-parity associated stream ids use
 `http2.protocol.invalid_stream_id`; promised stream id zero and
 client-initiated promised stream ids use `http2.protocol.invalid_stream_id`
 with client receive rule provenance; payloads shorter than the promised-stream
-field use `http2.protocol.invalid_payload_length`; unsupported promised
-header blocks keep the HPACK fixture diagnostic shape.
+field use `http2.protocol.invalid_payload_length`; invalid promised request
+headers use `http2.protocol.invalid_request_header_list` and leave the
+promised stream unreserved; unsupported promised header blocks keep the HPACK
+fixture diagnostic shape.
 
 ## Evidence
 
@@ -46,6 +50,10 @@ header blocks keep the HPACK fixture diagnostic shape.
   single-frame `PUSH_PROMISE` receive, emits the stripped promised header
   block, decodes it through the HPACK fixture path, and prints the
   reserved-by-peer stream state.
+- The same checked case accepts fixture-marked ordinary promised request
+  headers, rejects promised request headers containing response-only `:status`
+  or invalid `te`, and prints that those rejected paths do not reserve the
+  promised stream.
 - The same checked case accepts a `PUSH_PROMISE` header block completed by a
   final CONTINUATION frame and verifies the same stripped HPACK fixture output
   and reserved-by-peer state.

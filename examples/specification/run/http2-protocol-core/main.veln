@@ -8526,6 +8526,17 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_accepted_header_block: () = emit_header_block("http2-client-push-promise-header-block", client_push_promise_accepted, "303132")?
 	print_hpack_transition("client-push-promise-accepted", client_push_promise_accepted)
 	print_reserved_by_peer_stream("client-push-promise-accepted", step_state(client_push_promise_accepted))
+	let client_push_promise_regular_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007050400000001000000023b3c3d")?), client_push_state)?
+	print_step("client-push-promise-regular-accepted", client_push_promise_regular_accepted)
+	let ignored_regular_accepted_header_block: () = emit_header_block("http2-client-push-promise-regular-header-block", client_push_promise_regular_accepted, "3b3c3d")?
+	print_hpack_transition("client-push-promise-regular-accepted", client_push_promise_regular_accepted)
+	print_reserved_by_peer_stream("client-push-promise-regular-accepted", step_state(client_push_promise_regular_accepted))
+	let client_push_promise_status: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080504000000010000000232333435")?), client_push_state)?
+	print_request_header_failure("client-push-promise-status", client_push_promise_status)
+	print_reserved_by_peer_stream("client-push-promise-status", step_state(client_push_promise_status))
+	let client_push_promise_bad_te: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008050400000001000000024c4d4e4f")?), client_push_state)?
+	print_request_header_failure("client-push-promise-bad-te", client_push_promise_bad_te)
+	print_reserved_by_peer_stream("client-push-promise-bad-te", step_state(client_push_promise_bad_te))
 	let client_push_promised_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000002353637")?), step_state(client_push_promise_accepted))?
 	print_step("client-push-promised-headers", client_push_promised_headers)
 	let ignored_promised_headers_block: () = emit_header_block("http2-client-push-promised-headers", client_push_promised_headers, "353637")?

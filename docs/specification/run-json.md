@@ -708,7 +708,10 @@ The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
 for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
 final-CONTINUATION cases expose the stripped promised header block as checked
 lowercase hex output and print the reserved-by-peer promised stream state.
-It also accepts the first response HEADERS block on that promised stream,
+It validates the decoded promised request header list before reservation,
+including accepted ordinary request headers and rejected `:status` and invalid
+`te` request-header facts through the existing request header-list diagnostic
+shape. It also accepts the first response HEADERS block on that promised stream,
 checks the open and `END_STREAM` closed-by-peer lifecycle outcomes, and keeps
 DATA before that response HEADERS block on the same invalid frame-kind
 diagnostic boundary. Stream id zero, promised stream id zero, wrong
