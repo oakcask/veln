@@ -2637,6 +2637,9 @@ against the built `veln` binary.
   stream-window failures report the half-closed-local active state,
   connection-window failures remain connection-flow-control failures, and
   inbound DATA with peer `END_STREAM` moves the stream to closed-by-peer.
+  A valid inbound PRIORITY frame on that half-closed-local stream records the
+  decoded dependency stream id, exclusive flag, and weight while preserving
+  the half-closed-local receive state for later inbound DATA.
   Outbound DATA, outbound HEADERS, and stream-level outbound `WINDOW_UPDATE`
   remain rejected after the local `END_STREAM`. It also constructs outbound
   PRIORITY chunks for an open stream, checks

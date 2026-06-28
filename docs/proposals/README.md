@@ -347,7 +347,8 @@ compare it with `../specification/` before changing behavior.
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, PRIORITY including idle-stream receive while another stream is
-  tracked open, HEADERS with the PRIORITY flag, PING, GOAWAY, local
+  tracked open and half-closed-local receive, HEADERS with the PRIORITY flag,
+  PING, GOAWAY, local
   GOAWAY outbound HEADERS boundary, server-side `PUSH_PROMISE` rejection,
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
@@ -382,6 +383,8 @@ compare it with `../specification/` before changing behavior.
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
+  The completed half-closed-local PRIORITY receive slice is archived under
+  [HTTP/2 Half-Closed-Local PRIORITY Receive](../reference/implemented-proposals/http2-half-closed-local-priority-receive.md).
   The completed outbound DATA send-credit refill from peer `WINDOW_UPDATE` and
   `SETTINGS_INITIAL_WINDOW_SIZE` delta slices are covered by
   [HTTP/2 Outbound DATA Flow Control](../reference/implemented-proposals/http2-outbound-data-flow-control.md).

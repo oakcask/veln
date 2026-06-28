@@ -774,13 +774,15 @@ client-initiated stream ids. It decodes the five-byte payload into
 source-visible dependency stream id, exclusive flag, and weight facts. On the
 currently tracked open stream, it records those facts and lets a later
 accepted PRIORITY frame for that stream replace the tracked dependency,
-exclusive flag, and weight. On an idle stream, including when another
-peer-created stream is already tracked as open, it exposes those facts while
-leaving tracked open-stream state unchanged and leaving the concurrent-stream
-receive count unchanged. PRIORITY on closed-by-peer or reset streams uses the
-existing stream-state failure boundary rather than opening or retargeting
-stream state. PRIORITY on stream id zero uses the
-existing stream id domain failure, wrong-length PRIORITY payloads use
+exclusive flag, and weight. On a tracked half-closed-local stream, it records
+the same facts while keeping the stream half-closed-local for later inbound
+DATA. On an idle stream, including when another peer-created stream is already
+tracked as open, it exposes those facts while leaving tracked open-stream state
+unchanged and leaving the concurrent-stream receive count unchanged. PRIORITY
+on closed-by-peer or reset streams uses the existing stream-state failure
+boundary rather than opening or retargeting stream state. PRIORITY on stream
+id zero uses the existing stream id domain failure, wrong-length PRIORITY
+payloads use
 `http2.protocol.invalid_payload_length`, and PRIORITY self-dependency uses
 `http2.protocol.invalid_priority_dependency` in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details with a bounded preview of

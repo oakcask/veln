@@ -294,6 +294,8 @@ behavior.
   [http2-goaway-receive-lifecycle.md](http2-goaway-receive-lifecycle.md).
 - HTTP/2 half-closed-by-peer outbound DATA:
   [http2-half-closed-by-peer-outbound-data.md](http2-half-closed-by-peer-outbound-data.md).
+- HTTP/2 half-closed-local PRIORITY receive:
+  [http2-half-closed-local-priority-receive.md](http2-half-closed-local-priority-receive.md).
 - HTTP/2 client PUSH_PROMISE receive and promised response HEADERS admission:
   [http2-client-push-promise-receive.md](http2-client-push-promise-receive.md).
 - HTTP/2 request header validation:

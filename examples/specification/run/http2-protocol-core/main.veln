@@ -3462,8 +3462,8 @@ fn update_priority_receive_state(pending: ByteChunk, offset: Int, length: Int, s
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
-		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
-			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "half-closed-local-stream", "half_closed_local_data_only")))
+		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, stream_priority_with_priority(priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?))))))
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => match stream_id == closed_stream_id
@@ -8422,6 +8422,14 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority_replace: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001000000051f")?), step_state(priority))?
 	let ignored_priority_replace: () = print_priority_frame("priority-replace", priority_replace)?
 	print_priority_state("priority-replace", step_state(priority_replace))
+	let priority_half_closed_local_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
+	let priority_half_closed_local_state: Http2DecodeState = record_local_end_stream(step_state(priority_half_closed_local_open), 1)
+	let priority_half_closed_local: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), priority_half_closed_local_state)?
+	let ignored_priority_half_closed_local: () = print_priority_frame("priority-half-closed-local", priority_half_closed_local)?
+	print_priority_state("priority-half-closed-local", step_state(priority_half_closed_local))
+	let priority_half_closed_local_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000010102")?), step_state(priority_half_closed_local))?
+	print_step("priority-half-closed-local-data", priority_half_closed_local_data)
+	print_receive_windows("priority-half-closed-local-data", step_state(priority_half_closed_local_data))
 	let priority_idle: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority_idle: () = print_priority_frame("priority-idle", priority_idle)?
 	print_peer_streams("priority-idle", step_state(priority_idle))

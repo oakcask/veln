@@ -2260,10 +2260,13 @@ nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures with inspected-payload byte previews, a PRIORITY
 frame that exposes dependency stream id, exclusive flag, and weight facts in
 the frame value and tracked open-stream state, replacement of those tracked
-facts by a later PRIORITY frame for the same stream, a PRIORITY frame on an
-idle client-initiated stream that exposes the same priority facts without
-opening a peer-created stream, including when stream `1` remains the tracked
-open stream and the concurrent-stream count stays unchanged, PRIORITY
+facts by a later PRIORITY frame for the same stream, a PRIORITY frame on a
+tracked half-closed-local stream that exposes and records the same priority
+facts while later inbound DATA still follows the half-closed-local DATA path,
+a PRIORITY frame on an idle client-initiated stream that exposes the same
+priority facts without opening a peer-created stream, including when stream
+`1` remains the tracked open stream and the concurrent-stream count stays
+unchanged, PRIORITY
 stream-state failures for closed-by-peer and reset streams, PRIORITY stream id zero,
 wrong-length, and self-dependency failures including the idle-stream case, a
 GOAWAY frame that moves the connection into
@@ -2622,10 +2625,11 @@ that stream use the same closed stream-state rejection boundary. The receive
 core records that local `END_STREAM` as half-closed-local for inbound
 processing: inbound DATA on that stream still consumes connection and stream
 receive-window credit, PADDED DATA still exposes only application content,
-invalid padding and window-credit failures stay typed to the half-closed-local
-state, and inbound DATA with peer `END_STREAM` moves the stream to the
-closed-by-peer state. Generated DATA frame-header representation failures
-remain codec encode errors.
+accepted PRIORITY updates the tracked priority facts without changing the
+half-closed-local lifecycle, invalid padding and window-credit failures stay
+typed to the half-closed-local state, and inbound DATA with peer `END_STREAM`
+moves the stream to the closed-by-peer state. Generated DATA frame-header
+representation failures remain codec encode errors.
 The local SETTINGS send-intent slice emits supported local SETTINGS items for
 `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,

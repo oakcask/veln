@@ -1898,6 +1898,9 @@ execution reference.
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts
   recorded on the tracked open stream, replacement of those tracked priority
   facts by a later accepted PRIORITY frame for the same stream, accepted
+  PRIORITY dependency stream id, exclusive flag, and weight facts on a
+  tracked half-closed-local stream while that stream remains
+  half-closed-local for later inbound DATA,
   PRIORITY dependency stream id, exclusive flag, and weight facts on an idle
   client-initiated stream without opening a peer-created stream or changing
   the concurrent-stream receive count, including when another peer-created
