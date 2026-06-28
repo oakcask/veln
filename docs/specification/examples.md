@@ -927,15 +927,18 @@ construction, bit reads, and bit sets plus JSON raw-bit range and human
 invalid-index runtime result failures.
 
 `../../examples/specification/run/binary-schema-flag16be-decode/`,
+`../../examples/specification/run/binary-schema-flag16be-decode-step/`,
 `../../examples/specification/run/binary-schema-flag16be-encode/`,
 `../../examples/specification/run/binary-schema-flag16be-mapped-record-decode/`,
 `../../examples/specification/run/binary-schema-flag16be-mapped-record-encode/`,
+`../../examples/specification/run/binary-schema-flag16be-truncated-json/`,
 and
 `../../examples/specification/run/binary-schema-flag16be-encode-out-of-range/`
 pin the two-byte big-endian visible flag bitset slice. The cases prove
-source-visible `Flag16be(bits)` decode, big-endian encode, direct structural
-mapping in both directions, and the ordinary encode value-representation
-failure shape for values outside the two-byte range.
+source-visible `Flag16be(bits)` decode, decode-step consumed-byte reporting,
+big-endian encode, direct structural mapping in both directions, decode
+truncation diagnostics, and the ordinary encode value-representation failure
+shape for values outside the two-byte range.
 `../../examples/specification/run/binary-schema-flag16be-bit-helpers/`,
 `../../examples/specification/run/binary-schema-flag16be-from-bits-out-of-range-json/`,
 `../../examples/specification/run/binary-schema-flag16be-bit-index-json/`, and

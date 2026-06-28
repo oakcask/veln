@@ -72,7 +72,8 @@ compare it with `../specification/` before changing behavior.
   converter selector calls through same-module functions or written imported
   paths, focused mapping
   selection diagnostics, and the generated-helper schema validation diagnostic boundary,
-  generated `validate_<schema>` decoded-record validation boundary, plus
+  generated `validate_<schema>` decoded-record validation boundary, visible
+  flag bitset decode bindings, plus
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary

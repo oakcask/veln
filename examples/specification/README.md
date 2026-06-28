@@ -898,6 +898,12 @@ against the built `veln` binary.
   decoded `Flag16be` raw bits and bit positions, construct a new `Flag16be`
   from raw bits and two-byte bit indexes, and encode the result through the
   generated schema helper.
+- `run/binary-schema-flag16be-decode-step/`: generated binary schema
+  decode-step helpers preserve a decoded `Flag16be` value and report the
+  consumed byte count.
+- `run/binary-schema-flag16be-truncated-json/`: generated binary schema
+  decode helpers report `schema.truncated_field` JSON diagnostics at a short
+  `Flag16be` field path.
 - `run/binary-schema-flag16be-from-bits-out-of-range-json/`:
   `flag16be_from_bits` rejects an integer outside the two-byte range with the
   checked runtime `Result` failure in JSON command output.

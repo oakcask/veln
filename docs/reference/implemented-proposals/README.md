@@ -106,6 +106,8 @@ behavior.
   [binary-schema-flag40-and-flag56-bitsets.md](binary-schema-flag40-and-flag56-bitsets.md).
 - Binary schema `Flag48be` and `Flag48le` bitsets:
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
+- Binary schema flag decode bindings:
+  [binary-schema-flag-decode-bindings.md](binary-schema-flag-decode-bindings.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
 - Binary schema reserved fifteen-bit prefix:
