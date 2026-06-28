@@ -62,7 +62,11 @@ The implemented command-facing diagnostic boundary also covers direct
 source-visible `DecodeError`, `DecodeErrorWithReason`, and `EncodeError`
 result failures returned by `veln run` entries with the same structured JSON
 facts used by their `DecodeStep::Invalid(...)` and `EncodeStep::Invalid(...)`
-counterparts.
+counterparts. The implemented imported hand-written codec slice covers
+written qualified calls to `pub codec` items declared in another module for
+both `decode with` and `encode with`, without requiring the importing module
+to expose the private helper function or schema. It also keeps private
+imported codecs unavailable.
 
 Define codec support for:
 
@@ -288,7 +292,11 @@ functions.
 The implemented hand-written encode, hand-written decode, and eligible derived
 decode and encode call paths make a private codec usable only in its declaring
 module. A `pub codec` is exposed through a written import-qualified module
-path, without re-exporting it from the importing module.
+path, without re-exporting it from the importing module. The imported
+hand-written `decode with` path forwards the caller's `ByteView` and
+`ByteOffset` to the decoder named in the declaring module. The imported
+hand-written `encode with` path forwards the source call arguments to the
+encoder named in the declaring module.
 
 Importing a codec imports the codec item only. It does not import the schema as
 an ordinary value, expose schema-local field names, or add codec directions that
@@ -369,7 +377,8 @@ encoder state owns only the remaining encode work.
   fields, wide reserved suffix and prefix groups, the checked
   non-HTTP general helper shape, and the caller-owned parser-state retention
   and hand-written bounded
-  `ByteView` base-offset `NeedMore` examples.
+  `ByteView` base-offset `NeedMore` examples, plus imported public
+  hand-written codec calls and private imported codec rejection.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.

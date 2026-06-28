@@ -10236,6 +10236,23 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             ..
         } if name == "decode_packet" && codec == "PacketCodec"
     ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::CodecDecode { function: name, codec },
+            ..
+        } if name == "decode_packet" && codec == "PacketCodec"
+    ));
 }
 
 #[test]
@@ -10299,6 +10316,23 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
         &expr.kind,
         CoreExprKind::Call {
             target: CoreCallTarget::Function(name),
+            ..
+        } if name == "encode_packet"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::Function(name),
             ..
         } if name == "encode_packet"
     ));

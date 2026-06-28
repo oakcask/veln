@@ -1,0 +1,13 @@
+schema PacketWire
+	format binary
+
+	length: UInt8
+end
+
+codec PacketCodec for PacketWire decode
+	decode with decode_packet
+end
+
+fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	NeedMore(NeedEnd)
+end

@@ -272,8 +272,10 @@ compare it with `../specification/` before changing behavior.
   encode and decode execution boundaries including caller-owned parser-state
   retention around `Decoded` and `NeedMore`, the bounded `ByteView` plus base
   `ByteOffset` hand-written decode example with non-consuming short-input
-  readiness and absolute malformed-input offsets, source-visible partial
-  encode preservation and resume, plus eligible derived codec decode and
+  readiness and absolute malformed-input offsets, imported public
+  hand-written codec calls and private imported codec rejection,
+  source-visible partial encode preservation and resume, plus eligible derived
+  codec decode and
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload

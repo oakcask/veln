@@ -1592,8 +1592,10 @@ execution reference.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
-  base `ByteOffset` and invokes the referenced same-module function.
-  `NeedMore(readiness)` and `Invalid(error)` return unchanged.
+  base `ByteOffset` and invokes the referenced same-module function. A
+  written import-qualified call to a `pub codec` uses the same boundary while
+  keeping the referenced helper function and schema owned by the declaring
+  module. `NeedMore(readiness)` and `Invalid(error)` return unchanged.
   `Decoded(value, consumed)` returns unchanged when `consumed` is within the
   supplied view length; when `consumed` is outside the supplied view, the codec
   boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
@@ -1607,6 +1609,9 @@ execution reference.
   `NeedMore(NeedBytes(...))` for short input, and reports malformed input with
   a `DecodeError` whose byte offset is the caller-supplied base offset plus
   the local field position.
+  `examples/specification/run/codec-imported-decode-boundary/` covers the
+  imported `pub codec` path for the same hand-written decode boundary with
+  `Decoded`, `NeedMore`, and `Invalid` outcomes.
 - For `veln run` entries, a returned
   `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` is a
   source-visible diagnostic-bearing result failure. The command boundary
@@ -1725,12 +1730,17 @@ execution reference.
   `examples/specification/run/codec-decode-need-more-json/`.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
-  ordinary source calls. The call invokes the referenced same-module function
-  with that function's parameters and returns its `EncodeStep<TState>` value
-  unchanged, including `Encoded`, `Partial`, and `Invalid` results. A checked
-  budgeted encode example observes `Partial` with its emitted chunk list,
-  produced byte count, and resumed encoder state as ordinary source-visible
-  values, then uses the returned state to complete a later encode call. For
+  ordinary source calls. A written import-qualified call to a `pub codec`
+  invokes the referenced same-module function with that function's parameters
+  and keeps the helper function and schema owned by the declaring module. It
+  returns its `EncodeStep<TState>` value unchanged, including `Encoded`,
+  `Partial`, and `Invalid` results. A checked budgeted encode example observes
+  `Partial` with its emitted chunk list, produced byte count, and resumed
+  encoder state as ordinary source-visible values, then uses the returned
+  state to complete a later encode call.
+  `examples/specification/run/codec-imported-encode-boundary/` covers the
+  imported `pub codec` path for `Encoded`, `Partial`, and `Invalid` outcomes.
+  For
   `veln run` entries, a returned `Invalid(EncodeError(...))` is projected to
   the same focused human and `details.value_diagnostic` JSON diagnostics used
   for command-facing `EncodeError` result values. The checked examples are
@@ -1742,6 +1752,9 @@ execution reference.
 - Same-module private decode codecs are callable only in their declaring
   module; same-module private encode codecs follow the same rule. Imported
   calls require a written qualified module path to a `pub codec`.
+  `examples/specification/check/codec-imported-private-boundary/` covers a
+  private imported hand-written codec remaining unavailable through the
+  qualified module path.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If

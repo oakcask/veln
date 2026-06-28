@@ -426,6 +426,8 @@ against the built `veln` binary.
   missing, private, wrong-kind, bare imported, missing-use, and facade
   non-reexport targets without importing schema-local fields or executable
   codec APIs.
+- `check/codec-imported-private-boundary/`: a private hand-written codec in an
+  imported module remains unavailable through a qualified module path.
 - `check/codec-decode-signature-diagnostics/`: `decode with` checker
   diagnostics for unresolved decoder functions and wrong decode function
   parameter or return shapes.
@@ -2021,6 +2023,10 @@ against the built `veln` binary.
   valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
   schema mapping pins the accepted value type. It projects an oversized
   consumed count to `codec.consumed_count_invalid`.
+- `run/codec-imported-decode-boundary/`: an imported public hand-written
+  `decode with` codec is called through a qualified module path and observes
+  `Decoded`, `NeedMore`, and `Invalid` results while the private decoder stays
+  in the declaring module.
 - `run/codec-byteview-offset-needmore/`: a source-written decoder receives a
   bounded `ByteView` plus caller-supplied base `ByteOffset`, returns
   `Decoded` with a consumed `ByteCount` for complete input, returns
@@ -2193,6 +2199,10 @@ against the built `veln` binary.
   `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged. The partial
   path keeps the emitted chunk list, produced byte count, and resumed encoder
   state visible to ordinary source before resuming to a complete encode.
+- `run/codec-imported-encode-boundary/`: an imported public hand-written
+  `encode with` codec is called through a qualified module path and observes
+  `Encoded`, `Partial`, and `Invalid` results while the private encoder stays
+  in the declaring module.
 - `run/codec-encode-error-direct-json/`: a direct
   `Result<_, EncodeError>` entry failure keeps the rendered source-visible
   error value and populates `run --json` `details.value_diagnostic` with the
