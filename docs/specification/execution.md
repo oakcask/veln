@@ -511,7 +511,14 @@ execution reference.
   That form decodes the visible value from the high bits,
   validates the low reserved bits at the reserved field path, omits the
   reserved field, and
-  advances by the shared storage width. The supported middle layout is a
+  advances by the shared storage width. A visible `UInt8` field followed
+  immediately by a non-byte-aligned multi-byte
+  `ReservedBits(width, value)` suffix also uses the smallest three-byte
+  through eight-byte big-endian storage unit that can contain the visible byte,
+  the reserved bits, and zero low padding bits. The visible byte is decoded as
+  an ordinary `Int`, the reserved suffix is validated at the reserved field
+  path, the reserved field remains omitted, and the helper advances by the
+  shared storage width. The supported middle layout is a
   visible `UIntN` field, a `ReservedBits(width, value)` field, and another
   visible `UIntN` field whose widths together complete one byte or the same
   two-byte, three-byte, or four-byte big-endian storage unit. That form
@@ -1009,6 +1016,11 @@ execution reference.
   the eight-byte case where the fields complete sixty-four bits, is
   representation-only in the same way, but emits the visible
   value in the high bits and the declared reserved value in the low bits. A
+  visible `UInt8` field followed by a non-byte-aligned multi-byte
+  `ReservedBits(width, value)` suffix emits the visible byte first, the
+  declared reserved suffix next, and zero low padding bits through the
+  smallest three-byte through eight-byte big-endian storage unit that can
+  contain that layout. A
   visible `UIntN` field, middle `ReservedBits(width, value)`
   field, and following visible `UIntN` field whose widths complete the same
   storage unit are also representation-only: the helper writes both visible
@@ -1326,6 +1338,8 @@ execution reference.
   `examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`,
   `examples/specification/run/binary-schema-wide-suffix-reserved-json/`,
   `examples/specification/run/binary-schema-wide-suffix-reserved-human/`,
+  `examples/specification/run/binary-schema-byte-visible-reserved-suffix-decode-encode/`,
+  `examples/specification/run/binary-schema-byte-visible-reserved-suffix-json/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-middle-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`,

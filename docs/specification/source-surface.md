@@ -365,6 +365,9 @@ sum to eight, sixteen, twenty-four, or thirty-two bits, including the
 two-field `ReservedBits(15, value)` plus `UInt1` boundary, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
+supported visible `UInt8` plus non-byte-aligned multi-byte
+`ReservedBits(width, value)` suffix layouts that fit in one three-byte
+through eight-byte big-endian storage unit with low padding,
 supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,

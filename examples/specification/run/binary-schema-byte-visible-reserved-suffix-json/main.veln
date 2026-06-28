@@ -1,0 +1,12 @@
+schema ByteVisibleReservedSuffixHeader
+	format binary
+
+	control: UInt8
+	control_padding: ReservedBits(9, 0)
+end
+
+pub fn main() -> Result<{control: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ab0080")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	byte_decode_byte_visible_reserved_suffix_header(view)
+end

@@ -612,6 +612,8 @@ offset, bit width, expected value, actual value, and byte preview.
 `../../examples/specification/run/binary-schema-five-byte-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-six-byte-reserved-suffix-decode-encode/`,
 `../../examples/specification/run/binary-schema-six-byte-reserved-suffix-json/`,
+`../../examples/specification/run/binary-schema-byte-visible-reserved-suffix-decode-encode/`,
+`../../examples/specification/run/binary-schema-byte-visible-reserved-suffix-json/`,
 `../../examples/specification/run/binary-schema-packed-reserved-suffix-truncated-json/`,
 `../../examples/specification/run/binary-schema-six-byte-reserved-suffix-truncated-json/`,
 and
@@ -619,7 +621,10 @@ and
 pin the packed reserved suffix slice. The valid cases decode the visible high
 bits and omit the low reserved suffix field from the decoded record for
 one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte shared storage
-units. The
+units. The byte-visible case decodes `UInt8` from the leading byte,
+validates a non-byte-aligned multi-byte reserved suffix in the following
+storage bits, omits the suffix field, and preserves derived codec decode and
+encode eligibility. The
 failing cases
 assert `schema.reserved_bits_mismatch` at the reserved suffix field path and
 `schema.truncated_field` at the visible field path when the shared storage
@@ -1384,6 +1389,7 @@ the value does not fit.
 `../../examples/specification/run/binary-schema-five-byte-reserved-suffix-decode-encode/`,
 `../../examples/specification/run/binary-schema-six-byte-reserved-suffix-decode-encode/`,
 `../../examples/specification/run/binary-schema-six-byte-reserved-suffix-encode-out-of-range/`,
+`../../examples/specification/run/binary-schema-byte-visible-reserved-suffix-decode-encode/`,
 and
 `../../examples/specification/run/binary-schema-packed-reserved-two-byte-suffix-encode-out-of-range/`
 pin the packed reserved suffix encode slice. The helper writes the visible

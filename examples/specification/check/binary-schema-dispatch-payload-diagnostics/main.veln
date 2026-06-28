@@ -53,7 +53,7 @@ schema UnsupportedReservedPacket
 	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
 end
 
-schema UnsupportedReservedSuffixPayload
+schema SupportedReservedSuffixPayload
 	format binary
 
 	control: UInt8
@@ -67,12 +67,12 @@ schema UnsupportedByteViewPayload
 	later_length: UInt8
 end
 
-schema ExtensionUnsupportedReservedPacket
+schema ExtensionSupportedReservedPacket
 	format binary
 
 	length: UInt8
 	kind: UInt8
-	payload: ExtensionDispatch(kind, length, 1 => UnsupportedReservedSuffixPayload)
+	payload: ExtensionDispatch(kind, length, 1 => SupportedReservedSuffixPayload)
 end
 
 schema UnsupportedByteViewPacket
