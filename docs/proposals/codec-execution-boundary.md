@@ -66,7 +66,8 @@ counterparts. The implemented imported hand-written codec slice covers
 written qualified calls to `pub codec` items declared in another module for
 both `decode with` and `encode with`, without requiring the importing module
 to expose the private helper function or schema. It also keeps private
-imported codecs unavailable.
+imported codecs unavailable. The completed slice is recorded in the
+[implemented proposal record](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 
 Define codec support for:
 
@@ -377,8 +378,7 @@ encoder state owns only the remaining encode work.
   fields, wide reserved suffix and prefix groups, the checked
   non-HTTP general helper shape, and the caller-owned parser-state retention
   and hand-written bounded
-  `ByteView` base-offset `NeedMore` examples, plus imported public
-  hand-written codec calls and private imported codec rejection.
+  `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.
