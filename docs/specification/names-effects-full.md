@@ -1029,7 +1029,10 @@ layouts, supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, four, five, six,
-seven, or eight big-endian bytes, supported `UIntN` plus middle
+seven, or eight big-endian bytes, supported visible `UInt8` plus
+non-byte-aligned multi-byte `ReservedBits(width, value)` suffix layouts that
+fit in one three-byte through eight-byte big-endian storage unit with low
+padding, supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths complete one,
 two, three, or four big-endian bytes, including the narrow two-byte
 interleaved middle layout with a sub-byte visible `UIntN`, a reserved field,

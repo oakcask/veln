@@ -69,6 +69,8 @@ The completed six-byte reserved suffix slice is archived under
 The completed seven-byte and eight-byte reserved suffix slice is archived
 under
 [Binary Schema Wide Reserved Suffix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-suffix-groups.md).
+The completed `UInt8` plus multi-byte reserved suffix slice is archived under
+[Binary Schema Byte-Visible Reserved Suffix](../reference/implemented-proposals/binary-schema-byte-visible-reserved-suffix.md).
 Generated schema helpers also consume and encode one-byte, two-byte,
 three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte
 big-endian reserved prefix
@@ -812,7 +814,10 @@ two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte, or eight-byte
 big-endian storage unit, plus the narrow `ReservedBits(9, 0)` plus `UInt8`
 byte-prefix layout, and the narrow two-byte suffix group where two visible
 `UIntN` fields, the second one `UInt8`, are followed by a non-byte-aligned
-`ReservedBits(width, value)` suffix, are implemented under
+`ReservedBits(width, value)` suffix, and the visible `UInt8` plus
+non-byte-aligned multi-byte `ReservedBits(width, value)` suffix layout that
+fits in a three-byte through eight-byte big-endian storage unit with low
+padding, are implemented under
 `../specification/execution.md`. Completed split reserved group history is
 recorded in
 [Binary Schema Split Reserved Groups](../reference/implemented-proposals/binary-schema-split-reserved-groups.md),
@@ -825,6 +830,8 @@ in
 [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
 The completed seven-byte and eight-byte reserved suffix slice is recorded in
 [Binary Schema Wide Reserved Suffix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-suffix-groups.md).
+The completed `UInt8` plus multi-byte reserved suffix slice is recorded in
+[Binary Schema Byte-Visible Reserved Suffix](../reference/implemented-proposals/binary-schema-byte-visible-reserved-suffix.md).
 The completed two-byte suffix reserved group slice is recorded in
 [Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md).
 The completed `ReservedBits(15, value)` plus `UInt1` two-field boundary is

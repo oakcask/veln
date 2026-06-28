@@ -241,6 +241,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Reserved Bit Mapping Exposure](../reference/implemented-proposals/binary-schema-reserved-bit-mapping-exposure.md).
   The completed one-byte reserved suffix slice is archived under
   [Binary Schema One-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md).
+  The completed `UInt8` plus multi-byte reserved suffix slice is archived
+  under
+  [Binary Schema Byte-Visible Reserved Suffix](../reference/implemented-proposals/binary-schema-byte-visible-reserved-suffix.md).
   The completed `ReservedBits(15, value)` followed by `UInt1` two-field
   boundary is archived under
   [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).

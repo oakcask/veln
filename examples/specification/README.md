@@ -868,6 +868,16 @@ against the built `veln` binary.
 - `run/binary-schema-six-byte-reserved-suffix-truncated-json/`: generated
   schema decode helpers report `schema.truncated_field` at the visible field
   path when input ends before the six-byte suffix storage unit is complete.
+- `run/binary-schema-byte-visible-reserved-suffix-decode-encode/`: generated
+  schema helpers decode and encode a visible `UInt8` followed by a
+  non-byte-aligned multi-byte `ReservedBits(width, value)` suffix in the same
+  big-endian storage unit with low padding, omit the reserved suffix field,
+  preserve derived codec eligibility, and reject an out-of-range visible
+  encode value.
+- `run/binary-schema-byte-visible-reserved-suffix-json/`: generated schema
+  decode helpers report `schema.reserved_bits_mismatch` for a byte-visible
+  reserved suffix with field path, byte offset, bit width, expected value,
+  actual value, and byte preview details.
 - `run/binary-schema-packed-reserved-two-byte-suffix-truncated-json/`:
   generated schema decode helpers report `schema.truncated_field` at the
   visible field path when input ends before the shared suffix storage unit is
@@ -1616,6 +1626,10 @@ against the built `veln` binary.
   schema encode helpers write a visible field into the high bits and write
   the declared reserved suffix value into the low bits of the same five-byte
   big-endian storage unit.
+- `run/binary-schema-byte-visible-reserved-suffix-decode-encode/`: generated
+  schema encode helpers write a visible `UInt8`, the declared multi-byte
+  reserved suffix value, and low padding bits into the same big-endian
+  storage unit.
 - `run/binary-schema-six-byte-reserved-suffix-encode-out-of-range/`: generated
   schema encode helpers report `codec.encode_value_unrepresentable` against
   the visible high-bit field when a six-byte suffix source value is outside

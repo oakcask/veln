@@ -1,4 +1,4 @@
-schema UnsupportedReservedSuffix
+schema SupportedReservedSuffix
 	format binary
 
 	control: UInt8

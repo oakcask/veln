@@ -4175,6 +4175,9 @@ pub(crate) fn supported_encode_reserved_bits(
             return Some((bit_width as u8, expected_value));
         }
     }
+    if previous_field.is_some_and(|field| supported_byte_visible_reserved_suffix(field, reserved)) {
+        return Some((bit_width as u8, expected_value));
+    }
     if let (Some(previous_previous_field), Some(previous_field)) =
         (previous_previous_field, previous_field)
         && supported_suffix_reserved_group(
@@ -4336,6 +4339,23 @@ fn supported_suffix_reserved_group(
         && second_bit_width == 8
         && i64::from(first_bit_width) + i64::from(second_bit_width) + bit_width == 16
         && expected_value < (1_i64 << bit_width)
+}
+
+fn supported_byte_visible_reserved_suffix(
+    visible_field: &veln_ast::SchemaField,
+    reserved: (i64, i64),
+) -> bool {
+    let (bit_width, expected_value) = reserved;
+    if bit_width <= 8 || bit_width >= 56 || bit_width % 8 == 0 {
+        return false;
+    }
+    if visible_field.ty.trim() != "UInt8" {
+        return false;
+    }
+    let storage_bit_width = ((8 + bit_width + 7) / 8) * 8;
+    storage_bit_width > 16
+        && storage_bit_width <= 64
+        && reserved_bits_max_value(bit_width).is_some_and(|max_value| expected_value <= max_value)
 }
 
 fn supported_packed_reserved_prefix(

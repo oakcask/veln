@@ -3814,8 +3814,8 @@ fn generated_schema_helpers_reject_unsupported_two_byte_packed_reserved_suffix_s
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported two-byte packed reserved suffix shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported two-byte packed reserved suffix shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
@@ -3867,8 +3867,8 @@ fn generated_schema_helpers_reject_unsupported_three_byte_packed_reserved_suffix
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported three-byte packed reserved suffix shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported three-byte packed reserved suffix shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
@@ -3920,8 +3920,8 @@ fn generated_schema_helpers_reject_unsupported_four_byte_packed_reserved_suffix_
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported four-byte packed reserved suffix shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported four-byte packed reserved suffix shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
@@ -3987,6 +3987,79 @@ fn generated_schema_helpers_accept_two_visible_suffix_reserved_group() {
             ("guard", 0, 0, Some((5, 21))),
         ]
     );
+}
+
+#[test]
+fn generated_schema_helpers_accept_byte_visible_reserved_suffix_widths() {
+    for reserved_width in (9..=55).filter(|width| width % 8 != 0) {
+        let reserved_value = (1_i64 << reserved_width) - 1;
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                concat!(
+                    "schema ByteVisibleReservedSuffixHeader\n",
+                    "  format binary\n",
+                    "\n",
+                    "  control: UInt8\n",
+                    "  control_padding: ReservedBits({}, {})\n",
+                    "end\n",
+                    "\n",
+                    "pub fn read_header(view: ByteView) -> Result<{{control: Int}}, String>\n",
+                    "  byte_decode_byte_visible_reserved_suffix_header(view)\n",
+                    "end\n",
+                    "\n",
+                    "pub fn write_header(packet: {{control: Int}}) -> Result<ByteChunk, EncodeError>\n",
+                    "  byte_encode_byte_visible_reserved_suffix_header(packet)\n",
+                    "end\n",
+                ),
+                reserved_width, reserved_value
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let lowered = lower_checked_surface_module(&module);
+
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "reserved width {reserved_width}: {:#?}",
+            lowered.diagnostics
+        );
+        let ir = lowered.ir.expect("typed IR should be built");
+        assert_eq!(
+            ir.schema_decoders.len(),
+            1,
+            "reserved width {reserved_width}"
+        );
+        let schema = &ir.schema_decoders[0];
+        assert_eq!(
+            schema
+                .fields
+                .iter()
+                .map(|field| {
+                    (
+                        field.name.as_str(),
+                        field.width,
+                        field.max_value,
+                        field
+                            .reserved_bits
+                            .as_ref()
+                            .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                ("control", 1, 255, None),
+                (
+                    "control_padding",
+                    0,
+                    0,
+                    Some((reserved_width as u8, reserved_value)),
+                ),
+            ],
+            "reserved width {reserved_width}"
+        );
+    }
 }
 
 #[test]
@@ -4159,8 +4232,8 @@ fn generated_schema_helpers_reject_unsupported_five_byte_reserved_suffix_shapes(
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported five-byte reserved suffix shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported five-byte reserved suffix shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
@@ -4212,8 +4285,8 @@ fn generated_schema_helpers_reject_unsupported_six_byte_reserved_suffix_shapes()
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported six-byte reserved suffix shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported six-byte reserved suffix shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
