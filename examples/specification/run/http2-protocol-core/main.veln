@@ -8088,6 +8088,10 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_literal_print: () = print_outbound_headers_from_list("outbound-headers-hpack-literal-continuation", outbound_headers_hpack_literal)?
 	let outbound_headers_hpack_literal_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_literal)?
 	let ignored_headers_hpack_literal_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-literal-continuation", outbound_headers_hpack_literal_decision, "00000401000000000104072f740000040900000000016172676500000109040000000174")?
+	let outbound_headers_hpack_visible_ascii: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_visible_ascii_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_visible_ascii_print: () = print_outbound_headers_from_list("outbound-headers-hpack-visible-ascii-literal", outbound_headers_hpack_visible_ascii)?
+	let outbound_headers_hpack_visible_ascii_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_visible_ascii)?
+	let ignored_headers_hpack_visible_ascii_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-visible-ascii-literal", outbound_headers_hpack_visible_ascii_decision, "00000e0104000000010006782d64656d6f0568656c6c6f")?
 	let outbound_encode_initial: HpackFixtureState = hpack_fixture::initial_encode_state()
 	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-initial", outbound_encode_initial)
 	let outbound_literal_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_encode_initial, 0)
@@ -8153,6 +8157,8 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_bytes_huffman_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-bytes-huffman", outbound_headers_hpack_bytes_huffman_decision, "0000070104000000010485ffc7ffffdd")?
 	let outbound_headers_hpack_huffman_non_visible: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_non_visible_huffman_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_huffman_non_visible_print: () = print_outbound_headers_from_list("outbound-headers-hpack-huffman-non-visible", outbound_headers_hpack_huffman_non_visible)?
+	let outbound_headers_hpack_invalid_name: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_invalid_name_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_invalid_name_print: () = print_outbound_headers_from_list("outbound-headers-hpack-invalid-name", outbound_headers_hpack_invalid_name)?
 	let outbound_headers_hpack_unsupported: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_unsupported_static_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_unsupported_print: () = print_outbound_headers_from_list("outbound-headers-hpack-unsupported", outbound_headers_hpack_unsupported)?
 	let outbound_headers_end_stream: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("87")?, true, empty_peer_settings(), outbound_receive_credit)?
@@ -8215,6 +8221,10 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_push_promise_hpack_huffman_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-literal-huffman", outbound_push_promise_hpack_huffman)?
 	let outbound_push_promise_hpack_huffman_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_huffman)?
 	let ignored_push_promise_hpack_huffman_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-literal-huffman", outbound_push_promise_hpack_huffman_decision, "0000080504000000010000000208821001")?
+	let outbound_push_promise_hpack_visible_ascii: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_literal_visible_ascii_headers(), empty_peer_settings(), outbound_receive_credit)?
+	let ignored_push_promise_hpack_visible_ascii_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-visible-ascii-literal", outbound_push_promise_hpack_visible_ascii)?
+	let outbound_push_promise_hpack_visible_ascii_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_visible_ascii)?
+	let ignored_push_promise_hpack_visible_ascii_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-visible-ascii-literal", outbound_push_promise_hpack_visible_ascii_decision, "000012050400000001000000020006782d64656d6f0568656c6c6f")?
 	let outbound_push_promise_continuation: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("828486")?, small_peer_max_frame_size_settings(5), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-continuation", outbound_push_promise_continuation)
 	let ignored_push_promise_continuation_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-continuation", outbound_push_promise_continuation, "00000505000000000100000002820000020904000000018486")?

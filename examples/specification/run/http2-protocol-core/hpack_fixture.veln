@@ -355,6 +355,14 @@ pub fn outbound_literal_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
+pub fn outbound_literal_visible_ascii_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-demo", "hello"), HpackHeader(":fixture", "literal-without-indexing"), 14)
+end
+
+pub fn outbound_literal_invalid_name_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("bad@name", "ok"), HpackHeader(":fixture", "literal-without-indexing"), 0)
+end
+
 pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
 end
@@ -1787,10 +1795,90 @@ fn literal_static_name_index(name: String) -> Int
 	end
 end
 
+fn ordinary_header_name_token_byte(value: Int) -> Bool
+	match value >= 97 and value <= 122
+		true => true
+		false => match value >= 48 and value <= 57
+			true => true
+			false => match value == 33
+				true => true
+				false => match value >= 35 and value <= 39
+					true => true
+					false => match value == 42 or value == 43 or value == 45 or value == 46
+						true => true
+						false => match value == 94 or value == 95 or value == 96 or value == 124 or value == 126
+							true => true
+							false => false
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn ordinary_header_name_token_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	match index >= count
+		true => true
+		false => match ordinary_header_name_token_byte(byte_at_or_missing(bytes, index))
+			true => ordinary_header_name_token_bytes(bytes, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn ordinary_header_name_is_connection_specific(name: String) -> Bool
+	match name == "connection"
+		true => true
+		false => match name == "keep-alive"
+			true => true
+			false => match name == "proxy-connection"
+				true => true
+				false => match name == "transfer-encoding"
+					true => true
+					false => name == "upgrade"
+				end
+			end
+		end
+	end
+end
+
+fn accepted_ordinary_header_name_bytes(name: String) -> Result<ByteChunk, String>
+	match ordinary_header_name_is_connection_specific(name)
+		true => Err("connection-specific")
+		false => match byte_chunk_from_visible_ascii_string(name)
+			Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0 and ordinary_header_name_token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+				true => Ok(bytes)
+				false => Err("invalid-token")
+			end
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn encode_new_name_literal_header_with_prefix(name: String, value: String, prefix_value: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match accepted_ordinary_header_name_bytes(name)
+		Ok(_) => match byte_write_u8_be(prefix_value)
+			Ok(prefix) => match encode_hpack_raw_string_literal(name, offset)
+				Ok(encoded_name) => match encode_hpack_raw_string_literal(value, offset)
+					Ok(encoded_value) => Ok(byte_append(byte_append(prefix, encoded_name), encoded_value))
+					Err(failure) => Err(failure)
+				end
+				Err(failure) => Err(failure)
+			end
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
 fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let index: Int = literal_static_name_index(name)
 	match index < 0
-		true => unsupported_header_list_encoding(headers, offset)
+		true => match prefix_offset == 0
+			true => encode_new_name_literal_header_with_prefix(name, value, 0, headers, offset)
+			false => unsupported_header_list_encoding(headers, offset)
+		end
 		false => match byte_write_u8_be(prefix_offset + index)
 			Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
 				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))

@@ -2611,7 +2611,10 @@ frame. Accepted `END_STREAM` records local closed-stream state. The checked
 case pins one-continuation, multiple-continuation, and `END_STREAM`-plus-final
 `END_HEADERS` split outputs as complete lowercase hex. The same checked case
 pins fixture-encoded Huffman-marked `:path: test` and
-`:authority: abc.test` header blocks inside outbound HEADERS frames. It
+`:authority: abc.test` header blocks inside outbound HEADERS frames, and a
+raw new-name literal-without-indexing `x-demo: hello` header block as a
+single HEADERS frame. Invalid ordinary new-name literals remain HPACK fixture
+encode failures before HEADERS bytes are produced. It
 rejects stream id `0`, missing streams, closed
 streams, already reset streams, mismatched open streams, and generated
 frame-header representation failures before accepted bytes are produced.
@@ -2631,7 +2634,9 @@ already-encoded opaque header-block bytes. It pins a single-frame
 generated promised-stream payload plus the first header-block fragment and the
 final CONTINUATION frame carries `END_HEADERS`. The checked case also pins a
 fixture-encoded Huffman-marked `:status: 200` header block inside an outbound
-`PUSH_PROMISE` frame. It rejects stream id `0`, missing, closed, reset,
+`PUSH_PROMISE` frame and the same raw new-name literal `x-demo: hello`
+inside an outbound `PUSH_PROMISE` frame. It rejects stream id `0`, missing,
+closed, reset,
 mismatched, or server-created associated streams, promised stream id `0`, and
 representable client-initiated promised stream ids before accepted bytes are
 produced, while preserving out-of-range promised stream ids as generated

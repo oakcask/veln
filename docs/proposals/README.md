@@ -348,6 +348,8 @@ compare it with `../specification/` before changing behavior.
   accounting for tracked inbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
+  visible-ASCII ordinary new-name literal-without-indexing for outbound
+  HEADERS and `PUSH_PROMISE`,
   full-table single-byte Huffman-marked string literal decoding and encoding,
   and the bounded
   stateful dynamic-table fixture encoder path, focused unsupported-Huffman EOS
