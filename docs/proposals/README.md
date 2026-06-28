@@ -99,12 +99,15 @@ compare it with `../specification/` before changing behavior.
   source-visible `ByteView` range diagnostics with byte previews, checked byte
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
-  protocol byte previews, plus the HPACK fixture unsupported-header-block
-  and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
-  range protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
-  preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, plus HTTP/2
-  frame-size, header-list, header-table, and concurrent-stream receive-limit
-  protocol byte previews.
+  protocol byte previews, HTTP/2 invalid stream-id domain protocol byte
+  previews, plus the HPACK fixture unsupported-header-block and
+  malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
+  range protocol byte preview, HTTP/2 `WINDOW_UPDATE` invalid-increment
+  protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
+  preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, HTTP/2
+  invalid DATA padding protocol byte preview, plus HTTP/2 frame-size,
+  header-list, header-table, concurrent-stream receive-limit, and
+  stream-after-GOAWAY protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
