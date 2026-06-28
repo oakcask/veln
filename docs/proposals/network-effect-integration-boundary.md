@@ -422,6 +422,9 @@ stale five-route through thirty-route fixture series,
 `channel::select_many_priority`, `channel::select_many_timeout`,
 `channel::select_many_timeout_result`, and
 `channel::select_many_timeout_cancellable`.
+The cleanup leaves the two-, three-, four-route, and general receiver-list
+fixtures as the canonical checked routing shapes; further same-shaped
+route-count fixtures are not proposal work.
 
 The two-receiver cancellable timeout-result selection slice, including
 `channel::select_timeout_cancellable`, is recorded as implemented in
