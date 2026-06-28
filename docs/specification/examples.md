@@ -1538,6 +1538,15 @@ missing names, non-schema names, private imported schemas, self references
 outside the eligible recursive length-bounded dispatch slice, schemas outside
 the generated helper slice, forward references, and incompatible payload
 shapes.
+`../../examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`
+pins structured helper-boundary JSON fields for a resolved nested dispatch
+payload schema outside generated helper eligibility, including selected
+payload schema, parent dispatch field path, unavailable helper directions,
+unsupported nested field path, and layout reason.
+`../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
+pins the same helper-boundary JSON fields for a resolved nested dispatch
+payload schema whose decoded mapping shape is available but whose mapping
+assignment cannot expose the generated encode helper.
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`

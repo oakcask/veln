@@ -201,7 +201,10 @@ compare it with `../specification/` before changing behavior.
   an earlier decoded `Int` field and unsupported representation-only
   `ReservedBits` payload layouts, and mapped payload schemas that decode but
   cannot project their mapping assignment back to schema-local fields for
-  generated encode. The completed nested dispatch
+  generated encode. The completed dispatch payload helper boundary diagnostics
+  slice is archived under
+  [Binary Schema Dispatch Payload Helper Boundary Diagnostics](../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
+  The completed nested dispatch
   `ByteView(length_field)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md).
   The completed nested schema

@@ -1,0 +1,21 @@
+# Nested dispatch payload encode helper diagnostics name helper boundaries.
+
+type MappedPayload
+	MappedPayload {code: Int}
+end
+
+schema UnsupportedMappedPayload
+	format binary
+
+	code: UInt8
+
+	map to MappedPayload
+		code = code * 2
+end
+
+schema ClosedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnsupportedMappedPayload)
+end

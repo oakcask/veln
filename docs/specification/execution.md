@@ -651,6 +651,8 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
+  `examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`,
+  `examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
@@ -1174,7 +1176,9 @@ execution reference.
   encode execution for unsupported schemas. Ineligible resolved nested payload
   schemas are rejected before helper generation; the checked
   `schema.dispatch_payload` diagnostics include payload schemas whose mapping
-  assignments decode but cannot project back to schema-local encode fields.
+  assignments decode but cannot project back to schema-local encode fields,
+  and name the parent dispatch field path, selected payload schema, helper
+  boundary, and unsupported layout reason.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,

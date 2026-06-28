@@ -3575,8 +3575,25 @@ fn schema_dispatch_details(
             JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
         ),
         ("field", JsonValue::string(field.name.clone())),
+        ("field_path", schema_dispatch_field_path(schema, field)),
         ("reason", JsonValue::string(reason)),
     ]
+}
+
+fn schema_dispatch_field_path(schema: &SchemaDecl, field: &SchemaField) -> JsonValue {
+    JsonValue::array([
+        JsonValue::object([
+            ("kind", JsonValue::string("schema")),
+            (
+                "name",
+                JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+            ),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("field")),
+            ("name", JsonValue::string(field.name.clone())),
+        ]),
+    ])
 }
 
 pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
