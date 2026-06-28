@@ -87,6 +87,11 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   indexed reuse, encode-count advancement, stateless wrapper compatibility,
   accepted outbound table-size update bytes, reduced table capacity observed
   by a later encode, and over-peer-limit table-size update failure.
+- `../../../examples/specification/run/hpack-fixture-codec-json/` checks the
+  direct static-indexed header-list encoder bytes for `:method: GET`,
+  `:path: /`, `:scheme: https`, and `:status: 200`, plus unsupported
+  header-name and header-value failures with expected fixture
+  `fixture header list encoding`.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.

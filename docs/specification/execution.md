@@ -1922,7 +1922,10 @@ execution reference.
   checked request and response pseudo-header fixture lists needed by the
   outbound HTTP/2 examples. Static indexed `:method: GET` encodes to `0x82`,
   `:path: /` encodes to `0x84`, `:scheme: https` encodes to `0x87`, and
-  `:status: 200` encodes to `0x88`. Raw literal `:path: /target` encodes to
+  `:status: 200` encodes to `0x88`. The focused fixture-codec JSON example
+  directly checks those static-indexed encoder bytes and the unsupported
+  header-name and header-value failure path with expected fixture
+  `fixture header list encoding`. Raw literal `:path: /target` encodes to
   `0x04 0x07 "/target"`,
   Huffman-marked literal `:path: test` encodes to
   `0x04 0x83 0x49 0x50 0x9f`, and Huffman-marked literal `:status: 200`
@@ -1940,7 +1943,7 @@ execution reference.
   leave the former visible-ASCII boundary for supported fixture values. The
   checked raw-string encoder failure path keeps a multi-byte Huffman-marked
   non-visible outbound value on the fixture-owned raw string encoding failure.
-  Unsupported header names return a typed HPACK fixture
+  Unsupported header names and values return a typed HPACK fixture
   failure with expected fixture `fixture header list encoding`.
   These encode failures are fixture codec results and are not projected as
   HTTP/2 protocol diagnostics by the outbound send-intent helpers.
