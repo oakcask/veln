@@ -1487,6 +1487,8 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks both successful `Ok(ByteChunk)` projection and helper
   `Err(EncodeError)` projection.
+  The seven-byte wide reserved suffix case checks successful `Encoded`
+  output and helper-projected encode failure for the same codec boundary.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, helper `Err(EncodeError)` projection, and the same
   budgeted partial/resume path.
@@ -1504,9 +1506,10 @@ execution reference.
   `codec.derive_helper_unsupported` when the referenced schema cannot expose
   the required generated encode helper, including mapping expression shapes
   that cannot be projected back to the schema-local encode record.
-  `examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
+  `examples/specification/check/derived-codec-mapping-boundary-diagnostics/`,
+  `examples/specification/check/derived-codec-helper-eligibility-diagnostics/`,
   and
-  `examples/specification/check/derived-codec-helper-eligibility-diagnostics/`
+  `examples/specification/check/derived-codec-wide-suffix-helper-eligibility-diagnostics/`
   pin those checker boundaries.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
@@ -1564,6 +1567,9 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
   `Invalid` outcomes through the codec item.
+  The seven-byte wide reserved suffix case also checks successful `Decoded`,
+  short-input `NeedMore`, and reserved-bit helper `Invalid` outcomes through
+  the codec item.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
   field-validation `Invalid` outcomes through the codec item.
@@ -1581,7 +1587,8 @@ execution reference.
   A `derive decode` clause is rejected with
   `codec.derive_helper_unsupported` when the referenced schema cannot expose
   the required generated decode-step helper. The helper eligibility diagnostics
-  case listed above pins that checker boundary.
+  cases listed above pin that checker boundary, including an unsupported wide
+  reserved suffix shape.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit

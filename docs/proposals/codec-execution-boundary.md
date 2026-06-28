@@ -55,7 +55,7 @@ general generated helper shape with successful decode, short-input
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
 visible-only packed two-byte groups, opt-in visible flag bitset fields, and
-wide reserved prefix groups. The completed
+wide reserved suffix and prefix groups. The completed
 generated-helper-backed codec boundary slices are recorded in
 `../reference/implemented-proposals/codec-generated-helper-boundary-slices.md`.
 The implemented command-facing diagnostic boundary also covers direct
@@ -366,7 +366,7 @@ encoder state owns only the remaining encode work.
   extension dispatch payload helpers, arithmetic-count and quotient-count
   repeated primitive fields, standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte groups, opt-in visible flag bitset
-  fields, wide reserved prefix groups, the checked
+  fields, wide reserved suffix and prefix groups, the checked
   non-HTTP general helper shape, and the caller-owned parser-state retention
   and hand-written bounded
   `ByteView` base-offset `NeedMore` examples.
