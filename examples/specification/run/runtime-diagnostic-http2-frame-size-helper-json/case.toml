@@ -80,6 +80,11 @@ equals = true
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.detail.byte_offset"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.constructor"
 equals = "RuntimeHttp2PeerLimitFrameSizeDiagnostic"
 
@@ -95,6 +100,16 @@ equals = 1024
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.detail.frame_kind"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.stream_id"
+equals = 3
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.receive_limit_provenance"
 equals = "local_configuration"
 
@@ -102,3 +117,18 @@ equals = "local_configuration"
 value_path = "error.details.value"
 path = "value.detail.preview.constructor"
 equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.2.value"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.8.value"
+equals = 3
