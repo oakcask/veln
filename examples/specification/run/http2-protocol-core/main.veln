@@ -8949,6 +8949,34 @@ fn print_peer_header_list_size_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
+	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
+	print_goaway("goaway", goaway)
+	let goaway_existing_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let goaway_existing_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_existing_headers))?
+	print_goaway("goaway-existing-shutdown", goaway_existing_shutdown)
+	let goaway_existing_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000050102")?), step_state(goaway_existing_shutdown))?
+	print_step("goaway-existing-data", goaway_existing_data)
+	print_receive_windows("goaway-existing-data", step_state(goaway_existing_data))
+	let goaway_existing_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000521222324")?), step_state(goaway_existing_data))?
+	print_step("goaway-existing-trailers", goaway_existing_trailers)
+	let ignored_goaway_existing_trailers: () = emit_header_block("http2-goaway-existing-trailers", goaway_existing_trailers, "21222324")?
+	print_hpack_transition("goaway-existing-trailers", goaway_existing_trailers)
+	print_closed_by_peer_stream("goaway-existing-trailers", step_state(goaway_existing_trailers))
+	let goaway_allowed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway))?
+	print_step("goaway-allowed-headers", goaway_allowed_headers)
+	print_peer_streams("goaway-allowed-headers", step_state(goaway_allowed_headers))
+	let goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway))?
+	print_goaway_stream_failure("goaway-late-headers", goaway_late_headers)
+	let goaway_even_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000006")?), step_state(goaway))?
+	print_stream_id_failure("goaway-even-headers", goaway_even_headers)
+	let goaway_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000707000000000000000005000000")?), frame_state())?
+	print_failure("goaway-length", goaway_bad_length)
+	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), frame_state())?
+	print_failure("goaway-stream", goaway_bad_stream)
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
@@ -9126,20 +9154,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("window-update-stream-overflow", window_update_stream_overflow)
 	let ignored_ping_cases: () = print_ping_cases()?
 	let ignored_priority_cases: () = print_priority_cases()?
-	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
-	print_goaway("goaway", goaway)
-	let goaway_allowed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway))?
-	print_step("goaway-allowed-headers", goaway_allowed_headers)
-	print_peer_streams("goaway-allowed-headers", step_state(goaway_allowed_headers))
-	let goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway))?
-	print_goaway_stream_failure("goaway-late-headers", goaway_late_headers)
-	let goaway_even_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000006")?), step_state(goaway))?
-	print_stream_id_failure("goaway-even-headers", goaway_even_headers)
-	let goaway_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000707000000000000000005000000")?), frame_state())?
-	print_failure("goaway-length", goaway_bad_length)
-	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), frame_state())?
-	print_failure("goaway-stream", goaway_bad_stream)
-	let encoded_settings_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 4, flags: 0, stream_id: 0})
+	let encoded_settings_header: Result<ByteChunk, EncodeError> = match print_goaway_receive_cases()
+		Ok(_) => encode_frame_header({length: 0, kind: 4, flags: 0, stream_id: 0})
+		Err(error) => Err(error)?
+	end
 	let ignored_settings_header: () = print_encoded_header("http2-settings-header", encoded_settings_header, "000000040000000000")?
 	let encoded_data_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 5, kind: 0, flags: 1, stream_id: 1})
 	let ignored_data_header: () = print_encoded_header("http2-data-header", encoded_data_header, "000005000100000001")?
