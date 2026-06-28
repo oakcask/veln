@@ -71,11 +71,12 @@ imported codecs unavailable. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 The implemented imported derived codec slice covers written qualified calls to
 `pub codec` items declared in another module for both `derive decode` and
-`derive encode`, using the generated helper-backed behavior owned by the
-declaring module without exposing the private schema or generated helper. It
-also keeps private imported codecs unavailable and keeps bare imported codec
-names from becoming ordinary call targets. The completed slice is recorded in
-the [implemented proposal record](../reference/implemented-proposals/codec-imported-derived-boundary.md).
+`derive encode`, including budgeted derived encode calls, using the generated
+helper-backed behavior owned by the declaring module without exposing the
+private schema or generated helper. It also keeps private imported codecs
+unavailable and keeps bare imported codec names from becoming ordinary call
+targets. The completed slice is recorded in the
+[implemented proposal record](../reference/implemented-proposals/codec-imported-derived-boundary.md).
 
 Define codec support for:
 
@@ -85,9 +86,9 @@ Define codec support for:
   `../specification/execution.md`
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper, generated-helper-backed
-  derived codec encode, and budgeted derived codec encode slices in
-  `../specification/execution.md`, and beyond the implemented hand-written
-  partial encode preservation and resume example
+  derived codec encode, same-module and imported public budgeted derived codec
+  encode slices in `../specification/execution.md`, and beyond the
+  implemented hand-written partial encode preservation and resume example
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -352,13 +353,14 @@ expose `byte_encode_<schema>` helpers. The codec item call accepts the
 generated helper's schema-local value record or direct mapping target record,
 invokes that helper, returns `EncodeStep<()>`, projects `Ok(ByteChunk)` to
 `Encoded(List<ByteChunk>)` with one chunk, and projects `Err(EncodeError)` to
-`Invalid(EncodeError)`. The implemented budgeted derived encode boundary
-accepts the same value record plus an explicit `ByteCount` output budget. It
-returns complete output as `Encoded`, returns oversized output as `Partial`
-with the committed prefix, produced count, and a state record carrying
-`encoded_offset`, resumes when that state record is passed to the same codec
-with a later budget, and preserves helper `Err(EncodeError)` projection to
-`Invalid` before exposing any output chunk.
+`Invalid(EncodeError)`. The implemented budgeted derived encode boundary,
+including the written import-qualified `pub codec` path, accepts the same
+value record plus an explicit `ByteCount` output budget. It returns complete
+output as `Encoded`, returns oversized output as `Partial` with the committed
+prefix, produced count, and a state record carrying `encoded_offset`, resumes
+when that state record is passed to the same codec with a later budget, and
+preserves helper `Err(EncodeError)` projection to `Invalid` before exposing
+any output chunk.
 
 After `Partial`, resuming uses the returned encoder state rather than an
 implicit mutable cursor. The state must not borrow from a caller-owned builder
@@ -380,15 +382,15 @@ encoder state owns only the remaining encode work.
   implemented exact-width, same-module nested dispatch payload, and public
   imported nested dispatch payload boundaries, hand-written plus eligible
   derived codec decode execution boundaries, and hand-written plus eligible
-  derived codec encode execution boundaries, including budgeted derived encode
-  over generated helper output, selected structural mapping encode cases
-  already accepted by the generated helper, same-module recursive closed and
-  extension dispatch payload helpers, arithmetic-count and quotient-count
-  repeated primitive fields, standalone visible `UInt1` through `UInt7`
-  fields, visible-only packed two-byte and three-byte groups, opt-in visible
-  flag bitset fields, wide reserved suffix and prefix groups, the checked
-  non-HTTP general helper shape, and the caller-owned parser-state retention
-  and hand-written bounded
+  derived codec encode execution boundaries, including same-module and
+  imported public budgeted derived encode over generated helper output,
+  selected structural mapping encode cases already accepted by the generated
+  helper, same-module recursive closed and extension dispatch payload helpers,
+  arithmetic-count and quotient-count repeated primitive fields, standalone
+  visible `UInt1` through `UInt7` fields, visible-only packed two-byte and
+  three-byte groups, opt-in visible flag bitset fields, wide reserved suffix
+  and prefix groups, the checked non-HTTP general helper shape, and the
+  caller-owned parser-state retention and hand-written bounded
   `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.

@@ -26,6 +26,12 @@ codec item name, accepts the generated helper's value argument, and invokes
 the declaring module's generated `byte_encode_<schema>` helper. Helper
 success is projected to `Encoded(List<ByteChunk>)`; helper
 `Err(EncodeError)` output is projected to `Invalid(EncodeError)`.
+When the call also supplies a `ByteCount` budget, the imported codec uses the
+same budgeted derived encode boundary as a same-module codec call: complete
+output is projected to `Encoded`, oversized output is projected to
+`Partial(List<ByteChunk>, ByteCount, state)`, the returned state can resume a
+later import-qualified call, and helper `Err(EncodeError)` is projected to
+`Invalid(EncodeError)` before any output chunk is exposed.
 
 Importing the codec item does not expose the private schema or generated
 helper, does not make a private codec callable, and does not make bare
@@ -43,6 +49,11 @@ imported codec names ordinary call targets.
   module path, including projected `Encoded` output and
   helper-projected `Invalid(EncodeError)` while the schema stays private to
   the declaring module.
+- `../../../examples/specification/run/derived-codec-imported-public-budgeted-encode-boundary/case.toml`
+  checks the same imported `derive encode` boundary with an explicit
+  `ByteCount` budget, including complete output, `Partial` output with
+  emitted `ByteChunk` contents, resumed output, and helper-projected
+  `Invalid(EncodeError)` before any chunk is exposed.
 - `../../../examples/specification/check/codec-imported-private-boundary/case.toml`
   checks the shared visibility rule that a private imported codec remains
   unavailable through the qualified module path.

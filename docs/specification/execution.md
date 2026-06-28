@@ -1501,6 +1501,7 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-public-encode-boundary/`,
+  `examples/specification/run/derived-codec-imported-public-budgeted-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-split-reserved-boundary/`,
@@ -1532,7 +1533,9 @@ execution reference.
   fields plus `encoded_offset: ByteCount`. Passing that state record back to
   the same codec with a later budget resumes at the committed offset. Helper
   `Err(EncodeError)` output still projects to `Invalid(EncodeError)` before
-  any output chunk is exposed.
+  any output chunk is exposed. A written import-qualified call to a
+  `pub codec` declared in another module uses the same budgeted boundary and
+  keeps the private schema and generated helper owned by the declaring module.
   A `derive encode` clause is rejected with
   `codec.derive_helper_unsupported` when the referenced schema cannot expose
   the required generated encode helper, including mapping expression shapes
