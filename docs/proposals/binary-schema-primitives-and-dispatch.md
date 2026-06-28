@@ -823,6 +823,8 @@ The completed two-byte suffix reserved group slice is recorded in
 The completed `ReservedBits(15, value)` plus `UInt1` two-field boundary is
 recorded in
 [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
+The completed opt-in reserved-bit mapping exposure slice is recorded in
+[Binary Schema Reserved Bit Mapping Exposure](../reference/implemented-proposals/binary-schema-reserved-bit-mapping-exposure.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
 layouts.
 
@@ -962,6 +964,6 @@ author likely referred to an earlier field with a compatible role.
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
   references, mapped encode projection diagnostics, and imported recursive
-  diagnostics, and schema value mapping beyond the implemented structural,
-  reserved-bit assignment, constructor field-selection, and mapped-payload
+  diagnostics, and schema value mapping beyond the implemented structural
+  mapping slices, constructor field-selection, and mapped-payload
   eligibility diagnostic slices remain proposal work.
