@@ -575,8 +575,9 @@ increment, accepted range, active state, and rule provenance remain separate
 fields. Invalid
 PADDED DATA uses id `http2.protocol.invalid_data_padding` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `pad_length`,
-`remaining_payload_length`, `active_state`, `rule_provenance`, and a bounded
-payload byte preview. Accepted `content-length` body-length mismatches use id
+`remaining_payload_length`, `active_state`, `rule_provenance`, and a
+structured bounded payload byte preview. Accepted `content-length`
+body-length mismatches use id
 `http2.protocol.content_length_mismatch` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `expected_content_length`,
 `observed_body_length`, `active_state`, `rule_provenance`, and a bounded DATA
@@ -744,9 +745,9 @@ the `WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 failures use source-visible
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. The
-`http2_protocol_invalid_data_padding(...)` standard helper returns the same
-source-visible payload directly. A SETTINGS ACK
+`details.protocol_diagnostic` keeps the same public fields, including the
+structured bounded byte preview. The `http2_protocol_invalid_data_padding(...)`
+standard helper returns the same source-visible payload directly. A SETTINGS ACK
 received while no local SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `active_state`,
