@@ -167,7 +167,13 @@ that name a separate eligible recursive payload schema, and public imported
 recursive payload schemas named through written `use` paths, are accepted
 only in the length-bounded forms when selected mappings cover every known case
 and resolve to one record shape, with at least one non-recursive case as the
-base case.
+base case. A length-bounded parent dispatch field without selected mappings
+may also name a public imported recursive payload schema through a written
+`use` path when the imported schema has that same bounded recursive helper
+support, the parent has at least one non-recursive primitive case, and the
+parent requires only generated decode helper support. The closed parent
+payload type is the imported schema's recursive mapped payload type; the
+extension-tolerant parent wraps that payload type in `SchemaDispatchPayload`.
 Exact-width primitive names used outside `format binary` schema field type
 positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
@@ -190,6 +196,8 @@ The checked field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
+the checked imported recursive payload acceptance case is
+`../../examples/specification/check/binary-schema-imported-recursive-dispatch-payload-accepted/`;
 the checked helper-eligibility detail cases are
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and

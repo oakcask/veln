@@ -27,13 +27,3 @@ message = "dispatch payload schema `wire::RecursiveClosedPayload` cannot referen
 [diagnostics.span]
 file = "main.veln"
 line = 28
-
-[[diagnostics]]
-id = "schema.dispatch_payload"
-severity = "error"
-kind = "type"
-message = "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself"
-
-[diagnostics.span]
-file = "main.veln"
-line = 36

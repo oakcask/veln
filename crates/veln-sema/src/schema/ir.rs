@@ -19,8 +19,9 @@ use crate::types::{
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
     flag_schema_primitive, recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
-    schema_dispatch_payload_schema, schema_length_expression_references,
-    schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
+    schema_dispatch_payload_schema, schema_imported_recursive_dispatch_payload_type,
+    schema_length_expression_references, schema_recursive_dispatch_payload_type,
+    selected_mappings_cover_closed_dispatch, selected_mappings_cover_dispatch_cases,
     supported_encode_reserved_bits,
 };
 
@@ -528,15 +529,18 @@ fn schema_dispatch_field_type(
                 )
         )
     });
-    let payload_ty = if recursive_payload {
-        schema_recursive_dispatch_payload_type(module, schema)?
-    } else if payload_types.iter().any(|ty| ty != &payload_ty)
-        && !selected_mappings_cover_closed_dispatch(schema, dispatch)
-    {
-        return None;
-    } else {
-        payload_ty
-    };
+    let payload_ty =
+        if recursive_payload && selected_mappings_cover_dispatch_cases(schema, dispatch) {
+            schema_recursive_dispatch_payload_type(module, schema)?
+        } else if recursive_payload {
+            schema_imported_recursive_dispatch_payload_type(module, schema, dispatch)?
+        } else if payload_types.iter().any(|ty| ty != &payload_ty)
+            && !selected_mappings_cover_closed_dispatch(schema, dispatch)
+        {
+            return None;
+        } else {
+            payload_ty
+        };
     if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {

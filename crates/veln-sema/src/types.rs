@@ -2737,6 +2737,21 @@ fn schema_dispatch_payload_type(
             && selected_mappings_cover_dispatch_cases(schema, dispatch))
     {
         schema_recursive_dispatch_payload_type(module, schema)
+    } else if dispatch.length_field.is_some()
+        && dispatch.cases.iter().any(|case| {
+            matches!(
+                &case.payload,
+                SchemaDispatchCasePayload::Schema { schema_name }
+                    if imported_recursive_dispatch_payload_case_is_eligible(
+                        module,
+                        schema,
+                        dispatch,
+                        schema_name,
+                    )
+            )
+        })
+    {
+        schema_imported_recursive_dispatch_payload_type(module, schema, dispatch)
     } else {
         None
     }
@@ -2829,6 +2844,145 @@ pub(crate) fn schema_recursive_dispatch_payload_type(
     Some(Type::Record(target_fields))
 }
 
+pub(crate) fn schema_imported_recursive_dispatch_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+) -> Option<Type> {
+    let mut payload_types = dispatch
+        .cases
+        .iter()
+        .filter_map(|case| {
+            let SchemaDispatchCasePayload::Schema { schema_name } = &case.payload else {
+                return None;
+            };
+            let payload_schema = imported_recursive_dispatch_payload_case_is_eligible(
+                module,
+                schema,
+                dispatch,
+                schema_name,
+            )
+            .then(|| schema_dispatch_payload_schema(module, schema, schema_name))
+            .flatten()?;
+            schema_recursive_dispatch_payload_mapping_field_type(module, payload_schema)
+        })
+        .collect::<Vec<_>>();
+    let payload_ty = payload_types.pop()?;
+    if payload_types.iter().any(|ty| ty != &payload_ty) {
+        return None;
+    }
+    if dispatch.preserves_unknown {
+        schema_dispatch_payload_inner_type(payload_ty)
+    } else {
+        Some(payload_ty)
+    }
+}
+
+fn schema_recursive_dispatch_payload_mapping_field_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Type> {
+    let recursive_field_name = schema_recursive_dispatch_payload_field_name(schema)?;
+    let [first_mapping, rest @ ..] = schema.mappings.as_slice() else {
+        return None;
+    };
+    let target_name = schema_mapping_assignment_target_referencing_field(
+        &first_mapping.assignments,
+        recursive_field_name,
+    )?;
+    for mapping in rest {
+        let candidate = schema_mapping_assignment_target_referencing_field(
+            &mapping.assignments,
+            recursive_field_name,
+        )?;
+        if candidate != target_name {
+            return None;
+        }
+    }
+    schema_mapping_target_record_fields(module, schema, first_mapping)?
+        .into_iter()
+        .find_map(|(name, ty)| (name == target_name).then_some(ty))
+}
+
+fn schema_recursive_dispatch_payload_field_name(schema: &SchemaDecl) -> Option<&str> {
+    let schema_name = schema.name.as_deref()?;
+    schema.fields.iter().find_map(|field| {
+        let dispatch = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+        recursive_dispatch_payload_is_eligible(schema, field, &dispatch, schema_name)
+            .then_some(field.name.as_str())
+    })
+}
+
+fn schema_mapping_assignment_target_referencing_field<'a>(
+    assignments: &'a [veln_ast::SchemaMappingAssignment],
+    field_name: &str,
+) -> Option<&'a str> {
+    assignments
+        .iter()
+        .find(|assignment| expr_references_name(&assignment.expr, field_name))
+        .map(|assignment| assignment.target.as_str())
+}
+
+fn expr_references_name(expr: &Expr, name: &str) -> bool {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => matches!(segments.as_slice(), [segment] if segment == name),
+        ExprKind::TypeApply { callee, .. } | ExprKind::Try(callee) => {
+            expr_references_name(callee, name)
+        }
+        ExprKind::Call { callee, args } => {
+            expr_references_name(callee, name)
+                || args.iter().any(|arg| expr_references_name(arg, name))
+        }
+        ExprKind::FieldAccess { base, .. } => expr_references_name(base, name),
+        ExprKind::Record(fields) => fields
+            .iter()
+            .any(|field| expr_references_name(&field.expr, name)),
+        ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            expr_references_name(&entry.key, name) || expr_references_name(&entry.value, name)
+        }),
+        ExprKind::List(items) => items.iter().any(|item| expr_references_name(item, name)),
+        ExprKind::Match { scrutinee, arms } => {
+            expr_references_name(scrutinee, name)
+                || arms.iter().any(|arm| expr_references_name(&arm.expr, name))
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            expr_references_name(condition, name)
+                || expr_references_name(then_branch, name)
+                || else_if_branches.iter().any(|branch| {
+                    expr_references_name(&branch.condition, name)
+                        || expr_references_name(&branch.expr, name)
+                })
+                || expr_references_name(else_branch, name)
+        }
+        ExprKind::Prefix { expr, .. } => expr_references_name(expr, name),
+        ExprKind::Binary { left, right, .. } => {
+            expr_references_name(left, name) || expr_references_name(right, name)
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => false,
+    }
+}
+
+fn schema_dispatch_payload_inner_type(ty: Type) -> Option<Type> {
+    match ty {
+        Type::Named { name, mut args } if name == "SchemaDispatchPayload" && args.len() == 1 => {
+            args.pop()
+        }
+        _ => Some(ty),
+    }
+}
+
 pub(crate) fn recursive_dispatch_payload_is_eligible(
     schema: &SchemaDecl,
     field: &SchemaField,
@@ -2863,8 +3017,19 @@ pub(crate) fn recursive_dispatch_payload_case_is_eligible(
     if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name) {
         return true;
     }
-    dispatch.length_field.is_some()
-        && selected_mappings_cover_dispatch_cases(schema, dispatch)
+    imported_recursive_dispatch_payload_case_is_eligible(module, schema, dispatch, schema_name)
+        && (selected_mappings_cover_dispatch_cases(schema, dispatch)
+            || schema_imported_recursive_dispatch_payload_type(module, schema, dispatch).is_some())
+}
+
+pub(crate) fn imported_recursive_dispatch_payload_case_is_eligible(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    schema_name: &str,
+) -> bool {
+    schema_name.contains("::")
+        && dispatch.length_field.is_some()
         && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
         && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
 }

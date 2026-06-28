@@ -1,0 +1,25 @@
+use wire
+
+schema ImportedRecursiveClosedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveClosedPayload)
+end
+
+schema ImportedRecursiveExtensionPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveExtensionPayload)
+end
+
+fn closed(view: ByteView) -> Result<{length: Int, kind: Int, payload: ClosedPayload}, String>
+	byte_decode_imported_recursive_closed_packet(view)
+end
+
+fn extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>}, String>
+	byte_decode_imported_recursive_extension_packet(view)
+end

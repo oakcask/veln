@@ -3090,7 +3090,7 @@ fn dispatch_payload_schema_requires_encode_helper_projection_for_derive_encode()
 }
 
 #[test]
-fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
+fn imported_recursive_dispatch_payload_accepts_length_bounded_unmapped_parent() {
     let app_source = SourceFile::new(
         "app.veln",
         concat!(
@@ -3108,6 +3108,21 @@ fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
             "  length: UInt8\n",
             "  kind: UInt8\n",
             "  payload: Dispatch(kind, length, 0 => UInt8, 1 => wire::RecursivePayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedRecursiveExtensionUnmappedPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveExtensionPayload)\n",
+            "end\n",
+            "\n",
+            "fn closed(view: ByteView) -> Result<{length: Int, kind: Int, payload: RecursivePayloadValue}, String>\n",
+            "  byte_decode_imported_recursive_unmapped_packet(view)\n",
+            "end\n",
+            "\n",
+            "fn extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<RecursivePayloadValue>}, String>\n",
+            "  byte_decode_imported_recursive_extension_unmapped_packet(view)\n",
             "end\n",
         ),
     );
@@ -3140,6 +3155,23 @@ fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
             "    kind = kind\n",
             "    payload = RecursivePayloadValue::Branch(payload)\n",
             "end\n",
+            "\n",
+            "pub schema RecursiveExtensionPayload\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionPayload)\n",
+            "\n",
+            "  map to RecursivePayloadNode when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = RecursivePayloadValue::Leaf(payload)\n",
+            "\n",
+            "  map to RecursivePayloadNode when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = RecursivePayloadValue::Branch(payload)\n",
+            "end\n",
         ),
     );
     let app = lower_surface_ast(&parse(&app_source).tree);
@@ -3153,7 +3185,7 @@ fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
         types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
-        functions: Vec::new(),
+        functions: app.functions,
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -3170,7 +3202,17 @@ fn imported_recursive_dispatch_payload_requires_selected_length_boundary() {
                     .contains("\"reason\":\"self_payload_schema\"")
         })
         .count();
-    assert_eq!(matching_diagnostics, 2, "{diagnostics:#?}");
+    assert_eq!(matching_diagnostics, 1, "{diagnostics:#?}");
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .details
+            .to_json()
+            .contains("ImportedRecursiveUnmappedPacket")
+            || diagnostic
+                .details
+                .to_json()
+                .contains("ImportedRecursiveExtensionUnmappedPacket")
+    }));
 }
 
 #[test]

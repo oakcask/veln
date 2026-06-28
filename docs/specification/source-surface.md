@@ -145,7 +145,11 @@ public imported recursive payload schema may be named through a written `use`
 path, only in the length-bounded form when selected
 `map to Target when tag_field == literal` clauses cover every case and all
 clauses resolve to one record shape, with at least one non-recursive case as
-the base case. The extension-tolerant field type
+the base case. A length-bounded parent dispatch field without selected
+mappings may also name a public imported recursive payload schema through a
+written `use` path when the imported schema has the bounded recursive helper,
+the parent has at least one non-recursive primitive case, and the parent
+requires only generated decode helper support. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
@@ -190,6 +194,8 @@ diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
+the checked imported recursive payload acceptance case is
+`../../examples/specification/check/binary-schema-imported-recursive-dispatch-payload-accepted/`;
 the checked helper-eligibility detail cases are
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and
