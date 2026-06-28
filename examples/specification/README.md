@@ -2285,6 +2285,10 @@ against the built `veln` binary.
   and helper-projected encode failure through the codec item.
 - `run/derived-codec-six-byte-reserved-suffix-boundary/`: derived codec decode
   and encode item boundaries over a six-byte reserved suffix schema.
+- `run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`: derived
+  codec decode and encode item boundaries over a seven-byte wide reserved
+  suffix schema, including short-input readiness, non-consuming reserved-bit
+  mismatch `Invalid`, and helper-projected encode failure.
 - `run/derived-codec-wide-reserved-prefix-boundary/`: derived codec decode
   and encode item boundaries over seven-byte and eight-byte reserved prefix
   groups, including non-consuming reserved-bit mismatch `Invalid` values.
@@ -2301,6 +2305,9 @@ against the built `veln` binary.
 - `check/derived-codec-helper-eligibility-diagnostics/`: derived codec
   clauses reject directions whose referenced schema cannot expose the matching
   generated helper.
+- `check/derived-codec-wide-suffix-helper-eligibility-diagnostics/`: derived
+  codec clauses over an unsupported wide reserved suffix shape reject decode
+  and encode when the schema cannot expose the matching generated helper.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

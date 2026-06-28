@@ -1,0 +1,25 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"codec.derive_helper_unsupported\"", "\"direction\":\"decode\"", "\"direction\":\"encode\"", "\"reason\":\"generated_decode_helper_unavailable\"", "\"reason\":\"generated_encode_helper_unavailable\"", "\"schema\":\"UnsupportedWideSuffixHeader\"", "\"expected_helper\":\"byte_decode_step_unsupported_wide_suffix_header\"", "\"expected_helper\":\"byte_encode_unsupported_wide_suffix_header\"", "outside the generated decode helper slice", "outside the generated encode helper slice"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "codec.derive_helper_unsupported"
+severity = "error"
+kind = "type"
+message = "derived decode is not available for this schema"
+
+[[diagnostics]]
+id = "codec.derive_helper_unsupported"
+severity = "error"
+kind = "type"
+message = "derived encode is not available for this schema"

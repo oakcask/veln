@@ -38,7 +38,9 @@ eligible.
 - `../../../examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`
   checks successful seven-byte helper decode and encode, omitted reserved
   fields, derived codec decode and encode eligibility, shared storage
-  advancement, and encode range failure at the visible field path.
+  advancement, short-input readiness through the derived codec, reserved-bit
+  mismatch projection through the derived codec, and encode range failure at
+  the visible field path.
 - `../../../examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`
   checks the matching eight-byte helper behavior.
 - `../../../examples/specification/run/binary-schema-wide-suffix-reserved-json/`

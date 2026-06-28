@@ -15,11 +15,11 @@ generated `byte_decode_step_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions, standalone
 visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields, and
-seven-byte or eight-byte reserved prefix groups. A codec call receives a
-bounded `ByteView` and explicit base `ByteOffset`, returns `Decoded` with the
-helper value and consumed `ByteCount`, returns `NeedMore` without consuming
-input, and returns helper `Invalid(DecodeError)` values without advancing
-caller-owned parser state.
+seven-byte or eight-byte reserved prefix groups, plus seven-byte wide reserved
+suffix groups. A codec call receives a bounded `ByteView` and explicit base
+`ByteOffset`, returns `Decoded` with the helper value and consumed
+`ByteCount`, returns `NeedMore` without consuming input, and returns helper
+`Invalid(DecodeError)` values without advancing caller-owned parser state.
 
 Derived codec encode calls expose the same source-call boundary as the
 generated `byte_encode_<schema>` helper when the named schema is already
@@ -27,8 +27,9 @@ eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
-fields, and seven-byte or eight-byte reserved prefix groups. A codec call
-receives the helper value record, returns helper success as
+fields, seven-byte or eight-byte reserved prefix groups, and seven-byte wide
+reserved suffix groups. A codec call receives the helper value record, returns
+helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists. The
 budgeted helper-backed path can expose `Partial` with emitted chunks,
@@ -63,6 +64,15 @@ produced count, and a resumable state record carrying `encoded_offset`.
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,
   consumed counts, successful encode, and output chunk projection.
+- `../../../examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`
+  checks seven-byte wide reserved suffix decode through the derived codec item,
+  short-input readiness, non-consuming reserved-bit mismatch `Invalid`, consumed
+  count, successful encode, output chunk projection, and helper-projected
+  encode failure.
+- `../../../examples/specification/check/derived-codec-wide-suffix-helper-eligibility-diagnostics/`
+  checks that an unsupported wide reserved suffix shape still rejects
+  `derive decode` and `derive encode` when the matching generated helpers are
+  unavailable.
 
 ## Remaining Work
 
