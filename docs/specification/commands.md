@@ -52,8 +52,9 @@ requiring the full command reference on the first read.
   source-visible `DecodeStep::Invalid(DecodeError(...))` and
   `DecodeStep::NeedMore(...)` entry results,
   HTTP/2 protocol-core failures
-  including partial and invalid client connection prefaces, frame-size and
-  flow-control peer-limits with bounded DATA payload byte previews,
+  including partial and invalid client connection prefaces, frame-size
+  peer-limits with bounded frame-header byte previews, flow-control
+  peer-limits with bounded DATA payload byte previews,
   header-list and header-table receive-limit peer-limits with bounded
   header-block byte previews,
   GOAWAY receive preserving already-admitted stream DATA and trailer HEADERS
@@ -154,9 +155,9 @@ requiring the full command reference on the first read.
   likewise use the same human runtime diagnostic rendering as the
   compatibility helpers, with the stable id, protocol facts, provenance,
   decoded header names, and bounded byte preview when present projected from
-  the returned value. The concurrent-stream receive-limit projection includes
-  a bounded byte preview for the inspected HEADERS frame header from the returned
-  `RuntimeDiagnostic(...)` value. The standard
+  the returned value. The frame-size and concurrent-stream receive-limit
+  projections include bounded byte previews for inspected frame headers from
+  the returned `RuntimeDiagnostic(...)` value. The standard
   `http2_protocol_invalid_preface(...)`,
   `http2_protocol_continuation_expected(...)`, and
   `http2_protocol_invalid_frame_kind(...)`,

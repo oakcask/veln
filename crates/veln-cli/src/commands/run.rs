@@ -928,6 +928,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); active receive maximum is {allowed_length} byte(s).",
                     frame.stream_ref, frame.stream_id
                 )));
+                push_byte_preview_note(&mut diagnostic, self.entries);
                 diagnostic.related.push(note_json(format!(
                     "Receive limit provenance: {provenance}."
                 )));
@@ -3192,6 +3193,10 @@ mod tests {
                 "receive_limit_provenance",
                 JsonValue::string("protocol_default"),
             ),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000000000000", 9, true),
+            ),
         ]);
         let failure = TestFailure::result_with_details(
             "HTTP/2 frame payload length exceeds receive maximum at byte offset 0".to_string(),
@@ -3208,7 +3213,7 @@ mod tests {
             diagnostic.message,
             "frame payload length exceeds receive maximum at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 2);
+        assert_eq!(diagnostic.related.len(), 3);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -3219,7 +3224,12 @@ mod tests {
                 .to_json()
                 .contains("active receive maximum is 16384 byte(s)")
         );
-        assert!(diagnostic.related[1].to_json().contains("protocol_default"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("showing 8 of 9 byte(s), truncated")
+        );
+        assert!(diagnostic.related[2].to_json().contains("protocol_default"));
     }
 
     #[test]

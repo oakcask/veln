@@ -534,7 +534,9 @@ The frame-size
 peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
-`frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The
+`frame_kind`, `stream_id`, `stream_ref`, `receive_limit_provenance`, and a
+structured bounded `byte_preview` for the inspected incoming frame header. The
+preview uses the same object shape as other protocol-owned byte previews. The
 provenance names the active receive-limit entry used for the failed inbound
 frame-size check, such as protocol default, local configuration, or local
 SETTINGS. Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,

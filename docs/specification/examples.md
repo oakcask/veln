@@ -2772,8 +2772,9 @@ flow-control window credit,
 expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface, invalid-stream-id frame-header,
-invalid-frame-kind, and invalid-payload byte preview fields, concurrent-stream
-attempted and allowed counts, required stream id domain, endpoint role,
+invalid-frame-kind, frame-size frame-header, and invalid-payload byte preview
+fields, concurrent-stream attempted and allowed counts, required stream id
+domain, endpoint role,
 PRIORITY dependency stream id, structured bounded PRIORITY payload byte
 preview fields, and rule provenance. The
 request-header projection cases cover missing required request pseudo-headers,

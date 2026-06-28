@@ -1,4 +1,32 @@
 # HTTP/2 frame-size helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.frame_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000401000000000003")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2_peer_limit_frame_size_exceeded(0, 1025, 1024, 0, 3, "local_configuration")
+	let frame_header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(frame_header)?
+	http2_peer_limit_frame_size_exceeded(0, 1025, 1024, 0, 3, "local_configuration", preview)
 end
