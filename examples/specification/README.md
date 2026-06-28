@@ -457,8 +457,8 @@ against the built `veln` binary.
   parameter spelling, contracts, doctest fences, hidden doctest setup, and
   ADR-lite records.
 - `doc/schema-references/`: generated documentation accepts same-module public
-  and private schema references plus imported public schema and schema-alias
-  references.
+  and private schema references plus imported public schema, nested written
+  use-path schema, and schema-alias references.
 - `doc/schema-reference-diagnostics/`: generated documentation rejects
   missing, private, wrong-kind, schema-local field, and generated helper schema
   references at the documentation reference.

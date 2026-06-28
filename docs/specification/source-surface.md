@@ -535,9 +535,10 @@ the generated encode boundary.
 Documentation comments may reference schemas with `{@schema Name}` or
 `{@schema module::Name}`. These references use schema-aware lookup, not value
 or type lookup. Bare references resolve schemas and schema aliases in the same
-module. Qualified references require a written `use` path and a public schema
-or public schema alias. Missing, private, function, source ADT type, and codec
-targets are rejected at the documentation reference span. Schema references in
+module. Qualified references require a matching written `use` path, including
+nested module paths such as `use app::nested`, and a public schema or public
+schema alias. Missing, private, function, source ADT type, and codec targets
+are rejected at the documentation reference span. Schema references in
 documentation do not expose schema-local field names, generated helper names,
 codec names, or ordinary source type bindings.
 

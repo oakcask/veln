@@ -702,9 +702,10 @@ Documentation line comments may also contain schema references written as
 `{@schema Name}` or `{@schema module::Name}`. Schema documentation references
 resolve through the same schema-aware lookup used by codec declaration heads:
 bare references resolve schemas and public schema aliases in the same module,
-and qualified references require a matching written `use` path and a public
-schema or public schema alias. Missing, private, function, source ADT type, and
-codec targets are rejected with name diagnostics at the referenced name span.
+and qualified references require a matching written `use` path, including
+nested module paths such as `use app::nested`, and a public schema or public
+schema alias. Missing, private, function, source ADT type, and codec targets
+are rejected with name diagnostics at the referenced name span.
 Schema documentation references do not import schema-local field names, expose
 generated helper names, expose codec names, or create ordinary source type
 bindings. The generated Markdown documentation renders a resolved schema

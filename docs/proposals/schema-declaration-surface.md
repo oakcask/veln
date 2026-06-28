@@ -106,8 +106,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   schema mapping converter assignments during generated decode mapping
   selection
 - parser, AST, formatter, editor token, and documentation behavior for the
-  implemented source surface, including documentation comments that reference
-  schemas through schema-aware lookup
+  implemented source surface. The completed documentation-comment schema
+  reference slice is archived under
+  [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
 
 The completed narrow arithmetic mapped encode slice is archived under
 [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
@@ -285,23 +286,6 @@ source ADT type, and codec targets are rejected at the alias declaration.
 Schema aliases do not import schema-local field names, generated helper names,
 codec names, or ordinary source type bindings, and they do not create wrapper
 schemas, new schema identities, or generated codec aliases.
-
-## Implemented Slice: Documentation Schema References
-
-The documentation-comment schema reference slice is implemented as current
-behavior under `../specification/source-surface.md` and
-`../specification/commands.md`, with executable examples under
-`../../examples/specification/doc/schema-references/` and
-`../../examples/specification/doc/schema-reference-diagnostics/`.
-
-Documentation comments may write `{@schema Name}` for same-module schema
-references or `{@schema module::Name}` for imported public schemas and public
-schema aliases reached through a written `use` path. These references use
-schema-aware lookup rather than ordinary value or type lookup. Missing,
-private, function, source ADT type, and codec targets are rejected at the
-reference span. Documentation schema references do not make schema-local field
-names, generated helper names, codec names, or ordinary source type bindings
-visible.
 
 ## Implemented Slice: Binary Fixture Schema References
 

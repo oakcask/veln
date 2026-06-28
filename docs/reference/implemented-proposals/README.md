@@ -98,6 +98,8 @@ behavior.
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 - Binary fixture helpers:
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
+- Schema documentation references:
+  [schema-documentation-references.md](schema-documentation-references.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
 - Binary schema `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` bitsets:
