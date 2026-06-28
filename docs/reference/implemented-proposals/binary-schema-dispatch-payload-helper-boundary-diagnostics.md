@@ -26,6 +26,12 @@ forms, and a mapped payload schema whose decode mapping is resolvable but whose
 mapping assignment cannot project back to schema-local fields for generated
 encode.
 
+Recursive dispatch payload rejections also use `schema.dispatch_payload` with a
+focused reason for the failed recursive-helper fact. Checked cases cover a
+missing length-bounded parent dispatch, an unmapped decode-only parent that
+lacks a primitive base case, and an encode-required imported recursive payload
+whose selected mappings do not cover every dispatch case.
+
 ## Evidence
 
 - `../../../examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`
@@ -39,6 +45,8 @@ encode.
   helper-boundary context.
 - `../../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`
   checks the human diagnostic route for the same helper eligibility boundary.
+- `../../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
+  pins focused recursive dispatch payload helper-fact diagnostics.
 
 ## Remaining Work
 

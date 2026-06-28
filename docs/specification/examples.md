@@ -1669,9 +1669,10 @@ and derived codec helper rejection for the parent dispatch schemas. The JSON
 case also pins an unsupported representation-only `ReservedBits` payload
 layout at the same helper boundary.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
-pins the remaining self-reference rejection when a recursive closed dispatch
-is not length-bounded, or when an imported recursive payload is referenced
-outside the selected length-bounded mapping boundary.
+pins focused recursive helper rejections when a recursive closed dispatch is
+not length-bounded, when an encode-required imported recursive payload lacks
+selected mapping coverage, or when an unmapped parent lacks a primitive base
+case.
 `../../examples/specification/check/binary-schema-mixed-dispatch-selected-mapping-diagnostics/`
 pins the remaining `schema.dispatch_payload` rejection when mixed dispatch
 payload shapes use selected mappings keyed by a field other than the dispatch

@@ -67,6 +67,27 @@ schema ImportedRecursiveUnmappedPacket
 	payload: Dispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveClosedPayload)
 end
 
+type ImportedPartialNode
+	ImportedPartialNode {length: Int, kind: Int, payload: ClosedPayload}
+end
+
+schema ImportedRecursivePartialMappingsPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => wire::RecursiveClosedPayload)
+
+	map to ImportedPartialNode when kind == 0
+		length = length
+		kind = kind
+		payload = payload
+end
+
+codec ImportedRecursivePartialMappingsCodec for ImportedRecursivePartialMappingsPacket encode
+	derive encode
+end
+
 schema SameModuleRecursiveSchemaBasePacket
 	format binary
 

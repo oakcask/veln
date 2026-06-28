@@ -18,7 +18,8 @@ use crate::types::{
     repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_only_recursive_dispatch_payload_type, schema_decode_record_type,
     schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_encode_function_name, schema_encode_value_type, schema_has_recursive_dispatch_payload,
+    schema_encode_function_name, schema_encode_value_type,
+    schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, schema_recursive_dispatch_payload_type,
     selected_mappings_cover_closed_dispatch, selected_mappings_cover_dispatch_cases,
@@ -2564,16 +2565,24 @@ fn check_schema_dispatch_field(
                 if schema.name.as_deref() == Some(schema_name.as_str()) {
                     if !recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
                     {
+                        let blocker = recursive_dispatch_payload_blocker(
+                            schema,
+                            field,
+                            dispatch,
+                            schema_name,
+                            schema,
+                        );
                         diagnostics.push(schema_dispatch_payload_diagnostic(
                             schema,
                             field,
                             case.tag,
                             schema_name,
-                            "self_payload_schema",
-                            format!(
-                                "dispatch payload schema `{schema_name}` cannot reference itself"
-                            ),
-                            [],
+                            blocker.reason,
+                            blocker.message,
+                            [(
+                                "recursive_helper_fact",
+                                JsonValue::string(blocker.fact.to_string()),
+                            )],
                         ));
                         None
                     } else {
@@ -2617,16 +2626,24 @@ fn check_schema_dispatch_field(
                                 schema_name,
                             ))
                         {
+                            let blocker = recursive_dispatch_payload_blocker(
+                                schema,
+                                field,
+                                dispatch,
+                                schema_name,
+                                payload_schema,
+                            );
                             diagnostics.push(schema_dispatch_payload_diagnostic(
                                 schema,
                                 field,
                                 case.tag,
                                 schema_name,
-                                "self_payload_schema",
-                                format!(
-                                    "dispatch payload schema `{schema_name}` cannot reference itself"
-                                ),
-                                [],
+                                blocker.reason,
+                                blocker.message,
+                                [(
+                                    "recursive_helper_fact",
+                                    JsonValue::string(blocker.fact.to_string()),
+                                )],
                             ));
                             return None;
                         }
@@ -2733,6 +2750,72 @@ fn check_schema_dispatch_field(
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
         Some(payload_ty)
+    }
+}
+
+struct RecursiveDispatchPayloadBlocker {
+    reason: &'static str,
+    fact: &'static str,
+    message: String,
+}
+
+fn recursive_dispatch_payload_blocker(
+    parent_schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    schema_name: &str,
+    payload_schema: &SchemaDecl,
+) -> RecursiveDispatchPayloadBlocker {
+    if dispatch.length_field.is_none() {
+        return RecursiveDispatchPayloadBlocker {
+            reason: "recursive_payload_missing_length_bound",
+            fact: "recursive dispatch payloads require a length-bounded parent dispatch field",
+            message: format!(
+                "dispatch payload schema `{schema_name}` requires parent dispatch field `{}` to include a length field",
+                field.name
+            ),
+        };
+    }
+    if !schema_has_eligible_recursive_dispatch_payload(payload_schema) {
+        return RecursiveDispatchPayloadBlocker {
+            reason: "recursive_payload_missing_bounded_helper",
+            fact: "recursive dispatch payload schemas must expose a bounded recursive helper",
+            message: format!(
+                "dispatch payload schema `{schema_name}` does not expose a bounded recursive helper"
+            ),
+        };
+    }
+    if parent_schema.mappings.is_empty()
+        && !dispatch
+            .cases
+            .iter()
+            .any(|case| matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
+    {
+        return RecursiveDispatchPayloadBlocker {
+            reason: "recursive_payload_missing_primitive_base_case",
+            fact: "unmapped recursive dispatch parents require a non-recursive primitive base case",
+            message: format!(
+                "dispatch payload schema `{schema_name}` requires unmapped parent dispatch field `{}` to include a non-recursive primitive case",
+                field.name
+            ),
+        };
+    }
+    if !selected_mappings_cover_dispatch_cases(parent_schema, dispatch) {
+        return RecursiveDispatchPayloadBlocker {
+            reason: "recursive_payload_missing_selected_mapping_coverage",
+            fact: "recursive dispatch payload encode support requires selected mappings to cover every dispatch case",
+            message: format!(
+                "dispatch payload schema `{schema_name}` requires selected mappings to cover every case of parent dispatch field `{}`",
+                field.name
+            ),
+        };
+    }
+    RecursiveDispatchPayloadBlocker {
+        reason: "recursive_payload_ineligible_parent",
+        fact: "recursive dispatch payloads require a length-bounded parent with recursive helper support and a non-recursive base case",
+        message: format!(
+            "dispatch payload schema `{schema_name}` does not satisfy recursive dispatch helper requirements"
+        ),
     }
 }
 
@@ -3244,6 +3327,37 @@ fn schema_encode_dispatch_payload_diagnostics(
             else {
                 continue;
             };
+            if schema_has_recursive_dispatch_payload(payload_schema)
+                && (!selected_mappings_cover_dispatch_cases(schema, &dispatch)
+                    || !recursive_dispatch_payload_case_is_eligible(
+                        module,
+                        schema,
+                        field,
+                        &dispatch,
+                        schema_name,
+                    ))
+            {
+                let blocker = recursive_dispatch_payload_blocker(
+                    schema,
+                    field,
+                    &dispatch,
+                    schema_name,
+                    payload_schema,
+                );
+                diagnostics.push(schema_dispatch_payload_diagnostic(
+                    schema,
+                    field,
+                    case.tag,
+                    schema_name,
+                    blocker.reason,
+                    blocker.message,
+                    [(
+                        "recursive_helper_fact",
+                        JsonValue::string(blocker.fact.to_string()),
+                    )],
+                ));
+                continue;
+            }
             if schema_decode_value_type(module, payload_schema).is_some()
                 && schema_encode_value_type(module, payload_schema).is_none()
             {
