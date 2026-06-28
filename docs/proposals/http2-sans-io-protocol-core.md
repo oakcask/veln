@@ -820,9 +820,10 @@ and
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal and focused dynamic-name continuation
-diagnostic boundary, encoder boundaries, outbound table-size behavior beyond
-the checked fixture encoder update boundary, and production header validation
+the checked fixture string literal, focused dynamic-name continuation
+diagnostic boundary, checked outbound encoder boundary for HEADERS and
+server-side `PUSH_PROMISE`, outbound table-size behavior beyond the checked
+fixture encoder update boundary, and production header validation
 beyond ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, and the
@@ -894,6 +895,12 @@ requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
 encode failures before emitting header-block bytes.
+Server-side `PUSH_PROMISE` send-intents also carry returned fixture encode
+state across successive promised header-list encodes: a supported
+literal-with-indexing promised header list updates the bounded dynamic table,
+and a later matching `PUSH_PROMISE` promised header list emits the dynamic
+indexed fixture byte before entering the existing `PUSH_PROMISE` framing and
+CONTINUATION splitting path.
 The completed local HPACK table-size receive-policy slice is current behavior
 under `../specification/` and
 `../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It

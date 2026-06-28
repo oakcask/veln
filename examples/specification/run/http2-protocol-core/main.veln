@@ -322,6 +322,10 @@ type OutboundPushPromiseDecision
 	OutboundPushPromiseEncodeFailed(Int, Int, Int, EncodeError)
 end
 
+type OutboundPushPromiseHpackTransition
+	OutboundPushPromiseHpackTransition(OutboundPushPromiseDecision, HpackFixtureState)
+end
+
 type OutboundGoawayDecision
 	OutboundGoawayAccepted(Int, Int, Http2DecodeState, ByteChunk)
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
@@ -2022,9 +2026,19 @@ fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: Byte
 end
 
 fn send_push_promise_from_header_list(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseDecision, HpackFixtureFailure>, String>
-	match hpack_fixture::encode_header_list(headers, 0)
-		Ok(header_block) => match send_push_promise(stream_id, promised_stream_id, header_block, peer_settings, receive_credit)
+	match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
+		Ok(transition) => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
 			Ok(decision) => Ok(Ok(decision))
+			Err(error) => Err(error)
+		end
+		Err(failure) => Ok(Err(failure))
+	end
+end
+
+fn send_push_promise_from_header_list_with_state(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, state: HpackFixtureState, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure>, String>
+	match hpack_fixture::encode_header_list_with_state(headers, state, 0)
+		Ok(transition) => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
+			Ok(decision) => Ok(Ok(OutboundPushPromiseHpackTransition(decision, hpack_fixture::encode_transition_state(transition))))
 			Err(error) => Err(error)
 		end
 		Err(failure) => Ok(Err(failure))
@@ -4717,6 +4731,14 @@ fn outbound_headers_receive_credit(decision: OutboundHeadersDecision) -> Outboun
 	end
 end
 
+fn outbound_push_promise_receive_credit(decision: OutboundPushPromiseDecision) -> OutboundReceiveCredit
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, receive_credit, _) => receive_credit
+		OutboundPushPromiseRejected(_, _, _, _) => outbound_receive_credit_without_stream(0)
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => outbound_receive_credit_without_stream(0)
+	end
+end
+
 fn outbound_headers_failure(decision: OutboundHeadersDecision) -> Http2ProtocolFailure
 	match decision
 		OutboundHeadersAccepted(_, _, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
@@ -6676,6 +6698,25 @@ fn require_outbound_push_promise_from_list(result: Result<OutboundPushPromiseDec
 	end
 end
 
+fn require_outbound_push_promise_hpack_transition(result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure>) -> Result<OutboundPushPromiseHpackTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected outbound PUSH_PROMISE HPACK fixture state transition")
+	end
+end
+
+fn outbound_push_promise_hpack_decision(transition: OutboundPushPromiseHpackTransition) -> OutboundPushPromiseDecision
+	match transition
+		OutboundPushPromiseHpackTransition(decision, _) => decision
+	end
+end
+
+fn outbound_push_promise_hpack_state(transition: OutboundPushPromiseHpackTransition) -> HpackFixtureState
+	match transition
+		OutboundPushPromiseHpackTransition(_, state) => state
+	end
+end
+
 fn print_outbound_push_promise_chunk(label: String, decision: OutboundPushPromiseDecision, expected_hex: String) -> Result<(), String> effects [stdio]
 	emit_encoded_header(label, outbound_push_promise_chunk(decision), expected_hex)
 end
@@ -8320,6 +8361,17 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_push_promise_hpack_visible_ascii_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-visible-ascii-literal", outbound_push_promise_hpack_visible_ascii)?
 	let outbound_push_promise_hpack_visible_ascii_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_visible_ascii)?
 	let ignored_push_promise_hpack_visible_ascii_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-visible-ascii-literal", outbound_push_promise_hpack_visible_ascii_decision, "000012050400000001000000020006782d64656d6f0568656c6c6f")?
+	let outbound_push_promise_stateful_literal_result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_list_with_state(1, 2, hpack_fixture::outbound_literal_indexed_path_target_headers(), hpack_fixture::initial_encode_state(), small_peer_max_frame_size_settings(5), outbound_receive_credit)?
+	let outbound_push_promise_stateful_literal: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(outbound_push_promise_stateful_literal_result)?
+	let outbound_push_promise_stateful_literal_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_stateful_literal)
+	print_outbound_push_promise("outbound-push-promise-hpack-stateful-literal-indexed", outbound_push_promise_stateful_literal_decision)
+	let ignored_push_promise_stateful_literal_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-literal-indexed", outbound_push_promise_stateful_literal_decision, "0000050500000000010000000244000005090000000001072f746172000003090400000001676574")?
+	let outbound_push_promise_stateful_dynamic_result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_list_with_state(1, 4, hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_push_promise_hpack_state(outbound_push_promise_stateful_literal), empty_peer_settings(), outbound_push_promise_receive_credit(outbound_push_promise_stateful_literal_decision))?
+	let outbound_push_promise_stateful_dynamic: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(outbound_push_promise_stateful_dynamic_result)?
+	let outbound_push_promise_stateful_dynamic_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_stateful_dynamic)
+	print_outbound_push_promise("outbound-push-promise-hpack-stateful-dynamic-indexed", outbound_push_promise_stateful_dynamic_decision)
+	let ignored_push_promise_stateful_dynamic_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-dynamic-indexed", outbound_push_promise_stateful_dynamic_decision, "00000505040000000100000004be")?
+	print_outbound_hpack_encode_state("outbound-push-promise-hpack-stateful-after-dynamic", outbound_push_promise_hpack_state(outbound_push_promise_stateful_dynamic))
 	let outbound_push_promise_continuation: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("828486")?, small_peer_max_frame_size_settings(5), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-continuation", outbound_push_promise_continuation)
 	let ignored_push_promise_continuation_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-continuation", outbound_push_promise_continuation, "00000505000000000100000002820000020904000000018486")?

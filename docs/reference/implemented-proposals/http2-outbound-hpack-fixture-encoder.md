@@ -40,8 +40,11 @@ the HPACK header block before frame splitting: the first literal-with-indexing
 block is split across HEADERS and CONTINUATION frames when the peer frame-size
 limit is small, while the later matching header list from the returned encode
 state is emitted as a single dynamic indexed HEADERS block. Server-side
-`PUSH_PROMISE` keeps the same promised-stream payload encoding and
-CONTINUATION splitting after the fixture encoder produces its header block.
+`PUSH_PROMISE` uses the same stateful fixture encoder boundary: the first
+literal-with-indexing promised header list can be split across `PUSH_PROMISE`
+and CONTINUATION frames after the promised-stream id payload, and a later
+matching `PUSH_PROMISE` header list encoded from the returned fixture state
+uses the dynamic indexed byte `0xbe`.
 
 The stateful encoder also accepts bounded dynamic table-size update requests
 for outbound HEADERS header blocks. It emits canonical checked fixture bytes
@@ -86,9 +89,11 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   Huffman-marked literal `:path: hpack-bytes-00-ff` into outbound HEADERS,
   Huffman-marked literal `:authority: abc.test` into outbound HEADERS, static
   indexed `:status: 200` and Huffman-marked literal `:status: 200` into
-  server-side `PUSH_PROMISE`, one non-visible Huffman value encode failure,
-  and one unsupported-header encode failure that remains an HPACK fixture
-  result.
+  server-side `PUSH_PROMISE`, stateful literal-with-indexing
+  `:path: /target` encoding before `PUSH_PROMISE` splitting, stateful
+  dynamic indexed reuse as `0xbe` in a later `PUSH_PROMISE`, one non-visible
+  Huffman value encode failure, and one unsupported-header encode failure
+  that remains an HPACK fixture result.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the same stateful encoder transition directly at the HPACK fixture boundary:
   separate initial encode state, literal-with-indexing insertion, dynamic
