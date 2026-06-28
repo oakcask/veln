@@ -1,0 +1,122 @@
+use stdio
+
+type Packet
+	Packet {kind: Int, value: Int}
+end
+
+schema DirectPacketWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Packet when kind < 2
+		kind = kind
+		value = value
+
+	map to Packet when kind > 4
+		kind = kind
+		value = value
+end
+
+schema CodecPacketWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Packet when kind <= 1
+		kind = kind
+		value = value
+
+	map to Packet when kind >= 5
+		kind = kind
+		value = value
+end
+
+codec PacketCodec for CodecPacketWire encode
+	derive encode
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_result_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(chunk) => emit_encoded_chunk(name, chunk, expected_hex)
+		Err(_) => stdio::println("unexpected result encode failure")
+	end
+end
+
+fn emit_step_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk(name, chunk, expected_hex)
+		Encoded(_) => stdio::println("unexpected chunk count")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(_) => stdio::println("unexpected step encode failure")
+	end
+end
+
+fn encode_error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn encode_error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, path, _) => path
+	end
+end
+
+fn encode_error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(encode_error_id(error))
+	stdio::println(encode_error_path(error))
+	stdio::println(encode_error_reason(error))
+end
+
+fn emit_result_error(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected result encode success")
+		Err(error) => emit_error(error)
+	end
+end
+
+fn emit_step_error(step: EncodeStep<()>) -> () effects [stdio]
+	match step
+		Encoded(_) => stdio::println("unexpected step encode success")
+		Partial(_, _, _) => stdio::println("unexpected partial encode")
+		Invalid(error) => emit_error(error)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	emit_result_encoded("direct-less", byte_encode_direct_packet_wire({kind: 1, value: 7}), "0107")
+	emit_result_encoded("direct-greater", byte_encode_direct_packet_wire({kind: 5, value: 9}), "0509")
+	emit_result_error(byte_encode_direct_packet_wire({kind: 3, value: 4}))
+
+	emit_step_encoded("codec-less-equal", PacketCodec({kind: 1, value: 11}), "010b")
+	emit_step_encoded("codec-greater-equal", PacketCodec({kind: 5, value: 12}), "050c")
+	emit_step_error(PacketCodec({kind: 3, value: 4}))
+end

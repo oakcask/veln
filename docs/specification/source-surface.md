@@ -415,11 +415,11 @@ target record shape when every visible encode field, including `Flag8`,
 `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`, `Flag56le`,
 `Flag64be`, and `Flag64le` fields, is assigned from a projectable
 schema-local field reference. Multiple selected
-`map to Target when field == literal` or
-`map to Target when field != literal` clauses can make the helper accept that
-same target record shape when all selected mappings resolve to it and every
-schema-local encode field, including the selector field, projects back from
-the selected target record through direct source-field assignments.
+`map to Target when field <literal-comparison> literal` clauses using `==`,
+`!=`, `<`, `<=`, `>`, or `>=` can make the helper accept that same target
+record shape when all selected mappings resolve to it and every schema-local
+encode field, including the selector field, projects back from the selected
+target record through direct source-field assignments.
 For closed dispatch fields whose cases mix primitive and nested schema payload
 decoded shapes, selected equality mappings on the dispatch tag field can make
 the helper accept the shared target record when the mappings cover every case

@@ -3311,7 +3311,7 @@ fn schema_encode_selected_mapping_value_fields(
     let [first, rest @ ..] = schema.mappings.as_slice() else {
         return None;
     };
-    first.selector.as_ref()?;
+    schema_encode_mapping_selector_is_simple_comparison(first).then_some(())?;
     let target_fields = schema_mapping_target_record_fields(module, schema, first)?;
     let (schema_field_types, supported_int_field_names) = schema_encode_mapping_field_types(
         module,
@@ -3330,7 +3330,7 @@ fn schema_encode_selected_mapping_value_fields(
     };
     schema_encode_mapping_source_targets(schema_fields, &source_context, first, &target_fields)?;
     for mapping in rest {
-        mapping.selector.as_ref()?;
+        schema_encode_mapping_selector_is_simple_comparison(mapping).then_some(())?;
         let candidate_target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
         if candidate_target_fields != target_fields {
             return None;
@@ -3357,6 +3357,17 @@ fn schema_encode_selected_mapping_value_fields(
         )?;
     }
     Some(target_fields)
+}
+
+fn schema_encode_mapping_selector_is_simple_comparison(
+    mapping: &veln_ast::SchemaMappingClause,
+) -> bool {
+    mapping.selector.as_ref().is_some_and(|selector| {
+        schema_mapping_selector_predicate(selector)
+            .ok()
+            .and_then(|predicate| predicate.as_simple_comparison().map(|_| ()))
+            .is_some()
+    })
 }
 
 fn schema_encode_mapping_field_types(
