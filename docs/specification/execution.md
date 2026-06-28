@@ -1772,8 +1772,9 @@ execution reference.
   open in the checked fixture boundary, a second idle HEADERS stream is
   rejected before admission through the concurrent-stream peer-limit
   diagnostic, with the endpoint role, active state, receive-limit provenance,
-  and rule provenance kept as diagnostic context. It consumes DATA payload
-  length from the shared connection window and the targeted stream window, accepts
+  rule provenance, and inspected HEADERS frame-header byte preview kept as
+  diagnostic context. It consumes DATA payload length from the shared
+  connection window and the targeted stream window, accepts
   PADDED DATA by consuming the pad-length byte and padding as receive-window
   credit while exposing only application data bytes as DATA content, compares
   the total exposed DATA application byte count with the accepted

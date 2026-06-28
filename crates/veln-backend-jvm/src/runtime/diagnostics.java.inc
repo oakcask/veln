@@ -694,6 +694,7 @@
         String activeState = asString(detail.payloads[5]);
         String receiveLimitProvenance = asString(detail.payloads[6]);
         String ruleProvenance = asString(detail.payloads[7]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[8], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -709,7 +710,8 @@
                 DiagnosticDetail.string("endpoint_role", endpointRole),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
-                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );
     }

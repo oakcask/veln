@@ -10482,7 +10482,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "header_list_http2: http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\", view), ",
             "header_table_http2: http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, \"local_configuration\", \"hpack_dynamic_table_size_update\", view), ",
             "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\", view), ",
-            "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"server\", \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\"), ",
+            "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"server\", \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\", view), ",
             "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
             "hpack_fixture: hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
             "hpack_string_length: hpack_fixture_malformed_string_length(27, 2, 4, \"fixture HPACK string length\", \"hpack_fixture\", view), ",

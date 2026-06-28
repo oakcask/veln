@@ -151,7 +151,8 @@ requiring the full command reference on the first read.
   likewise use the same human runtime diagnostic rendering as the
   compatibility helpers, with the stable id, protocol facts, provenance,
   decoded header names, and bounded byte preview when present projected from
-  the returned
+  the returned value. The concurrent-stream receive-limit projection includes
+  a bounded byte preview for the inspected HEADERS frame header from the returned
   `RuntimeDiagnostic(...)` value. The standard
   `http2_protocol_invalid_preface(...)`,
   `http2_protocol_continuation_expected(...)`, and

@@ -2696,7 +2696,7 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
     )
     .expect("header-table runtime diagnostic value should parse");
     let concurrent_streams = parse_result_value(
-        "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit))",
+        "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(3)])))",
     )
     .expect("concurrent-stream runtime diagnostic value should parse");
 
@@ -2718,6 +2718,10 @@ fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
     assert_eq!(
         json_path(&concurrent_streams, "value.detail.receive_limit_provenance"),
         Some(&JsonValue::String("local_configuration".to_string()))
+    );
+    assert_eq!(
+        json_path(&concurrent_streams, "value.detail.preview.bytes.8.value"),
+        Some(&JsonValue::Number(3))
     );
 }
 
@@ -3875,7 +3879,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
             ))
         }
         "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
+            let args = expect_arity(name, args, 9)?;
             Ok(result_value_object(
                 "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
                 vec![
@@ -3905,6 +3909,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "rule_provenance",
                         JsonValue::String(args[7].trim().to_string()),
                     ),
+                    ("preview", parse_veln_value(args[8])?),
                 ],
             ))
         }

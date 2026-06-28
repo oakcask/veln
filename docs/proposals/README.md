@@ -101,7 +101,8 @@ compare it with `../specification/` before changing behavior.
   and malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
   range protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
   preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, plus HTTP/2
-  header-list and header-table receive-limit protocol byte previews.
+  header-list, header-table, and concurrent-stream receive-limit protocol byte
+  previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
