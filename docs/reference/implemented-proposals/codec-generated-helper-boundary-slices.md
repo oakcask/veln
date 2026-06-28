@@ -14,10 +14,11 @@ Derived codec decode calls expose the same source-call boundary as the
 generated `byte_decode_step_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions, standalone
-visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields, and
-visible-only packed three-byte groups, and seven-byte or eight-byte reserved
-prefix groups, seven-byte wide reserved suffix groups, and schema mappings
-that call pure same-module converters with five structural arguments. A codec
+visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields,
+visible-only packed three-byte and four-byte groups, seven-byte or eight-byte
+reserved prefix groups, seven-byte wide reserved suffix groups, and schema
+mappings that call pure same-module converters with five structural
+arguments. A codec
 call receives a bounded `ByteView` and explicit base `ByteOffset`, returns
 `Decoded` with the helper value and consumed `ByteCount`, returns `NeedMore`
 without consuming input, and returns helper `Invalid(DecodeError)` values
@@ -29,8 +30,8 @@ eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
-fields, visible-only packed three-byte groups, seven-byte or eight-byte
-reserved prefix groups, and seven-byte wide reserved suffix groups. A codec
+fields, visible-only packed three-byte and four-byte groups, seven-byte or
+eight-byte reserved prefix groups, and seven-byte wide reserved suffix groups. A codec
 call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists. The
@@ -64,6 +65,10 @@ produced count, and a resumable state record carrying `encoded_offset`.
   through the derived codec item.
 - `../../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
   checks visible-only packed three-byte helper decode and encode behavior
+  through the derived codec item, including short-input readiness, budgeted
+  partial/resume behavior, and helper encode failure projection.
+- `../../../examples/specification/run/derived-codec-packed-visible-four-byte-boundary/`
+  checks visible-only packed four-byte helper decode and encode behavior
   through the derived codec item, including short-input readiness, budgeted
   partial/resume behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
