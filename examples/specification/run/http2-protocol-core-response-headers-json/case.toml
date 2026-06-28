@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers, ByteChunk([Byte(64), Byte(6), Byte(115), Byte(101), Byte(114), Byte(118), Byte(101), Byte(114), Byte(0)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -61,6 +61,26 @@ equals = ":status"
 [[json_assert]]
 path = "error.details.protocol_diagnostic.decoded_header_names"
 equals = "server"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "4006736572766572"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = true
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"

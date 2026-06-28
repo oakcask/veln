@@ -107,7 +107,8 @@ compare it with `../specification/` before changing behavior.
   preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, HTTP/2
   invalid DATA padding protocol byte preview, plus HTTP/2 frame-size,
   header-list, header-table, concurrent-stream receive-limit, and
-  stream-after-GOAWAY protocol byte previews.
+  stream-after-GOAWAY protocol byte previews, and HTTP/2 request, response,
+  and request-trailer header-list validation protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and

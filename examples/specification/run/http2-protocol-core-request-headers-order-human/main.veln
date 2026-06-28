@@ -1,7 +1,7 @@
 # HTTP/2 pseudo-header ordering failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
+	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview: ByteChunk}
 end
 
 type Http2DiagnosticContext
@@ -22,11 +22,11 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))))
+		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview)))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("request-headers", "rfc9113_request_pseudo_headers")
-	http2_protocol_diagnostic(InvalidRequestHeaderList("HTTP/2 request header list places :method after a regular header at byte offset 12", 12, 1, 1, "pseudo_header_after_regular_header", ":method", "host,:method,:scheme,:path"), context)
+	http2_protocol_diagnostic(InvalidRequestHeaderList("HTTP/2 request header list places :method after a regular header at byte offset 12", 12, 1, 1, "pseudo_header_after_regular_header", ":method", "host,:method,:scheme,:path", byte_chunk([])), context)
 end

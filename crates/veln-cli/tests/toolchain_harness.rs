@@ -2769,11 +2769,11 @@ fn result_value_parser_exposes_http2_data_flow_content_length_diagnostics() {
 #[test]
 fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
     let request = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers))",
+        "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers, ByteChunk([Byte(130), Byte(132), Byte(134)])))",
     )
     .expect("request header-list runtime diagnostic value should parse");
     let response = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers))",
+        "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers, ByteChunk([Byte(136)])))",
     )
     .expect("response header-list runtime diagnostic value should parse");
 
@@ -2788,6 +2788,10 @@ fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
         Some(&JsonValue::String("headers".to_string()))
     );
     assert_eq!(
+        json_path(&request, "value.detail.preview.constructor"),
+        Some(&JsonValue::String("ByteChunk".to_string()))
+    );
+    assert_eq!(
         json_path(&response, "value.detail.constructor"),
         Some(&JsonValue::String(
             "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic".to_string()
@@ -2796,6 +2800,10 @@ fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
     assert_eq!(
         json_path(&response, "value.detail.header_name"),
         Some(&JsonValue::String(":status".to_string()))
+    );
+    assert_eq!(
+        json_path(&response, "value.detail.preview.bytes.0.value"),
+        Some(&JsonValue::Number(136))
     );
 }
 
@@ -3920,7 +3928,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
         }
         "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic"
         | "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
+            let args = expect_arity(name, args, 9)?;
             Ok(result_value_object(
                 name,
                 vec![
@@ -3944,6 +3952,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "rule_provenance",
                         JsonValue::String(args[7].trim().to_string()),
                     ),
+                    ("preview", parse_veln_value(args[8])?),
                 ],
             ))
         }

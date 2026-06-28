@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains invalid ordinary header name bad@name at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, ordinary_header_name_invalid_token, bad@name, bad@name, request-trailers, rfc9110_field_name_token))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains invalid ordinary header name bad@name at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, ordinary_header_name_invalid_token, bad@name, bad@name, request-trailers, rfc9110_field_name_token, ByteChunk([])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

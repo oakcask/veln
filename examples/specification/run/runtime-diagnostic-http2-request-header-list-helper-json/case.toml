@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers, ByteChunk([Byte(130), Byte(132), Byte(134)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -63,6 +63,26 @@ path = "error.details.protocol_diagnostic.decoded_header_names"
 equals = "headers"
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "828486"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
 equals = "request-headers"
 
@@ -89,6 +109,16 @@ equals = ":method"
 value_path = "error.details.value"
 path = "value.detail.decoded_header_names"
 equals = "headers"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 130
 
 [[result_value_assert]]
 value_path = "error.details.value"

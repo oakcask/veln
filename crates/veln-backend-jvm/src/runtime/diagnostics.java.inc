@@ -918,6 +918,7 @@
         String decodedHeaderNames = asString(detail.payloads[5]);
         String activeState = asString(detail.payloads[6]);
         String ruleProvenance = asString(detail.payloads[7]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[8], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -928,6 +929,7 @@
                 DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
                 DiagnosticDetail.string("header_name", headerName),
                 DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )
@@ -949,6 +951,7 @@
         String decodedHeaderNames = asString(detail.payloads[5]);
         String activeState = asString(detail.payloads[6]);
         String ruleProvenance = asString(detail.payloads[7]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[8], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -959,6 +962,7 @@
                 DiagnosticDetail.string("failed_header_fact", failedHeaderFact),
                 DiagnosticDetail.string("header_name", headerName),
                 DiagnosticDetail.string("decoded_header_names", decodedHeaderNames),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )

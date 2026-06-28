@@ -1,7 +1,7 @@
 # HTTP/2 response content-length header-list validation failures project human diagnostics.
 
 type Http2ProtocolFailure
-	InvalidResponseHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
+	InvalidResponseHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview: ByteChunk}
 end
 
 type Http2DiagnosticContext
@@ -22,11 +22,11 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidResponseHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => Err(RuntimeDiagnostic("http2.protocol.invalid_response_header_list", message, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))))
+		InvalidResponseHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_response_header_list", message, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview)))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("response-headers", "rfc9113_content_length")
-	http2_protocol_diagnostic(InvalidResponseHeaderList("HTTP/2 response header list contains mismatched content-length values at byte offset 12", 12, 1, 1, "content_length_mismatch", "content-length", ":status,content-length,content-length"), context)
+	http2_protocol_diagnostic(InvalidResponseHeaderList("HTTP/2 response header list contains mismatched content-length values at byte offset 12", 12, 1, 1, "content_length_mismatch", "content-length", ":status,content-length,content-length", byte_chunk([])), context)
 end

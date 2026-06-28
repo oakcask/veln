@@ -2189,13 +2189,16 @@ execution reference.
   names on an inbound request project through
   `http2.protocol.invalid_request_header_list`. Its primary message names the
   failed header-list fact; decoded header names, stream id, frame kind, active
-  state, and rule provenance remain structured details or related notes.
+  state, rule provenance, and the inspected header-block byte preview remain
+  structured details or related notes.
   A source-visible
   `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` payload carries
-  those request header-list facts in the returned diagnostic value.
+  those request header-list facts and the bounded header-block preview in the
+  returned diagnostic value.
   The standard `http2_protocol_invalid_request_header_list(...)` helper returns
-  this payload directly as `Result<(), RuntimeDiagnostic>`, so direct helper
-  command output is rendered from the returned value.
+  this payload directly as `Result<(), RuntimeDiagnostic>` after projecting the
+  caller-provided `ByteView` preview into the diagnostic payload, so direct
+  helper command output is rendered from the returned value.
   Fixture-marked request `:scheme` values are valid only when they are `http`
   or `https`; any other value fails with `scheme_value_not_http_or_https`.
   Fixture-marked request `:path` values must be non-empty after `:path`
@@ -2232,12 +2235,15 @@ execution reference.
   `content-length` value rules and failed facts apply to fixture-marked
   response header lists. The response diagnostic uses the same structured
   detail shape as request validation while naming the response-specific
-  failed header-list fact. A source-visible
+  failed header-list fact and carrying the inspected header-block byte preview.
+  A source-visible
   `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payload
-  carries those response header-list facts in the returned diagnostic value.
+  carries those response header-list facts and the bounded header-block preview
+  in the returned diagnostic value.
   The standard `http2_protocol_invalid_response_header_list(...)` helper
-  returns this payload directly as `Result<(), RuntimeDiagnostic>`, so direct
-  helper command output is rendered from the returned value.
+  returns this payload directly as `Result<(), RuntimeDiagnostic>` after
+  projecting the caller-provided `ByteView` preview into the diagnostic
+  payload, so direct helper command output is rendered from the returned value.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

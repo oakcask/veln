@@ -1,7 +1,7 @@
 # HTTP/2 request header-list validation failures project structured runtime details.
 
 type Http2ProtocolFailure
-	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String}
+	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview: ByteChunk}
 end
 
 type Http2DiagnosticContext
@@ -22,11 +22,27 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context))))
+		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview)))
+	end
+end
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_request_header_list",
+		error,
+		RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, "missing_required_pseudo_header", ":method", ":scheme,:path", "request-headers", "rfc9113_request_pseudo_headers", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("8684")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("request-headers", "rfc9113_request_pseudo_headers")
-	http2_protocol_diagnostic(InvalidRequestHeaderList("HTTP/2 request header list is missing :method at byte offset 12", 12, 9, 1, "missing_required_pseudo_header", ":method", ":scheme,:path"), context)
+	let preview: ByteChunk = preview_bytes()?
+	http2_protocol_diagnostic(InvalidRequestHeaderList("HTTP/2 request header list is missing :method at byte offset 12", 12, 9, 1, "missing_required_pseudo_header", ":method", ":scheme,:path", preview), context)
 end

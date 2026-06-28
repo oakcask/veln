@@ -622,7 +622,9 @@ request header-list validation failures use id
 `http2.protocol.invalid_request_header_list` and record
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `failed_header_fact`, `header_name`, `decoded_header_names`,
-`active_state`, and `rule_provenance`. The checked projections cover a
+`byte_preview`, `active_state`, and `rule_provenance`. The bounded
+`byte_preview` records the inspected header-block bytes. The checked
+projections cover a
 missing required request pseudo-header, a response-only `:status`
 pseudo-header, a duplicate request pseudo-header, a request pseudo-header
 after a regular header, an uppercase ordinary header name, and an ordinary
@@ -636,10 +638,12 @@ including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
 payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
-value while `details.protocol_diagnostic` keeps the same public fields.
+value while `details.protocol_diagnostic` keeps the same public fields,
+including the header-block preview.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
-fields. The checked projections cover a missing required `:status`, duplicate
+fields, including `byte_preview` for the inspected header-block bytes. The
+checked projections cover a missing required `:status`, duplicate
 `:status`, request-only pseudo-headers, and a response pseudo-header after a
 regular header, an uppercase ordinary header name, and an ordinary header
 name outside the HTTP field-name token shape, plus invalid `te` value human
@@ -649,7 +653,8 @@ completed HEADERS and final CONTINUATION paths. The focused response
 header-list human and JSON examples return source-visible
 `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
-`details.protocol_diagnostic` keeps the same public fields. The larger
+`details.protocol_diagnostic` keeps the same public fields, including the
+header-block preview. The larger
 protocol-core fixture also checks valid ordinary response header lists,
 including accepted `te: trailers` and accepted `content-length` values,
 through integrated completed HEADERS and final CONTINUATION paths.
