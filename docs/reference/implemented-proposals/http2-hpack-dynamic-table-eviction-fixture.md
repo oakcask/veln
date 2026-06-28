@@ -121,6 +121,12 @@ unsupported fixture path.
   partial reduced-table-size eviction failure paths, insertion-caused
   eviction, oldest-first eviction after a three-entry table-size reduction,
   and the fixture-boundary table-size update slice.
+- `../../../examples/specification/run/hpack-fixture-dynamic-index-json/` and
+  `../../../examples/specification/run/hpack-fixture-dynamic-index-human/`
+  check the focused dynamic-index lookup slice: a literal-with-indexing block
+  inserts `:path: /target`, a later `0xbe` indexed block reads it through the
+  returned state, and a missing dynamic entry projects the focused
+  dynamic-index diagnostic without relying on full HPACK compression.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
