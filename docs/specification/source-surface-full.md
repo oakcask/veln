@@ -174,17 +174,19 @@ positions report `schema.exact_width_primitive`. Missing
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
-unbounded recursive, outside the generated helper slice such as an unsupported
-standalone, prefix, or suffix `ReservedBits` layout,
+unbounded recursive, missing the decode helper required by parent decode,
 field-reference-ineligible `ByteView` payload layout, or incompatible report
-`schema.dispatch_payload`.
+`schema.dispatch_payload`. Parent decode helpers, generated decode-step
+helpers, and `derive decode` require only the nested schema's decode helper;
+generated encode helpers and `derive encode` also require the nested schema's
+encode helper.
 Helper-slice payload diagnostics name the expected generated decode and
 encode helpers in structured fields and keep the payload schema declaration
 in related notes. When the nested schema has a field layout that prevents
 helper exposure, the diagnostic details and related notes also name the nested
-schema field path, the unavailable decode and encode helper directions, and
-the specific unsupported `ReservedBits` or `ByteView` layout fact. The checked
-field-reference diagnostics case is
+schema field path, the unavailable helper directions, and the specific
+unsupported `ReservedBits`, `ByteView`, or mapping-projection layout fact.
+The checked field-reference diagnostics case is
 `../../examples/specification/check/binary-schema-field-reference-diagnostics/`;
 the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;

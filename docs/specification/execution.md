@@ -642,10 +642,12 @@ execution reference.
   recursive helper path decodes the nested payload from the bounded dispatch
   range before continuing with later fields and preserves the same outer
   dispatch plus nested schema field path on failures. Resolved nested payload
-  schemas must expose both generated decode-step and encode helpers before a
-  parent dispatch helper can use them; a payload schema that can decode but
+  schemas must expose the generated decode-step helper before a parent
+  dispatch decode helper can use them. A payload schema that can decode but
   whose mapping assignment cannot be projected back to schema-local fields for
-  generated encode is rejected at check time with `schema.dispatch_payload`.
+  generated encode is still accepted by parent decode helpers, generated
+  decode-step helpers, and `derive decode`, but rejected when generated encode
+  or `derive encode` requires that payload's encode helper.
   The checked
   examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
@@ -654,6 +656,7 @@ execution reference.
   `examples/specification/run/binary-schema-recursive-dispatch-wrapper-roundtrip/`,
   `examples/specification/run/binary-schema-recursive-dispatch-wrapper-failure-json/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
+  `examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`,
   `examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
   `examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`,
@@ -1526,6 +1529,7 @@ execution reference.
   `examples/specification/run/derived-codec-flag-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
+  `examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,

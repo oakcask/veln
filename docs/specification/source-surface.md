@@ -162,16 +162,19 @@ or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
 payload name is missing, resolves to a non-schema item, names a private
 imported schema, names a non-binary schema, refers forward, uses an unbounded
-or otherwise ineligible recursive form, uses a schema outside the generated
-helper slice such as unsupported standalone, prefix, or suffix `ReservedBits`
-layouts, uses a field-reference-ineligible `ByteView` payload layout, or
-decodes to an incompatible payload shape. Helper-slice payload diagnostics name
-the expected
+or otherwise ineligible recursive form, lacks the generated decode helper
+required by a parent decode helper, uses a field-reference-ineligible
+`ByteView` payload layout, or decodes to an incompatible payload shape. Parent
+decode helpers, generated decode-step helpers, and `derive decode` require
+only the nested schema's decode helper; they do not require the nested schema
+to expose a generated encode helper. Generated encode helpers and
+`derive encode` still require nested dispatch payload schemas to expose a
+generated encode helper. Helper-slice payload diagnostics name the expected
 generated decode and encode helpers in structured fields and keep the payload
 schema declaration in related notes. When the nested schema has a field layout
 that prevents helper exposure, the diagnostic details and related notes also
-name the nested schema field path, the unavailable decode and encode helper
-directions, and the specific unsupported `ReservedBits` or `ByteView` layout
+name the nested schema field path, the unavailable helper directions, and the
+specific unsupported `ReservedBits`, `ByteView`, or mapping-projection layout
 fact. Closed dispatch
 cases with mixed
 primitive and

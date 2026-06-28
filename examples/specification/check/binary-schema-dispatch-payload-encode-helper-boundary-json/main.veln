@@ -19,3 +19,7 @@ schema ClosedPacket
 	kind: UInt8
 	payload: Dispatch(kind, 1 => UnsupportedMappedPayload)
 end
+
+codec ClosedPacketCodec for ClosedPacket encode
+	derive encode
+end

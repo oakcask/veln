@@ -1922,6 +1922,9 @@ against the built `veln` binary.
   encode fields pins the parent dispatch field path, selected payload schema,
   generated encode helper boundary, unavailable direction, layout reason, and
   related-note kinds.
+- `run/binary-schema-dispatch-payload-decode-only-helper/`: a parent dispatch
+  payload whose nested schema exposes only the generated decode helper succeeds
+  through direct generated decode, generated decode-step, and `derive decode`.
 - `check/binary-schema-dispatch-payload-helper-eligibility-human/`: the same
   dispatch payload helper-slice rejection projects the payload schema
   declaration, nested field cause, and helper requirement as human related

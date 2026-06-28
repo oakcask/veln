@@ -158,8 +158,9 @@ compare it with `../specification/` before changing behavior.
   from record-shaped mapping expressions, projectable mapped-record encode,
   same-module and imported converter-call mapped encode with explicitly named
   inverse converters, and direct or nested ADT constructor mapped encode
-  boundaries for supported schema-local fields plus record-payload
-  constructor slices,
+  projections for supported schema-local fields plus record-payload
+  constructor slices, direction-specific nested dispatch payload decode helper
+  eligibility with encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte and two-byte group
   decode and encode,
@@ -209,6 +210,9 @@ compare it with `../specification/` before changing behavior.
   generated encode. The completed dispatch payload helper boundary diagnostics
   slice is archived under
   [Binary Schema Dispatch Payload Helper Boundary Diagnostics](../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
+  The completed direction-specific nested dispatch payload helper slice is
+  archived under
+  [Binary Schema Directional Dispatch Payload Helpers](../reference/implemented-proposals/binary-schema-directional-dispatch-payload-helpers.md).
   The completed nested dispatch
   `ByteView(length_field)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md).

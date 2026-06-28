@@ -853,6 +853,11 @@ fn codec_derive_encode_value_type_diagnostics(
         return Vec::new();
     };
     let Some(actual_value_type) = schema_encode_value_type(module, schema) else {
+        let dispatch_payload_diagnostics =
+            schema_encode_dispatch_payload_diagnostics(module, schema);
+        if !dispatch_payload_diagnostics.is_empty() {
+            return dispatch_payload_diagnostics;
+        }
         return vec![codec_derive_helper_unsupported_diagnostic(
             codec,
             implementation,
@@ -3181,10 +3186,10 @@ fn schema_dispatch_payload_helper_type(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Type> {
     let decode_type = schema_decode_value_type(module, payload_schema);
-    let encode_type = schema_encode_value_type(module, payload_schema);
-    match (decode_type, encode_type) {
-        (Some(payload_ty), Some(_)) => Some(payload_ty),
-        (decode_type, encode_type) => {
+    match decode_type {
+        Some(payload_ty) => Some(payload_ty),
+        None => {
+            let encode_type = schema_encode_value_type(module, payload_schema);
             diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
                 module,
                 schema,
@@ -3193,13 +3198,53 @@ fn schema_dispatch_payload_helper_type(
                 payload_name,
                 payload_schema,
                 SchemaHelperAvailability {
-                    decode: decode_type.is_some(),
+                    decode: false,
                     encode: encode_type.is_some(),
                 },
             ));
             None
         }
     }
+}
+
+fn schema_encode_dispatch_payload_diagnostics(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for field in &schema.fields {
+        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+        else {
+            continue;
+        };
+        for case in &dispatch.cases {
+            let SchemaDispatchCasePayload::Schema { schema_name } = &case.payload else {
+                continue;
+            };
+            let Some(payload_schema) = schema_dispatch_payload_schema(module, schema, schema_name)
+            else {
+                continue;
+            };
+            if schema_decode_value_type(module, payload_schema).is_some()
+                && schema_encode_value_type(module, payload_schema).is_none()
+            {
+                diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
+                    module,
+                    schema,
+                    field,
+                    case.tag,
+                    schema_name,
+                    payload_schema,
+                    SchemaHelperAvailability {
+                        decode: true,
+                        encode: false,
+                    },
+                ));
+            }
+        }
+    }
+    diagnostics
 }
 
 fn dispatch_payload_schema_declaration_message(
@@ -3231,13 +3276,13 @@ fn dispatch_payload_helper_boundary_message(
 ) -> String {
     match (helper_availability.decode, helper_availability.encode) {
         (false, false) | (true, true) => format!(
-            "Dispatch payload schemas must expose generated decode and encode helpers before parent dispatch helpers or derived codecs can use them; expected `{decode_helper}` and `{encode_helper}`."
+            "Dispatch payload schemas must expose generated decode helpers before parent decode helpers or derived decode codecs can use them, and generated encode helpers before parent encode helpers or derived encode codecs can use them; expected `{decode_helper}` and `{encode_helper}`."
         ),
         (false, true) => format!(
-            "Dispatch payload schemas must expose generated decode helpers before parent dispatch helpers can use them; expected `{decode_helper}`."
+            "Dispatch payload schemas must expose generated decode helpers before parent decode helpers or derived decode codecs can use them; expected `{decode_helper}`."
         ),
         (true, false) => format!(
-            "Dispatch payload schemas must expose generated encode helpers before parent dispatch helpers or derived codecs can use them; expected `{encode_helper}`."
+            "Dispatch payload schemas must expose generated encode helpers before parent encode helpers or derived encode codecs can use them; expected `{encode_helper}`."
         ),
     }
 }
