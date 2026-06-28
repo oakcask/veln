@@ -4027,7 +4027,8 @@
         Object headerName,
         Object decodedHeaderNames,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long kind = asLong(frameKind);
@@ -4087,7 +4088,8 @@
                 header,
                 names,
                 state,
-                provenance
+                provenance,
+                byteViewToChunk(preview)
             }
         );
         return err(adt(
@@ -4108,7 +4110,8 @@
         Object headerName,
         Object decodedHeaderNames,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long kind = asLong(frameKind);
@@ -4159,7 +4162,8 @@
                 header,
                 names,
                 state,
-                provenance
+                provenance,
+                byteViewToChunk(preview)
             }
         );
         return err(adt(

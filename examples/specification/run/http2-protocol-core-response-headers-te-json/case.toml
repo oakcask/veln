@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list contains te value other than trailers at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, te_header_value_not_trailers, te, :status,te, response-headers, rfc9113_te_trailers_only))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list contains te value other than trailers at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, te_header_value_not_trailers, te, :status,te, response-headers, rfc9113_te_trailers_only, ByteChunk([])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

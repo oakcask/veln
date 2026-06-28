@@ -154,8 +154,10 @@ requiring the full command reference on the first read.
   header-table receive-limit failures, and concurrent-stream receive-limit failures
   likewise use the same human runtime diagnostic rendering as the
   compatibility helpers, with the stable id, protocol facts, provenance,
-  decoded header names, and bounded byte preview when present projected from
-  the returned value. The frame-size and concurrent-stream receive-limit
+  decoded header names, and bounded byte preview projected from the returned
+  value. The request and response header-list validation projections carry a
+  bounded inspected header-block preview. The frame-size and
+  concurrent-stream receive-limit
   projections include bounded byte previews for inspected frame headers from
   the returned `RuntimeDiagnostic(...)` value, and stream-after-GOAWAY
   projections include the bounded inspected frame-header preview carried by

@@ -632,6 +632,7 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
                 T::string(),
                 T::string(),
                 T::string(),
+                types.byte_view.clone(),
             ],
             unit_runtime_diagnostic_result(),
         )),

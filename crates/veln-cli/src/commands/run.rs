@@ -859,7 +859,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             "Frame kind {frame_kind} on {} {} decoded {header_kind} header names: {decoded_header_names}.",
             frame.stream_ref, frame.stream_id
         )));
-        self.push_state_and_provenance(&mut diagnostic)?;
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
         Some(diagnostic)
     }
 
@@ -3629,6 +3629,7 @@ mod tests {
             ),
             ("header_name", JsonValue::string(":method")),
             ("decoded_header_names", JsonValue::string(":scheme,:path")),
+            ("byte_preview", byte_preview("828486")),
             ("active_state", JsonValue::string("request-headers")),
             (
                 "rule_provenance",
@@ -3650,15 +3651,16 @@ mod tests {
             diagnostic.message,
             "request header list is missing :method at byte offset 12"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
                 .contains("Frame kind 9 on stream 1")
         );
         assert!(diagnostic.related[0].to_json().contains(":scheme,:path"));
+        assert!(diagnostic.related[1].to_json().contains("82 84 86"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_request_pseudo_headers")
         );
@@ -3688,6 +3690,7 @@ mod tests {
             ),
             ("header_name", JsonValue::string(":status")),
             ("decoded_header_names", JsonValue::string("server")),
+            ("byte_preview", byte_preview("88")),
             ("active_state", JsonValue::string("response-headers")),
             (
                 "rule_provenance",
@@ -3709,15 +3712,16 @@ mod tests {
             diagnostic.message,
             "response header list is missing :status at byte offset 12"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
                 .contains("Frame kind 9 on stream 1")
         );
         assert!(diagnostic.related[0].to_json().contains("server"));
+        assert!(diagnostic.related[1].to_json().contains("88"));
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_response_pseudo_headers")
         );
