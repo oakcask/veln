@@ -18,9 +18,10 @@ use crate::types::{
     reserved_bits_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
     schema_encode_value_type, schema_has_recursive_dispatch_payload,
-    schema_length_expression_references, schema_payload_name_last_segment,
-    schema_payload_name_path, schema_recursive_dispatch_payload_type,
-    selected_mappings_cover_closed_dispatch, supported_encode_reserved_bits,
+    schema_imported_recursive_dispatch_payload_type, schema_length_expression_references,
+    schema_payload_name_last_segment, schema_payload_name_path,
+    schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
+    selected_mappings_cover_dispatch_cases, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -2710,7 +2711,13 @@ fn check_schema_dispatch_field(
     if !valid {
         return None;
     }
-    let payload_ty = expected_payload_type?;
+    let payload_ty = if recursive_dispatch_payload
+        && !selected_mappings_cover_dispatch_cases(schema, dispatch)
+    {
+        schema_imported_recursive_dispatch_payload_type(module, schema, dispatch)?
+    } else {
+        expected_payload_type?
+    };
     if dispatch.preserves_unknown {
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {

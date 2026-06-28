@@ -206,7 +206,11 @@ compare it with `../specification/` before changing behavior.
   selected mappings cover every known case, resolve to one target record
   shape, and include a non-recursive base case; same-module wrapper
   dispatches may also select a separate eligible recursive payload schema
-  through that same helper path. Focused dispatch payload diagnostics now also
+  through that same helper path. Public imported recursive payload schemas are
+  also accepted for decode-only length-bounded parent dispatch fields without
+  selected mappings when the imported schema already has bounded recursive
+  helper support and the parent includes a non-recursive primitive case.
+  Focused dispatch payload diagnostics now also
   name the generated decode and encode helper boundaries
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not

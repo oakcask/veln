@@ -654,6 +654,11 @@ execution reference.
   a written `use` path are eligible only in the length-bounded form when
   selected mappings cover every dispatch case and all mappings resolve to one
   record shape, with at least one non-recursive case as the base case. The
+  decode helper also accepts a public imported recursive payload schema for a
+  length-bounded parent without selected mappings when the imported schema has
+  bounded recursive helper support and the parent includes at least one
+  non-recursive primitive case; the closed parent payload field type is the
+  imported schema's recursive mapped payload type. The
   recursive helper path decodes the nested payload from the bounded dispatch
   range before continuing with later fields and preserves the same outer
   dispatch plus nested schema field path on failures. Resolved nested payload
@@ -712,8 +717,13 @@ execution reference.
   payload schemas named through a written `use` path are eligible in the
   length-bounded form when selected mappings cover every known case, all
   mappings resolve to one record shape, and at least one known case is
-  non-recursive. Recursive known cases decode through the same generated
-  schema helper path within the bounded payload range.
+  non-recursive. A length-bounded parent without selected mappings may also
+  decode a public imported recursive payload schema when that imported schema
+  already has bounded recursive helper support and the parent includes at
+  least one non-recursive primitive case; the known payload field type remains
+  `SchemaDispatchPayload<T>` for the imported schema's recursive mapped
+  payload type. Recursive known cases decode through the same generated schema
+  helper path within the bounded payload range.
   Unknown cases do not report
   `schema.dispatch_unknown_tag`; they expose
   `SchemaDispatchPayload::Unknown(tag, payload)` where `payload` is a bounded
@@ -1124,7 +1134,8 @@ execution reference.
   selected-mapping eligibility as recursive closed dispatch; the generated
   encode helper projects the selected known value to the recursive payload,
   writes it through the same schema helper path, and validates the resulting
-  byte count against the explicit length field.
+  byte count against the explicit length field. The decode-only unmapped
+  imported recursive parent boundary does not expose a generated encode helper.
   The supplied length field remains explicit: the helper rejects values whose
   encoded payload byte count differs from the earlier length field with
   `Err(EncodeError("codec.dispatch_length_mismatch", field_path, reason))`.
