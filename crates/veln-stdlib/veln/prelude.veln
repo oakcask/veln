@@ -394,7 +394,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String)
 	RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(byte_offset: Int, observed_header_list_size: Int, allowed_header_list_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(byte_offset: Int, observed_header_table_size: Int, allowed_header_table_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(byte_offset: Int, stream_id: Int, attempted_concurrent_stream_count: Int, allowed_concurrent_stream_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String)
+	RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(byte_offset: Int, stream_id: Int, attempted_concurrent_stream_count: Int, allowed_concurrent_stream_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2PeerLimitSettingsValueDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, observed_payload_length: Int, expected_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(byte_offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
@@ -627,8 +627,8 @@ pub fn http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_lengt
 	prelude_builtin::http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview)
 end
 
-pub fn http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String) -> Result<(), RuntimeDiagnostic>
-	prelude_builtin::http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance)
+pub fn http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::http2_peer_limit_concurrent_streams_exceeded(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance, preview)
 end
 
 pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>

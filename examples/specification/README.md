@@ -2673,21 +2673,23 @@ against the built `veln` binary.
   that would exceed the active receive limit reports
   `http2.peer_limit.concurrent_streams_exceeded` through human `run` stderr
   with focused concurrent-stream counts, endpoint role, state,
-  receive-limit provenance, and rule provenance notes.
+  receive-limit provenance, rule provenance, and nearby inspected frame-header
+  bytes.
 - `run/http2-protocol-core-concurrent-streams-json/`: the same
   concurrent-stream peer-limit failure reports
   `http2.peer_limit.concurrent_streams_exceeded` through `run --json` with
   byte offset, stream reference, current open count, attempted and allowed
   counts, endpoint role, active state, receive-limit provenance, and rule
-  provenance.
+  provenance, plus a structured inspected frame-header byte preview.
 - `run/runtime-diagnostic-http2-concurrent-streams-helper-human/`: a direct
   `http2_peer_limit_concurrent_streams_exceeded(...)` helper failure reports
   the same focused human diagnostic from its returned
-  `RuntimeDiagnostic(...)` value.
+  `RuntimeDiagnostic(...)` value, including the nearby inspected frame-header
+  bytes.
 - `run/runtime-diagnostic-http2-concurrent-streams-helper-json/`: a direct
   `http2_peer_limit_concurrent_streams_exceeded(...)` helper failure returns a
   source-visible `RuntimeDiagnostic(...)` value while preserving the same
-  structured `details.protocol_diagnostic` fields.
+  structured `details.protocol_diagnostic` fields and byte preview.
 - `run/http2-protocol-core-header-table-human/`: an HPACK dynamic table-size
   update above the active local receive limit reports
   `http2.peer_limit.header_table_size_exceeded` through human `run` stderr

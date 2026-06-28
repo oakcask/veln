@@ -1,4 +1,34 @@
 # HTTP/2 concurrent-stream helper returns a RuntimeDiagnostic payload.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.concurrent_streams_exceeded",
+		error,
+		RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000003")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_count(9)
+			Ok(count) => match byte_view(bytes, offset, count)
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit")
+	let frame_header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(frame_header)?
+	http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", preview)
 end

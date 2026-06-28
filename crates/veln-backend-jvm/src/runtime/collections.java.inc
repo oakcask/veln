@@ -4408,7 +4408,8 @@
         Object endpointRole,
         Object activeState,
         Object receiveLimitProvenance,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long stream = asLong(streamId);
@@ -4430,7 +4431,8 @@
                 role,
                 state,
                 limitProvenance,
-                rule
+                rule,
+                byteViewToChunk(preview)
             }
         );
         return err(adt(

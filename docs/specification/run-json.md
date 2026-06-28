@@ -587,7 +587,8 @@ limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `current_open_peer_created_stream_count`,
 `attempted_concurrent_stream_count`, `allowed_concurrent_stream_count`,
 `endpoint_role`, `active_state`, `receive_limit_provenance`, and
-`rule_provenance`. Received
+`rule_provenance`, plus a structured bounded `byte_preview` for the inspected
+HEADERS frame header bytes. Received
 HEADERS or a completed CONTINUATION header block whose fixture-decoded header
 list size exceeds the active local receive policy uses id
 `http2.peer_limit.header_list_size_exceeded` and records
@@ -612,7 +613,7 @@ details are also derived from the returned value.
 The `http2_peer_limit_concurrent_streams_exceeded(...)` standard helper
 likewise returns the same `RuntimeDiagnostic(...)` value directly, preserving
 `details.value` and the structured concurrent-stream protocol fields from the
-returned payload.
+returned payload, including the inspected frame-header byte preview.
 Received
 request header-list validation failures use id
 `http2.protocol.invalid_request_header_list` and record

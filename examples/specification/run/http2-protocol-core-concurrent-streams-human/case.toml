@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[http2.peer_limit.concurrent_streams_exceeded]: concurrent stream receive limit exceeded at byte offset 9", "note: Opening stream 3 would make 2 concurrent peer-created stream(s); 1 peer-created stream(s) are currently open and the active receive limit is 1.", "note: Active protocol state: open-stream.", "note: Endpoint role: server.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: peer_created_stream_receive_limit."]
+contains = ["error[http2.peer_limit.concurrent_streams_exceeded]: concurrent stream receive limit exceeded at byte offset 9", "note: Opening stream 3 would make 2 concurrent peer-created stream(s); 1 peer-created stream(s) are currently open and the active receive limit is 1.", "note: Nearby bytes: 00 00 00 01 04 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: open-stream.", "note: Endpoint role: server.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: peer_created_stream_receive_limit."]
