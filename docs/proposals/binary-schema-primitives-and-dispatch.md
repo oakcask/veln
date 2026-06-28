@@ -49,7 +49,9 @@ visible `UIntN` field is followed immediately by
 `ReservedBits(width, value)` and the two widths complete one byte or the same
 two-byte, three-byte, or four-byte big-endian storage unit, plus the five-byte
 case where the fields complete forty bits and the six-byte case where the
-fields complete forty-eight bits.
+fields complete forty-eight bits, the seven-byte case where the fields
+complete fifty-six bits, and the eight-byte case where the fields complete
+sixty-four bits.
 The helpers decode or encode the visible field from the high bits, validate or
 emit the declared low reserved bits, omit the reserved field from decoded
 records and mapping source values, and report the same reserved-bit mismatch,
@@ -58,6 +60,9 @@ The completed one-byte reserved suffix slice is archived under
 `../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md`.
 The completed six-byte reserved suffix slice is archived under
 `../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md`.
+The completed seven-byte and eight-byte reserved suffix slice is archived
+under
+[Binary Schema Wide Reserved Suffix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-suffix-groups.md).
 Generated schema helpers also consume and encode one-byte, two-byte,
 three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte
 big-endian reserved prefix
@@ -529,8 +534,8 @@ for:
 - reserved-bit forms beyond the implemented byte-aligned representation-only
   fields, one-byte, two-byte, three-byte, and four-byte packed reserved
   prefixes,
-  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte packed reserved
-  suffixes, and
+  one-byte, two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte,
+  and eight-byte packed reserved suffixes, and
   `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` layouts whose widths complete one byte or one two-byte, three-byte,
@@ -760,7 +765,8 @@ Reserved bits are spelled as schema-local fixed fields that are consumed from
 the external representation but omitted from the mapped Veln value by default.
 The byte-aligned `ReservedBits(width, value)` slice, one-byte, two-byte,
 three-byte, and four-byte packed reserved prefix slices, one-byte, two-byte,
-three-byte, four-byte, five-byte, and six-byte packed reserved suffix slice, and the
+three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte packed
+reserved suffix slice, and the
 `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout, and middle
 `UIntN` plus `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one byte or one two-byte, three-byte, or four-byte big-endian
@@ -792,6 +798,8 @@ and
 The completed seven-byte and eight-byte reserved prefix group slice is recorded
 in
 [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
+The completed seven-byte and eight-byte reserved suffix slice is recorded in
+[Binary Schema Wide Reserved Suffix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-suffix-groups.md).
 The completed two-byte suffix reserved group slice is recorded in
 [Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md).
 The completed `ReservedBits(15, value)` plus `UInt1` two-field boundary is

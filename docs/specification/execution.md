@@ -503,7 +503,9 @@ execution reference.
   the two widths complete one byte or the same two-byte, three-byte, or
   four-byte big-endian storage unit, plus the five-byte case where the fields
   complete forty bits and the six-byte case where the fields complete
-  forty-eight bits. That form decodes the visible value from the high bits,
+  forty-eight bits, the seven-byte case where the fields complete fifty-six
+  bits, and the eight-byte case where the fields complete sixty-four bits.
+  That form decodes the visible value from the high bits,
   validates the low reserved bits at the reserved field path, omits the
   reserved field, and
   advances by the shared storage width. The supported middle layout is a
@@ -983,7 +985,9 @@ execution reference.
   that completes the same one-byte, two-byte, three-byte, or four-byte
   big-endian storage unit, plus the five-byte case where the fields complete
   forty bits and the six-byte case where the fields complete forty-eight
-  bits, is representation-only in the same way, but emits the visible
+  bits, the seven-byte case where the fields complete fifty-six bits, and
+  the eight-byte case where the fields complete sixty-four bits, is
+  representation-only in the same way, but emits the visible
   value in the high bits and the declared reserved value in the low bits. A
   visible `UIntN` field, middle `ReservedBits(width, value)`
   field, and following visible `UIntN` field whose widths complete the same
@@ -1295,6 +1299,10 @@ execution reference.
   `examples/specification/run/binary-schema-six-byte-reserved-suffix-json/`,
   `examples/specification/run/binary-schema-six-byte-reserved-suffix-truncated-json/`,
   `examples/specification/run/binary-schema-six-byte-reserved-suffix-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-json/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-human/`,
   `examples/specification/run/binary-schema-packed-reserved-two-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-middle-reserved-decode-encode/`,
   `examples/specification/run/binary-schema-byte-interleaved-middle-reserved-decode-encode/`,
@@ -1429,6 +1437,8 @@ execution reference.
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`,
   `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
@@ -1460,7 +1470,8 @@ execution reference.
   name as the executable decode boundary for ordinary source calls, including
   opt-in visible flag bitset fields,
   supported middle reserved-bit layouts, including byte-interleaved middle
-  reserved layouts, wide reserved prefix groups, visible-only packed
+  reserved layouts, wide reserved suffix groups, wide reserved prefix groups,
+  visible-only packed
   two-byte groups, repeat-backed
   schemas, arithmetic-count and quotient-count repeat schemas, quotient-sized
   `ByteView(left_length / right_length)` payload fields, product-sized
@@ -1495,6 +1506,8 @@ execution reference.
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`,
   `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
