@@ -1,0 +1,136 @@
+# Same-module recursive dispatch payload schemas decode without parent mappings.
+use stdio
+
+type ClosedPayload
+	ClosedLeaf(Int)
+	ClosedBranch({length: Int, kind: Int, payload: ClosedPayload})
+end
+
+type ClosedNode
+	ClosedNode {length: Int, kind: Int, payload: ClosedPayload}
+end
+
+schema RecursiveClosedPayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveClosedPayload)
+
+	map to ClosedNode when kind == 0
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedLeaf(payload)
+
+	map to ClosedNode when kind == 1
+		length = length
+		kind = kind
+		payload = ClosedPayload::ClosedBranch(payload)
+end
+
+schema SameModuleRecursiveClosedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursiveClosedPayload)
+end
+
+type ExtensionPayload
+	ExtensionLeaf(Int)
+	ExtensionBranch({length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>})
+end
+
+type ExtensionNode
+	ExtensionNode {length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>}
+end
+
+schema RecursiveExtensionPayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionPayload)
+
+	map to ExtensionNode when kind == 0
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionLeaf(payload))
+
+	map to ExtensionNode when kind == 1
+		length = length
+		kind = kind
+		payload = Known(ExtensionPayload::ExtensionBranch(payload))
+end
+
+schema SameModuleRecursiveExtensionPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => RecursiveExtensionPayload)
+end
+
+fn closed_leaf_value(payload: ClosedPayload) -> Int
+	match payload
+		ClosedLeaf(value) => value
+		ClosedBranch(child) => closed_leaf_value(child.payload)
+	end
+end
+
+fn extension_leaf_value(payload: ExtensionPayload) -> Int
+	match payload
+		ExtensionLeaf(value) => value
+		ExtensionBranch(child) => extension_known_leaf_value(child.payload)
+	end
+end
+
+fn extension_known_leaf_value(payload: SchemaDispatchPayload<ExtensionPayload>) -> Int
+	match payload
+		Known(value) => extension_leaf_value(value)
+		Unknown(_, _) => -1
+	end
+end
+
+fn emit_unknown(payload: SchemaDispatchPayload<ExtensionPayload>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(_) => emit_unexpected_known()
+		Unknown(tag, view) => emit_unknown_payload(tag, view)
+	end
+end
+
+fn emit_unexpected_known() -> Result<(), String> effects [stdio]
+	stdio::println("unexpected known")
+	Ok(())
+end
+
+fn emit_unknown_payload(tag: Int, view: ByteView) -> Result<(), String> effects [stdio]
+	stdio::print("unknown ")
+	stdio::print(int_to_string(tag))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_count_to_int(byte_view_count(view))))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let recursive_bytes: ByteChunk = byte_chunk_from_hex("030101002a")?
+	let closed_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
+	let closed: {length: Int, kind: Int, payload: ClosedPayload} = byte_decode_same_module_recursive_closed_packet(closed_view)?
+	stdio::print("closed ")
+	stdio::print(int_to_string(closed.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_leaf_value(closed.payload)))
+
+	let extension_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>} = byte_decode_same_module_recursive_extension_packet(extension_view)?
+	stdio::print("extension ")
+	stdio::print(int_to_string(extension.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(extension_known_leaf_value(extension.payload)))
+
+	let unknown_bytes: ByteChunk = byte_chunk_from_hex("0207aabb")?
+	let unknown_view: ByteView = byte_view(unknown_bytes, byte_offset(0)?, byte_count(4)?)?
+	let unknown: {length: Int, kind: Int, payload: SchemaDispatchPayload<ExtensionPayload>} = byte_decode_same_module_recursive_extension_packet(unknown_view)?
+	let ignored_unknown: () = emit_unknown(unknown.payload)?
+	Ok(())
+end

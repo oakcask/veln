@@ -2740,18 +2740,18 @@ fn schema_dispatch_payload_type(
     } else if dispatch.length_field.is_some()
         && dispatch.cases.iter().any(|case| {
             matches!(
-                &case.payload,
-                SchemaDispatchCasePayload::Schema { schema_name }
-                    if imported_recursive_dispatch_payload_case_is_eligible(
-                        module,
-                        schema,
-                        dispatch,
-                        schema_name,
-                    )
+            &case.payload,
+            SchemaDispatchCasePayload::Schema { schema_name }
+                if recursive_dispatch_decode_only_payload_case_is_eligible(
+                    module,
+                    schema,
+                    dispatch,
+                    schema_name,
+                )
             )
         })
     {
-        schema_imported_recursive_dispatch_payload_type(module, schema, dispatch)
+        schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)
     } else {
         None
     }
@@ -2849,6 +2849,33 @@ pub(crate) fn schema_imported_recursive_dispatch_payload_type(
     schema: &SchemaDecl,
     dispatch: &SchemaDispatchSpec,
 ) -> Option<Type> {
+    recursive_dispatch_payload_mapping_field_type(
+        module,
+        schema,
+        dispatch,
+        imported_recursive_dispatch_payload_case_is_eligible,
+    )
+}
+
+pub(crate) fn schema_decode_only_recursive_dispatch_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+) -> Option<Type> {
+    recursive_dispatch_payload_mapping_field_type(
+        module,
+        schema,
+        dispatch,
+        recursive_dispatch_decode_only_payload_case_is_eligible,
+    )
+}
+
+fn recursive_dispatch_payload_mapping_field_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    is_eligible: fn(&SurfaceModule, &SchemaDecl, &SchemaDispatchSpec, &str) -> bool,
+) -> Option<Type> {
     let mut payload_types = dispatch
         .cases
         .iter()
@@ -2856,14 +2883,9 @@ pub(crate) fn schema_imported_recursive_dispatch_payload_type(
             let SchemaDispatchCasePayload::Schema { schema_name } = &case.payload else {
                 return None;
             };
-            let payload_schema = imported_recursive_dispatch_payload_case_is_eligible(
-                module,
-                schema,
-                dispatch,
-                schema_name,
-            )
-            .then(|| schema_dispatch_payload_schema(module, schema, schema_name))
-            .flatten()?;
+            let payload_schema = is_eligible(module, schema, dispatch, schema_name)
+                .then(|| schema_dispatch_payload_schema(module, schema, schema_name))
+                .flatten()?;
             schema_recursive_dispatch_payload_mapping_field_type(module, payload_schema)
         })
         .collect::<Vec<_>>();
@@ -3038,6 +3060,20 @@ pub(crate) fn imported_recursive_dispatch_payload_case_is_eligible(
         && dispatch.length_field.is_some()
         && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
         && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
+}
+
+pub(crate) fn recursive_dispatch_decode_only_payload_case_is_eligible(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    schema_name: &str,
+) -> bool {
+    imported_recursive_dispatch_payload_case_is_eligible(module, schema, dispatch, schema_name)
+        || (!schema_name.contains("::")
+            && schema.mappings.is_empty()
+            && dispatch.length_field.is_some()
+            && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
+            && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name))
 }
 
 pub(crate) fn schema_has_eligible_recursive_dispatch_payload(schema: &SchemaDecl) -> bool {
