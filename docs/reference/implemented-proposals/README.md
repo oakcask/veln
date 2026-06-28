@@ -132,7 +132,7 @@ behavior.
   [binary-schema-suffix-reserved-groups.md](binary-schema-suffix-reserved-groups.md).
 - Binary schema reserved-bit mapping exposure:
   [binary-schema-reserved-bit-mapping-exposure.md](binary-schema-reserved-bit-mapping-exposure.md).
-- Binary schema nested repeat payload helpers:
+- Binary schema repeat helper bindings:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).

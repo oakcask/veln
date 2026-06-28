@@ -73,13 +73,16 @@ compare it with `../specification/` before changing behavior.
   paths, focused mapping
   selection diagnostics, and the generated-helper schema validation diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, visible
-  flag bitset decode bindings, plus
+  flag bitset decode bindings, bounded repeat generated helper bindings, plus
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
   support, derived selected-mapping encode boundary support, and codec decode
   boundaries over multiple decoded-field selected mappings that resolve to one
-  mapped record shape. The completed narrow arithmetic mapped encode slice is
+  mapped record shape. The completed bounded repeat helper binding slice is
+  archived under
+  [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+  The completed narrow arithmetic mapped encode slice is
   archived under
   [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
   The implemented source-surface slice also includes top-level public schema
@@ -218,9 +221,8 @@ compare it with `../specification/` before changing behavior.
   The completed nested dispatch
   `ByteView(length_field)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md).
-  The completed nested schema
-  repeat payload helper slice is archived under
-  [Binary Schema Repeat Schema Payload Helpers](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+  The completed bounded repeat helper binding slice is archived under
+  [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed narrow arithmetic mapped encode slice is archived under
   [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
   The completed `UInt56be` and
