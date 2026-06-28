@@ -216,7 +216,14 @@ coverage includes a nested payload whose `ByteView` length field is not an
 earlier decoded `Int` field and a nested payload with an unsupported
 representation-only `ReservedBits` layout, plus a mapped payload schema that
 decodes but cannot project its mapping assignment back to schema-local fields
-for generated encode.
+for generated encode. The direction-specific nested payload slice allows
+parent dispatch decode helpers, generated decode-step helpers, and
+`derive decode` to use that decode-only mapped payload, while generated encode
+and `derive encode` still reject it with the focused helper-boundary
+diagnostic.
+The completed direction-specific nested dispatch payload helper slice is
+archived under
+`../reference/implemented-proposals/binary-schema-directional-dispatch-payload-helpers.md`.
 Closed dispatch payload cases with mixed primitive and nested schema decoded
 shapes are implemented for the selected mapping boundary when every selector
 uses the dispatch tag field, every dispatch case has one distinct matching

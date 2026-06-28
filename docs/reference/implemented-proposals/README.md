@@ -136,6 +136,8 @@ behavior.
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Binary schema dispatch payload helper boundary diagnostics:
   [binary-schema-dispatch-payload-helper-boundary-diagnostics.md](binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
+- Binary schema direction-specific dispatch payload helpers:
+  [binary-schema-directional-dispatch-payload-helpers.md](binary-schema-directional-dispatch-payload-helpers.md).
 - Binary schema mapping arithmetic encode:
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Codec generated helper boundary slices:

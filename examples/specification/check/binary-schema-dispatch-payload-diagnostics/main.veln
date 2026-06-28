@@ -5,10 +5,6 @@ type Shape
 	Shape(Int)
 end
 
-type MappedPayload
-	MappedPayload {code: Int}
-end
-
 schema MissingPacket
 	format binary
 
@@ -71,15 +67,6 @@ schema UnsupportedByteViewPayload
 	later_length: UInt8
 end
 
-schema UnsupportedMappedPayload
-	format binary
-
-	code: UInt8
-
-	map to MappedPayload
-		code = code * 2
-end
-
 schema ExtensionUnsupportedReservedPacket
 	format binary
 
@@ -93,13 +80,6 @@ schema UnsupportedByteViewPacket
 
 	kind: UInt8
 	payload: Dispatch(kind, 1 => UnsupportedByteViewPayload)
-end
-
-schema UnsupportedMappedPacket
-	format binary
-
-	kind: UInt8
-	payload: Dispatch(kind, 1 => UnsupportedMappedPayload)
 end
 
 schema ImportedPublicPacket

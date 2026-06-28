@@ -2973,7 +2973,7 @@ fn dispatch_payload_schema_incompatible_helper_reports_helper_boundaries() {
 }
 
 #[test]
-fn dispatch_payload_schema_requires_encode_helper_projection() {
+fn dispatch_payload_schema_decode_eligibility_allows_encode_only_projection_gap() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -2993,6 +2993,51 @@ fn dispatch_payload_schema_requires_encode_helper_projection() {
             "  format binary\n",
             "  kind: UInt8\n",
             "  payload: Dispatch(kind, 1 => UnsupportedMappedPayload)\n",
+            "end\n",
+            "\n",
+            "codec ClosedPacketCodec for ClosedPacket decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.dispatch_payload"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn dispatch_payload_schema_requires_encode_helper_projection_for_derive_encode() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type MappedPayload\n",
+            "  MappedPayload {code: Int}\n",
+            "end\n",
+            "\n",
+            "schema UnsupportedMappedPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "\n",
+            "  map to MappedPayload\n",
+            "    code = code * 2\n",
+            "end\n",
+            "\n",
+            "schema ClosedPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UnsupportedMappedPayload)\n",
+            "end\n",
+            "\n",
+            "codec ClosedPacketCodec for ClosedPacket encode\n",
+            "  derive encode\n",
             "end\n",
         ),
     );

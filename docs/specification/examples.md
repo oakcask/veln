@@ -1582,6 +1582,10 @@ unsupported nested field path, and layout reason.
 pins the same helper-boundary JSON fields for a resolved nested dispatch
 payload schema whose decoded mapping shape is available but whose mapping
 assignment cannot expose the generated encode helper.
+`../../examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`
+checks that direct generated decode, generated decode-step, and `derive decode`
+can use a nested dispatch payload schema whose generated encode helper is not
+available.
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`

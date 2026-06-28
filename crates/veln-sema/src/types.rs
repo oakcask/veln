@@ -2760,6 +2760,31 @@ pub(crate) fn schema_dispatch_case_type(
     }
 }
 
+fn schema_encode_dispatch_case_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    case: &SchemaDispatchCase,
+) -> Option<Type> {
+    match &case.payload {
+        SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::Schema { schema_name } => {
+            if recursive_dispatch_payload_case_is_eligible(
+                module,
+                schema,
+                field,
+                dispatch,
+                schema_name,
+            ) {
+                return schema_recursive_dispatch_payload_type(module, schema);
+            }
+            let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
+            schema_encode_value_type(module, nested)
+        }
+    }
+}
+
 fn schema_repeat_payload_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -3141,7 +3166,7 @@ fn schema_encode_function_signature_for_schema(
         let mut payload_types = dispatch
             .cases
             .iter()
-            .map(|case| schema_dispatch_case_type(module, schema, case, &mut Vec::new()))
+            .map(|case| schema_encode_dispatch_case_type(module, schema, field, &dispatch, case))
             .collect::<Option<Vec<_>>>()?;
         let selected_mapping_closed_dispatch =
             selected_mappings_cover_closed_dispatch(schema, &dispatch);
@@ -3386,7 +3411,7 @@ fn schema_encode_mapping_field_types(
             .cases
             .iter()
             .find(|case| case.tag == selector_value)?;
-        let case_ty = schema_dispatch_case_type(module, schema, case, &mut Vec::new())?;
+        let case_ty = schema_encode_dispatch_case_type(module, schema, field, &dispatch, case)?;
         if case_ty == Type::int() {
             supported_int_field_names.push(field.name.clone());
         }
