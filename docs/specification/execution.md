@@ -632,8 +632,9 @@ execution reference.
   `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
   field path, decoded tag field, decoded tag value, expected tags, and
   structured byte preview fields. Same-module recursive closed-dispatch
-  payload cases and public imported recursive payload schemas named through a
-  written `use` path are eligible only in the length-bounded form when
+  payload cases, same-module dispatch cases that select a separate recursive
+  payload schema, and public imported recursive payload schemas named through
+  a written `use` path are eligible only in the length-bounded form when
   selected mappings cover every dispatch case and all mappings resolve to one
   record shape, with at least one non-recursive case as the base case. The
   recursive helper path decodes the nested payload from the bounded dispatch
@@ -648,6 +649,8 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-recursive-closed-dispatch-decode/`,
+  `examples/specification/run/binary-schema-recursive-dispatch-wrapper-roundtrip/`,
+  `examples/specification/run/binary-schema-recursive-dispatch-wrapper-failure-json/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
@@ -1160,20 +1163,19 @@ execution reference.
   path. Unknown tag values report `codec.dispatch_unknown_tag`; known tags
   paired with the wrong selected payload mapping report
   `codec.dispatch_mismatch`.
-  Same-module recursive
-  closed-dispatch and extension-dispatch payload cases and public imported
-  recursive payload schemas named through a written `use` path are also
-  eligible in the length-bounded form when selected mappings cover every
-  dispatch case, all mappings resolve to one record shape, and at least one
-  case is non-recursive. The generated encode helper writes the selected
-  recursive payload through the same schema helper path and checks the encoded
-  payload byte count against the earlier length field. This slice excludes
-  selected mappings that cannot reconstruct all schema-local encode fields,
-  mapping expressions that cannot be projected back to schema-local fields,
-  recursive dispatch payload schemas outside that selected same-module or
-  public imported length-bounded dispatch slice, dispatch payload schemas
-  outside the generated helper slice, nested mappings, and derived codec
-  encode execution for unsupported schemas. Ineligible resolved nested payload
+  Same-module recursive closed-dispatch and extension-dispatch payload cases,
+  same-module dispatch cases that select a separate recursive payload schema,
+  and public imported recursive payload schemas named through a written `use`
+  path are also eligible in the length-bounded form when selected mappings
+  cover every dispatch case, all mappings resolve to one record shape, and at
+  least one case is non-recursive. The generated encode helper writes the
+  selected recursive payload through the same schema helper path and checks
+  the encoded payload byte count against the earlier length field. This slice
+  excludes selected mappings that cannot reconstruct all schema-local encode
+  fields, mapping expressions that cannot be projected back to schema-local
+  fields, unbounded recursive dispatch payload schemas, dispatch payload
+  schemas outside the generated helper slice, nested mappings, and derived
+  codec encode execution for unsupported schemas. Ineligible resolved nested payload
   schemas are rejected before helper generation; the checked
   `schema.dispatch_payload` diagnostics include payload schemas whose mapping
   assignments decode but cannot project back to schema-local encode fields,
@@ -1359,6 +1361,7 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-recursive-closed-dispatch-encode/`,
+  `examples/specification/run/binary-schema-recursive-dispatch-wrapper-roundtrip/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-dispatch-byteview-payload-encode/`,
   `examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,

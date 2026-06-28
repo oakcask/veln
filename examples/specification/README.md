@@ -1733,6 +1733,12 @@ against the built `veln` binary.
   schema encode helper writes a same-module recursive closed-dispatch payload
   through a length-bounded selected mapping slice and returns one
   `ByteChunk`.
+- `run/binary-schema-recursive-dispatch-wrapper-roundtrip/`: an outer
+  same-module dispatch field can select a separate recursive generated-helper
+  payload schema and use that helper for both decode and encode.
+- `run/binary-schema-recursive-dispatch-wrapper-failure-json/`: wrapper
+  dispatch failures keep the outer dispatch field segment before the selected
+  recursive payload schema field path in `run --json`.
 - `run/binary-schema-dispatch-nested-general-helper-encode/`: closed and
   extension-tolerant nested dispatch encode cases write the selected nested
   payload through the generated schema helper path, including byte-aligned
@@ -1852,6 +1858,12 @@ against the built `veln` binary.
   recursive closed-dispatch payload decodes through a length-bounded closed
   dispatch, selected mappings, a non-recursive base case, and the generated
   schema helper path.
+- `run/binary-schema-recursive-dispatch-wrapper-roundtrip/`: an outer
+  same-module closed dispatch decodes and encodes a selected recursive payload
+  schema through that payload's generated helper path.
+- `run/binary-schema-recursive-dispatch-wrapper-failure-json/`: a recursive
+  payload selected by an outer wrapper dispatch keeps the wrapper field path
+  before nested recursive payload failures in `run --json`.
 - `run/binary-schema-recursive-extension-dispatch-decode/`: a same-module
   recursive extension-dispatch payload decodes known recursive payloads through
   the generated helper path and still preserves unknown tags with bounded raw
@@ -1954,6 +1966,9 @@ against the built `veln` binary.
 - `run/binary-schema-recursive-dispatch-failure-json/`: recursive nested
   dispatch failures keep each outer dispatch field segment before the nested
   schema field path in `run --json`.
+- `run/binary-schema-recursive-dispatch-wrapper-failure-json/`: wrapper
+  recursive dispatch failures keep the wrapper dispatch field segment before
+  the selected recursive payload schema field path in `run --json`.
 - `run/binary-schema-imported-recursive-dispatch-failure-json/`: imported
   recursive nested dispatch failures keep the outer dispatch field segment
   before the nested imported schema field path in `run --json`.

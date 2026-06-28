@@ -603,9 +603,10 @@ exact-width visible field is adjacent. Human output keeps the same facts in
 related notes.
 This slice excludes selected mappings that cannot reconstruct all schema-local
 encode fields through direct source-field assignments, mapping expressions
-that cannot be projected back to schema-local fields, recursive dispatch
-payload schemas, dispatch payload schemas outside the generated helper slice,
-nested mappings, and derived codec encode execution for unsupported schemas.
+that cannot be projected back to schema-local fields, unbounded recursive
+dispatch payload schemas, dispatch payload schemas outside the generated
+helper slice, nested mappings, and derived codec encode execution for
+unsupported schemas.
 
 The narrow frame decode helper extends the frame-header layout with a bounded
 payload view. It first applies the same header validation, then returns the
