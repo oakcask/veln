@@ -1,3 +1,4 @@
+use stdio
 use hpack_fixture
 
 fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), RuntimeDiagnostic>
@@ -19,7 +20,58 @@ fn bad_header_block() -> Result<ByteChunk, RuntimeDiagnostic>
 	end
 end
 
-pub fn main() -> Result<(), RuntimeDiagnostic>
+fn print_encode_result(label: String, result: Result<HpackEncodeTransition, HpackFixtureFailure>, expected_first_byte: Int) -> () effects [stdio]
+	match result
+		Ok(transition) => print_encode_success(label, transition, expected_first_byte)
+		Err(failure) => print_encode_failure(label, failure)
+	end
+end
+
+fn print_encode_success(label: String, transition: HpackEncodeTransition, expected_first_byte: Int) -> () effects [stdio]
+	let encoded: ByteChunk = encode_transition_bytes(transition)
+	let state: HpackFixtureState = encode_transition_state(transition)
+	stdio::print(label)
+	stdio::print(" encoded_count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(encoded))))
+	stdio::print(" first_byte ")
+	stdio::print(int_to_string(encode_transition_first_byte(transition)))
+	stdio::print(" expected_first_byte ")
+	stdio::print(int_to_string(expected_first_byte))
+	stdio::print(" next_encode_count ")
+	stdio::print(int_to_string(state_encode_count(state)))
+	stdio::print(" table_size ")
+	stdio::println(int_to_string(state_table_size(state)))
+end
+
+fn print_encode_failure_result(label: String, result: Result<ByteChunk, HpackFixtureFailure>) -> () effects [stdio]
+	match result
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(failure) => print_encode_failure(label, failure)
+	end
+end
+
+fn print_encode_failure(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" encode_failure offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(failure_observed_first_byte(failure)))
+	stdio::print(" expected_fixture ")
+	stdio::print(failure_expected_fixture(failure))
+	stdio::print(" codec_module ")
+	stdio::println(failure_codec_module(failure))
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic> effects [stdio]
+	print_encode_result("method-get", encode_header_list_with_state(static_indexed_method_get_headers(), initial_encode_state(), 0), 130)
+	print_encode_result("path-root", encode_header_list_with_state(static_indexed_path_root_headers(), initial_encode_state(), 0), 132)
+	print_encode_result("scheme-https", encode_header_list_with_state(static_indexed_scheme_https_headers(), initial_encode_state(), 0), 135)
+	print_encode_result("status-200", encode_header_list_with_state(static_indexed_status_200_headers(), initial_encode_state(), 0), 136)
+	print_encode_failure_result("unsupported-name", encode_header_list(unsupported_static_indexed_name_headers(), 31))
+	print_encode_failure_result("unsupported-value", encode_header_list(unsupported_static_indexed_value_headers(), 37))
+
 	let bad_block: ByteChunk = bad_header_block()?
 	project_decode_result(decode_header_block(bad_block, initial_state(), 27))
 end

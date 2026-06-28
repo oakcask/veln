@@ -19,6 +19,10 @@ path = "error.kind"
 equals = "result"
 
 [[json_assert]]
+path = "stdout"
+equals = "method-get encoded_count 1 first_byte 130 expected_first_byte 130 next_encode_count 1 table_size 4096\npath-root encoded_count 1 first_byte 132 expected_first_byte 132 next_encode_count 1 table_size 4096\nscheme-https encoded_count 1 first_byte 135 expected_first_byte 135 next_encode_count 1 table_size 4096\nstatus-200 encoded_count 1 first_byte 136 expected_first_byte 136 next_encode_count 1 table_size 4096\nunsupported-name encode_failure offset 31 observed_size 6 observed_first_byte 120 expected_fixture fixture header list encoding codec_module hpack_fixture\nunsupported-value encode_failure offset 37 observed_size 7 observed_first_byte 58 expected_fixture fixture header list encoding codec_module hpack_fixture\n"
+
+[[json_assert]]
 path = "error.details.value"
 equals = "RuntimeDiagnostic(hpack.fixture.unsupported_header_block, HPACK fixture unsupported header block at byte offset 27, RuntimeHpackFixtureDiagnostic(27, 1, 255, fixture header block, hpack_fixture, ByteChunk([Byte(255)])))"
 

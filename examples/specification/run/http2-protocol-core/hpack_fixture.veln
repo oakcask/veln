@@ -343,6 +343,14 @@ pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
 
+pub fn outbound_static_indexed_path_root_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
+end
+
+pub fn outbound_static_indexed_scheme_https_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 pub fn outbound_literal_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
