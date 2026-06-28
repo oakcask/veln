@@ -641,7 +641,9 @@ return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
 payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
 value while `details.protocol_diagnostic` keeps the same public fields,
-including the header-block preview.
+including the header-block preview. The focused `PUSH_PROMISE` promised
+request-header helper JSON example keeps the same projection shape while
+preserving frame kind `5` and the promised request header-block preview.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
 fields, including `byte_preview` for the inspected header-block bytes. The

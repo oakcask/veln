@@ -54,6 +54,12 @@ fixture diagnostic shape.
   headers, rejects promised request headers containing response-only `:status`
   or invalid `te`, and prints that those rejected paths do not reserve the
   promised stream.
+- `../../../examples/specification/run/runtime-diagnostic-http2-push-promise-request-header-list-helper-human/`
+  and
+  `../../../examples/specification/run/runtime-diagnostic-http2-push-promise-request-header-list-helper-json/`
+  keep the reused request header-list diagnostic projection tied to
+  `PUSH_PROMISE` frame kind `5` and preserve the promised request
+  header-block preview.
 - The same checked case accepts a `PUSH_PROMISE` header block completed by a
   final CONTINUATION frame and verifies the same stripped HPACK fixture output
   and reserved-by-peer state.
