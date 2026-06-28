@@ -229,7 +229,10 @@ decode helpers without selected mappings when the payload schema already has
 bounded recursive helper support and the parent includes at least one
 non-recursive primitive case; closed parents use the payload schema's
 recursive mapped payload type, and extension-tolerant parents expose
-`SchemaDispatchPayload` of that payload type. Imported private, missing,
+`SchemaDispatchPayload` of that payload type. The completed same-module
+recursive decode-only parent slice is archived under
+[Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md).
+Imported private, missing,
 wrong-kind, non-binary, forward, unbounded recursive, or otherwise ineligible
 payload schemas, including schemas outside the generated helper slice, use the
 existing `schema.dispatch_payload` diagnostic shape. Resolved binary payload

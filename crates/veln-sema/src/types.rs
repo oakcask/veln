@@ -3068,12 +3068,28 @@ pub(crate) fn recursive_dispatch_decode_only_payload_case_is_eligible(
     dispatch: &SchemaDispatchSpec,
     schema_name: &str,
 ) -> bool {
-    imported_recursive_dispatch_payload_case_is_eligible(module, schema, dispatch, schema_name)
-        || (!schema_name.contains("::")
-            && schema.mappings.is_empty()
-            && dispatch.length_field.is_some()
-            && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
-            && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name))
+    imported_recursive_dispatch_decode_only_payload_case_is_eligible(
+        module,
+        schema,
+        dispatch,
+        schema_name,
+    ) || (!schema_name.contains("::")
+        && schema.mappings.is_empty()
+        && dispatch.length_field.is_some()
+        && dispatch_has_non_recursive_primitive_payload_case(dispatch)
+        && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name))
+}
+
+fn imported_recursive_dispatch_decode_only_payload_case_is_eligible(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+    schema_name: &str,
+) -> bool {
+    schema_name.contains("::")
+        && dispatch.length_field.is_some()
+        && dispatch_has_non_recursive_primitive_payload_case(dispatch)
+        && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
 }
 
 pub(crate) fn schema_has_eligible_recursive_dispatch_payload(schema: &SchemaDecl) -> bool {
@@ -3128,6 +3144,13 @@ fn dispatch_has_non_recursive_payload_case(
             !recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
         }
     })
+}
+
+fn dispatch_has_non_recursive_primitive_payload_case(dispatch: &SchemaDispatchSpec) -> bool {
+    dispatch
+        .cases
+        .iter()
+        .any(|case| matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
 }
 
 pub(crate) fn same_module_schema<'a>(

@@ -211,7 +211,8 @@ compare it with `../specification/` before changing behavior.
   and public imported recursive payload schemas are also accepted for
   decode-only length-bounded parent dispatch fields without selected mappings
   when the payload schema already has bounded recursive helper support and the
-  parent includes a non-recursive primitive case.
+  parent includes a non-recursive primitive case
+  ([Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md)).
   Focused dispatch payload diagnostics now also
   name the generated decode and encode helper boundaries
   for resolved binary nested payload schemas that cannot expose those helpers,
