@@ -651,6 +651,7 @@ execution reference.
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
+  `examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,

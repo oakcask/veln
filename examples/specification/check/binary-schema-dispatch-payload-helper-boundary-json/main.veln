@@ -1,0 +1,15 @@
+# Resolved nested dispatch payload helper diagnostics name helper boundaries.
+
+schema UnsupportedReservedPayload
+	format binary
+
+	padding: ReservedBits(1, 0)
+	value: UInt8
+end
+
+schema ClosedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
+end
