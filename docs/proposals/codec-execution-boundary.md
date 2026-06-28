@@ -69,6 +69,13 @@ both `decode with` and `encode with`, without requiring the importing module
 to expose the private helper function or schema. It also keeps private
 imported codecs unavailable. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
+The implemented imported derived codec slice covers written qualified calls to
+`pub codec` items declared in another module for both `derive decode` and
+`derive encode`, using the generated helper-backed behavior owned by the
+declaring module without exposing the private schema or generated helper. It
+also keeps private imported codecs unavailable and keeps bare imported codec
+names from becoming ordinary call targets. The completed slice is recorded in
+the [implemented proposal record](../reference/implemented-proposals/codec-imported-derived-boundary.md).
 
 Define codec support for:
 
@@ -299,7 +306,9 @@ path, without re-exporting it from the importing module. The imported
 hand-written `decode with` path forwards the caller's `ByteView` and
 `ByteOffset` to the decoder named in the declaring module. The imported
 hand-written `encode with` path forwards the source call arguments to the
-encoder named in the declaring module.
+encoder named in the declaring module. Imported derived codec calls invoke the
+declaring module's generated decode-step or encode helper through the public
+codec item, so the schema and helper ownership stay in the declaring module.
 
 Importing a codec imports the codec item only. It does not import the schema as
 an ordinary value, expose schema-local field names, or add codec directions that

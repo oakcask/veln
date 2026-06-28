@@ -2038,6 +2038,10 @@ against the built `veln` binary.
   `decode with` codec is called through a qualified module path and observes
   `Decoded`, `NeedMore`, and `Invalid` results while the private decoder stays
   in the declaring module.
+- `run/derived-codec-imported-public-decode-boundary/`: an imported public
+  `derive decode` codec is called through a qualified module path and observes
+  generated-helper-backed `Decoded`, short-input `NeedMore`, and `Invalid`
+  outcomes while the schema and helper stay in the declaring module.
 - `run/codec-byteview-offset-needmore/`: a source-written decoder receives a
   bounded `ByteView` plus caller-supplied base `ByteOffset`, returns
   `Decoded` with a consumed `ByteCount` for complete input, returns
@@ -2214,6 +2218,11 @@ against the built `veln` binary.
   `encode with` codec is called through a qualified module path and observes
   `Encoded`, `Partial`, and `Invalid` results while the private encoder stays
   in the declaring module.
+- `run/derived-codec-imported-public-encode-boundary/`: an imported public
+  `derive encode` codec is called through a qualified module path and observes
+  generated-helper-backed `Encoded` output plus helper-projected
+  `Invalid(EncodeError)` while the schema and helper stay in the declaring
+  module.
 - `run/codec-encode-error-direct-json/`: a direct
   `Result<_, EncodeError>` entry failure keeps the rendered source-visible
   error value and populates `run --json` `details.value_diagnostic` with the

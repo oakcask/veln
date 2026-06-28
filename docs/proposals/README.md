@@ -296,6 +296,8 @@ compare it with `../specification/` before changing behavior.
   and encode directions.
   The completed imported hand-written codec boundary is archived under
   [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
+  The completed imported derived codec boundary is archived under
+  [Codec Imported Derived Boundary](../reference/implemented-proposals/codec-imported-derived-boundary.md).
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
