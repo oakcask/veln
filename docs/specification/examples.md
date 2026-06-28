@@ -1511,9 +1511,11 @@ pins the same mixed dispatch selected mapping encode boundary through
 `../../examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
+`../../examples/specification/run/binary-schema-recursive-dispatch-wrapper-roundtrip/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
+`../../examples/specification/run/binary-schema-recursive-dispatch-wrapper-failure-json/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-failure-json/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
@@ -1531,14 +1533,17 @@ imported helper path accepts nested payload schemas with a
 schema. The recursive closed-dispatch case pins a same-module recursive
 payload decoded through a length-bounded closed dispatch, selected mappings,
 the generated helper path, and a non-recursive base case. The recursive
-extension-dispatch case pins the same known-payload helper path while unknown
-tags preserve bounded raw payload bytes. The imported recursive decode case
-pins the same closed and extension dispatch behavior when the recursive
-payload schema is public and named through a written `use` path. The nested failure
-cases pin the outer dispatch field path, nested schema field path, and
-absolute byte offset, including fixed-field mismatch diagnostics produced by
-the nested helper. The recursive failure cases pin that same path prefix for a
-nested length-boundary failure, including the imported recursive path. The
+wrapper roundtrip case pins a same-module dispatch that selects a separate
+eligible recursive payload schema through the same generated helper path. The
+recursive extension-dispatch case pins the same known-payload helper path
+while unknown tags preserve bounded raw payload bytes. The imported recursive
+decode case pins the same closed and extension dispatch behavior when the
+recursive payload schema is public and named through a written `use` path. The
+nested failure cases pin the outer dispatch field path, nested schema field
+path, and absolute byte offset, including fixed-field mismatch diagnostics
+produced by the nested helper. The recursive failure cases pin that same path
+prefix for a nested length-boundary failure, including the wrapper and
+imported recursive paths. The
 unknown-tag failing cases assert
 `schema.dispatch_unknown_tag`, the dispatch byte offset, structured field path,
 decoded tag field and value, expected tag values, structured byte preview

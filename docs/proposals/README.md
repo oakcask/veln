@@ -194,8 +194,10 @@ compare it with `../specification/` before changing behavior.
   public imported recursive closed-dispatch and extension-dispatch payload
   decode and encode support is implemented for the length-bounded forms when
   selected mappings cover every known case, resolve to one target record
-  shape, and include a non-recursive base case. Focused dispatch payload
-  diagnostics now also name the generated decode and encode helper boundaries
+  shape, and include a non-recursive base case; same-module wrapper
+  dispatches may also select a separate eligible recursive payload schema
+  through that same helper path. Focused dispatch payload diagnostics now also
+  name the generated decode and encode helper boundaries
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not
   an earlier decoded `Int` field and unsupported representation-only

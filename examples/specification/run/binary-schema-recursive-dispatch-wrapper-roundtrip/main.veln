@@ -1,0 +1,96 @@
+# Outer dispatch payloads can select recursive generated-helper schemas.
+use stdio
+
+type NodePayload
+	Leaf(Int)
+	Branch({length: Int, kind: Int, payload: NodePayload})
+end
+
+type Node
+	Node {length: Int, kind: Int, payload: NodePayload}
+end
+
+schema RecursivePayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = NodePayload::Leaf(payload)
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = NodePayload::Branch(payload)
+end
+
+schema WrapperPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = NodePayload::Leaf(payload)
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = NodePayload::Branch(payload)
+end
+
+fn leaf_value(payload: NodePayload) -> Int
+	match payload
+		Leaf(value) => value
+		Branch(child) => leaf_value(child.payload)
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let expected_hex: String = "030101002a"
+	let bytes: ByteChunk = byte_chunk_from_hex(expected_hex)?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let decoded: {length: Int, kind: Int, payload: NodePayload} = byte_decode_wrapper_packet(view)?
+	stdio::print("decoded ")
+	stdio::print(int_to_string(decoded.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(decoded.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(leaf_value(decoded.payload)))
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_wrapper_packet({length: 3, kind: 1, payload: NodePayload::Branch({length: 1, kind: 0, payload: NodePayload::Leaf(42)})})
+	emit_encoded("recursive-dispatch-wrapper", encoded, expected_hex)
+	Ok(())
+end

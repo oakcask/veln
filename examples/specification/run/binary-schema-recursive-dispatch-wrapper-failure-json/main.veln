@@ -1,0 +1,52 @@
+# Recursive wrapper payload failures keep outer and nested field paths.
+type NodePayload
+	Leaf(Int)
+	Branch({length: Int, kind: Int, payload: NodePayload})
+end
+
+type Node
+	Node {length: Int, kind: Int, payload: NodePayload}
+end
+
+schema RecursivePayload
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = NodePayload::Leaf(payload)
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = NodePayload::Branch(payload)
+end
+
+schema WrapperPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)
+
+	map to Node when kind == 0
+		length = length
+		kind = kind
+		payload = NodePayload::Leaf(payload)
+
+	map to Node when kind == 1
+		length = length
+		kind = kind
+		payload = NodePayload::Branch(payload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("02010101")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let ignored: {length: Int, kind: Int, payload: NodePayload} = byte_decode_wrapper_packet(view)?
+	Ok(())
+end

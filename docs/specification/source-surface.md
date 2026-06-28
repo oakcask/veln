@@ -139,12 +139,13 @@ path, and the named schema must itself be eligible for the generated binary
 schema helper path, including supported representation-only `ReservedBits`
 layouts and length-bounded `ByteView(length_field)` fields whose length names
 an earlier visible `Int` field in that nested schema. A same-module recursive
-dispatch case may name the
-enclosing schema recursively, and a public imported recursive payload schema
-may be named through a written `use` path, only in the length-bounded form
-when selected `map to Target when tag_field == literal` clauses cover every
-case and all clauses resolve to one record shape, with at least one
-non-recursive case as the base case. The extension-tolerant field type
+dispatch case may name the enclosing schema recursively, a same-module
+dispatch case may name a separate eligible recursive payload schema, and a
+public imported recursive payload schema may be named through a written `use`
+path, only in the length-bounded form when selected
+`map to Target when tag_field == literal` clauses cover every case and all
+clauses resolve to one record shape, with at least one non-recursive case as
+the base case. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
@@ -274,14 +275,12 @@ primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
 `Flag56be`, `Flag56le`, `Flag64be`, `Flag64le`, supported reserved-bit,
 closed dispatch, extension dispatch, bounded repeated
 primitive or nested schema field, length-bounded `ByteView`, and eligible
-nested dispatch payload helper
-slices, general ADT constructor mapping beyond schema-local structural
-expressions, support rather than rejection for recursive dispatch payload
-schemas outside the selected same-module or public imported length-bounded
-dispatch decode-and-encode slice, dispatch payload schemas outside the
-generated helper slice, arbitrary mapping expressions, and mapping selection
-beyond this narrow decoded-field boolean and converter selector slice are not
-implemented.
+nested dispatch payload helper slices, general ADT constructor mapping beyond
+schema-local structural expressions, support rather than rejection for
+unbounded recursive dispatch payload schemas, dispatch payload schemas outside
+the generated helper slice, arbitrary mapping expressions, and mapping
+selection beyond this narrow decoded-field boolean and converter selector
+slice are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-selection-diagnostics/`
 pins the equality and inequality mapping selection boundary. The checked
