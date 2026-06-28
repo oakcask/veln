@@ -423,7 +423,13 @@
         if (bitWidth >= 33 && bitWidth <= 39) {
             return 5;
         }
-        return bitWidth >= 41 && bitWidth <= 47 ? 6 : 0;
+        if (bitWidth >= 41 && bitWidth <= 47) {
+            return 6;
+        }
+        if (bitWidth >= 49 && bitWidth <= 55) {
+            return 7;
+        }
+        return bitWidth >= 57 && bitWidth <= 63 ? 8 : 0;
     }
 
     private static int packedVisibleBitWidth(SchemaFieldSpec reserved, SchemaFieldSpec visible) {

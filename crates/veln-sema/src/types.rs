@@ -4101,7 +4101,7 @@ pub(crate) fn supported_encode_reserved_bits(
                 i64::from(previous_bit_width) + bit_width == packed_storage_bit_width
             })
     {
-        let max_value = (1_i64 << bit_width) - 1;
+        let max_value = reserved_bits_max_value(bit_width)?;
         if expected_value <= max_value {
             return Some((bit_width as u8, expected_value));
         }
@@ -4386,6 +4386,10 @@ fn suffix_packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
             Some(40)
         } else if (41..=47).contains(&bit_width) {
             Some(48)
+        } else if (49..=55).contains(&bit_width) {
+            Some(56)
+        } else if (57..=63).contains(&bit_width) {
+            Some(64)
         } else {
             None
         }
