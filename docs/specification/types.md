@@ -40,9 +40,12 @@ full type reference.
   context-carrying dictionary aliases, and and-then helpers. Same-module
   helpers and visible imported
   helpers whose declared parameter type is a concrete function type also
-  constrain named private callback parameters at that argument position. A
-  concrete expected record field whose type is a concrete function type also
-  constrains a named private callback placed in that record field initializer.
+  constrain named private callback parameters at that argument position.
+  Source-backed prelude helpers without a compiler-known callback rule use the
+  same declared-helper fallback when their embedded source signature contains a
+  concrete function-typed callback parameter. A concrete expected record field
+  whose type is a concrete function type also constrains a named private
+  callback placed in that record field initializer.
   A local binding whose annotation is a concrete function type also constrains
   a named private callback assigned as that binding initializer; later calls or
   returns through that local binding use the same concrete function type.

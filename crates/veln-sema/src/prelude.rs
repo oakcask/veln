@@ -1,9 +1,13 @@
-use veln_ast::{BinaryOp, PrefixOp};
+use std::{collections::BTreeSet, sync::OnceLock};
+
+use veln_ast::{BinaryOp, PrefixOp, SurfaceModule, lower_surface_ast};
 use veln_core::{CoreCallTarget, CoreType};
+use veln_source::SourceFile;
+use veln_syntax::parse;
 
 use crate::adt;
-use crate::standard_symbols::prelude_symbol;
-use crate::types::Type;
+use crate::standard_symbols::{StandardSymbolDescriptor, prelude_symbol};
+use crate::types::{Type, core_type, parse_type_or_unknown};
 
 pub(crate) const PRELUDE_MODULE: &str = "prelude";
 const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
@@ -27,6 +31,7 @@ pub(crate) fn prelude_signature_with_input(
         .or_else(|| prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| prelude_option_signature(descriptor.name, &expected))
         .or_else(|| prelude_result_signature(descriptor.name, &expected))
+        .or_else(|| source_backed_prelude_callback_signature(descriptor))
 }
 
 pub(crate) fn qualified_prelude_builtin_signature_with_input(
@@ -64,6 +69,154 @@ pub(crate) fn qualified_prelude_signature_with_input(
     }
     let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
     Some((name.clone(), params, return_type))
+}
+
+#[derive(Clone)]
+struct SourcePreludeSignature {
+    name: String,
+    params: Vec<Type>,
+    return_type: Type,
+}
+
+static SOURCE_PRELUDE_CALLBACK_SIGNATURES: OnceLock<Vec<SourcePreludeSignature>> = OnceLock::new();
+
+fn source_backed_prelude_callback_signature(
+    descriptor: &StandardSymbolDescriptor,
+) -> Option<(Vec<Type>, Type)> {
+    descriptor.source?;
+    source_prelude_callback_signatures()
+        .iter()
+        .find(|signature| signature.name == descriptor.name)
+        .map(|signature| (signature.params.clone(), signature.return_type.clone()))
+}
+
+fn source_prelude_callback_signatures() -> &'static [SourcePreludeSignature] {
+    SOURCE_PRELUDE_CALLBACK_SIGNATURES
+        .get_or_init(|| {
+            let source = veln_stdlib::prelude_source("");
+            source_prelude_callback_signatures_from_text(source.path, source.text)
+        })
+        .as_slice()
+}
+
+fn source_prelude_callback_signatures_from_text(
+    path: &'static str,
+    text: &'static str,
+) -> Vec<SourcePreludeSignature> {
+    let file = SourceFile::new(path, text);
+    let parsed = parse(&file);
+    if !parsed.diagnostics.is_empty() {
+        return Vec::new();
+    }
+    let module = lower_surface_ast(&parsed.tree);
+    let known_types = source_prelude_known_type_names(&module);
+
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let name = function.name.clone()?;
+            let params = function
+                .params
+                .iter()
+                .map(|param| {
+                    source_prelude_concrete_type(
+                        &parse_type_or_unknown(param.ty.as_deref()),
+                        &known_types,
+                    )
+                })
+                .collect::<Vec<_>>();
+            if !params.iter().any(concrete_function_parameter) {
+                return None;
+            }
+            Some(SourcePreludeSignature {
+                name,
+                params,
+                return_type: source_prelude_concrete_type(
+                    &parse_type_or_unknown(function.return_type.as_deref()),
+                    &known_types,
+                ),
+            })
+        })
+        .collect()
+}
+
+fn source_prelude_known_type_names(module: &SurfaceModule) -> BTreeSet<String> {
+    let mut known = [
+        "Bool", "Int", "Float", "String", "Unit", "Option", "Result", "List", "Vec", "Dict",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect::<BTreeSet<_>>();
+    known.extend(module.types.iter().filter_map(|ty| ty.name.clone()));
+    known
+}
+
+fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<String>) -> Type {
+    match ty {
+        Type::Unknown => Type::Unknown,
+        Type::Named { name, args } if source_prelude_type_name_is_known(name, known_types) => {
+            Type::named(
+                name.clone(),
+                args.iter()
+                    .map(|arg| source_prelude_concrete_type(arg, known_types))
+                    .collect(),
+            )
+        }
+        Type::Named { .. } => Type::Unknown,
+        Type::Record(fields) => Type::Record(
+            fields
+                .iter()
+                .map(|(name, ty)| (name.clone(), source_prelude_concrete_type(ty, known_types)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: params
+                .iter()
+                .map(|param| source_prelude_concrete_type(param, known_types))
+                .collect(),
+            variadic: variadic
+                .as_deref()
+                .map(|ty| Box::new(source_prelude_concrete_type(ty, known_types))),
+            return_type: Box::new(source_prelude_concrete_type(return_type, known_types)),
+            effects: effects.clone(),
+        },
+    }
+}
+
+fn source_prelude_type_name_is_known(name: &str, known_types: &BTreeSet<String>) -> bool {
+    known_types.contains(name)
+        || name
+            .rsplit("::")
+            .next()
+            .is_some_and(|last| known_types.contains(last))
+}
+
+fn concrete_function_parameter(ty: &Type) -> bool {
+    matches!(ty, Type::Function { .. }) && !prelude_type_has_unknown(ty)
+}
+
+fn prelude_type_has_unknown(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => true,
+        Type::Named { args, .. } => args.iter().any(prelude_type_has_unknown),
+        Type::Record(fields) => fields.iter().any(|(_, ty)| prelude_type_has_unknown(ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(prelude_type_has_unknown)
+                || variadic.as_deref().is_some_and(prelude_type_has_unknown)
+                || prelude_type_has_unknown(return_type)
+        }
+    }
 }
 
 struct ExpectedPreludeParts {
@@ -1438,11 +1591,22 @@ pub(crate) fn core_prelude_signature(
         .or_else(|| core_prelude_list_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_option_signature(descriptor.name, &expected))
-        .or_else(|| core_prelude_result_signature(descriptor.name, &expected))?;
+        .or_else(|| core_prelude_result_signature(descriptor.name, &expected))
+        .or_else(|| source_backed_core_prelude_callback_signature(descriptor))?;
     Some((
         CoreCallTarget::PreludeBuiltin(descriptor.name.to_string()),
         signature.0,
         signature.1,
+    ))
+}
+
+fn source_backed_core_prelude_callback_signature(
+    descriptor: &StandardSymbolDescriptor,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let (params, return_type) = source_backed_prelude_callback_signature(descriptor)?;
+    Some((
+        params.iter().map(core_type).collect(),
+        core_type(&return_type),
     ))
 }
 
@@ -2069,5 +2233,50 @@ mod tests {
                 "{name} should not be treated as a callback helper"
             );
         }
+    }
+
+    #[test]
+    fn source_backed_prelude_fallback_uses_concrete_callback_parameter() {
+        let signatures = source_prelude_callback_signatures_from_text(
+            "prelude.veln",
+            concat!(
+                "pub fn future_apply(value: Int, callback: fn(Int, String) -> Bool) -> Bool\n",
+                "  callback(value, \"ok\")\n",
+                "end\n",
+            ),
+        );
+
+        let signature = signatures
+            .iter()
+            .find(|signature| signature.name == "future_apply")
+            .expect("future source-backed callback helper should have a fallback signature");
+
+        assert_eq!(
+            signature.params,
+            vec![
+                Type::int(),
+                Type::function(vec![Type::int(), Type::string()], Type::bool(), Vec::new())
+            ]
+        );
+        assert_eq!(signature.return_type, Type::bool());
+    }
+
+    #[test]
+    fn source_backed_prelude_fallback_rejects_non_concrete_callback_parameter() {
+        let signatures = source_prelude_callback_signatures_from_text(
+            "prelude.veln",
+            concat!(
+                "pub fn future_generic(value: A, callback: fn(A, Int) -> Bool) -> Bool\n",
+                "  callback(value, 1)\n",
+                "end\n",
+            ),
+        );
+
+        assert!(
+            signatures
+                .iter()
+                .all(|signature| signature.name != "future_generic"),
+            "generic callback parameter should stay outside the fallback"
+        );
     }
 }

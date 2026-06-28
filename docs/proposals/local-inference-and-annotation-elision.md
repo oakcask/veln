@@ -139,6 +139,8 @@ The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 The completed declared helper callback argument slice is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
+The completed source-backed prelude callback fallback slice is archived under
+`../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`.
 The completed record-field callback expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-record-field-callback.md`.
 The completed local callback binding expected-type slice is archived under
@@ -163,6 +165,9 @@ dictionary and pass that context as the first callback argument.
 Same-module helpers and visible imported public helpers whose declared
 parameter type is a concrete function type also push that function parameter
 list into named private callbacks passed at the matching argument position.
+Bare and `prelude::` calls to source-backed prelude helpers without a
+compiler-known callback rule use the same fallback when the embedded source
+signature contains a concrete function-typed callback parameter.
 Concrete expected record fields whose type is a concrete function type also
 push that function parameter list into named private callbacks placed in the
 matching record field initializer. Local bindings whose annotations are
@@ -178,12 +183,10 @@ a concrete function type also push that function parameter list into named
 private callbacks passed at the matching payload position.
 
 Remaining planned work in this section covers callback inputs outside the
-implemented compiler-known, concrete declared-helper signature, concrete
-record-field expected-type, concrete local-binding expected-type, and concrete
-constructor-payload expected-type paths.
-Future prelude higher-order helpers should push their concrete element, value,
-key, success, and error types into callback parameters only after they enter an
-equally concrete helper signature path.
+implemented compiler-known, concrete source-backed prelude signature fallback,
+concrete declared-helper signature, concrete record-field expected-type,
+concrete local-binding expected-type, and concrete constructor-payload
+expected-type paths.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
@@ -294,14 +297,13 @@ Acceptance evidence includes:
    positions when every enclosing field or payload type is concrete.
 3. Completed for current compiler-known collection, dictionary, option, and
    result helpers, including dictionary `_with` aliases, and for same-module
-   or visible imported declared helpers with concrete function-typed
-   parameters, concrete record-field expected types, and concrete local
-   function binding annotations, and source ADT constructor payload positions
-   with concrete function payload types: push concrete helper, expected-field,
-   binding, or payload input types into named private callback parameters, and
-   push concrete callback return types into non-empty callback tail
-   expressions. Remaining callback work is limited to future helpers after
-   they enter an equally concrete helper signature path.
+   or visible imported declared helpers, source-backed prelude helper fallback
+   signatures with concrete function-typed parameters, concrete record-field
+   expected types, concrete local function binding annotations, and source ADT
+   constructor payload positions with concrete function payload types: push
+   concrete helper, expected-field, binding, or payload input types into named
+   private callback parameters, and push concrete callback return types into
+   non-empty callback tail expressions.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
