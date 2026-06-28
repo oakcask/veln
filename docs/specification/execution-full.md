@@ -506,7 +506,11 @@ eligible for the same exact-width unsigned primitive or eligible nested binary
 schema payload cases when both the tag and length fields are earlier visible
 exact-width unsigned fields. The payload record field is
 `SchemaDispatchPayload<T>`, where `T` is the selected primitive `Int` or
-nested schema decoded record shape. `Known(value)` writes
+nested schema decoded record shape. Public imported recursive payload schemas
+named through written `use` paths may also decode through a length-bounded
+parent without selected mappings when the imported schema has bounded
+recursive helper support and the parent includes at least one non-recursive
+primitive case; that boundary is decode-only. `Known(value)` writes
 the payload selected by the visible tag field. `Unknown(tag, payload)` writes
 the bounded raw bytes from the `ByteView` only when the visible tag value is
 not a known case and matches the unknown payload tag. The supplied length
