@@ -15,6 +15,26 @@ fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailu
 	end
 end
 
+fn require_state(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<HpackFixtureState, RuntimeDiagnostic>
+	match result
+		Ok(transition) => Ok(transition_state(transition))
+		Err(_) => Err(fallback_payload("expected HPACK fixture decode"))
+	end
+end
+
+fn require_header(result: Result<HpackDecodeTransition, HpackFixtureFailure>, expected_name: String, expected_value: String, expected_decode_count: Int) -> Result<HpackFixtureState, RuntimeDiagnostic>
+	match result
+		Ok(transition) => match header_list_first_name(transition_headers(transition)) == expected_name and header_list_first_value(transition_headers(transition)) == expected_value
+			true => match state_decode_count(transition_state(transition)) == expected_decode_count
+				true => Ok(transition_state(transition))
+				false => Err(fallback_payload("unexpected HPACK fixture decode count"))
+			end
+			false => Err(fallback_payload("unexpected HPACK dynamic indexed header"))
+		end
+		Err(_) => Err(fallback_payload("expected HPACK dynamic indexed header"))
+	end
+end
+
 fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
 	match byte_chunk_from_hex(text)
 		Ok(bytes) => Ok(bytes)
@@ -23,6 +43,10 @@ fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
+	let literal_block: ByteChunk = fixture_bytes("44072f746172676574")?
+	let literal_state: HpackFixtureState = require_state(decode_header_block(literal_block, initial_state(), 9))?
+	let dynamic_block: ByteChunk = fixture_bytes("be")?
+	let ignored_dynamic_state: HpackFixtureState = require_header(decode_header_block(dynamic_block, literal_state, 18), ":path", "/target", 2)?
 	let bad_block: ByteChunk = fixture_bytes("be")?
 	project_decode_result(decode_header_block(bad_block, initial_state(), 27))
 end
