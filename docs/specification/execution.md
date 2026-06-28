@@ -1161,8 +1161,10 @@ execution reference.
   reserved width, expected value, supported layout family, and adjacent visible
   field widths when an exact-width visible field is adjacent. Human output
   keeps the same facts in related notes.
-  Multiple selected mapping clauses selected by `when field == literal` or
-  `when field != literal` are eligible when all clauses resolve to the same
+  Multiple selected mapping clauses selected by `when field == literal`,
+  `when field != literal`, `when field < literal`,
+  `when field <= literal`, `when field > literal`, or
+  `when field >= literal` are eligible when all clauses resolve to the same
   target record shape and every schema-local encode field, including the
   selector field, projects back from the selected target record through direct
   source-field assignments. The helper selects the mapping whose projected

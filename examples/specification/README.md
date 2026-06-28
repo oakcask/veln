@@ -1774,6 +1774,10 @@ against the built `veln` binary.
   binary schema encode helper projects selected mappings from one target
   record shape back to mixed primitive and nested closed dispatch payload
   cases and preserves dispatch-specific encode errors.
+- `run/binary-schema-ordered-selected-mapping-encode/`: generated direct and
+  derived encode helpers select projectable mappings with `<`, `<=`, `>`,
+  and `>=` field-literal comparisons and preserve
+  `codec.encode_mapping_mismatch` for selector gaps.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.

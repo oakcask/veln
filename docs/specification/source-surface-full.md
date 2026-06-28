@@ -442,9 +442,9 @@ structural mapping changes the value boundary uses the mapping target value
 type when the generated encode helper can project that target record back to
 schema-local fields through projectable field, record-expression, field
 selection, or direct ADT constructor mapping expressions. Multiple selected
-`map to Target when field == literal` or
-`map to Target when field != literal` clauses use that same target value type
-when all selected mappings resolve to it and every schema-local encode field,
+`map to Target when field <literal-comparison> literal` clauses using `==`,
+`!=`, `<`, `<=`, `>`, or `>=` use that same target value type when all
+selected mappings resolve to it and every schema-local encode field,
 including the selector field, projects back from the selected target record
 through direct source-field assignments. Other mapped encode boundaries are
 rejected at the clause with `codec.derive_helper_unsupported`. This keeps

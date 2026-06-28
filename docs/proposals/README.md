@@ -77,9 +77,10 @@ compare it with `../specification/` before changing behavior.
   projectable structural mapped schema encode helper including explicitly
   named same-module and imported converter inverse projection, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
-  support, derived selected-mapping encode boundary support, and codec decode
-  boundaries over multiple decoded-field selected mappings that resolve to one
-  mapped record shape. The completed bounded repeat helper binding slice is
+  support, derived selected-mapping encode boundary support including ordered
+  field-literal selector comparisons, and codec decode boundaries over
+  multiple decoded-field selected mappings that resolve to one mapped record
+  shape. The completed bounded repeat helper binding slice is
   archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed narrow arithmetic mapped encode slice is
