@@ -116,6 +116,8 @@ behavior.
   [binary-schema-one-byte-reserved-suffix.md](binary-schema-one-byte-reserved-suffix.md).
 - Binary schema six-byte reserved suffix:
   [binary-schema-six-byte-reserved-suffix.md](binary-schema-six-byte-reserved-suffix.md).
+- Binary schema wide reserved suffix groups:
+  [binary-schema-wide-reserved-suffix-groups.md](binary-schema-wide-reserved-suffix-groups.md).
 - Binary schema split reserved groups:
   [binary-schema-split-reserved-groups.md](binary-schema-split-reserved-groups.md).
 - Binary schema seven-byte split reserved layouts:

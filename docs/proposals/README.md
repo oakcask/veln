@@ -118,8 +118,8 @@ compare it with `../specification/` before changing behavior.
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
-  one-byte, two-byte, three-byte, four-byte, five-byte, and six-byte packed
-  reserved-suffix decode and encode,
+  one-byte, two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte,
+  and eight-byte packed reserved-suffix decode and encode,
   non-byte-aligned middle `UIntN` plus `ReservedBits(width, value)` plus
   `UIntN` decode and encode, including the narrow two-byte byte-interleaved
   middle layout,
@@ -229,6 +229,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
   [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
+  The completed seven-byte and eight-byte reserved suffix slice is archived
+  under
+  [Binary Schema Wide Reserved Suffix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-suffix-groups.md).
   The completed seven-byte and eight-byte reserved prefix group slice is
   archived under
   [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
@@ -255,7 +258,8 @@ compare it with `../specification/` before changing behavior.
   fields, arithmetic-count and quotient-count
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, visible-only packed two-byte groups, opt-in
-  visible flag bitset fields, wide reserved prefix groups, and selected
+  visible flag bitset fields, wide reserved suffix groups, wide reserved
+  prefix groups, and selected
   structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.

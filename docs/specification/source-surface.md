@@ -101,7 +101,11 @@ remaining bits. `ReservedBits(15, value)` may also be followed immediately by
 unit. Two visible `UIntN` fields may also be followed by a
 non-byte-aligned `ReservedBits(width, value)` suffix when the second visible
 field is `UInt8` and all three widths complete the same two-byte big-endian
-storage unit. `Repeat(count_field, Payload)` is accepted as a
+storage unit. A single visible `UIntN` field may also be followed by a
+non-byte-aligned `ReservedBits(width, value)` suffix when the two widths
+complete one byte or the same two-byte, three-byte, four-byte, five-byte,
+six-byte, seven-byte, or eight-byte big-endian storage unit.
+`Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
 `Int` field in the same binary schema. `Repeat(left_count - right_count,
 Payload)`, `Repeat(left_count + right_count, Payload)`,
@@ -356,7 +360,8 @@ packed prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight, sixteen, twenty-four, or thirty-two bits, including the
 two-field `ReservedBits(15, value)` plus `UInt1` boundary, supported `UIntN`
 plus reserved suffix layouts whose widths sum to eight, sixteen,
-twenty-four, thirty-two, forty, or forty-eight bits, supported `UIntN` plus middle
+twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
+supported `UIntN` plus middle
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight,
 sixteen, twenty-four, or thirty-two bits,
 including the narrow two-byte interleaved middle layout with a sub-byte

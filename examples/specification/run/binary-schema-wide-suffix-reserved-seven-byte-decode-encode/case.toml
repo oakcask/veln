@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "85\noutput_chunk_list wide-suffix-seven count 1\noutput_chunk wide-suffix-seven index 0 hex \"ab555555555555\" count 7\ndecoded\n85\n7\nencoded\noutput_chunk_list wide-suffix-seven-derived count 1\noutput_chunk wide-suffix-seven-derived index 0 hex \"ab555555555555\" count 7\ninvalid\ncodec.encode_value_unrepresentable\nSevenByteWideSuffixHeader.value\nvalue must be between 0 and 127\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "wide-suffix-seven"
+chunks = ["ab555555555555"]
+
+[[output_chunk_list]]
+name = "wide-suffix-seven-derived"
+chunks = ["ab555555555555"]
