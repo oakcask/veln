@@ -2183,6 +2183,10 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                             name: "rule_provenance".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
                     ],
                     coverage_case: "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(_)".to_string(),
                     visibility: Visibility::Public,

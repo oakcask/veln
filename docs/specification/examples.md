@@ -2608,8 +2608,9 @@ open stream through a source-visible
 `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` payload with
 `http2.protocol.stream_after_goaway` before frame splitting or encode checks.
 The checked output keeps the endpoint role visible for the local-GOAWAY
-rejection while preserving the public protocol diagnostic JSON fields. Stream
-id zero and closed stream cases keep their narrower existing failures.
+rejection while preserving the public protocol diagnostic JSON fields,
+including the structured preview object. Stream id zero and closed stream
+cases keep their narrower existing failures.
 The outbound `PUSH_PROMISE` send-intent slice accepts a currently open
 client-created associated stream, a server-initiated promised stream id, and
 already-encoded opaque header-block bytes. It pins a single-frame

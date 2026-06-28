@@ -1031,6 +1031,7 @@
         String shutdownState = asString(detail.payloads[3]);
         String endpointRole = asString(detail.payloads[4]);
         String ruleProvenance = asString(detail.payloads[5]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[6], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -1040,6 +1041,7 @@
                 DiagnosticDetail.number("last_stream_id", lastStreamId),
                 DiagnosticDetail.string("shutdown_state", shutdownState),
                 DiagnosticDetail.string("endpoint_role", endpointRole),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", shutdownState),
                 DiagnosticDetail.string("rule_provenance", ruleProvenance)
             )

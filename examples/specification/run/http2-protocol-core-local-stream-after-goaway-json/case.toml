@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 0, RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, graceful_shutdown, local, goaway_last_stream_id))"
+equals = "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 0, RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, graceful_shutdown, local, goaway_last_stream_id, ByteChunk([])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -55,6 +55,26 @@ path = "error.details.protocol_diagnostic.endpoint_role"
 equals = "local"
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = ""
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
 equals = "graceful_shutdown"
 
@@ -86,6 +106,11 @@ equals = 5
 value_path = "error.details.value"
 path = "value.detail.endpoint_role"
 equals = "local"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"

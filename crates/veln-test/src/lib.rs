@@ -4513,11 +4513,12 @@ mod tests {
             "result\t",
             "485454502f322073747265616d206f70656e656420616674657220677261636566756c2073687574646f776e2061742062797465206f66667365742039",
             "\tprotocol_diagnostic\thttp2.protocol.stream_after_goaway\t9",
-            "\t7\tstream_id\tnumber\t7",
+            "\t8\tstream_id\tnumber\t7",
             "\tstream_ref\tstring\t73747265616d",
             "\tlast_stream_id\tnumber\t5",
             "\tshutdown_state\tstring\t677261636566756c5f73687574646f776e",
             "\tendpoint_role\tstring\t736572766572",
+            "\tbyte_preview\tbyte_preview_v2\t30303030303030313034303030303030:8:9:true",
             "\tactive_state\tstring\t677261636566756c5f73687574646f776e",
             "\trule_provenance\tstring\t676f617761795f6c6173745f73747265616d5f6964\n",
         );
@@ -4538,6 +4539,11 @@ mod tests {
                 "\"last_stream_id\":5,",
                 "\"shutdown_state\":\"graceful_shutdown\",",
                 "\"endpoint_role\":\"server\",",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"0000000104000000\",",
+                "\"preview_byte_count\":8,",
+                "\"total_byte_count\":9,",
+                "\"truncated\":true},",
                 "\"active_state\":\"graceful_shutdown\",",
                 "\"rule_provenance\":\"goaway_last_stream_id\"}}"
             )

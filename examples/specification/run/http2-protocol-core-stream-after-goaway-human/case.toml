@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[http2.protocol.stream_after_goaway]: stream opened after graceful shutdown at byte offset 9", "note: Peer opened stream 7; graceful shutdown recorded last stream id 5.", "note: Active shutdown state: graceful_shutdown.", "note: Endpoint role: server.", "note: Active protocol state: graceful_shutdown.", "note: Rule provenance: goaway_last_stream_id."]
+contains = ["error[http2.protocol.stream_after_goaway]: stream opened after graceful shutdown at byte offset 9", "note: Peer opened stream 7; graceful shutdown recorded last stream id 5.", "note: Active shutdown state: graceful_shutdown.", "note: Endpoint role: server.", "note: Nearby bytes: 00 00 00 01 04 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: graceful_shutdown.", "note: Rule provenance: goaway_last_stream_id."]

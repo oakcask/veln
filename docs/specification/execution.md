@@ -1627,8 +1627,8 @@ execution reference.
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
-  where the diagnostic owns one. Frame-size peer-limit diagnostics own a
-  bounded inspected frame-header preview. The
+  where the diagnostic owns one. Frame-size peer-limit and stream-after-GOAWAY
+  diagnostics own bounded inspected frame-header previews. The
   `http2_protocol_closed_with_pending`,
   `http2_protocol_partial_preface`, `http2_protocol_invalid_preface`,
   `http2_protocol_continuation_expected`,
@@ -1804,7 +1804,8 @@ execution reference.
   open client-created associated stream with reserved-by-peer promised stream
   state,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS streams, already-admitted
+  enforcement for later peer-created HEADERS streams with inspected
+  frame-header byte previews, already-admitted
   peer-created stream DATA and trailer HEADERS lifecycle after received
   GOAWAY, local outbound
   HEADERS send-intents above a received boundary, and accepted

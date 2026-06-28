@@ -2499,7 +2499,8 @@ against the built `veln` binary.
   concurrent-stream receive limit, and reports limit exhaustion as
   `http2.peer_limit.concurrent_streams_exceeded`. It also accepts
   peer-created HEADERS at or below the recorded GOAWAY last stream id and
-  rejects larger later HEADERS with `http2.protocol.stream_after_goaway`.
+  rejects larger later HEADERS with `http2.protocol.stream_after_goaway` and
+  a bounded inspected frame-header byte preview.
   The outbound HEADERS send-intent slice also accepts an open stream at a
   recorded received or locally sent GOAWAY boundary and rejects a higher open
   stream with the same diagnostic before frame-size or encode checks. Stream
@@ -2747,7 +2748,8 @@ against the built `veln` binary.
 - `run/runtime-diagnostic-http2-stream-after-goaway-helper-json/`: a direct
   `http2_protocol_stream_after_goaway(...)` helper failure keeps the rendered
   `RuntimeDiagnostic(...)` value and structured
-  `details.protocol_diagnostic` fields.
+  `details.protocol_diagnostic` fields, including a bounded frame-header byte
+  preview.
 - `run/http2-protocol-core-settings-value-human/`: a received
   `SETTINGS_ENABLE_PUSH` value above the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr
@@ -2860,13 +2862,13 @@ against the built `veln` binary.
   HEADERS stream greater than a recorded GOAWAY last stream id reports
   `http2.protocol.stream_after_goaway` through human `run` stderr with
   attempted stream id, recorded last stream id, shutdown state, endpoint role,
-  and rule provenance notes.
+  bounded frame-header byte preview, and rule provenance notes.
 - `run/http2-protocol-core-stream-after-goaway-json/`: the same post-GOAWAY
   stream-state failure reports `http2.protocol.stream_after_goaway` through
   `run --json` from a source-visible
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` payload, with byte
   offset, stream reference, last stream id, shutdown state, endpoint role,
-  active state, and rule provenance.
+  structured byte preview, active state, and rule provenance.
 - `run/http2-protocol-core-local-stream-after-goaway-human/` and
   `run/http2-protocol-core-local-stream-after-goaway-json/`: the same
   source-visible post-GOAWAY payload preserves `endpoint_role` as `local` for

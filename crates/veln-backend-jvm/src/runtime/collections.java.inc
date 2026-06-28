@@ -4213,7 +4213,8 @@
         Object lastStreamId,
         Object shutdownState,
         Object endpointRole,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long stream = asLong(streamId);
@@ -4231,7 +4232,8 @@
                 Long.valueOf(lastStream),
                 shutdown,
                 role,
-                provenance
+                provenance,
+                byteViewToChunk(preview)
             }
         );
         return err(adt(
