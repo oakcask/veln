@@ -85,6 +85,10 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-byte-read-context-human/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-json/`,
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
+`../../examples/specification/run/codec-decode-error-direct-json/`,
+`../../examples/specification/run/codec-decode-error-direct-human/`,
+`../../examples/specification/run/codec-decode-error-reason-direct-json/`,
+`../../examples/specification/run/codec-decode-error-reason-direct-human/`,
 `../../examples/specification/run/codec-decode-invalid-owned-id-json/`,
 `../../examples/specification/run/codec-decode-invalid-owned-id-human/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-json/`,
@@ -172,8 +176,9 @@ Define diagnostic support for:
 
 - schema structural failures
 - codec incomplete-input reports
-- codec invalid-input reports beyond the implemented hand-written
-  `DecodeError(...)` and `DecodeErrorWithReason(...)` command-facing slice
+- additional codec invalid-input ids beyond the implemented
+  command-facing `DecodeError(...)`, `DecodeErrorWithReason(...)`, and
+  `DecodeStep::Invalid(...)` slices
 - integer conversion overflow at byte boundaries
 - schema field paths
 - byte offsets and bounded-buffer offsets
@@ -398,8 +403,11 @@ to stable human and JSON diagnostics.
 The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
-failures, command-facing `DecodeStep::Invalid(DecodeError(...))` and
-`DecodeStep::NeedMore(...)` entry projections, plus HTTP/2 protocol-state
+failures, command-facing direct `DecodeError(...)`,
+`DecodeErrorWithReason(...)`, `DecodeStep::Invalid(DecodeError(...))`,
+`DecodeStep::Invalid(DecodeErrorWithReason(...))`, hand-written
+codec-owned invalid-input ids, and `DecodeStep::NeedMore(...)` entry
+projections, plus HTTP/2 protocol-state
 projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state

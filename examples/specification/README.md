@@ -2025,11 +2025,14 @@ against the built `veln` binary.
   `veln run` projects local byte offset, expected and available byte counts,
   and bounded byte preview through related human notes and `run --json`
   `details.byte_diagnostic`.
-- `run/codec-decode-error-direct-json/` and
+- `run/codec-decode-error-direct-human/`,
+  `run/codec-decode-error-direct-json/`,
+  `run/codec-decode-error-reason-direct-human/`, and
   `run/codec-decode-error-reason-direct-json/`: direct
   `Result<_, DecodeError>` entry failures keep the rendered source-visible
-  error value and populate `run --json` `details.byte_diagnostic`, including
-  the optional reason when returned as `DecodeErrorWithReason(...)`.
+  error value, project focused human diagnostics, and populate `run --json`
+  `details.byte_diagnostic`, including the optional reason when returned as
+  `DecodeErrorWithReason(...)`.
 - `run/codec-decode-invalid-step-human/` and
   `run/codec-decode-invalid-step-json/`: when a `veln run` entry returns
   `Invalid(DecodeError(...))`, `veln run` projects the contained decode error

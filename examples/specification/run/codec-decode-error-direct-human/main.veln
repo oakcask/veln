@@ -1,0 +1,16 @@
+# Direct DecodeError result failures render focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeError("codec.invalid_input", offset(5), "ManualPacketWire.kind"))
+end

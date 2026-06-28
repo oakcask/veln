@@ -190,11 +190,16 @@ short-input byte read helper rather than a byte-view range helper; this pins
 the helper offset and count fields without requiring a preview when that
 helper did not produce one.
 The executable specification cases
-`../../examples/specification/run/codec-decode-error-direct-json/` and
+`../../examples/specification/run/codec-decode-error-direct-human/`,
+`../../examples/specification/run/codec-decode-error-direct-json/`,
+`../../examples/specification/run/codec-decode-error-reason-direct-human/`,
+and
 `../../examples/specification/run/codec-decode-error-reason-direct-json/`
-cover command-facing JSON projection when a `veln run` entry returns direct
+cover command-facing projection when a `veln run` entry returns direct
 `DecodeError(...)` or `DecodeErrorWithReason(...)` result failures without
-wrapping them in `DecodeStep::Invalid`: `run --json` keeps the rendered result
+wrapping them in `DecodeStep::Invalid`: human output reports the failed decode
+fact at the contained byte offset with related field-path, optional reason,
+and source-visible value notes, while `run --json` keeps the rendered result
 value and attaches the same structured `details.byte_diagnostic` id, byte
 offset, field path, display path, and optional reason.
 The executable specification cases
