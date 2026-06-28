@@ -65,9 +65,10 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
 ## Evidence
 
 - `../../../examples/specification/run/http2-protocol-core/` checks
-  header-list encoding for static indexed `:method: GET` into outbound
-  HEADERS, raw literal `:path: /target` into outbound HEADERS split across
-  CONTINUATION frames, stateful literal-with-indexing `:path: /target`
+  header-list encoding for static indexed `:method: GET`, `:path: /`,
+  `:scheme: https`, and `:status: 200` into outbound HEADERS, raw literal
+  `:path: /target` into outbound HEADERS split across CONTINUATION frames,
+  stateful literal-with-indexing `:path: /target`
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
   `0xbe`, outbound dynamic table-size update bytes `0x3e` and
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
