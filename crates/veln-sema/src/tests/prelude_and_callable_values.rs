@@ -4737,6 +4737,63 @@ fn generated_schema_encode_helpers_skip_length_bounded_closed_dispatch_binary_sc
 }
 
 #[test]
+fn generated_schema_encode_helpers_skip_same_module_recursive_unmapped_parent() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type NodePayload\n",
+            "  Leaf(Int)\n",
+            "  Branch({length: Int, kind: Int, payload: NodePayload})\n",
+            "end\n",
+            "\n",
+            "type Node\n",
+            "  Node {length: Int, kind: Int, payload: NodePayload}\n",
+            "end\n",
+            "\n",
+            "schema RecursivePayload\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)\n",
+            "\n",
+            "  map to Node when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = NodePayload::Leaf(payload)\n",
+            "\n",
+            "  map to Node when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = NodePayload::Branch(payload)\n",
+            "end\n",
+            "\n",
+            "schema SameModuleRecursiveUnmappedPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => RecursivePayload)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, kind: Int, payload: NodePayload}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_same_module_recursive_unmapped_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("byte_encode_same_module_recursive_unmapped_packet")),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_recursive_closed_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",

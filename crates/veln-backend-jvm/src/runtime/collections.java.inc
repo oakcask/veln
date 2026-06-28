@@ -6377,6 +6377,19 @@
                     }
                     java.util.Map<Object, Object> nestedValue = asMap(unwrapOk(nestedRead));
                     dispatchValue = nestedValue.get("value");
+                    if (lengthBoundedPayload && schema.mapping.length == 0) {
+                        dispatchValue = schemaDecodeOnlyRecursiveDispatchPayload(
+                            dispatchValue,
+                            dispatchPayloadSchema
+                        );
+                        if (field.dispatch.preservesUnknown
+                            && isAdtNamed(dispatchValue, "SchemaDispatchPayload::Known")) {
+                            dispatchValue = asAdt(
+                                dispatchValue,
+                                "SchemaDispatchPayload::Known"
+                            ).payloads[0];
+                        }
+                    }
                     if (!lengthBoundedPayload) {
                         payloadWidth = asLong(nestedValue.get("consumed"));
                     }
@@ -7279,6 +7292,105 @@
             }
         }
         return values;
+    }
+
+    private static Object schemaDecodeOnlyRecursiveDispatchPayload(
+        Object value,
+        BinarySchemaSpec payloadSchema
+    ) {
+        String target = schemaRecursiveMappedPayloadTarget(payloadSchema);
+        return target == null ? value : recordField(value, target);
+    }
+
+    private static String schemaRecursiveMappedPayloadTarget(BinarySchemaSpec schema) {
+        String recursiveField = schemaRecursiveDispatchPayloadFieldName(schema);
+        if (recursiveField == null || schema.mapping.length == 0) {
+            return null;
+        }
+        String target = null;
+        for (SchemaMappingSpec mapping : schema.mapping) {
+            String candidate = null;
+            for (SchemaMappingFieldSpec field : mapping.fields) {
+                if (schemaMappingExprReferencesField(field.expr, recursiveField)) {
+                    candidate = field.target;
+                    break;
+                }
+            }
+            if (candidate == null || (target != null && !target.equals(candidate))) {
+                return null;
+            }
+            target = candidate;
+        }
+        return target;
+    }
+
+    private static String schemaRecursiveDispatchPayloadFieldName(BinarySchemaSpec schema) {
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.dispatch == null) {
+                continue;
+            }
+            for (SchemaDispatchCaseSpec dispatchCase : field.dispatch.cases) {
+                if (dispatchCase.payloadSchemaName.equals(schema.name)) {
+                    return field.name;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean schemaMappingExprReferencesField(Object expr, String fieldName) {
+        if (expr instanceof String) {
+            return asString(expr).equals(fieldName);
+        }
+        java.util.List<Object> spec = asList(expr);
+        String tag = asString(spec.get(0));
+        if (tag.equals("field")) {
+            return asString(spec.get(1)).equals(fieldName);
+        }
+        if (tag.equals("literal")) {
+            return false;
+        }
+        if (tag.equals("field_access")) {
+            return schemaMappingExprReferencesField(spec.get(1), fieldName);
+        }
+        if (tag.equals("record")) {
+            java.util.List<Object> values = asList(spec.get(2));
+            for (Object value : values) {
+                if (schemaMappingExprReferencesField(value, fieldName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (tag.equals("constructor")) {
+            java.util.List<Object> args = asList(spec.get(2));
+            for (Object arg : args) {
+                if (schemaMappingExprReferencesField(arg, fieldName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (tag.equals("converter")) {
+            if (spec.size() == 4) {
+                return schemaMappingExprReferencesField(spec.get(3), fieldName);
+            }
+            java.util.List<Object> args = asList(spec.get(2));
+            for (Object arg : args) {
+                if (schemaMappingExprReferencesField(arg, fieldName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (tag.equals("prefix")) {
+            return schemaMappingExprReferencesField(spec.get(2), fieldName);
+        }
+        if (tag.equals("binary")) {
+            return schemaMappingExprReferencesField(spec.get(2), fieldName)
+                || schemaMappingExprReferencesField(spec.get(3), fieldName);
+        }
+        return false;
     }
 
     private static boolean schemaHasUnknownExtensionDispatch(

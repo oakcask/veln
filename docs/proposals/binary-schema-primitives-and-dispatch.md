@@ -222,13 +222,17 @@ known case, all mappings resolve to one record shape, and at least one case is
 non-recursive; recursive decode failures keep the outer dispatch field segment
 before nested schema field segments, recursive encode checks the encoded
 payload byte count against the earlier length field, and extension-dispatch
-unknown tags preserve bounded raw payload bytes. Public imported recursive
-payload schemas named through written `use` paths are also accepted for
-length-bounded parent dispatch decode helpers without selected mappings when
-the imported schema already has bounded recursive helper support and the
-parent includes at least one non-recursive primitive case; closed parents use
-the imported schema's recursive mapped payload type, and extension-tolerant
-parents expose `SchemaDispatchPayload` of that payload type. Imported private, missing,
+unknown tags preserve bounded raw payload bytes. Earlier same-module recursive
+payload schemas and public imported recursive payload schemas named through
+written `use` paths are also accepted for length-bounded parent dispatch
+decode helpers without selected mappings when the payload schema already has
+bounded recursive helper support and the parent includes at least one
+non-recursive primitive case; closed parents use the payload schema's
+recursive mapped payload type, and extension-tolerant parents expose
+`SchemaDispatchPayload` of that payload type. The completed same-module
+recursive decode-only parent slice is archived under
+[Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md).
+Imported private, missing,
 wrong-kind, non-binary, forward, unbounded recursive, or otherwise ineligible
 payload schemas, including schemas outside the generated helper slice, use the
 existing `schema.dispatch_payload` diagnostic shape. Resolved binary payload

@@ -148,6 +148,8 @@ behavior.
   [binary-schema-dispatch-payload-helper-boundary-diagnostics.md](binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
 - Binary schema direction-specific dispatch payload helpers:
   [binary-schema-directional-dispatch-payload-helpers.md](binary-schema-directional-dispatch-payload-helpers.md).
+- Binary schema same-module recursive dispatch decode-only:
+  [binary-schema-same-module-recursive-dispatch-decode-only.md](binary-schema-same-module-recursive-dispatch-decode-only.md).
 - Binary schema mapping arithmetic encode:
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Codec generated helper boundary slices:

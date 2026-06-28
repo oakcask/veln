@@ -661,11 +661,12 @@ execution reference.
   a written `use` path are eligible only in the length-bounded form when
   selected mappings cover every dispatch case and all mappings resolve to one
   record shape, with at least one non-recursive case as the base case. The
-  decode helper also accepts a public imported recursive payload schema for a
-  length-bounded parent without selected mappings when the imported schema has
-  bounded recursive helper support and the parent includes at least one
-  non-recursive primitive case; the closed parent payload field type is the
-  imported schema's recursive mapped payload type. The
+  decode helper also accepts an earlier same-module recursive payload schema
+  or a public imported recursive payload schema for a length-bounded parent
+  without selected mappings when that payload schema has bounded recursive
+  helper support and the parent includes at least one non-recursive primitive
+  case; the closed parent payload field type is the payload schema's recursive
+  mapped payload type. The
   recursive helper path decodes the nested payload from the bounded dispatch
   range before continuing with later fields and preserves the same outer
   dispatch plus nested schema field path on failures. Resolved nested payload
@@ -691,6 +692,7 @@ execution reference.
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
+  `examples/specification/run/binary-schema-same-module-recursive-dispatch-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
@@ -725,12 +727,13 @@ execution reference.
   length-bounded form when selected mappings cover every known case, all
   mappings resolve to one record shape, and at least one known case is
   non-recursive. A length-bounded parent without selected mappings may also
-  decode a public imported recursive payload schema when that imported schema
-  already has bounded recursive helper support and the parent includes at
-  least one non-recursive primitive case; the known payload field type remains
-  `SchemaDispatchPayload<T>` for the imported schema's recursive mapped
-  payload type. Recursive known cases decode through the same generated schema
-  helper path within the bounded payload range.
+  decode an earlier same-module recursive payload schema or a public imported
+  recursive payload schema when that payload schema already has bounded
+  recursive helper support and the parent includes at least one non-recursive
+  primitive case; the known payload field type remains
+  `SchemaDispatchPayload<T>` for the payload schema's recursive mapped payload
+  type. Recursive known cases decode through the same generated schema helper
+  path within the bounded payload range.
   Unknown cases do not report
   `schema.dispatch_unknown_tag`; they expose
   `SchemaDispatchPayload::Unknown(tag, payload)` where `payload` is a bounded
@@ -748,6 +751,7 @@ execution reference.
   `examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
   `examples/specification/run/binary-schema-recursive-extension-dispatch-decode/`,
   `examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
+  `examples/specification/run/binary-schema-same-module-recursive-dispatch-decode/`,
   `examples/specification/run/binary-schema-extension-dispatch-unknown/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-unknown/`,

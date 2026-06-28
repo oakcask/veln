@@ -3097,6 +3097,63 @@ fn imported_recursive_dispatch_payload_accepts_length_bounded_unmapped_parent() 
             "mod app\n",
             "use wire\n",
             "\n",
+            "type LocalPayloadValue\n",
+            "  LocalLeaf(Int)\n",
+            "  LocalBranch({length: Int, kind: Int, payload: LocalPayloadValue})\n",
+            "end\n",
+            "\n",
+            "type LocalPayloadNode\n",
+            "  LocalPayloadNode {length: Int, kind: Int, payload: LocalPayloadValue}\n",
+            "end\n",
+            "\n",
+            "schema LocalRecursivePayload\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => LocalRecursivePayload)\n",
+            "\n",
+            "  map to LocalPayloadNode when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = LocalPayloadValue::LocalLeaf(payload)\n",
+            "\n",
+            "  map to LocalPayloadNode when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = LocalPayloadValue::LocalBranch(payload)\n",
+            "end\n",
+            "\n",
+            "schema LocalRecursiveExtensionPayload\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => LocalRecursiveExtensionPayload)\n",
+            "\n",
+            "  map to LocalPayloadNode when kind == 0\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = LocalPayloadValue::LocalLeaf(payload)\n",
+            "\n",
+            "  map to LocalPayloadNode when kind == 1\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    payload = LocalPayloadValue::LocalBranch(payload)\n",
+            "end\n",
+            "\n",
+            "schema SameModuleRecursiveUnmappedPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, length, 0 => UInt8, 1 => LocalRecursivePayload)\n",
+            "end\n",
+            "\n",
+            "schema SameModuleRecursiveExtensionUnmappedPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 0 => UInt8, 1 => LocalRecursiveExtensionPayload)\n",
+            "end\n",
+            "\n",
             "schema ImportedRecursivePacket\n",
             "  format binary\n",
             "  kind: UInt8\n",
@@ -3123,6 +3180,14 @@ fn imported_recursive_dispatch_payload_accepts_length_bounded_unmapped_parent() 
             "\n",
             "fn extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<RecursivePayloadValue>}, String>\n",
             "  byte_decode_imported_recursive_extension_unmapped_packet(view)\n",
+            "end\n",
+            "\n",
+            "fn same_module_closed(view: ByteView) -> Result<{length: Int, kind: Int, payload: LocalPayloadValue}, String>\n",
+            "  byte_decode_same_module_recursive_unmapped_packet(view)\n",
+            "end\n",
+            "\n",
+            "fn same_module_extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<LocalPayloadValue>}, String>\n",
+            "  byte_decode_same_module_recursive_extension_unmapped_packet(view)\n",
             "end\n",
         ),
     );
@@ -3212,6 +3277,14 @@ fn imported_recursive_dispatch_payload_accepts_length_bounded_unmapped_parent() 
                 .details
                 .to_json()
                 .contains("ImportedRecursiveExtensionUnmappedPacket")
+            || diagnostic
+                .details
+                .to_json()
+                .contains("SameModuleRecursiveUnmappedPacket")
+            || diagnostic
+                .details
+                .to_json()
+                .contains("SameModuleRecursiveExtensionUnmappedPacket")
     }));
 }
 

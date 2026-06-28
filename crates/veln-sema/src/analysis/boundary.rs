@@ -13,15 +13,16 @@ use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, recursive_dispatch_payload_case_is_eligible,
-    recursive_dispatch_payload_is_eligible, repeat_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_record_type, schema_decode_step_function_name,
-    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
-    schema_encode_value_type, schema_has_recursive_dispatch_payload,
-    schema_imported_recursive_dispatch_payload_type, schema_length_expression_references,
-    schema_payload_name_last_segment, schema_payload_name_path,
-    schema_recursive_dispatch_payload_type, selected_mappings_cover_closed_dispatch,
-    selected_mappings_cover_dispatch_cases, supported_encode_reserved_bits,
+    flag_schema_primitive, recursive_dispatch_decode_only_payload_case_is_eligible,
+    recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
+    repeat_schema_primitive, reserved_bits_schema_primitive,
+    schema_decode_only_recursive_dispatch_payload_type, schema_decode_record_type,
+    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_encode_function_name, schema_encode_value_type, schema_has_recursive_dispatch_payload,
+    schema_length_expression_references, schema_payload_name_last_segment,
+    schema_payload_name_path, schema_recursive_dispatch_payload_type,
+    selected_mappings_cover_closed_dispatch, selected_mappings_cover_dispatch_cases,
+    supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -2603,13 +2604,18 @@ fn check_schema_dispatch_field(
                     )
                     .and_then(|payload_schema| {
                         if schema_has_recursive_dispatch_payload(payload_schema)
-                            && !recursive_dispatch_payload_case_is_eligible(
+                            && !(recursive_dispatch_payload_case_is_eligible(
                                 module,
                                 schema,
                                 field,
                                 dispatch,
                                 schema_name,
-                            )
+                            ) || recursive_dispatch_decode_only_payload_case_is_eligible(
+                                module,
+                                schema,
+                                dispatch,
+                                schema_name,
+                            ))
                         {
                             diagnostics.push(schema_dispatch_payload_diagnostic(
                                 schema,
@@ -2656,13 +2662,18 @@ fn check_schema_dispatch_field(
         matches!(
             &case.payload,
             SchemaDispatchCasePayload::Schema { schema_name }
-                if recursive_dispatch_payload_case_is_eligible(
-                    module,
-                    schema,
-                    field,
-                    dispatch,
-                    schema_name,
-                )
+                    if recursive_dispatch_payload_case_is_eligible(
+                        module,
+                        schema,
+                        field,
+                        dispatch,
+                        schema_name,
+                    ) || recursive_dispatch_decode_only_payload_case_is_eligible(
+                        module,
+                        schema,
+                        dispatch,
+                        schema_name,
+                    )
         )
     });
     if mixed_payload_type
@@ -2714,7 +2725,7 @@ fn check_schema_dispatch_field(
     let payload_ty = if recursive_dispatch_payload
         && !selected_mappings_cover_dispatch_cases(schema, dispatch)
     {
-        schema_imported_recursive_dispatch_payload_type(module, schema, dispatch)?
+        schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)?
     } else {
         expected_payload_type?
     };
