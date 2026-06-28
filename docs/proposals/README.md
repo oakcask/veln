@@ -168,8 +168,8 @@ compare it with `../specification/` before changing behavior.
   constructor slices, direction-specific nested dispatch payload decode helper
   eligibility with encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
-  visible-only packed `UInt1` through `UInt7` one-byte and two-byte group
-  decode and encode,
+  visible-only packed `UInt1` through `UInt7` one-byte, two-byte, and
+  three-byte group decode and encode,
   bounded `Repeat(count_field, Payload)` primitive, same-module nested schema
   field, and public imported nested schema field decode and encode slices,
   bounded `Repeat(left_count - right_count, Payload)`,
@@ -249,6 +249,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
   The completed visible-only packed two-byte group slice is archived under
   [Binary Schema Packed Visible Two-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-two-byte-groups.md).
+  The completed visible-only packed three-byte group slice is archived under
+  [Binary Schema Packed Visible Three-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-three-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
   [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
   The completed seven-byte and eight-byte reserved suffix slice is archived
@@ -281,9 +283,9 @@ compare it with `../specification/` before changing behavior.
   fields, arithmetic-count and quotient-count
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, standalone visible `UInt1` through `UInt7`
-  fields, visible-only packed two-byte groups, opt-in visible flag bitset
-  fields, wide reserved suffix groups, wide reserved prefix groups, and selected
-  structural mapping encode slice,
+  fields, visible-only packed two-byte and three-byte groups, opt-in visible
+  flag bitset fields, wide reserved suffix groups, wide reserved prefix groups,
+  and selected structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.
   The completed imported hand-written codec boundary is archived under

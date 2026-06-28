@@ -309,11 +309,12 @@ execution reference.
   `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
 - Generated binary schema decode helpers also support consecutive
   visible-only `UInt1` through `UInt7` fields when at least two fields are
-  present and their widths complete exactly one byte or one two-byte
-  big-endian storage unit. The first field occupies the high bits, later
-  fields occupy progressively lower bits, each decoded field remains an
-  ordinary visible `Int`, the helper advances by the shared storage unit, and
-  truncation reports `schema.truncated_field` at the first field in the group.
+  present and their widths complete exactly one byte, one two-byte
+  big-endian storage unit, or one three-byte big-endian storage unit. The
+  first field occupies the high bits, later fields occupy progressively lower
+  bits, each decoded field remains an ordinary visible `Int`, the helper
+  advances by the shared storage unit, and truncation reports
+  `schema.truncated_field` at the first field in the group.
   Standalone or incomplete sub-byte fields keep the standalone
   one-byte-per-field behavior above. The checked examples are
   `examples/specification/run/binary-schema-packed-visible-byte-decode-encode/`
@@ -325,7 +326,12 @@ execution reference.
   `examples/specification/run/binary-schema-packed-visible-two-byte-encode-out-of-range/`,
   and
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
-  for two bytes.
+  for two bytes, plus
+  `examples/specification/run/binary-schema-packed-visible-three-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-packed-visible-three-byte-truncated-json/`,
+  and
+  `examples/specification/run/binary-schema-packed-visible-three-byte-encode-out-of-range/`
+  for three bytes.
 - Generated binary schema decode helpers support opt-in `Flag8`,
   `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
   `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`, `Flag56le`,
@@ -1072,11 +1078,12 @@ execution reference.
   reserved fields from the encoder value record, and reports
   `codec.encode_value_unrepresentable` at the out-of-range visible field.
   Consecutive visible-only `UInt1` through `UInt7` fields whose widths
-  complete exactly one byte or one two-byte big-endian storage unit use the
-  same declaration-order bit packing without any reserved fields: the first
-  value occupies the high bits, later values occupy progressively lower bits,
-  and out-of-range values report `codec.encode_value_unrepresentable` at the
-  offending field path. The checked examples are
+  complete exactly one byte, one two-byte big-endian storage unit, or one
+  three-byte big-endian storage unit use the same declaration-order bit
+  packing without any reserved fields: the first value occupies the high bits,
+  later values occupy progressively lower bits, and out-of-range values report
+  `codec.encode_value_unrepresentable` at the offending field path. The
+  checked examples are
   `examples/specification/run/binary-schema-packed-visible-byte-decode-encode/`
   and
   `examples/specification/run/binary-schema-packed-visible-byte-encode-out-of-range/`
@@ -1084,7 +1091,11 @@ execution reference.
   `examples/specification/run/binary-schema-packed-visible-two-byte-decode-encode/`
   and
   `examples/specification/run/binary-schema-packed-visible-two-byte-encode-out-of-range/`
-  for two bytes.
+  for two bytes, plus
+  `examples/specification/run/binary-schema-packed-visible-three-byte-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-packed-visible-three-byte-encode-out-of-range/`
+  for three bytes.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -1439,7 +1450,8 @@ execution reference.
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
   standalone visible `UInt1` through `UInt7` fields,
-  opt-in visible flag bitset fields, visible-only packed two-byte groups,
+  opt-in visible flag bitset fields, visible-only packed two-byte and
+  three-byte groups,
   repeat-backed schemas,
   arithmetic-count and quotient-count repeat schemas, additive, subtractive,
   product-sized, and quotient-sized `ByteView` payload fields, the implemented
@@ -1519,7 +1531,7 @@ execution reference.
   supported middle reserved-bit layouts, including byte-interleaved middle
   reserved layouts, wide reserved suffix groups, wide reserved prefix groups,
   visible-only packed
-  two-byte groups, repeat-backed
+  two-byte and three-byte groups, repeat-backed
   schemas, arithmetic-count and quotient-count repeat schemas, quotient-sized
   `ByteView(left_length / right_length)` payload fields, product-sized
   `ByteView(left_length * right_length)` payload fields,

@@ -351,8 +351,9 @@ supported.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each and consecutive visible-only `UInt1` through `UInt7` groups of
-at least two fields whose widths complete exactly one byte or one two-byte
-big-endian storage unit, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
+at least two fields whose widths complete exactly one byte, one two-byte
+big-endian storage unit, or one three-byte big-endian storage unit, `Flag8`,
+`Flag16be`, `Flag16le`, `Flag24be`,
 `Flag24le`,
 `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`,
 `Flag56be`, `Flag56le`, `Flag64be`, and `Flag64le` bitset fields, supported
@@ -380,7 +381,8 @@ twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 supported two-byte suffix groups where two visible `UIntN` fields, the second
 one `UInt8`, precede a non-byte-aligned `ReservedBits(width, value)` field,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
-sum to eight or sixteen bits, supported consecutive non-byte-aligned `UIntN` and
+sum to eight, sixteen, or twenty-four bits, supported consecutive
+non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier

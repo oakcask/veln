@@ -4506,6 +4506,73 @@ fn generated_schema_helpers_accept_standalone_sub_byte_primitives() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_three_byte_packed_visible_primitives() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PackedVisibleThreeByteHeader\n",
+            "  format binary\n",
+            "\n",
+            "  high: UInt5\n",
+            "  upper: UInt7\n",
+            "  middle: UInt5\n",
+            "  lower: UInt2\n",
+            "  tail: UInt5\n",
+            "end\n",
+            "\n",
+            "codec PackedVisibleThreeByteCodec for PackedVisibleThreeByteHeader decode encode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}, String>\n",
+            "  byte_decode_packed_visible_three_byte_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}>\n",
+            "  byte_decode_step_packed_visible_three_byte_header(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packed_visible_three_byte_header(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}>\n",
+            "  PackedVisibleThreeByteCodec(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int}) -> EncodeStep<()>\n",
+            "  PackedVisibleThreeByteCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "PackedVisibleThreeByteHeader");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![
+            ("high", 1, 0x1f),
+            ("upper", 1, 0x7f),
+            ("middle", 1, 0x1f),
+            ("lower", 1, 0x3),
+            ("tail", 1, 0x1f)
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",
