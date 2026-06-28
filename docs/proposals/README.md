@@ -392,7 +392,7 @@ compare it with `../specification/` before changing behavior.
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
   boundary,
-  bounded
+  general
   receiver-list channel-first routing through the
   current checked select-many boundary, receiver-list cancellable
   channel-first routing,

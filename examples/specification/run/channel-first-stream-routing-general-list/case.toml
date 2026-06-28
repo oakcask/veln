@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "general-list 0/1 0/2 1/3 score 106\n"
+equals = "general-list 0/1 0/2 1/3 2/4 3/5 4/6 5/7 score 1528\n"
 
 [[json_assert]]
 path = "error"

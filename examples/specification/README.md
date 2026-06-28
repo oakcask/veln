@@ -3271,12 +3271,6 @@ against the built `veln` binary.
   ordinary `StreamInput` values through four typed channel routes, selects
   ready routes by priority with existing channel selection, and then invokes
   the same pure stream handler shape with explicit per-stream state.
-- `run/channel-first-stream-routing-five-route/` through
-  `run/channel-first-stream-routing-thirty-route/`: bounded historical
-  coverage for receiver-list priority selection with
-  `channel::select_many_priority`; use
-  `run/channel-first-stream-routing-general-list/` as the primary scalable
-  receiver-list routing evidence.
 - `run/channel-select-many-timeout/`: receiver-list timeout selection keeps
   supplied receiver order as priority order, returns `None` when no receiver
   becomes ready before the timeout, returns `Ok(Some(...))` and `Ok(None)`
@@ -3324,11 +3318,6 @@ against the built `veln` binary.
   channel-first stream routing keeps the same effect boundary as the two-route
   and three-route cases: routing declares `concurrency`, socket wrappers
   declare `net` and `concurrency`, and the handler remains effect-free.
-- `check/channel-first-stream-routing-five-route-effects/` through
-  `check/channel-first-stream-routing-thirty-route-effects/`: bounded
-  historical effect coverage for receiver-list priority routing; use
-  `check/channel-first-stream-routing-general-list-effects/` as the primary
-  scalable receiver-list effect evidence.
 - `check/channel-select-many-timeout-effects/`: receiver-list timeout
   result selection keeps the same effect boundary: the routing adapter
   declares `concurrency`, and the handler remains effect-free.
