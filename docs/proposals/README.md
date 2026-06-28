@@ -83,9 +83,11 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
-  lookup and documentation comments that reference schemas through
-  schema-aware lookup. Binary fixture metadata in executable specification
-  cases may also validate schema-aware references.
+  lookup. The completed documentation-comment schema reference slice is
+  archived under
+  [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
+  Binary fixture metadata in executable specification cases may also validate
+  schema-aware references.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed

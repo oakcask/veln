@@ -179,10 +179,11 @@ ADR-lite section and keep their parsed anchor when one exists.
 Documentation comments may write schema references as `{@schema Name}` or
 `{@schema module::Name}`. The `doc` command resolves those references through
 schema-aware lookup: same-module bare references may name private or public
-schemas, and module-qualified references require a matching written `use` path
-and a public schema or public schema alias. The generated Markdown renders a
-resolved schema reference as code text. Missing, private, and wrong-kind schema
-references are name diagnostics reported at the referenced name span.
+schemas, and module-qualified references require a matching written `use` path,
+including nested module paths such as `use app::nested`, and a public schema or
+public schema alias. The generated Markdown renders a resolved schema reference
+as code text. Missing, private, and wrong-kind schema references are name
+diagnostics reported at the referenced name span.
 
 <a id="veln-run"></a>
 

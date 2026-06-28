@@ -1,9 +1,9 @@
-command = ["doc", "main.veln", "wire.veln", "facade.veln"]
+command = ["doc", "main.veln", "wire.veln", "facade.veln", "app/nested.veln"]
 exit = 0
 
 [stdout]
 format = "text"
-contains = ["##### schema LocalPacket", "Documents same-module `LocalPacket`, private same-module `PrivatePacket`, imported `wire::PublicPacket`, and alias `facade::AliasPacket`.", "##### schema AliasPacket = wire::PublicPacket"]
+contains = ["##### schema LocalPacket", "Documents same-module `LocalPacket`, private same-module `PrivatePacket`, imported `wire::PublicPacket`, nested imported `app::nested::NestedPacket`, and alias `facade::AliasPacket`.", "##### schema NestedPacket", "##### schema AliasPacket = wire::PublicPacket"]
 
 [stderr]
 format = "empty"
