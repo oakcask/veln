@@ -1629,7 +1629,9 @@ execution reference.
   `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`, keeping the
   rendered `RuntimeDiagnostic(...)` as the result value while projecting the
   stable id, byte offset, protocol facts, provenance, and bounded byte preview
-  where the diagnostic owns one. The `http2_protocol_closed_with_pending`,
+  where the diagnostic owns one. Frame-size peer-limit diagnostics own a
+  bounded inspected frame-header preview. The
+  `http2_protocol_closed_with_pending`,
   `http2_protocol_partial_preface`, `http2_protocol_invalid_preface`,
   `http2_protocol_continuation_expected`,
   `http2_protocol_invalid_frame_kind`,

@@ -1641,6 +1641,10 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                             name: "receive_limit_provenance".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
                     ],
                     coverage_case: "RuntimeHttp2PeerLimitFrameSizeDiagnostic(_)".to_string(),
                     visibility: Visibility::Public,

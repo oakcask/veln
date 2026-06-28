@@ -47,8 +47,8 @@ diagnostic, plus HTTP/2 SETTINGS value range protocol-owned byte diagnostics,
 HTTP/2 `WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and
 HTTP/2 unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2
 DATA receive flow-control protocol-owned byte diagnostics, and HTTP/2
-header-list, header-table, and concurrent-stream receive-limit protocol-owned
-byte diagnostics.
+frame-size, header-list, header-table, and concurrent-stream receive-limit
+protocol-owned byte diagnostics.
 Current behavior belongs to the specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
@@ -157,8 +157,8 @@ bounded by default.
   self-dependency slice, HPACK fixture unsupported-header-block and
   SETTINGS value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment
   slice, the HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive
-  flow-control slice, and the HTTP/2 header-list, header-table, and
-  concurrent-stream receive-limit slices cover
+  flow-control slice, and the HTTP/2 frame-size, header-list, header-table,
+  and concurrent-stream receive-limit slices cover
   protocol-owned byte previews,
   field paths,
   expected and actual counts, and absolute offsets where those diagnostics

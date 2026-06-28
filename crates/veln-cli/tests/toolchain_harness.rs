@@ -3709,7 +3709,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
             ))
         }
         "RuntimeHttp2PeerLimitFrameSizeDiagnostic" => {
-            let args = expect_arity(name, args, 6)?;
+            let args = expect_arity(name, args, 7)?;
             Ok(result_value_object(
                 "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
                 vec![
@@ -3722,6 +3722,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "receive_limit_provenance",
                         JsonValue::String(args[5].trim().to_string()),
                     ),
+                    ("preview", parse_veln_value(args[6])?),
                 ],
             ))
         }

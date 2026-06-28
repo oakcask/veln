@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.peer_limit.frame_size_exceeded, HTTP/2 frame payload length exceeds receive maximum at byte offset 0, RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, local_configuration))"
+equals = "RuntimeDiagnostic(http2.peer_limit.frame_size_exceeded, HTTP/2 frame payload length exceeds receive maximum at byte offset 0, RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, local_configuration, ByteChunk([Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(3)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -58,6 +58,31 @@ equals = "stream"
 path = "error.details.protocol_diagnostic.receive_limit_provenance"
 equals = "local_configuration"
 
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "0004010000000000"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = true
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset"
+equals = 0
+
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.constructor"
@@ -75,5 +100,35 @@ equals = 1024
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.detail.frame_kind"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.stream_id"
+equals = 3
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.receive_limit_provenance"
 equals = "local_configuration"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.constructor"
+equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.2.value"
+equals = 1
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.8.value"
+equals = 3

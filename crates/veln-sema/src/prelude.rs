@@ -678,6 +678,7 @@ fn http2_peer_limit_signature<T: BytePreludeType>(
                 T::int(),
                 T::int(),
                 T::string(),
+                types.byte_view.clone(),
             ],
             unit_runtime_diagnostic_result(),
         )),

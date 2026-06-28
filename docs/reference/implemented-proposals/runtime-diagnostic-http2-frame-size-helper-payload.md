@@ -16,7 +16,8 @@ under `../../../examples/specification/run/`.
 `Err(RuntimeDiagnostic(...))` with
 `RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` carrying the byte offset,
 observed payload length, allowed maximum frame size, frame kind, stream id,
-stream reference, and receive-limit provenance.
+stream reference, receive-limit provenance, and bounded inspected frame-header
+byte preview.
 
 Command recording projects the HTTP/2 `details.protocol_diagnostic` JSON
 object from the returned `RuntimeDiagnostic(...)` value. The helper no longer
@@ -30,7 +31,7 @@ outside this slice.
   checks that a direct call to
   `http2_peer_limit_frame_size_exceeded(...)` returns a rendered
   `RuntimeDiagnostic(...)` result value and structured
-  `details.protocol_diagnostic` fields.
+  `details.protocol_diagnostic` fields, including the bounded byte preview.
 - `../../../examples/specification/run/http2-protocol-core-frame-size-human/`
   and
   `../../../examples/specification/run/http2-protocol-core-frame-size-json/`

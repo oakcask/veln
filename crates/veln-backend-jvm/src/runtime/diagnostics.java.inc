@@ -603,6 +603,7 @@
         long frameKind = asLong(detail.payloads[3]);
         long streamId = asLong(detail.payloads[4]);
         String receiveLimitProvenance = asString(detail.payloads[5]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[6], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -612,7 +613,8 @@
                 DiagnosticDetail.number("frame_kind", frameKind),
                 DiagnosticDetail.number("stream_id", streamId),
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
-                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
+                DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );
     }

@@ -14,21 +14,49 @@ fn context_receive_limit_provenance(context: Http2DiagnosticContext) -> String
 	end
 end
 
-fn frame_size_payload(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, context: Http2DiagnosticContext) -> RuntimeDiagnostic
+fn frame_size_payload(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.frame_size_exceeded",
 		"HTTP/2 frame payload length exceeds receive maximum at byte offset 0",
-		RuntimeHttp2PeerLimitFrameSizeDiagnostic(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context))
+		RuntimeHttp2PeerLimitFrameSizeDiagnostic(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context), byte_view_to_chunk(preview))
 	)
 end
 
-fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	match failure
-		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id) => Err(frame_size_payload(offset, observed_length, allowed_length, frame_kind, stream_id, context))
+		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id) => Err(frame_size_payload(offset, observed_length, allowed_length, frame_kind, stream_id, context, preview))
+	end
+end
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.frame_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000401000000000003")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	let count: ByteCount = byte_chunk_count(bytes)
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, count)
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
 	end
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("local_configuration")
-	http2_protocol_diagnostic(FrameSizeExceeded(0, 1025, 1024, 0, 3), context)
+	let frame_header: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(frame_header)?
+	http2_protocol_diagnostic(FrameSizeExceeded(0, 1025, 1024, 0, 3), context, preview)
 end

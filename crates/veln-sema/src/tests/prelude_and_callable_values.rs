@@ -10478,7 +10478,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "unexpected_settings_ack_http2: http2_protocol_unexpected_settings_ack(0, \"connection-control\", \"rfc9113_settings_ack_requires_outstanding_local_settings\", view), ",
             "invalid_priority_dependency_http2: http2_protocol_invalid_priority_dependency(0, 1, 1, \"stream-control\", \"rfc9113_priority_dependency\", view), ",
             "stream_after_goaway_http2: http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\"), ",
-            "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",
+            "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\", view), ",
             "header_list_http2: http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\", view), ",
             "header_table_http2: http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, \"local_configuration\", \"hpack_dynamic_table_size_update\", view), ",
             "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\", view), ",

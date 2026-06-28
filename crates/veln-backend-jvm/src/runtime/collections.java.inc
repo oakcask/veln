@@ -4249,7 +4249,8 @@
         Object allowedLength,
         Object frameKind,
         Object streamId,
-        Object receiveLimitProvenance
+        Object receiveLimitProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long observed = asLong(observedLength);
@@ -4267,7 +4268,8 @@
                 Long.valueOf(allowed),
                 Long.valueOf(kind),
                 Long.valueOf(stream),
-                provenance
+                provenance,
+                byteViewToChunk(preview)
             }
         );
         return err(adt(
