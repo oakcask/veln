@@ -253,6 +253,13 @@ short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
 and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
 item.
 The executable specification case
+`../../examples/specification/run/derived-codec-sub-byte-boundary/`
+covers the same derived codec decode and encode item boundary for standalone
+visible `UInt1` through `UInt7` fields. It checks successful `Decoded`,
+short-input `NeedMore(NeedBytes(...))`, field-validation `Invalid`, successful
+`Encoded`, budgeted `Partial` plus resume, and helper-projected
+`Invalid(EncodeError(...))` outcomes through the codec item.
+The executable specification case
 `../../examples/specification/run/codec-needmore-parser-state/` covers
 caller-owned parser state around the codec boundary. It checks that `Decoded`
 advances the retained suffix and explicit base offset by the consumed count,
@@ -433,6 +440,12 @@ The executable specification case
 covers the derived codec encode boundary over a visible-only packed two-byte
 group, including budgeted partial output, resumed `Encoded` output, and
 helper-projected `Invalid(EncodeError(...))`.
+The executable specification case
+`../../examples/specification/run/derived-codec-sub-byte-boundary/`
+covers the same encode boundary for standalone visible `UInt1` through
+`UInt7` fields, including helper output projection, budgeted partial output,
+resumed `Encoded` output, and helper-projected
+`Invalid(EncodeError(...))`.
 The executable specification case
 `../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
 covers derived codec encode projection over the generated seven-byte and
@@ -876,7 +889,9 @@ command output. The decode cases prove one-byte-per-field low-bit masking and
 structural mapping. The encode cases prove one-byte output and
 `codec.encode_value_unrepresentable` for values outside the declared low-bit
 range. The truncation cases prove the existing `schema.truncated_field`
-diagnostic shape for a missing one-byte standalone field.
+diagnostic shape for a missing one-byte standalone field. The
+`../../examples/specification/run/derived-codec-sub-byte-boundary/` case pins
+the same helper shape at the derived codec item boundary.
 
 `../../examples/specification/run/binary-schema-flag8-decode/`,
 `../../examples/specification/run/binary-schema-flag8-encode/`,
