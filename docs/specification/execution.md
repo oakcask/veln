@@ -1760,7 +1760,9 @@ execution reference.
   open client-created associated stream with reserved-by-peer promised stream
   state,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS streams and local outbound
+  enforcement for later peer-created HEADERS streams, already-admitted
+  peer-created stream DATA and trailer HEADERS lifecycle after received
+  GOAWAY, local outbound
   HEADERS send-intents above a received boundary, and accepted
   `RST_STREAM` error-code facts as typed protocol values. In the server-side
   fixture core, SETTINGS,

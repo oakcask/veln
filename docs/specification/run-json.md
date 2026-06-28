@@ -711,6 +711,10 @@ HEADERS stream or local outbound HEADERS send-intent greater than the recorded
 last stream id uses id `http2.protocol.stream_after_goaway` and records
 `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
 `shutdown_state`, `endpoint_role`, `active_state`, and `rule_provenance`.
+The checked `run --json` protocol-core example also keeps already-admitted
+peer-created stream DATA and trailer HEADERS after received GOAWAY as passed
+stdout, not as a `protocol_diagnostic`; receive-window credit, HPACK fixture
+decode, and closed-by-peer lifecycle facts remain ordinary executable output.
 The checked stream-after-GOAWAY human and JSON examples return
 source-visible `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`
 payloads for peer-created and local outbound HEADERS streams, so

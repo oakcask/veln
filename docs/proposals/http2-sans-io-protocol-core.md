@@ -41,8 +41,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
-  slice, outbound DATA local closed-stream send-intent slice, GOAWAY
-  last-stream-id enforcement for later peer-created HEADERS, outbound
+  slice, outbound DATA local closed-stream send-intent slice, outbound
   HEADERS and DATA send-intent rejection above received or locally sent GOAWAY
   boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
@@ -55,8 +54,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  outbound GOAWAY send-intent state, later peer-created HEADERS rejection,
-  and outbound HEADERS and DATA send-intent rejection above received or
+  outbound GOAWAY send-intent state, and outbound HEADERS and DATA
+  send-intent rejection above received or
   locally sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
@@ -612,6 +611,14 @@ shutdown. Stream-targeted PING and GOAWAY frames are stream id domain
 failures, while wrong-length PING and GOAWAY payloads use
 `http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
 and JSON `protocol_diagnostic` details.
+After received GOAWAY, an already-admitted peer-created stream with id less
+than or equal to the recorded last stream id remains on the existing
+stream-state path: DATA decrements receive-window credit, and trailer HEADERS
+with `END_STREAM` complete HPACK fixture decode and move the stream to
+closed-by-peer. A later peer-created HEADERS stream above the recorded last
+stream id keeps using `http2.protocol.stream_after_goaway`.
+The completed GOAWAY receive lifecycle slice is archived under
+[HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
 The implemented slice also includes the narrow outbound PING ACK send-intent.
 After a valid inbound non-ACK PING frame, ordinary source encodes a nine-byte
 header with length `8`, kind `6`, ACK flag `1`, and stream id `0`, appends

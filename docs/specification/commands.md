@@ -56,6 +56,9 @@ requiring the full command reference on the first read.
   flow-control peer-limits with bounded DATA payload byte previews,
   header-list and header-table receive-limit peer-limits with bounded
   header-block byte previews,
+  GOAWAY receive preserving already-admitted stream DATA and trailer HEADERS
+  lifecycle while rejecting later peer-created streams above the recorded last
+  stream id,
   standard helper-returned frame-size, SETTINGS value, and header-table
   runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and
