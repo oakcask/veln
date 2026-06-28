@@ -25,8 +25,8 @@ commit to a full network runtime.
 
 Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, narrow socket and
-stream routing slices, checked channel-first route-count slices, checked task
-slices, and narrow deadline and cancellation slices, for:
+stream routing slices, checked receiver-list channel-first routing slices,
+checked task slices, and narrow deadline and cancellation slices, for:
 
 - production socket ownership and lifecycle beyond the checked
   production-loopback listen, sequential accept, read, write, clean listener
@@ -71,8 +71,8 @@ slices, and narrow deadline and cancellation slices, for:
   lifecycle, clean shutdown lifecycle, and
   multi-handler outbound write-ordering slices
 - richer channel-first stream event routing beyond the checked two-route,
-  three-route, four-route, receiver-list select-many route-count fixtures,
-  general receiver-list routing helper, receiver-list timeout,
+  three-route, four-route, general receiver-list routing helper,
+  receiver-list timeout,
   receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
   timeout-result selection, two-receiver cancellable timeout-result selection,
@@ -413,13 +413,18 @@ The production owner-drain cancellable deadline lifecycle slice is recorded
 as implemented in
 `../reference/implemented-proposals/network-production-owner-drain-lifecycle.md`.
 
-The bounded receiver-list select-many, timeout, timeout-result, and
-cancellable timeout-result channel-first stream routing slices, including the
-general receiver-list routing helper example, the
-`channel::select_many_priority` and `channel::select_many_timeout` helpers plus
-`channel::select_many_timeout_result` and
-`channel::select_many_timeout_cancellable`, are recorded as implemented in
+The receiver-list select-many, timeout, timeout-result, and cancellable
+timeout-result channel-first stream routing slices are recorded as implemented
+in
 `../reference/implemented-proposals/network-channel-select-many-routing.md`.
+They include the general receiver-list routing helper example, cleanup of the
+stale five-route through thirty-route fixture series,
+`channel::select_many_priority`, `channel::select_many_timeout`,
+`channel::select_many_timeout_result`, and
+`channel::select_many_timeout_cancellable`.
+The cleanup leaves the two-, three-, four-route, and general receiver-list
+fixtures as the canonical checked routing shapes; further same-shaped
+route-count fixtures are not proposal work.
 
 The two-receiver cancellable timeout-result selection slice, including
 `channel::select_timeout_cancellable`, is recorded as implemented in
@@ -558,7 +563,7 @@ or the pure protocol core.
   fixture-backed listener/stream handles,
   narrow multi-event socket-to-handler routing, stream-task handler, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
-  lifecycle, two-route, three-route, four-route, receiver-list select-many
+  lifecycle, two-route, three-route, four-route, general receiver-list
   routing through the current checked boundary, receiver-list timeout,
   receiver-list timeout-result selection, receiver-list cancellable
   timeout-result selection, two-receiver timeout-result selection,
@@ -566,9 +571,7 @@ or the pure protocol core.
   cancellable channel-first stream routing, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle,
   cancellable deadline-aware accepted-stream lifecycle, context-based spawned
-  handler task, adapter-level cancellable stream routing, and the general
-  receiver-list stream routing abstraction that replaces route-count fixture
-  growth;
+  handler task and adapter-level cancellable stream routing;
   remaining examples still need richer production socket APIs and richer
   deadline and cancellation APIs beyond the current relative `Deadline`,
   `CancelToken`, cancellation status-query, cancellable wait-outcome,

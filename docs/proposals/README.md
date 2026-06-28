@@ -392,10 +392,10 @@ compare it with `../specification/` before changing behavior.
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
   boundary,
-  bounded
+  general
   receiver-list channel-first routing through the
-  current checked select-many boundary, receiver-list cancellable
-  channel-first routing,
+  current checked select-many boundary including stale route-count fixture
+  cleanup, receiver-list cancellable channel-first routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, two-receiver timeout-result selection, and two-receiver
   cancellable timeout-result selection slices
@@ -431,6 +431,9 @@ compare it with `../specification/` before changing behavior.
   The completed production owner-drain cancellable deadline lifecycle slice is
   archived under
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
+  The completed receiver-list select-many routing and stale route-count
+  fixture cleanup slice is archived under
+  [Network Channel Select-Many Routing](../reference/implemented-proposals/network-channel-select-many-routing.md).
 
 ## Update When
 

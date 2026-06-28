@@ -215,8 +215,8 @@ execution reference.
   existing channel selection vocabulary, and only then invoke a plain handler
   with explicit per-stream state. The general receiver-list helper example
   accepts a non-empty `List<Receiver<StreamInput>>` and returns the selected
-  route index plus value, so additional route-count fixtures are not required
-  to demonstrate larger receiver lists. The receiver-list priority examples use
+  route index plus value while exercising more than four receiver routes. The
+  receiver-list priority examples use
   `channel::select_many_priority` on a non-empty
   `List<Receiver<StreamInput>>`; the timeout example uses
   `channel::select_many_timeout` and
@@ -259,8 +259,6 @@ execution reference.
   `examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
   and
   `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
-  Earlier bounded route-count examples remain checked coverage, not a pattern
-  for adding more same-shaped fixtures.
 - The generated binary schema helper execution slice decodes the
   `Http2FrameHeaderWire` field sequence from a `ByteView`: `UInt24be`,
   `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value

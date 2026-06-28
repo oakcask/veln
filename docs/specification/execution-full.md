@@ -981,8 +981,6 @@ The primary checked examples are
 `examples/specification/check/channel-select-many-timeout-cancellable-effects/`,
 and
 `examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
-Earlier bounded route-count examples remain checked coverage, not a pattern
-for adding more same-shaped fixtures.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

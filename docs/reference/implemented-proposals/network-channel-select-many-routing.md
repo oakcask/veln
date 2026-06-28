@@ -18,8 +18,8 @@ and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
 `../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
-Bounded five-route through thirty-route examples remain historical coverage,
-but the general-list examples are the primary scalable evidence.
+The general-list examples are the primary scalable evidence for receiver-list
+routing beyond the canonical two-, three-, and four-route fixtures.
 
 ## Outcome
 
@@ -29,12 +29,6 @@ shape that accepts a non-empty `List<Receiver<StreamInput>>`, calls
 ordinary `StreamInput` value. The executable example uses more than four
 routes and checks that repeated selection preserves lower-index priority and
 the selected value.
-
-Earlier bounded route-count slices keep historical coverage for the narrow
-`channel::select_many_priority(receivers)` standard-library boundary over a
-non-empty `List<Receiver<T>>`. They are not the primary evidence for larger
-receiver lists and should not be extended by adding more same-shaped route
-counts.
 
 The completed timeout slice adds
 `channel::select_many_timeout(receivers, timeout_ms)` with the same receiver

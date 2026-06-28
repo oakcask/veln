@@ -2124,8 +2124,6 @@ timeout argument, the cancellable channel-first adapter requires both `time`
 and `concurrency`,
 socket wrappers around the routing boundary require both `net` and
 `concurrency`, and the handler boundary remains free of transport effects.
-Earlier bounded route-count examples remain checked coverage, not a pattern
-for adding more same-shaped fixtures.
 
 ## Pending Input Byte Chunks
 
