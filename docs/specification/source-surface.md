@@ -170,7 +170,11 @@ imported schema, names a non-binary schema, refers forward, uses an unbounded
 or otherwise ineligible recursive form, lacks the generated decode helper
 required by a parent decode helper, uses a field-reference-ineligible
 `ByteView` payload layout, or decodes to an incompatible payload shape. Parent
-decode helpers, generated decode-step helpers, and `derive decode` require
+recursive payload diagnostics name the failed recursive-helper fact, including
+missing length-bounded dispatch, missing primitive base case for unmapped
+decode-only parents, or missing selected mapping coverage for encode-capable
+parents. Parent decode helpers, generated decode-step helpers, and
+`derive decode` require
 only the nested schema's decode helper; they do not require the nested schema
 to expose a generated encode helper. Generated encode helpers and
 `derive encode` still require nested dispatch payload schemas to expose a
@@ -197,6 +201,8 @@ the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
 the checked imported recursive payload acceptance case is
 `../../examples/specification/check/binary-schema-imported-recursive-dispatch-payload-accepted/`;
+the checked recursive payload diagnostics case is
+`../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`;
 the checked same-module recursive decode-only payload example is
 `../../examples/specification/run/binary-schema-same-module-recursive-dispatch-decode/`;
 the checked helper-eligibility detail cases are

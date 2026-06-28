@@ -1981,9 +1981,10 @@ against the built `veln` binary.
   nested dispatch payload schemas with supported representation-only
   `ReservedBits` layouts expose both decode and encode helper signatures.
 - `check/binary-schema-recursive-dispatch-payload-diagnostics/`: recursive
-  closed dispatch remains rejected when the self-reference is not
-  length-bounded, or when an imported recursive payload is referenced outside
-  the selected length-bounded mapping boundary.
+  helper diagnostics remain focused when a recursive closed dispatch is not
+  length-bounded, when an encode-required imported recursive payload lacks
+  selected mapping coverage, or when an unmapped parent lacks a primitive base
+  case.
 - `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
   decode helper reads an extension-tolerant dispatch tag, selects a known
   payload case, and returns `SchemaDispatchPayload::Known`.

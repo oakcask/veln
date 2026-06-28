@@ -2849,8 +2849,8 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "dispatch payload schema `wire::TextPayload` must use `format binary`",
         ),
         (
-            "self_payload_schema",
-            "dispatch payload schema `SelfPacket` cannot reference itself",
+            "recursive_payload_missing_length_bound",
+            "dispatch payload schema `SelfPacket` requires parent dispatch field `payload` to include a length field",
         ),
         (
             "forward_payload_schema",
@@ -3259,12 +3259,14 @@ fn imported_recursive_dispatch_payload_accepts_length_bounded_unmapped_parent() 
         .iter()
         .filter(|diagnostic| {
             diagnostic.id == "schema.dispatch_payload"
-                && diagnostic.message
-                    == "dispatch payload schema `wire::RecursivePayload` cannot reference itself"
+                && diagnostic.message == "dispatch payload schema `wire::RecursivePayload` requires parent dispatch field `payload` to include a length field"
                 && diagnostic
                     .details
                     .to_json()
-                    .contains("\"reason\":\"self_payload_schema\"")
+                    .contains("\"reason\":\"recursive_payload_missing_length_bound\"")
+                && diagnostic.details.to_json().contains(
+                    "\"recursive_helper_fact\":\"recursive dispatch payloads require a length-bounded parent dispatch field\""
+                )
         })
         .count();
     assert_eq!(matching_diagnostics, 1, "{diagnostics:#?}");

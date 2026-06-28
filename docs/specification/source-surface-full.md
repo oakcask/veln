@@ -183,10 +183,13 @@ length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,
 unbounded recursive, missing the decode helper required by parent decode,
 field-reference-ineligible `ByteView` payload layout, or incompatible report
-`schema.dispatch_payload`. Parent decode helpers, generated decode-step
-helpers, and `derive decode` require only the nested schema's decode helper;
-generated encode helpers and `derive encode` also require the nested schema's
-encode helper.
+`schema.dispatch_payload`. Parent recursive payload diagnostics name the
+failed recursive-helper fact, including missing length-bounded dispatch,
+missing primitive base case for unmapped decode-only parents, or missing
+selected mapping coverage for encode-capable parents. Parent decode helpers,
+generated decode-step helpers, and `derive decode` require only the nested
+schema's decode helper; generated encode helpers and `derive encode` also
+require the nested schema's encode helper.
 Helper-slice payload diagnostics name the expected generated decode and
 encode helpers in structured fields and keep the payload schema declaration
 in related notes. When the nested schema has a field layout that prevents
@@ -199,6 +202,8 @@ the checked dispatch payload diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`;
 the checked imported recursive payload acceptance case is
 `../../examples/specification/check/binary-schema-imported-recursive-dispatch-payload-accepted/`;
+the checked recursive payload diagnostics case is
+`../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`;
 the checked helper-eligibility detail cases are
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and

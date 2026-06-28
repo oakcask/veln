@@ -214,6 +214,7 @@ compare it with `../specification/` before changing behavior.
   parent includes a non-recursive primitive case
   ([Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md)).
   Focused dispatch payload diagnostics now also
+  name the failed recursive-helper fact for recursive payload rejections and
   name the generated decode and encode helper boundaries
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not

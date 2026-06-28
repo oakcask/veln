@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"self_payload_schema\"", "dispatch payload schema `UnboundedNode` cannot reference itself", "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself", "dispatch payload schema `BoundedNode` cannot reference itself"]
+contains = ["\"id\":\"schema.dispatch_payload\"", "\"reason\":\"recursive_payload_missing_length_bound\"", "\"reason\":\"recursive_payload_missing_primitive_base_case\"", "\"reason\":\"recursive_payload_missing_selected_mapping_coverage\"", "\"recursive_helper_fact\":\"recursive dispatch payloads require a length-bounded parent dispatch field\"", "\"recursive_helper_fact\":\"unmapped recursive dispatch parents require a non-recursive primitive base case\"", "\"recursive_helper_fact\":\"recursive dispatch payload encode support requires selected mappings to cover every dispatch case\""]
 
 [stderr]
 format = "empty"
@@ -16,13 +16,13 @@ equals = "error"
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `UnboundedNode` cannot reference itself"
+message = "dispatch payload schema `UnboundedNode` requires parent dispatch field `payload` to include a length field"
 
 [[diagnostics]]
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `wire::RecursiveClosedPayload` cannot reference itself"
+message = "dispatch payload schema `wire::RecursiveClosedPayload` requires parent dispatch field `payload` to include a length field"
 
 [diagnostics.span]
 file = "main.veln"
@@ -32,8 +32,18 @@ line = 59
 id = "schema.dispatch_payload"
 severity = "error"
 kind = "type"
-message = "dispatch payload schema `BoundedNode` cannot reference itself"
+message = "dispatch payload schema `wire::RecursiveClosedPayload` requires selected mappings to cover every case of parent dispatch field `payload`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 75
+line = 79
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `BoundedNode` requires unmapped parent dispatch field `payload` to include a non-recursive primitive case"
+
+[diagnostics.span]
+file = "main.veln"
+line = 96

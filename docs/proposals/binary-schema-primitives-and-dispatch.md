@@ -235,7 +235,11 @@ recursive decode-only parent slice is archived under
 Imported private, missing,
 wrong-kind, non-binary, forward, unbounded recursive, or otherwise ineligible
 payload schemas, including schemas outside the generated helper slice, use the
-existing `schema.dispatch_payload` diagnostic shape. Resolved binary payload
+existing `schema.dispatch_payload` diagnostic shape. Recursive payload
+rejections name the failed helper fact for the parent dispatch, including a
+missing length-bounded dispatch, missing primitive base case for unmapped
+decode-only parents, or missing selected mapping coverage for encode-capable
+parents. Resolved binary payload
 schemas outside that helper slice include structured expected decode and
 encode helper fields plus related notes for the payload declaration; checked
 coverage includes a nested payload whose `ByteView` length field is not an
@@ -288,8 +292,9 @@ ADT constructor target field whose constructor payload is selected from a
 record-shaped schema mapping expression and keeps malformed selections rejected
 through the existing `schema.mapping_expression_unsupported` diagnostic.
 Broader unsupported field layouts and schema value mapping beyond the
-implemented structural, constructor field-selection, and mapped-payload
-eligibility diagnostic slices remain proposal work. The completed
+implemented structural, constructor field-selection, mapped-payload
+eligibility, and imported recursive helper-fact diagnostic slices remain
+proposal work. The completed
 reserved-byte-prefix encode slice for
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is
 archived under
@@ -1001,7 +1006,7 @@ author likely referred to an earlier field with a compatible role.
 
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
-  references, mapped encode projection diagnostics, remaining imported
-  recursive diagnostics, and schema value mapping beyond the implemented structural
-  mapping slices, constructor field-selection, and mapped-payload
-  eligibility diagnostic slices remain proposal work.
+  references, mapped encode projection diagnostics, and schema value mapping
+  beyond the implemented structural mapping slices, constructor
+  field-selection, mapped-payload eligibility, and imported recursive
+  helper-fact diagnostic slices remain proposal work.
