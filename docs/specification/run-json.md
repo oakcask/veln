@@ -641,7 +641,9 @@ return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
 payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
 value while `details.protocol_diagnostic` keeps the same public fields,
-including the header-block preview.
+including the header-block preview. The focused `PUSH_PROMISE` promised
+request-header helper JSON example keeps the same projection shape while
+preserving frame kind `5` and the promised request header-block preview.
 Received response header-list validation failures use id
 `http2.protocol.invalid_response_header_list` and record the same structured
 fields, including `byte_preview` for the inspected header-block bytes. The
@@ -708,7 +710,10 @@ The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
 for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
 final-CONTINUATION cases expose the stripped promised header block as checked
 lowercase hex output and print the reserved-by-peer promised stream state.
-It also accepts the first response HEADERS block on that promised stream,
+It validates the decoded promised request header list before reservation,
+including accepted ordinary request headers and rejected `:status` and invalid
+`te` request-header facts through the existing request header-list diagnostic
+shape. It also accepts the first response HEADERS block on that promised stream,
 checks the open and `END_STREAM` closed-by-peer lifecycle outcomes, and keeps
 DATA before that response HEADERS block on the same invalid frame-kind
 diagnostic boundary. Stream id zero, promised stream id zero, wrong

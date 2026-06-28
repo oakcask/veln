@@ -796,6 +796,10 @@ existing stream id domain failure route before frame-kind state validation.
 The client-side receive slice and promised response HEADERS admission slice
 are completed under
 `../reference/implemented-proposals/http2-client-push-promise-receive.md`.
+That implemented record includes promised request header-list validation
+before reservation, accepted fixture-marked promised request headers, and
+focused rejected promised header-list facts using the existing request
+header-list diagnostic projection.
 
 The remaining scope below is still planned work for the full protocol core.
 
