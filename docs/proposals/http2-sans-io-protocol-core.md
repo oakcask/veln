@@ -52,7 +52,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   DATA send-credit refill from peer `WINDOW_UPDATE`, outbound `RST_STREAM`
   reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`, outbound
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
-  receive-window accounting
+  receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, and outbound HEADERS and DATA
   send-intent rejection above received or
@@ -579,6 +579,13 @@ received connection-level or open-stream `WINDOW_UPDATE` can restore the
 matching outbound DATA send credit after a no-output over-window rejection,
 while a local outbound `WINDOW_UPDATE` intent updates receive credit only and
 does not make later outbound DATA fit.
+Received peer `SETTINGS_INITIAL_WINDOW_SIZE` changes now also apply their delta
+to tracked open outbound stream send credit. A smaller advertised value can
+make existing stream send credit negative and reject the same DATA intent
+through the existing no-output stream send-window shape; a later stream-level
+peer `WINDOW_UPDATE` can restore enough credit for that DATA to emit bytes
+again, and a larger advertised value raises the existing send credit by the
+same delta.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
 under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
