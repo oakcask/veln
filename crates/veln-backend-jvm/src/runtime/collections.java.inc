@@ -543,6 +543,13 @@
         return storageByteWidth > 2 && storageByteWidth <= 8 ? storageByteWidth : 0;
     }
 
+    private static boolean reservedStartsPackedVisibleGroup(
+        SchemaFieldSpec reserved,
+        SchemaFieldSpec visible
+    ) {
+        return reserved != null && visible != null && packedVisibleBitWidth(reserved, visible) > 0;
+    }
+
     private static int bitPackedVisibleBitWidth(SchemaFieldSpec field) {
         if (field == null
             || field.isReserved()
@@ -3347,7 +3354,12 @@
             }
             if (index + 1 < schema.fields.length) {
                 SchemaFieldSpec nextField = schema.fields[index + 1];
-                int suffixVisibleBitWidth = suffixPackedVisibleBitWidth(field, nextField);
+                SchemaFieldSpec afterNextField =
+                    index + 2 < schema.fields.length ? schema.fields[index + 2] : null;
+                boolean nextFieldStartsPackedGroup =
+                    reservedStartsPackedVisibleGroup(nextField, afterNextField);
+                int suffixVisibleBitWidth =
+                    nextFieldStartsPackedGroup ? 0 : suffixPackedVisibleBitWidth(field, nextField);
                 if (suffixVisibleBitWidth > 0) {
                     int suffixStorageByteWidth = suffixPackedStorageByteWidth(field, nextField);
                     long visibleValue = asLong(schemaFieldEncodeValue(fields.get(field.name), field));
@@ -6421,8 +6433,14 @@
                     : packedStorageByteWidth(pendingPackedReserved, field);
             SchemaFieldSpec suffixReserved =
                 index + 1 < schema.fields.length ? schema.fields[index + 1] : null;
-            int suffixVisibleBitWidth = suffixPackedVisibleBitWidth(field, suffixReserved);
-            int suffixStorageByteWidth = suffixPackedStorageByteWidth(field, suffixReserved);
+            SchemaFieldSpec afterSuffixReserved =
+                index + 2 < schema.fields.length ? schema.fields[index + 2] : null;
+            boolean suffixReservedStartsPackedGroup =
+                reservedStartsPackedVisibleGroup(suffixReserved, afterSuffixReserved);
+            int suffixVisibleBitWidth =
+                suffixReservedStartsPackedGroup ? 0 : suffixPackedVisibleBitWidth(field, suffixReserved);
+            int suffixStorageByteWidth =
+                suffixReservedStartsPackedGroup ? 0 : suffixPackedStorageByteWidth(field, suffixReserved);
             Object read =
                 suffixVisibleBitWidth > 0
                     ? schemaReadSuffixPackedUnsignedWithBase(
@@ -6877,8 +6895,14 @@
                     : packedStorageByteWidth(pendingPackedReserved, field);
             SchemaFieldSpec suffixReserved =
                 index + 1 < schema.fields.length ? schema.fields[index + 1] : null;
-            int suffixVisibleBitWidth = suffixPackedVisibleBitWidth(field, suffixReserved);
-            int suffixStorageByteWidth = suffixPackedStorageByteWidth(field, suffixReserved);
+            SchemaFieldSpec afterSuffixReserved =
+                index + 2 < schema.fields.length ? schema.fields[index + 2] : null;
+            boolean suffixReservedStartsPackedGroup =
+                reservedStartsPackedVisibleGroup(suffixReserved, afterSuffixReserved);
+            int suffixVisibleBitWidth =
+                suffixReservedStartsPackedGroup ? 0 : suffixPackedVisibleBitWidth(field, suffixReserved);
+            int suffixStorageByteWidth =
+                suffixReservedStartsPackedGroup ? 0 : suffixPackedStorageByteWidth(field, suffixReserved);
             Object read =
                 suffixVisibleBitWidth > 0
                     ? schemaReadSuffixPackedUnsignedWithBase(
@@ -6998,8 +7022,14 @@
             } else if (field.dispatch == null) {
                 SchemaFieldSpec suffixReserved =
                     index + 1 < schema.fields.length ? schema.fields[index + 1] : null;
+                SchemaFieldSpec afterSuffixReserved =
+                    index + 2 < schema.fields.length ? schema.fields[index + 2] : null;
+                boolean suffixReservedStartsPackedGroup =
+                    reservedStartsPackedVisibleGroup(suffixReserved, afterSuffixReserved);
                 int suffixByteWidth =
-                    suffixPackedStorageByteWidth(field, suffixReserved);
+                    suffixReservedStartsPackedGroup
+                        ? 0
+                        : suffixPackedStorageByteWidth(field, suffixReserved);
                 int packedByteWidth =
                     pendingPackedReserved == null
                         ? 0
