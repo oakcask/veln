@@ -55,7 +55,8 @@ general generated helper shape with successful decode, short-input
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
 visible-only packed two-byte and three-byte groups, opt-in visible flag bitset
-fields, and wide reserved suffix and prefix groups. The completed
+fields, wide reserved suffix and prefix groups, and schema mappings that call
+pure same-module converters with five structural arguments. The completed
 generated-helper-backed codec boundary slices are recorded in
 `../reference/implemented-proposals/codec-generated-helper-boundary-slices.md`.
 The implemented command-facing diagnostic boundary also covers direct
@@ -259,7 +260,8 @@ repeat-backed schemas, arithmetic-count and quotient-count repeated primitive
 fields, supported middle reserved layouts, and the checked non-HTTP general
 helper shape, plus additive, subtractive, quotient-sized, and product-sized
 `ByteView` payload fields, standalone visible `UInt1` through `UInt7` fields,
-and visible-only packed two-byte and three-byte groups.
+visible-only packed two-byte and three-byte groups, and schema mappings that
+call pure same-module converters with five structural arguments.
 The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated

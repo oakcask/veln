@@ -258,6 +258,25 @@ short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
 and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
 item.
 The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
+covers the same derived codec decode and encode item boundary for a
+visible-only packed three-byte group. It checks successful `Decoded`,
+short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
+and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
+item.
+The executable specification case
+`../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
+covers the same derived codec decode item boundary for a schema mapping that
+calls a pure same-module converter with five structural arguments. It checks
+successful `Decoded`, short-input `NeedMore(NeedBytes(...))`, and
+helper-projected `Invalid(DecodeError(...))` outcomes through the codec item.
+The executable specification cases
+`../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-json/`
+and
+`../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-human/`
+pin JSON and human command-facing diagnostics for the helper-projected
+`Invalid(DecodeError(...))` value.
+The executable specification case
 `../../examples/specification/run/binary-schema-packed-visible-three-byte-decode-encode/`
 covers the three-byte visible-only packed generated helper boundary. It
 checks direct decode, generated decode-step, derived codec decode, direct
@@ -448,6 +467,11 @@ helper-projected encode failure.
 The executable specification case
 `../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
 covers the derived codec encode boundary over a visible-only packed two-byte
+group, including budgeted partial output, resumed `Encoded` output, and
+helper-projected `Invalid(EncodeError(...))`.
+The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
+covers the derived codec encode boundary over a visible-only packed three-byte
 group, including budgeted partial output, resumed `Encoded` output, and
 helper-projected `Invalid(EncodeError(...))`.
 The executable specification case

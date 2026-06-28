@@ -1494,6 +1494,7 @@ execution reference.
   `examples/specification/run/derived-codec-repeat-arithmetic-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
@@ -1515,6 +1516,9 @@ execution reference.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, helper `Err(EncodeError)` projection, and the same
   budgeted partial/resume path.
+  The packed visible three-byte boundary case checks successful encode,
+  budgeted `Partial` output, resumed `Encoded` output, and helper-projected
+  `Invalid(EncodeError)` through the derived codec item.
   The budgeted boundary case calls the same derived codec with the value
   record plus an explicit `ByteCount` output budget. If the generated
   `ByteChunk` fits in the budget, the call returns
@@ -1548,6 +1552,8 @@ execution reference.
   `ByteView(left_length * right_length)` payload fields,
   additive `ByteView(left_length + right_length)` payload fields,
   subtractive `ByteView(left_length - right_length)` payload fields,
+  schema mappings that call pure same-module converters with five structural
+  arguments,
   same-module or public imported nested dispatch payload schemas, same-module
   recursive closed and extension dispatch payload helpers, and multiple
   decoded-field selected schema mappings already accepted by
@@ -1569,9 +1575,13 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
+  `examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`,
+  `examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-json/`,
+  `examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-human/`,
   `examples/specification/run/derived-codec-sub-byte-boundary/`,
   `examples/specification/run/derived-codec-flag-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
@@ -1596,6 +1606,11 @@ execution reference.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
   field-validation `Invalid` outcomes through the codec item.
+  The five-argument mapped converter boundary case covers successful
+  `Decoded`, short-input `NeedMore`, helper `Invalid(DecodeError)` projection,
+  and human plus JSON command-facing diagnostics through the codec item.
+  The packed visible three-byte boundary case checks successful `Decoded` and
+  short-input `NeedMore(NeedBytes(...))` outcomes through the codec item.
   `examples/specification/run/codec-needmore-parser-state/` covers
   caller-owned parser state around the codec boundary: after `Decoded`, the
   caller drops exactly the consumed prefix and advances the explicit base
