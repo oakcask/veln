@@ -7117,11 +7117,14 @@ fn project_hpack_fixture_decode_failure(failure: Http2ProtocolFailure) -> Result
 	match failure
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_missing"
 			true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_missing(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_malformed"
-				true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
-					true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-					false => Err("expected projected HPACK dynamic-name fixture failure")
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_index_out_of_range"
+				true => accept_runtime_diagnostic(hpack_fixture_dynamic_index_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_malformed"
+					true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+					false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
+						true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+						false => Err("expected projected HPACK dynamic fixture failure")
+					end
 				end
 			end
 		end
@@ -7500,6 +7503,7 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let http2_missing: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001be")?), frame_state())?
 	print_failure("hpack-stateful-dynamic-indexed-missing-http2", http2_missing)
 	print_hpack_state_counts("hpack-stateful-dynamic-indexed-missing-http2", frame_state(), step_state(http2_missing))
+	let ignored_http2_missing_projection: () = require_projected_hpack_fixture_failure(http2_missing)?
 	let http2_inserted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000144072f746172676574")?), step_state(http2_missing))?
 	print_step("hpack-stateful-after-missing-literal-indexed-path-target", http2_inserted)
 	let ignored_http2_inserted: () = emit_header_block("http2-hpack-stateful-after-missing-literal-indexed-path-target", http2_inserted, "44072f746172676574")?
