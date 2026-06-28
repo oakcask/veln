@@ -3252,13 +3252,15 @@ fn schema_encode_mapping_value_fields(
         );
     };
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    let schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let schema_field_types = schema_encode_mapping_schema_field_types(schema, schema_fields)?;
+    let supported_int_field_names =
+        schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?;
     let typer = SchemaMappingTyper::new(module, schema);
     let source_context = SchemaEncodeMappingSourceContext {
         module,
         typer: &typer,
         schema_field_types: &schema_field_types,
-        exact_width_field_names,
+        exact_width_field_names: &supported_int_field_names,
         allow_single_payload_variant: false,
     };
     if mapping.selector.is_some()
@@ -3339,8 +3341,9 @@ fn schema_encode_mapping_field_types(
     exact_width_field_names: &[String],
     mapping: &veln_ast::SchemaMappingClause,
 ) -> Option<(BTreeMap<String, Type>, Vec<String>)> {
-    let mut schema_field_types = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
-    let mut supported_int_field_names = exact_width_field_names.to_vec();
+    let mut schema_field_types = schema_encode_mapping_schema_field_types(schema, schema_fields)?;
+    let mut supported_int_field_names =
+        schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?;
     let selector = mapping.selector.as_ref()?;
     for field in &schema.fields {
         let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
@@ -3390,6 +3393,36 @@ fn schema_encode_mapping_field_types(
         schema_field_types.insert(field.name.clone(), case_ty);
     }
     Some((schema_field_types, supported_int_field_names))
+}
+
+fn schema_encode_mapping_schema_field_types(
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+) -> Option<BTreeMap<String, Type>> {
+    let mut fields = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    for (index, field) in schema.fields.iter().enumerate() {
+        let Some(reserved) = reserved_bits_schema_primitive(&field.ty) else {
+            continue;
+        };
+        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
+        fields.insert(field.name.clone(), Type::int());
+    }
+    Some(fields)
+}
+
+fn schema_encode_mapping_supported_int_field_names(
+    schema: &SchemaDecl,
+    exact_width_field_names: &[String],
+) -> Option<Vec<String>> {
+    let mut names = exact_width_field_names.to_vec();
+    for (index, field) in schema.fields.iter().enumerate() {
+        let Some(reserved) = reserved_bits_schema_primitive(&field.ty) else {
+            continue;
+        };
+        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
+        names.push(field.name.clone());
+    }
+    Some(names)
 }
 
 struct SchemaEncodeMappingSourceContext<'a> {

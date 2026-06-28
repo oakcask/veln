@@ -475,7 +475,8 @@ execution reference.
   `ReservedBits(width, value)` fields up to four bytes wide as
   representation-only fields. The helper consumes the reserved bytes in
   declaration order, validates the declared fixed value, omits the field from
-  the decoded value and structural mapping source values, and reports
+  the decoded value, exposes it as an `Int` structural mapping source only
+  when a mapping assignment explicitly names the reserved field, and reports
   `schema.truncated_field` or `schema.reserved_bits_mismatch` at the reserved
   field path when the input is short or the fixed value differs.
 - Generated binary schema decode helpers also support packed reserved
@@ -490,10 +491,12 @@ execution reference.
   big-endian storage unit. The helper validates the high reserved bits,
   decodes the low
   visible bits as an ordinary `Int`, omits the reserved field from decoded
-  records and mapping source values, and advances by the shared storage width
-  for the pair. The width-fifteen two-byte boundary supports
+  records, exposes the validated reserved value as an `Int` structural
+  mapping source only when a mapping assignment explicitly names the reserved
+  field, and advances by the shared storage width for the pair. The
+  width-fifteen two-byte boundary supports
   `ReservedBits(15, value)` followed immediately by visible `UInt1`; it uses
-  the same reserved-bit mismatch shape, mapping-source omission, derived
+  the same reserved-bit mismatch shape, opt-in mapping-source exposure, derived
   codec eligibility, and encode range-failure path. Checked examples are
   `examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`
   and
@@ -556,7 +559,8 @@ execution reference.
   big-endian bitstream slice: the reserved prefix is validated first, the
   visible byte is decoded from the following byte position, trailing low
   padding bits are ignored when present, and the reserved field is omitted
-  from decoded records and mapping source values. The same
+  from decoded records while remaining available as an explicit structural
+  mapping source. The same
   shared-storage rule also covers
   consecutive non-byte-aligned `UIntN` and `ReservedBits(width, value)`
   fields when the group contains at least one visible field and at least one
@@ -736,7 +740,9 @@ execution reference.
   mapping is selected. Converter selectors are evaluated after field-local
   validation succeeds, using the same schema-local field and supported
   structural mapping argument rules as mapping converter calls. Mapping assignment
-  expressions may reference decoded schema fields, construct records,
+  expressions may reference decoded schema fields and supported
+  `ReservedBits(width, value)` fields explicitly named by the assignment,
+  construct records,
   construct ADT payloads resolved through the ordinary source module rules,
   including nested ADT constructor payload expressions whose leaves stay in the
   implemented schema-local expression vocabulary, or
@@ -855,7 +861,9 @@ execution reference.
   `Flag24be(bits)`, `Flag24le(bits)`, `Flag32be(bits)`, `Flag32le(bits)`,
   `Flag40be(bits)`, `Flag40le(bits)`, `Flag48be(bits)`, `Flag48le(bits)`,
   `Flag56be(bits)`, `Flag56le(bits)`, `Flag64be(bits)`, and
-  `Flag64le(bits)` values. For one
+  `Flag64le(bits)` values. Supported reserved fields named by a mapping
+  assignment decode as `Int` values equal to the validated declared reserved
+  pattern. For one
   structural `map to Target` clause whose assignments project every visible
   encode field, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record.
@@ -882,7 +890,11 @@ execution reference.
   recovered schema-local fields. Single-payload
   constructor wrappers remain limited to the existing single-constructor flag
   and exact-width integer cases unless the payload is that record-expression
-  slice or a supported nested constructor projection. A target value whose
+  slice or a supported nested constructor projection. Mapping assignments may
+  also project a target `Int` field back to a supported reserved field; the
+  helper accepts the value only when it equals the declared reserved pattern,
+  reports `codec.encode_mapping_mismatch` at the mapped target field path
+  otherwise, and still emits the schema-declared reserved bits. A target value whose
   ADT constructor does not match the constructor expected by the mapping
   returns
   `Err(EncodeError("codec.encode_mapping_mismatch", field_path, reason))`.

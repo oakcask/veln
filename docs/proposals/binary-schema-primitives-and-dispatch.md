@@ -28,8 +28,10 @@ also generalized. Generated schema helpers
 also consume byte-aligned
 `ReservedBits(width, value)` fields up to four bytes wide as
 representation-only fields, omit those fields from decoded records and
-mapping source values, encode them from the declared fixed value, and report
-the same reserved-bit mismatch and truncation diagnostic shapes. Generated
+mapping source values by default, expose the validated reserved value as an
+`Int` mapping source only when an assignment explicitly names the reserved
+field, encode them from the declared fixed value, and report the same
+reserved-bit mismatch and truncation diagnostic shapes. Generated
 schema helpers also consume and encode packed `ReservedBits(width, value)`
 prefixes where widths one through seven are followed by the visible `UIntN`
 primitive that completes the byte, widths nine through fifteen complete the
@@ -39,8 +41,10 @@ twenty-five through thirty-one complete the same four-byte big-endian storage
 unit. The helpers
 validate the high reserved bits, decode or encode the low visible bits from
 the ordinary record field, omit the reserved field from decoded records and
-mapping source values, and report the same reserved-bit mismatch, truncation,
-and `codec.encode_value_unrepresentable` diagnostic shapes. Helper history
+mapping source values by default, expose the validated reserved value as an
+`Int` mapping source only when an assignment explicitly names the reserved
+field, and report the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes. Helper history
 for the `ReservedBits(15, value)` plus `UInt1` two-field boundary is recorded
 in
 [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
@@ -54,8 +58,10 @@ complete fifty-six bits, and the eight-byte case where the fields complete
 sixty-four bits.
 The helpers decode or encode the visible field from the high bits, validate or
 emit the declared low reserved bits, omit the reserved field from decoded
-records and mapping source values, and report the same reserved-bit mismatch,
-truncation, and `codec.encode_value_unrepresentable` diagnostic shapes.
+records and mapping source values by default, expose the validated reserved
+value as an `Int` mapping source only when an assignment explicitly names the
+reserved field, and report the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
 The completed one-byte reserved suffix slice is archived under
 `../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md`.
 The completed six-byte reserved suffix slice is archived under
@@ -85,8 +91,10 @@ The helpers
 validate or emit the high reserved bits, decode or
 encode the two visible
 fields from high to low, omit the reserved field from decoded records and
-mapping source values, and report the same reserved-bit mismatch, truncation,
-and `codec.encode_value_unrepresentable` diagnostic shapes.
+mapping source values by default, expose the validated reserved value as an
+`Int` mapping source only when an assignment explicitly names the reserved
+field, and report the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
 The completed seven-byte and eight-byte reserved prefix group slice is
 archived under
 `../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md`.
@@ -96,15 +104,19 @@ followed by one sub-byte `ReservedBits(width, value)` field, one visible
 `UInt8` field, and one final visible sub-byte `UIntN` field whose widths
 complete the same two-byte big-endian storage unit. The helpers
 preserve all visible fields, omit the reserved field from decoded records and
-mapping source values, validate or emit the declared reserved bits at the
-middle field position, include the layout in derived codec eligibility, and
+mapping source values by default, expose the validated reserved value as an
+`Int` mapping source only when an assignment explicitly names the reserved
+field, validate or emit the declared reserved bits at the middle field
+position, include the layout in derived codec eligibility, and
 report the same reserved-bit mismatch, truncation, and
 `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode the narrow
 `ReservedBits(9, 0)` plus `UInt8` byte-prefix layout as a two-byte
 big-endian bitstream slice, omitting the reserved field from decoded records,
-mapping source values, and encoder input records while preserving the visible
-byte field and existing reserved-bit mismatch, truncation, and
+mapping source values by default, and encoder input records while preserving
+the visible byte field, exposing the validated reserved value as an `Int`
+mapping source only when an assignment explicitly names the reserved field,
+and preserving existing reserved-bit mismatch, truncation, and
 `codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode consecutive
 non-byte-aligned `UIntN` and `ReservedBits(width, value)` fields when the
@@ -112,17 +124,21 @@ group contains at least one visible field and at least one reserved field and
 the declared widths complete one byte or one two-byte, three-byte, four-byte,
 five-byte, six-byte, seven-byte, or eight-byte big-endian storage unit. The helpers
 validate or emit each reserved field at its declared position, omit reserved
-fields from decoded records and mapping source values, preserve visible fields
-in declaration order, and report the same reserved-bit mismatch, truncation,
-and `codec.encode_value_unrepresentable` diagnostic shapes.
+fields from decoded records and mapping source values by default, expose each
+validated reserved value as an `Int` mapping source only when an assignment
+explicitly names that reserved field, preserve visible fields in declaration
+order, and report the same reserved-bit mismatch, truncation, and
+`codec.encode_value_unrepresentable` diagnostic shapes.
 Generated schema helpers also consume and encode the narrow two-byte suffix
 group where two visible `UIntN` fields are followed by a non-byte-aligned
 `ReservedBits(width, value)` suffix, the second visible field is `UInt8`, and
 all three widths complete the same two-byte big-endian storage unit. The helpers
 decode or encode the visible fields in declaration order, validate or emit
 the low reserved bits, omit the reserved field from decoded records and
-mapping source values, include the layout in derived codec eligibility, and
-report the same reserved-bit mismatch and
+mapping source values by default, expose the validated reserved value as an
+`Int` mapping source only when an assignment explicitly names the reserved
+field, include the layout in derived codec eligibility, and report the same
+reserved-bit mismatch and
 `codec.encode_value_unrepresentable` diagnostic shapes.
 The completed two-byte suffix reserved group slice is archived under
 `../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md`.
@@ -807,14 +823,16 @@ The completed two-byte suffix reserved group slice is recorded in
 The completed `ReservedBits(15, value)` plus `UInt1` two-field boundary is
 recorded in
 [Binary Schema Reserved Fifteen-Bit Prefix](../reference/implemented-proposals/binary-schema-reserved-fifteen-bit-prefix.md).
+The completed opt-in reserved-bit mapping exposure slice is recorded in
+[Binary Schema Reserved Bit Mapping Exposure](../reference/implemented-proposals/binary-schema-reserved-bit-mapping-exposure.md).
 Remaining proposal work is limited to non-byte-aligned shapes outside those
-layouts and any later opt-in mapping exposure.
+layouts.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable
 field path, but the primitive marks the field as representation-only so it is
-not mapped into the produced Veln record or ADT unless a later explicit mapping
-rule opts in.
+not mapped into the produced Veln record or ADT unless an explicit mapping
+assignment names it.
 
 For HTTP/2, the stream identifier field is therefore written as a one-bit
 reserved field followed by the visible 31-bit value:
@@ -946,6 +964,6 @@ author likely referred to an earlier field with a compatible role.
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
   references, mapped encode projection diagnostics, and imported recursive
-  diagnostics, and schema value mapping beyond the implemented structural,
-  constructor field-selection, and mapped-payload eligibility diagnostic
-  slices remain proposal work.
+  diagnostics, and schema value mapping beyond the implemented structural
+  mapping slices, constructor field-selection, and mapped-payload
+  eligibility diagnostic slices remain proposal work.

@@ -1,0 +1,89 @@
+use stdio
+
+type ReservedPacket
+	ReservedPacket {prefix: Int, marker: Int, kind: Int}
+end
+
+schema ReservedPacketWire
+	format binary
+
+	prefix: UInt8
+	marker: ReservedBits(8, 171)
+	kind: UInt8
+
+	map to ReservedPacket
+		prefix = prefix
+		marker = marker
+		kind = kind
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_packet(packet: {prefix: Int, marker: Int, kind: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(packet.prefix))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.marker))
+	stdio::print(" ")
+	stdio::println(int_to_string(packet.kind))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	stdio::println("output_chunk_list byte-aligned-reserved-mapping count 1")
+	emit_output_chunk("byte-aligned-reserved-mapping", 0, bytes, "12ab34")
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, path, _) => path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12ab34")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {prefix: Int, marker: Int, kind: Int} = byte_decode_reserved_packet_wire(view)?
+	emit_packet(packet)
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_reserved_packet_wire({prefix: 18, marker: 171, kind: 52})
+	let emitted: () = match encoded
+		Ok(encoded_bytes) => emit_encoded(encoded_bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+
+	let invalid: Result<ByteChunk, EncodeError> = byte_encode_reserved_packet_wire({prefix: 18, marker: 170, kind: 52})
+	let invalid_emitted: () = match invalid
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+
+	Ok(())
+end

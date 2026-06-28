@@ -575,11 +575,15 @@ reserved prefixes plus the visible `UIntN` field that completes the storage
 unit. The reserved field is omitted from the decoded
 record, and the helper then reads the following field after the shared storage
 unit. The failing cases assert `schema.reserved_bits_mismatch` and
-`schema.truncated_field` for the packed reserved field. The checked
-diagnostics case
-`../../examples/specification/check/schema-packed-reserved-mapping-diagnostics/`
-asserts that the packed reserved field is not available as a structural
-mapping source field.
+`schema.truncated_field` for the packed reserved field.
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-mapping-decode-encode/`
+and
+`../../examples/specification/run/binary-schema-packed-reserved-mapping-decode-encode/`
+pin explicit structural mapping exposure for byte-aligned and packed
+reserved fields. The passing paths decode the validated reserved value into a
+mapped `Int` target and encode the declared fixed bits; the failing paths
+assert `codec.encode_mapping_mismatch` when the mapped target field does not
+match the reserved pattern.
 `../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`
 and
 `../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-json/`
@@ -803,6 +807,12 @@ field path, and the `UInt31be` maximum.
 the direct structural mapping encode helper slice: the helper accepts the
 mapping target record shape, projects target fields back to schema-local
 fields, and writes one immutable `ByteChunk`.
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-mapping-decode-encode/`
+and
+`../../examples/specification/run/binary-schema-packed-reserved-mapping-decode-encode/`
+also pin direct mapping encode for supported reserved fields by checking that
+matching mapped `Int` values emit the declared reserved bits and mismatched
+values return `codec.encode_mapping_mismatch` at the mapped target field path.
 `../../examples/specification/run/derived-codec-selected-mapping-encode-boundary/`
 pins the same generated helper behavior through a `derive encode` codec
 boundary for selected structural mappings: both selector cases encode through
