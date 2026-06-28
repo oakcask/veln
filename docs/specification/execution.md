@@ -1474,6 +1474,9 @@ execution reference.
   record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
   helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
   and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
+  A written import-qualified call to a `pub codec` declared in another module
+  uses the same derived encode boundary while keeping the referenced schema
+  and generated helper owned by the declaring module.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-budgeted-encode-boundary/`,
@@ -1497,6 +1500,7 @@ execution reference.
   `examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
+  `examples/specification/run/derived-codec-imported-public-encode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-split-reserved-boundary/`,
@@ -1563,6 +1567,9 @@ execution reference.
   `DecodeStep<T>` value as
   `byte_decode_step_<schema>`, including mapped record values,
   `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
+  written import-qualified call to a `pub codec` declared in another module
+  uses the same derived decode boundary while keeping the referenced schema
+  and generated helper owned by the declaring module. The
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
@@ -1585,6 +1592,7 @@ execution reference.
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
+  `examples/specification/run/derived-codec-imported-public-decode-boundary/`,
   `examples/specification/run/derived-codec-recursive-dispatch-boundary/`,
   `examples/specification/run/derived-codec-general-helper-boundary/`,
   `examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`,

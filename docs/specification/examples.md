@@ -1556,6 +1556,11 @@ schema.
 pins the same public imported nested payload helper eligibility when reached
 through a `derive encode` codec boundary, including helper error projection to
 `EncodeStep::Invalid`.
+`../../examples/specification/run/derived-codec-imported-public-encode-boundary/`
+pins a `pub codec` declared in an imported module whose `derive encode`
+implementation invokes the generated helper in the declaring module, including
+helper success projection and helper error projection to
+`EncodeStep::Invalid`.
 `../../examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`
 pins the same mixed dispatch selected mapping encode boundary through
 `derive encode`, including nested helper and dispatch error projection to
@@ -1609,6 +1614,11 @@ fields, and focused human related notes.
 pins the same public imported nested payload helper eligibility when reached
 through a `derive decode` codec boundary, including the returned
 `DecodeStep` consumed count.
+`../../examples/specification/run/derived-codec-imported-public-decode-boundary/`
+pins a `pub codec` declared in an imported module whose `derive decode`
+implementation invokes the generated decode-step helper in the declaring
+module, including `Decoded`, short-input `NeedMore`, and helper-projected
+`Invalid` outcomes.
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
 missing names, non-schema names, private imported schemas, self references

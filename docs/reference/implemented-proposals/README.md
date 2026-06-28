@@ -150,6 +150,8 @@ behavior.
   [codec-generated-helper-boundary-slices.md](codec-generated-helper-boundary-slices.md).
 - Codec imported hand-written boundary:
   [codec-imported-hand-written-boundary.md](codec-imported-hand-written-boundary.md).
+- Codec imported derived boundary:
+  [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:

@@ -1,0 +1,18 @@
+type Packet
+	Packet {length: Int, kind: Int}
+end
+
+schema PacketWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to Packet
+		length = wire_length
+		kind = wire_kind
+end
+
+pub codec PacketCodec for PacketWire encode
+	derive encode
+end
