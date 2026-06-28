@@ -228,6 +228,9 @@ payloads, recursive extension known payloads, unknown payload preservation,
 and nested helper diagnostics. The completed nested dispatch
 `ByteView(length_field)` payload helper slice is archived under
 `../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md`.
+The completed dispatch payload helper boundary diagnostics slice is archived
+under
+`../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md`.
 A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. The mapping slice also accepts an

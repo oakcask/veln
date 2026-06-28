@@ -1901,6 +1901,12 @@ against the built `veln` binary.
   for parent dispatch field, selected payload schema, helper boundaries,
   unavailable directions, unsupported nested field path, layout reason, and
   related-note kinds.
+- `check/binary-schema-dispatch-payload-encode-helper-boundary-json/`: a
+  focused resolved nested payload schema whose decoded mapping shape is
+  available but whose mapping assignment cannot project back to schema-local
+  encode fields pins the parent dispatch field path, selected payload schema,
+  generated encode helper boundary, unavailable direction, layout reason, and
+  related-note kinds.
 - `check/binary-schema-dispatch-payload-helper-eligibility-human/`: the same
   dispatch payload helper-slice rejection projects the payload schema
   declaration, nested field cause, and helper requirement as human related

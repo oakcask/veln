@@ -196,6 +196,7 @@ failures with `id: "schema.dispatch_payload"` and `kind: "type"`. Their
 - `node_id`
 - `schema`
 - `field`
+- `field_path`
 - `reason`
 - `case_tag`
 - `payload`

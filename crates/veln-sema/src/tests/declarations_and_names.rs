@@ -2926,6 +2926,13 @@ fn dispatch_payload_schema_incompatible_helper_reports_helper_boundaries() {
         assert!(details.contains("\"reason\":\"incompatible_payload_schema\""));
         assert!(
             details.contains(
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"ClosedPacket\"},{\"kind\":\"field\",\"name\":\"payload\"}]"
+            ) || details.contains(
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"ExtensionPacket\"},{\"kind\":\"field\",\"name\":\"payload\"}]"
+            )
+        );
+        assert!(
+            details.contains(
                 "\"expected_decode_helper\":\"byte_decode_step_forward_byte_view_payload\""
             )
         );
@@ -3004,6 +3011,9 @@ fn dispatch_payload_schema_requires_encode_helper_projection() {
     );
     let details = diagnostic.details.to_json();
     assert!(details.contains("\"reason\":\"incompatible_payload_schema\""));
+    assert!(details.contains(
+        "\"field_path\":[{\"kind\":\"schema\",\"name\":\"ClosedPacket\"},{\"kind\":\"field\",\"name\":\"payload\"}]"
+    ));
     assert!(
         details
             .contains("\"expected_decode_helper\":\"byte_decode_step_unsupported_mapped_payload\"")

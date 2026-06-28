@@ -132,6 +132,8 @@ behavior.
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
+- Binary schema dispatch payload helper boundary diagnostics:
+  [binary-schema-dispatch-payload-helper-boundary-diagnostics.md](binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
 - Binary schema mapping arithmetic encode:
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Codec generated helper boundary slices:

@@ -32,6 +32,10 @@ path = "diagnostics.1.details.field"
 equals = "payload"
 
 [[json_assert]]
+path = "diagnostics.1.details.field_path"
+equals = [{"kind":"schema","name":"ClosedPacket"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
 path = "diagnostics.1.details.reason"
 equals = "incompatible_payload_schema"
 
