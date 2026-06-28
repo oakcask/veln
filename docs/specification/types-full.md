@@ -215,6 +215,11 @@ collection expected-type rules as prelude helper callback returns. Function
 effect assignment keeps the usual pure and effectful compatibility checks.
 This rule does not infer public callback signatures, exported aliases, or
 helper signatures whose function parameter type still contains `unknown`.
+Source-backed prelude helpers that do not have a compiler-known callback rule
+use the same declared-helper fallback for bare and `prelude::` calls when the
+embedded source signature contains a concrete function-typed callback
+parameter. If that function parameter still contains `unknown`, the fallback
+does not constrain the private callback parameters.
 
 A concrete expected record type also pushes each expected field type into the
 matching record literal field initializer. When the expected field type is a

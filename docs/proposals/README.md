@@ -20,23 +20,24 @@ compare it with `../specification/` before changing behavior.
   payload-carrying ADT constructor inference, match scrutinee
   constructor-pattern inference, local pattern `let` inference,
   compiler-known prelude callback argument including `vec_try_map_with`,
-  dictionary callback alias, declared helper callback argument, record-field
-  callback, local callback binding, callback return expected-type,
-  constructor-payload callback, and examples cleanup slices specified in
-  `../specification/types.md`.
+  dictionary callback alias, declared helper callback argument, source-backed
+  prelude callback fallback, record-field callback, local callback binding,
+  callback return expected-type, constructor-payload callback, and examples
+  cleanup slices specified in `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
-  declared helper callback argument inference, record-field callback
-  inference, local callback binding inference, callback return expected-type
-  inference, constructor-payload callback inference, non-empty collection
-  initializer inference, ADT constructor payload inference, match scrutinee
-  constructor-pattern inference, local pattern `let` inference, nested
-  initializer expected-type propagation, hole expected-type flow, and examples
-  cleanup slices are archived under
+  declared helper callback argument inference, source-backed prelude callback
+  fallback, record-field callback inference, local callback binding inference,
+  callback return expected-type inference, constructor-payload callback
+  inference, non-empty collection initializer inference, ADT constructor
+  payload inference, match scrutinee constructor-pattern inference, local
+  pattern `let` inference, nested initializer expected-type propagation, hole
+  expected-type flow, and examples cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
   `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`,
+  `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`,
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
