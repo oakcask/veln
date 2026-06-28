@@ -1,0 +1,35 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "add\ndecoded\n5\n265\n12\nneed_more\nneed_bytes\n2\n0\nsubtract\ninvalid\nschema.length_out_of_bounds\n21\nSubtractRepeatValues.items\n0\nproduct\ndecoded\n6\n270\n14\nencoded\noutput_chunk_list repeat-add count 1\noutput_chunk repeat-add index 0 hex \"0203000100020003000400ff\" count 12\nencoded\noutput_chunk_list repeat-subtract count 1\noutput_chunk repeat-subtract index 0 hex \"05020001000200ff\" count 8\nencoded\noutput_chunk_list repeat-product count 1\noutput_chunk repeat-product index 0 hex \"02030001000200030004000500ff\" count 14\ninvalid\ncodec.encode_value_unrepresentable\nProductRepeatValues.items\nlist length 5 does not match count expression `row_count * column_count` value 6\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "repeat-add"
+chunks = ["0203000100020003000400ff"]
+
+[[output_chunk_list]]
+name = "repeat-subtract"
+chunks = ["05020001000200ff"]
+
+[[output_chunk_list]]
+name = "repeat-product"
+chunks = ["02030001000200030004000500ff"]

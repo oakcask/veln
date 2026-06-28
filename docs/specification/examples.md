@@ -274,6 +274,14 @@ successful `Decoded` and `Encoded` outcomes, short-input `NeedMore`, division
 by zero projected to `Invalid(DecodeError)`, and list-count mismatch
 projected to `Invalid(EncodeError)`.
 The executable specification case
+`../../examples/specification/run/derived-codec-repeat-arithmetic-boundary/`
+covers the same derived codec decode and encode item boundary when generated
+helpers use `Repeat(left_count + right_count, UInt16be)`,
+`Repeat(left_count - right_count, UInt16be)`, and
+`Repeat(row_count * column_count, UInt16be)`, including successful `Decoded`
+and `Encoded` outcomes, short-input `NeedMore`, helper decode failure
+projection, and list-count mismatch projection.
+The executable specification case
 `../../examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a quotient-sized `ByteView(left_length / right_length)`
@@ -1310,6 +1318,9 @@ pin `Repeat(total_count / group_count, UInt16be)` decode, encode, direct
 helper encode mismatch, and division-by-zero diagnostics.
 The derived codec boundary for that same helper shape is pinned by
 `../../examples/specification/run/derived-codec-repeat-quotient-boundary/`.
+The derived codec boundary for addition, subtraction, and multiplication
+count expressions is pinned by
+`../../examples/specification/run/derived-codec-repeat-arithmetic-boundary/`.
 
 `../../examples/specification/run/binary-schema-repeat-truncated-json/` and
 `../../examples/specification/run/binary-schema-repeat-truncated-human/` pin

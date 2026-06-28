@@ -2192,6 +2192,11 @@ against the built `veln` binary.
   encode` boundary projects a bounded repeated `ByteView` schema helper
   success to one encoded output chunk and helper element failures to
   `Invalid(EncodeError)`.
+- `run/derived-codec-repeat-arithmetic-boundary/`: derived codec decode and
+  encode item boundaries over addition, subtraction, and multiplication
+  repeated primitive count expressions. The case checks successful `Decoded`
+  and `Encoded` outcomes, short-input readiness, helper decode failure
+  projection, and encode list-count mismatch projection.
 - `run/derived-codec-repeat-quotient-boundary/`: derived codec decode and
   encode item boundaries over a quotient-count repeated primitive schema. The
   case checks successful `Decoded` and `Encoded` outcomes, short-input
@@ -2259,6 +2264,9 @@ against the built `veln` binary.
 - `run/derived-codec-repeat-byteview-decode-boundary/`: the same `derive
   decode` boundary observes generated decode-step helper output for a bounded
   repeated `ByteView` field.
+- `run/derived-codec-repeat-arithmetic-boundary/`: the same `derive decode`
+  boundary observes generated decode-step helper output for addition,
+  subtraction, and multiplication repeated primitive count expressions.
 - `run/derived-codec-repeat-quotient-boundary/`: the same `derive decode`
   boundary observes generated decode-step helper output for a quotient-count
   repeated primitive field.

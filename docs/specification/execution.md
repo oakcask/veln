@@ -1394,8 +1394,8 @@ execution reference.
   name as the executable encode boundary for ordinary source calls, including
   opt-in visible flag bitset fields, visible-only packed two-byte groups,
   repeat-backed schemas,
-  quotient-count repeat schemas, additive, subtractive, product-sized, and
-  quotient-sized `ByteView` payload fields, the implemented
+  arithmetic-count and quotient-count repeat schemas, additive, subtractive,
+  product-sized, and quotient-sized `ByteView` payload fields, the implemented
   direct structural mapping and selected structural mapping slices, eligible
   nested dispatch payload schemas, and same-module recursive closed and
   extension dispatch payload helpers already accepted by
@@ -1420,6 +1420,7 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-encode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-encode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-arithmetic-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
@@ -1461,7 +1462,7 @@ execution reference.
   supported middle reserved-bit layouts, including byte-interleaved middle
   reserved layouts, wide reserved prefix groups, visible-only packed
   two-byte groups, repeat-backed
-  schemas, quotient-count repeat schemas, quotient-sized
+  schemas, arithmetic-count and quotient-count repeat schemas, quotient-sized
   `ByteView(left_length / right_length)` payload fields, product-sized
   `ByteView(left_length * right_length)` payload fields,
   additive `ByteView(left_length + right_length)` payload fields,
@@ -1482,6 +1483,7 @@ execution reference.
   `examples/specification/run/derived-codec-split-reserved-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-byteview-decode-boundary/`,
+  `examples/specification/run/derived-codec-repeat-arithmetic-boundary/`,
   `examples/specification/run/derived-codec-repeat-quotient-boundary/`,
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,

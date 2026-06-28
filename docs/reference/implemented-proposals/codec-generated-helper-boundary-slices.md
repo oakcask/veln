@@ -12,19 +12,21 @@ and the checked executable examples under `../../../examples/specification/`.
 
 Derived codec decode calls expose the same source-call boundary as the
 generated `byte_decode_step_<schema>` helper when the named schema is already
-eligible for that helper. The completed slices cover opt-in visible flag
-bitset fields and seven-byte or eight-byte reserved prefix groups. A codec
-call receives a bounded `ByteView` and explicit base `ByteOffset`, returns
-`Decoded` with the helper value and consumed `ByteCount`, returns `NeedMore`
-without consuming input, and returns helper `Invalid(DecodeError)` values
-without advancing caller-owned parser state.
+eligible for that helper. The completed slices cover addition, subtraction,
+multiplication, and division repeated primitive count expressions, opt-in
+visible flag bitset fields, and seven-byte or eight-byte reserved prefix
+groups. A codec call receives a bounded `ByteView` and explicit base
+`ByteOffset`, returns `Decoded` with the helper value and consumed
+`ByteCount`, returns `NeedMore` without consuming input, and returns helper
+`Invalid(DecodeError)` values without advancing caller-owned parser state.
 
 Derived codec encode calls expose the same source-call boundary as the
 generated `byte_encode_<schema>` helper when the named schema is already
-eligible for that helper. The completed slices cover quotient-sized
-`ByteView(left_length / right_length)` payload fields, opt-in visible flag
-bitset fields, and seven-byte or eight-byte reserved prefix groups. A codec
-call receives the helper value record, returns helper success as
+eligible for that helper. The completed slices cover addition, subtraction,
+multiplication, and division repeated primitive count expressions,
+quotient-sized `ByteView(left_length / right_length)` payload fields, opt-in
+visible flag bitset fields, and seven-byte or eight-byte reserved prefix
+groups. A codec call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists.
 
@@ -38,6 +40,16 @@ call receives the helper value record, returns helper success as
   checks quotient-sized `ByteView` encode success, length-mismatch helper
   failure projection, and division-by-zero helper failure projection through
   the derived codec item.
+- `../../../examples/specification/run/derived-codec-repeat-arithmetic-boundary/`
+  checks addition, subtraction, and multiplication repeat count helper
+  decode and encode success, short-input readiness, helper decode failure
+  projection, output chunk projection, and encode count-mismatch projection
+  through the derived codec item.
+- `../../../examples/specification/run/derived-codec-repeat-quotient-boundary/`
+  checks division repeat count helper decode and encode success,
+  short-input readiness, division-by-zero helper failure projection, output
+  chunk projection, and encode count-mismatch projection through the derived
+  codec item.
 - `../../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,

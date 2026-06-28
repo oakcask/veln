@@ -157,13 +157,12 @@ compare it with `../specification/` before changing behavior.
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte and two-byte group
   decode and encode,
-  bounded `Repeat(count_field, Payload)` and
-  `Repeat(left_count - right_count, Payload)` primitive, same-module nested
-  schema field, and public imported nested schema field decode and encode
-  slices, bounded `Repeat(left_count + right_count,
-  Payload)` decode and encode with primitive count-mismatch and derived codec
-  boundary coverage, bounded `Repeat(left_count * right_count, Payload)`
-  decode and encode with count-mismatch and invalid-count coverage, bounded
+  bounded `Repeat(count_field, Payload)` primitive, same-module nested schema
+  field, and public imported nested schema field decode and encode slices,
+  bounded `Repeat(left_count - right_count, Payload)`,
+  `Repeat(left_count + right_count, Payload)`, and
+  `Repeat(left_count * right_count, Payload)` decode and encode with
+  count-mismatch, invalid-count, and derived codec boundary coverage, bounded
   `Repeat(left_count / right_count, Payload)` decode and encode plus
   division-by-zero and derived codec boundary coverage,
   bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
@@ -250,7 +249,7 @@ compare it with `../specification/` before changing behavior.
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload
-  fields, quotient-count
+  fields, arithmetic-count and quotient-count
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, visible-only packed two-byte groups, opt-in
   visible flag bitset fields, wide reserved prefix groups, and selected
