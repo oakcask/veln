@@ -150,6 +150,30 @@ pub fn transition_state(transition: HpackDecodeTransition) -> HpackFixtureState
 	end
 end
 
+pub fn transition_headers(transition: HpackDecodeTransition) -> HpackHeaderList
+	match transition
+		HpackDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn header_list_first_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => name
+	end
+end
+
+pub fn header_list_first_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn state_decode_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, decode_count, _) => decode_count
+	end
+end
+
 pub fn failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
