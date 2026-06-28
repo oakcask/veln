@@ -359,6 +359,8 @@ execution reference.
   The checked examples are
   `examples/specification/run/binary-schema-flag8-decode/`,
   `examples/specification/run/binary-schema-flag16be-decode/`,
+  `examples/specification/run/binary-schema-flag16be-decode-step/`,
+  `examples/specification/run/binary-schema-flag16be-truncated-json/`,
   `examples/specification/run/binary-schema-flag8-bit-helpers/`,
   `examples/specification/run/binary-schema-flag8-from-bits-out-of-range-json/`,
   `examples/specification/run/binary-schema-flag8-bit-index-json/`,

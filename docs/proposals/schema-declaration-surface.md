@@ -60,9 +60,11 @@ The implemented first slice covers:
   generated binary decode helpers
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
 schemas whose fields use implemented exact-width unsigned primitives,
+  visible flag bitset fields,
   length-bounded `ByteView(length_field)` or
-  `ByteView(left_length - right_length)` payload fields, or the implemented
-  dispatch payload slices
+  `ByteView(left_length - right_length)` payload fields, bounded repeat
+  fields over implemented primitive, nested schema, or `ByteView(length_field)`
+  payloads, or the implemented dispatch payload slices
 - generated runtime mapping for one structural `map to Target` clause, or
   multiple clauses selected by `when field == literal`, `when field !=
   literal`, or narrow boolean selector expressions over decoded schema-local
@@ -110,14 +112,21 @@ schemas whose fields use implemented exact-width unsigned primitives,
   reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
 
+The completed visible flag bitset decode binding slice is archived under
+[Binary Schema Flag Decode Bindings](../reference/implemented-proposals/binary-schema-flag-decode-bindings.md).
+
+The completed bounded repeat helper binding slice is archived under
+[Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+
 The completed narrow arithmetic mapped encode slice is archived under
 [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
 
 This proposal remains open for:
 
 - generated runtime decode bindings for binary schema fields outside the
-  implemented exact-width unsigned primitive, length-bounded `ByteView`,
-  closed dispatch, and extension dispatch slices
+  implemented exact-width unsigned primitive, visible flag bitset,
+  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
+  dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
   construction, ADT constructor construction including nested constructor
   payload expressions, pure same-module or imported public representation
@@ -434,7 +443,9 @@ Implemented:
   field path, predicate text, owning supplied field value, and supplied decoded
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
-  unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
+  unsigned primitives, visible flag bitset fields, or bounded repeat fields
+  over implemented primitive, nested schema, or `ByteView(length_field)`
+  payloads expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module and
@@ -485,7 +496,8 @@ Remaining:
   assignment composition, and narrow decoded-field integer boolean selection
   slices.
 - General schema decode can synthesize executable bindings for fields outside
-  the implemented exact-width unsigned primitive, length-bounded `ByteView`,
-  closed dispatch, and extension dispatch slices.
+  the implemented exact-width unsigned primitive, visible flag bitset,
+  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
+  dispatch slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

@@ -106,6 +106,8 @@ behavior.
   [binary-schema-flag40-and-flag56-bitsets.md](binary-schema-flag40-and-flag56-bitsets.md).
 - Binary schema `Flag48be` and `Flag48le` bitsets:
   [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
+- Binary schema flag decode bindings:
+  [binary-schema-flag-decode-bindings.md](binary-schema-flag-decode-bindings.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
 - Binary schema reserved fifteen-bit prefix:
@@ -130,7 +132,7 @@ behavior.
   [binary-schema-suffix-reserved-groups.md](binary-schema-suffix-reserved-groups.md).
 - Binary schema reserved-bit mapping exposure:
   [binary-schema-reserved-bit-mapping-exposure.md](binary-schema-reserved-bit-mapping-exposure.md).
-- Binary schema nested repeat payload helpers:
+- Binary schema repeat helper bindings:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).

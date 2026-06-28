@@ -1,0 +1,13 @@
+# Binary schema Flag16be truncation reports the flag field path.
+schema FlagPacket
+	format binary
+
+	flags: Flag16be
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("12")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let ignored: {flags: Flag16be} = byte_decode_flag_packet(view)?
+	Ok(())
+end
