@@ -260,9 +260,9 @@ compare it with `../specification/` before changing behavior.
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload
   fields, arithmetic-count and quotient-count
   repeated primitive fields, same-module recursive closed and extension
-  dispatch payload helpers, visible-only packed two-byte groups, opt-in
-  visible flag bitset fields, wide reserved suffix groups, wide reserved
-  prefix groups, and selected
+  dispatch payload helpers, standalone visible `UInt1` through `UInt7`
+  fields, visible-only packed two-byte groups, opt-in visible flag bitset
+  fields, wide reserved suffix groups, wide reserved prefix groups, and selected
   structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.

@@ -1,0 +1,248 @@
+# Derived codec boundaries include standalone visible sub-byte schema helpers.
+use stdio
+
+schema SubByteBoundary
+	format binary
+
+	one_bit: UInt1
+	two_bits: UInt2
+	three_bits: UInt3 where three_bits == two_bits + 1
+	four_bits: UInt4
+	five_bits: UInt5
+	six_bits: UInt6
+	seven_bits: UInt7
+end
+
+codec SubByteCodec for SubByteBoundary decode encode
+	derive decode
+	derive encode
+end
+
+fn step_kind(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_sum(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> Int
+	match step
+		Decoded(sample, _) => sample.one_bit + sample.two_bits + sample.three_bits + sample.four_bits + sample.five_bits + sample.six_bits + sample.seven_bits
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn decode_error_id(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn decode_error_offset(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn decode_error_path(step: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+	end
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_byte_count(tail)
+	end
+end
+
+fn encode_kind(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_chunks(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_count(chunks)
+		Partial(chunks, _, _) => chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(chunks) => chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn encoded_offset(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> Int
+	match step
+		Encoded(_) => 0
+		Partial(_, _, state) => byte_count_to_int(state.encoded_offset)
+		Invalid(_) => 0
+	end
+end
+
+fn partial_state(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> Result<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}, String>
+	match step
+		Encoded(_) => Err("expected partial encode")
+		Partial(_, _, state) => Ok(state)
+		Invalid(_) => Err("expected partial encode")
+	end
+end
+
+fn encode_error_id(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn encode_error_path(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn encode_error_reason(step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_one_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_step_chunk(name: String, step: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}>, expected_hex: String) -> () effects [stdio]
+	match step
+		Encoded(Cons(chunk, Nil)) => emit_one_chunk(name, chunk, expected_hex)
+		Partial(Cons(chunk, Nil), _, _) => emit_one_chunk(name, chunk, expected_hex)
+		Encoded(chunks) => stdio::println(int_to_string(chunk_count(chunks)))
+		Partial(chunks, _, _) => stdio::println(int_to_string(chunk_count(chunks)))
+		Invalid(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0102030405067f")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let decoded: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}> = SubByteCodec(view, byte_offset(11)?)
+	stdio::println(step_kind(decoded))
+	stdio::println(int_to_string(decoded_sum(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let waiting: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}> = SubByteCodec(short_view, byte_offset(17)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("0102040405067f")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(7)?)?
+	let invalid_decode: DecodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int}> = SubByteCodec(invalid_view, byte_offset(23)?)
+	stdio::println(step_kind(invalid_decode))
+	stdio::println(int_to_string(consumed_count(invalid_decode)))
+	stdio::println(decode_error_id(invalid_decode))
+	stdio::println(int_to_string(decode_error_offset(invalid_decode)))
+	stdio::println(decode_error_path(invalid_decode))
+
+	let value: {one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int} = {one_bit: 1, two_bits: 2, three_bits: 3, four_bits: 4, five_bits: 5, six_bits: 6, seven_bits: 127}
+	let complete: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}> = SubByteCodec(value, byte_count(7)?)
+	stdio::println(encode_kind(complete))
+	stdio::println(int_to_string(emitted_chunks(complete)))
+	stdio::println(int_to_string(emitted_bytes(complete)))
+	emit_step_chunk("sub-byte-complete", complete, "0102030405067f")
+
+	let partial: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}> = SubByteCodec(value, byte_count(3)?)
+	stdio::println(encode_kind(partial))
+	stdio::println(int_to_string(emitted_chunks(partial)))
+	stdio::println(int_to_string(emitted_bytes(partial)))
+	stdio::println(int_to_string(encoded_offset(partial)))
+	emit_step_chunk("sub-byte-partial", partial, "010203")
+
+	let resume: {one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount} = partial_state(partial)?
+	let resumed: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}> = SubByteCodec(resume, byte_count(4)?)
+	stdio::println(encode_kind(resumed))
+	stdio::println(int_to_string(emitted_chunks(resumed)))
+	stdio::println(int_to_string(emitted_bytes(resumed)))
+	emit_step_chunk("sub-byte-resume", resumed, "0405067f")
+
+	let invalid_encode: EncodeStep<{one_bit: Int, two_bits: Int, three_bits: Int, four_bits: Int, five_bits: Int, six_bits: Int, seven_bits: Int, encoded_offset: ByteCount}> = SubByteCodec({one_bit: 1, two_bits: 2, three_bits: 3, four_bits: 4, five_bits: 5, six_bits: 6, seven_bits: 128}, byte_count(3)?)
+	stdio::println(encode_kind(invalid_encode))
+	stdio::println(int_to_string(emitted_chunks(invalid_encode)))
+	stdio::println(encode_error_id(invalid_encode))
+	stdio::println(encode_error_path(invalid_encode))
+	stdio::println(encode_error_reason(invalid_encode))
+	Ok(())
+end

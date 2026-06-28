@@ -1404,6 +1404,7 @@ execution reference.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
   name as the executable encode boundary for ordinary source calls, including
+  standalone visible `UInt1` through `UInt7` fields,
   opt-in visible flag bitset fields, visible-only packed two-byte groups,
   repeat-backed schemas,
   arithmetic-count and quotient-count repeat schemas, additive, subtractive,
@@ -1419,6 +1420,7 @@ execution reference.
   The checked examples are
   `examples/specification/run/derived-codec-encode-boundary/`,
   `examples/specification/run/derived-codec-budgeted-encode-boundary/`,
+  `examples/specification/run/derived-codec-sub-byte-boundary/`,
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-mapping-arithmetic-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-converter-encode-boundary/`,
@@ -1451,6 +1453,9 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks both successful `Ok(ByteChunk)` projection and helper
   `Err(EncodeError)` projection.
+  The sub-byte boundary case covers standalone visible `UInt1` through
+  `UInt7` fields, helper `Err(EncodeError)` projection, and the same
+  budgeted partial/resume path.
   The budgeted boundary case calls the same derived codec with the value
   record plus an explicit `ByteCount` output budget. If the generated
   `ByteChunk` fits in the budget, the call returns
@@ -1472,6 +1477,7 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
+  standalone visible `UInt1` through `UInt7` fields,
   opt-in visible flag bitset fields,
   supported middle reserved-bit layouts, including byte-interleaved middle
   reserved layouts, wide reserved suffix groups, wide reserved prefix groups,
@@ -1503,6 +1509,7 @@ execution reference.
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-quotient-decode-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
+  `examples/specification/run/derived-codec-sub-byte-boundary/`,
   `examples/specification/run/derived-codec-flag-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
@@ -1522,6 +1529,9 @@ execution reference.
   The general-helper roundtrip case covers the combined non-HTTP schema shape
   and checks successful `Decoded`, short-input `NeedMore`, and helper-failure
   `Invalid` outcomes through the codec item.
+  The sub-byte boundary case covers standalone visible `UInt1` through
+  `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
+  field-validation `Invalid` outcomes through the codec item.
   `examples/specification/run/codec-needmore-parser-state/` covers
   caller-owned parser state around the codec boundary: after `Decoded`, the
   caller drops exactly the consumed prefix and advances the explicit base
