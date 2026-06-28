@@ -877,12 +877,14 @@ header-list encoding, checked Huffman-marked literal encoding for supported
 static-table names, stateful bounded dynamic-table reuse for a
 literal-with-indexing `:path: /target` fixture header list, the checked request
 and response pseudo-header fixture lists needed by outbound send-intents, and
-unsupported-header failure paths that remain HPACK fixture results. It also
-supports checked outbound dynamic table-size update requests for HEADERS
-header blocks, carries the returned reduced table capacity into later
-outbound HPACK encoding, and rejects requested updates above the
-peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture encode
-failures before emitting header-block bytes.
+ordinary new-name literal-without-indexing for accepted visible-ASCII
+field-name and value pairs used by outbound HEADERS and `PUSH_PROMISE`
+send-intents. Unsupported ordinary names stay on HPACK fixture header-list
+encode failures. It also supports checked outbound dynamic table-size update
+requests for HEADERS header blocks, carries the returned reduced table
+capacity into later outbound HPACK encoding, and rejects requested updates
+above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
+encode failures before emitting header-block bytes.
 The completed local HPACK table-size receive-policy slice is current behavior
 under `../specification/` and
 `../reference/implemented-proposals/http2-hpack-table-size-policy.md`. It

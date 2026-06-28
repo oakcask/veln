@@ -17,7 +17,11 @@ literal-without-indexing and literal-with-indexing header lists for supported
 static-table names, checked Huffman-marked literal header lists for the
 same fixture boundary, and the checked request and response pseudo-header
 fixture lists used by outbound HEADERS and server-side `PUSH_PROMISE`
-send-intents.
+send-intents. The literal-without-indexing encoder also accepts ordinary
+new-name fields when the name is lowercase, passes the existing HTTP
+field-name token boundary, is not connection-specific, and the value is a
+visible-ASCII raw string. It emits deterministic new-name HPACK literal bytes
+without Huffman compression.
 
 The fixture module also exposes a stateful encode transition. Callers create a
 separate initial encode state, encode a supported literal-with-indexing header
@@ -52,6 +56,8 @@ before the send-intent path emits header-block bytes.
 
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
+Unsupported ordinary new-name fields stay on the same fixture header-list
+encoding failure path before HEADERS or `PUSH_PROMISE` bytes are emitted.
 The checked Huffman-marked single-NUL `:path` fixture value encodes to
 `0x04 0x82 0xff 0xc7`, and the checked full-table single-byte
 `hpack-byte-ff` `:path` fixture value encodes to
@@ -73,6 +79,8 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   `0xbe`, outbound dynamic table-size update bytes `0x3e` and
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
   dynamic-table capacity, an over-peer-limit table-size update failure,
+  raw new-name literal-without-indexing `x-demo: hello` into outbound
+  HEADERS and server-side `PUSH_PROMISE`,
   Huffman-marked literal `:path: test` into outbound HEADERS,
   Huffman-marked literal `:path: hpack-byte-ff` into outbound HEADERS,
   Huffman-marked literal `:path: hpack-bytes-00-ff` into outbound HEADERS,
@@ -85,8 +93,10 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   the same stateful encoder transition directly at the HPACK fixture boundary:
   separate initial encode state, literal-with-indexing insertion, dynamic
   indexed reuse, encode-count advancement, stateless wrapper compatibility,
-  accepted outbound table-size update bytes, reduced table capacity observed
-  by a later encode, and over-peer-limit table-size update failure.
+  accepted raw new-name literal-without-indexing bytes, rejected invalid
+  ordinary new-name failure, accepted outbound table-size update bytes,
+  reduced table capacity observed by a later encode, and over-peer-limit
+  table-size update failure.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks the
   direct static-indexed header-list encoder bytes for `:method: GET`,
   `:path: /`, `:scheme: https`, and `:status: 200`, plus unsupported

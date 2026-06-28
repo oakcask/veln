@@ -1996,7 +1996,11 @@ execution reference.
   directly checks those static-indexed encoder bytes and the unsupported
   header-name and header-value failure path with expected fixture
   `fixture header list encoding`. Raw literal `:path: /target` encodes to
-  `0x04 0x07 "/target"`,
+  `0x04 0x07 "/target"`. Raw new-name literal-without-indexing for the
+  accepted ordinary field `x-demo: hello` encodes deterministically as
+  `0x00 0x06 "x-demo" 0x05 "hello"`; ordinary names outside the lowercase
+  HTTP field-name token boundary stay on the existing HPACK fixture
+  header-list encoding failure path.
   Huffman-marked literal `:path: test` encodes to
   `0x04 0x83 0x49 0x50 0x9f`, and Huffman-marked literal `:status: 200`
   encodes to `0x08 0x82 0x10 0x01`. The same encoder is table-driven for

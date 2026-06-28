@@ -323,6 +323,8 @@ fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
 	print_encode_state("encode-stateful-after-dynamic", dynamic_state)
 	let stateless_encoded: ByteChunk = require_header_list_encoding(encode_header_list(literal_headers, 122))?
 	let _ = print_encoded_literal("encode-stateless-literal-indexed-path-target", Ok(stateless_encoded), byte_chunk_from_hex("44072f746172676574")?)?
+	let ignored_visible_ascii: HpackFixtureState = print_encode_transition("encode-literal-visible-ascii-x-demo", encode_header_list_with_state(outbound_literal_visible_ascii_headers(), initial_encode, 127), "0006782d64656d6f0568656c6c6f")?
+	let _ = print_encode_transition_failure("encode-literal-invalid-name", encode_header_list_with_state(outbound_literal_invalid_name_headers(), initial_encode, 128))?
 	let reduced_state: HpackFixtureState = print_encode_transition("encode-table-size-update-30", encode_table_size_update_with_state(30, 4096, dynamic_state, 123), "3e")?
 	let ignored_reduced_literal_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30", encode_header_list_with_state(literal_headers, reduced_state, 124), "44072f746172676574")?
 	let ignored_update_160_state: HpackFixtureState = print_encode_transition("encode-table-size-update-160", encode_table_size_update_with_state(160, 4096, initial_encode_state(), 125), "3f8101")?
