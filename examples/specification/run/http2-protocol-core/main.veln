@@ -637,7 +637,7 @@ fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: Pen
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
 	let payload: ByteChunk = frame_payload_chunk(pending, length)?
 	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
-	let stream_id_decision: ProtocolStreamIdDecision = validate_stream_id_domain(next_offset, kind, stream_id)
+	let stream_id_decision: ProtocolStreamIdDecision = validate_stream_id_domain(next_offset, kind, stream_id, receive_flow_control)
 	match stream_id_decision
 		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, consumed_state, header_preview)
 		ProtocolStreamIdFailed(error) => Ok(Failed(consumed_state, error))
@@ -702,7 +702,7 @@ fn frame_payload_chunk(frame: ByteChunk, length: Int) -> Result<ByteChunk, Strin
 	Ok(byte_view_to_chunk(byte_view(frame, payload_offset, payload_count)?))
 end
 
-fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
+fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
 	match kind == 4
 		true => require_connection_stream_id(offset, kind, stream_id)
 		false => match kind == 6
@@ -710,17 +710,17 @@ fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> Protocol
 			false => match kind == 7
 				true => require_connection_stream_id(offset, kind, stream_id)
 				false => match kind == 0
-					true => require_client_stream_id(offset, kind, stream_id)
+					true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 					false => match kind == 1
-						true => require_client_stream_id(offset, kind, stream_id)
+						true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 						false => match kind == 3
-							true => require_client_stream_id(offset, kind, stream_id)
+							true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 							false => match kind == 9
-								true => require_client_stream_id(offset, kind, stream_id)
+								true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 								false => match kind == 8
-									true => validate_window_update_stream_id(offset, kind, stream_id)
+									true => validate_window_update_stream_id(offset, kind, stream_id, receive_flow_control)
 									false => match kind == 2
-										true => require_client_stream_id(offset, kind, stream_id)
+										true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 										false => match kind == 5
 											true => require_client_stream_id(offset, kind, stream_id)
 											false => ProtocolStreamIdOk
@@ -736,10 +736,25 @@ fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> Protocol
 	end
 end
 
-fn validate_window_update_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
+fn validate_window_update_stream_id(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
 	match stream_id == 0
 		true => ProtocolStreamIdOk
+		false => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+	end
+end
+
+fn require_peer_stream_id(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
+	match stream_id_is_reserved_by_peer(stream_id, receive_flow_control)
+		true => ProtocolStreamIdOk
 		false => require_client_stream_id(offset, kind, stream_id)
+	end
+end
+
+fn stream_id_is_reserved_by_peer(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, promised_stream_id, _, _)) => stream_id == promised_stream_id
+		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, promised_stream_id)) => stream_id == promised_stream_id
+		ReceiveFlowControl(_, _) => false
 	end
 end
 
@@ -2728,7 +2743,7 @@ fn validate_priority_stream_state(offset: Int, kind: Int, stream_id: Int, receiv
 		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => match stream_id == open_stream_id
 			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
 			false => match stream_id == promised_stream_id
-				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope"))
+				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 				false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
@@ -2764,7 +2779,7 @@ fn validate_unknown_stream_state(offset: Int, kind: Int, stream_id: Int, receive
 		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => match stream_id == open_stream_id
 			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
 			false => match stream_id == promised_stream_id
-				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope"))
+				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 				false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
@@ -2800,7 +2815,7 @@ fn validate_data_stream_state(offset: Int, kind: Int, stream_id: Int, receive_fl
 		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => match stream_id == open_stream_id
 			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
 			false => match stream_id == promised_stream_id
-				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope"))
+				true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 				false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
@@ -2902,7 +2917,7 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
 			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, headers_priority), end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
-				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
+				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, headers_priority, end_stream, accepted_content_length)
 				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state)
 					ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 					ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
@@ -2930,6 +2945,17 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
+	end
+end
+
+fn receive_promised_stream_headers_decision(offset: Int, connection_window: Int, associated_stream_id: Int, associated_stream_window: Int, associated_priority: StreamPriorityState, promised_stream_id: Int, headers_priority: StreamPriorityState, end_stream: Bool, accepted_content_length: Int) -> Result<ReceiveFlowControlDecision, String>
+	let promised_priority: StreamPriorityState = stream_priority_with_accepted_content_length(headers_priority, accepted_content_length)
+	match end_stream
+		true => match stream_priority_content_length_expected(promised_priority) > 0
+			true => Ok(ReceiveFlowControlFailed(ContentLengthMismatch(offset, 1, promised_stream_id, stream_priority_content_length_expected(promised_priority), stream_priority_content_length_observed(promised_priority), "open-stream", "rfc9113_content_length_body", empty_byte_preview()?)))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(promised_stream_id, 65535))))
+		end
+		false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(associated_stream_id, associated_stream_window, associated_priority, promised_stream_id, 65535, promised_priority))))
 	end
 end
 
@@ -3038,7 +3064,7 @@ fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
 			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
-				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
+				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, NoStreamPriority, end_stream, accepted_content_length)
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
@@ -3067,7 +3093,7 @@ fn close_continuation_receive_stream(offset: Int, stream_id: Int, receive_flow_c
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, _, promised_stream_id)) => match stream_id == open_stream_id
 			true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window)))
 			false => match stream_id == promised_stream_id
-				true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope"))
+				true => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(promised_stream_id, 65535)))
 				false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
@@ -3130,7 +3156,7 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, applica
 					false => receive_client_push_associated_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority, promised_stream_id)
 				end
 				false => match stream_id == promised_stream_id
-					true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
+					true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers")))
 					false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 				end
 			end
@@ -3220,7 +3246,7 @@ fn reset_receive_stream(pending: ByteChunk, offset: Int, stream_id: Int, receive
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => match stream_id == open_stream_id
 			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code))))
 			false => match stream_id == promised_stream_id
-				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 3, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
+				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 3, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers")))
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
@@ -3323,7 +3349,7 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 				end
 			end
 			false => match stream_id == promised_stream_id
-				true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope"))
+				true => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 				false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
@@ -3361,7 +3387,7 @@ fn update_priority_receive_state(pending: ByteChunk, offset: Int, length: Int, s
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
 			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, stream_priority_with_priority(priority, StreamPriority(priority_dependency_stream_id(payload_view)?, priority_exclusive(payload_view)?, priority_weight(payload_view)?)), promised_stream_id))))
 			false => match stream_id == promised_stream_id
-				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_push_promise_later_frames_out_of_scope")))
+				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers")))
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
@@ -3808,6 +3834,7 @@ fn state_half_closed_local_stream_id(state: Http2DecodeState) -> Int
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(stream_id, _, _))) => stream_id
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
@@ -3819,6 +3846,7 @@ fn state_closed_by_peer_stream_id(state: Http2DecodeState) -> Int
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _))) => stream_id
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
@@ -3830,6 +3858,7 @@ fn state_reset_stream_id(state: Http2DecodeState) -> Int
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
 		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(stream_id, _))) => stream_id
@@ -6645,6 +6674,22 @@ fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [std
 	stdio::println(int_to_string(state_open_stream_id(state)))
 end
 
+fn print_two_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" open_stream_count ")
+	stdio::print(int_to_string(state_open_stream_count(state)))
+	stdio::print(" open_stream ")
+	stdio::print(int_to_string(state_open_stream_id(state)))
+	stdio::print(" second_open_stream ")
+	stdio::print(int_to_string(state_second_open_stream_id(state)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(state_connection_window(state)))
+	stdio::print(" stream_window ")
+	stdio::print(int_to_string(state_stream_window(state)))
+	stdio::print(" second_stream_window ")
+	stdio::println(int_to_string(state_second_stream_window(state)))
+end
+
 fn print_reserved_by_peer_stream(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" reserved_by_peer associated_stream ")
@@ -8296,6 +8341,18 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_accepted_header_block: () = emit_header_block("http2-client-push-promise-header-block", client_push_promise_accepted, "303132")?
 	print_hpack_transition("client-push-promise-accepted", client_push_promise_accepted)
 	print_reserved_by_peer_stream("client-push-promise-accepted", step_state(client_push_promise_accepted))
+	let client_push_promised_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000002353637")?), step_state(client_push_promise_accepted))?
+	print_step("client-push-promised-headers", client_push_promised_headers)
+	let ignored_promised_headers_block: () = emit_header_block("http2-client-push-promised-headers", client_push_promised_headers, "353637")?
+	print_hpack_transition("client-push-promised-headers", client_push_promised_headers)
+	print_two_peer_streams("client-push-promised-headers", step_state(client_push_promised_headers))
+	let client_push_promised_headers_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000002353637")?), step_state(client_push_promise_accepted))?
+	print_step("client-push-promised-headers-end-stream", client_push_promised_headers_end_stream)
+	let ignored_promised_headers_end_stream_block: () = emit_header_block("http2-client-push-promised-headers-end-stream", client_push_promised_headers_end_stream, "353637")?
+	print_hpack_transition("client-push-promised-headers-end-stream", client_push_promised_headers_end_stream)
+	print_closed_by_peer_stream("client-push-promised-headers-end-stream", step_state(client_push_promised_headers_end_stream))
+	let client_push_promised_data_before_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000000000002aa")?), step_state(client_push_promise_accepted))?
+	print_failure("client-push-promised-data-before-headers", client_push_promised_data_before_headers)
 	let client_push_promise_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006050000000001000000023031")?), client_push_state)?
 	print_step("client-push-promise-continuation-start", client_push_promise_continuation_start)
 	let client_push_promise_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(client_push_promise_continuation_start))?

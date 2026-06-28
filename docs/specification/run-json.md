@@ -686,18 +686,24 @@ preview uses the same object shape as other protocol-owned byte previews while
 frame-kind and stream-state facts stay in their own fields; the checked HTTP/2
 examples cover connection-control, idle-stream, reset-stream, and
 closed-by-peer stream state failures, plus peer-sent `PUSH_PROMISE` rejection
-on a nonzero stream. The direct standard helper connection-level and
-stream-level JSON examples, closed-by-peer stream-state example, and
-peer-sent `PUSH_PROMISE` JSON examples return source-visible
+on a nonzero stream and DATA on a reserved-by-peer promised stream before
+its response HEADERS block. The direct standard helper connection-level and
+stream-level JSON examples, closed-by-peer stream-state example, peer-sent
+`PUSH_PROMISE` JSON examples, and promised-stream DATA-before-HEADERS JSON
+example return source-visible
 `RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
 The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
 for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
 final-CONTINUATION cases expose the stripped promised header block as checked
-lowercase hex output and print the reserved-by-peer promised stream state,
-while stream id zero, promised stream id zero, wrong promised-stream parity,
-wrong associated-stream parity, short payload, and unsupported HPACK fixture
+lowercase hex output and print the reserved-by-peer promised stream state.
+It also accepts the first response HEADERS block on that promised stream,
+checks the open and `END_STREAM` closed-by-peer lifecycle outcomes, and keeps
+DATA before that response HEADERS block on the same invalid frame-kind
+diagnostic boundary. Stream id zero, promised stream id zero, wrong
+promised-stream parity, wrong associated-stream parity, short payload, and
+unsupported HPACK fixture
 inputs keep their existing structured diagnostic shapes inside the
 `run --json` stdout envelope.
 After receiving GOAWAY or after locally sending GOAWAY, a peer-created

@@ -777,6 +777,9 @@ kind before unknown extension-frame fallback. In the server-side receive core,
 existing `http2.protocol.invalid_frame_kind` projection with server receive
 state and rule provenance. `PUSH_PROMISE` on stream id zero follows the
 existing stream id domain failure route before frame-kind state validation.
+The client-side receive slice and promised response HEADERS admission slice
+are completed under
+`../reference/implemented-proposals/http2-client-push-promise-receive.md`.
 
 The remaining scope below is still planned work for the full protocol core.
 

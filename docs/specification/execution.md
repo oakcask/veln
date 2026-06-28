@@ -2366,9 +2366,14 @@ execution reference.
   fixture request header block. It strips the four-byte promised-stream
   payload before routing the header block through the same completed HEADERS
   and final CONTINUATION HPACK fixture decode paths used by ordinary header
-  blocks, and records the promised stream as reserved by peer while keeping
-  later DATA and HEADERS behavior for that promised stream outside this
-  slice. Associated stream id zero and wrong-parity associated stream ids keep
+  blocks, and records the promised stream as reserved by peer. The first
+  valid response HEADERS block on that promised stream then enters the same
+  open or closed-by-peer receive lifecycle as an ordinary peer-created stream,
+  depending on `END_STREAM`; DATA on the reserved-by-peer stream before that
+  response HEADERS block uses the existing
+  `http2.protocol.invalid_frame_kind` stream-state diagnostic shape with
+  reserved-by-peer active state and protocol-owned frame-header byte preview.
+  Associated stream id zero and wrong-parity associated stream ids keep
   the existing stream-id diagnostic route. Promised stream id zero and
   representable client-initiated promised stream ids use
   `http2.protocol.invalid_stream_id` with client receive rule provenance.
