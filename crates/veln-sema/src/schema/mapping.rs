@@ -10,8 +10,9 @@ use crate::adt::{self, AdtConstructor, AdtRegistry, ConstructorLookup};
 use crate::types::{
     FunctionSignature, Type, closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
     imported_module_for_path, imported_use_for_path, infer_function_body_effects, is_assignable,
-    ordinary_function_signatures, parse_type_or_unknown, schema_decode_record_fields,
-    schema_dispatch_case_type, selected_mappings_cover_dispatch_cases,
+    ordinary_function_signatures, parse_type_or_unknown, reserved_bits_schema_primitive,
+    schema_decode_record_fields, schema_dispatch_case_type, selected_mappings_cover_dispatch_cases,
+    supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -691,6 +692,13 @@ pub(crate) fn schema_mapping_source_field_types(
     mapping: &SchemaMappingClause,
 ) -> Option<BTreeMap<String, Type>> {
     let mut fields = schema_fields.clone();
+    for (index, field) in schema.fields.iter().enumerate() {
+        let Some(reserved) = reserved_bits_schema_primitive(&field.ty) else {
+            continue;
+        };
+        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
+        fields.insert(field.name.clone(), Type::int());
+    }
     let Some(selector) = &mapping.selector else {
         return Some(fields);
     };

@@ -195,7 +195,9 @@ A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = expression` to map schema-local fields into an ordinary
 source value shape. The implemented mapping expression slice supports
-schema-local field references, record construction, ADT constructor
+schema-local field references, including supported `ReservedBits(width,
+value)` fields when an assignment explicitly names the reserved field, record
+construction, ADT constructor
 construction resolved through ordinary source module rules, including
 constructor payloads made from nested supported mapping expressions, one pure
 same-module converter function call, or one imported public pure converter

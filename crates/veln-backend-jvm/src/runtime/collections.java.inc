@@ -7176,6 +7176,11 @@
     ) {
         java.util.LinkedHashMap<String, Object> values =
             new java.util.LinkedHashMap<String, Object>(decoded);
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.isReserved()) {
+                values.put(field.name, Long.valueOf(field.reservedValue));
+            }
+        }
         if (mapping.selectorField == null) {
             return values;
         }
@@ -7452,6 +7457,19 @@
             java.util.List<Object> mappingValues = asList(unwrapOk(mapped));
             for (Object entry : mappingValues) {
                 SchemaEncodeMappingValue mappingValue = (SchemaEncodeMappingValue) entry;
+                SchemaFieldSpec sourceField = schemaFieldByName(schema, mappingValue.source);
+                if (sourceField != null && sourceField.isReserved()) {
+                    long mappedValue = asLong(mappingValue.value);
+                    if (mappedValue != sourceField.reservedValue) {
+                        return err(encodeError(
+                            "codec.encode_mapping_mismatch",
+                            schema.name + "." + field.target,
+                            "mapped reserved field `" + mappingValue.source
+                                + "` must equal declared value "
+                                + sourceField.reservedValue
+                        ));
+                    }
+                }
                 entries.add(mappingValue.source);
                 entries.add(mappingValue.value);
             }

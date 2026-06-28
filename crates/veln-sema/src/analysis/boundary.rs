@@ -988,6 +988,11 @@ fn mapping_matches_declared_value_type(
     mapping: &SchemaMappingClause,
     target_fields: &[(String, Type)],
 ) -> bool {
+    let Some(schema_fields) =
+        schema_mapping_source_field_types(module, schema, schema_fields, mapping)
+    else {
+        return false;
+    };
     let target_field_types = target_fields
         .iter()
         .cloned()
@@ -997,7 +1002,7 @@ fn mapping_matches_declared_value_type(
         let Some(target_ty) = target_field_types.get(&assignment.target) else {
             return false;
         };
-        if schema_mapping_expr_typed(module, schema, schema_fields, &assignment.expr, target_ty)
+        if schema_mapping_expr_typed(module, schema, &schema_fields, &assignment.expr, target_ty)
             .is_err()
         {
             return false;
@@ -1022,6 +1027,11 @@ fn mapping_is_implemented_value_slice(
     mapping: &SchemaMappingClause,
     target_fields: &[(String, Type)],
 ) -> bool {
+    let Some(schema_fields) =
+        schema_mapping_source_field_types(module, schema, schema_fields, mapping)
+    else {
+        return false;
+    };
     let mut seen_targets = BTreeMap::<&str, ()>::new();
     for assignment in &mapping.assignments {
         let Some((_, target_ty)) = target_fields
@@ -1030,7 +1040,7 @@ fn mapping_is_implemented_value_slice(
         else {
             return false;
         };
-        if schema_mapping_expr_typed(module, schema, schema_fields, &assignment.expr, target_ty)
+        if schema_mapping_expr_typed(module, schema, &schema_fields, &assignment.expr, target_ty)
             .is_err()
         {
             return false;

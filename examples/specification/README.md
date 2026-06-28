@@ -300,9 +300,12 @@ against the built `veln` binary.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.
-- `check/schema-packed-reserved-mapping-diagnostics/`: packed
-  `ReservedBits(width, value)` fields are representation-only and are not
-  available as structural mapping source fields.
+- `run/binary-schema-byte-aligned-reserved-mapping-decode-encode/`: explicit
+  structural mapping exposure for a byte-aligned
+  `ReservedBits(width, value)` field, including encode mismatch checking.
+- `run/binary-schema-packed-reserved-mapping-decode-encode/`: explicit
+  structural mapping exposure for a packed `ReservedBits(width, value)`
+  field, including encode mismatch checking.
 - `check/schema-mapping-selection-diagnostics/`: binary schema diagnostics for
   missing, duplicate, overlapping, and unsupported structural mapping
   selection.
