@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path};
 
 use veln_ast::{
-    CodecDirection, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern,
-    PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
+    CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
+    PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
     lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -1393,7 +1393,9 @@ fn collect_schema_mapping_converter_callees_for_call(
     for codec in module.codecs.iter().filter(|codec| {
         codec.module_name.as_deref() == current_module
             && codec.name.as_ref() == Some(called)
-            && codec.directions.contains(&CodecDirection::Encode)
+            && codec.implementations.iter().any(|implementation| {
+                matches!(&implementation.kind, CodecImplementationKind::Derive)
+            })
     }) {
         let Some(schema_name) = &codec.schema else {
             continue;
@@ -2516,6 +2518,65 @@ mod tests {
                     "\n",
                     "pub fn main(view: ByteView) -> Result<{kind: Int}, String>\n",
                     "  byte_decode_header_wire(view)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("next_kind")),
+                (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_derived_codec_decode_schema_mapping_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "type Header\n",
+                    "  Header {kind: Int}\n",
+                    "end\n",
+                    "\n",
+                    "fn next_kind(kind: Int) -> Int\n",
+                    "  kind + 1\n",
+                    "end\n",
+                    "\n",
+                    "schema HeaderWire\n",
+                    "  format binary\n",
+                    "  wire_kind: UInt8\n",
+                    "\n",
+                    "  map to Header\n",
+                    "    kind = next_kind(wire_kind)\n",
+                    "end\n",
+                    "\n",
+                    "codec HeaderCodec for HeaderWire decode\n",
+                    "  derive decode\n",
+                    "end\n",
+                    "\n",
+                    "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{kind: Int}>\n",
+                    "  HeaderCodec(view, base)\n",
                     "end\n",
                 ),
             )],

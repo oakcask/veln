@@ -289,6 +289,8 @@ compare it with `../specification/` before changing behavior.
   dispatch payload helpers, standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte and three-byte groups, opt-in visible
   flag bitset fields, wide reserved suffix groups, wide reserved prefix groups,
+  schema mappings that call pure same-module converters with five structural
+  arguments through the derived codec decode boundary,
   and selected structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.

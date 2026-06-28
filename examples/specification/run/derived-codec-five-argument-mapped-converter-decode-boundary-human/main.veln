@@ -1,0 +1,35 @@
+type Header
+	Header {summary: Int, length: Int}
+end
+
+fn summarize(input: {value: Int}, extra: Int, bonus: Int, final: Int, doubled: Int) -> Int
+	input.value + extra + bonus + final + doubled
+end
+
+schema HeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8 where wire_kind <= wire_length
+
+	map to Header
+		length = wire_length
+		summary = summarize({value: wire_kind}, wire_length - 1, wire_kind + 1, wire_length + wire_kind, wire_length * 2)
+end
+
+codec HeaderCodec for HeaderWire decode
+	derive decode
+end
+
+fn invalid_step() -> Result<DecodeStep<{summary: Int, length: Int}>, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("000105")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	Ok(HeaderCodec(view, byte_offset(41)?))
+end
+
+pub fn main() -> DecodeStep<{summary: Int, length: Int}>
+	match invalid_step()
+		Ok(step) => step
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

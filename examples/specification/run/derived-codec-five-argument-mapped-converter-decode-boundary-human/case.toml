@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.validation_failed]: decode error at byte offset 43", "note: Field path: schema `HeaderWire` / field `wire_kind`.", "note: DecodeError value: DecodeError(schema.validation_failed, ByteOffset(43), HeaderWire.wire_kind)."]

@@ -15,11 +15,13 @@ generated `byte_decode_step_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions, standalone
 visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields, and
-seven-byte or eight-byte reserved prefix groups, plus seven-byte wide reserved
-suffix groups. A codec call receives a bounded `ByteView` and explicit base
-`ByteOffset`, returns `Decoded` with the helper value and consumed
-`ByteCount`, returns `NeedMore` without consuming input, and returns helper
-`Invalid(DecodeError)` values without advancing caller-owned parser state.
+visible-only packed three-byte groups, and seven-byte or eight-byte reserved
+prefix groups, seven-byte wide reserved suffix groups, and schema mappings
+that call pure same-module converters with five structural arguments. A codec
+call receives a bounded `ByteView` and explicit base `ByteOffset`, returns
+`Decoded` with the helper value and consumed `ByteCount`, returns `NeedMore`
+without consuming input, and returns helper `Invalid(DecodeError)` values
+without advancing caller-owned parser state.
 
 Derived codec encode calls expose the same source-call boundary as the
 generated `byte_encode_<schema>` helper when the named schema is already
@@ -27,9 +29,9 @@ eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
-fields, seven-byte or eight-byte reserved prefix groups, and seven-byte wide
-reserved suffix groups. A codec call receives the helper value record, returns
-helper success as
+fields, visible-only packed three-byte groups, seven-byte or eight-byte
+reserved prefix groups, and seven-byte wide reserved suffix groups. A codec
+call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists. The
 budgeted helper-backed path can expose `Partial` with emitted chunks,
@@ -60,6 +62,17 @@ produced count, and a resumable state record carrying `encoded_offset`.
   success, short-input readiness, field-validation helper failure projection,
   helper encode failure projection, and budgeted partial/resume behavior
   through the derived codec item.
+- `../../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
+  checks visible-only packed three-byte helper decode and encode behavior
+  through the derived codec item, including short-input readiness, budgeted
+  partial/resume behavior, and helper encode failure projection.
+- `../../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
+  checks generated helper decode behavior for a schema mapping that calls a
+  pure same-module converter with five structural arguments through the
+  derived codec item, including successful decode, consumed count, short-input
+  readiness, and helper decode failure projection. The companion human and
+  JSON cases check the command-facing diagnostics for that helper-projected
+  `Invalid(DecodeError)` value.
 - `../../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,
