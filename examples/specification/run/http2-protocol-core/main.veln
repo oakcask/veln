@@ -2452,6 +2452,77 @@ fn refill_outbound_send_credit_from_received_window_update(step: Http2Step, send
 	end
 end
 
+fn update_outbound_send_credit_from_received_settings(step: Http2Step, peer_settings: PeerSettingsState, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
+	match step
+		FrameDecoded(_, _, length, kind, flags, _, _, KnownFrame(_, _, _, payload)) => match kind == 4
+			true => match settings_ack_set(flags)
+				true => Ok(OutboundSendCreditUnchanged(send_credit))
+				false => match settings_payload_has_complete_items(length)
+					true => update_outbound_send_credit_from_settings_items(byte_view_to_chunk(payload), 0, length, peer_settings, OutboundSendCreditUnchanged(send_credit))
+					false => Ok(OutboundSendCreditUnchanged(send_credit))
+				end
+			end
+			false => Ok(OutboundSendCreditUnchanged(send_credit))
+		end
+		FrameDecoded(_, _, _, _, _, _, _, _) => Ok(OutboundSendCreditUnchanged(send_credit))
+		Waiting(_) => Ok(OutboundSendCreditUnchanged(send_credit))
+		Failed(_, _) => Ok(OutboundSendCreditUnchanged(send_credit))
+	end
+end
+
+fn update_outbound_send_credit_from_settings_items(payload: ByteChunk, item_offset: Int, payload_end_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
+	match item_offset == payload_end_offset
+		true => Ok(decision)
+		false => update_outbound_send_credit_from_settings_items(payload, item_offset + 6, payload_end_offset, update_single_settings_payload_item(payload, item_offset, peer_settings)?, update_single_initial_window_send_credit(payload, item_offset, peer_settings, decision)?)
+	end
+end
+
+fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
+	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
+	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
+	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
+	match peer_settings
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size) => match identifier == 5
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+			false => match identifier == 4
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+				false => match identifier == 2
+					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size))
+					false => match identifier == 3
+						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size))
+						false => match identifier == 1
+							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size))
+							false => match identifier == 6
+								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset)))
+								false => Ok(peer_settings)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn update_single_initial_window_send_credit(payload: ByteChunk, item_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
+	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
+	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
+	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
+	match identifier == 4
+		true => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(value - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))))
+		false => Ok(decision)
+	end
+end
+
+fn apply_initial_window_delta_to_outbound_send_credit(delta: Int, send_credit: OutboundSendCredit) -> OutboundSendCredit
+	match send_credit
+		OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream) => OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream)
+		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window)) => OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window + delta))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id)) => OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code)) => OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code))
+	end
+end
+
 fn refill_outbound_send_credit(offset: Int, stream_id: Int, increment: Int, preview: ByteChunk, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
 	match stream_id == 0
 		true => refill_outbound_connection_send_credit(offset, increment, preview, send_credit)
@@ -7890,6 +7961,26 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let local_window_update_still_blocked: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, outbound_send_credit_with_open_stream(1, 1, 1))?
 	print_outbound_data("outbound-data-after-local-window-update-no-refill", local_window_update_still_blocked)
 	let ignored_local_window_update_data_chunk: () = print_outbound_data_chunk("http2-data-after-local-window-update-no-refill", local_window_update_still_blocked, "")?
+	let outbound_initial_window_reduce: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000000")?), step_state(outbound_peer_limits))?
+	print_step("outbound-initial-window-reduce", outbound_initial_window_reduce)
+	print_peer_settings("outbound-initial-window-reduce", step_state(outbound_initial_window_reduce))
+	let reduced_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_reduce, outbound_peer_settings, outbound_data_send_credit(outbound_data_accepted))?
+	print_outbound_send_credit_update("outbound-initial-window-reduce-send-credit", reduced_send_credit)
+	let outbound_initial_window_blocked: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_send_credit_update_credit(reduced_send_credit))?
+	print_outbound_data("outbound-data-after-initial-window-reduce", outbound_initial_window_blocked)
+	let ignored_initial_window_blocked_chunk: () = print_outbound_data_chunk("http2-data-after-initial-window-reduce", outbound_initial_window_blocked, "")?
+	let outbound_initial_window_restore: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000004")?), receive_window_state(10, 1, 10))?
+	print_step("outbound-initial-window-restore", outbound_initial_window_restore)
+	let restored_send_credit: OutboundSendCreditUpdateDecision = refill_outbound_send_credit_from_received_window_update(outbound_initial_window_restore, outbound_send_credit_update_credit(reduced_send_credit))?
+	print_outbound_send_credit_update("outbound-initial-window-restore-send-credit", restored_send_credit)
+	let outbound_initial_window_restored: OutboundDataDecision = send_data(1, byte_chunk_from_hex("0102")?, false, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_send_credit_update_credit(restored_send_credit))?
+	print_outbound_data("outbound-data-after-initial-window-restore", outbound_initial_window_restored)
+	let ignored_initial_window_restored_chunk: () = print_outbound_data_chunk("http2-data-after-initial-window-restore", outbound_initial_window_restored, "0000020000000000010102")?
+	let outbound_initial_window_increase: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000006")?), step_state(outbound_initial_window_reduce))?
+	print_step("outbound-initial-window-increase", outbound_initial_window_increase)
+	print_peer_settings("outbound-initial-window-increase", step_state(outbound_initial_window_increase))
+	let increased_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_increase, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_data_send_credit(outbound_initial_window_restored))?
+	print_outbound_send_credit_update("outbound-initial-window-increase-send-credit", increased_send_credit)
 	let peer_closed_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), frame_state())?
 	let peer_closed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_closed_settings))?
 	let peer_closed_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000100000001aa")?), step_state(peer_closed_headers))?

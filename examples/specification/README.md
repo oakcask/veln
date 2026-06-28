@@ -2601,10 +2601,14 @@ against the built `veln` binary.
   a received PING ACK remains observable and produces no response chunk. It
   also constructs outbound DATA chunks for unpadded and PADDED send-intents,
   including PADDED splitting, over-window rejection, over-frame padding
-  rejection, and PADDED `END_STREAM` local closed-stream rejection of later
-  DATA. The same checked case records local outbound DATA `END_STREAM` as
-  half-closed-local for inbound processing. Later inbound DATA on that stream
-  continues to consume connection and stream receive-window credit, PADDED
+  rejection, peer `SETTINGS_INITIAL_WINDOW_SIZE` deltas applied to existing
+  open-stream outbound send credit, a reduction that makes the same DATA
+  intent fail with negative stream send credit before output bytes, later
+  stream-level peer `WINDOW_UPDATE` restoration, a same-delta increase, and
+  PADDED `END_STREAM` local closed-stream rejection of later DATA. The same
+  checked case records local outbound DATA `END_STREAM` as half-closed-local
+  for inbound processing. Later inbound DATA on that stream continues to
+  consume connection and stream receive-window credit, PADDED
   DATA continues to expose only application bytes, invalid padding and
   stream-window failures report the half-closed-local active state,
   connection-window failures remain connection-flow-control failures, and
