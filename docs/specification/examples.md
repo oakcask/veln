@@ -2708,7 +2708,11 @@ generated promised-stream payload plus the first header-block fragment and the
 final CONTINUATION frame carries `END_HEADERS`. The checked case also pins a
 fixture-encoded Huffman-marked `:status: 200` header block inside an outbound
 `PUSH_PROMISE` frame and the same raw new-name literal `x-demo: hello`
-inside an outbound `PUSH_PROMISE` frame. It rejects stream id `0`, missing,
+inside an outbound `PUSH_PROMISE` frame. It also carries the returned HPACK
+fixture encode state from a literal-with-indexing `PUSH_PROMISE` header-list
+encode into a later `PUSH_PROMISE`, where the matching promised header list
+uses the dynamic indexed byte `0xbe` while preserving ordinary
+`PUSH_PROMISE` and CONTINUATION output chunks. It rejects stream id `0`, missing,
 closed, reset,
 mismatched, or server-created associated streams, promised stream id `0`, and
 representable client-initiated promised stream ids before accepted bytes are

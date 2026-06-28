@@ -2529,8 +2529,15 @@ execution reference.
   also use the HPACK fixture encoder to build those header-block bytes from a
   fixture-owned header list before applying the same stream-id, frame-size,
   and CONTINUATION rules, including the checked Huffman-marked
-  `:status: 200` fixture literal. When the four-byte promised stream id plus
-  header block fits within the
+  `:status: 200` fixture literal. The checked stateful encoder path starts
+  from a separate fixture encode state, emits a supported
+  literal-with-indexing `:path: /target` promised header list, carries the
+  returned bounded dynamic-table state, and reuses that state for a later
+  `PUSH_PROMISE` send-intent whose matching header list encodes as the
+  dynamic indexed byte `0xbe`. The first stateful case still uses the
+  existing `PUSH_PROMISE` plus CONTINUATION splitting path when the
+  peer-advertised maximum frame size is small. When the four-byte promised
+  stream id plus header block fits within the
   peer-advertised maximum frame size, the intent emits one immutable output
   chunk with a `PUSH_PROMISE` frame header kind `5`, `END_HEADERS` set, the
   associated stream id, the generated `UInt31be` promised-stream payload, and

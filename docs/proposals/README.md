@@ -369,7 +369,8 @@ compare it with `../specification/` before changing behavior.
   HEADERS and `PUSH_PROMISE`,
   full-table single-byte Huffman-marked string literal decoding and encoding,
   and the bounded
-  stateful dynamic-table fixture encoder path, focused unsupported-Huffman EOS
+  stateful dynamic-table fixture encoder path across outbound HEADERS and
+  server-side `PUSH_PROMISE`, focused unsupported-Huffman EOS
   and non-visible decoded-byte diagnostics, focused malformed string-length
   and raw string value fixture diagnostics, general visible-ASCII raw literal
   values, raw field-name validation through header-list diagnostics, inbound

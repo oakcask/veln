@@ -487,7 +487,9 @@ aggregate protocol-core run case; they do not populate `error` or
 `details.protocol_diagnostic`. The same applies when those send-intents build
 their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including checked Huffman-marked string literal
-fixtures for outbound HEADERS and `PUSH_PROMISE`.
+fixtures for outbound HEADERS and `PUSH_PROMISE`, and including the checked
+stateful `PUSH_PROMISE` path where the returned fixture encode state lets a
+later promised header list use the dynamic indexed byte `0xbe`.
 
 HTTP/2 protocol-core failures that originate from a source-visible
 `RuntimeDiagnostic(...)` payload attach `details.protocol_diagnostic`.
