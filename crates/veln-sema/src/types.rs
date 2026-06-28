@@ -3017,9 +3017,15 @@ pub(crate) fn recursive_dispatch_payload_case_is_eligible(
     if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name) {
         return true;
     }
+    if dispatch.length_field.is_some()
+        && selected_mappings_cover_dispatch_cases(schema, dispatch)
+        && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
+        && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
+    {
+        return true;
+    }
     imported_recursive_dispatch_payload_case_is_eligible(module, schema, dispatch, schema_name)
-        && (selected_mappings_cover_dispatch_cases(schema, dispatch)
-            || schema_imported_recursive_dispatch_payload_type(module, schema, dispatch).is_some())
+        && schema_imported_recursive_dispatch_payload_type(module, schema, dispatch).is_some()
 }
 
 pub(crate) fn imported_recursive_dispatch_payload_case_is_eligible(
