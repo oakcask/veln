@@ -13,8 +13,10 @@ checked executable cases under `../../../examples/specification/run/`.
 Hand-written `decode with` codec boundaries and direct source-visible
 `Result<_, DecodeError>` failures preserve codec-owned
 `DecodeErrorWithReason(...)` ids beyond the generic `codec.invalid_input`
-path. The checked packet-kind slice uses `codec.packet_kind_invalid` at the
-reported byte offset after the decoder has read the rejected kind byte.
+path. Direct `DecodeStep::Invalid(DecodeErrorWithReason(...))` entry results
+preserve the same codec-owned ids and reason details. The checked
+packet-kind slice uses `codec.packet_kind_invalid` at the reported byte
+offset after the decoder has read the rejected kind byte.
 
 Command-facing projection keeps the primary human message focused on the
 invalid decode fact at the byte offset. Related notes carry the schema-local
@@ -38,6 +40,15 @@ failure message.
   byte offset, field path, display path, and reason.
 - `../../../examples/specification/run/codec-decode-error-owned-id-direct-human/`
   checks the direct path through focused human diagnostics and related notes.
+- `../../../examples/specification/run/codec-packet-kind-invalid-direct-json/`
+  and
+  `../../../examples/specification/run/codec-packet-kind-invalid-direct-human/`
+  check the target-named direct `Result<_, DecodeError>` path.
+- `../../../examples/specification/run/codec-packet-kind-invalid-step-json/`
+  and
+  `../../../examples/specification/run/codec-packet-kind-invalid-step-human/`
+  check the direct `DecodeStep::Invalid(DecodeErrorWithReason(...))` entry
+  path.
 - `../../specification/run-json.md`, `../../specification/commands.md`, and
   `../../specification/execution.md` summarize the implemented behavior and
   route readers to executable evidence.

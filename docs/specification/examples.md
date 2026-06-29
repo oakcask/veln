@@ -218,6 +218,17 @@ cover the same source-visible entry projection for
 reason as a related note, and `run --json` attaches
 `details.byte_diagnostic.reason`.
 The executable specification cases
+`../../examples/specification/run/codec-packet-kind-invalid-direct-human/`,
+`../../examples/specification/run/codec-packet-kind-invalid-direct-json/`,
+`../../examples/specification/run/codec-packet-kind-invalid-step-human/`,
+and
+`../../examples/specification/run/codec-packet-kind-invalid-step-json/`
+cover the same command-facing projection for `codec.packet_kind_invalid`:
+human output keeps the primary on the failed decode fact and related notes
+carry the field path, reason, and source-visible error value, while
+`run --json` attaches `details.byte_diagnostic` with the codec-owned id, byte
+offset, field path, display path, and reason.
+The executable specification cases
 `../../examples/specification/run/codec-decode-need-more-human/` and
 `../../examples/specification/run/codec-decode-need-more-json/` cover
 command-facing projection when a `veln run` entry returns

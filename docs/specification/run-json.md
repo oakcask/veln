@@ -423,7 +423,11 @@ kept only as `reason`; helper-only fields are omitted unless the reason
 matches registered helper context. If the reason is a byte-helper failure
 message with registered helper context, the command-facing projection keeps
 the reason text and adds the carried helper counts, local byte offset, and
-byte preview to the same `details.byte_diagnostic`.
+byte preview to the same `details.byte_diagnostic`. The checked
+packet-kind examples cover direct `DecodeErrorWithReason(...)` result
+failures and `Invalid(DecodeErrorWithReason(...))` entry results in
+`examples/specification/run/codec-packet-kind-invalid-direct-json/` and
+`examples/specification/run/codec-packet-kind-invalid-step-json/`.
 For `codec.checksum_mismatch`, a source-visible reason written as
 `expected_checksum=<value>; actual_checksum=<value>; reason=<text>` is
 projected as separate `expected_checksum`, `actual_checksum`, and `reason`

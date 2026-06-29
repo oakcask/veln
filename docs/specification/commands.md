@@ -115,7 +115,12 @@ requiring the full command reference on the first read.
   without helper-only related notes unless registered byte-helper context is
   present; direct `Result<_, DecodeError>` failures preserve codec-owned ids
   such as `codec.packet_kind_invalid` through the same focused human
-  diagnostic shape. Codec-owned checksum mismatch failures with id
+  diagnostic shape. The checked packet-kind examples cover direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results in
+  `examples/specification/run/codec-packet-kind-invalid-direct-human/` and
+  `examples/specification/run/codec-packet-kind-invalid-step-human/`.
+  Codec-owned checksum mismatch failures with id
   `codec.checksum_mismatch` use `checksum mismatch at byte offset ...` as the
   primary human message and put field path, expected checksum, actual
   checksum, failure reason, and the source-visible `DecodeError` value in

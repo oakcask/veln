@@ -1842,6 +1842,15 @@ execution reference.
   by a hand-written `decode with` codec boundary and the
   `codec.consumed_count_invalid` result produced by the hand-written codec
   boundary when a decoded consumed count is outside the supplied `ByteView`.
+  Direct `DecodeErrorWithReason(...)` result failures and
+  `DecodeStep::Invalid(DecodeErrorWithReason(...))` results carrying
+  `codec.packet_kind_invalid` keep the codec-owned id, byte offset, field
+  path, and plain reason without helper-only context fields. The checked
+  examples are
+  `examples/specification/run/codec-packet-kind-invalid-direct-json/`,
+  `examples/specification/run/codec-packet-kind-invalid-direct-human/`,
+  `examples/specification/run/codec-packet-kind-invalid-step-json/`, and
+  `examples/specification/run/codec-packet-kind-invalid-step-human/`.
   For `codec.checksum_mismatch`, direct
   `DecodeErrorWithReason(...)` results and
   `DecodeStep::Invalid(DecodeErrorWithReason(...))` results use a focused

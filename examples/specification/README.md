@@ -2131,6 +2131,15 @@ against the built `veln` binary.
   returns a codec-owned id other than the generic invalid-input id with a
   plain reason, and `veln run` preserves the id, absolute byte offset, field
   path, and reason without byte-helper-only context fields.
+- `run/codec-packet-kind-invalid-direct-human/`,
+  `run/codec-packet-kind-invalid-direct-json/`,
+  `run/codec-packet-kind-invalid-step-human/`, and
+  `run/codec-packet-kind-invalid-step-json/`: direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results with
+  `codec.packet_kind_invalid` keep the codec-owned id, byte offset, field
+  path, plain reason, and absence of helper-only context in human diagnostics
+  and `run --json`.
 - `run/codec-decode-invalid-byte-context-human/` and
   `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
   boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose
