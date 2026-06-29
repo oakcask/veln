@@ -60,7 +60,7 @@ cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
 byte-aligned representation-only `ReservedBits(width, value)` fields through
 the derived decode boundary,
-visible-only packed two-byte, three-byte, four-byte, and five-byte groups, opt-in
+visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields, wide reserved suffix and prefix groups, and schema
 mappings that call pure same-module converters with five structural
@@ -281,7 +281,7 @@ fields, supported middle reserved layouts, and the checked non-HTTP general
 helper shape, plus additive, subtractive, quotient-sized, and product-sized
 `ByteView` payload fields, standalone visible `UInt1` through `UInt7` fields,
 byte-aligned representation-only `ReservedBits(width, value)` fields,
-visible-only packed two-byte, three-byte, four-byte, and five-byte groups, the
+visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups, the
 narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, and
 schema mappings that call pure same-module converters with five structural
 arguments.
@@ -295,7 +295,7 @@ imported nested dispatch payload helper schemas, repeat-backed schemas,
 arithmetic-count and quotient-count repeated primitive fields, and the checked
 non-HTTP general helper shape, plus additive, subtractive, product-sized, and
 quotient-sized `ByteView` payload fields, standalone visible `UInt1` through
-`UInt7` fields, and visible-only packed two-byte, three-byte, four-byte, and five-byte
+`UInt7` fields, and visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte
 groups, and the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
 helper route.
 Remaining work should extend generated decode and encode execution beyond the
@@ -409,7 +409,7 @@ encoder state owns only the remaining encode work.
   byte-aligned representation-only `ReservedBits(width, value)` fields through
   the derived decode boundary, standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte,
-  three-byte, four-byte, and five-byte groups, opt-in visible flag bitset
+  three-byte, four-byte, five-byte, and six-byte groups, opt-in visible flag bitset
   fields, wide reserved suffix and prefix groups, generated-helper-backed
   `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper
   shape, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper
