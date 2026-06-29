@@ -1,0 +1,31 @@
+fn local_some_items(value)
+	Some([])
+end
+
+fn local_alt_items(value)
+	Some([])
+end
+
+fn returned_some_items(value)
+	Some([])
+end
+
+fn returned_alt_items(value)
+	Some([])
+end
+
+fn choose_items(flag: Bool) -> fn(String) -> Option<Vec<Int>>
+	match flag
+		true => returned_some_items
+		false => returned_alt_items
+	end
+end
+
+pub fn main() -> {local: Option<Vec<String>>, returned: Option<Vec<Int>>}
+	let local_callback: fn(Int) -> Option<Vec<String>> = match true
+		true => local_some_items
+		false => local_alt_items
+	end
+	let returned_callback: fn(String) -> Option<Vec<Int>> = choose_items(false)
+	{local: local_callback(1), returned: returned_callback("ready")}
+end

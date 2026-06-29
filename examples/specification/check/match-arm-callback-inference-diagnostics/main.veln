@@ -1,0 +1,15 @@
+fn string_body(value) -> String
+	"ok"
+end
+
+fn int_body(value) -> Int
+	1
+end
+
+pub fn main() -> String
+	let callback: fn(Int) -> String = match true
+		true => string_body
+		false => int_body
+	end
+	callback(1)
+end

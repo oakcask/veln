@@ -70,6 +70,8 @@ behavior.
   [local-inference-local-callback-binding.md](local-inference-local-callback-binding.md).
 - Local inference direct return callback:
   [local-inference-direct-return-callback.md](local-inference-direct-return-callback.md).
+- Local inference match-arm callback:
+  [local-inference-match-arm-callback.md](local-inference-match-arm-callback.md).
 - Local inference callback return expected type:
   [local-inference-callback-return-expected-type.md](local-inference-callback-return-expected-type.md).
 - Local inference constructor payload callback:

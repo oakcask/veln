@@ -76,6 +76,12 @@ against the built `veln` binary.
   non-empty named private callback tail expressions, with incompatible
   payload facts reported at the
   conflicting expression.
+- `check/match-arm-callback-inference/` and
+  `check/match-arm-callback-inference-diagnostics/`: `match` arm results
+  checked against a concrete function type infer named private callback
+  parameter types and callback returns for local binding initializer and
+  function body tail-expression contexts, with incompatible callback bodies
+  reported as ordinary function type mismatches.
 - `check/constructor-payload-callback-inference/` and
   `check/constructor-payload-callback-inference-diagnostics/`: constructor
   payload positions whose expected type is a concrete function type, including
