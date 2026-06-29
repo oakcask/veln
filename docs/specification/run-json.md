@@ -72,7 +72,8 @@ When the returned error value is
 the HPACK fixture detail projects to `details.protocol_diagnostic`. The
 unsupported-header-block, malformed-string-length, malformed-raw-string,
 malformed-Huffman-padding, Huffman-EOS, and Huffman non-visible fixture
-payloads carry byte offset, observed header block size, observed first byte,
+payloads, plus malformed table-size update integer payloads, carry byte
+offset, observed header block size, observed first byte,
 expected fixture, codec module, and a bounded header-block byte preview from
 the returned error value itself. Dynamic-index fixture payloads use
 `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` to add
@@ -93,7 +94,8 @@ The standard `hpack_fixture_unsupported_header_block(...)`,
 `hpack_fixture_dynamic_index_out_of_range(...)`,
 `hpack_fixture_dynamic_name_continuation_missing(...)`,
 `hpack_fixture_dynamic_name_continuation_malformed(...)`,
-`hpack_fixture_dynamic_name_continuation_out_of_range(...)`, and
+`hpack_fixture_dynamic_name_continuation_out_of_range(...)`,
+`hpack_fixture_table_size_update_malformed(...)`, and
 `hpack_fixture_table_size_update_not_at_start(...)` helpers return their
 source-visible HPACK fixture `RuntimeDiagnostic(...)` payloads directly, so
 their direct helper examples keep the rendered payload in `details.value` and
@@ -822,6 +824,11 @@ same completed header block, the HPACK fixture boundary uses id
 `active_state` before the same expected fixture, codec module, and byte
 preview fields. Source-visible payloads for this id carry those fields in
 `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)`.
+When a malformed non-terminating table-size update integer is decoded at the
+start of a completed header block, the HPACK fixture boundary uses id
+`hpack.fixture.table_size_update_malformed`; source-visible payloads for this
+id use the common `RuntimeHpackFixtureDiagnostic(...)` fields with the
+malformed bytes in the bounded preview.
 Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
 typed HPACK fixture results in program stdout; they are not converted into
 `details.protocol_diagnostic`.

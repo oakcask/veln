@@ -20,6 +20,7 @@ The standard HPACK fixture reporting helpers now return
 - `hpack_fixture_huffman_eos_symbol(...)`
 - `hpack_fixture_huffman_non_visible_value(...)`
 - `hpack_fixture_dynamic_index_out_of_range(...)`
+- `hpack_fixture_table_size_update_malformed(...)`
 - `hpack_fixture_table_size_update_not_at_start(...)`
 
 Each helper returns an `Err(RuntimeDiagnostic(...))` value with the matching
@@ -51,10 +52,14 @@ do not opt into HPACK fixture diagnostic projection.
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-padding-json/`,
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`,
+  `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-malformed-json/`,
   and
   `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-json/`
   check helper-returned JSON `details.value` shapes and focused protocol
   diagnostic projections.
+- `../../../examples/specification/run/runtime-diagnostic-payload-hpack-table-size-malformed-human/`
+  checks the helper-returned malformed table-size update integer human
+  projection.
 - `../../../examples/specification/run/http2-protocol-core-hpack-huffman-eos-json/`,
   `../../../examples/specification/run/http2-protocol-core-hpack-huffman-non-visible-json/`,
   `../../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-json/`,

@@ -2578,7 +2578,11 @@ update byte offset, requested table size, frame kind, stream id, active HPACK
 fixture state, codec module, expected fixture boundary, and bounded preview
 bytes.
 Malformed non-terminating table-size updates and table-size updates with
-trailing bytes after a complete integer remain unsupported.
+trailing bytes after a complete integer are separated: malformed
+non-terminating table-size update integers project through
+`hpack.fixture.table_size_update_malformed` in the standalone HPACK fixture,
+completed HEADERS path, and final CONTINUATION path, while table-size updates
+with trailing bytes after a complete integer remain unsupported.
 Reducing the fixture table size below the supported entries
 uses the accepted header name byte count plus value byte count plus `32` for
 each dynamic entry and evicts oldest entries first: table size `86` retains

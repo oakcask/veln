@@ -643,9 +643,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("table-size-update-general-wide", table_size_update_general_wide)
 	print_state("table-size-update-general-wide", next_state_or(table_size_update_general_wide, dynamic_state))
 	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f80")?
-	print_transition("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))
+	let ignored_malformed_table_size_update: () = print_required_unsupported_with_id("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))?
 	let unsupported_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f0200")?
-	print_transition("table-size-update-unsupported-extra", decode_header_block(unsupported_table_size_update_block, dynamic_state, 80))
+	let ignored_unsupported_table_size_update: () = print_required_unsupported_with_id("table-size-update-unsupported-extra", decode_header_block(unsupported_table_size_update_block, dynamic_state, 80))?
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 71))
 	let malformed_literal_huffman_block: ByteChunk = byte_chunk_from_hex("048100")?

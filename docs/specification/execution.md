@@ -2285,6 +2285,13 @@ execution reference.
   final CONTINUATION paths. That diagnostic records the requested table size,
   frame kind, stream id, active HPACK fixture state, expected fixture
   boundary, codec module, and bounded header-block preview.
+  A malformed non-terminating table-size update integer at the start of a
+  completed header block projects through
+  `hpack.fixture.table_size_update_malformed` on the standalone HPACK fixture
+  boundary and through both HTTP/2 completed HEADERS and final CONTINUATION
+  paths. That diagnostic uses the common HPACK fixture payload with the byte
+  offset, observed size, observed first byte, expected fixture, codec module,
+  and bounded header-block preview.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte
@@ -2306,7 +2313,6 @@ execution reference.
   diagnostic records the requested dynamic index, the current dynamic table
   entry count, observed header-block size, observed first byte, codec module,
   and bounded header-block byte preview. Unsupported fixture input, including
-  malformed non-terminating table-size updates,
   table-size updates with trailing bytes after a complete integer, malformed
   literal-without-indexing, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block

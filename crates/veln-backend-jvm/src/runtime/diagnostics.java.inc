@@ -234,7 +234,8 @@
             && !id.equals("hpack.fixture.malformed_raw_string_value")
             && !id.equals("hpack.fixture.malformed_huffman_padding")
             && !id.equals("hpack.fixture.huffman_eos_symbol")
-            && !id.equals("hpack.fixture.huffman_non_visible_value")) {
+            && !id.equals("hpack.fixture.huffman_non_visible_value")
+            && !id.equals("hpack.fixture.table_size_update_malformed")) {
             return null;
         }
         long byteOffset = asLong(detail.payloads[0]);

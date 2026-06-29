@@ -141,6 +141,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "hpack_fixture_malformed_huffman_padding" => "hpackFixtureMalformedHuffmanPadding",
     "hpack_fixture_huffman_eos_symbol" => "hpackFixtureHuffmanEosSymbol",
     "hpack_fixture_huffman_non_visible_value" => "hpackFixtureHuffmanNonVisibleValue",
+    "hpack_fixture_table_size_update_malformed" => "hpackFixtureTableSizeUpdateMalformed",
     "hpack_fixture_dynamic_index_out_of_range" => "hpackFixtureDynamicIndexOutOfRange",
     "hpack_fixture_dynamic_name_continuation_missing" => "hpackFixtureDynamicNameContinuationMissing",
     "hpack_fixture_dynamic_name_continuation_malformed" => "hpackFixtureDynamicNameContinuationMalformed",

@@ -10904,6 +10904,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
             "hpack_eos: hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
             "hpack_visible: hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",
+            "hpack_table_update_malformed: hpack_fixture_table_size_update_malformed(27, 2, 63, \"fixture HPACK malformed table-size update integer\", \"hpack_fixture\", view), ",
             "hpack_dynamic_index: hpack_fixture_dynamic_index_out_of_range(27, 1, 190, 0, 0, \"fixture dynamic indexed header\", \"hpack_fixture\", view), ",
             "hpack_dynamic_name_missing: hpack_fixture_dynamic_name_continuation_missing(27, 8, 127, 1, 0, \"fixture dynamic-name continuation entry\", \"hpack_fixture\", view), ",
             "hpack_dynamic_name_malformed: hpack_fixture_dynamic_name_continuation_malformed(27, 2, 127, -1, 3, \"fixture dynamic-name continuation integer\", \"hpack_fixture\", view), ",

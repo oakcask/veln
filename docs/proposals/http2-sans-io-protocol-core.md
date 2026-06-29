@@ -458,11 +458,11 @@ It also rejects a complete dynamic table-size update that appears after a
 decoded header field in the same completed header block through
 `hpack.fixture.table_size_update_not_at_start` on both completed HEADERS and
 final CONTINUATION paths, while preserving accepted table-size updates at the
-start of a header block and preserving unsupported behavior for malformed or
-trailing-byte table-size update encodings.
-Unsupported HPACK bytes, including malformed non-terminating table-size
-updates and table-size updates with trailing bytes after a complete integer,
-remain on `hpack.fixture.unsupported_header_block`. Dynamic indexed lookup
+start of a header block. Malformed non-terminating table-size update integer
+encodings use `hpack.fixture.table_size_update_malformed` on the standalone
+HPACK fixture boundary and through both HTTP/2 completed HEADERS and final
+CONTINUATION paths, while trailing-byte table-size update encodings remain on
+`hpack.fixture.unsupported_header_block`. Dynamic indexed lookup
 failures use `hpack.fixture.dynamic_index_out_of_range` with the requested
 dynamic index and current bounded dynamic table entry count. Missing,
 malformed, and out-of-range dynamic-name continuations use focused
@@ -927,7 +927,10 @@ header-table receive limit on both completed HEADERS and final CONTINUATION
 paths, including updates that repeat the current fixture table size, while
 preserving accepted table-size updates at or below that limit. The completed
 placement slice also rejects dynamic table-size updates after a decoded header
-field through `hpack.fixture.table_size_update_not_at_start`.
+field through `hpack.fixture.table_size_update_not_at_start`, and the
+completed malformed-integer slice reports non-terminating table-size update
+integers through `hpack.fixture.table_size_update_malformed` while preserving
+the unsupported trailing-byte path.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

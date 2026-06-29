@@ -2182,9 +2182,10 @@ against the built `veln` binary.
   general multi-byte HPACK integer continuations with the table-size update
   prefix, such as `0x3f 0x0b`, `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and
   `0x3f 0x82 0x02`, exposing checked fixture table sizes `30`, `31`, `32`,
-  `42`, `159`, `160`, and `289`, while malformed
-  non-terminating table-size updates and table-size updates with trailing
-  bytes after a complete integer stay on the unsupported fixture path.
+  `42`, `159`, `160`, and `289`, while malformed non-terminating table-size
+  updates project through `hpack.fixture.table_size_update_malformed` and
+  table-size updates with trailing bytes after a complete integer stay on the
+  unsupported fixture path.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
   unsupported HPACK fixture header block returns
   `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` and
@@ -2206,6 +2207,11 @@ against the built `veln` binary.
   `run/runtime-diagnostic-payload-hpack-table-size-human/`: standard HPACK
   fixture helpers return payloads carrying the extra dynamic-index and
   table-size update placement facts needed by the focused JSON and human
+  diagnostics.
+- `run/runtime-diagnostic-payload-hpack-table-size-malformed-json/` and
+  `run/runtime-diagnostic-payload-hpack-table-size-malformed-human/`: the
+  standard HPACK fixture helper returns the malformed table-size update
+  integer payload that `veln run` projects through focused JSON and human
   diagnostics.
 - `run/hpack-fixture-dynamic-index-json/` and
   `run/hpack-fixture-dynamic-index-human/`: standalone HPACK fixture dynamic
@@ -2543,8 +2549,10 @@ against the built `veln` binary.
   HPACK state through completed HEADERS and final CONTINUATION paths before
   later header blocks are decoded, reject the larger decoded `0x3f 0x82 0x02`
   table-size update through `http2.peer_limit.header_table_size_exceeded` on
-  both paths, reject malformed non-terminating table-size updates and
-  table-size updates with trailing bytes after a complete integer,
+  both paths, reject malformed non-terminating table-size updates through
+  `hpack.fixture.table_size_update_malformed` on both paths, preserve
+  unsupported behavior for table-size updates with trailing bytes after a
+  complete integer,
   reject a complete table-size update after a decoded header field through
   `hpack.fixture.table_size_update_not_at_start` on both paths,
   closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
