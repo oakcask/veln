@@ -13,8 +13,8 @@ compare it with `../specification/` before changing behavior.
   define remaining annotation-elision work for callback inputs outside the
   compiler-known, concrete declared-helper signature, concrete record-field
   expected-type, concrete local-binding expected-type, and concrete
-  direct return-position expected-type, and concrete constructor-payload
-  expected-type paths, and other paths beyond the
+  direct return-position expected-type, concrete match-arm expected-type, and
+  concrete constructor-payload expected-type paths, and other paths beyond the
   implemented same-function local `let`, non-empty collection initializer,
   empty collection expected-type, nested initializer expected-type
   propagation, hole expected-type flow, empty collection callback return,
@@ -23,9 +23,9 @@ compare it with `../specification/` before changing behavior.
   compiler-known prelude callback argument including `vec_try_map_with`,
   dictionary callback alias, declared helper callback argument, source-backed
   prelude callback fallback, record-field callback, local callback binding,
-  direct return callback, callback return expected-type, constructor-payload
-  callback, variadic declared-helper callback parameter, and examples cleanup
-  slices specified in
+  direct return callback, match-arm callback, callback return expected-type,
+  constructor-payload callback, variadic declared-helper callback parameter,
+  and examples cleanup slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
@@ -45,6 +45,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
   `../reference/implemented-proposals/local-inference-direct-return-callback.md`,
+  `../reference/implemented-proposals/local-inference-match-arm-callback.md`,
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
   [local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md),
