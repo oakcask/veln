@@ -76,7 +76,9 @@ written qualified calls to `pub codec` items declared in another module for
 both `decode with` and `encode with`, without requiring the importing module
 to expose the private helper function or schema. The imported hand-written
 decode boundary preserves `NeedMore(NeedEnd)` for source-visible observation
-and closed-input command projection. It also keeps private imported codecs
+and closed-input command projection. The imported hand-written encode
+boundary preserves `Partial` state and supports resuming a later qualified
+call to the same imported codec item. It also keeps private imported codecs
 unavailable. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 The implemented imported derived codec slice covers written qualified calls to
@@ -103,8 +105,11 @@ Define codec support for:
   eligible generated binary schema encode helper, generated-helper-backed
   derived codec encode, same-module and imported public budgeted derived codec
   encode slices in `../specification/execution.md`, and the implemented
-  hand-written partial encode preservation and resume slice archived under
+  same-module hand-written partial encode preservation and resume slice
+  archived under
   [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md)
+  plus the imported hand-written resume path archived under
+  [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md)
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -280,6 +285,10 @@ chunks, produced counts, and resumed state preserved as ordinary
 source-visible values. The same-module hand-written encode resume slice is
 archived under
 [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
+The imported hand-written encode boundary supports the same caller-owned
+resume state through a written import-qualified `pub codec` item and is
+archived under
+[Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 The implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
@@ -365,6 +374,8 @@ The implemented hand-written encode boundary preserves all three outcomes
 from the referenced encoder function unchanged. The completed same-module
 hand-written encode resume slice is archived under
 [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
+The completed imported hand-written encode resume path is archived under
+[Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 
 `Invalid` carries a structured `EncodeError` for values that cannot be
 represented by the codec: out-of-range exact-width fields, failed fixed or
@@ -410,8 +421,9 @@ encoder state owns only the remaining encode work.
   imported nested dispatch payload boundaries, hand-written plus eligible
   derived codec decode execution boundaries, and hand-written plus eligible
   derived codec encode execution boundaries, including same-module
-  hand-written encode resume and same-module plus imported public budgeted
-  derived encode over generated helper output,
+  hand-written encode resume, imported hand-written encode resume, and
+  same-module plus imported public budgeted derived encode over generated
+  helper output,
   selected structural mapping encode cases already accepted by the generated
   helper, same-module recursive closed and extension dispatch payload helpers,
   arithmetic-count and quotient-count repeated primitive fields,

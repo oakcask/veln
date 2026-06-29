@@ -1894,6 +1894,9 @@ execution reference.
   hand-written path, including resume from the preserved encoder state.
   `examples/specification/run/codec-imported-encode-boundary/` covers the
   imported `pub codec` path for `Encoded`, `Partial`, and `Invalid` outcomes.
+  `examples/specification/run/codec-imported-encode-resume-boundary/` covers
+  the imported path resuming from the returned `Partial(...)` state through
+  the same qualified codec item.
   For
   `veln run` entries, a returned `Invalid(EncodeError(...))` is projected to
   the same focused human and `details.value_diagnostic` JSON diagnostics used

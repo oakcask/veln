@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln", "wire.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "encoded\n1\n3\npartial\n1\n2\n1\n2\nencoded\n1\n1\ninvalid\ncodec.out_of_range\nPacket.kind\nkind exceeds length\n"
+
+[[json_assert]]
+path = "error"
+equals = null

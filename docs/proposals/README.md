@@ -304,8 +304,8 @@ compare it with `../specification/` before changing behavior.
   `ByteOffset` hand-written decode example with non-consuming short-input
   readiness, same-module hand-written `NeedEnd` readiness preservation and
   closed-input projection, and absolute malformed-input offsets,
-  source-visible partial encode preservation and resume, plus eligible derived
-  codec decode and
+  source-visible partial encode preservation and same-module plus imported
+  resume, plus eligible derived codec decode and
   encode execution boundaries, including budgeted derived encode, over the
   checked non-HTTP composite helper shape and general generated helper shape,
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload

@@ -26,7 +26,10 @@ observation, and the command-facing closed-input boundary projects it as
 For `encode with`, the qualified codec call resolves through the imported
 codec item name, accepts the referenced encoder function's parameters, and
 forwards them to the private helper named by the codec declaration. `Encoded`,
-`Partial`, and `Invalid` values are returned unchanged.
+`Partial`, and `Invalid` values are returned unchanged. When a `Partial`
+result carries caller-owned state, a later qualified call to the same imported
+codec item can pass that returned state back to the declaring-module encoder
+and observe the later `Encoded` completion.
 
 Importing the codec item does not expose the private implementation function,
 does not re-export the schema, does not make a private codec callable, and
@@ -46,6 +49,10 @@ does not make bare imported codec names ordinary call targets.
 - `../../../examples/specification/run/codec-imported-encode-boundary/` checks
   a public imported hand-written `encode with` codec call through a qualified
   module path, including `Encoded`, `Partial`, and `Invalid` outcomes.
+- `../../../examples/specification/run/codec-imported-encode-resume-boundary/`
+  checks the imported hand-written `encode with` resume path: a qualified call
+  returns `Partial(...)`, ordinary source extracts the returned state, and a
+  later qualified call to the same imported codec returns `Encoded(...)`.
 - `../../../examples/specification/check/codec-imported-private-boundary/`
   checks that a private imported hand-written codec remains unavailable
   through the qualified module path.
