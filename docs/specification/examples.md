@@ -3012,6 +3012,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-request-headers-path-empty-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-response-headers-content-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-response-trailers-human/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-human/`,
@@ -3138,6 +3139,10 @@ plus uppercase and token-invalid ordinary response header names and an
 invalid `te` value. It accepts one and repeated matching valid decimal
 `content-length` response values and rejects mismatched, empty, non-decimal,
 signed, whitespace-padded, and negative-looking response values. The focused
+response-trailer human case pins pseudo-header trailer rejection as
+`http2.protocol.invalid_response_header_list` with response-trailer primary
+text, decoded trailer names, byte preview, active `response-trailers` state,
+and rule provenance. The focused
 frame-kind, stream-id, and `PUSH_PROMISE`
 projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before

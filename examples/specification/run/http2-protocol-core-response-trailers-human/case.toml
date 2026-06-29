@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_response_header_list]: response trailer list contains pseudo-header :status at byte offset 12", "note: Frame kind 1 on stream 1 decoded response trailer names: :status.", "note: Nearby bytes: 88 (showing 1 of 1 byte(s), complete).", "note: Active protocol state: response-trailers.", "note: Rule provenance: rfc9113_trailer_pseudo_headers."]

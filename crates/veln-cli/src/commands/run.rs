@@ -962,25 +962,38 @@ impl<'a> ProtocolDiagnosticContext<'a> {
     }
 
     fn project_header_list_rule(&self) -> Option<Diagnostic> {
-        let (header_kind, message) = match self.id.as_str() {
+        let (decoded_label, message) = match self.id.as_str() {
             "http2.protocol.invalid_request_header_list" => (
-                "request",
+                "request header",
                 protocol_header_list_message(
-                    "request",
+                    "request header list",
                     &self.string("failed_header_fact")?,
                     &self.string("header_name")?,
                     self.byte_offset,
                 ),
             ),
-            "http2.protocol.invalid_response_header_list" => (
-                "response",
-                protocol_header_list_message(
-                    "response",
-                    &self.string("failed_header_fact")?,
-                    &self.string("header_name")?,
-                    self.byte_offset,
-                ),
-            ),
+            "http2.protocol.invalid_response_header_list" => {
+                let active_state = self.string("active_state")?;
+                let subject = if active_state == "response-trailers" {
+                    "response trailer list"
+                } else {
+                    "response header list"
+                };
+                let decoded_label = if active_state == "response-trailers" {
+                    "response trailer"
+                } else {
+                    "response header"
+                };
+                (
+                    decoded_label,
+                    protocol_header_list_message(
+                        subject,
+                        &self.string("failed_header_fact")?,
+                        &self.string("header_name")?,
+                        self.byte_offset,
+                    ),
+                )
+            }
             _ => return None,
         };
         let frame_kind = self.number("frame_kind")?;
@@ -988,7 +1001,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         let frame = self.frame_ref()?;
         let mut diagnostic = self.diagnostic(message);
         diagnostic.related.push(note_json(format!(
-            "Frame kind {frame_kind} on {} {} decoded {header_kind} header names: {decoded_header_names}.",
+            "Frame kind {frame_kind} on {} {} decoded {decoded_label} names: {decoded_header_names}.",
             frame.stream_ref, frame.stream_id
         )));
         self.push_preview_state_and_provenance(&mut diagnostic)?;
@@ -1391,12 +1404,11 @@ struct ProtocolFrameRef {
 }
 
 fn protocol_header_list_message(
-    header_kind: &str,
+    subject: &str,
     failed_fact: &str,
     header_name: &str,
     byte_offset: i64,
 ) -> String {
-    let subject = format!("{header_kind} header list");
     match failed_fact {
         "missing_required_pseudo_header" => {
             format!("{subject} is missing {header_name} at byte offset {byte_offset}")
@@ -1409,6 +1421,9 @@ fn protocol_header_list_message(
         }
         "duplicate_pseudo_header" => {
             format!("{subject} contains duplicate {header_name} at byte offset {byte_offset}")
+        }
+        "trailer_pseudo_header" => {
+            format!("{subject} contains pseudo-header {header_name} at byte offset {byte_offset}")
         }
         "pseudo_header_after_regular_header" => format!(
             "{subject} places {header_name} after a regular header at byte offset {byte_offset}"
@@ -4063,6 +4078,72 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_response_pseudo_headers")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_response_trailer_list_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_response_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("trailer_pseudo_header"),
+            ),
+            ("header_name", JsonValue::string(":status")),
+            ("decoded_header_names", JsonValue::string(":status")),
+            ("byte_preview", byte_preview("88")),
+            ("active_state", JsonValue::string("response-trailers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_trailer_pseudo_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 response trailer list contains pseudo-header :status at byte offset 12"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_response_header_list");
+        assert_eq!(
+            diagnostic.message,
+            "response trailer list contains pseudo-header :status at byte offset 12"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("decoded response trailer names: :status")
+        );
+        assert!(diagnostic.related[1].to_json().contains("88"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("response-trailers")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9113_trailer_pseudo_headers")
         );
     }
 
