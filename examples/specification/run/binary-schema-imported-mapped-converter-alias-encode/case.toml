@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln", "facade.veln", "helpers.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list imported-alias-mapped-converter count 1\noutput_chunk imported-alias-mapped-converter index 0 hex \"123405\" count 3\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "imported-alias-mapped-converter"
+chunks = ["123405"]

@@ -16,6 +16,9 @@ Implemented behavior:
   through an imported public converter written as an unqualified imported name
   when the assignment also names an explicit imported public inverse converter
   by the same name-resolution rules.
+- A generated `byte_encode_<schema>` helper uses the same inverse projection
+  when the forward converter and inverse converter names are public function
+  aliases imported into the schema module.
 - The inverse projection still checks that the recovered schema-local value
   round-trips through the forward converter. Failed round-trips keep
   `codec.encode_mapping_mismatch` at the mapped target field path.
@@ -27,6 +30,8 @@ Executable specification evidence:
 
 - `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode/`
 - `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode-mismatch/`
+- `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode/`
+- `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode-mismatch/`
 - `examples/specification/run/derived-codec-imported-mapped-converter-alias-encode-boundary/`
 
 This slice does not infer inverse converter names, add converter arities, add

@@ -1,0 +1,7 @@
+pub fn next_kind(value: Int) -> Int
+	value * 2
+end
+
+pub fn previous_kind(value: Int) -> Int
+	value / 2
+end

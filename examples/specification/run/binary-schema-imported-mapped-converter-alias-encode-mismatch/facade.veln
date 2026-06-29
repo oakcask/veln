@@ -1,0 +1,4 @@
+use helpers
+
+pub fn local_next_kind = helpers::next_kind
+pub fn local_previous_kind = helpers::previous_kind
