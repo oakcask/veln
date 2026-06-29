@@ -1,0 +1,62 @@
+# Nested dispatch payload decode accepts ByteView addition lengths.
+use stdio
+
+schema AdditivePayload
+	format binary
+
+	left_length: UInt8
+	right_length: UInt8
+	payload: ByteView(left_length + right_length)
+end
+
+schema ClosedAdditivePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => AdditivePayload)
+end
+
+schema ExtensionAdditivePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => AdditivePayload)
+end
+
+fn emit_payload(prefix: String, payload: {left_length: Int, right_length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.left_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.right_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(payload.payload)))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(payload.payload)?))
+	Ok(())
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_payload("extension", value)
+		Unknown(_, _) => Ok(())
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("010203aabbccddee")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(8)?)?
+	let closed: {kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}} = byte_decode_closed_additive_packet(closed_view)?
+	let _: () = emit_payload("closed", closed.payload)?
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("07010203aabbccddee")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(9)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>} = byte_decode_extension_additive_packet(extension_view)?
+	stdio::print(int_to_string(extension.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension.kind))
+	stdio::print(" ")
+	let _: () = emit_extension_payload(extension.payload)?
+	Ok(())
+end

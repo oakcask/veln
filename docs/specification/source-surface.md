@@ -137,8 +137,9 @@ Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
 schema helper path, including supported representation-only `ReservedBits`
-layouts and length-bounded `ByteView(length_field)` fields whose length names
-an earlier visible `Int` field in that nested schema. A same-module recursive
+layouts and length-bounded `ByteView(length_field)` or
+`ByteView(left_length + right_length)` fields whose length operands name
+earlier visible `Int` fields in that nested schema. A same-module recursive
 dispatch case may name the enclosing schema recursively, a same-module
 dispatch case may name a separate eligible recursive payload schema, and a
 public imported recursive payload schema may be named through a written `use`
@@ -205,6 +206,10 @@ the checked recursive payload diagnostics case is
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`;
 the checked same-module recursive decode-only payload example is
 `../../examples/specification/run/binary-schema-same-module-recursive-dispatch-decode/`;
+the checked additive nested `ByteView` dispatch payload examples are
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-decode/`
+and
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-encode/`;
 the checked helper-eligibility detail cases are
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and
@@ -557,8 +562,9 @@ decode functions are not implemented. Generated
 reserved-bit, closed dispatch, extension dispatch, length-bounded `ByteView`,
 repeated primitive, nested schema, and `ByteView(length_field)` payloads,
 quotient-count repeat fields, same-module or imported public nested dispatch
-payload encode slices, and same-module recursive closed and extension
-dispatch payload slices,
+payload encode slices, same-module nested dispatch
+`ByteView(left_length + right_length)` payload helper slices, and same-module
+recursive closed and extension dispatch payload slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice, including the combined non-HTTP
