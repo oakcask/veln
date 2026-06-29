@@ -497,7 +497,12 @@ their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including checked Huffman-marked string literal
 fixtures for outbound HEADERS and `PUSH_PROMISE`, and including the checked
 stateful `PUSH_PROMISE` path where the returned fixture encode state lets a
-later promised header list use the dynamic indexed byte `0xbe`.
+later promised header list use the dynamic indexed byte `0xbe`. Outbound
+HPACK dynamic table-size update requests use the same result boundary: an
+accepted update returns a fixture encode state that later HEADERS and
+`PUSH_PROMISE` encodes consume before frame splitting, while an over-limit
+update remains a typed HPACK fixture encode failure and produces no HTTP/2
+output chunk list.
 
 HTTP/2 protocol-core failures that originate from a source-visible
 `RuntimeDiagnostic(...)` payload attach `details.protocol_diagnostic`.

@@ -56,6 +56,10 @@ whether a supported header list can reuse a dynamic indexed entry. A requested
 table-size update greater than the active peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` returns a typed HPACK fixture encode failure
 before the send-intent path emits header-block bytes.
+The focused outbound table-size update case also routes the accepted returned
+state through later split HEADERS and split server-side `PUSH_PROMISE`
+encodes, and keeps the rejected over-peer-limit path on an empty HTTP/2
+output chunk list.
 
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
@@ -110,3 +114,8 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize the implemented outbound fixture encoder boundary and route
   readers to the checked example.
+- `../../../examples/specification/run/http2-protocol-core-outbound-hpack-table-size-update-json/`
+  focuses the outbound table-size update state handoff and rejected
+  over-peer-limit path: the accepted state feeds split HEADERS and split
+  server-side `PUSH_PROMISE`, and the rejected path emits an empty output
+  chunk list.

@@ -2825,7 +2825,9 @@ accepted outbound HPACK dynamic table-size update HEADERS chunks for the
 one-byte and saturated-prefix continuation integer forms, a later HEADERS
 chunk that observes the reduced outbound HPACK table capacity, an empty chunk
 list for an outbound table-size update rejected above the peer-advertised
-`SETTINGS_HEADER_TABLE_SIZE`,
+`SETTINGS_HEADER_TABLE_SIZE`, a focused outbound table-size update case whose
+returned HPACK fixture state feeds split HEADERS and split `PUSH_PROMISE`
+output,
 accepted `PUSH_PROMISE` frame-header-plus-promised-stream-payload chunks,
 an accepted GOAWAY frame plus last-stream-id and error-code payload, and the
 maximum valid `UInt31be` stream id. The source
@@ -2858,6 +2860,7 @@ output chunks empty.
 `../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-raw-name-token-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-hpack-table-size-placement-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-outbound-hpack-table-size-update-json/case.toml`,
 `../../examples/specification/run/hpack-fixture-huffman-eos-human/`,
 `../../examples/specification/run/hpack-fixture-huffman-non-visible-human/`,
 `../../examples/specification/run/hpack-fixture-dynamic-index-human/`,

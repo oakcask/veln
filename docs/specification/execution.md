@@ -2581,6 +2581,10 @@ execution reference.
   requested outbound table-size update greater than the active
   peer-advertised `SETTINGS_HEADER_TABLE_SIZE` fails at the HPACK fixture
   encode boundary before HEADERS header-block bytes are emitted.
+  The focused outbound table-size update example also carries that reduced
+  encode state into split HEADERS and split `PUSH_PROMISE` output, and keeps
+  the over-limit table-size update path on the typed HPACK fixture failure
+  with an empty HTTP/2 output chunk list.
   When the header-block fits within the peer-advertised maximum frame
   size, the intent emits one immutable output chunk with a HEADERS frame header
   kind `1`,

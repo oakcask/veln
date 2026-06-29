@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln", "hpack_fixture.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[json_assert]]
+path = "stdout"
+equals = "seeded-literal-indexed-path-target hpack_encode_state table_size 4096 encode_count 1 dynamic_entry_count 1\noutput_chunk_list http2-outbound-hpack-table-size-update-accepted count 1\noutput_chunk http2-outbound-hpack-table-size-update-accepted index 0 hex \"0000010104000000013e\" count 10\nafter-outbound-table-size-update hpack_encode_state table_size 30 encode_count 2 dynamic_entry_count 0\noutput_chunk_list http2-outbound-hpack-after-table-size-update-headers count 1\noutput_chunk http2-outbound-hpack-after-table-size-update-headers index 0 hex \"00000401000000000144072f740000040900000000016172676500000109040000000174\" count 36\nafter-outbound-table-size-update-headers hpack_encode_state table_size 30 encode_count 3 dynamic_entry_count 0\noutput_chunk_list http2-outbound-hpack-after-table-size-update-push-promise count 1\noutput_chunk http2-outbound-hpack-after-table-size-update-push-promise index 0 hex \"0000060500000000010000000244070000060900000000012f746172676500000109040000000174\" count 40\nafter-outbound-table-size-update-push-promise hpack_encode_state table_size 30 encode_count 3 dynamic_entry_count 0\noutbound-hpack-table-size-update-over-peer-limit outbound-hpack-table-size-update failed observed_size 33 allowed_size 32 expected fixture outbound table-size update\noutput_chunk_list http2-outbound-hpack-table-size-update-over-peer-limit count 0\n"
+
+[[output_chunk_list]]
+name = "http2-outbound-hpack-table-size-update-accepted"
+chunks = ["0000010104000000013e"]
+
+[[output_chunk_list]]
+name = "http2-outbound-hpack-after-table-size-update-headers"
+chunks = ["00000401000000000144072f740000040900000000016172676500000109040000000174"]
+
+[[output_chunk_list]]
+name = "http2-outbound-hpack-after-table-size-update-push-promise"
+chunks = ["0000060500000000010000000244070000060900000000012f746172676500000109040000000174"]
+
+[[output_chunk_list]]
+name = "http2-outbound-hpack-table-size-update-over-peer-limit"
+chunks = []
