@@ -133,6 +133,17 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainLengthMismatch));
 
+        Object sequenceMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.sequence_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(13) }),
+                "Packet.sequence",
+                "expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(sequenceMismatch));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -1621,6 +1632,24 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_length_line.contains("\texpected_length\t"));
     assert!(!plain_length_line.contains("\tactual_length\t"));
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.sequence_mismatch\t13\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains(
+            "\texpected_sequence\tstring\t636c69656e745f707265666163652c73657474696e6773"
+        ),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tactual_sequence\tstring\t73657474696e6773"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t6672616d652073657175656e63652076696f6c617465642070726f746f636f6c207374617465"),
+        "{trace}"
+    );
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"

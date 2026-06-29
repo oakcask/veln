@@ -413,13 +413,17 @@ compare it with `../specification/` before changing behavior.
   command projections, codec-owned checksum mismatch projection with
   expected checksum, actual checksum, and failure
   reason details, codec-owned length mismatch projection with expected
-  length, actual length, and failure reason details, generated binary
-  schema decode integer range failures, generated bounded repeated schema
+  length, actual length, and failure reason details, codec-owned sequence
+  mismatch projection with expected sequence, actual sequence, and failure
+  reason details, generated binary schema decode integer range failures,
+  generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures and their
   command-facing projection.
   The completed codec-owned decode invalid id slice is archived under
   [Codec Owned Decode Invalid Id Diagnostics](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
+  The completed codec-owned sequence mismatch slice is archived under
+  [Codec Sequence Mismatch Diagnostics](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,

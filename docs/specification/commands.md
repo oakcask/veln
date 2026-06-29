@@ -136,7 +136,16 @@ requiring the full command reference on the first read.
   `expected_length=<n>; actual_length=<n>; reason=<text>` form; the checked
   direct result and `DecodeStep::Invalid(...)` examples are
   `examples/specification/run/codec-length-mismatch-direct-human/` and
-  `examples/specification/run/codec-length-mismatch-step-human/`. A
+  `examples/specification/run/codec-length-mismatch-step-human/`.
+  Codec-owned sequence mismatch failures with id `codec.sequence_mismatch`
+  use `sequence mismatch at byte offset ...` as the primary human message and
+  put field path, expected sequence, actual sequence, failure reason, and the
+  source-visible `DecodeError` value in related notes when the source-visible
+  reason uses the narrow
+  `expected_sequence=<value>; actual_sequence=<value>; reason=<text>` form;
+  the checked direct result and `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-sequence-mismatch-direct-human/` and
+  `examples/specification/run/codec-sequence-mismatch-step-human/`. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

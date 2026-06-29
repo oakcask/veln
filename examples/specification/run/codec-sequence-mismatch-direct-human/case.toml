@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.sequence_mismatch]: sequence mismatch at byte offset 13", "note: Field path: schema `ManualPacketWire` / field `sequence`.", "note: Expected sequence `client_preface,settings`; actual sequence was `settings`.", "note: Sequence mismatch reason: frame sequence violated protocol state.", "note: DecodeError value: DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state)."]

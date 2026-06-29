@@ -1768,6 +1768,8 @@
                 mergeChecksumMismatchReason(details, reason);
             } else if (id.equals("codec.length_mismatch")) {
                 mergeLengthMismatchReason(details, reason);
+            } else if (id.equals("codec.sequence_mismatch")) {
+                mergeSequenceMismatchReason(details, reason);
             } else {
                 details.add(DiagnosticDetail.string("reason", reason));
             }
@@ -1906,6 +1908,63 @@
         LengthMismatchReason(long expectedLength, long actualLength, String reason) {
             this.expectedLength = expectedLength;
             this.actualLength = actualLength;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeSequenceMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        SequenceMismatchReason parsed = parseSequenceMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.string("expected_sequence", parsed.expectedSequence));
+        details.add(DiagnosticDetail.string("actual_sequence", parsed.actualSequence));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static SequenceMismatchReason parseSequenceMismatchReason(String reason) {
+        String expectedSequence = null;
+        String actualSequence = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_sequence")) {
+                expectedSequence = value;
+            } else if (key.equals("actual_sequence")) {
+                actualSequence = value;
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedSequence == null
+            || expectedSequence.isEmpty()
+            || actualSequence == null
+            || actualSequence.isEmpty()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new SequenceMismatchReason(expectedSequence, actualSequence, failureReason);
+    }
+
+    private static final class SequenceMismatchReason {
+        final String expectedSequence;
+        final String actualSequence;
+        final String reason;
+
+        SequenceMismatchReason(String expectedSequence, String actualSequence, String reason) {
+            this.expectedSequence = expectedSequence;
+            this.actualSequence = actualSequence;
             this.reason = reason;
         }
     }

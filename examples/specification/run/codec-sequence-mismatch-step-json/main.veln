@@ -1,0 +1,8 @@
+# DecodeStep Invalid sequence mismatch failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(13)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.sequence_mismatch", offset, "ManualPacketWire.sequence", "expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
