@@ -1,0 +1,16 @@
+# A general reserved bitfield reports mismatches at the reserved field path.
+schema GeneralReservedBitfieldHeader
+	format binary
+
+	high: UInt3
+	gate: ReservedBits(2, 2)
+	mode: UInt4
+	pad: ReservedBits(3, 5)
+	low: UInt4
+end
+
+pub fn main() -> Result<{high: Int, mode: Int, low: Int}, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("bcda")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	byte_decode_general_reserved_bitfield_header(view)
+end

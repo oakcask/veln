@@ -130,6 +130,8 @@ behavior.
   [binary-schema-byte-visible-reserved-suffix.md](binary-schema-byte-visible-reserved-suffix.md).
 - Binary schema split reserved groups:
   [binary-schema-split-reserved-groups.md](binary-schema-split-reserved-groups.md).
+- Binary schema general reserved bitfield layouts:
+  [binary-schema-general-reserved-bitfield-layouts.md](binary-schema-general-reserved-bitfield-layouts.md).
 - Binary schema seven-byte split reserved layouts:
   [binary-schema-seven-byte-split-reserved-layouts.md](binary-schema-seven-byte-split-reserved-layouts.md).
 - Binary schema eight-byte split reserved layouts:

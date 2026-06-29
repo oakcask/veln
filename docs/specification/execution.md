@@ -589,7 +589,13 @@ execution reference.
   four-byte, five-byte, six-byte, seven-byte, or eight-byte big-endian storage
   unit. Reserved fields in the group remain representation-only, each
   reserved value is validated at its own field path, and visible fields are
-  decoded from their declared high-to-low positions.
+  decoded from their declared high-to-low positions. The checked
+  `examples/specification/run/binary-schema-general-reserved-bitfield-decode-encode/`
+  case covers a two-byte group that starts and ends with visible fields while
+  validating multiple reserved fields, plus direct and derived encode success
+  and visible-field encode range failure. The checked
+  `examples/specification/run/binary-schema-general-reserved-bitfield-json/`
+  case covers the matching reserved-bit mismatch JSON projection.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports

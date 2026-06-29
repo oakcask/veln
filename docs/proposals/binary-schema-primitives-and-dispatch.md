@@ -130,7 +130,9 @@ fields from decoded records and mapping source values by default, expose each
 validated reserved value as an `Int` mapping source only when an assignment
 explicitly names that reserved field, preserve visible fields in declaration
 order, and report the same reserved-bit mismatch, truncation, and
-`codec.encode_value_unrepresentable` diagnostic shapes.
+`codec.encode_value_unrepresentable` diagnostic shapes. The completed general
+reserved bitfield layout boundary is archived under
+`../reference/implemented-proposals/binary-schema-general-reserved-bitfield-layouts.md`.
 Generated schema helpers also consume and encode the narrow two-byte suffix
 group where two visible `UIntN` fields are followed by a non-byte-aligned
 `ReservedBits(width, value)` suffix, the second visible field is `UInt8`, and
