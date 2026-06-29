@@ -34,6 +34,10 @@ shape, connection-specific ordinary names, and invalid `te` values through
   fields.
 - A focused response-trailer JSON diagnostic projection checks active state
   `response-trailers`.
+- A focused response-trailer human diagnostic projection checks
+  `http2.protocol.invalid_response_header_list`, response-trailer primary
+  text, decoded trailer names, bounded byte preview, active
+  `response-trailers` state, and rule provenance.
 
 ## Remaining Work
 
