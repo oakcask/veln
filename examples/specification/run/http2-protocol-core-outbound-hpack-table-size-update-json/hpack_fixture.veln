@@ -1,0 +1,187 @@
+pub type HpackDynamicEntry
+	NoDynamicEntry
+	DynamicEntry(name: String, value: String, older: HpackDynamicEntry)
+end
+
+pub type HpackFixtureState
+	HpackFixtureState(table_size: Int, encode_count: Int, dynamic_entry: HpackDynamicEntry)
+end
+
+pub type HpackHeader
+	HpackHeader(name: String, value: String)
+end
+
+pub type HpackHeaderList
+	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
+end
+
+pub type HpackEncodeTransition
+	HpackEncodeTransition(bytes: ByteChunk, state: HpackFixtureState)
+end
+
+pub type HpackFixtureFailure
+	UnsupportedHeaderList(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+end
+
+pub fn initial_encode_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0, NoDynamicEntry)
+end
+
+fn string_byte_count(value: String) -> Int
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		Err(_) => 0
+	end
+end
+
+fn dynamic_entry_size(name: String, value: String) -> Int
+	string_byte_count(name) + string_byte_count(value) + 32
+end
+
+fn evict_for_table_size(table_size: Int, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	match dynamic_entry
+		NoDynamicEntry => NoDynamicEntry
+		DynamicEntry(name, value, older) => match dynamic_entry_size(name, value) <= table_size
+			true => DynamicEntry(name, value, evict_for_table_size(table_size - dynamic_entry_size(name, value), older))
+			false => NoDynamicEntry
+		end
+	end
+end
+
+fn state_with_dynamic_entry(state: HpackFixtureState, name: String, value: String) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, encode_count, dynamic_entry) => HpackFixtureState(table_size, encode_count + 1, evict_for_table_size(table_size, DynamicEntry(name, value, dynamic_entry)))
+	end
+end
+
+fn state_with_table_size(state: HpackFixtureState, table_size: Int) -> HpackFixtureState
+	match state
+		HpackFixtureState(_, encode_count, dynamic_entry) => HpackFixtureState(table_size, encode_count + 1, evict_for_table_size(table_size, dynamic_entry))
+	end
+end
+
+fn matching_dynamic_index(headers: HpackHeaderList, state: HpackFixtureState) -> Int
+	match headers
+		HpackHeaderList(HpackHeader(header_name, header_value), _, _) => match state
+			HpackFixtureState(_, _, DynamicEntry(name, value, _)) => match header_name == name and header_value == value
+				true => 0
+				false => -1
+			end
+			HpackFixtureState(_, _, NoDynamicEntry) => -1
+		end
+	end
+end
+
+fn next_state(state: HpackFixtureState) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, encode_count, dynamic_entry) => HpackFixtureState(table_size, encode_count + 1, dynamic_entry)
+	end
+end
+
+fn unsupported_header_list_encoding(headers: HpackHeaderList, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	Err(UnsupportedHeaderList(offset, header_list_wire_size(headers), -1, "fixture header list encoding", "hpack_fixture", byte_chunk([])))
+end
+
+fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_size: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	Err(OutboundTableSizeUpdateExceeded(offset, table_size, allowed_size, "fixture outbound table-size update", "hpack_fixture", byte_chunk([])))
+end
+
+fn encoded_hex_or_failure(hex: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_chunk_from_hex(hex)
+		Ok(bytes) => Ok(HpackEncodeTransition(bytes, state))
+		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
+fn table_size_update_hex_or_failure(hex: String, table_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match byte_chunk_from_hex(hex)
+		Ok(bytes) => Ok(HpackEncodeTransition(bytes, state_with_table_size(state, table_size)))
+		Err(_) => outbound_table_size_update_exceeded(offset, table_size, table_size)
+	end
+end
+
+pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
+end
+
+pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match matching_dynamic_index(headers, state) >= 0
+		true => encoded_hex_or_failure("be", headers, next_state(state), offset)
+		false => match headers
+			HpackHeaderList(HpackHeader(":path", "/target"), _, _) => encoded_hex_or_failure("44072f746172676574", headers, state_with_dynamic_entry(state, ":path", "/target"), offset)
+			_ => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
+pub fn encode_table_size_update_with_state(table_size: Int, peer_advertised_limit: Int, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match table_size > peer_advertised_limit
+		true => outbound_table_size_update_exceeded(offset, table_size, peer_advertised_limit)
+		false => table_size_update_hex_or_failure("3e", table_size, state, offset)
+	end
+end
+
+pub fn encode_transition_bytes(transition: HpackEncodeTransition) -> ByteChunk
+	match transition
+		HpackEncodeTransition(bytes, _) => bytes
+	end
+end
+
+pub fn encode_transition_state(transition: HpackEncodeTransition) -> HpackFixtureState
+	match transition
+		HpackEncodeTransition(_, state) => state
+	end
+end
+
+pub fn header_list_wire_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(_, _, wire_size) => wire_size
+	end
+end
+
+pub fn state_table_size(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(table_size, _, _) => table_size
+	end
+end
+
+pub fn state_encode_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, encode_count, _) => encode_count
+	end
+end
+
+pub fn dynamic_entry_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => dynamic_entry_count_inner(dynamic_entry)
+	end
+end
+
+fn dynamic_entry_count_inner(dynamic_entry: HpackDynamicEntry) -> Int
+	match dynamic_entry
+		NoDynamicEntry => 0
+		DynamicEntry(_, _, older) => 1 + dynamic_entry_count_inner(older)
+	end
+end
+
+pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderList(_, observed_size, _, _, _, _) => observed_size
+		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
+	end
+end
+
+pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderList(_, _, _, _, _, _) => 0
+		OutboundTableSizeUpdateExceeded(_, _, allowed_size, _, _, _) => allowed_size
+	end
+end
+
+pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderList(_, _, _, expected_fixture, _, _) => expected_fixture
+		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
+	end
+end

@@ -1,0 +1,287 @@
+use hpack_fixture
+use stdio
+
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
+
+schema Http2PushPromisePayloadWire
+	format binary
+
+	promised_stream_reserved: ReservedBits(1, 0)
+	promised_stream_id: UInt31be
+end
+
+type OutboundHeadersDecision
+	OutboundHeadersAccepted(payload_length: Int, chunk: ByteChunk)
+	OutboundHeadersEncodeFailed(payload_length: Int, error: EncodeError)
+end
+
+type OutboundPushPromiseDecision
+	OutboundPushPromiseAccepted(payload_length: Int, chunk: ByteChunk)
+	OutboundPushPromiseEncodeFailed(payload_length: Int, error: EncodeError)
+end
+
+fn encode_frame_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_frame_header_wire({length: length, kind: kind, flags: flags, stream_id: stream_id})
+end
+
+fn encode_push_promise_payload(promised_stream_id: Int) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_push_promise_payload_wire({promised_stream_id: promised_stream_id})
+end
+
+fn send_headers(stream_id: Int, header_block: ByteChunk, max_frame_size: Int) -> Result<OutboundHeadersDecision, String>
+	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
+	match payload_length > max_frame_size
+		true => encode_split_headers(stream_id, payload_length, header_block, max_frame_size)
+		false => encode_single_headers(stream_id, payload_length, header_block)
+	end
+end
+
+fn encode_single_headers(stream_id: Int, payload_length: Int, header_block: ByteChunk) -> Result<OutboundHeadersDecision, String>
+	match encode_frame_header(payload_length, 1, 4, stream_id)
+		Ok(header) => Ok(OutboundHeadersAccepted(payload_length, byte_append(header, header_block)))
+		Err(error) => Ok(OutboundHeadersEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_split_headers(stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int) -> Result<OutboundHeadersDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let first_payload: ByteChunk = byte_take(header_block, chunk_count)?
+	let remaining: ByteChunk = byte_drop(header_block, chunk_count)?
+	match encode_frame_header(max_frame_size, 1, 0, stream_id)
+		Ok(header) => encode_continuation_headers(stream_id, payload_length, max_frame_size, remaining, byte_append(header, first_payload))
+		Err(error) => Ok(OutboundHeadersEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_continuation_headers(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
+	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	match remaining_length > max_frame_size
+		true => encode_nonfinal_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
+		false => encode_final_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
+	end
+end
+
+fn encode_nonfinal_continuation(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let payload: ByteChunk = byte_take(remaining, chunk_count)?
+	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	match encode_frame_header(max_frame_size, 9, 0, stream_id)
+		Ok(header) => encode_continuation_headers(stream_id, payload_length, max_frame_size, next_remaining, byte_append(byte_append(encoded, header), payload))
+		Err(error) => Ok(OutboundHeadersEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_final_continuation(stream_id: Int, payload_length: Int, final_length: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
+	match encode_frame_header(final_length, 9, 4, stream_id)
+		Ok(header) => Ok(OutboundHeadersAccepted(payload_length, byte_append(byte_append(encoded, header), remaining)))
+		Err(error) => Ok(OutboundHeadersEncodeFailed(payload_length, error))
+	end
+end
+
+fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, max_frame_size: Int) -> Result<OutboundPushPromiseDecision, String>
+	let header_block_length: Int = byte_count_to_int(byte_chunk_count(header_block))
+	let payload_length: Int = header_block_length + 4
+	match encode_push_promise_payload(promised_stream_id)
+		Ok(promised_payload) => match payload_length > max_frame_size
+			true => encode_split_push_promise(stream_id, payload_length, promised_payload, header_block, max_frame_size)
+			false => encode_single_push_promise(stream_id, payload_length, promised_payload, header_block)
+		end
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_single_push_promise(stream_id: Int, payload_length: Int, promised_payload: ByteChunk, header_block: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	match encode_frame_header(payload_length, 5, 4, stream_id)
+		Ok(header) => Ok(OutboundPushPromiseAccepted(payload_length, byte_append(byte_append(header, promised_payload), header_block)))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_split_push_promise(stream_id: Int, payload_length: Int, promised_payload: ByteChunk, header_block: ByteChunk, max_frame_size: Int) -> Result<OutboundPushPromiseDecision, String>
+	let first_header_block_count: ByteCount = byte_count(max_frame_size - 4)?
+	let first_header_block: ByteChunk = byte_take(header_block, first_header_block_count)?
+	let remaining: ByteChunk = byte_drop(header_block, first_header_block_count)?
+	match encode_frame_header(max_frame_size, 5, 0, stream_id)
+		Ok(header) => encode_continuation_push_promise(stream_id, payload_length, max_frame_size, remaining, byte_append(byte_append(header, promised_payload), first_header_block))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_continuation_push_promise(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
+	match remaining_length > max_frame_size
+		true => encode_nonfinal_push_promise_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
+		false => encode_final_push_promise_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
+	end
+end
+
+fn encode_nonfinal_push_promise_continuation(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	let chunk_count: ByteCount = byte_count(max_frame_size)?
+	let payload: ByteChunk = byte_take(remaining, chunk_count)?
+	let next_remaining: ByteChunk = byte_drop(remaining, chunk_count)?
+	match encode_frame_header(max_frame_size, 9, 0, stream_id)
+		Ok(header) => encode_continuation_push_promise(stream_id, payload_length, max_frame_size, next_remaining, byte_append(byte_append(encoded, header), payload))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
+	end
+end
+
+fn encode_final_push_promise_continuation(stream_id: Int, payload_length: Int, final_length: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
+	match encode_frame_header(final_length, 9, 4, stream_id)
+		Ok(header) => Ok(OutboundPushPromiseAccepted(payload_length, byte_append(byte_append(encoded, header), remaining)))
+		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
+	end
+end
+
+fn headers_chunk(decision: OutboundHeadersDecision) -> ByteChunk
+	match decision
+		OutboundHeadersAccepted(_, chunk) => chunk
+		OutboundHeadersEncodeFailed(_, _) => byte_chunk([])
+	end
+end
+
+fn push_promise_chunk(decision: OutboundPushPromiseDecision) -> ByteChunk
+	match decision
+		OutboundPushPromiseAccepted(_, chunk) => chunk
+		OutboundPushPromiseEncodeFailed(_, _) => byte_chunk([])
+	end
+end
+
+fn require_transition(result: Result<HpackEncodeTransition, HpackFixtureFailure>) -> Result<HpackEncodeTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected outbound HPACK fixture encode transition")
+	end
+end
+
+fn require_headers(decision: OutboundHeadersDecision) -> Result<OutboundHeadersDecision, String>
+	match decision
+		OutboundHeadersAccepted(_, _) => Ok(decision)
+		OutboundHeadersEncodeFailed(_, _) => Err("expected outbound HEADERS bytes")
+	end
+end
+
+fn require_push_promise(decision: OutboundPushPromiseDecision) -> Result<OutboundPushPromiseDecision, String>
+	match decision
+		OutboundPushPromiseAccepted(_, _) => Ok(decision)
+		OutboundPushPromiseEncodeFailed(_, _) => Err("expected outbound PUSH_PROMISE bytes")
+	end
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn byte_chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
+	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	match left_count == right_count
+		true => byte_chunks_equal_at(left, right, 0, left_count)
+		false => Ok(false)
+	end
+end
+
+fn byte_chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	match index == count
+		true => Ok(true)
+		false => match byte_at(left, index)? == byte_at(right, index)?
+			true => byte_chunks_equal_at(left, right, index + 1, count)
+			false => Ok(false)
+		end
+	end
+end
+
+fn checked_hex_label(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	let expected: ByteChunk = byte_chunk_from_hex(expected_hex)?
+	let matches_expected: Bool = byte_chunks_equal(chunk, expected)?
+	match matches_expected
+		true => Ok(expected_hex)
+		false => Ok("mismatch")
+	end
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_output_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex_label(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, chunk, expected_hex)
+end
+
+fn print_hpack_state(label: String, state: HpackFixtureState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" hpack_encode_state table_size ")
+	stdio::print(int_to_string(hpack_fixture::state_table_size(state)))
+	stdio::print(" encode_count ")
+	stdio::print(int_to_string(hpack_fixture::state_encode_count(state)))
+	stdio::print(" dynamic_entry_count ")
+	stdio::println(int_to_string(hpack_fixture::dynamic_entry_count(state)))
+end
+
+fn print_rejected_table_size_update(label: String, result: Result<HpackEncodeTransition, HpackFixtureFailure>) -> () effects [stdio]
+	match result
+		Ok(_) => stdio::println("unexpected outbound HPACK table-size update success")
+		Err(failure) => print_table_size_update_failure(label, failure)
+	end
+end
+
+fn print_table_size_update_failure(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-hpack-table-size-update failed observed_size ")
+	stdio::print(int_to_string(hpack_fixture::hpack_failure_observed_size(failure)))
+	stdio::print(" allowed_size ")
+	stdio::print(int_to_string(hpack_fixture::hpack_failure_allowed_size(failure)))
+	stdio::print(" expected ")
+	stdio::println(hpack_fixture::hpack_failure_expected_fixture(failure))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let seeded_transition: HpackEncodeTransition = require_transition(hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), hpack_fixture::initial_encode_state(), 0))?
+	let seeded_state: HpackFixtureState = hpack_fixture::encode_transition_state(seeded_transition)
+	print_hpack_state("seeded-literal-indexed-path-target", seeded_state)
+
+	let accepted_update_transition: HpackEncodeTransition = require_transition(hpack_fixture::encode_table_size_update_with_state(30, 32, seeded_state, 0))?
+	let accepted_update_state: HpackFixtureState = hpack_fixture::encode_transition_state(accepted_update_transition)
+	let accepted_update_headers: OutboundHeadersDecision = require_headers(send_headers(1, hpack_fixture::encode_transition_bytes(accepted_update_transition), 1)?)?
+	let ignored_update_chunk: () = emit_encoded_chunk("http2-outbound-hpack-table-size-update-accepted", headers_chunk(accepted_update_headers), "0000010104000000013e")?
+	print_hpack_state("after-outbound-table-size-update", accepted_update_state)
+
+	let after_update_headers_transition: HpackEncodeTransition = require_transition(hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), accepted_update_state, 0))?
+	let after_update_headers_state: HpackFixtureState = hpack_fixture::encode_transition_state(after_update_headers_transition)
+	let after_update_headers: OutboundHeadersDecision = require_headers(send_headers(1, hpack_fixture::encode_transition_bytes(after_update_headers_transition), 4)?)?
+	let ignored_headers_chunk: () = emit_encoded_chunk("http2-outbound-hpack-after-table-size-update-headers", headers_chunk(after_update_headers), "00000401000000000144072f740000040900000000016172676500000109040000000174")?
+	print_hpack_state("after-outbound-table-size-update-headers", after_update_headers_state)
+
+	let after_update_push_transition: HpackEncodeTransition = require_transition(hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), accepted_update_state, 0))?
+	let after_update_push_state: HpackFixtureState = hpack_fixture::encode_transition_state(after_update_push_transition)
+	let after_update_push: OutboundPushPromiseDecision = require_push_promise(send_push_promise(1, 2, hpack_fixture::encode_transition_bytes(after_update_push_transition), 6)?)?
+	let ignored_push_chunk: () = emit_encoded_chunk("http2-outbound-hpack-after-table-size-update-push-promise", push_promise_chunk(after_update_push), "0000060500000000010000000244070000060900000000012f746172676500000109040000000174")?
+	print_hpack_state("after-outbound-table-size-update-push-promise", after_update_push_state)
+
+	let rejected_update: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_table_size_update_with_state(33, 32, hpack_fixture::initial_encode_state(), 0)
+	print_rejected_table_size_update("outbound-hpack-table-size-update-over-peer-limit", rejected_update)
+	emit_output_chunk_list_header("http2-outbound-hpack-table-size-update-over-peer-limit", 0)
+	Ok(())
+end
