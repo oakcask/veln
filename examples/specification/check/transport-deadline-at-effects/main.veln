@@ -1,0 +1,6 @@
+# Absolute deadline construction must declare the inferred time effect.
+pub fn wait_for_absolute_deadline() -> ()
+	let target_ms: Int = time::monotonic_ms()
+	let deadline: Deadline = time::deadline_at_ms(target_ms)
+	time::wait_until(deadline)
+end

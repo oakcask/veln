@@ -86,7 +86,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   another same-shaped spawned-handler arity.
 - richer deadline, timeout, and cancellation adapter APIs beyond
   `time::monotonic_ms`, `time::timeout_ms`, `time::deadline_after_ms`,
-  `time::wait_until`, `time::cancel_token`, `time::cancel`, and
+  `time::deadline_at_ms`, `time::wait_until`, `time::cancel_token`,
+  `time::cancel`, and
   `time::is_cancelled`, `time::wait_until_cancellable`, plus
   `time::wait_until_cancellable_outcome`, deadline-aware listener accept,
   cancellable deadline-aware listener accept, and deadline-aware and
@@ -482,12 +483,17 @@ adapter surface with related connection and stream context when available.
 
 Implemented first slices: `time::timeout_ms(milliseconds)`,
 `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
-`time::monotonic_ms()`, `time::cancel_token()`, `time::cancel(token)`, and
+`time::deadline_at_ms(target_ms)`, `time::monotonic_ms()`,
+`time::cancel_token()`, `time::cancel(token)`, and
 `time::wait_until_cancellable(deadline, token)` use the existing `time` effect
 label at the runtime boundary. `time::monotonic_ms()` returns a host-owned
 monotonic millisecond counter for elapsed-time measurement without exposing a
-wall-clock date API. `CancelToken` is the first source-visible cancellation
-handle for adapter-owned waits.
+wall-clock date API. `time::deadline_after_ms` creates a `Deadline` from a
+relative millisecond duration, and `time::deadline_at_ms` creates the same
+source-visible `Deadline` shape from an absolute monotonic millisecond target.
+Existing deadline-aware socket, wait, and adapter calls consume both
+construction paths without separate source code paths. `CancelToken` is the
+first source-visible cancellation handle for adapter-owned waits.
 `time::is_cancelled(token)` observes that handle as `Bool` without waiting or
 requesting cancellation.
 `time::wait_until_cancellable_outcome(deadline, token)` returns

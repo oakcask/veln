@@ -3142,6 +3142,14 @@ against the built `veln` binary.
   through descriptor-backed `time` calls.
 - `check/transport-deadline-effects/`: deadline creation and waiting infer
   the `time` effect for public effect checking.
+- `run/transport-deadline-at-boundary/`: absolute monotonic deadline creation
+  from a future `time::monotonic_ms` target uses the normal deadline-aware
+  socket read path.
+- `run/transport-socket-read-until-deadline-at-expired/`: absolute monotonic
+  deadline creation at the current monotonic tick is already expired for an
+  existing deadline-aware socket read consumer.
+- `check/transport-deadline-at-effects/`: absolute monotonic deadline
+  construction infers the `time` effect for public effect checking.
 - `run/transport-cancellable-wait/`: cancellable deadline creation and waiting
   succeed through descriptor-backed `time` calls and a source-visible
   `CancelToken`.

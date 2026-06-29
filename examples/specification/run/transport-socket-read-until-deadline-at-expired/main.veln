@@ -1,0 +1,16 @@
+# Absolute monotonic deadlines at the current tick are already expired.
+fn emit_read_result(result: Option<ByteChunk>) -> () effects [stdio]
+	match result
+		Some(_) => stdio::println("read")
+		None => stdio::println("deadline")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let target_ms: Int = time::monotonic_ms()
+	let deadline: Deadline = time::deadline_at_ms(target_ms)
+	emit_read_result(net::read_chunk_until(stream, deadline))
+	Ok(())
+end

@@ -275,6 +275,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "time::monotonic_ms" => "timeMonotonicMs",
         "time::timeout_ms" => "timeTimeoutMs",
         "time::deadline_after_ms" => "timeDeadlineAfterMs",
+        "time::deadline_at_ms" => "timeDeadlineAtMs",
         "time::wait_until" => "timeWaitUntil",
         "time::cancel_token" => "timeCancelToken",
         "time::cancel_owner" => "timeCancelOwner",

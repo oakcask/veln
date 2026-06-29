@@ -587,6 +587,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "time",
+        "deadline_at_ms",
+        TIME_EFFECTS,
+        "runtime.time.deadline_at_ms",
+        StandardSignature {
+            params: PARAM_INT,
+            return_type: StandardType::Deadline,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
         "wait_until",
         TIME_EFFECTS,
         "runtime.time.wait_until",

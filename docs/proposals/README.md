@@ -420,7 +420,8 @@ compare it with `../specification/` before changing behavior.
   define remaining transport adapter, richer production socket APIs, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
-  receiver-list routing, task, deadline, cancellation, deadline-aware listener
+  receiver-list routing, task, relative and absolute monotonic deadline,
+  cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
   stream write, adapter-owned

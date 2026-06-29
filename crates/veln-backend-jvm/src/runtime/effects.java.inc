@@ -1244,13 +1244,21 @@
         return Long.valueOf(deadline);
     }
 
+    public static Object timeDeadlineAtMs(Object targetMilliseconds) {
+        long target = asLong(targetMilliseconds);
+        try {
+            return Long.valueOf(Math.multiplyExact(target, 1000000L));
+        } catch (ArithmeticException error) {
+            return Long.valueOf(target >= 0L ? Long.MAX_VALUE : Long.MIN_VALUE);
+        }
+    }
+
     public static Object timeWaitUntil(Object deadline) {
         String forcedExpiry = System.getenv("VELN_TIME_DEADLINE_EXPIRED");
         if ("1".equals(forcedExpiry)) {
             throw new RuntimeFailure("transport deadline expired: VELN_TIME_DEADLINE_EXPIRED");
         }
-        long target = asLong(deadline);
-        long remaining = target - System.nanoTime();
+        long remaining = deadlineRemainingNanos(deadline);
         if (remaining <= 0L) {
             return UNIT;
         }
@@ -1262,6 +1270,19 @@
             Thread.currentThread().interrupt();
         }
         return UNIT;
+    }
+
+    private static long deadlineRemainingNanos(Object deadline) {
+        long target = asLong(deadline);
+        long now = System.nanoTime();
+        if (target <= now) {
+            return 0L;
+        }
+        try {
+            return Math.subtractExact(target, now);
+        } catch (ArithmeticException error) {
+            return Long.MAX_VALUE;
+        }
     }
 
     public static Object timeCancelToken() {
@@ -1301,8 +1322,7 @@
         if ("1".equals(forcedExpiry)) {
             throw new RuntimeFailure("transport deadline expired: VELN_TIME_DEADLINE_EXPIRED");
         }
-        long target = asLong(deadline);
-        long remaining = target - System.nanoTime();
+        long remaining = deadlineRemainingNanos(deadline);
         while (remaining > 0L) {
             failIfWaitCancelled(cancelToken);
             try {
@@ -1315,7 +1335,7 @@
                 cancelToken.cancelled = true;
                 throw new RuntimeFailure("transport wait cancelled: thread interrupted");
             }
-            remaining = target - System.nanoTime();
+            remaining = deadlineRemainingNanos(deadline);
         }
         failIfWaitCancelled(cancelToken);
         return UNIT;
@@ -1334,8 +1354,7 @@
         if ("1".equals(forcedExpiry)) {
             return waitOutcome("WaitDeadlineExpired");
         }
-        long target = asLong(deadline);
-        long remaining = target - System.nanoTime();
+        long remaining = deadlineRemainingNanos(deadline);
         while (remaining > 0L) {
             if (waitCancelled(cancelToken)) {
                 return waitOutcome("WaitCancelled");
@@ -1350,7 +1369,7 @@
                 cancelToken.cancelled = true;
                 return waitOutcome("WaitCancelled");
             }
-            remaining = target - System.nanoTime();
+            remaining = deadlineRemainingNanos(deadline);
         }
         if (waitCancelled(cancelToken)) {
             return waitOutcome("WaitCancelled");

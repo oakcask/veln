@@ -972,9 +972,10 @@ fn time_calls_require_time_effect_with_descriptor_provenance() {
         concat!(
             "pub fn main() -> ()\n",
             "  let deadline: Deadline = time::deadline_after_ms(10)\n",
+            "  let absolute_deadline: Deadline = time::deadline_at_ms(time::monotonic_ms())\n",
             "  let token: CancelToken = time::cancel_token()\n",
             "  time::wait_until_cancellable(deadline, token)\n",
-            "  time::wait_until(deadline)\n",
+            "  time::wait_until(absolute_deadline)\n",
             "end\n",
         ),
     );
