@@ -1202,6 +1202,8 @@ impl<'a> ProtocolDiagnosticContext<'a> {
     fn project_hpack_fixture_rule(&self) -> Option<Diagnostic> {
         let message = match self.id.as_str() {
             "hpack.fixture.unsupported_header_block" => "unsupported HPACK fixture header block",
+            "hpack.fixture.unsupported_static_index" => "unsupported HPACK static index",
+            "hpack.static.unsupported_index" => "unsupported HPACK static index",
             "hpack.fixture.malformed_string_length" => "malformed HPACK string length",
             "hpack.fixture.malformed_raw_string_value" => "malformed HPACK raw string value",
             "hpack.fixture.malformed_huffman_padding" => "malformed HPACK Huffman padding",
@@ -1236,9 +1238,15 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         let codec_module = self.string("codec_module")?;
         let mut diagnostic =
             self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
-        diagnostic.related.push(note_json(format!(
-            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
-        )));
+        if self.id == "hpack.static.unsupported_index" {
+            diagnostic.related.push(note_json(format!(
+                "HPACK static decoder `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+        } else {
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+        }
         push_byte_preview_note(&mut diagnostic, self.entries);
         diagnostic
             .related

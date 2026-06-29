@@ -1,0 +1,15 @@
+fn fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic("hpack.static.unsupported_index", error, RuntimeHpackFixtureDiagnostic(0, 0, -1, "HPACK static indexed header", "hpack_static", byte_chunk([])))
+end
+
+fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let block: ByteChunk = fixture_bytes("80")?
+	Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHpackFixtureDiagnostic(0, 1, 128, "HPACK static indexed header", "hpack_static", block)))
+end

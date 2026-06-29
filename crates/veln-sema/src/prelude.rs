@@ -913,6 +913,7 @@ fn hpack_fixture_signature<T: BytePreludeType>(
 ) -> Option<ByteSignature<T>> {
     match name {
         "hpack_fixture_unsupported_header_block"
+        | "hpack_fixture_unsupported_static_index"
         | "hpack_fixture_malformed_string_length"
         | "hpack_fixture_malformed_raw_string_value"
         | "hpack_fixture_malformed_huffman_padding"

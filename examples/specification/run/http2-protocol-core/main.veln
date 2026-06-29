@@ -1,5 +1,6 @@
 # A pure HTTP/2 core consumes frame headers from explicit input events and emits encoded headers.
 use hpack_fixture
+use hpack_static
 use stdio
 
 schema Http2FrameHeaderWire
@@ -841,14 +842,28 @@ end
 
 fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match header_list_boundary_reached(kind, flags)
-		true => match hpack_fixture::decode_header_block(completed_header_block, hpack_state, offset)
-			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
-			Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start" or hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update without trailing bytes"
-				true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
-				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
-			end
-		end
+		true => decode_completed_static_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
 		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state, hpack_fixture::incomplete_header_list())
+	end
+end
+
+fn decode_completed_static_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
+	match hpack_static::decode_header_block(completed_header_block, offset)
+		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_state, headers)
+		Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
+			true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
+		end
+	end
+end
+
+fn decode_completed_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
+	match hpack_fixture::decode_header_block(completed_header_block, hpack_state, offset)
+		Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
+		Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start" or hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update without trailing bytes"
+			true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+		end
 	end
 end
 
@@ -5445,7 +5460,10 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		HeaderListSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "http2.peer_limit.header_list_size_exceeded"
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "http2.peer_limit.header_table_size_exceeded"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "http2.peer_limit.settings_value_out_of_range"
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => hpack_fixture_failure_id(expected_fixture)
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "HPACK static indexed header" and codec_module == "hpack_static"
+			true => "hpack.static.unsupported_index"
+			false => hpack_fixture_failure_id(expected_fixture)
+		end
 		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
 			true => "hpack.fixture.table_size_update_trailing_bytes"
 			false => "hpack.fixture.table_size_update_not_at_start"
@@ -5456,7 +5474,9 @@ end
 fn hpack_fixture_failure_id(expected_fixture: String) -> String
 	match expected_fixture == "fixture HPACK string length"
 		true => "hpack.fixture.malformed_string_length"
-		false => match expected_fixture == "fixture HPACK raw string value"
+		false => match expected_fixture == "fixture HPACK static indexed header"
+			true => "hpack.fixture.unsupported_static_index"
+			false => match expected_fixture == "fixture HPACK raw string value"
 			true => "hpack.fixture.malformed_raw_string_value"
 			false => match expected_fixture == "fixture HPACK Huffman padding"
 				true => "hpack.fixture.malformed_huffman_padding"
@@ -5489,6 +5509,7 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 					end
 				end
 			end
+		end
 		end
 	end
 end
@@ -6266,6 +6287,10 @@ fn project_priority_dependency_payload(offset: Int, stream_id: Int, dependency_s
 	Err(priority_dependency_runtime_payload(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview_chunk))
 end
 
+fn hpack_static_unsupported_index(offset: Int, observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview_chunk: ByteChunk) -> Result<(), RuntimeDiagnostic>
+	Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHpackFixtureDiagnostic(offset, observed_size, observed_first_byte, expected_header, decoder_module, preview_chunk)))
+end
+
 fn accept_runtime_diagnostic(result: Result<(), RuntimeDiagnostic>) -> Result<(), String>
 	match result
 		Ok(_) => Ok(())
@@ -6308,7 +6333,11 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_trailing_bytes(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 			false => accept_runtime_diagnostic(hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 		end
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.table_size_update_malformed"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "HPACK static indexed header" and codec_module == "hpack_static"
+			true => accept_runtime_diagnostic(hpack_static_unsupported_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview_chunk))
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.unsupported_static_index"
+			true => accept_runtime_diagnostic(hpack_fixture_unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.table_size_update_malformed"
 			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_malformed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
 			true => accept_runtime_diagnostic(hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
@@ -6337,8 +6366,10 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 					end
 				end
 			end
+			end
 		end
-		end
+	end
+end
 	end
 end
 
@@ -7490,6 +7521,18 @@ fn print_hpack_two_header_decoded(label: String, transition: HpackDecodeTransiti
 	stdio::println(int_to_string(hpack_fixture::state_decode_count(hpack_fixture::transition_state(transition))))
 end
 
+fn print_hpack_static_decoded(label: String, headers: HpackHeaderList) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" hpack_static decoded ")
+	stdio::print(hpack_fixture::header_list_decoded_names(headers))
+	stdio::print(" first ")
+	stdio::print(hpack_fixture::header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(display_hpack_header_value(hpack_fixture::header_list_first_value(headers)))
+	stdio::print(" wire_size ")
+	stdio::println(int_to_string(hpack_fixture::header_list_wire_size(headers)))
+end
+
 fn print_hpack_failed(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" hpack failed ")
@@ -7524,6 +7567,13 @@ fn print_hpack_two_header_transition(label: String, step: Http2Step) -> () effec
 	match hpack_fixture::decode_header_block(step_completed_header_block(step), hpack_fixture::initial_state(), step_offset(step))
 		Ok(transition) => print_hpack_two_header_decoded(label, transition)
 		Err(failure) => print_hpack_failed(label, failure)
+	end
+end
+
+fn print_hpack_static_transition(label: String, step: Http2Step) -> () effects [stdio]
+	match hpack_static::decode_header_block(step_completed_header_block(step), step_offset(step))
+		Ok(headers) => print_hpack_static_decoded(label, headers)
+		Err(_) => stdio::println(label)
 	end
 end
 
@@ -7572,7 +7622,7 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_trailing_bytes" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.unsupported_static_index" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_trailing_bytes" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
 			true => Ok(())
 			false => Err("expected HTTP/2 HPACK fixture failure")
 		end
@@ -9168,44 +9218,6 @@ fn print_hpack_header_block_case_with_header(state: Http2DecodeState, label: Str
 	require_hpack_transition_header(step, state, expected_name, expected_value)
 end
 
-fn print_hpack_static_indexed_case(state: Http2DecodeState, label: String, output_label: String, frame_hex: String, block_hex: String) -> Result<(), String> effects [stdio]
-	print_hpack_header_block_case(state, label, output_label, frame_hex, block_hex)
-end
-
-fn print_hpack_static_indexed_continuation_case(state: Http2DecodeState) -> Result<(), String> effects [stdio]
-	let start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010000000001")?), state)?
-	print_step("hpack-static-indexed-path-index-continuation-start", start)
-	let done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000185")?), step_state(start))?
-	print_step("hpack-static-indexed-path-index-continuation-done", done)
-	let ignored_header_block: () = emit_header_block("http2-hpack-static-indexed-path-index-continuation", done, "85")?
-	print_hpack_transition("hpack-static-indexed-path-index-continuation-done", done)
-	Ok(())
-end
-
-fn print_extended_hpack_static_indexed_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
-	let ignored_hpack_static_indexed_authority: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-authority", "http2-hpack-static-indexed-authority", "00000101040000000181", "81")?
-	let ignored_hpack_static_indexed_path_index_continuation: () = print_hpack_static_indexed_continuation_case(state)?
-	let ignored_hpack_static_indexed_last_modified: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-last-modified", "http2-hpack-static-indexed-last-modified", "000001010400000001ac", "ac")?
-	let ignored_hpack_static_indexed_link: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-link", "http2-hpack-static-indexed-link", "000001010400000001ad", "ad")?
-	let ignored_hpack_static_indexed_location: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-location", "http2-hpack-static-indexed-location", "000001010400000001ae", "ae")?
-	let ignored_hpack_static_indexed_max_forwards: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-max-forwards", "http2-hpack-static-indexed-max-forwards", "000001010400000001af", "af")?
-	let ignored_hpack_static_indexed_proxy_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authenticate", "http2-hpack-static-indexed-proxy-authenticate", "000001010400000001b0", "b0")?
-	let ignored_hpack_static_indexed_proxy_authorization: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-proxy-authorization", "http2-hpack-static-indexed-proxy-authorization", "000001010400000001b1", "b1")?
-	let ignored_hpack_static_indexed_range: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-range", "http2-hpack-static-indexed-range", "000001010400000001b2", "b2")?
-	let ignored_hpack_static_indexed_referer: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-referer", "http2-hpack-static-indexed-referer", "000001010400000001b3", "b3")?
-	let ignored_hpack_static_indexed_refresh: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-refresh", "http2-hpack-static-indexed-refresh", "000001010400000001b4", "b4")?
-	let ignored_hpack_static_indexed_retry_after: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-retry-after", "http2-hpack-static-indexed-retry-after", "000001010400000001b5", "b5")?
-	let ignored_hpack_static_indexed_server: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-server", "http2-hpack-static-indexed-server", "000001010400000001b6", "b6")?
-	let ignored_hpack_static_indexed_set_cookie: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-set-cookie", "http2-hpack-static-indexed-set-cookie", "000001010400000001b7", "b7")?
-	let ignored_hpack_static_indexed_strict_transport_security: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-strict-transport-security", "http2-hpack-static-indexed-strict-transport-security", "000001010400000001b8", "b8")?
-	let ignored_hpack_static_indexed_transfer_encoding: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-transfer-encoding", "http2-hpack-static-indexed-transfer-encoding", "000001010400000001b9", "b9")?
-	let ignored_hpack_static_indexed_user_agent: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-user-agent", "http2-hpack-static-indexed-user-agent", "000001010400000001ba", "ba")?
-	let ignored_hpack_static_indexed_vary: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-vary", "http2-hpack-static-indexed-vary", "000001010400000001bb", "bb")?
-	let ignored_hpack_static_indexed_via: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-via", "http2-hpack-static-indexed-via", "000001010400000001bc", "bc")?
-	let ignored_hpack_static_indexed_www_authenticate: () = print_hpack_static_indexed_case(state, "hpack-static-indexed-www-authenticate", "http2-hpack-static-indexed-www-authenticate", "000001010400000001bd", "bd")?
-	Ok(())
-end
-
 fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let ignored_hpack_literal_authority_raw: () = print_hpack_header_block_case(state, "hpack-literal-authority-raw", "http2-hpack-literal-authority-raw", "00000a01040000000101086162632e74657374", "01086162632e74657374")?
 	let ignored_hpack_literal_status_raw: () = print_hpack_header_block_case(state, "hpack-literal-status-raw", "http2-hpack-literal-status-raw", "0000050104000000010803323031", "0803323031")?
@@ -9498,10 +9510,6 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let ignored_hpack_wide_dynamic_name_cases: () = print_hpack_wide_dynamic_name_cases()?
 	let ignored_hpack_dynamic_table_cases: () = print_hpack_dynamic_table_cases()?
 	let ignored_hpack_table_size_cases: () = print_hpack_table_size_cases(state)?
-	let hpack_static_indexed_path_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000185")?), state)?
-	print_step("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
-	let ignored_hpack_static_indexed_path_index: () = emit_header_block("http2-hpack-static-indexed-path-index", hpack_static_indexed_path_index, "85")?
-	print_hpack_transition("hpack-static-indexed-path-index", hpack_static_indexed_path_index)
 	let hpack_static_indexed_scheme_http: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000186")?), state)?
 	print_step("hpack-static-indexed-scheme-http", hpack_static_indexed_scheme_http)
 	let ignored_hpack_static_indexed_scheme_http: () = emit_header_block("http2-hpack-static-indexed-scheme-http", hpack_static_indexed_scheme_http, "86")?
@@ -9514,147 +9522,26 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-indexed-status-200", hpack_static_indexed_status_200)
 	let ignored_hpack_static_indexed_status_200: () = emit_header_block("http2-hpack-static-indexed-status-200", hpack_static_indexed_status_200, "88")?
 	print_hpack_transition("hpack-static-indexed-status-200", hpack_static_indexed_status_200)
-	let hpack_static_indexed_status_204: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000189")?), state)?
-	print_step("hpack-static-indexed-status-204", hpack_static_indexed_status_204)
-	let ignored_hpack_static_indexed_status_204: () = emit_header_block("http2-hpack-static-indexed-status-204", hpack_static_indexed_status_204, "89")?
-	print_hpack_transition("hpack-static-indexed-status-204", hpack_static_indexed_status_204)
-	let hpack_static_indexed_status_206: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018a")?), state)?
-	print_step("hpack-static-indexed-status-206", hpack_static_indexed_status_206)
-	let ignored_hpack_static_indexed_status_206: () = emit_header_block("http2-hpack-static-indexed-status-206", hpack_static_indexed_status_206, "8a")?
-	print_hpack_transition("hpack-static-indexed-status-206", hpack_static_indexed_status_206)
-	let hpack_static_indexed_status_304: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018b")?), state)?
-	print_step("hpack-static-indexed-status-304", hpack_static_indexed_status_304)
-	let ignored_hpack_static_indexed_status_304: () = emit_header_block("http2-hpack-static-indexed-status-304", hpack_static_indexed_status_304, "8b")?
-	print_hpack_transition("hpack-static-indexed-status-304", hpack_static_indexed_status_304)
-	let hpack_static_indexed_status_400: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018c")?), state)?
-	print_step("hpack-static-indexed-status-400", hpack_static_indexed_status_400)
-	let ignored_hpack_static_indexed_status_400: () = emit_header_block("http2-hpack-static-indexed-status-400", hpack_static_indexed_status_400, "8c")?
-	print_hpack_transition("hpack-static-indexed-status-400", hpack_static_indexed_status_400)
 	let hpack_static_indexed_status_404: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018d")?), state)?
 	print_step("hpack-static-indexed-status-404", hpack_static_indexed_status_404)
 	let ignored_hpack_static_indexed_status_404: () = emit_header_block("http2-hpack-static-indexed-status-404", hpack_static_indexed_status_404, "8d")?
 	print_hpack_transition("hpack-static-indexed-status-404", hpack_static_indexed_status_404)
-	let hpack_static_indexed_status_500: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018e")?), state)?
-	print_step("hpack-static-indexed-status-500", hpack_static_indexed_status_500)
-	let ignored_hpack_static_indexed_status_500: () = emit_header_block("http2-hpack-static-indexed-status-500", hpack_static_indexed_status_500, "8e")?
-	print_hpack_transition("hpack-static-indexed-status-500", hpack_static_indexed_status_500)
-	let hpack_static_indexed_accept_charset: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018f")?), state)?
-	print_step("hpack-static-indexed-accept-charset", hpack_static_indexed_accept_charset)
-	let ignored_hpack_static_indexed_accept_charset: () = emit_header_block("http2-hpack-static-indexed-accept-charset", hpack_static_indexed_accept_charset, "8f")?
-	print_hpack_transition("hpack-static-indexed-accept-charset", hpack_static_indexed_accept_charset)
-	let hpack_static_indexed_accept_encoding: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000190")?), state)?
-	print_step("hpack-static-indexed-accept-encoding", hpack_static_indexed_accept_encoding)
-	let ignored_hpack_static_indexed_accept_encoding: () = emit_header_block("http2-hpack-static-indexed-accept-encoding", hpack_static_indexed_accept_encoding, "90")?
-	print_hpack_transition("hpack-static-indexed-accept-encoding", hpack_static_indexed_accept_encoding)
-	let hpack_static_indexed_accept_language: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000191")?), state)?
-	print_step("hpack-static-indexed-accept-language", hpack_static_indexed_accept_language)
-	let ignored_hpack_static_indexed_accept_language: () = emit_header_block("http2-hpack-static-indexed-accept-language", hpack_static_indexed_accept_language, "91")?
-	print_hpack_transition("hpack-static-indexed-accept-language", hpack_static_indexed_accept_language)
-	let hpack_static_indexed_accept_ranges: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000192")?), state)?
-	print_step("hpack-static-indexed-accept-ranges", hpack_static_indexed_accept_ranges)
-	let ignored_hpack_static_indexed_accept_ranges: () = emit_header_block("http2-hpack-static-indexed-accept-ranges", hpack_static_indexed_accept_ranges, "92")?
-	print_hpack_transition("hpack-static-indexed-accept-ranges", hpack_static_indexed_accept_ranges)
-	let hpack_static_indexed_accept: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000193")?), state)?
-	print_step("hpack-static-indexed-accept", hpack_static_indexed_accept)
-	let ignored_hpack_static_indexed_accept: () = emit_header_block("http2-hpack-static-indexed-accept", hpack_static_indexed_accept, "93")?
-	print_hpack_transition("hpack-static-indexed-accept", hpack_static_indexed_accept)
-	let hpack_static_indexed_access_control_allow_origin: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000194")?), state)?
-	print_step("hpack-static-indexed-access-control-allow-origin", hpack_static_indexed_access_control_allow_origin)
-	let ignored_hpack_static_indexed_access_control_allow_origin: () = emit_header_block("http2-hpack-static-indexed-access-control-allow-origin", hpack_static_indexed_access_control_allow_origin, "94")?
-	print_hpack_transition("hpack-static-indexed-access-control-allow-origin", hpack_static_indexed_access_control_allow_origin)
-	let hpack_static_indexed_age: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000195")?), state)?
-	print_step("hpack-static-indexed-age", hpack_static_indexed_age)
-	let ignored_hpack_static_indexed_age: () = emit_header_block("http2-hpack-static-indexed-age", hpack_static_indexed_age, "95")?
-	print_hpack_transition("hpack-static-indexed-age", hpack_static_indexed_age)
-	let hpack_static_indexed_allow: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000196")?), state)?
-	print_step("hpack-static-indexed-allow", hpack_static_indexed_allow)
-	let ignored_hpack_static_indexed_allow: () = emit_header_block("http2-hpack-static-indexed-allow", hpack_static_indexed_allow, "96")?
-	print_hpack_transition("hpack-static-indexed-allow", hpack_static_indexed_allow)
-	let hpack_static_indexed_authorization: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000197")?), state)?
-	print_step("hpack-static-indexed-authorization", hpack_static_indexed_authorization)
-	let ignored_hpack_static_indexed_authorization: () = emit_header_block("http2-hpack-static-indexed-authorization", hpack_static_indexed_authorization, "97")?
-	print_hpack_transition("hpack-static-indexed-authorization", hpack_static_indexed_authorization)
-	let hpack_static_indexed_cache_control: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000198")?), state)?
-	print_step("hpack-static-indexed-cache-control", hpack_static_indexed_cache_control)
-	let ignored_hpack_static_indexed_cache_control: () = emit_header_block("http2-hpack-static-indexed-cache-control", hpack_static_indexed_cache_control, "98")?
-	print_hpack_transition("hpack-static-indexed-cache-control", hpack_static_indexed_cache_control)
-	let hpack_static_indexed_content_disposition: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000199")?), state)?
-	print_step("hpack-static-indexed-content-disposition", hpack_static_indexed_content_disposition)
-	let ignored_hpack_static_indexed_content_disposition: () = emit_header_block("http2-hpack-static-indexed-content-disposition", hpack_static_indexed_content_disposition, "99")?
-	print_hpack_transition("hpack-static-indexed-content-disposition", hpack_static_indexed_content_disposition)
-	let hpack_static_indexed_content_encoding: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019a")?), state)?
-	print_step("hpack-static-indexed-content-encoding", hpack_static_indexed_content_encoding)
-	let ignored_hpack_static_indexed_content_encoding: () = emit_header_block("http2-hpack-static-indexed-content-encoding", hpack_static_indexed_content_encoding, "9a")?
-	print_hpack_transition("hpack-static-indexed-content-encoding", hpack_static_indexed_content_encoding)
-	let hpack_static_indexed_content_language: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019b")?), state)?
-	print_step("hpack-static-indexed-content-language", hpack_static_indexed_content_language)
-	let ignored_hpack_static_indexed_content_language: () = emit_header_block("http2-hpack-static-indexed-content-language", hpack_static_indexed_content_language, "9b")?
-	print_hpack_transition("hpack-static-indexed-content-language", hpack_static_indexed_content_language)
-	let hpack_static_indexed_content_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019c")?), state)?
-	print_step("hpack-static-indexed-content-length", hpack_static_indexed_content_length)
-	let ignored_hpack_static_indexed_content_length: () = emit_header_block("http2-hpack-static-indexed-content-length", hpack_static_indexed_content_length, "9c")?
-	print_hpack_transition("hpack-static-indexed-content-length", hpack_static_indexed_content_length)
-	let hpack_static_indexed_content_location: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019d")?), state)?
-	print_step("hpack-static-indexed-content-location", hpack_static_indexed_content_location)
-	let ignored_hpack_static_indexed_content_location: () = emit_header_block("http2-hpack-static-indexed-content-location", hpack_static_indexed_content_location, "9d")?
-	print_hpack_transition("hpack-static-indexed-content-location", hpack_static_indexed_content_location)
-	let hpack_static_indexed_content_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019e")?), state)?
-	print_step("hpack-static-indexed-content-range", hpack_static_indexed_content_range)
-	let ignored_hpack_static_indexed_content_range: () = emit_header_block("http2-hpack-static-indexed-content-range", hpack_static_indexed_content_range, "9e")?
-	print_hpack_transition("hpack-static-indexed-content-range", hpack_static_indexed_content_range)
-	let hpack_static_indexed_content_type: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000019f")?), state)?
-	print_step("hpack-static-indexed-content-type", hpack_static_indexed_content_type)
-	let ignored_hpack_static_indexed_content_type: () = emit_header_block("http2-hpack-static-indexed-content-type", hpack_static_indexed_content_type, "9f")?
-	print_hpack_transition("hpack-static-indexed-content-type", hpack_static_indexed_content_type)
-	let hpack_static_indexed_cookie: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a0")?), state)?
-	print_step("hpack-static-indexed-cookie", hpack_static_indexed_cookie)
-	let ignored_hpack_static_indexed_cookie: () = emit_header_block("http2-hpack-static-indexed-cookie", hpack_static_indexed_cookie, "a0")?
-	print_hpack_transition("hpack-static-indexed-cookie", hpack_static_indexed_cookie)
-	let hpack_static_indexed_date: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a1")?), state)?
-	print_step("hpack-static-indexed-date", hpack_static_indexed_date)
-	let ignored_hpack_static_indexed_date: () = emit_header_block("http2-hpack-static-indexed-date", hpack_static_indexed_date, "a1")?
-	print_hpack_transition("hpack-static-indexed-date", hpack_static_indexed_date)
-	let hpack_static_indexed_etag: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a2")?), state)?
-	print_step("hpack-static-indexed-etag", hpack_static_indexed_etag)
-	let ignored_hpack_static_indexed_etag: () = emit_header_block("http2-hpack-static-indexed-etag", hpack_static_indexed_etag, "a2")?
-	print_hpack_transition("hpack-static-indexed-etag", hpack_static_indexed_etag)
-	let hpack_static_indexed_expect: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a3")?), state)?
-	print_step("hpack-static-indexed-expect", hpack_static_indexed_expect)
-	let ignored_hpack_static_indexed_expect: () = emit_header_block("http2-hpack-static-indexed-expect", hpack_static_indexed_expect, "a3")?
-	print_hpack_transition("hpack-static-indexed-expect", hpack_static_indexed_expect)
-	let hpack_static_indexed_expires: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a4")?), state)?
-	print_step("hpack-static-indexed-expires", hpack_static_indexed_expires)
-	let ignored_hpack_static_indexed_expires: () = emit_header_block("http2-hpack-static-indexed-expires", hpack_static_indexed_expires, "a4")?
-	print_hpack_transition("hpack-static-indexed-expires", hpack_static_indexed_expires)
-	let hpack_static_indexed_from: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a5")?), state)?
-	print_step("hpack-static-indexed-from", hpack_static_indexed_from)
-	let ignored_hpack_static_indexed_from: () = emit_header_block("http2-hpack-static-indexed-from", hpack_static_indexed_from, "a5")?
-	print_hpack_transition("hpack-static-indexed-from", hpack_static_indexed_from)
-	let hpack_static_indexed_host: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a6")?), state)?
-	print_step("hpack-static-indexed-host", hpack_static_indexed_host)
-	let ignored_hpack_static_indexed_host: () = emit_header_block("http2-hpack-static-indexed-host", hpack_static_indexed_host, "a6")?
-	print_hpack_transition("hpack-static-indexed-host", hpack_static_indexed_host)
-	let hpack_static_indexed_if_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a7")?), state)?
-	print_step("hpack-static-indexed-if-match", hpack_static_indexed_if_match)
-	let ignored_hpack_static_indexed_if_match: () = emit_header_block("http2-hpack-static-indexed-if-match", hpack_static_indexed_if_match, "a7")?
-	print_hpack_transition("hpack-static-indexed-if-match", hpack_static_indexed_if_match)
-	let hpack_static_indexed_if_modified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a8")?), state)?
-	print_step("hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since)
-	let ignored_hpack_static_indexed_if_modified_since: () = emit_header_block("http2-hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since, "a8")?
-	print_hpack_transition("hpack-static-indexed-if-modified-since", hpack_static_indexed_if_modified_since)
-	let hpack_static_indexed_if_none_match: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001a9")?), state)?
-	print_step("hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match)
-	let ignored_hpack_static_indexed_if_none_match: () = emit_header_block("http2-hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match, "a9")?
-	print_hpack_transition("hpack-static-indexed-if-none-match", hpack_static_indexed_if_none_match)
-	let hpack_static_indexed_if_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001aa")?), state)?
-	print_step("hpack-static-indexed-if-range", hpack_static_indexed_if_range)
-	let ignored_hpack_static_indexed_if_range: () = emit_header_block("http2-hpack-static-indexed-if-range", hpack_static_indexed_if_range, "aa")?
-	print_hpack_transition("hpack-static-indexed-if-range", hpack_static_indexed_if_range)
-	let hpack_static_indexed_if_unmodified_since: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001ab")?), state)?
-	print_step("hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since)
-	let ignored_hpack_static_indexed_if_unmodified_since: () = emit_header_block("http2-hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since, "ab")?
-	print_hpack_transition("hpack-static-indexed-if-unmodified-since", hpack_static_indexed_if_unmodified_since)
-	let ignored_extended_hpack_static_indexed_cases: () = print_extended_hpack_static_indexed_cases(state)?
+	let hpack_static_request_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001828784")?), state)?
+	print_step("hpack-static-request-headers", hpack_static_request_headers)
+	let ignored_hpack_static_request_headers: () = emit_header_block("http2-hpack-static-request-headers", hpack_static_request_headers, "828784")?
+	print_hpack_static_transition("hpack-static-request-headers", hpack_static_request_headers)
+	let hpack_static_request_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000018287")?), state)?
+	print_step("hpack-static-request-continuation-start", hpack_static_request_continuation_start)
+	let hpack_static_request_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000184")?), step_state(hpack_static_request_continuation_start))?
+	print_step("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
+	let ignored_hpack_static_request_continuation: () = emit_header_block("http2-hpack-static-request-continuation", hpack_static_request_continuation_done, "828784")?
+	print_hpack_static_transition("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
+	let hpack_static_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?
+	print_step("hpack-static-response-headers", hpack_static_response_headers)
+	let ignored_hpack_static_response_headers: () = emit_header_block("http2-hpack-static-response-headers", hpack_static_response_headers, "88")?
+	print_hpack_static_transition("hpack-static-response-headers", hpack_static_response_headers)
+	let hpack_static_unsupported_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000180")?), state)?
+	print_failure("hpack-static-unsupported-index", hpack_static_unsupported_index)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000011102030405")?), state)?
 	print_step("header-list-start", header_list_start)
 	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009090400000001060708090a0b0c0d0e")?), step_state(header_list_start))?

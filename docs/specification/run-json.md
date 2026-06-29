@@ -72,8 +72,10 @@ When the returned error value is
 the HPACK fixture detail projects to `details.protocol_diagnostic`. The
 unsupported-header-block, malformed-string-length, malformed-raw-string,
 malformed-Huffman-padding, Huffman-EOS, and Huffman non-visible fixture
-payloads, plus malformed table-size update integer payloads, carry byte
-offset, observed header block size, observed first byte,
+payloads, plus the source-visible HPACK static decoder
+`hpack.static.unsupported_index` payload and malformed table-size update
+integer payloads, carry byte offset, observed header block size, observed first
+byte,
 expected fixture, codec module, and a bounded header-block byte preview from
 the returned error value itself. Dynamic-index fixture payloads use
 `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` to add
@@ -864,6 +866,10 @@ symbol, and `hpack.fixture.huffman_non_visible_value` for HPACK Huffman output
 that decodes to a non-visible checked header value. The source-visible runtime
 diagnostic payload path for those ids uses the same
 `details.protocol_diagnostic` field shape as the standard fixture helpers.
+The source-visible HPACK static decoder uses
+`hpack.static.unsupported_index` for static-only header blocks that name an
+unsupported static-table index; it reuses the same public fields with
+`codec_module: "hpack_static"`.
 These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a

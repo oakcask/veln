@@ -11573,6 +11573,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"server\", \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\", view), ",
             "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
             "hpack_fixture: hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
+            "hpack_static_index: hpack_fixture_unsupported_static_index(27, 1, 128, \"fixture HPACK static indexed header\", \"hpack_fixture\", view), ",
             "hpack_string_length: hpack_fixture_malformed_string_length(27, 2, 4, \"fixture HPACK string length\", \"hpack_fixture\", view), ",
             "hpack_raw_string: hpack_fixture_malformed_raw_string_value(27, 5, 8, \"fixture HPACK raw string value\", \"hpack_fixture\", view), ",
             "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",

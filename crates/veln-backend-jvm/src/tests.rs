@@ -2186,6 +2186,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "hpackFixtureUnsupportedHeaderBlock",
         ),
         (
+            "hpack_fixture_unsupported_static_index",
+            "hpackFixtureUnsupportedStaticIndex",
+        ),
+        (
             "hpack_fixture_malformed_string_length",
             "hpackFixtureMalformedStringLength",
         ),

@@ -1,0 +1,24 @@
+use hpack_fixture
+
+fn fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic("hpack.fixture.unsupported_static_index", error, RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture HPACK static indexed header", "hpack_fixture", byte_chunk([])))
+end
+
+fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> Result<(), RuntimeDiagnostic>
+	match result
+		Ok(_) => Err(fallback_payload("expected unsupported HPACK static index"))
+		Err(error) => project_failure(error)
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let block: ByteChunk = fixture_bytes("80")?
+	project_decode_result(decode_header_block(block, initial_state(), 27))
+end

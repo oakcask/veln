@@ -4598,6 +4598,33 @@
         );
     }
 
+    public static Object hpackFixtureUnsupportedStaticIndex(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String message = "HPACK fixture unsupported static index at byte offset "
+            + byteOffset;
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.unsupported_static_index",
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            expected,
+            module,
+            preview
+        );
+    }
+
     public static Object hpackFixtureMalformedStringLength(
         Object offset,
         Object observedSize,

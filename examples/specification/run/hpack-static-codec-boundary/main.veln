@@ -1,0 +1,50 @@
+use hpack_fixture
+use hpack_static
+use stdio
+
+fn print_decoded(label: String, headers: HpackHeaderList) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" decoded ")
+	stdio::print(hpack_fixture::header_list_decoded_names(headers))
+	stdio::print(" first ")
+	stdio::print(hpack_fixture::header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(hpack_fixture::header_list_first_value(headers))
+	stdio::print(" wire_size ")
+	stdio::println(int_to_string(hpack_fixture::header_list_wire_size(headers)))
+end
+
+fn print_failure(label: String, failure: HpackStaticFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failed offset ")
+	stdio::print(int_to_string(hpack_static::hpack_static_failure_offset(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(hpack_static::hpack_static_failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(hpack_static::hpack_static_failure_observed_first_byte(failure)))
+	stdio::print(" expected ")
+	stdio::println(hpack_static::hpack_static_failure_expected_header(failure))
+end
+
+fn print_static_block(label: String, block_hex: String, offset: Int) -> Result<(), String> effects [stdio]
+	let block: ByteChunk = byte_chunk_from_hex(block_hex)?
+	match hpack_static::decode_header_block(block, offset)
+		Ok(headers) => Ok(print_decoded(label, headers))
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let ignored_method_get: () = print_static_block("method-get", "82", 11)?
+	let ignored_method_post: () = print_static_block("method-post", "83", 12)?
+	let ignored_path_root: () = print_static_block("path-root", "84", 13)?
+	let ignored_scheme_http: () = print_static_block("scheme-http", "86", 14)?
+	let ignored_scheme_https: () = print_static_block("scheme-https", "87", 15)?
+	let ignored_status_200: () = print_static_block("status-200", "88", 16)?
+	let ignored_status_404: () = print_static_block("status-404", "8d", 17)?
+	let ignored_request_get_https_root: () = print_static_block("request-get-https-root", "828784", 18)?
+	let ignored_request_post_http_root: () = print_static_block("request-post-http-root", "838684", 19)?
+	let ignored_unsupported_static_index: () = print_static_block("unsupported-static-index", "80", 20)?
+	let ignored_literal_falls_through: () = print_static_block("literal-falls-through", "102030", 21)?
+	Ok(())
+end

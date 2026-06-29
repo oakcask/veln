@@ -639,6 +639,10 @@ pub fn hpack_fixture_unsupported_header_block(offset: Int, observed_size: Int, o
 	prelude_builtin::hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
 end
 
+pub fn hpack_fixture_unsupported_static_index(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::hpack_fixture_unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
+end
+
 pub fn hpack_fixture_malformed_string_length(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
 end
