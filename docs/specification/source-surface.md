@@ -142,7 +142,8 @@ Nested payload schema names must resolve to an earlier same-module binary
 schema item or a public imported binary schema named through a written `use`
 path, and the named schema must itself be eligible for the generated binary
 schema helper path, including supported representation-only `ReservedBits`
-layouts and length-bounded `ByteView(length_field)` or
+layouts, including the one-bit reserved prefix `ReservedBits(1, 0)` followed
+by `UInt8`, and length-bounded `ByteView(length_field)` or
 `ByteView(left_length + right_length)`,
 `ByteView(left_length - right_length)`, or
 `ByteView(left_length * right_length)` fields whose length operands name

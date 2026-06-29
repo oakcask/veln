@@ -204,6 +204,9 @@ compare it with `../specification/` before changing behavior.
   schema-owned `ByteView` payload multiple validation for earlier decoded
   `Int` fields and positive integer literals
   ([Binary Schema ByteView Payload Multiple](../reference/implemented-proposals/binary-schema-byteview-payload-multiple.md)),
+  nested dispatch payload helpers for the one-bit reserved prefix
+  `ReservedBits(1, 0)` followed by `UInt8`
+  ([Binary Schema Dispatch One-Bit Reserved Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-one-bit-reserved-payload-helpers.md)),
   declaration-time missing, forward, and wrong-role schema-local field
   reference diagnostics for repeat count fields and count expressions,
   byte-view lengths, byte-view payload multiple operands, dispatch tags, and

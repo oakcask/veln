@@ -166,6 +166,8 @@ behavior.
   [binary-schema-dispatch-byteview-subtract-payload-helpers.md](binary-schema-dispatch-byteview-subtract-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length * right_length)` payload helpers:
   [binary-schema-dispatch-byteview-product-payload-helpers.md](binary-schema-dispatch-byteview-product-payload-helpers.md).
+- Binary schema dispatch one-bit reserved payload helpers:
+  [binary-schema-dispatch-one-bit-reserved-payload-helpers.md](binary-schema-dispatch-one-bit-reserved-payload-helpers.md).
 - Binary schema `ByteView` payload multiple validation:
   [binary-schema-byteview-payload-multiple.md](binary-schema-byteview-payload-multiple.md).
 - Binary schema dispatch payload helper boundary diagnostics:

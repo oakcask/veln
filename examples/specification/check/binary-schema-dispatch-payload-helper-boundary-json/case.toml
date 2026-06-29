@@ -85,7 +85,7 @@ equals = "unsupported_reserved_bits_layout"
 
 [[json_assert]]
 path = "diagnostics.1.details.unsupported_nested_layout_fact"
-equals = "`ReservedBits(1, 0)` is outside the supported `packed_reserved_prefix` layout: the reserved width plus the next visible width must complete one supported big-endian storage unit."
+equals = "`ReservedBits(1, 1)` is outside the supported `packed_reserved_prefix` layout: the reserved width plus the next visible width must complete one supported big-endian storage unit."
 
 [[json_assert]]
 path = "diagnostics.1.related.0.kind"

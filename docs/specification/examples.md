@@ -1801,7 +1801,9 @@ shapes.
 pins structured helper-boundary JSON fields for a resolved nested dispatch
 payload schema outside generated helper eligibility, including selected
 payload schema, parent dispatch field path, unavailable helper directions,
-unsupported nested field path, and layout reason.
+unsupported nested field path, and layout reason. The case also pins an
+unsupported representation-only `ReservedBits` payload layout at that helper
+boundary.
 `../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
 pins the same helper-boundary JSON fields for a resolved nested dispatch
 payload schema whose decoded mapping shape is available but whose mapping
@@ -1816,9 +1818,7 @@ and
 pin a resolved binary payload schema whose forward `ByteView` length reference
 keeps the nested payload outside generated decode and encode helper
 eligibility, including structured helper-boundary fields, human related notes,
-and derived codec helper rejection for the parent dispatch schemas. The JSON
-case also pins an unsupported representation-only `ReservedBits` payload
-layout at the same helper boundary.
+and derived codec helper rejection for the parent dispatch schemas.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins focused recursive helper rejections when a recursive closed dispatch is
 not length-bounded, when an encode-required imported recursive payload lacks

@@ -471,7 +471,9 @@
         if (reserved == null
             || visible == null
             || !reserved.isReserved()
-            || (reserved.reservedBitWidth != 2 && reserved.reservedBitWidth != 9)
+            || (reserved.reservedBitWidth != 1
+                && reserved.reservedBitWidth != 2
+                && reserved.reservedBitWidth != 9)
             || reserved.reservedValue != 0L
             || visible.isReserved()
             || visible.dispatch != null
@@ -5457,7 +5459,7 @@
         SchemaFieldSpec reserved,
         SchemaFieldSpec visible,
         String schemaName,
-        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPathPrefix
     ) {
         java.util.List<Object> bytes = byteViewBytes(view);
         long storageBaseOffset = byteViewStorageOffset(view);
@@ -5474,7 +5476,7 @@
             return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
-                fieldPath,
+                schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, visible.name),
                 storageByteWidth,
                 available,
                 byteViewPreviewTrace(view, 8)
@@ -5495,11 +5497,10 @@
         if (actualReserved != reserved.reservedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            return schemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchPathDiagnostic(
                 message,
                 byteOffset,
-                schemaName,
-                reserved.name,
+                schemaFieldPathWithPrefix(fieldPathPrefix, schemaName, reserved.name),
                 reserved.reservedBitWidth,
                 reserved.reservedValue,
                 actualReserved,
@@ -6207,11 +6208,7 @@
                     field,
                     reservedBytePrefixVisible,
                     schema.name,
-                    schemaFieldPathWithPrefix(
-                        fieldPathPrefix,
-                        schema.name,
-                        reservedBytePrefixVisible.name
-                    )
+                    fieldPathPrefix
                 );
                 if (isErr(read)) {
                     return read;

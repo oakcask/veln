@@ -3,7 +3,7 @@
 schema UnsupportedReservedPayload
 	format binary
 
-	padding: ReservedBits(1, 0)
+	padding: ReservedBits(1, 1)
 	value: UInt8
 end
 

@@ -598,7 +598,8 @@ execution reference.
   unit. That
   form decodes the two visible fields from their declared high-to-low
   positions, validates the low reserved bits, omits the reserved field, and
-  advances by two bytes. The narrow `ReservedBits(2, 0)` and
+  advances by two bytes. The narrow `ReservedBits(1, 0)`,
+  `ReservedBits(2, 0)`, and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` also use a two-byte
   big-endian bitstream slice: the reserved prefix is validated first, the
   visible byte is decoded from the following byte position, trailing low
@@ -1134,7 +1135,8 @@ execution reference.
   `ReservedBits(width, value)` suffix writes the visible values in
   declaration order followed by the declared low reserved bits, when the
   second visible field is `UInt8` and all three widths complete the same
-  two-byte big-endian storage unit. The narrow `ReservedBits(2, 0)` and
+  two-byte big-endian storage unit. The narrow `ReservedBits(1, 0)`,
+  `ReservedBits(2, 0)`, and
   `ReservedBits(9, 0)` prefixes followed by `UInt8` emit a two-byte
   big-endian bitstream slice with the declared reserved prefix first, the
   visible byte after it, and zero low padding bits when present; the reserved
@@ -1729,6 +1731,10 @@ execution reference.
   including successful `Decoded`, short-input `NeedMore(NeedBytes(...))`,
   non-consuming reserved-bit `Invalid`, and JSON command-facing diagnostic
   projection.
+  The dispatch reserved payload roundtrip and one-bit reserved payload failure
+  cases check that nested dispatch payload helpers accept
+  `ReservedBits(1, 0)` followed by `UInt8`, and that reserved-bit mismatch
+  diagnostics keep the enclosing dispatch field path and absolute byte offset.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
   field-validation `Invalid` outcomes through the codec item.
