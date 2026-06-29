@@ -234,6 +234,12 @@ The executable specification cases
 `../../examples/specification/run/codec-decode-need-end-boundary-json/` cover
 the same `NeedMore(NeedEnd)` projection when the value is returned through a
 same-module hand-written `decode with` codec item call.
+The executable specification cases
+`../../examples/specification/run/codec-imported-decode-need-end-boundary-human/`
+and
+`../../examples/specification/run/codec-imported-decode-need-end-boundary-json/`
+cover the same projection when the value is returned through an imported
+public hand-written `decode with` codec item call.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

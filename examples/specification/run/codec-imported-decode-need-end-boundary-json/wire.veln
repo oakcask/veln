@@ -1,0 +1,13 @@
+schema ManualNeedEndWire
+	format binary
+
+	marker: UInt8
+end
+
+pub codec ManualNeedEndCodec for ManualNeedEndWire decode
+	decode with decode_waiting_for_end
+end
+
+fn decode_waiting_for_end(input: ByteView, base: ByteOffset) -> DecodeStep<{marker: Int}>
+	NeedMore(NeedEnd)
+end

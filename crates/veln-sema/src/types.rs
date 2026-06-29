@@ -437,10 +437,23 @@ impl TypeEnvironment {
                     function.name == *name
                         && function.module_name.as_deref() == Some(module_name)
                         && imported_function_is_visible(function, use_decl)
+                        && !self.imported_codec_helper_is_hidden(function, use_decl)
                 })
             }
             _ => None,
         }
+    }
+
+    fn imported_codec_helper_is_hidden(
+        &self,
+        function: &FunctionSignature,
+        use_decl: &UseDecl,
+    ) -> bool {
+        function.visibility != Visibility::Public
+            && self.codec_calls.iter().any(|codec| {
+                codec.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && codec.target_name == function.target_name
+            })
     }
 
     pub(crate) fn unqualified_codec_calls(

@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unresolved call_target `wire::decode_packet`", "unresolved call_target `wire::PacketWire`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

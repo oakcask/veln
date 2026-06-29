@@ -19,7 +19,9 @@ codec item name, accepts the same `ByteView` and `ByteOffset` arguments as the
 declaring-module decoder, and forwards the call to the private helper named by
 the codec declaration. Valid `Decoded`, `NeedMore`, and `Invalid` values are
 returned through the same hand-written decode boundary as same-module codec
-calls.
+calls. `NeedMore(NeedEnd)` remains source-visible through ordinary caller
+observation, and the command-facing closed-input boundary projects it as
+`codec.incomplete_input`.
 
 For `encode with`, the qualified codec call resolves through the imported
 codec item name, accepts the referenced encoder function's parameters, and
@@ -34,13 +36,22 @@ does not make bare imported codec names ordinary call targets.
 
 - `../../../examples/specification/run/codec-imported-decode-boundary/` checks
   a public imported hand-written `decode with` codec call through a qualified
-  module path, including `Decoded`, `NeedMore`, and `Invalid` outcomes.
+  module path, including `Decoded`, `NeedMore(NeedBytes(...))`,
+  `NeedMore(NeedEnd)`, and `Invalid` outcomes.
+- `../../../examples/specification/run/codec-imported-decode-need-end-boundary-human/`
+  and
+  `../../../examples/specification/run/codec-imported-decode-need-end-boundary-json/`
+  check imported `NeedMore(NeedEnd)` projection at the closed-input reporting
+  boundary.
 - `../../../examples/specification/run/codec-imported-encode-boundary/` checks
   a public imported hand-written `encode with` codec call through a qualified
   module path, including `Encoded`, `Partial`, and `Invalid` outcomes.
 - `../../../examples/specification/check/codec-imported-private-boundary/`
   checks that a private imported hand-written codec remains unavailable
   through the qualified module path.
+- `../../../examples/specification/check/codec-imported-private-implementation-boundary/`
+  checks that the private schema and private helper behind an imported public
+  hand-written codec remain unavailable as callable items.
 - The semantic lowering tests in `veln-sema` check that imported public
   hand-written codec decode and encode calls resolve to the declaring-module
   helper functions, and that a bare imported codec call remains unresolved.

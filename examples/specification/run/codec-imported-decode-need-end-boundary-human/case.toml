@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln", "wire.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.incomplete_input]: incomplete input at byte offset 0", "note: Decode readiness is `need_end` because input is closed.", "note: DecodeStep value: NeedMore(NeedEnd)."]

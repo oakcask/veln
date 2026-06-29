@@ -74,8 +74,10 @@ facts used by their `DecodeStep::Invalid(...)` and `EncodeStep::Invalid(...)`
 counterparts. The implemented imported hand-written codec slice covers
 written qualified calls to `pub codec` items declared in another module for
 both `decode with` and `encode with`, without requiring the importing module
-to expose the private helper function or schema. It also keeps private
-imported codecs unavailable. The completed slice is recorded in the
+to expose the private helper function or schema. The imported hand-written
+decode boundary preserves `NeedMore(NeedEnd)` for source-visible observation
+and closed-input command projection. It also keeps private imported codecs
+unavailable. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
 The implemented imported derived codec slice covers written qualified calls to
 `pub codec` items declared in another module for both `derive decode` and
