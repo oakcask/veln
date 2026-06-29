@@ -15,6 +15,7 @@ generated `byte_decode_step_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions, standalone
 visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields,
+including generated-helper-backed `Flag24be` and `Flag24le` fields,
 visible-only packed three-byte and four-byte groups, seven-byte or eight-byte
 reserved prefix groups, seven-byte wide reserved suffix groups, and schema
 mappings that call pure same-module converters with five structural
@@ -30,9 +31,10 @@ eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
-fields, visible-only packed three-byte and four-byte groups, seven-byte or
-eight-byte reserved prefix groups, and seven-byte wide reserved suffix groups. A codec
-call receives the helper value record, returns helper success as
+fields, including generated-helper-backed `Flag24be` and `Flag24le` fields,
+visible-only packed three-byte and four-byte groups, seven-byte or
+eight-byte reserved prefix groups, and seven-byte wide reserved suffix groups.
+A codec call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists. The
 budgeted helper-backed path can expose `Partial` with emitted chunks,
@@ -44,6 +46,11 @@ produced count, and a resumable state record carrying `encoded_offset`.
   successful flag-bitset decode, consumed count, short-input readiness,
   successful encode, output chunk projection, and helper encode failure
   projection through the derived codec item.
+- `../../../examples/specification/run/derived-codec-flag24-boundary/` checks
+  generated-helper-backed `Flag24be` and `Flag24le` decode and encode
+  behavior through the derived codec item, including successful `Decoded`,
+  short-input readiness, successful `Encoded`, budgeted partial/resume
+  behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
   checks quotient-sized `ByteView` encode success, length-mismatch helper
   failure projection, and division-by-zero helper failure projection through

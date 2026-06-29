@@ -301,7 +301,9 @@ compare it with `../specification/` before changing behavior.
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte, three-byte, and four-byte groups,
-  opt-in visible flag bitset fields, wide reserved suffix groups, wide reserved prefix groups,
+  opt-in visible flag bitset fields, including generated-helper-backed
+  `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved
+  prefix groups,
   schema mappings that call pure same-module converters with five structural
   arguments through the derived codec decode boundary,
   and selected structural mapping encode slice,

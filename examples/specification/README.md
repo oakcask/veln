@@ -2286,6 +2286,11 @@ against the built `veln` binary.
   boundaries over opt-in visible flag bitset fields. The case checks
   successful `Decoded`, short-input `NeedMore`, successful `Encoded`, and
   helper-projected `Invalid(EncodeError)` outcomes.
+- `run/derived-codec-flag24-boundary/`: derived codec decode and encode item
+  boundaries over generated-helper-backed `Flag24be` and `Flag24le` fields.
+  The case checks successful `Decoded`, short-input `NeedMore`, successful
+  `Encoded`, budgeted encode resume, and helper-projected
+  `Invalid(EncodeError)` outcomes.
 - `run/derived-codec-byteview-encode-boundary/`: the same `derive encode`
   boundary projects a length-bounded `ByteView` schema helper success to one
   encoded output chunk.

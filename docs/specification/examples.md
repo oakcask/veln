@@ -258,6 +258,13 @@ short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
 and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
 item.
 The executable specification case
+`../../examples/specification/run/derived-codec-flag24-boundary/` covers the
+same derived codec decode and encode item boundary for generated-helper-backed
+`Flag24be` and `Flag24le` fields. It checks successful `Decoded`, short-input
+`NeedMore(NeedBytes(...))`, successful `Encoded`, budgeted encode resume to
+`Encoded`, and helper-projected `Invalid(EncodeError(...))` outcomes through
+the codec item.
+The executable specification case
 `../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
 covers the same derived codec decode and encode item boundary for a
 visible-only packed three-byte group. It checks successful `Decoded`,
@@ -481,6 +488,12 @@ The executable specification case
 covers the derived codec encode boundary over a visible-only packed two-byte
 group, including budgeted partial output, resumed `Encoded` output, and
 helper-projected `Invalid(EncodeError(...))`.
+The executable specification case
+`../../examples/specification/run/derived-codec-flag24-boundary/` covers the
+same derived codec encode boundary over generated-helper-backed `Flag24be`
+and `Flag24le` fields, including successful output projection, budgeted
+partial output, resumed `Encoded` output, and helper-projected
+`Invalid(EncodeError(...))`.
 The executable specification case
 `../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
 covers the derived codec encode boundary over a visible-only packed three-byte
