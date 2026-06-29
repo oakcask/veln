@@ -389,8 +389,9 @@ compare it with `../specification/` before changing behavior.
   and eviction, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
   inbound table-size update placement diagnostics, checked outbound
-  dynamic table-size update encoding, and checked outbound dynamic-name
-  literal fixture encoding, plus deterministic
+  dynamic table-size update encoding, checked outbound dynamic-name literal
+  fixture encoding, and checked outbound `PUSH_PROMISE` rejection after peer
+  `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
@@ -417,6 +418,9 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Dynamic Name Continuation Diagnostics](../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md).
   The completed outbound dynamic-name literal fixture slice is archived under
   [HTTP/2 Outbound HPACK Dynamic-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md).
+  The completed outbound `PUSH_PROMISE` peer enable-push setting slice is
+  archived under
+  [HTTP/2 Outbound PUSH_PROMISE Enable-Push Setting](../reference/implemented-proposals/http2-outbound-push-promise-enable-push-setting.md).
   The completed inbound dynamic-table fixture slice is archived under
   [HTTP/2 HPACK Dynamic Table Fixture](../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

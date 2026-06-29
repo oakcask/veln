@@ -2660,6 +2660,9 @@ against the built `veln` binary.
   preserves frame stream-id and dependency-payload encode failures as codec
   representation failures. It also constructs outbound `PUSH_PROMISE` chunks
   for an open client-created associated stream, covers CONTINUATION splitting,
+  accepts the same send-intent when the peer has not disabled push, rejects
+  it after peer `SETTINGS_ENABLE_PUSH = 0` with structured reason
+  `settings_enable_push_disabled`, emits no chunks for that rejected case,
   rejects invalid associated and promised stream ids before accepted bytes,
   and preserves promised-id representation failures as codec encode failures.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded

@@ -304,6 +304,8 @@ behavior.
   [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
 - HTTP/2 outbound HPACK dynamic-name literal:
   [http2-outbound-hpack-dynamic-name-literal.md](http2-outbound-hpack-dynamic-name-literal.md).
+- HTTP/2 outbound PUSH_PROMISE enable-push setting:
+  [http2-outbound-push-promise-enable-push-setting.md](http2-outbound-push-promise-enable-push-setting.md).
 - HTTP/2 outbound DATA flow control:
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
 - HTTP/2 outbound DATA GOAWAY boundary:

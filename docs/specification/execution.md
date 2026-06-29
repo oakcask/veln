@@ -2575,9 +2575,13 @@ execution reference.
   associated stream id, the generated `UInt31be` promised-stream payload, and
   the header block bytes. Larger payloads use one `PUSH_PROMISE` frame
   followed by CONTINUATION frames on the associated stream; `END_HEADERS` is
-  set only on the final frame. Associated stream id `0`, missing streams,
-  closed streams, already reset streams, mismatched open streams,
-  server-created associated streams, promised stream id `0`, and
+  set only on the final frame. If the peer has advertised
+  `SETTINGS_ENABLE_PUSH = 0`, the send-intent rejects a valid outbound
+  `PUSH_PROMISE` before output chunks are emitted; the structured reason is
+  `settings_enable_push_disabled` and the active state is `peer-settings`.
+  Associated stream id `0`, missing streams, closed streams, already reset
+  streams, mismatched open streams, server-created associated streams,
+  promised stream id `0`, and
   representable promised client-initiated stream ids are rejected before
   accepted output bytes are produced. Promised stream ids outside the
   generated payload helper's representable range stay as

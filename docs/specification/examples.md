@@ -2731,8 +2731,12 @@ inside an outbound `PUSH_PROMISE` frame. It also carries the returned HPACK
 fixture encode state from a literal-with-indexing `PUSH_PROMISE` header-list
 encode into a later `PUSH_PROMISE`, where the matching promised header list
 uses the dynamic indexed byte `0xbe` while preserving ordinary
-`PUSH_PROMISE` and CONTINUATION output chunks. It rejects stream id `0`, missing,
-closed, reset,
+`PUSH_PROMISE` and CONTINUATION output chunks. With no peer-advertised
+disable-push setting, the accepted `PUSH_PROMISE` path still emits the
+checked frame bytes. After the peer advertises `SETTINGS_ENABLE_PUSH = 0`,
+the same valid send-intent is rejected with reason
+`settings_enable_push_disabled`, active state `peer-settings`, and an empty
+output chunk list. It rejects stream id `0`, missing, closed, reset,
 mismatched, or server-created associated streams, promised stream id `0`, and
 representable client-initiated promised stream ids before accepted bytes are
 produced, while preserving out-of-range promised stream ids as generated
