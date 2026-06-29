@@ -2,7 +2,7 @@
 
 Status: implemented
 
-This record closes the fixture-marked `content-length` body accounting slice
+This record closes the fixture-marked `content-length` body accounting slices
 from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives
 in `../../specification/execution.md`, `../../specification/run-json.md`, and
 the checked examples under `../../../examples/specification/run/`.
@@ -27,11 +27,24 @@ the expected content length, observed DATA application byte count, frame kind,
 stream id, active state, rule provenance, and a bounded DATA byte preview in
 structured JSON or human related notes.
 
+Outbound request and response HEADERS send-intents with accepted
+fixture-marked `content-length` values also carry the expected body length
+into local outbound send-credit state. Later outbound DATA send-intents count
+only DATA application bytes against that expectation, including for PADDED
+DATA while the full encoded DATA payload still consumes outbound connection
+and stream credit. DATA that would exceed the expected application byte count,
+or DATA with local `END_STREAM` before that count is reached, is rejected
+before output bytes or send-credit changes through the same
+`http2.protocol.content_length_mismatch` shape.
+
 ## Evidence
 
 - `../../../examples/specification/run/http2-protocol-core/` checks that
   accepted request `content-length` values are carried into stream body state
-  and updated by later DATA.
+  and updated by later inbound DATA. The same executable example checks
+  outbound request and response `content-length` send-credit tracking,
+  accepted exact-length DATA, accepted PADDED DATA, over-length rejection, and
+  early local `END_STREAM` rejection.
 - `../../../examples/specification/run/http2-protocol-core-content-length-body/`
   checks exact DATA application byte matches and PADDED DATA where padding
   consumes receive-window credit without counting toward the body length.

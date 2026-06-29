@@ -33,7 +33,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   closed-by-peer lifecycle, outbound PADDED DATA send-intent slice,
   half-closed-local inbound DATA receive after local `END_STREAM`, outbound
   DATA on a closed-by-peer stream before local `END_STREAM`, and outbound
-  DATA send-intent rejection above received or locally sent GOAWAY boundaries
+  DATA send-intent rejection above received or locally sent GOAWAY boundaries,
+  or outbound DATA `content-length` body accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -885,7 +886,15 @@ received DATA application byte counts must match the accepted value by peer
 `END_STREAM`, over-length DATA fails immediately, and PADDED DATA counts only
 application bytes for the body length while still consuming receive-window
 credit for the full DATA payload.
-The completed body accounting slice is archived under
+Outbound request and response HEADERS send-intents with accepted
+fixture-marked `content-length` values also carry the expected body length
+into local outbound send-credit state. Later outbound DATA send-intents count
+only DATA application bytes against that expectation, including for PADDED
+DATA while keeping the full encoded payload as outbound connection and stream
+credit consumption. Over-length DATA and local `END_STREAM` before the
+expected byte count is reached fail before output bytes or credit changes
+through `http2.protocol.content_length_mismatch`.
+The completed body accounting slices are archived under
 [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
 The completed inbound request trailer slice is also current behavior under
 `../specification/`: after an initial request HEADERS opens a stream, a later

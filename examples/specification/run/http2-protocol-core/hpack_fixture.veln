@@ -409,6 +409,14 @@ pub fn outbound_static_indexed_status_200_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
+pub fn outbound_request_content_length_headers() -> HpackHeaderList
+	request_headers_with_content_length("scheme,path,content-length:5")
+end
+
+pub fn outbound_response_content_length_headers() -> HpackHeaderList
+	response_headers_with_content_length("ok,content-length:5")
+end
+
 fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
 end
@@ -1921,7 +1929,10 @@ fn encode_request_headers(value: String, headers: HpackHeaderList, offset: Int) 
 			true => encoded_hex_or_failure("303132", headers, offset)
 			false => match value == "method,scheme,path"
 				true => encoded_hex_or_failure("32333435", headers, offset)
-				false => unsupported_header_list_encoding(headers, offset)
+				false => match value == "scheme,path,content-length:5"
+					true => encoded_hex_or_failure("4f505152", headers, offset)
+					false => unsupported_header_list_encoding(headers, offset)
+				end
 			end
 		end
 	end
@@ -1934,7 +1945,10 @@ fn encode_response_headers(value: String, headers: HpackHeaderList, offset: Int)
 			true => encoded_hex_or_failure("40414243", headers, offset)
 			false => match value == "status"
 				true => encoded_hex_or_failure("38393a3b", headers, offset)
-				false => unsupported_header_list_encoding(headers, offset)
+				false => match value == "ok,content-length:5"
+					true => encoded_hex_or_failure("5758595a", headers, offset)
+					false => unsupported_header_list_encoding(headers, offset)
+				end
 			end
 		end
 	end
