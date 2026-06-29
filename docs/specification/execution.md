@@ -2228,6 +2228,11 @@ execution reference.
   and final CONTINUATION paths. The focused command-facing evidence is
   checked by
   `examples/specification/run/hpack-fixture-dynamic-name-continuation-json/`
+  and the standalone human helper-boundary examples
+  `examples/specification/run/hpack-fixture-dynamic-name-continuation-missing-human/`,
+  `examples/specification/run/hpack-fixture-dynamic-name-continuation-malformed-human/`,
+  and
+  `examples/specification/run/hpack-fixture-dynamic-name-continuation-out-of-range-human/`
   and
   `examples/specification/run/http2-protocol-core-hpack-dynamic-name-continuation-human/`.
   It also

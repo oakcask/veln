@@ -37,6 +37,12 @@ final CONTINUATION block of an assembled header block.
 - `../../../examples/specification/run/hpack-fixture-dynamic-name-continuation-json/`
   checks the focused structured `run --json` projection for the missing
   dynamic-name continuation case.
+- `../../../examples/specification/run/hpack-fixture-dynamic-name-continuation-missing-human/`,
+  `../../../examples/specification/run/hpack-fixture-dynamic-name-continuation-malformed-human/`,
+  and
+  `../../../examples/specification/run/hpack-fixture-dynamic-name-continuation-out-of-range-human/`
+  check the standalone human helper-boundary projection for missing,
+  malformed, and out-of-range dynamic-name continuation diagnostics.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   completed HEADERS path for all three focused ids and checks the final
   CONTINUATION path through the same projection helper.

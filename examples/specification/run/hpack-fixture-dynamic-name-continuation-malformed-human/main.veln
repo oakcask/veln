@@ -1,0 +1,34 @@
+fn fallback_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.dynamic_name_continuation_malformed",
+		error,
+		RuntimeHpackFixtureDynamicNameDiagnostic(99, 0, -1, -1, 0, "fixture dynamic-name continuation integer", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("7f80")
+		Ok(bytes) => match byte_offset(0)
+			Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+				Ok(view) => Ok(view)
+				Err(error) => Err(fallback_payload(error))
+			end
+			Err(error) => Err(fallback_payload(error))
+		end
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = preview_view()?
+	hpack_fixture_dynamic_name_continuation_malformed(
+		99,
+		2,
+		127,
+		-1,
+		0,
+		"fixture dynamic-name continuation integer",
+		"hpack_fixture",
+		preview
+	)
+end

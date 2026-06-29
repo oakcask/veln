@@ -824,10 +824,9 @@ and
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal, focused dynamic-name continuation
-diagnostic boundary, checked outbound encoder boundary for HEADERS and
-server-side `PUSH_PROMISE`, outbound table-size behavior beyond the checked
-fixture encoder update boundary, and production header validation
+the checked fixture string literal, checked outbound encoder boundary for
+HEADERS and server-side `PUSH_PROMISE`, outbound table-size behavior beyond
+the checked fixture encoder update boundary, and production header validation
 beyond ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, and the
