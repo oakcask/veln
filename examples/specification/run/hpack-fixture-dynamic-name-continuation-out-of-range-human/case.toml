@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[hpack.fixture.dynamic_name_continuation_out_of_range]: HPACK dynamic-name continuation is out of range at byte offset 98", "note: HPACK dynamic-name continuation requested dynamic index 3, and the fixture dynamic table currently contains 3 entry/entries.", "note: HPACK fixture codec `hpack_fixture` observed header block size 8 and first byte 127.", "note: Nearby bytes: 7f 02 05 50 41 54 43 48 (showing 8 of 8 byte(s), complete).", "note: Expected fixture dynamic-name continuation range."]

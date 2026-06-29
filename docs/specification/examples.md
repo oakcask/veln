@@ -2537,7 +2537,10 @@ accepted literal-with-indexing block inserts `:path: /target` so the following
 dynamic-name continuations use focused fixture diagnostics:
 `hpack.fixture.dynamic_name_continuation_missing`,
 `hpack.fixture.dynamic_name_continuation_malformed`, and
-`hpack.fixture.dynamic_name_continuation_out_of_range`. The fixture also
+`hpack.fixture.dynamic_name_continuation_out_of_range`. Standalone human
+helper-boundary examples pin the primary messages and related notes for each
+of those ids, including requested dynamic index, dynamic table entry count,
+codec module, bounded byte preview, and expected fixture text. The fixture also
 accepts dynamic table-size update bytes `0x3e`, `0x3f`, `0x3f 0x01`,
 `0x3f 0x0b`,
 `0x3f 0x80 0x01`, `0x3f 0x81 0x01`, and `0x3f 0x82 0x02`, exposes the

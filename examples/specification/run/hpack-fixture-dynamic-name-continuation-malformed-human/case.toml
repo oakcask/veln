@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[hpack.fixture.dynamic_name_continuation_malformed]: HPACK dynamic-name continuation is malformed at byte offset 99", "note: HPACK dynamic-name continuation requested dynamic index -1, and the fixture dynamic table currently contains 0 entry/entries.", "note: HPACK fixture codec `hpack_fixture` observed header block size 2 and first byte 127.", "note: Nearby bytes: 7f 80 (showing 2 of 2 byte(s), complete).", "note: Expected fixture dynamic-name continuation integer."]
