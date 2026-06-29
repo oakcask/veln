@@ -160,6 +160,8 @@ behavior.
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length + right_length)` payload helpers:
   [binary-schema-dispatch-byteview-add-payload-helpers.md](binary-schema-dispatch-byteview-add-payload-helpers.md).
+- Binary schema dispatch `ByteView(left_length * right_length)` payload helpers:
+  [binary-schema-dispatch-byteview-product-payload-helpers.md](binary-schema-dispatch-byteview-product-payload-helpers.md).
 - Binary schema dispatch payload helper boundary diagnostics:
   [binary-schema-dispatch-payload-helper-boundary-diagnostics.md](binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
 - Binary schema direction-specific dispatch payload helpers:

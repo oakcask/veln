@@ -210,6 +210,10 @@ the checked additive nested `ByteView` dispatch payload examples are
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-decode/`
 and
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-encode/`;
+the checked product-sized nested `ByteView` dispatch payload examples are
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-decode/`
+and
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-encode/`;
 the checked helper-eligibility detail cases are
 `../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
 and
