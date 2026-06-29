@@ -340,7 +340,8 @@ represented in one byte. The structural mapping slice also treats decoded
 `Flag8` fields as schema-local `Flag8` values for direct target-field
 assignment, same-module ADT constructor expressions, one pure same-module
 converter call, and one imported public pure converter call through a written
-`use` path or alias. Generated encode helpers keep schema-local `Flag8`
+`use` path or alias, unqualified public import, or public function alias.
+Generated encode helpers keep schema-local `Flag8`
 encode behavior and accept a projectable mapped-record encode boundary when
 every visible encode field, such as `target_flags = flags`, can be projected
 by a supported direct field, record-shaped, or field-selection mapping. They
@@ -809,9 +810,13 @@ projected back to a schema-local field by a projectable direct field,
 record-shaped, field-selection, same-module pure converter-call mapping with
 an explicitly named same-module pure inverse converter, or imported public
 pure converter-call mapping with an explicitly named imported public pure
-inverse converter through written import paths. The completed narrow arithmetic
-mapped encode slice is archived under
+inverse converter through written import paths, unqualified public imports, or
+public function aliases. The completed narrow arithmetic mapped encode slice
+is archived under
 [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
+The completed imported converter bare-name inverse encode slice is archived
+under
+[Binary Schema Imported Converter Bare Inverse Encode](../reference/implemented-proposals/binary-schema-imported-converter-bare-inverse-encode.md).
 A single target
 field assigned from a direct ADT constructor call is also implemented when
 every constructor payload argument is a schema-local field supported by the
@@ -820,10 +825,10 @@ integer cases, the first multi-payload direct-field case, and one single
 record payload whose fields are direct schema-local visible field references
 supported by the generated encode helper. Constructor payload arguments can
 also be nested ADT constructor calls when their leaves stay within those
-projectable forms. General inverse mapping for imported converter calls
-without explicit written import paths, selected mappings outside the
-implemented direct-field selected mapping slices, and other non-direct
-expressions remains outside the implemented encode slice.
+projectable forms. General inverse mapping for ambiguous bare imported
+converter names, selected mappings outside the implemented direct-field
+selected mapping slices, and other non-direct expressions remains outside the
+implemented encode slice.
 The implemented bounded repeated helper slice consumes and emits
 `Repeat(count_field, Payload)` fields when `count_field` names an earlier
 visible `Int` field, `Repeat(left_count - right_count, Payload)` fields when

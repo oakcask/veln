@@ -79,14 +79,16 @@ compare it with `../specification/` before changing behavior.
   integer division, equality, inequality, and ordered mapping comparisons over
   supported `Int` mapping operands for `Bool` target fields composed with
   `and`, `or`, and `not`, narrow boolean mapping selection, pure `Bool`
-  converter selector calls through same-module functions or written imported
-  paths, format-neutral schema bodies without a `format` clause plus
+  converter selector calls through same-module functions, written imported
+  paths, unqualified public imports, or public function aliases, format-neutral
+  schema bodies without a `format` clause plus
   `format binary` gating for binary-only field vocabulary, focused mapping
   selection diagnostics, and the generated-helper schema validation diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, visible
   flag bitset decode bindings, bounded repeat generated helper bindings, plus
   projectable structural mapped schema encode helper including explicitly
-  named same-module and imported converter inverse projection, generated encode-time
+  named same-module and imported converter inverse projection through written
+  imports, unqualified public imports, and public function aliases, generated encode-time
   field-local validation for eligible schema helpers, derived encode boundary
   support, derived selected-mapping encode boundary support including ordered
   field-literal selector comparisons, and codec decode boundaries over
@@ -175,7 +177,8 @@ compare it with `../specification/` before changing behavior.
   structural mapping decode including constructor payload field selection
   from record-shaped mapping expressions, projectable mapped-record encode,
   same-module and imported converter-call mapped encode with explicitly named
-  inverse converters, and direct or nested ADT constructor mapped encode
+  inverse converters through written imports, unqualified public imports, and
+  public function aliases, and direct or nested ADT constructor mapped encode
   projections for supported schema-local fields plus record-payload
   constructor slices, direction-specific nested dispatch payload decode helper
   eligibility with encode-helper diagnostics preserved for encode paths,

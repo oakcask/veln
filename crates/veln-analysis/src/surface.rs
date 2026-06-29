@@ -1461,21 +1461,8 @@ fn collect_schema_mapping_expr_converter_callees(
     let mut calls = Vec::new();
     collect_called_name_paths(expr, &mut calls);
     for segments in calls {
-        let targets = match segments.as_slice() {
-            [name] => function_targets
-                .iter()
-                .filter(|target| {
-                    target.name == *name && target.module_name.as_deref() == current_module
-                })
-                .map(|target| ReachableFunction {
-                    kind: FunctionKind::Function,
-                    name: target.target_name.clone(),
-                    module_name: target.target_module_name.clone(),
-                })
-                .collect(),
-            _ => resolve_function_reference(&segments, current_module, uses, function_targets),
-        };
-        for target in targets {
+        for target in resolve_function_reference(&segments, current_module, uses, function_targets)
+        {
             push_reachable(callees, target);
         }
     }
@@ -1489,21 +1476,7 @@ fn collect_schema_mapping_converter_name_callee(
     callees: &mut Vec<ReachableFunction>,
 ) {
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
-    let targets = match segments.as_slice() {
-        [name] => function_targets
-            .iter()
-            .filter(|target| {
-                target.name == *name && target.module_name.as_deref() == current_module
-            })
-            .map(|target| ReachableFunction {
-                kind: FunctionKind::Function,
-                name: target.target_name.clone(),
-                module_name: target.target_module_name.clone(),
-            })
-            .collect(),
-        _ => resolve_function_reference(&segments, current_module, uses, function_targets),
-    };
-    for target in targets {
+    for target in resolve_function_reference(&segments, current_module, uses, function_targets) {
         push_reachable(callees, target);
     }
 }
@@ -2821,6 +2794,91 @@ mod tests {
                         "pub fn main(packet: {kind: Int}) -> EncodeStep<()>\n",
                         "  HeaderCodec(packet)\n",
                         "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "helpers.veln",
+                    concat!(
+                        "pub fn next_kind(kind: Int) -> Int\n",
+                        "  kind + 1\n",
+                        "end\n",
+                        "\n",
+                        "pub fn previous_kind(kind: Int) -> Int\n",
+                        "  kind - 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("main")),
+                (Some("helpers"), FunctionKind::Function, Some("next_kind")),
+                (
+                    Some("helpers"),
+                    FunctionKind::Function,
+                    Some("previous_kind")
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_imported_alias_schema_mapping_encode_inverse_converter() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use facade\n",
+                        "\n",
+                        "type Header\n",
+                        "  Header {kind: Int}\n",
+                        "end\n",
+                        "\n",
+                        "schema HeaderWire\n",
+                        "  format binary\n",
+                        "  wire_kind: UInt8\n",
+                        "\n",
+                        "  map to Header\n",
+                        "    kind = local_next_kind(wire_kind) inverse local_previous_kind\n",
+                        "end\n",
+                        "\n",
+                        "codec HeaderCodec for HeaderWire encode\n",
+                        "  derive encode\n",
+                        "end\n",
+                        "\n",
+                        "pub fn main(packet: {kind: Int}) -> EncodeStep<()>\n",
+                        "  HeaderCodec(packet)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "facade.veln",
+                    concat!(
+                        "use helpers\n",
+                        "\n",
+                        "pub fn local_next_kind = helpers::next_kind\n",
+                        "pub fn local_previous_kind = helpers::previous_kind\n",
                     ),
                 ),
                 SourceFile::new(

@@ -961,12 +961,13 @@ execution reference.
   value and then writes through the same schema-local encode path, including
   primitive range checks and field-path diagnostics. A target
   field assigned from one pure same-module converter call or one imported
-  public pure converter call through a written `use` path or alias is also
-  projectable when the assignment names an explicit pure inverse converter
-  through the same written path rules with `inverse name`; the helper calls
-  the inverse, checks that applying the mapped converter to the projected
-  value round-trips to the supplied target field value, then writes the
-  recovered schema-local fields. Single-payload
+  public pure converter call through a written `use` path or alias,
+  unqualified public import, or public function alias is also projectable when
+  the assignment names an explicit pure inverse converter through the same
+  name-resolution rules with `inverse name`; the helper calls the inverse,
+  checks that applying the mapped converter to the projected value round-trips
+  to the supplied target field value, then writes the recovered schema-local
+  fields. Single-payload
   constructor wrappers remain limited to the existing single-constructor flag
   and exact-width integer cases unless the payload is that record-expression
   slice or a supported nested constructor projection. Mapping assignments may
@@ -992,6 +993,10 @@ execution reference.
   `examples/specification/run/binary-schema-mapped-converter-encode/`, and
   `examples/specification/run/binary-schema-mapped-converter-encode-mismatch/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-encode/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode-mismatch/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode-mismatch/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-encode-mismatch/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-encode-outer-mismatch-json/`,
@@ -1557,6 +1562,7 @@ execution reference.
   `examples/specification/run/derived-codec-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-mapping-arithmetic-encode-boundary/`,
   `examples/specification/run/derived-codec-mapped-converter-encode-boundary/`,
+  `examples/specification/run/derived-codec-imported-mapped-converter-alias-encode-boundary/`,
   `examples/specification/run/derived-codec-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,

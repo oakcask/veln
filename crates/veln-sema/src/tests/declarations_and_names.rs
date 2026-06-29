@@ -2559,7 +2559,7 @@ fn generated_schema_mappings_report_imported_converter_diagnostics() {
             "use helpers\n",
             "\n",
             "type Header\n",
-            "  Header {missing: Int, private: Int, bare: Int}\n",
+            "  Header {missing: Int, private: Int}\n",
             "end\n",
             "\n",
             "schema HeaderWire\n",
@@ -2570,7 +2570,6 @@ fn generated_schema_mappings_report_imported_converter_diagnostics() {
             "  map to Header\n",
             "    missing = missing_helpers::convert(kind)\n",
             "    private = helpers::private_convert(kind)\n",
-            "    bare = public_convert(kind)\n",
             "end\n",
         ),
     );
@@ -2614,13 +2613,6 @@ fn generated_schema_mappings_report_imported_converter_diagnostics() {
             diagnostic.id == "schema.mapping_converter_visibility"
                 && diagnostic.message
                     == "schema mapping converter `helpers::private_convert` is private"
-        }),
-        "{diagnostics:#?}"
-    );
-    assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "schema.mapping_converter"
-                && diagnostic.message == "schema mapping converter `public_convert` is not resolved"
         }),
         "{diagnostics:#?}"
     );
