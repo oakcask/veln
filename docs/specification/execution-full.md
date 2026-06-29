@@ -358,6 +358,9 @@ reason, including codec-owned invalid-input facts and the
 boundary when a decoded consumed count is outside the supplied `ByteView`. The
 carried byte-helper context includes local byte offset, expected and available
 byte counts, and bounded byte preview when the helper produced those facts. A
+`codec.checksum_mismatch` result uses a focused checksum-mismatch human
+diagnostic and carries expected checksum, actual checksum, and failure reason
+in `details.byte_diagnostic`. A
 returned
 `DecodeStep::NeedMore(readiness)` is projected at the closed-input reporting
 boundary as `codec.incomplete_input`, with readiness and requested byte count

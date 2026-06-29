@@ -400,6 +400,12 @@ When a `veln run` entry returns a source-visible
 - `field_path_display`: the source-visible field path string
 - `reason`: the source-visible decode failure reason when the value is
   `DecodeErrorWithReason`
+- `expected_checksum`: the expected checksum string when the id is
+  `codec.checksum_mismatch` and the source-visible reason carries checksum
+  mismatch fields
+- `actual_checksum`: the actual checksum string when the id is
+  `codec.checksum_mismatch` and the source-visible reason carries checksum
+  mismatch fields
 - `local_byte_offset`: the byte offset reported by helper context carried by
   the reason when present
 - `expected_count`: the byte count expected by helper context carried by the
@@ -418,6 +424,12 @@ matches registered helper context. If the reason is a byte-helper failure
 message with registered helper context, the command-facing projection keeps
 the reason text and adds the carried helper counts, local byte offset, and
 byte preview to the same `details.byte_diagnostic`.
+For `codec.checksum_mismatch`, a source-visible reason written as
+`expected_checksum=<value>; actual_checksum=<value>; reason=<text>` is
+projected as separate `expected_checksum`, `actual_checksum`, and `reason`
+fields. The checked direct result and `DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-checksum-mismatch-direct-json/` and
+`examples/specification/run/codec-checksum-mismatch-step-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from a
 hand-written `decode with` codec boundary whose returned `Decoded` consumed

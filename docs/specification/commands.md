@@ -115,7 +115,14 @@ requiring the full command reference on the first read.
   without helper-only related notes unless registered byte-helper context is
   present; direct `Result<_, DecodeError>` failures preserve codec-owned ids
   such as `codec.packet_kind_invalid` through the same focused human
-  diagnostic shape. A
+  diagnostic shape. Codec-owned checksum mismatch failures with id
+  `codec.checksum_mismatch` use `checksum mismatch at byte offset ...` as the
+  primary human message and put field path, expected checksum, actual
+  checksum, failure reason, and the source-visible `DecodeError` value in
+  related notes; the checked direct result and `DecodeStep::Invalid(...)`
+  examples are
+  `examples/specification/run/codec-checksum-mismatch-direct-human/` and
+  `examples/specification/run/codec-checksum-mismatch-step-human/`. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

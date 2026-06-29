@@ -1836,6 +1836,15 @@ execution reference.
   by a hand-written `decode with` codec boundary and the
   `codec.consumed_count_invalid` result produced by the hand-written codec
   boundary when a decoded consumed count is outside the supplied `ByteView`.
+  For `codec.checksum_mismatch`, direct
+  `DecodeErrorWithReason(...)` results and
+  `DecodeStep::Invalid(DecodeErrorWithReason(...))` results use a focused
+  checksum-mismatch human diagnostic and structured JSON fields for the
+  expected checksum, actual checksum, and failure reason. The checked examples
+  are `examples/specification/run/codec-checksum-mismatch-direct-json/`,
+  `examples/specification/run/codec-checksum-mismatch-direct-human/`,
+  `examples/specification/run/codec-checksum-mismatch-step-json/`, and
+  `examples/specification/run/codec-checksum-mismatch-step-human/`.
   A returned
   `DecodeStep::NeedMore(readiness)` is projected at the closed-input
   reporting boundary as

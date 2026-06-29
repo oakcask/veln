@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.checksum_mismatch]: checksum mismatch at byte offset 12", "note: Field path: schema `ManualPacketWire` / field `checksum`.", "note: Expected checksum `0xabcd`; actual checksum was `0x1234`.", "note: Checksum failure reason: payload checksum did not match header checksum.", "note: DecodeError value: DecodeErrorWithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum)."]

@@ -97,6 +97,16 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-reason-step-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/`, and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
+The codec-owned checksum mismatch diagnostic slice is implemented for
+`codec.checksum_mismatch` direct `DecodeErrorWithReason(...)` failures and
+`DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries
+field path, expected checksum, actual checksum, and failure reason in
+`details.byte_diagnostic`, keeps the human primary focused on the checksum
+mismatch at the byte offset, and is checked by
+`../../examples/specification/run/codec-checksum-mismatch-direct-json/`,
+`../../examples/specification/run/codec-checksum-mismatch-direct-human/`,
+`../../examples/specification/run/codec-checksum-mismatch-step-json/`, and
+`../../examples/specification/run/codec-checksum-mismatch-step-human/`.
 The completed codec-owned decode invalid id slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is

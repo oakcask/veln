@@ -364,7 +364,9 @@ compare it with `../specification/` before changing behavior.
   `DecodeStep::Invalid(DecodeErrorWithReason(...))`, and
   `DecodeStep::NeedMore(...)` entry results, reason-carrying hand-written
   codec invalid-input decode projection with optional carried byte-helper
-  context, codec-owned hand-written invalid-input ids, generated binary
+  context, codec-owned hand-written invalid-input ids, codec-owned checksum
+  mismatch projection with expected checksum, actual checksum, and failure
+  reason details, generated binary
   schema decode integer range failures, generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures and their
