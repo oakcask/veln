@@ -368,7 +368,8 @@ primitives, including standalone `UInt1` through `UInt7` fields that consume
 one byte each and consecutive visible-only `UInt1` through `UInt7` groups of
 at least two fields whose widths complete exactly one byte, one two-byte
 big-endian storage unit, one three-byte big-endian storage unit, or one
-four-byte big-endian storage unit, `Flag8`,
+four-byte big-endian storage unit, or one five-byte big-endian storage unit,
+`Flag8`,
 `Flag16be`, `Flag16le`, `Flag24be`,
 `Flag24le`,
 `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`,
@@ -397,8 +398,8 @@ twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 supported two-byte suffix groups where two visible `UIntN` fields, the second
 one `UInt8`, precede a non-byte-aligned `ReservedBits(width, value)` field,
 supported consecutive visible-only `UInt1` through `UInt7` groups whose widths
-sum to eight, sixteen, twenty-four, or thirty-two bits, supported consecutive
-non-byte-aligned `UIntN` and
+sum to eight, sixteen, twenty-four, thirty-two, or forty bits, supported
+consecutive non-byte-aligned `UIntN` and
 `ReservedBits(width, value)` groups whose widths sum to eight, sixteen,
 twenty-four, thirty-two, forty, forty-eight, fifty-six, or sixty-four bits,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier

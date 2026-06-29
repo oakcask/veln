@@ -124,6 +124,8 @@ behavior.
   [binary-schema-packed-visible-three-byte-groups.md](binary-schema-packed-visible-three-byte-groups.md).
 - Binary schema packed visible four-byte groups:
   [binary-schema-packed-visible-four-byte-groups.md](binary-schema-packed-visible-four-byte-groups.md).
+- Binary schema packed visible five-byte groups:
+  [binary-schema-packed-visible-five-byte-groups.md](binary-schema-packed-visible-five-byte-groups.md).
 - Binary schema one-byte reserved suffix:
   [binary-schema-one-byte-reserved-suffix.md](binary-schema-one-byte-reserved-suffix.md).
 - Binary schema six-byte reserved suffix:

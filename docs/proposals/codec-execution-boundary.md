@@ -54,7 +54,7 @@ general generated helper shape with successful decode, short-input
 `NeedMore`, successful encode, and helper-projected encode failure. They also
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
-visible-only packed two-byte, three-byte, and four-byte groups, opt-in
+visible-only packed two-byte, three-byte, four-byte, and five-byte groups, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields, wide reserved suffix and prefix groups, and schema
 mappings that call pure same-module converters with five structural
@@ -274,7 +274,7 @@ repeat-backed schemas, arithmetic-count and quotient-count repeated primitive
 fields, supported middle reserved layouts, and the checked non-HTTP general
 helper shape, plus additive, subtractive, quotient-sized, and product-sized
 `ByteView` payload fields, standalone visible `UInt1` through `UInt7` fields,
-visible-only packed two-byte, three-byte, and four-byte groups, and schema
+visible-only packed two-byte, three-byte, four-byte, and five-byte groups, and schema
 mappings that call pure same-module converters with five structural
 arguments.
 The implemented
@@ -287,7 +287,7 @@ imported nested dispatch payload helper schemas, repeat-backed schemas,
 arithmetic-count and quotient-count repeated primitive fields, and the checked
 non-HTTP general helper shape, plus additive, subtractive, product-sized, and
 quotient-sized `ByteView` payload fields, standalone visible `UInt1` through
-`UInt7` fields, and visible-only packed two-byte, three-byte, and four-byte
+`UInt7` fields, and visible-only packed two-byte, three-byte, four-byte, and five-byte
 groups.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
@@ -397,11 +397,11 @@ encoder state owns only the remaining encode work.
   selected structural mapping encode cases already accepted by the generated
   helper, same-module recursive closed and extension dispatch payload helpers,
   arithmetic-count and quotient-count repeated primitive fields, standalone
-  visible `UInt1` through `UInt7` fields, visible-only packed two-byte and
-  three-byte groups, opt-in visible flag bitset fields, wide reserved suffix
-  and prefix groups, generated-helper-backed `Flag24be` and `Flag24le`
-  fields, the checked non-HTTP general helper shape, and the
-  caller-owned parser-state retention and hand-written bounded
+  visible `UInt1` through `UInt7` fields, visible-only packed two-byte,
+  three-byte, four-byte, and five-byte groups, opt-in visible flag bitset
+  fields, wide reserved suffix and prefix groups, generated-helper-backed
+  `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper
+  shape, and the caller-owned parser-state retention and hand-written bounded
   `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.

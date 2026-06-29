@@ -1,0 +1,18 @@
+schema PackedVisibleFiveByteHeader
+	format binary
+
+	high: UInt5
+	upper: UInt7
+	middle: UInt6
+	lower: UInt5
+	tail: UInt4
+	flag: UInt6
+	code: UInt7
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("abcdef12")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let ignored: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int} = byte_decode_packed_visible_five_byte_header(view)?
+	Ok(())
+end
