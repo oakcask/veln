@@ -420,6 +420,12 @@ When a `veln run` entry returns a source-visible
 - `actual_checksum`: the actual checksum string when the id is
   `codec.checksum_mismatch` and the source-visible reason carries checksum
   mismatch fields
+- `expected_length`: the expected length number when the id is
+  `codec.length_mismatch` and the source-visible reason carries length
+  mismatch fields
+- `actual_length`: the actual length number when the id is
+  `codec.length_mismatch` and the source-visible reason carries length
+  mismatch fields
 - `local_byte_offset`: the byte offset reported by helper context carried by
   the reason when present
 - `expected_count`: the byte count expected by helper context carried by the
@@ -448,6 +454,14 @@ projected as separate `expected_checksum`, `actual_checksum`, and `reason`
 fields. The checked direct result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-checksum-mismatch-direct-json/` and
 `examples/specification/run/codec-checksum-mismatch-step-json/`.
+For `codec.length_mismatch`, a source-visible reason written as
+`expected_length=<n>; actual_length=<n>; reason=<text>` is projected as
+separate numeric `expected_length`, numeric `actual_length`, and `reason`
+fields. Plain reason strings still keep only `reason` and do not invent
+length facts. The checked direct result and `DecodeStep::Invalid(...)`
+examples are
+`examples/specification/run/codec-length-mismatch-direct-json/` and
+`examples/specification/run/codec-length-mismatch-step-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from a
 hand-written `decode with` codec boundary whose returned `Decoded` consumed

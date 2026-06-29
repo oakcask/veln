@@ -1739,6 +1739,8 @@
             String reason = asString(reasonValue);
             if (id.equals("codec.checksum_mismatch")) {
                 mergeChecksumMismatchReason(details, reason);
+            } else if (id.equals("codec.length_mismatch")) {
+                mergeLengthMismatchReason(details, reason);
             } else {
                 details.add(DiagnosticDetail.string("reason", reason));
             }
@@ -1801,6 +1803,82 @@
         ChecksumMismatchReason(String expectedChecksum, String actualChecksum, String reason) {
             this.expectedChecksum = expectedChecksum;
             this.actualChecksum = actualChecksum;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeLengthMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        LengthMismatchReason parsed = parseLengthMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number("expected_length", parsed.expectedLength));
+        details.add(DiagnosticDetail.number("actual_length", parsed.actualLength));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static LengthMismatchReason parseLengthMismatchReason(String reason) {
+        Long expectedLength = null;
+        Long actualLength = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_length")) {
+                expectedLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("actual_length")) {
+                actualLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedLength == null
+            || actualLength == null
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new LengthMismatchReason(
+            expectedLength.longValue(),
+            actualLength.longValue(),
+            failureReason
+        );
+    }
+
+    private static Long parseNonNegativeDecimal(String value) {
+        if (value.isEmpty()) {
+            return null;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char ch = value.charAt(index);
+            if (ch < '0' || ch > '9') {
+                return null;
+            }
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException error) {
+            return null;
+        }
+    }
+
+    private static final class LengthMismatchReason {
+        final long expectedLength;
+        final long actualLength;
+        final String reason;
+
+        LengthMismatchReason(long expectedLength, long actualLength, String reason) {
+            this.expectedLength = expectedLength;
+            this.actualLength = actualLength;
             this.reason = reason;
         }
     }

@@ -1,0 +1,8 @@
+# DecodeStep Invalid length mismatch failures render focused human diagnostics.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(9)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.length_mismatch", offset, "ManualPacketWire.payload", "expected_length=4; actual_length=3; reason=payload length did not match header length"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

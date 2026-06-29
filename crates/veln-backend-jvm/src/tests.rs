@@ -111,6 +111,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(decodeError));
 
+        Object lengthMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.length_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(9) }),
+                "Packet.payload",
+                "expected_length=4; actual_length=3; reason=payload length did not match header length"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(lengthMismatch));
+
+        Object plainLengthMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.length_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(10) }),
+                "Packet.payload",
+                "plain length mismatch"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainLengthMismatch));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -1579,6 +1601,26 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         trace.contains("\treason\tstring\t706c61696e20726561736f6e"),
         "{trace}"
     );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.length_mismatch\t9\t"),
+        "{trace}"
+    );
+    assert!(trace.contains("\texpected_length\tnumber\t4"), "{trace}");
+    assert!(trace.contains("\tactual_length\tnumber\t3"), "{trace}");
+    assert!(
+        trace.contains("\treason\tstring\t7061796c6f6164206c656e67746820646964206e6f74206d6174636820686561646572206c656e677468"),
+        "{trace}"
+    );
+    let plain_length_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.length_mismatch\t10\t"))
+        .expect("plain length mismatch should be recorded");
+    assert!(
+        plain_length_line.contains("\treason\tstring\t706c61696e206c656e677468206d69736d61746368"),
+        "{plain_length_line}"
+    );
+    assert!(!plain_length_line.contains("\texpected_length\t"));
+    assert!(!plain_length_line.contains("\tactual_length\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"

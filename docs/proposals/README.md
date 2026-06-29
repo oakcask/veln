@@ -391,7 +391,8 @@ compare it with `../specification/` before changing behavior.
   `codec.packet_kind_invalid` direct and `DecodeStep::Invalid(...)`
   command projections, codec-owned checksum mismatch projection with
   expected checksum, actual checksum, and failure
-  reason details, generated binary
+  reason details, codec-owned length mismatch projection with expected
+  length, actual length, and failure reason details, generated binary
   schema decode integer range failures, generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures and their

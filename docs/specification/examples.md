@@ -235,6 +235,15 @@ carry the field path, reason, and source-visible error value, while
 `run --json` attaches `details.byte_diagnostic` with the codec-owned id, byte
 offset, field path, display path, and reason.
 The executable specification cases
+`../../examples/specification/run/codec-length-mismatch-direct-human/`,
+`../../examples/specification/run/codec-length-mismatch-direct-json/`,
+`../../examples/specification/run/codec-length-mismatch-step-human/`, and
+`../../examples/specification/run/codec-length-mismatch-step-json/` cover the
+same command-facing projection for `codec.length_mismatch`: human output uses
+a focused length-mismatch diagnostic, and `run --json` attaches
+`details.byte_diagnostic` with the codec-owned id, byte offset, field path,
+expected length, actual length, and reason.
+The executable specification cases
 `../../examples/specification/run/codec-decode-need-more-human/` and
 `../../examples/specification/run/codec-decode-need-more-json/` cover
 command-facing projection when a `veln run` entry returns

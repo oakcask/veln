@@ -2174,6 +2174,15 @@ against the built `veln` binary.
   `codec.packet_kind_invalid` keep the codec-owned id, byte offset, field
   path, plain reason, and absence of helper-only context in human diagnostics
   and `run --json`.
+- `run/codec-length-mismatch-direct-human/`,
+  `run/codec-length-mismatch-direct-json/`,
+  `run/codec-length-mismatch-step-human/`, and
+  `run/codec-length-mismatch-step-json/`: direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results with
+  `codec.length_mismatch` use focused length-mismatch human diagnostics and
+  `run --json` `details.byte_diagnostic` fields for the codec-owned id, byte
+  offset, field path, expected length, actual length, and failure reason.
 - `run/codec-decode-invalid-byte-context-human/` and
   `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
   boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose
