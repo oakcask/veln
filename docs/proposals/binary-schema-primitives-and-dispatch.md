@@ -874,7 +874,11 @@ through a written `use` path, including when that nested schema contains
 in the same nested schema or `ByteView(left_length + right_length)` whose
 operands are earlier visible `Int` fields in the same nested schema, plus
 `ByteView(length_field)` when the repeat
-payload length field is an earlier visible `Int` field.
+payload length field is an earlier visible `Int` field, plus
+`ByteView(left_length + right_length)` when both repeat payload length
+operands are earlier visible `Int` fields. The completed repeated additive
+`ByteView` payload slice is archived under
+`../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md`.
 General schema-owned decode and encode beyond the implemented slices, support
 rather than rejection for unbounded or otherwise ineligible recursive dispatch
 payload schemas, dispatch payload schemas outside the generated helper slice

@@ -197,7 +197,9 @@ compare it with `../specification/` before changing behavior.
   `Repeat(left_count / right_count, Payload)` decode and encode plus
   division-by-zero and derived codec boundary coverage,
   bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
-  derived codec boundary slices, length-bounded
+  derived codec boundary slices, bounded
+  `Repeat(count_field, ByteView(left_length + right_length))` decode and
+  encode, length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
   `ByteView(left_length + right_length)`, and
   `ByteView(left_length * right_length)`, and

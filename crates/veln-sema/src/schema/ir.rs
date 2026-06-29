@@ -203,7 +203,9 @@ fn ir_schema_repeat_field(
         return Some(None);
     }
     if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
-        && decoded_field_types.get(length_field) != Some(&Type::int())
+        && schema_length_expression_references(length_field)?
+            .into_iter()
+            .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
     {
         return Some(None);
     }

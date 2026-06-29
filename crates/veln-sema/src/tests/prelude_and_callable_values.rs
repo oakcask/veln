@@ -635,6 +635,54 @@ fn generated_schema_helpers_resolve_bounded_repeated_byte_view_fields() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_added_repeated_byte_view_lengths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedViews\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  left_length: UInt8\n",
+            "  right_length: UInt8\n",
+            "  items: Repeat(count, ByteView(left_length + right_length))\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, left_length: Int, right_length: Int, items: List<ByteView>}, String>\n",
+            "  byte_decode_counted_views(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, left_length: Int, right_length: Int, items: List<ByteView>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_views(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "CountedViews")
+        .expect("counted schema should be emitted");
+    let repeat = schema.fields[3]
+        .repeat
+        .as_ref()
+        .expect("items should carry repeat metadata");
+    assert_eq!(repeat.count_field, "count");
+    assert_eq!(
+        repeat.byte_view_length_field.as_deref(),
+        Some("left_length + right_length")
+    );
+    assert_eq!(repeat.width, 0);
+    assert!(repeat.payload_schema.is_none());
+}
+
+#[test]
 fn generated_schema_helpers_resolve_product_repeated_schema_and_byte_view_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -8819,6 +8867,76 @@ fn generated_schema_decode_helpers_reject_added_repeat_count_operands() {
     assert!(
         lowered.ir.is_none(),
         "diagnostic-bearing Repeat count expression should not emit typed IR"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_added_repeat_byte_view_length_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  left_length: UInt8\n",
+            "  items: Repeat(count, ByteView(left_length + right_length))\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  left_length: UInt8\n",
+            "  items: Repeat(count, ByteView(left_length + right_length))\n",
+            "  right_length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  left_length: UInt8\n",
+            "  flags: Flag8\n",
+            "  items: Repeat(count, ByteView(left_length + flags))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat ByteView length operand `right_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat ByteView length operand `right_length` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat ByteView length operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.byte_view_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing Repeat ByteView length expression should not emit typed IR"
     );
 }
 

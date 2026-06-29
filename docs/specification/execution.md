@@ -473,7 +473,8 @@ execution reference.
   same-module or public imported nested binary schema payload, or
   `ByteView(length_field)` when
   `length_field` is another earlier visible exact-width unsigned field decoded
-  as `Int`.
+  as `Int`, or `ByteView(left_length + right_length)` when both operands are
+  earlier visible exact-width unsigned fields decoded as `Int`.
   `Repeat(left_count - right_count, Payload)`,
   `Repeat(left_count + right_count, Payload)`, and
   `Repeat(left_count * right_count, Payload)`, and
@@ -483,7 +484,8 @@ execution reference.
   repeated primitive field decodes to `List<Int>`; a repeated
   nested schema field decodes to a list of the nested schema's decoded record
   shape, including when the schema is named through a written `use` path; and
-  a repeated `ByteView(length_field)` field decodes to
+  a repeated `ByteView(length_field)` or
+  `ByteView(left_length + right_length)` field decodes to
   `List<ByteView>` with each element preserving its bounded bytes in element
   order. The helper reads exactly the computed count in declaration order. A
   negative computed count reports `schema.length_out_of_bounds` at the repeat
@@ -506,7 +508,8 @@ execution reference.
   `examples/specification/run/binary-schema-imported-repeat-nested-decode/`,
   `examples/specification/run/binary-schema-repeat-nested-truncated-json/`,
   `examples/specification/run/binary-schema-imported-repeat-nested-truncated-json/`,
-  `examples/specification/run/binary-schema-repeat-byteview-decode/`, and
+  `examples/specification/run/binary-schema-repeat-byteview-decode/`,
+  `examples/specification/run/binary-schema-repeat-byteview-add-decode/`, and
   `examples/specification/run/binary-schema-repeat-byteview-truncated-json/`.
 - Generated binary schema decode helpers support byte-aligned
   `ReservedBits(width, value)` fields up to four bytes wide as
@@ -1040,14 +1043,14 @@ execution reference.
   repeated primitive fields are `List<Int>` record fields, repeated nested
   schema fields are list fields whose element type is the same-module or
   public imported nested schema's decoded record shape, and repeated
-  `ByteView(length_field)` fields are
+  `ByteView(length_field)` or `ByteView(left_length + right_length)` fields are
   `List<ByteView>` record fields. They emit exactly the number of elements
   named by the earlier count field or by the computed difference, sum,
   product, or integer quotient of two earlier count operands. A list length
   mismatch, a primitive
   element outside the selected primitive range, a repeated byte-view element
-  whose bounded byte count differs from the earlier length field, or a nested
-  element
+  whose bounded byte count differs from the earlier length field or computed
+  length expression, or a nested element
   representation failure returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; repeated byte-view element failures append the element index to
@@ -1420,6 +1423,8 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,
   `examples/specification/run/binary-schema-repeat-byteview-encode/`,
   `examples/specification/run/binary-schema-repeat-byteview-encode-length-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-byteview-add-encode/`,
+  `examples/specification/run/binary-schema-repeat-byteview-add-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-reserved-byte-prefix-decode-encode/`,
   `examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`,

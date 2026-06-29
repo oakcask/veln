@@ -135,9 +135,11 @@ previously decoded visible `Int` field in the same schema, and
 `Repeat(left_count * right_count, Payload)`, and
 `Repeat(left_count / right_count, Payload)` when both operands name earlier
 visible `Int` fields in the same schema. `Payload` is one of the implemented
-byte-aligned exact-width unsigned primitives or an eligible nested binary
-schema payload. `Repeat(count_field, ByteView(length_field))` is accepted when
-both references name earlier visible `Int` fields in the same schema.
+byte-aligned exact-width unsigned primitives, an eligible nested binary
+schema payload, `ByteView(length_field)`, or
+`ByteView(left_length + right_length)`. Repeat count references and byte-view
+payload length operands must name earlier visible `Int` fields in the same
+schema.
 Length-bounded `ByteView(length_field)`,
 `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`, and
@@ -150,10 +152,11 @@ Those fields may add `where payload_count multiple of field_name` when
 literal multiple.
 A repeated primitive field decodes and encodes as `List<Int>`; a repeated
 nested schema field decodes and encodes as a list of the nested schema's
-decoded record shape; and a repeated `ByteView(length_field)` field decodes
-and encodes as `List<ByteView>`. Missing, forward, or non-`Int` repeat count
-references report `schema.repeat_reference`; missing, forward, or non-`Int`
-byte-view length or multiple references report `schema.byte_view_reference`. Binary schema
+decoded record shape; and repeated `ByteView(length_field)` and
+`ByteView(left_length + right_length)` fields decode and encode as
+`List<ByteView>`. Missing, forward, or non-`Int` repeat count references
+report `schema.repeat_reference`; missing, forward, or non-`Int` byte-view
+length or multiple references report `schema.byte_view_reference`. Binary schema
 fields also accept the closed dispatch types
 `Dispatch(tag_field, tag => Payload, ...)` and
 `Dispatch(tag_field, length_field, tag => Payload, ...)`, and the
@@ -384,6 +387,8 @@ exact-width fields,
 including
 `Repeat(count_field, ByteView(length_field))` when the length field is also
 earlier visible,
+`Repeat(count_field, ByteView(left_length + right_length))` when both length
+operands are also earlier visible,
 length-bounded `ByteView(length_field)`
 fields whose length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier

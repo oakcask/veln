@@ -1513,6 +1513,13 @@ The repeated byte-view encode cases listed in
 count field, length field, and each element's bounded bytes in order; the
 failing cases assert the encode error id, repeated field path plus element
 index, view-count mismatch reason, and `derive encode` error projection.
+`../../examples/specification/run/binary-schema-repeat-byteview-add-decode/`,
+`../../examples/specification/run/binary-schema-repeat-byteview-add-encode/`,
+and
+`../../examples/specification/run/binary-schema-repeat-byteview-add-encode-length-mismatch/`
+pin the same repeated `List<ByteView>` behavior when each element length is
+computed from `left_length + right_length`, including the indexed encode
+failure path.
 `../../examples/specification/run/binary-schema-byteview-subtract-decode/`,
 `../../examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
 `../../examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,
