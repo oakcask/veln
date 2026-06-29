@@ -1,0 +1,26 @@
+fn item_to_text(value)
+	"ok"
+end
+
+fn lonely_text(value)
+	"ok"
+end
+
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn apply_text(value: String, callback: fn(String) -> String) -> String
+	callback(value)
+end
+
+pub fn unconstrained() -> String
+	let callback = lonely_text
+	"ok"
+end
+
+pub fn conflicting() -> String
+	let callback = item_to_text
+	let first = apply_int(1, callback)
+	apply_text("bad", callback)
+end

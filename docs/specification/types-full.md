@@ -248,6 +248,16 @@ callback returns. Ordinary function effect assignment keeps pure and effectful
 callback compatibility. Local binding function types that still contain
 `unknown` do not constrain callback parameters.
 
+An omitted local binding whose initializer is a named same-module private
+callback function can also receive one later same-function concrete function
+expected type. That concrete function type flows through the local binding into
+the private callback's omitted parameter and return slots, using the same
+callback return expected-type rules as direct declared-helper callback
+arguments. This is a single direct binding hop only; aliases of aliases,
+imported functions, public boundary signatures, and local binding function
+types that still contain `unknown` do not constrain callback parameters.
+Conflicting later uses report `type.mismatch` at the incompatible use.
+
 When a function body tail expression is checked against a declared return type
 that is a concrete function type, a named same-module private callback function
 value returned directly from that body receives the declared returned function

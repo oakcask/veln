@@ -104,6 +104,7 @@ pub(crate) struct EffectUse {
 pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
+    private_function_value: Option<FunctionKey>,
 }
 
 type FunctionKey = (Option<String>, String);
@@ -112,6 +113,24 @@ type FunctionSignatureMap = BTreeMap<FunctionKey, FunctionSignature>;
 type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
 type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
+
+impl Binding {
+    pub(crate) fn new(name: String, ty: Type) -> Self {
+        Self {
+            name,
+            ty,
+            private_function_value: None,
+        }
+    }
+
+    fn private_function_value(name: String, ty: Type, target: FunctionKey) -> Self {
+        Self {
+            name,
+            ty,
+            private_function_value: Some(target),
+        }
+    }
+}
 
 struct PrivateInferenceExprContext<'a> {
     expected: Option<&'a Type>,
@@ -727,6 +746,16 @@ fn collect_private_call_site_constraints(
                         constraints: context,
                     },
                 );
+                let initializer_private_function = annotation_type
+                    .is_none()
+                    .then(|| {
+                        private_same_module_call_target(
+                            expr,
+                            current_module,
+                            context.function_by_path,
+                        )
+                    })
+                    .flatten();
                 let ty = annotation_type.unwrap_or_else(|| {
                     infer_private_signature_expr_type(
                         expr,
@@ -738,7 +767,12 @@ fn collect_private_call_site_constraints(
                         context.adts,
                     )
                 });
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
+                collect_let_pattern_bindings(
+                    pattern,
+                    &ty,
+                    initializer_private_function,
+                    &mut bindings,
+                );
             }
             BodyLineKind::Expr { expr } => {
                 let expected = (index + 1 == function.body.len())
@@ -1112,10 +1146,9 @@ fn collect_private_function_value_constraints(
     else {
         return;
     };
-    let [name] = segments else {
+    let Some(target_key) = private_function_value_target(segments, context) else {
         return;
     };
-    let target_key = (context.current_module.map(str::to_string), name.clone());
     if context.caller_key == Some(&target_key) {
         return;
     }
@@ -1160,6 +1193,24 @@ fn collect_private_function_value_constraints(
             context.constraints.changed,
         );
     }
+}
+
+fn private_function_value_target(
+    segments: &[String],
+    context: &PrivateCallSiteExprContext<'_, '_>,
+) -> Option<FunctionKey> {
+    let [name] = segments else {
+        return None;
+    };
+    if let Some(binding) = context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == *name)
+    {
+        return binding.private_function_value.clone();
+    }
+    Some((context.current_module.map(str::to_string), name.clone()))
 }
 
 fn private_call_site_declared_signature<'a>(
@@ -1346,10 +1397,7 @@ fn collect_private_prelude_callback_return_constraints(
     let mut bindings = function
         .params
         .iter()
-        .map(|param| Binding {
-            name: param.name.clone(),
-            ty: function_body_param_type(param),
-        })
+        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect::<Vec<_>>();
     let declared_return = function
         .return_type
@@ -1775,10 +1823,7 @@ fn private_function_body_bindings(
                     .and_then(|signature| signature.params.get(index).cloned())
                     .unwrap_or_else(|| function_body_param_type(param))
             };
-            Binding {
-                name: param.name.clone(),
-                ty,
-            }
+            Binding::new(param.name.clone(), ty)
         })
         .collect()
 }
@@ -5098,10 +5143,7 @@ pub(crate) fn infer_function_body_effects(
             let mut bindings = function
                 .params
                 .iter()
-                .map(|param| Binding {
-                    name: param.name.clone(),
-                    ty: function_body_param_type(param),
-                })
+                .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
                 .collect::<Vec<_>>();
             let mut inferred = effects_by_name.get(name).cloned().unwrap_or_default();
             for line in &function.body {
@@ -5157,15 +5199,24 @@ pub(crate) fn infer_function_body_effects(
 }
 
 fn collect_pattern_bindings(pattern: &Pattern, ty: &Type, bindings: &mut Vec<Binding>) {
+    collect_let_pattern_bindings(pattern, ty, None, bindings);
+}
+
+fn collect_let_pattern_bindings(
+    pattern: &Pattern,
+    ty: &Type,
+    private_function_value: Option<FunctionKey>,
+    bindings: &mut Vec<Binding>,
+) {
     match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(Binding {
-            name: name.clone(),
-            ty: ty.clone(),
+        PatternKind::Binding(name) => bindings.push(match private_function_value {
+            Some(target) => Binding::private_function_value(name.clone(), ty.clone(), target),
+            None => Binding::new(name.clone(), ty.clone()),
         }),
         PatternKind::Record(fields) => {
             for field in fields {
                 let field_ty = ty.record_field(&field.name).unwrap_or(&Type::Unknown);
-                collect_pattern_bindings(&field.pattern, field_ty, bindings);
+                collect_let_pattern_bindings(&field.pattern, field_ty, None, bindings);
             }
         }
         PatternKind::Wildcard

@@ -24,17 +24,18 @@ compare it with `../specification/` before changing behavior.
   compiler-known prelude callback argument including `vec_try_map_with`,
   dictionary callback alias, declared helper callback argument, source-backed
   prelude callback fallback, record-field callback, local callback binding,
-  direct return callback, match-arm callback, if-branch callback, callback
-  return expected-type, constructor-payload callback, variadic declared-helper
-  callback parameter, and examples cleanup slices specified in
+  local callback binding annotation elision, direct return callback, match-arm
+  callback, if-branch callback, callback return expected-type,
+  constructor-payload callback, variadic declared-helper callback parameter,
+  and examples cleanup slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
   declared helper callback argument inference, source-backed prelude callback
   fallback, record-field callback inference, local callback binding inference,
-  direct return callback inference, callback return expected-type inference,
-  constructor-payload callback inference, non-empty collection initializer
-  inference, ADT constructor
+  local callback binding annotation-elision inference, direct return callback
+  inference, callback return expected-type inference, constructor-payload
+  callback inference, non-empty collection initializer inference, ADT constructor
   payload inference, match scrutinee constructor-pattern inference, local
   pattern `let` inference, nested initializer expected-type propagation, hole
   expected-type flow, and examples cleanup slices are archived under
@@ -45,6 +46,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`,
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
+  [local-inference-local-callback-binding-annotation-elision.md](../reference/implemented-proposals/local-inference-local-callback-binding-annotation-elision.md),
   `../reference/implemented-proposals/local-inference-direct-return-callback.md`,
   `../reference/implemented-proposals/local-inference-match-arm-callback.md`,
   `../reference/implemented-proposals/local-inference-if-branch-callback.md`,

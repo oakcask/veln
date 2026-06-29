@@ -51,6 +51,9 @@ full type reference.
   A local binding whose annotation is a concrete function type also constrains
   a named private callback assigned as that binding initializer; later calls or
   returns through that local binding use the same concrete function type.
+  A local binding without an annotation also propagates a later same-function
+  concrete function expected type through one direct binding hop when its
+  initializer is a named same-module private callback function.
   A direct function body return position whose declared return type is a
   concrete function type also constrains a named private callback returned from
   that body.
