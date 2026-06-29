@@ -727,10 +727,13 @@ header-block bytes. When the promised-id payload plus header-block bytes
 exceed the
 peer-advertised maximum frame size, the output uses one `PUSH_PROMISE` frame
 followed by CONTINUATION frames on the same associated stream, with
-`END_HEADERS` only on the final frame. It rejects stream id `0`, missing,
-closed, reset, mismatched, or server-created associated streams, promised
-stream id `0`, and representable client-initiated promised stream ids before
-accepted bytes are produced. Generated payload representation failures, such
+`END_HEADERS` only on the final frame. If the peer has advertised
+`SETTINGS_ENABLE_PUSH = 0`, the send-intent rejects a valid outbound
+`PUSH_PROMISE` before output chunks are emitted, with the structured reason
+identifying the peer setting fact. It rejects stream id `0`, missing, closed,
+reset, mismatched, or server-created associated streams, promised stream id
+`0`, and representable client-initiated promised stream ids before accepted
+bytes are produced. Generated payload representation failures, such
 as out-of-range promised stream ids, remain
 `codec.encode_value_unrepresentable` encode errors instead of HTTP/2
 protocol diagnostics.

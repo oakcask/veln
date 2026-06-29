@@ -1408,6 +1408,13 @@ fn active_peer_header_table_size(peer_settings: PeerSettingsState) -> Int
 	end
 end
 
+fn peer_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
+	match peer_settings
+		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _) => value == 0
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _) => false
+	end
+end
+
 fn outbound_receive_credit_with_open_stream(connection_window: Int, stream_id: Int, stream_window: Int) -> OutboundReceiveCredit
 	OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window))
 end
@@ -2027,7 +2034,10 @@ fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: Byte
 	match stream_id == 0
 		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
 		false => match stream_id_is_client_initiated(stream_id)
-			true => send_nonzero_push_promise(stream_id, promised_stream_id, payload_length, header_block, active_peer_max_frame_size(peer_settings), receive_credit)
+			true => match peer_enable_push_disabled(peer_settings)
+				true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 5, "peer-settings", "settings_enable_push_disabled")))
+				false => send_nonzero_push_promise(stream_id, promised_stream_id, payload_length, header_block, active_peer_max_frame_size(peer_settings), receive_credit)
+			end
 			false => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
 		end
 	end
@@ -6739,7 +6749,11 @@ fn outbound_push_promise_hpack_state(transition: OutboundPushPromiseHpackTransit
 end
 
 fn print_outbound_push_promise_chunk(label: String, decision: OutboundPushPromiseDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	emit_encoded_header(label, outbound_push_promise_chunk(decision), expected_hex)
+	match decision
+		OutboundPushPromiseAccepted(_, _, _, _, _) => emit_encoded_header(label, outbound_push_promise_chunk(decision), expected_hex)
+		OutboundPushPromiseRejected(_, _, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+	end
 end
 
 fn print_outbound_goaway(label: String, decision: OutboundGoawayDecision) -> () effects [stdio]
@@ -8212,6 +8226,10 @@ fn peer_header_table_size_settings(value: Int) -> PeerSettingsState
 	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize)
 end
 
+fn peer_enable_push_settings(value: Int) -> PeerSettingsState
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -8370,6 +8388,9 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	let outbound_push_promise_accepted: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("8284")?, empty_peer_settings(), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-accepted", outbound_push_promise_accepted)
 	let ignored_push_promise_chunk: () = print_outbound_push_promise_chunk("http2-push-promise", outbound_push_promise_accepted, "000006050400000001000000028284")?
+	let outbound_push_promise_enable_push_disabled: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("8284")?, peer_enable_push_settings(0), outbound_receive_credit)?
+	print_outbound_push_promise("outbound-push-promise-enable-push-disabled", outbound_push_promise_enable_push_disabled)
+	let ignored_push_promise_enable_push_disabled_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-enable-push-disabled", outbound_push_promise_enable_push_disabled, "")?
 	let outbound_push_promise_hpack_static: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_static_indexed_status_200_headers(), empty_peer_settings(), outbound_receive_credit)?
 	let ignored_push_promise_hpack_static_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed", outbound_push_promise_hpack_static)?
 	let outbound_push_promise_hpack_static_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static)?
