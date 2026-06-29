@@ -197,7 +197,8 @@ execution reference.
   passes only observer `CancelToken` values to cancellable deadline-aware
   accept/read and channel-routing code, projects ordered `SendBytes` actions
   through `net::write_chunks`, and keeps cancellation authority in adapter
-  cleanup while checking clean listener end and accept cancellation,
+  cleanup while checking clean listener end, accept cancellation, and owner
+  cancellation after one routed stream event before a later read can continue,
   `examples/specification/run/socket-stream-adapter-production-accept-until-failure-json/`
   and
   `examples/specification/run/socket-stream-adapter-production-read-until-failure-json/`

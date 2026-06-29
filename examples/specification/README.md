@@ -3342,7 +3342,8 @@ against the built `veln` binary.
   observer `CancelToken` values to cancellable deadline-aware accept/read and
   channel-routing code, writes ordered `SendBytes` actions through
   `net::write_chunks`, keeps cancellation authority in cleanup, and checks
-  both clean listener end and accept cancellation as adapter outcomes.
+  clean listener end, accept cancellation, and owner cancellation after one
+  routed stream event as adapter outcomes.
 - `run/socket-stream-adapter-production-deadline-lifecycle/`: the
   production loopback adapter accepts with `net::accept_until`, reads with
   `net::read_chunk_until` until clean stream end becomes `None`, routes the

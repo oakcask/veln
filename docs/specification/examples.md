@@ -2095,7 +2095,10 @@ The adapter creates a `CancelOwner`, gives only observer `CancelToken` values
 to accept/read and channel-routing code, drains production streams until clean
 listener end, writes ordered `SendBytes` actions through `net::write_chunks`,
 and keeps cancellation authority in cleanup while a second listener path
-observes accept cancellation as an ordinary adapter outcome. The matching
+observes accept cancellation as an ordinary adapter outcome. The same run
+case also cancels through the owner after one accepted stream event has been
+routed, then observes a later read as ordinary `ReadCancelled` before another
+handler route continues. The matching
 `../../examples/specification/check/socket-stream-adapter-production-owner-drain-effects/`
 case pins the same `net`, `time`, and `concurrency` effect boundary while the
 handler remains callable without transport effects. The existing
