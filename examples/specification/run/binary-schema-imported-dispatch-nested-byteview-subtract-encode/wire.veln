@@ -1,0 +1,7 @@
+pub schema ImportedSubtractivePayload
+	format binary
+
+	left_length: UInt8
+	right_length: UInt8
+	payload: ByteView(left_length - right_length)
+end

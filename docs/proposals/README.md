@@ -207,7 +207,8 @@ compare it with `../specification/` before changing behavior.
   use the same generated binary schema helper path used for ordinary generated
   schema fields, including supported representation-only reserved-bit layouts,
   length-bounded `ByteView(length_field)` fields, additive
-  `ByteView(left_length + right_length)` fields, product-sized
+  `ByteView(left_length + right_length)` fields, subtractive
+  `ByteView(left_length - right_length)` fields, product-sized
   `ByteView(left_length * right_length)` fields, and checked non-HTTP
   coverage combines the implemented helper vocabulary in one
   decode-and-encode schema. Closed dispatch payload cases
@@ -245,6 +246,9 @@ compare it with `../specification/` before changing behavior.
   The completed nested dispatch
   `ByteView(left_length + right_length)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Add Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-add-payload-helpers.md).
+  The completed nested dispatch
+  `ByteView(left_length - right_length)` payload helper slice is archived under
+  [Binary Schema Dispatch ByteView Subtract Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-subtract-payload-helpers.md).
   The completed nested dispatch
   `ByteView(left_length * right_length)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Product Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-product-payload-helpers.md).

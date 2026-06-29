@@ -43,7 +43,7 @@ the nested schema field path and unsupported `ByteView` layout fact.
 ## Remaining Work
 
 The broader binary schema primitives and dispatch proposal remains open for
-subtractive and quotient nested dispatch `ByteView` payload helper slices,
-dispatch payload schemas outside the generated helper vocabulary, recursive
-payload forms outside the selected length-bounded slices, and mapping behavior
-outside the implemented structural slices.
+quotient nested dispatch `ByteView` payload helper slices, dispatch payload
+schemas outside the generated helper vocabulary, recursive payload forms
+outside the selected length-bounded slices, and mapping behavior outside the
+implemented structural slices.

@@ -210,6 +210,10 @@ the checked additive nested `ByteView` dispatch payload examples are
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-decode/`
 and
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-add-encode/`;
+the checked subtractive nested `ByteView` dispatch payload examples are
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-decode/`
+and
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-encode/`;
 the checked product-sized nested `ByteView` dispatch payload examples are
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-decode/`
 and

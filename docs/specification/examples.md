@@ -405,6 +405,17 @@ and
 cover closed and extension dispatch payload schemas whose nested generated
 helpers decode, decode-step, derive-decode, encode, and derive-encode
 `ByteView(left_length * right_length)` fields.
+The executable specification cases
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-encode/`,
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-subtract-decode/`,
+and
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-subtract-encode/`
+cover the same same-module and public imported nested dispatch helper
+boundary for subtractive `ByteView(left_length - right_length)` fields.
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-failure-json/`
+checks that negative nested lengths preserve the parent dispatch field and
+nested schema field path.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
@@ -1598,6 +1609,12 @@ primitive output.
 pins the same same-module helper path when the selected nested schema contains
 a `ByteView(length_field)` payload whose length field is earlier in that
 nested schema.
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-encode/`
+and
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-subtract-encode/`
+pin the same generated and derived encode helper path for selected nested
+schemas containing subtractive `ByteView(left_length - right_length)` payload
+fields.
 `../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-encode/`
 pins the same generated and derived encode helper path for selected nested
 schemas containing a product-sized `ByteView(left_length * right_length)`
@@ -1692,11 +1709,14 @@ pins the same mixed dispatch selected mapping encode boundary through
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-byteview-payload-decode/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-decode/`,
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-subtract-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`,
 `../../examples/specification/run/binary-schema-recursive-dispatch-wrapper-roundtrip/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-subtract-failure-json/`,
 `../../examples/specification/run/binary-schema-recursive-dispatch-wrapper-failure-json/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-imported-recursive-dispatch-failure-json/`,
