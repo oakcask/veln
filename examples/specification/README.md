@@ -2153,6 +2153,11 @@ against the built `veln` binary.
   `NeedMore(NeedEnd)` at a closed-input reporting boundary, `veln run`
   projects `codec.incomplete_input` through focused human diagnostics and
   `run --json` `details.byte_diagnostic` without requested-byte context.
+- `run/codec-decode-need-end-boundary-human/` and
+  `run/codec-decode-need-end-boundary-json/`: a same-module hand-written
+  `decode with` codec item call preserves `NeedMore(NeedEnd)` through the
+  codec boundary, and closed-input reporting projects the same
+  `codec.incomplete_input` shape as the direct entry cases.
 - `run/runtime-diagnostic-payload-byte-human/` and
   `run/runtime-diagnostic-payload-byte-json/`: a source-visible
   `Err(RuntimeDiagnostic(..., RuntimeByteDiagnostic(...)))` entry result

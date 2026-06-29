@@ -296,7 +296,8 @@ compare it with `../specification/` before changing behavior.
   encode and decode execution boundaries including caller-owned parser-state
   retention around `Decoded` and `NeedMore`, the bounded `ByteView` plus base
   `ByteOffset` hand-written decode example with non-consuming short-input
-  readiness and absolute malformed-input offsets,
+  readiness, same-module hand-written `NeedEnd` readiness preservation and
+  closed-input projection, and absolute malformed-input offsets,
   source-visible partial encode preservation and resume, plus eligible derived
   codec decode and
   encode execution boundaries, including budgeted derived encode, over the
@@ -319,6 +320,9 @@ compare it with `../specification/` before changing behavior.
   and encode directions.
   The completed same-module hand-written encode resume slice is archived under
   [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
+  The completed same-module hand-written `NeedEnd` readiness preservation
+  slice is archived under
+  [Codec Hand-Written NeedEnd Boundary](../reference/implemented-proposals/codec-hand-written-need-end-boundary.md).
   The completed imported hand-written codec boundary is archived under
   [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
   The completed imported derived codec boundary is archived under

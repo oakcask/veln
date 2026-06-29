@@ -373,6 +373,8 @@ ordinary successful entry value. The checked examples are
 `examples/specification/run/codec-decode-invalid-owned-id-json/`,
 `examples/specification/run/codec-decode-invalid-step-human/`,
 `examples/specification/run/codec-decode-invalid-step-json/`,
+`examples/specification/run/codec-decode-need-end-boundary-human/`,
+`examples/specification/run/codec-decode-need-end-boundary-json/`,
 `examples/specification/run/codec-decode-need-end-human/`,
 `examples/specification/run/codec-decode-need-end-json/`,
 `examples/specification/run/codec-decode-need-more-human/`, and
