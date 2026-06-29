@@ -2698,7 +2698,16 @@ pins fixture-encoded Huffman-marked `:path: test` and
 raw new-name literal-without-indexing `x-demo: hello` header block as a
 single HEADERS frame. Invalid ordinary new-name literals remain HPACK fixture
 encode failures before HEADERS bytes are produced. It
-rejects stream id `0`, missing streams, closed
+also pins the outbound HPACK fixture encoder path where a prior
+literal-with-indexing `:path: /target` insertion leaves a dynamic-table name
+available, a later fixture header list emits a literal-without-indexing
+dynamic-name block `0x0f 0x2f 0x06 "/fresh"`, and the returned encode state
+still lets the original `:path: /target` entry encode as `0xbe`. Encoding the
+same dynamic-name fixture from an empty outbound HPACK state remains a focused
+HPACK fixture failure with expected fixture
+`fixture outbound dynamic-name indexed literal`; a non-visible fresh value
+uses the focused raw string fixture failure.
+The slice rejects stream id `0`, missing streams, closed
 streams, already reset streams, mismatched open streams, and generated
 frame-header representation failures before accepted bytes are produced.
 After receiving GOAWAY or after locally sending GOAWAY, the same slice accepts

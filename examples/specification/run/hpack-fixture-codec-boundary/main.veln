@@ -321,6 +321,11 @@ fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
 	let literal_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-indexed-path-target", encode_header_list_with_state(literal_headers, initial_encode, 120), "44072f746172676574")?
 	let dynamic_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-indexed-path-target", encode_header_list_with_state(literal_headers, literal_state, 121), "be")?
 	print_encode_state("encode-stateful-after-dynamic", dynamic_state)
+	let dynamic_name_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-literal-path-fresh", encode_header_list_with_state(outbound_literal_dynamic_name_path_fresh_headers(), dynamic_state, 129), "0f2f062f6672657368")?
+	let retained_dynamic_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-name-retains-path-target", encode_header_list_with_state(literal_headers, dynamic_name_state, 130), "be")?
+	print_encode_state("encode-stateful-after-dynamic-name", retained_dynamic_state)
+	let _ = print_encode_transition_failure("encode-dynamic-name-literal-missing", encode_header_list_with_state(outbound_literal_dynamic_name_path_fresh_headers(), initial_encode_state(), 131))?
+	let _ = print_encode_transition_failure("encode-dynamic-name-literal-non-visible-value", encode_header_list_with_state(outbound_literal_dynamic_name_path_linefeed_headers(), dynamic_state, 132))?
 	let stateless_encoded: ByteChunk = require_header_list_encoding(encode_header_list(literal_headers, 122))?
 	let _ = print_encoded_literal("encode-stateless-literal-indexed-path-target", Ok(stateless_encoded), byte_chunk_from_hex("44072f746172676574")?)?
 	let ignored_visible_ascii: HpackFixtureState = print_encode_transition("encode-literal-visible-ascii-x-demo", encode_header_list_with_state(outbound_literal_visible_ascii_headers(), initial_encode, 127), "0006782d64656d6f0568656c6c6f")?

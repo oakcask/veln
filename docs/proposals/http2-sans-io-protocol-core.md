@@ -825,12 +825,13 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
 and
-`../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`.
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal, checked outbound encoder boundary for
-HEADERS and server-side `PUSH_PROMISE`, outbound table-size behavior beyond
+the checked fixture string literal, outbound behavior beyond the checked
+fixture encoder boundary, outbound table-size behavior beyond
 the checked fixture encoder update boundary, and production header validation
 beyond ordinary request,
 response,
@@ -903,6 +904,12 @@ requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
 encode failures before emitting header-block bytes.
+The completed outbound dynamic-name literal slice is archived under
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
+It reuses a returned outbound HPACK fixture state to encode a
+literal-without-indexing field whose name comes from the bounded dynamic table
+and whose value is a fresh raw literal, while keeping missing dynamic-table
+name state on a focused HPACK fixture failure.
 Server-side `PUSH_PROMISE` send-intents also carry returned fixture encode
 state across successive promised header-list encodes: a supported
 literal-with-indexing promised header list updates the bounded dynamic table,

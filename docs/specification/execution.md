@@ -2088,6 +2088,17 @@ execution reference.
   `0x00 0x06 "x-demo" 0x05 "hello"`; ordinary names outside the lowercase
   HTTP field-name token boundary stay on the existing HPACK fixture
   header-list encoding failure path.
+  After the stateful encoder inserts `:path: /target` with
+  literal-with-indexing, a later fixture header list can reuse that dynamic
+  table entry as an indexed name while supplying a fresh raw literal value:
+  `:path: /fresh` encodes as `0x0f 0x2f 0x06 "/fresh"` without inserting a
+  replacement entry. The returned encode state is explicit and still lets the
+  original `:path: /target` entry encode as dynamic indexed `0xbe`. The same
+  dynamic-name fixture encoded from an empty outbound HPACK state returns a
+  focused HPACK fixture failure with expected fixture
+  `fixture outbound dynamic-name indexed literal`; a non-visible fresh value
+  on the same dynamic-name path stays on the focused raw string fixture
+  failure with expected fixture `fixture raw string encoding`.
   Huffman-marked literal `:path: test` encodes to
   `0x04 0x83 0x49 0x50 0x9f`, and Huffman-marked literal `:status: 200`
   encodes to `0x08 0x82 0x10 0x01`. The same encoder is table-driven for
