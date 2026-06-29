@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "5\n9\n10\n180\n218\ndecoded\n5\n9\n10\n2\nencoded\noutput_chunk_list general-reserved-bitfield count 1\noutput_chunk general-reserved-bitfield index 0 hex \"b4da\" count 2\ninvalid\ncodec.encode_value_unrepresentable\nGeneralReservedBitfieldHeader.mode\nvalue must be between 0 and 15\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "general-reserved-bitfield"
+chunks = ["b4da"]

@@ -290,6 +290,12 @@ When the result value is a binary schema reserved-bit mismatch,
 - `actual_value`: the decoded bit pattern that was present
 - `byte_preview`: a structured bounded byte preview object
 
+Packed reserved bitfield groups use the same projection at the specific
+reserved field that mismatched. The checked
+`examples/specification/run/binary-schema-general-reserved-bitfield-json/`
+case covers a general two-byte bitfield group with more than one
+representation-only reserved field.
+
 When the result value is a binary schema field-local or schema-level
 validation failure,
 `details.byte_diagnostic` includes:
