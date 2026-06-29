@@ -292,12 +292,17 @@ helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, same-module representation-only reserved-bit payload
 round trips, nested `ByteView(length_field)` payload fields whose length is an
-earlier visible `Int` in the same nested schema, extension-tolerant known
-payloads, same-module wrapper dispatches that select a separate eligible
+earlier visible `Int` in the same nested schema, nested
+`ByteView(left_length + right_length)` payload fields whose operands are
+earlier visible `Int` fields in the same nested schema, extension-tolerant
+known payloads, same-module wrapper dispatches that select a separate eligible
 recursive payload schema, recursive extension known payloads, unknown payload
 preservation, and nested helper diagnostics. The completed nested dispatch
 `ByteView(length_field)` payload helper slice is archived under
 `../reference/implemented-proposals/binary-schema-dispatch-byteview-payload-helpers.md`.
+The completed nested dispatch
+`ByteView(left_length + right_length)` payload helper slice is archived under
+`../reference/implemented-proposals/binary-schema-dispatch-byteview-add-payload-helpers.md`.
 The completed dispatch payload helper boundary diagnostics slice is archived
 under
 `../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md`.
@@ -644,7 +649,9 @@ for:
   `ByteView(length_field)`, `ByteView(left_length - right_length)`,
   `ByteView(left_length + right_length)`,
   `ByteView(left_length * right_length)`, and
-  `ByteView(left_length / right_length)` decode and encode helper slices
+  `ByteView(left_length / right_length)` ordinary decode and encode helper
+  slices, plus dispatch nested `ByteView(length_field)` and
+  `ByteView(left_length + right_length)` payload helper slices
 - field references inside later field definitions beyond implemented bounded
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
   lengths, and their declaration-time missing, forward, and wrong-role
@@ -819,7 +826,9 @@ earlier visible `Int` fields in the same schema.
 eligible same-module or public imported nested binary schema payload named
 through a written `use` path, including when that nested schema contains
 `ByteView(length_field)` whose length field is an earlier visible `Int` field
-in the same nested schema, plus `ByteView(length_field)` when the repeat
+in the same nested schema or `ByteView(left_length + right_length)` whose
+operands are earlier visible `Int` fields in the same nested schema, plus
+`ByteView(length_field)` when the repeat
 payload length field is an earlier visible `Int` field.
 General schema-owned decode and encode beyond the implemented slices, support
 rather than rejection for unbounded or otherwise ineligible recursive dispatch
