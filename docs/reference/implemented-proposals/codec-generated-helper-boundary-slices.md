@@ -28,7 +28,10 @@ more supported structural arguments. A codec
 call receives a bounded `ByteView` and explicit base `ByteOffset`, returns
 `Decoded` with the helper value and consumed `ByteCount`, returns `NeedMore`
 without consuming input, and returns helper `Invalid(DecodeError)` values
-without advancing caller-owned parser state.
+without advancing caller-owned parser state. Helper-projected invalid input
+reports the absolute byte offset from the explicit base offset and
+field-local byte position, independent of the `ByteView` storage offset in
+its source chunk.
 
 Derived codec encode calls expose the same source-call boundary as the
 generated `byte_encode_<schema>` helper when the named schema is already
@@ -57,6 +60,11 @@ produced count, and a resumable state record carrying `encoded_offset`.
   readiness, and helper `Invalid(DecodeError)` projection. The companion JSON
   case checks command-facing diagnostics for the helper-projected
   reserved-bit mismatch.
+- `../../../examples/specification/run/derived-codec-middle-reserved-decode-boundary/`
+  checks generated helper decode behavior for a middle reserved-bit layout
+  through the derived codec item from nonzero bounded view offsets, including
+  successful `Decoded`, non-consuming short-input readiness, and helper
+  `Invalid(DecodeError)` projection at the explicit absolute base offset.
 - `../../../examples/specification/run/derived-codec-flag-boundary/` checks
   successful flag-bitset decode, consumed count, short-input readiness,
   successful encode, output chunk projection, and helper encode failure
