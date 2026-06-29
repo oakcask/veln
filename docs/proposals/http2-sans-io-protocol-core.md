@@ -922,7 +922,13 @@ encode failures. It also supports checked outbound dynamic table-size update
 requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
-encode failures before emitting header-block bytes.
+encode failures before emitting header-block bytes. The checked
+protocol-core example now derives that outbound HPACK fixture capacity from
+received peer `SETTINGS_HEADER_TABLE_SIZE` frames: lower accepted peer limits
+drive smaller later outbound updates and prevent dynamic-index reuse while
+leaving the local inbound receive-limit boundary unchanged, and higher
+accepted peer limits permit matching outbound updates and later dynamic-index
+reuse.
 The completed outbound dynamic-name literal slice is archived under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
 It reuses a returned outbound HPACK fixture state to encode a

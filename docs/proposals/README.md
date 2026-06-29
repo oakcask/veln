@@ -429,8 +429,10 @@ compare it with `../specification/` before changing behavior.
   inbound table-size update placement, malformed-integer, and trailing-byte
   diagnostics, checked outbound
   dynamic table-size update encoding and state handoff into later HEADERS
-  and server-side `PUSH_PROMISE`, checked outbound dynamic-name literal
-  fixture encoding, and checked outbound `PUSH_PROMISE` rejection after peer
+  and server-side `PUSH_PROMISE`, received peer
+  `SETTINGS_HEADER_TABLE_SIZE` values driving later outbound HPACK fixture
+  capacity, checked outbound dynamic-name literal fixture encoding, and
+  checked outbound `PUSH_PROMISE` rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   recorded under `../specification/` and

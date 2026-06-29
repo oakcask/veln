@@ -520,7 +520,9 @@ HPACK dynamic table-size update requests use the same result boundary: an
 accepted update returns a fixture encode state that later HEADERS and
 `PUSH_PROMISE` encodes consume before frame splitting, while an over-limit
 update remains a typed HPACK fixture encode failure and produces no HTTP/2
-output chunk list.
+output chunk list. Received peer `SETTINGS_HEADER_TABLE_SIZE` values provide
+the outbound HPACK fixture capacity for those update requests without changing
+the local inbound HPACK table-size receive limit.
 
 HTTP/2 protocol-core failures that originate from a source-visible
 `RuntimeDiagnostic(...)` payload attach `details.protocol_diagnostic`.
@@ -577,9 +579,10 @@ SETTINGS. Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
 `SETTINGS_HEADER_TABLE_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE` values
 belong to peer-advertised state for outbound decisions and are not reported as
 the receive-limit provenance for later inbound frame-size, concurrent-stream,
-or DATA receive-window failures. A received `SETTINGS_INITIAL_WINDOW_SIZE`
-delta can still change the tracked open stream's allowed receive-window
-credit, and later DATA failures report that adjusted credit.
+DATA receive-window, or HPACK table-size receive-limit failures. A received
+`SETTINGS_INITIAL_WINDOW_SIZE` delta can still change the tracked open
+stream's allowed receive-window credit, and later DATA failures report that
+adjusted credit.
 Unknown SETTINGS identifiers do not update peer-advertised state and do not produce
 `http2.peer_limit.settings_value_out_of_range`; known SETTINGS items in the
 same frame are still applied or diagnosed at their own item byte offset.
