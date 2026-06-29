@@ -812,7 +812,11 @@ are completed under
 That implemented record includes promised request header-list validation
 before reservation, accepted fixture-marked promised request headers, and
 focused rejected promised header-list facts using the existing request
-header-list diagnostic projection.
+header-list diagnostic projection. It also includes the completed local
+disable-push receive policy: after the client sends local
+`SETTINGS_ENABLE_PUSH = 0`, a peer-sent `PUSH_PROMISE` is rejected before
+promised-stream reservation through the existing invalid frame-kind diagnostic
+family with local settings provenance.
 
 The remaining scope below is still planned work for the full protocol core.
 

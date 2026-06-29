@@ -87,6 +87,11 @@ type PeerAdvertisedEnablePush
 	PeerEnablePush(Int, Int)
 end
 
+type LocalSentEnablePush
+	NoLocalSentEnablePush
+	LocalSentEnablePush(Int, Int)
+end
+
 type PeerAdvertisedMaxConcurrentStreams
 	NoPeerMaxConcurrentStreams
 	PeerMaxConcurrentStreams(Int, Int)
@@ -103,7 +108,7 @@ type PeerAdvertisedMaxHeaderListSize
 end
 
 type PeerSettingsState
-	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize)
+	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, LocalSentEnablePush)
 end
 
 type OutstandingLocalSettingsBatch
@@ -601,7 +606,7 @@ fn protocol_default_frame_size_limit() -> ReceiveLimitEntry
 end
 
 fn empty_peer_settings() -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
 
 fn default_receive_flow_control() -> ReceiveFlowControl
@@ -665,7 +670,7 @@ fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, 
 	match settings_decision
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
-				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, receive_flow_control, header_preview)
+				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, peer_settings, receive_flow_control, header_preview)
 					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
 					Err(error) => Ok(Failed(consumed_state, error))
 				end
@@ -1335,18 +1340,18 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, item_wire_o
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier == 5
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size))
+					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 					false => match identifier == 3
-						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size))
+						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push))
 						false => match identifier == 1
-							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size))
+							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push))
 							false => match identifier == 6
-								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset)))
+								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push))
 								false => Ok(peer_settings)
 							end
 						end
@@ -1394,29 +1399,62 @@ end
 
 fn active_peer_initial_window_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _) => 65535
-		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _) => value
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _) => 65535
+		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _) => value
 	end
 end
 
 fn active_peer_max_frame_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _) => 16384
-		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _) => value
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _) => 16384
+		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _) => value
 	end
 end
 
 fn active_peer_header_table_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _) => 4096
-		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _) => value
+		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _) => 4096
+		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _) => value
 	end
 end
 
 fn peer_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
-		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _) => value == 0
-		PeerSettings(_, _, NoPeerEnablePush, _, _, _) => false
+		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _) => value == 0
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => false
+	end
+end
+
+fn local_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
+	match peer_settings
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _)) => value == 0
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => false
+	end
+end
+
+fn local_enable_push_value(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _)) => value
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => 0
+	end
+end
+
+fn local_enable_push_offset(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(_, item_offset)) => item_offset
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => 0
+	end
+end
+
+fn with_local_enable_push(peer_settings: PeerSettingsState, value: Int, item_offset: Int) -> PeerSettingsState
+	match peer_settings
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, _) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, LocalSentEnablePush(value, item_offset))
+	end
+end
+
+fn update_local_enable_push_state(state: Http2DecodeState, value: Int, item_offset: Int) -> Http2DecodeState
+	match state
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, with_local_enable_push(peer_settings, value, item_offset), shutdown_state, receive_flow_control)
 	end
 end
 
@@ -1642,7 +1680,7 @@ fn encode_local_settings_batch_intent(max_frame_size_value: Int, enable_push_val
 	let payload: ByteChunk = byte_append(max_frame_size_payload, enable_push_payload)
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 12, kind: 4, flags: 0, stream_id: 0})
 	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(5, max_frame_size_value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 5, 2)), byte_append(header, payload)))
+		Ok(header) => Ok(OutboundSettingsAccepted(5, max_frame_size_value, ConnectionState(update_local_enable_push_state(decode_state, enable_push_value, 6), add_outstanding_settings(outstanding_settings, 5, 2)), byte_append(header, payload)))
 		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
 	end
 end
@@ -1732,7 +1770,7 @@ fn encode_local_enable_push_intent(value: Int, decode_state: Http2DecodeState, o
 	let payload: ByteChunk = byte_append(byte_write_u16_be(2)?, byte_write_u32_be(value)?)
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
 	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(2, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 2, 1)), byte_append(header, payload)))
+		Ok(header) => Ok(OutboundSettingsAccepted(2, value, ConnectionState(update_local_enable_push_state(decode_state, value, 0), add_outstanding_settings(outstanding_settings, 2, 1)), byte_append(header, payload)))
 		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
 	end
 end
@@ -2693,18 +2731,18 @@ fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, pee
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier == 5
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size))
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size))
+					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
 					false => match identifier == 3
-						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size))
+						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push))
 						false => match identifier == 1
-							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size))
+							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push))
 							false => match identifier == 6
-								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset)))
+								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push))
 								false => Ok(peer_settings)
 							end
 						end
@@ -2848,34 +2886,37 @@ fn decode_goaway_state(pending: ByteChunk) -> Result<ConnectionShutdownState, St
 	Ok(GracefulShutdown(last_stream_id, error_code))
 end
 
-fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match continuation
-		NoContinuation => validate_without_continuation(offset, payload, kind, flags, stream_id, promised_stream_id, receive_flow_control)
+		NoContinuation => validate_without_continuation(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
 		Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, pending_promised_stream_id, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, pending_promised_stream_id, accumulated, offset, payload, kind, flags, stream_id, header_preview)
 	end
 end
 
-fn validate_without_continuation(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_without_continuation(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 1
 		true => match end_headers_set(flags)
 			true => Ok(Decision(NoContinuation, payload, data_end_stream_set(flags), completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0))
 			false => Ok(Decision(Continuation(stream_id, kind, offset, flags, completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0, payload), empty_header_block(), false, false, 0))
 		end
 		false => match kind == 5
-			true => validate_push_promise_header_block(offset, payload, kind, flags, stream_id, promised_stream_id, receive_flow_control)
+			true => validate_push_promise_header_block(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
 			false => validate_connection_frame_kind(offset, kind, stream_id, receive_flow_control)
 		end
 	end
 end
 
-fn validate_push_promise_header_block(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_push_promise_header_block(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match validate_push_promise_stream_state(offset, kind, stream_id, receive_flow_control)
-		Ok(_) => match validate_received_push_promise_stream(offset, kind, stream_id, promised_stream_id, receive_flow_control)
-			ProtocolStreamIdOk => match end_headers_set(flags)
-				true => Ok(Decision(NoContinuation, payload, false, false, promised_stream_id))
-				false => Ok(Decision(Continuation(stream_id, kind, offset, flags, false, promised_stream_id, payload), empty_header_block(), false, false, 0))
+		Ok(_) => match local_enable_push_disabled(peer_settings)
+			true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "local-settings", "local_settings_enable_push_disabled"))
+			false => match validate_received_push_promise_stream(offset, kind, stream_id, promised_stream_id, receive_flow_control)
+				ProtocolStreamIdOk => match end_headers_set(flags)
+					true => Ok(Decision(NoContinuation, payload, false, false, promised_stream_id))
+					false => Ok(Decision(Continuation(stream_id, kind, offset, flags, false, promised_stream_id, payload), empty_header_block(), false, false, 0))
+				end
+				ProtocolStreamIdFailed(error) => Err(error)
 			end
-			ProtocolStreamIdFailed(error) => Err(error)
 		end
 		Err(error) => Err(error)
 	end
@@ -3862,86 +3903,94 @@ end
 
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _), _, _) => value
 	end
 end
 
 fn state_peer_max_frame_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _, _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _, _, _, _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_initial_window_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _), _, _) => value
 	end
 end
 
 fn state_peer_initial_window_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _, _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _, _, _, _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_enable_push(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _), _, _) => value
 	end
 end
 
 fn state_peer_enable_push_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _, _, _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_max_concurrent_streams(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _, _), _, _) => value
 	end
 end
 
 fn state_peer_max_concurrent_streams_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, item_offset), _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, item_offset), _, _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_header_table_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _), _, _) => value
 	end
 end
 
 fn state_peer_header_table_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(_, item_offset), _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(_, item_offset), _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_max_header_list_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(value, _)), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(value, _), _), _, _) => value
 	end
 end
 
 fn state_peer_max_header_list_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(_, item_offset)), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(_, item_offset), _), _, _) => item_offset
 	end
+end
+
+fn state_local_enable_push(state: Http2DecodeState) -> Int
+	local_enable_push_value(state_peer_settings(state))
+end
+
+fn state_local_enable_push_offset(state: Http2DecodeState) -> Int
+	local_enable_push_offset(state_peer_settings(state))
 end
 
 fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
@@ -6457,6 +6506,15 @@ fn print_outstanding_settings(label: String, connection: Http2ConnectionState) -
 	stdio::println(int_to_string(outstanding_settings_batch_count(outstanding_settings)))
 end
 
+fn print_local_settings_policy(label: String, connection: Http2ConnectionState) -> () effects [stdio]
+	let decode_state: Http2DecodeState = connection_decode_state(connection)
+	stdio::print(label)
+	stdio::print(" local_settings enable_push ")
+	stdio::print(int_to_string(state_local_enable_push(decode_state)))
+	stdio::print(" enable_push_offset ")
+	stdio::println(int_to_string(state_local_enable_push_offset(decode_state)))
+end
+
 fn print_outbound_settings(label: String, decision: OutboundSettingsDecision) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" outbound-settings ")
@@ -8506,15 +8564,15 @@ fn print_outbound_priority_cases() -> Result<(), String> effects [stdio]
 end
 
 fn small_peer_max_frame_size_settings(value: Int) -> PeerSettingsState
-	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
+	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
 
 fn peer_header_table_size_settings(value: Int) -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
 
 fn peer_enable_push_settings(value: Int) -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
 
 fn print_peer_header_table_size_outbound_hpack_cases() -> Result<(), String> effects [stdio]
@@ -8915,6 +8973,16 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_regular_accepted_header_block: () = emit_header_block("http2-client-push-promise-regular-header-block", client_push_promise_regular_accepted, "3b3c3d")?
 	print_hpack_transition("client-push-promise-regular-accepted", client_push_promise_regular_accepted)
 	print_reserved_by_peer_stream("client-push-promise-regular-accepted", step_state(client_push_promise_regular_accepted))
+	let client_push_local_enable_sent: OutboundSettingsDecision = send_local_enable_push_setting(1, connection_state(client_push_state))?
+	print_local_settings_policy("client-push-local-enable-sent", outbound_settings_connection(client_push_local_enable_sent))
+	let client_push_local_enable_accepted: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("00000705040000000100000002303132")?), outbound_settings_connection(client_push_local_enable_sent))?
+	print_step("client-push-local-enable-accepted", connection_step_decode_step(client_push_local_enable_accepted))
+	print_reserved_by_peer_stream("client-push-local-enable-accepted", connection_decode_state(connection_step_state(client_push_local_enable_accepted)))
+	let client_push_local_disable_sent: OutboundSettingsDecision = send_local_enable_push_setting(0, connection_state(client_push_state))?
+	print_local_settings_policy("client-push-local-disable-sent", outbound_settings_connection(client_push_local_disable_sent))
+	let client_push_local_disable_rejected: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("00000705040000000100000002303132")?), outbound_settings_connection(client_push_local_disable_sent))?
+	print_failure("client-push-local-disable-rejected", connection_step_decode_step(client_push_local_disable_rejected))
+	print_reserved_by_peer_stream("client-push-local-disable-rejected", connection_decode_state(connection_step_state(client_push_local_disable_rejected)))
 	let client_push_promise_status: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080504000000010000000232333435")?), client_push_state)?
 	print_request_header_failure("client-push-promise-status", client_push_promise_status)
 	print_reserved_by_peer_stream("client-push-promise-status", step_state(client_push_promise_status))
@@ -9644,6 +9712,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_outbound_settings("local-settings-queue-second-sent", local_settings_queue_second_sent)
 	let ignored_local_settings_queue_second_chunk: () = emit_encoded_header("http2-local-settings-queue-second", outbound_settings_chunk(local_settings_queue_second_sent), "000006040000000000000200000001")?
 	print_outstanding_settings("local-settings-queue-second-sent", outbound_settings_connection(local_settings_queue_second_sent))
+	print_local_settings_policy("local-settings-queue-second-sent", outbound_settings_connection(local_settings_queue_second_sent))
 	let local_settings_queue_first_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_queue_second_sent))?
 	print_step("local-settings-queue-first-ack", connection_step_decode_step(local_settings_queue_first_ack))
 	print_outstanding_settings("local-settings-queue-first-ack", connection_step_state(local_settings_queue_first_ack))
@@ -9657,6 +9726,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_outbound_settings("local-settings-batch-sent", local_settings_batch_sent)
 	let ignored_local_settings_batch_chunk: () = emit_encoded_header("http2-local-settings-batch", outbound_settings_chunk(local_settings_batch_sent), "00000c040000000000000500008000000200000001")?
 	print_outstanding_settings("local-settings-batch-sent", outbound_settings_connection(local_settings_batch_sent))
+	print_local_settings_policy("local-settings-batch-sent", outbound_settings_connection(local_settings_batch_sent))
 	let local_settings_batch_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_batch_sent))?
 	print_step("local-settings-batch-ack", connection_step_decode_step(local_settings_batch_ack))
 	print_outstanding_settings("local-settings-batch-ack", connection_step_state(local_settings_batch_ack))

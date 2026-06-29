@@ -24,6 +24,16 @@ fixtures. The decoded promised request header list then passes the same
 request header-list validation used by ordinary request HEADERS. Only accepted
 promised request headers record the promised stream as reserved by peer.
 
+The local outbound settings send-intent records the latest sent
+`SETTINGS_ENABLE_PUSH` value separately from peer-advertised settings. When the
+client has locally sent `SETTINGS_ENABLE_PUSH = 0`, a valid peer-sent
+`PUSH_PROMISE` is rejected before promised request header decoding and before
+promised-stream reservation. The rejection uses the existing
+`http2.protocol.invalid_frame_kind` diagnostic family with active state
+`local-settings` and rule provenance
+`local_settings_enable_push_disabled`. With local push enabled or unspecified,
+the accepted peer-sent `PUSH_PROMISE` receive path remains unchanged.
+
 The promised-stream lifecycle slice accepts the first valid response HEADERS
 block on that reserved-by-peer promised stream. Without `END_STREAM`, the
 promised stream enters the same tracked open-stream lifecycle used by
@@ -54,12 +64,21 @@ fixture diagnostic shape.
   headers, rejects promised request headers containing response-only `:status`
   or invalid `te`, and prints that those rejected paths do not reserve the
   promised stream.
+- The same checked case records locally sent `SETTINGS_ENABLE_PUSH` state,
+  accepts a valid peer-sent `PUSH_PROMISE` when local push is enabled, rejects
+  the same valid frame when local push is disabled, and prints that the
+  promised stream remains unreserved.
 - `../../../examples/specification/run/runtime-diagnostic-http2-push-promise-request-header-list-helper-human/`
   and
   `../../../examples/specification/run/runtime-diagnostic-http2-push-promise-request-header-list-helper-json/`
   keep the reused request header-list diagnostic projection tied to
   `PUSH_PROMISE` frame kind `5` and preserve the promised request
   header-block preview.
+- `../../../examples/specification/run/http2-protocol-core-local-disable-push-promise-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-local-disable-push-promise-json/`
+  check command-facing projection for the local disable-push rejection through
+  the existing invalid frame-kind diagnostic family.
 - The same checked case accepts a `PUSH_PROMISE` header block completed by a
   final CONTINUATION frame and verifies the same stripped HPACK fixture output
   and reserved-by-peer state.

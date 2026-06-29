@@ -2781,6 +2781,14 @@ execution reference.
   response HEADERS block uses the existing
   `http2.protocol.invalid_frame_kind` stream-state diagnostic shape with
   reserved-by-peer active state and protocol-owned frame-header byte preview.
+  The local outbound settings send-intent records the latest sent
+  `SETTINGS_ENABLE_PUSH` value separately from peer-advertised settings. When
+  that local state is `0`, a client-side peer-sent `PUSH_PROMISE` is rejected
+  before promised request header decoding and before promised-stream
+  reservation, using the existing `http2.protocol.invalid_frame_kind`
+  diagnostic family with active state `local-settings` and rule provenance
+  `local_settings_enable_push_disabled`. Local push enabled or unspecified
+  keeps the accepted `PUSH_PROMISE` receive behavior unchanged.
   Associated stream id zero and wrong-parity associated stream ids keep
   the existing stream-id diagnostic route. Promised stream id zero and
   representable client-initiated promised stream ids use

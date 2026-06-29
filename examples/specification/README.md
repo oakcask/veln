@@ -2768,6 +2768,9 @@ against the built `veln` binary.
   `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, and
   `SETTINGS_MAX_HEADER_LIST_SIZE`, records accepted local SETTINGS batches in
   an ordered outstanding queue with source-visible pending batch counts,
+  records the latest sent local `SETTINGS_ENABLE_PUSH` policy separately from
+  peer-advertised settings, rejects a valid peer-sent `PUSH_PROMISE` before
+  promised-stream reservation when that local policy disables push, and
   clears exactly the oldest batch on a valid received SETTINGS ACK while
   leaving later batches pending, rejects local `SETTINGS_ENABLE_PUSH` values
   outside `0..1` before emitting bytes, and rejects an ACK with no outstanding
@@ -3049,9 +3052,18 @@ against the built `veln` binary.
   `run --json` with byte offset, actual frame kind, stream reference, expected
   frame kind, active state, rule provenance, and a rendered
   `RuntimeDiagnostic(...)` result value.
-  The focused frame-kind, stream-id, and `PUSH_PROMISE` projection cases
-  declare `Http2FrameHeaderWire` locally and decode with the generated schema
-  helper before projecting protocol diagnostics.
+- `run/http2-protocol-core-local-disable-push-promise-human/`: a valid
+  peer-sent `PUSH_PROMISE` after local `SETTINGS_ENABLE_PUSH = 0` reports
+  `http2.protocol.invalid_frame_kind` through human `run` stderr with local
+  settings state and rule provenance.
+- `run/http2-protocol-core-local-disable-push-promise-json/`: the same local
+  disable-push rejection reports `http2.protocol.invalid_frame_kind` through
+  `run --json` with byte offset, actual frame kind, stream reference, expected
+  frame kind, active state, rule provenance, and a rendered
+  `RuntimeDiagnostic(...)` result value.
+  The focused frame-kind, stream-id, `PUSH_PROMISE`, and local disable-push
+  projection cases declare `Http2FrameHeaderWire` locally and decode with the
+  generated schema helper before projecting protocol diagnostics.
 - `run/http2-protocol-core-settings-ack-length-human/`: a non-empty SETTINGS
   ACK payload reports `http2.protocol.invalid_payload_length` through human
   `run` stderr with observed and expected payload length plus protocol state
