@@ -3143,6 +3143,10 @@ projection examples declare
 `Http2FrameHeaderWire` and decode through the generated schema helper before
 projecting protocol diagnostics, so those command-facing cases cover the
 general schema helper path as well as the larger protocol-core fixture. The
+local disable-push `PUSH_PROMISE` projection cases reuse the invalid
+frame-kind diagnostic family with active state `local-settings` and rule
+provenance `local_settings_enable_push_disabled`, matching the broad
+protocol-core case where the promised stream remains unreserved. The
 preface and PRIORITY dependency human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit

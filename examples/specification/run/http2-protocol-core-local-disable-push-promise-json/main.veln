@@ -1,0 +1,111 @@
+# HTTP/2 peer-sent PUSH_PROMISE after local disable-push projects JSON details.
+
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
+
+type LocalEnablePush
+	LocalEnablePush(Int)
+end
+
+type Http2ProtocolFailure
+	InvalidFrameKind {offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, preview: ByteView}
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+type Http2Step
+	FrameOk(Int)
+	Waiting
+	Failed(Http2ProtocolFailure)
+end
+
+fn receive(bytes: ByteChunk, local_policy: LocalEnablePush) -> Result<Http2Step, String>
+	let available: Int = byte_count_to_int(byte_chunk_count(bytes))
+	match available < 9
+		true => Ok(Waiting)
+		false => decode_header(bytes, local_policy)
+	end
+end
+
+fn decode_header(bytes: ByteChunk, local_policy: LocalEnablePush) -> Result<Http2Step, String>
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
+	validate_client_push_promise_policy(0, header.kind, header.stream_id, local_policy, view)
+end
+
+fn validate_client_push_promise_policy(offset: Int, kind: Int, stream_id: Int, local_policy: LocalEnablePush, preview: ByteView) -> Result<Http2Step, String>
+	match local_policy
+		LocalEnablePush(value) => match kind == 5 and stream_id != 0 and value == 0
+			true => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, preview)))
+			false => Ok(FrameOk(kind))
+		end
+	end
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_frame_kind",
+		error,
+		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "local-settings", "local_settings_enable_push_disabled", byte_chunk([]))
+	)
+end
+
+fn invalid_frame_kind_payload(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, context: Http2DiagnosticContext, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_frame_kind",
+		"HTTP/2 invalid frame kind at byte offset 0",
+		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+	)
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
+	match failure
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => Err(invalid_frame_kind_payload(offset, actual_kind, stream_id, expected_kind, context, preview))
+	end
+end
+
+fn input_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("00000705040000000100000002303132")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn receive_step(bytes: ByteChunk) -> Result<Http2Step, RuntimeDiagnostic>
+	match receive(bytes, LocalEnablePush(0))
+		Ok(step) => Ok(step)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = input_bytes()?
+	let step: Http2Step = receive_step(bytes)?
+	let context: Http2DiagnosticContext = DiagnosticContext("local-settings", "local_settings_enable_push_disabled")
+	match step
+		Failed(failure) => http2_protocol_diagnostic(failure, context)
+		FrameOk(_) => Ok(())
+		Waiting => Ok(())
+	end
+end

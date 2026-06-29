@@ -418,7 +418,8 @@ compare it with `../specification/` before changing behavior.
   GOAWAY outbound HEADERS boundary, server-side `PUSH_PROMISE` rejection,
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
-  promised response HEADERS admission, and
+  promised response HEADERS admission including local disable-push receive
+  policy, and
   half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, and request-trailer header-list validation,
   the source-visible request `:path` value rule, the source-visible `te`

@@ -770,6 +770,14 @@ The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
 for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
 final-CONTINUATION cases expose the stripped promised header block as checked
 lowercase hex output and print the reserved-by-peer promised stream state.
+The same checked stdout records the latest locally sent `SETTINGS_ENABLE_PUSH`
+state after outbound settings send-intents, keeps accepted peer-sent
+`PUSH_PROMISE` behavior unchanged when local push is enabled or unspecified,
+and rejects a valid peer-sent `PUSH_PROMISE` before reservation when local
+push is disabled. The rejected case uses
+`http2.protocol.invalid_frame_kind` with active state `local-settings`, rule
+provenance `local_settings_enable_push_disabled`, and prints that the
+promised stream remains unreserved.
 It validates the decoded promised request header list before reservation,
 including accepted ordinary request headers and rejected `:status` and invalid
 `te` request-header facts through the existing request header-list diagnostic
