@@ -1,0 +1,11 @@
+fn apply_variadic_unknown(callback: fn(String, ...unknown) -> List<String>) -> List<String>
+	Nil
+end
+
+fn collect(label, values: ...)
+	label
+end
+
+pub fn main() -> List<String>
+	apply_variadic_unknown(collect)
+end

@@ -24,7 +24,8 @@ compare it with `../specification/` before changing behavior.
   dictionary callback alias, declared helper callback argument, source-backed
   prelude callback fallback, record-field callback, local callback binding,
   direct return callback, callback return expected-type, constructor-payload
-  callback, and examples cleanup slices specified in
+  callback, variadic declared-helper callback parameter, and examples cleanup
+  slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
@@ -46,6 +47,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-direct-return-callback.md`,
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
+  [local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md),
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,

@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:6:27: error[type.mismatch]: expected `List<Int>`, but found `List<String>`"]
+
+[stderr]
+format = "empty"

@@ -153,6 +153,9 @@ The completed callback return expected-type slice is archived under
 The completed constructor payload callback expected-type slice is archived
 under
 `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`.
+The completed variadic declared-helper callback parameter slice is archived
+under
+[../reference/implemented-proposals/local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md).
 Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for compiler-known `vec_map`,
@@ -167,7 +170,9 @@ parameters. The dictionary `_with` aliases accept a context argument before the
 dictionary and pass that context as the first callback argument.
 Same-module helpers and visible imported public helpers whose declared
 parameter type is a concrete function type also push that function parameter
-list into named private callbacks passed at the matching argument position.
+list into named private callbacks passed at the matching argument position,
+including fixed parameter types and variadic element types for concrete
+variadic function types.
 Bare and `prelude::` calls to source-backed prelude helpers without a
 compiler-known callback rule use the same fallback when the embedded source
 signature contains a concrete function-typed callback parameter.

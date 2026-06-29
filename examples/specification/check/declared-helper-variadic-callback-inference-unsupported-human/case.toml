@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:5:12: error[type.private_inference_incomplete]: private parameter `label` has no inferred type", "note: main.veln:5:12: Add a parameter type annotation.", "main.veln:5:19: error[type.private_inference_incomplete]: private parameter `values` has no inferred type", "note: main.veln:5:19: Add a parameter type annotation.", "main.veln:5:1: error[type.private_inference_incomplete]: private function has no inferred return type", "note: main.veln:5:1: Add a return type annotation."]
+
+[stderr]
+format = "empty"

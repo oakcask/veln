@@ -91,6 +91,17 @@ against the built `veln` binary.
   `check/declared-helper-callback-inference-unsupported/`: conflicting
   callback body facts and unconstrained helper signatures for declared helper
   callback inference.
+- `check/declared-helper-variadic-callback-inference/` and
+  `check/declared-helper-variadic-callback-import-inference/`: same-module
+  and imported declared helpers with concrete variadic function-typed callback
+  parameters infer named private callback fixed parameter and variadic element
+  types.
+- `check/declared-helper-variadic-callback-inference-diagnostics/`,
+  `check/declared-helper-variadic-callback-inference-diagnostics-human/`,
+  `check/declared-helper-variadic-callback-inference-unsupported/`, and
+  `check/declared-helper-variadic-callback-inference-unsupported-human/`:
+  conflicting variadic callback body facts and helper signatures whose
+  variadic element type is still unknown.
 - `check/prelude-dictionary-callback-alias-inference/`: named private
   callback parameter inference for context-carrying dictionary helper aliases.
 - `check/prelude-dictionary-callback-alias-inference-diagnostics/`:
@@ -141,9 +152,9 @@ against the built `veln` binary.
   variadic function types, ordinary calls, pipeline calls, and function-value
   assignment compatibility.
 - `check/variadic-function-diagnostics/`: variadic parameter placement,
-  duplicate variadic parameters, missing element types, invalid ordinary type
-  annotation marker positions, wrong tail argument element types, and
-  variadic/fixed callable assignment mismatch.
+  duplicate variadic parameters, unresolved omitted private variadic parameter
+  types, invalid ordinary type annotation marker positions, wrong tail
+  argument element types, and variadic/fixed callable assignment mismatch.
 - `check/variadic-call-diagnostics/`: variadic calls still require all fixed
   arguments.
 - `check/variadic-marker-type-boundaries/`: variadic markers remain rejected in

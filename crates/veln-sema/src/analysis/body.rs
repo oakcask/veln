@@ -262,7 +262,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         for param in &self.function.params {
-            if param.ty.is_some() {
+            if !parameter_annotation_is_omitted(param) {
                 continue;
             }
             let inferred = self
@@ -272,7 +272,7 @@ impl<'a> FunctionChecker<'a> {
                 .find(|binding| binding.name == param.name)
                 .map(|binding| &binding.ty)
                 .unwrap_or(&Type::Unknown);
-            if inferred == &Type::Unknown {
+            if type_contains_unknown(inferred) {
                 let mut diagnostic = Diagnostic::new(
                     "type.private_inference_incomplete",
                     Severity::Error,
@@ -432,17 +432,27 @@ impl<'a> FunctionChecker<'a> {
             .filter(|param| param.is_variadic)
             .count();
         for param in &self.function.params {
-            let ty = param.ty.as_deref().and_then(|annotation| {
-                self.parse_annotation(
-                    annotation,
-                    param.node_id,
-                    &param.span,
-                    ExpectedTypeSource::DeclaredParameter,
-                    "Parameter type declared here.",
-                )
-            });
+            let private_omitted_parameter = self.function.visibility == Visibility::Private
+                && self.function.kind == FunctionKind::Function
+                && parameter_annotation_is_omitted(param);
+            let inferred_private_param = self.inferred_private_parameter_type(param);
+            let ty = param
+                .ty
+                .as_deref()
+                .filter(|annotation| {
+                    !(param.is_variadic && annotation.is_empty() && private_omitted_parameter)
+                })
+                .and_then(|annotation| {
+                    self.parse_annotation(
+                        annotation,
+                        param.node_id,
+                        &param.span,
+                        ExpectedTypeSource::DeclaredParameter,
+                        "Parameter type declared here.",
+                    )
+                });
             if param.is_variadic {
-                if param.ty.as_deref().is_none_or(str::is_empty) {
+                if param.ty.as_deref().is_none_or(str::is_empty) && !private_omitted_parameter {
                     self.push_variadic_parameter_diagnostic(
                         param.node_id,
                         param.span.clone(),
@@ -489,33 +499,19 @@ impl<'a> FunctionChecker<'a> {
             ) {
                 continue;
             }
-            let inferred_private_param = (self.function.visibility == Visibility::Private
-                && self.function.kind == FunctionKind::Function
-                && param.ty.is_none())
-            .then(|| {
-                self.environment
-                    .function_by_node_id(self.function.node_id)
-                    .and_then(|function| {
-                        self.function
-                            .params
-                            .iter()
-                            .position(|candidate| candidate.node_id == param.node_id)
-                            .and_then(|index| function.params.get(index).cloned())
-                    })
-            })
-            .flatten()
-            .filter(|ty| !type_contains_unknown(ty));
             self.bindings.push(Binding {
                 name: param.name.clone(),
-                ty: inferred_private_param.unwrap_or_else(|| {
-                    ty.map_or(Type::Unknown, |expected| {
-                        if param.is_variadic {
-                            Type::named("List", vec![expected.ty])
-                        } else {
-                            expected.ty
-                        }
-                    })
-                }),
+                ty: inferred_private_param
+                    .filter(|ty| !type_contains_unknown(ty))
+                    .unwrap_or_else(|| {
+                        ty.map_or(Type::Unknown, |expected| {
+                            if param.is_variadic {
+                                Type::named("List", vec![expected.ty])
+                            } else {
+                                expected.ty
+                            }
+                        })
+                    }),
             });
         }
 
@@ -566,6 +562,32 @@ impl<'a> FunctionChecker<'a> {
             ]));
             self.diagnostics.push(diagnostic);
         }
+    }
+
+    fn inferred_private_parameter_type(&self, param: &veln_ast::Param) -> Option<Type> {
+        if self.function.visibility != Visibility::Private
+            || self.function.kind != FunctionKind::Function
+            || !parameter_annotation_is_omitted(param)
+        {
+            return None;
+        }
+        let signature = self
+            .environment
+            .function_by_node_id(self.function.node_id)?;
+        if param.is_variadic {
+            return signature
+                .variadic
+                .clone()
+                .map(|ty| Type::named("List", vec![ty]));
+        }
+        let index = self
+            .function
+            .params
+            .iter()
+            .take_while(|candidate| candidate.node_id != param.node_id)
+            .filter(|candidate| !candidate.is_variadic)
+            .count();
+        signature.params.get(index).cloned()
     }
 
     fn push_variadic_parameter_diagnostic(
@@ -3342,6 +3364,13 @@ fn prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr
         | "dict_try_map_with" => args.get(1),
         _ => args.first(),
     }
+}
+
+fn parameter_annotation_is_omitted(param: &veln_ast::Param) -> bool {
+    param
+        .ty
+        .as_deref()
+        .is_none_or(|annotation| param.is_variadic && annotation.is_empty())
 }
 
 fn collection_item_expected(
