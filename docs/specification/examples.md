@@ -2371,10 +2371,11 @@ header-block continuation state, and a DATA frame kind rejected for idle-stream
 state, plus peer-sent `PUSH_PROMISE` rejected as a known frame kind instead
 of preserved as an unknown extension frame and `PUSH_PROMISE` on the
 connection stream rejected by the existing stream id domain route. It also
-pins zero-length SETTINGS ACK on the connection stream, a valid SETTINGS ACK
-clearing outstanding local SETTINGS state, an unexpected SETTINGS ACK with no
-outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack` with a
-bounded inspected frame-header byte preview,
+pins zero-length SETTINGS ACK on the connection stream, valid SETTINGS ACKs
+clearing the oldest outstanding local SETTINGS batch while later pending
+batches remain queued, an unexpected SETTINGS ACK with no outstanding local
+SETTINGS as `http2.protocol.unexpected_settings_ack` with a bounded inspected
+frame-header byte preview,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures with inspected-payload byte previews, a PRIORITY
@@ -2462,8 +2463,9 @@ human and JSON SETTINGS value cases construct a bounded `ByteView` over the
 offending six-byte SETTINGS item and pin the related byte preview note plus
 the structured JSON preview fields. SETTINGS ACK
 frames do not update peer-advertised state or receive-window credit. A valid
-SETTINGS ACK clears outstanding local SETTINGS state; an ACK with no
-outstanding local SETTINGS is a typed protocol failure. A
+SETTINGS ACK clears the oldest outstanding local SETTINGS batch and leaves
+later pending batches queued; an ACK with no outstanding local SETTINGS is a
+typed protocol failure. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 The same HPACK fixture boundary accepts the static indexed `0x81`
@@ -2764,17 +2766,19 @@ The local SETTINGS send-intent slice emits supported local SETTINGS items for
 single-item and two-item batch intents emit one frame-header-plus-payload
 chunk with length `6 * item_count`, kind `4`, flags `0`, stream id `0`, and
 the selected setting identifier and four-byte unsigned value pairs in order,
-then record one outstanding local SETTINGS batch with the selected item
-count. Local `SETTINGS_MAX_FRAME_SIZE` values outside `16384..16777215`,
+then append an outstanding local SETTINGS batch with the selected item count
+to the ordered pending queue. Local `SETTINGS_MAX_FRAME_SIZE` values outside
+`16384..16777215`,
 `SETTINGS_INITIAL_WINDOW_SIZE` values outside `0..2147483647`, and
 `SETTINGS_ENABLE_PUSH` values outside `0..1` are rejected before bytes are
 emitted with the SETTINGS range failure shape and `local_settings`
 provenance, including when the invalid value appears in a batch. The checked
 case leaves `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
 and `SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
-settings. A valid SETTINGS ACK clears that outstanding state, including a
-multi-item batch, and an ACK with no outstanding local SETTINGS stays on the
-typed unexpected-ACK failure path.
+settings. A valid SETTINGS ACK clears exactly the oldest outstanding batch,
+including a multi-item batch, and leaves later pending batches outstanding.
+An ACK with no outstanding local SETTINGS stays on the typed unexpected-ACK
+failure path.
 The outbound PING ACK send-intent slice accepts a valid inbound non-ACK PING,
 emits one frame-header plus opaque-payload output chunk with length `8`, kind
 `6`, ACK flag `1`, and stream id `0`, and preserves the original eight-byte

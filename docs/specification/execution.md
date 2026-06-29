@@ -1987,8 +1987,8 @@ execution reference.
   `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
   ranges, HPACK fixture-codec calls at the completed HEADERS or CONTINUATION
   header-block boundary, local header-list receive-limit checks after fixture
-  decoding, zero-length SETTINGS ACK frames that clear outstanding local
-  SETTINGS state,
+  decoding, zero-length SETTINGS ACK frames that clear the oldest outstanding
+  local SETTINGS batch while later pending batches remain queued,
   zero-length SETTINGS ACK frames with no outstanding local SETTINGS state
   and bounded inspected frame-header previews,
   wrong-length SETTINGS ACK payloads with source-visible runtime diagnostic
@@ -2573,8 +2573,9 @@ execution reference.
   covers a two-item local SETTINGS batch. Accepted local SETTINGS intents emit
   one frame-header-plus-payload output chunk with length `6 * item_count`,
   kind `4`, flags `0`, stream id `0`, and the selected setting identifier and
-  four-byte unsigned value pairs in order. The connection records one
-  outstanding local SETTINGS batch with the selected item count. Local
+  four-byte unsigned value pairs in order. The connection records accepted
+  local SETTINGS batches in an ordered outstanding queue with source-visible
+  pending batch counts. Local
   `SETTINGS_MAX_FRAME_SIZE` accepts `16384..16777215`,
   `SETTINGS_INITIAL_WINDOW_SIZE` accepts `0..2147483647`, and
   `SETTINGS_ENABLE_PUSH` accepts `0..1`; values outside those ranges are
@@ -2583,8 +2584,9 @@ execution reference.
   appears in a batch. The checked example leaves
   `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
   `SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
-  settings. A valid received SETTINGS ACK clears that outstanding state,
-  including a multi-item batch.
+  settings. A valid received SETTINGS ACK clears exactly the oldest
+  outstanding batch, including when the batch contains multiple items, and
+  leaves later pending batches outstanding.
   A valid received SETTINGS ACK when no local SETTINGS batch is outstanding
   fails as
   `http2.protocol.unexpected_settings_ack` with active state and rule
