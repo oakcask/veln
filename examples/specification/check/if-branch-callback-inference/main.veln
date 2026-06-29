@@ -1,0 +1,22 @@
+fn then_items(value)
+	Some([value])
+end
+
+fn else_if_items(value)
+	Some([value + 1])
+end
+
+fn else_items(value)
+	Some([value + 2])
+end
+
+pub fn main() -> Option<Vec<Int>>
+	let callback: fn(Int) -> Option<Vec<Int>> = if false
+		then_items
+	else if true
+		else_if_items
+	else
+		else_items
+	end
+	callback(1)
+end

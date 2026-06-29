@@ -150,6 +150,8 @@ under
 `../reference/implemented-proposals/local-inference-direct-return-callback.md`.
 The completed match-arm callback expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-match-arm-callback.md`.
+The completed if-branch callback expected-type slice is archived under
+`../reference/implemented-proposals/local-inference-if-branch-callback.md`.
 The completed callback return expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`.
 The completed constructor payload callback expected-type slice is archived
@@ -189,8 +191,12 @@ function type also push that function parameter list into named private
 callbacks returned from that body. Match arm result expressions checked
 against a concrete expected function type also push that function parameter
 list into named private callbacks returned from the arm, including local
-binding initializer and function body tail-expression contexts. When those
-concrete helper, record-field, local-binding, direct return, match arm,
+binding initializer and function body tail-expression contexts. `If` branch
+result expressions checked against a concrete expected function type also push
+that function parameter list into named private callbacks returned from each
+`then`, `else if`, and final `else` branch, including local binding
+initializer and function body tail-expression contexts. When those concrete
+helper, record-field, local-binding, direct return, match arm, `if` branch,
 constructor payload, or prelude helper contexts fix a named private callback
 return type, that return type propagates into non-empty callback tail
 expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
@@ -204,7 +210,8 @@ Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,
 concrete declared-helper signature, concrete record-field expected-type,
 concrete local-binding expected-type, direct return-position expected-type,
-concrete match-arm expected-type, and concrete constructor-payload
+concrete match-arm expected-type, concrete if-branch expected-type, and
+concrete constructor-payload
 expected-type paths.
 
 This rule applies only to helpers whose signatures are compiler-known or
@@ -321,12 +328,13 @@ Acceptance evidence includes:
    or visible imported declared helpers, source-backed prelude helper fallback
    signatures with concrete function-typed parameters, concrete record-field
    expected types, concrete local function binding annotations, direct return
-   positions with concrete returned function types, and constructor payload
-   positions with concrete function payload types, including compiler-owned
-   `Some`, `Ok`, and `Err`: push concrete
-   helper, expected-field, binding, direct-return, or payload input types into
-   named private callback parameters, and push concrete callback return types
-   into non-empty callback tail expressions.
+   positions with concrete returned function types, concrete match-arm and
+   if-branch expected function types, and constructor payload positions with
+   concrete function payload types, including compiler-owned `Some`, `Ok`, and
+   `Err`: push concrete helper, expected-field, binding, direct-return, arm,
+   branch, or payload input types into named private callback parameters, and
+   push concrete callback return types into non-empty callback tail
+   expressions.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.

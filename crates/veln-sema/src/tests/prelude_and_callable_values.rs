@@ -12618,6 +12618,56 @@ fn direct_return_infers_private_callback_parameters() {
 }
 
 #[test]
+fn if_branch_expected_function_type_infers_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn then_items(value)\n",
+            "  Some([value])\n",
+            "end\n",
+            "fn else_if_items(value)\n",
+            "  Some([value + 1])\n",
+            "end\n",
+            "fn else_items(value)\n",
+            "  Some([value + 2])\n",
+            "end\n",
+            "fn choose_items(flag: Bool, backup: Bool) -> fn(Int) -> Option<Vec<Int>>\n",
+            "  if flag\n",
+            "    then_items\n",
+            "  else if backup\n",
+            "    else_if_items\n",
+            "  else\n",
+            "    else_items\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> Option<Vec<Int>>\n",
+            "  let callback: fn(Int) -> Option<Vec<Int>> = choose_items(false, true)\n",
+            "  callback(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in ["then_items", "else_if_items", "else_items"] {
+        let callback = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .unwrap_or_else(|| panic!("{name} should be lowered"));
+        assert_eq!(callback.params[0].ty, CoreType::int());
+        assert_eq!(
+            callback.return_type,
+            CoreType::option(CoreType::vec(CoreType::int()))
+        );
+    }
+}
+
+#[test]
 fn imported_declared_helpers_infer_private_callback_parameters() {
     let app_source = SourceFile::new(
         "app.veln",

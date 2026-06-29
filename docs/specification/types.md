@@ -57,15 +57,18 @@ full type reference.
   A `match` arm result checked against a concrete function type also
   constrains a named private callback returned from that arm, including when
   the `match` is a local binding initializer or function body tail expression.
+  An `if` branch result checked against a concrete function type also
+  constrains a named private callback returned from a `then`, `else if`, or
+  final `else` branch.
   A constructor payload whose expected type is a concrete function type also
   constrains a named private callback placed in that payload position. This
   includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
   and `Err` and `Result::Err` payloads. When such a
-  concrete helper, record-field, local-binding, direct return, match arm,
-  constructor payload, or prelude helper result context fixes a named private
-  callback return type, that expected return type propagates into non-empty
-  callback tail expressions such as `Some(...)`, `Ok(...)`, `Err(...)`,
-  source ADT constructors, records, and collection literals.
+  concrete helper, record-field, local-binding, direct return, match arm, `if`
+  branch, constructor payload, or prelude helper result context fixes a named
+  private callback return type, that expected return type propagates into
+  non-empty callback tail expressions such as `Some(...)`, `Ok(...)`,
+  `Err(...)`, source ADT constructors, records, and collection literals.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and
