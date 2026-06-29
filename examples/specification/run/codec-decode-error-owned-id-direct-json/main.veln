@@ -1,0 +1,16 @@
+# Direct codec-owned DecodeErrorWithReason ids populate byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.packet_kind_invalid", offset(62), "ManualPacketWire.kind", "packet kind 7 is not accepted"))
+end

@@ -113,7 +113,9 @@ requiring the full command reference on the first read.
   `Invalid(DecodeError(...))` or `Invalid(DecodeErrorWithReason(...))`
   result. Plain source-visible reasons preserve the codec-owned id and reason
   without helper-only related notes unless registered byte-helper context is
-  present. A
+  present; direct `Result<_, DecodeError>` failures preserve codec-owned ids
+  such as `codec.packet_kind_invalid` through the same focused human
+  diagnostic shape. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

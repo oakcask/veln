@@ -87,6 +87,8 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-boundary-human/`,
 `../../examples/specification/run/codec-decode-error-direct-json/`,
 `../../examples/specification/run/codec-decode-error-direct-human/`,
+`../../examples/specification/run/codec-decode-error-owned-id-direct-json/`,
+`../../examples/specification/run/codec-decode-error-owned-id-direct-human/`,
 `../../examples/specification/run/codec-decode-error-reason-direct-json/`,
 `../../examples/specification/run/codec-decode-error-reason-direct-human/`,
 `../../examples/specification/run/codec-decode-invalid-owned-id-json/`,
