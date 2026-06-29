@@ -226,6 +226,8 @@ behavior.
   [runtime-diagnostic-encode-value-payload.md](runtime-diagnostic-encode-value-payload.md).
 - Runtime diagnostic generated schema fixed-field payload:
   [runtime-diagnostic-schema-fixed-field-payload.md](runtime-diagnostic-schema-fixed-field-payload.md).
+- Codec-owned decode invalid id diagnostics:
+  [codec-owned-decode-invalid-id-diagnostics.md](codec-owned-decode-invalid-id-diagnostics.md).
 - Runtime diagnostic HTTP/2 preface payloads:
   [runtime-diagnostic-http2-preface-payloads.md](runtime-diagnostic-http2-preface-payloads.md).
 - Runtime diagnostic HTTP/2 SETTINGS ACK payload:

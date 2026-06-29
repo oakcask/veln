@@ -97,6 +97,8 @@ checked by
 `../../examples/specification/run/codec-decode-invalid-reason-step-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/`, and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
+The completed codec-owned decode invalid id slice is archived under the
+[implemented proposal record](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
 implemented as `codec.incomplete_input` at the closed-input reporting
 boundary, with readiness and requested byte count details in `run --json` and
