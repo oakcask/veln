@@ -31,6 +31,7 @@ pub type HpackFixtureFailure
 	DynamicNameContinuationOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	TableSizeUpdateMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	TableSizeUpdateTrailingBytes(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
@@ -314,7 +315,7 @@ fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, stat
 	match decode_hpack_prefixed_integer(31, 31, block, observed_size, 1, offset)
 		Ok(prefix) => match integer_prefix_size(prefix) == observed_size
 			true => decoded_table_size_update(state, integer_prefix_value(prefix))
-			false => unsupported(block, offset)
+			false => table_size_update_trailing_bytes(block, offset, integer_prefix_value(prefix))
 		end
 		Err(_) => table_size_update_malformed(block, offset)
 	end
@@ -369,6 +370,10 @@ end
 
 fn table_size_update_malformed(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(TableSizeUpdateMalformed(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK malformed table-size update integer", "hpack_fixture", block))
+end
+
+fn table_size_update_trailing_bytes(block: ByteChunk, offset: Int, update_size: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(TableSizeUpdateTrailingBytes(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), update_size, "fixture HPACK table-size update without trailing bytes", "hpack_fixture", block))
 end
 
 fn unsupported_string_literal(block: ByteChunk, offset: Int) -> Result<HpackStringLiteral, HpackFixtureFailure>
@@ -2068,6 +2073,7 @@ pub fn failure_offset(failure: HpackFixtureFailure) -> Int
 		DynamicNameContinuationOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 		TableSizeUpdateMalformed(offset, _, _, _, _, _) => offset
+		TableSizeUpdateTrailingBytes(offset, _, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
@@ -2081,6 +2087,7 @@ pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
 		DynamicNameContinuationOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
 		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
 		TableSizeUpdateMalformed(_, observed_size, _, _, _, _) => observed_size
+		TableSizeUpdateTrailingBytes(_, observed_size, _, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -2094,7 +2101,15 @@ pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 		DynamicNameContinuationOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		TableSizeUpdateMalformed(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		TableSizeUpdateTrailingBytes(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
+	end
+end
+
+pub fn failure_observed_update_size(failure: HpackFixtureFailure) -> Int
+	match failure
+		TableSizeUpdateTrailingBytes(_, _, _, observed_update_size, _, _, _) => observed_update_size
+		_ => 0
 	end
 end
 
@@ -2127,6 +2142,7 @@ pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
 		DynamicNameContinuationOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		TableSizeUpdateMalformed(_, _, _, expected_fixture, _, _) => expected_fixture
+		TableSizeUpdateTrailingBytes(_, _, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
@@ -2140,6 +2156,7 @@ pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
 		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
 		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
 		TableSizeUpdateMalformed(_, _, _, _, codec_module, _) => codec_module
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
@@ -2153,6 +2170,7 @@ pub fn failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, preview) => preview
 		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 		TableSizeUpdateMalformed(_, _, _, _, _, preview) => preview
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
 end
@@ -2166,6 +2184,7 @@ pub fn failure_diagnostic_id(failure: HpackFixtureFailure) -> String
 		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_name_continuation_out_of_range"
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => "hpack.fixture.huffman_non_visible_value"
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => "hpack.fixture.table_size_update_malformed"
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => "hpack.fixture.table_size_update_trailing_bytes"
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 	end
 end
@@ -2199,6 +2218,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_out_of_range(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_requested_dynamic_index(failure), failure_dynamic_table_entry_count(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => hpack_fixture_table_size_update_malformed(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_trailing_bytes(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_observed_update_size(failure), 0, 0, "hpack-fixture", failure_expected_fixture(failure), failure_codec_module(failure), preview)
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure), preview)
 	end
 end

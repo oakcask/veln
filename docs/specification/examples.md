@@ -2682,8 +2682,11 @@ Malformed non-terminating table-size updates and table-size updates with
 trailing bytes after a complete integer are separated: malformed
 non-terminating table-size update integers project through
 `hpack.fixture.table_size_update_malformed` in the standalone HPACK fixture,
-completed HEADERS path, and final CONTINUATION path, while table-size updates
-with trailing bytes after a complete integer remain unsupported.
+completed HEADERS path, and final CONTINUATION path, while saturated-prefix
+table-size update integers that successfully decode but leave trailing bytes
+project through `hpack.fixture.table_size_update_trailing_bytes` on those same
+paths. Ordinary unsupported bytes outside the focused table-size update shape
+remain `hpack.fixture.unsupported_header_block`.
 Reducing the fixture table size below the supported entries
 uses the accepted header name byte count plus value byte count plus `32` for
 each dynamic entry and evicts oldest entries first: table size `86` retains

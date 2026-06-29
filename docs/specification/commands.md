@@ -63,8 +63,8 @@ requiring the full command reference on the first read.
   standard helper-returned frame-size, SETTINGS value, and header-table
   runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and
-  HPACK dynamic table-size update placement failures with frame and stream
-  context,
+  HPACK dynamic table-size update placement and trailing-byte failures with
+  frame and stream context,
   SETTINGS value range peer-limit, stream id domain
   failures with bounded frame-header byte previews, invalid connection-state
   and stream-state frame-kind failures with bounded frame-header byte
@@ -152,8 +152,9 @@ requiring the full command reference on the first read.
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
   dynamic-index, dynamic-name continuation, and table-size update facts needed
-  by those focused human diagnostics. The standard `hpack_fixture_*` reporting
-  helpers return their HPACK fixture payloads directly as
+  by those focused human diagnostics, including the trailing-byte table-size
+  update diagnostic. The standard `hpack_fixture_*` reporting helpers return
+  their HPACK fixture payloads directly as
   `Result<(), RuntimeDiagnostic>`, so their command-facing detail projection is
   derived from the returned value.
   Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol

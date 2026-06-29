@@ -831,6 +831,7 @@ source_prelude_symbol_set! {
     "hpack_fixture_dynamic_name_continuation_malformed" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_malformed"),
     "hpack_fixture_dynamic_name_continuation_out_of_range" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_out_of_range"),
     "hpack_fixture_table_size_update_not_at_start" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_not_at_start"),
+    "hpack_fixture_table_size_update_trailing_bytes" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_trailing_bytes"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),
     "byte_read_u24_be" => veln_stdlib::prelude_source("byte_read_u24_be"),
     "byte_read_u31_be" => veln_stdlib::prelude_source("byte_read_u31_be"),

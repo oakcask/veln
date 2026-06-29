@@ -36,6 +36,7 @@ pub type HpackFixtureFailure
 	HuffmanNonVisibleValue(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	TableSizeUpdateNotAtStart(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	TableSizeUpdateMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	TableSizeUpdateTrailingBytes(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
@@ -679,7 +680,7 @@ fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, stat
 	match decode_hpack_prefixed_integer(31, 31, block, observed_size, 1, offset)
 		Ok(prefix) => match integer_prefix_size(prefix) == observed_size
 			true => decoded_table_size_update(state, integer_prefix_value(prefix))
-			false => unsupported(block, offset)
+			false => table_size_update_trailing_bytes(block, offset, integer_prefix_value(prefix))
 		end
 		Err(_) => table_size_update_malformed(block, offset)
 	end
@@ -718,6 +719,10 @@ end
 
 fn table_size_update_malformed(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(TableSizeUpdateMalformed(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK malformed table-size update integer", "hpack_fixture", block))
+end
+
+fn table_size_update_trailing_bytes(block: ByteChunk, offset: Int, update_size: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(TableSizeUpdateTrailingBytes(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), update_size, "fixture HPACK table-size update without trailing bytes", "hpack_fixture", block))
 end
 
 fn integer_prefix_value(prefix: HpackIntegerPrefix) -> Int
@@ -3213,7 +3218,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_connection_header(state)
 				false => unsupported(block, offset)
 			end
-			63 => match observed_size == 4
+			100 => match observed_size == 4
 				true => decoded_request_headers_with_keep_alive_header(state)
 				false => unsupported(block, offset)
 			end
@@ -3910,6 +3915,7 @@ pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 		TableSizeUpdateNotAtStart(offset, _, _, _, _, _, _) => offset
 		TableSizeUpdateMalformed(offset, _, _, _, _, _) => offset
+		TableSizeUpdateTrailingBytes(offset, _, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
@@ -3928,6 +3934,7 @@ pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 		HuffmanNonVisibleValue(_, observed_size, _, _, _, _) => observed_size
 		TableSizeUpdateNotAtStart(_, observed_size, _, _, _, _, _) => observed_size
 		TableSizeUpdateMalformed(_, observed_size, _, _, _, _) => observed_size
+		TableSizeUpdateTrailingBytes(_, observed_size, _, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -3946,6 +3953,7 @@ pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 		HuffmanNonVisibleValue(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		TableSizeUpdateNotAtStart(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
 		TableSizeUpdateMalformed(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		TableSizeUpdateTrailingBytes(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -3953,6 +3961,7 @@ end
 pub fn hpack_failure_observed_update_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		TableSizeUpdateNotAtStart(_, _, _, observed_update_size, _, _, _) => observed_update_size
+		TableSizeUpdateTrailingBytes(_, _, _, observed_update_size, _, _, _) => observed_update_size
 		_ => 0
 	end
 end
@@ -3991,6 +4000,7 @@ pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => 0
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => 0
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => 0
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => 0
 		OutboundTableSizeUpdateExceeded(_, _, allowed_size, _, _, _) => allowed_size
 	end
 end
@@ -4009,6 +4019,7 @@ pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 		HuffmanNonVisibleValue(_, _, _, expected_fixture, _, _) => expected_fixture
 		TableSizeUpdateNotAtStart(_, _, _, _, expected_fixture, _, _) => expected_fixture
 		TableSizeUpdateMalformed(_, _, _, expected_fixture, _, _) => expected_fixture
+		TableSizeUpdateTrailingBytes(_, _, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
@@ -4027,6 +4038,7 @@ pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 		HuffmanNonVisibleValue(_, _, _, _, codec_module, _) => codec_module
 		TableSizeUpdateNotAtStart(_, _, _, _, _, codec_module, _) => codec_module
 		TableSizeUpdateMalformed(_, _, _, _, codec_module, _) => codec_module
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
@@ -4045,6 +4057,7 @@ pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, preview) => preview
 		TableSizeUpdateMalformed(_, _, _, _, _, preview) => preview
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
 end
@@ -4083,6 +4096,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_not_at_start(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => hpack_fixture_table_size_update_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_trailing_bytes(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 	end
 end
