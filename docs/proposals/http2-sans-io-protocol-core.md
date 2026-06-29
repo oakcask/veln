@@ -55,8 +55,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
   outbound GOAWAY send-intent state, and outbound HEADERS and DATA
-  send-intent rejection above received or
-  locally sent GOAWAY boundaries
+  send-intent rejection above received or locally sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -624,6 +623,12 @@ stream-state path: DATA decrements receive-window credit, and trailer HEADERS
 with `END_STREAM` complete HPACK fixture decode and move the stream to
 closed-by-peer. A later peer-created HEADERS stream above the recorded last
 stream id keeps using `http2.protocol.stream_after_goaway`.
+When another GOAWAY arrives after graceful shutdown has already started, a
+lower last-stream-id tightens the stored boundary and records the newest
+error code, the same last-stream-id refreshes the newest error code, and a
+higher last-stream-id is rejected as a typed protocol failure before the
+stored shutdown state changes. Later peer-created streams are checked against
+the tightened boundary.
 The completed GOAWAY receive lifecycle slice is archived under
 [HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
 The implemented slice also includes the narrow outbound PING ACK send-intent.
