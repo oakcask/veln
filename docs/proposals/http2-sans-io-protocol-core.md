@@ -264,9 +264,11 @@ closed-by-peer state after accepted trailers without receive-window credit
 consumption, trailer state rejection when the second HEADERS block lacks
 peer `END_STREAM`, and trailer rejection for pseudo-headers, uppercase
 ordinary names, invalid field-name tokens, connection-specific ordinary
-names, and invalid `te` values, continuation failures for a different frame
-kind, a different stream id, and closed input while a header block remains
-pending, one incoming frame-size peer-limit failure, one completed
+names, and invalid `te` values, the response-side counterpart with
+response-trailer active-state diagnostics through
+`http2.protocol.invalid_response_header_list`, continuation failures for a
+different frame kind, a different stream id, and closed input while a header
+block remains pending, one incoming frame-size peer-limit failure, one completed
 header-list-size peer-limit failure at the fixture-codec boundary, plus one
 invalid
 idle-stream frame kind and stream id domain failures for zero, even, and
@@ -911,6 +913,19 @@ uppercase ordinary names, ordinary names outside the HTTP field-name token
 shape, connection-specific ordinary names, and invalid `te` values through
 the same structured request header-list diagnostic fields with trailer
 active-state context.
+The completed inbound response trailer slice is also current behavior under
+`../specification/` and
+[HTTP/2 Response Trailer Validation](../reference/implemented-proposals/http2-response-trailer-validation.md):
+after an initial response HEADERS opens a stream, a later HEADERS sequence on
+that stream is treated as trailers only when it carries peer `END_STREAM`.
+Accepted ordinary response trailer fields close the stream by peer without
+consuming receive-window credit on both completed HEADERS and final
+CONTINUATION paths. A second response HEADERS block without peer `END_STREAM`
+is rejected in response-trailer state. Response trailer validation rejects
+pseudo-headers, uppercase ordinary names, ordinary names outside the HTTP
+field-name token shape, connection-specific ordinary names, and invalid `te`
+values through the same structured response header-list diagnostic fields
+with response-trailer active-state context.
 The completed outbound HPACK fixture encoder slice is current behavior under
 `../specification/` and
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`.
