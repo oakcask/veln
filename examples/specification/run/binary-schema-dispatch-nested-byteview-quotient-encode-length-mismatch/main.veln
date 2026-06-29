@@ -1,0 +1,53 @@
+# Nested dispatch ByteView quotient encode rejects computed length mismatches.
+use stdio
+
+schema QuotientMismatchPayload
+	format binary
+
+	total_length: UInt8
+	chunk_count: UInt8
+	payload: ByteView(total_length / chunk_count)
+end
+
+schema ClosedQuotientMismatchPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => QuotientMismatchPayload)
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
+	let payload_view: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
+	let payload: {total_length: Int, chunk_count: Int, payload: ByteView} = {total_length: 8, chunk_count: 2, payload: payload_view}
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_closed_quotient_mismatch_packet({kind: 1, payload: payload})
+	let emitted: () = match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+	Ok(())
+end

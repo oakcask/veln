@@ -226,8 +226,9 @@ compare it with `../specification/` before changing behavior.
   length-bounded `ByteView(length_field)` fields, additive
   `ByteView(left_length + right_length)` fields, subtractive
   `ByteView(left_length - right_length)` fields, product-sized
-  `ByteView(left_length * right_length)` fields, and checked non-HTTP
-  coverage combines the implemented helper vocabulary in one
+  `ByteView(left_length * right_length)` fields, quotient-sized
+  `ByteView(left_length / right_length)` fields, and checked non-HTTP coverage
+  combines the implemented helper vocabulary in one
   decode-and-encode schema. Closed dispatch payload cases
   with mixed primitive and nested decoded shapes are implemented for selected
   mappings keyed by the dispatch tag field when those mappings cover the
@@ -269,6 +270,9 @@ compare it with `../specification/` before changing behavior.
   The completed nested dispatch
   `ByteView(left_length * right_length)` payload helper slice is archived under
   [Binary Schema Dispatch ByteView Product Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-product-payload-helpers.md).
+  The completed nested dispatch
+  `ByteView(left_length / right_length)` payload helper slice is archived under
+  [Binary Schema Dispatch ByteView Quotient Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-quotient-payload-helpers.md).
   The completed bounded repeat helper binding slice is archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed narrow arithmetic mapped encode slice is archived under

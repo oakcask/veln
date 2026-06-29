@@ -1,0 +1,48 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.length_division_by_zero"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ClosedQuotientFailurePacket"},{"kind":"field","name":"payload"},{"kind":"schema","name":"QuotientFailurePayload"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.length_expression"
+equals = "total_length / chunk_count"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.divisor_operand"
+equals = "chunk_count"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.operator"
+equals = "/"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"

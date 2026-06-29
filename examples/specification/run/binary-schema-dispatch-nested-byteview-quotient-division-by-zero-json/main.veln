@@ -1,0 +1,22 @@
+# Nested dispatch ByteView quotient lengths report division by zero.
+schema QuotientFailurePayload
+	format binary
+
+	total_length: UInt8
+	chunk_count: UInt8
+	payload: ByteView(total_length / chunk_count)
+end
+
+schema ClosedQuotientFailurePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => QuotientFailurePayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010800")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let ignored: {kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}} = byte_decode_closed_quotient_failure_packet(view)?
+	Ok(())
+end
