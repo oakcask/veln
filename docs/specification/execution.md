@@ -1516,6 +1516,7 @@ execution reference.
   `examples/specification/run/derived-codec-mixed-dispatch-selected-mapping-encode-boundary/`,
   `examples/specification/run/derived-codec-record-payload-mapped-encode-boundary/`,
   `examples/specification/run/derived-codec-flag-boundary/`,
+  `examples/specification/run/derived-codec-flag24-boundary/`,
   `examples/specification/run/derived-codec-byteview-encode-boundary/`,
   `examples/specification/run/derived-codec-byteview-add-subtract-boundary/`,
   `examples/specification/run/derived-codec-byteview-product-boundary/`,
@@ -1550,6 +1551,10 @@ execution reference.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, helper `Err(EncodeError)` projection, and the same
   budgeted partial/resume path.
+  The Flag24 boundary case covers generated-helper-backed `Flag24be` and
+  `Flag24le` fields, including successful encode, budgeted `Partial`,
+  resumed `Encoded`, and helper-projected `Invalid(EncodeError)` through the
+  derived codec item.
   The packed visible three-byte boundary case checks successful encode,
   budgeted `Partial` output, resumed `Encoded` output, and helper-projected
   `Invalid(EncodeError)` through the derived codec item.
@@ -1619,6 +1624,7 @@ execution reference.
   `examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-human/`,
   `examples/specification/run/derived-codec-sub-byte-boundary/`,
   `examples/specification/run/derived-codec-flag-boundary/`,
+  `examples/specification/run/derived-codec-flag24-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-four-byte-boundary/`,
@@ -1647,6 +1653,9 @@ execution reference.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
   field-validation `Invalid` outcomes through the codec item.
+  The Flag24 boundary case covers generated-helper-backed `Flag24be` and
+  `Flag24le` fields, including successful `Decoded`, consumed count, and
+  short-input `NeedMore(NeedBytes(...))` outcomes through the codec item.
   The five-argument mapped converter boundary case covers successful
   `Decoded`, short-input `NeedMore`, helper `Invalid(DecodeError)` projection,
   and human plus JSON command-facing diagnostics through the codec item.

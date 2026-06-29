@@ -55,8 +55,9 @@ general generated helper shape with successful decode, short-input
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
 visible-only packed two-byte, three-byte, and four-byte groups, opt-in
-visible flag bitset fields, wide reserved suffix and prefix groups, and
-schema mappings that call pure same-module converters with five structural
+visible flag bitset fields, including generated-helper-backed `Flag24be` and
+`Flag24le` fields, wide reserved suffix and prefix groups, and schema
+mappings that call pure same-module converters with five structural
 arguments. The completed
 generated-helper-backed codec boundary slices are recorded in
 `../reference/implemented-proposals/codec-generated-helper-boundary-slices.md`.
@@ -398,7 +399,8 @@ encoder state owns only the remaining encode work.
   arithmetic-count and quotient-count repeated primitive fields, standalone
   visible `UInt1` through `UInt7` fields, visible-only packed two-byte and
   three-byte groups, opt-in visible flag bitset fields, wide reserved suffix
-  and prefix groups, the checked non-HTTP general helper shape, and the
+  and prefix groups, generated-helper-backed `Flag24be` and `Flag24le`
+  fields, the checked non-HTTP general helper shape, and the
   caller-owned parser-state retention and hand-written bounded
   `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
