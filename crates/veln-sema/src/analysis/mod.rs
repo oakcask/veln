@@ -39,7 +39,7 @@ use crate::repair_candidates::{
 use crate::standard_symbols::prelude_symbol;
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, FunctionLookup,
-    MatchScrutineePatternInference, Type, TypeEnvironment,
+    MatchScrutineePatternInference, SchemaEncodeProjectionFailure, Type, TypeEnvironment,
     infer_match_scrutinee_type_from_constructor_patterns, is_assignable, parse_type_annotation,
 };
 

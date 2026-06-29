@@ -493,9 +493,10 @@ selection, or direct ADT constructor mapping expressions. Multiple selected
 selected mappings resolve to it and every schema-local encode field,
 including the selector field, projects back from the selected target record
 through direct source-field assignments. Other mapped encode boundaries are
-rejected at the clause with `codec.derive_helper_unsupported`. This keeps
-mapped schemas from silently exposing the schema-local generated encode record
-as the codec value boundary.
+rejected with `schema.mapping_encode_projection` at the mapping assignment
+when decode is otherwise accepted but a visible encode field cannot be
+recovered from the mapped value. This keeps mapped schemas from silently
+exposing the schema-local generated encode record as the codec value boundary.
 
 Codec declarations do not generate general executable decode or encode
 functions beyond the derived decode and derived encode slices routed from

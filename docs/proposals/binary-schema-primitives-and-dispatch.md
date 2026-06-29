@@ -275,7 +275,9 @@ for generated encode. The direction-specific nested payload slice allows
 parent dispatch decode helpers, generated decode-step helpers, and
 `derive decode` to use that decode-only mapped payload, while generated encode
 and `derive encode` still reject it with the focused helper-boundary
-diagnostic.
+diagnostic. The completed mapped encode projection diagnostic slice is
+archived under
+`../reference/implemented-proposals/binary-schema-mapped-encode-projection-diagnostics.md`.
 The completed direction-specific nested dispatch payload helper slice is
 archived under
 `../reference/implemented-proposals/binary-schema-directional-dispatch-payload-helpers.md`.
@@ -1075,7 +1077,7 @@ author likely referred to an earlier field with a compatible role.
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
   beyond unsupported `ReservedBits` values or layouts,
   unsupported `ByteView` length
-  references, mapped encode projection diagnostics, and schema value mapping
-  beyond the implemented structural mapping slices, constructor
+  references, and schema value mapping beyond the implemented structural
+  mapping slices, constructor
   field-selection, mapped-payload eligibility, and imported recursive
   helper-fact diagnostic slices remain proposal work.

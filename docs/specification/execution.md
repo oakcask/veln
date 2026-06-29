@@ -1311,7 +1311,12 @@ execution reference.
   `schema.dispatch_payload` diagnostics include payload schemas whose mapping
   assignments decode but cannot project back to schema-local encode fields,
   and name the parent dispatch field path, selected payload schema, helper
-  boundary, and unsupported layout reason.
+  boundary, and unsupported layout reason. The same projection failure on the
+  schema's own generated encode or derived encode boundary reports
+  `schema.mapping_encode_projection` at the mapping assignment, with the
+  mapping target path, target value path when available, expected generated
+  encode helper, unavailable helper direction, and related schema plus helper
+  context.
   The checked examples are
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
@@ -1639,8 +1644,9 @@ execution reference.
   keeps the private schema and generated helper owned by the declaring module.
   A `derive encode` clause is rejected with
   `codec.derive_helper_unsupported` when the referenced schema cannot expose
-  the required generated encode helper, including mapping expression shapes
-  that cannot be projected back to the schema-local encode record.
+  the required generated encode helper. Mapping expression shapes that decode
+  but cannot be projected back to the schema-local encode record instead
+  report `schema.mapping_encode_projection` at the mapping assignment.
   `examples/specification/check/derived-codec-mapping-boundary-diagnostics/`,
   `examples/specification/check/derived-codec-helper-eligibility-diagnostics/`,
   and
