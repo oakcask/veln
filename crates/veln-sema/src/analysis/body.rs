@@ -15,6 +15,117 @@ pub(crate) fn check_function_body(
     checker.diagnostics
 }
 
+fn schema_encode_projection_diagnostic(
+    failure: &SchemaEncodeProjectionFailure,
+    call_node_id: NodeId,
+    call_span: SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "schema.mapping_encode_projection",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping assignment `{}` cannot be projected for generated encode",
+            failure.assignment_source
+        ),
+        Some(failure.assignment_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(
+                    failure
+                        .assignment_node_id
+                        .display("schema-mapping-assignment"),
+                ),
+            ),
+            ("schema", JsonValue::string(failure.schema_name.clone())),
+            (
+                "mapping_target",
+                JsonValue::string(failure.assignment_target.clone()),
+            ),
+            (
+                "mapping_target_path",
+                schema_encode_projection_target_path(failure),
+            ),
+            (
+                "target_value_path",
+                JsonValue::array([JsonValue::object([
+                    ("kind", JsonValue::string("record_field")),
+                    ("name", JsonValue::string(failure.assignment_target.clone())),
+                ])]),
+            ),
+            ("reason", JsonValue::string("ineligible_mapping_projection")),
+            (
+                "expected_encode_helper",
+                JsonValue::string(failure.helper_name.clone()),
+            ),
+            (
+                "encode_helper_boundary",
+                JsonValue::string("generated_binary_schema_encode"),
+            ),
+            (
+                "unavailable_helper_directions",
+                JsonValue::array([JsonValue::string("encode")]),
+            ),
+            (
+                "layout_fact",
+                JsonValue::string(format!(
+                    "mapping assignment `{}` cannot be projected back to schema-local fields for generated encode",
+                    failure.assignment_source
+                )),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_declaration")),
+        ("span", span_json(&failure.schema_span)),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Schema `{}` is declared here and does not expose the generated `{}` helper required for schema encoding.",
+                failure.schema_name, failure.helper_name
+            )),
+        ),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("call_target_request")),
+        ("span", span_json(&call_span)),
+        ("node_id", JsonValue::string(call_node_id.display("name"))),
+        (
+            "message",
+            JsonValue::string(format!(
+                "This call requires schema `{}` to expose the generated `{}` helper.",
+                failure.schema_name, failure.helper_name
+            )),
+        ),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("helper_boundary")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Generated binary schema encode requires `{}` to recover every visible encode field from the mapped value.",
+                failure.helper_name
+            )),
+        ),
+    ]));
+    diagnostic
+}
+
+fn schema_encode_projection_target_path(failure: &SchemaEncodeProjectionFailure) -> JsonValue {
+    JsonValue::array([
+        JsonValue::object([
+            ("kind", JsonValue::string("schema")),
+            ("name", JsonValue::string(failure.schema_name.clone())),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("mapping_target")),
+            ("name", JsonValue::string(failure.assignment_target.clone())),
+        ]),
+    ])
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
@@ -2894,6 +3005,13 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
+        if namespace == "call_target"
+            && let Some(failure) = self.environment.schema_encode_projection_failure(symbol)
+        {
+            self.diagnostics
+                .push(schema_encode_projection_diagnostic(failure, node_id, span));
+            return;
+        }
         if namespace == "value"
             && let Some(primitive) = exact_width_binary_primitive_name(symbol)
         {

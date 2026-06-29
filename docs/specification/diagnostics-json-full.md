@@ -218,6 +218,27 @@ to schema-local encode fields, details instead include
 related note with `kind: "unsupported_nested_mapping"` carries the mapping
 assignment span, target field, and projection fact.
 
+Schema mapped encode projection diagnostics report generated encode helper
+eligibility failures with `id: "schema.mapping_encode_projection"` and
+`kind: "type"` when decode mapping is accepted but the mapped value cannot
+recover every visible schema-local encode field. Their `details` include:
+
+- `phase: "schema"`
+- `node_id`
+- `schema`
+- `mapping_target`
+- `mapping_target_path`
+- `target_value_path`
+- `reason: "ineligible_mapping_projection"`
+- `expected_encode_helper`
+- `encode_helper_boundary`
+- `unavailable_helper_directions`
+- `layout_fact`
+
+Related notes include the schema declaration, the derive encode request or
+direct call target request that caused the check, and the generated encode
+helper boundary.
+
 Effect diagnostic `details` are stable for `effect.missing_public`:
 
 - `phase`

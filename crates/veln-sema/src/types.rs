@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{
     BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
     Function, FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SchemaDecl, SchemaField, SurfaceModule, UseDecl, Visibility,
+    SchemaDecl, SchemaField, SchemaMappingAssignment, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -19,6 +19,7 @@ use crate::schema::mapping::{
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     codec_calls: Vec<CodecCallSignature>,
+    schema_encode_projection_failures: Vec<SchemaEncodeProjectionFailure>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
 }
@@ -50,6 +51,19 @@ pub(crate) struct CodecCallSignature {
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
 }
+
+#[derive(Clone)]
+pub(crate) struct SchemaEncodeProjectionFailure {
+    pub(crate) helper_name: String,
+    pub(crate) schema_name: String,
+    pub(crate) schema_span: SourceSpan,
+    pub(crate) assignment_node_id: NodeId,
+    pub(crate) assignment_span: SourceSpan,
+    pub(crate) assignment_source: String,
+    pub(crate) assignment_target: String,
+}
+
+type SchemaEncodeFields = (Vec<(String, Type)>, Vec<String>);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CodecCallBoundary {
@@ -368,10 +382,12 @@ impl TypeEnvironment {
         infer_function_body_effects(module, &mut functions);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
+        let schema_encode_projection_failures = schema_encode_projection_failures(module);
         functions.extend(aliases);
         Self {
             functions,
             codec_calls,
+            schema_encode_projection_failures,
             uses: module.uses.clone(),
             adts,
         }
@@ -385,6 +401,18 @@ impl TypeEnvironment {
         self.functions
             .iter()
             .find(|function| function.node_id == node_id)
+    }
+
+    pub(crate) fn schema_encode_projection_failure(
+        &self,
+        helper_name: &str,
+    ) -> Option<&SchemaEncodeProjectionFailure> {
+        if helper_name.contains("::") {
+            return None;
+        }
+        self.schema_encode_projection_failures
+            .iter()
+            .find(|failure| failure.helper_name == helper_name)
     }
 
     pub(crate) fn unqualified_function(
@@ -3405,6 +3433,73 @@ fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
         .collect()
 }
 
+fn schema_encode_projection_failures(module: &SurfaceModule) -> Vec<SchemaEncodeProjectionFailure> {
+    module
+        .schemas
+        .iter()
+        .filter_map(|schema| schema_encode_projection_failure(module, schema))
+        .collect()
+}
+
+pub(crate) fn schema_encode_projection_failure(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<SchemaEncodeProjectionFailure> {
+    let schema_name = schema.name.as_ref()?;
+    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+        return None;
+    }
+    schema_decode_value_type(module, schema)?;
+    if schema_encode_value_type(module, schema).is_some() {
+        return None;
+    }
+    let (schema_fields, exact_width_field_names) = schema_encode_schema_fields(module, schema)?;
+    let assignment = schema_encode_projection_failure_assignment(
+        module,
+        schema,
+        &schema_fields,
+        &exact_width_field_names,
+    )?;
+    Some(SchemaEncodeProjectionFailure {
+        helper_name: schema_encode_function_name(schema_name),
+        schema_name: schema_name.clone(),
+        schema_span: schema.span.clone(),
+        assignment_node_id: assignment.node_id,
+        assignment_span: assignment.span.clone(),
+        assignment_source: assignment.source.clone(),
+        assignment_target: assignment.target.clone(),
+    })
+}
+
+fn schema_encode_projection_failure_assignment<'a>(
+    module: &SurfaceModule,
+    schema: &'a SchemaDecl,
+    schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
+) -> Option<&'a SchemaMappingAssignment> {
+    match schema.mappings.as_slice() {
+        [] => None,
+        [mapping] => schema_encode_mapping_projection_failure_assignment(
+            module,
+            schema,
+            schema_fields,
+            exact_width_field_names,
+            mapping,
+            false,
+        ),
+        mappings => mappings.iter().find_map(|mapping| {
+            schema_encode_mapping_projection_failure_assignment(
+                module,
+                schema,
+                schema_fields,
+                exact_width_field_names,
+                mapping,
+                true,
+            )
+        }),
+    }
+}
+
 fn schema_validate_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
     module
         .schemas
@@ -3448,6 +3543,29 @@ fn schema_encode_function_signature_for_schema(
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
     }
+    let (fields, exact_width_field_names) = schema_encode_schema_fields(module, schema)?;
+    let value_fields =
+        schema_encode_value_fields(module, schema, &fields, &exact_width_field_names)?;
+    let byte_chunk = Type::named("ByteChunk", Vec::new());
+    let encode_error = Type::named("EncodeError", Vec::new());
+    Some(FunctionSignature {
+        name: schema_encode_function_name(schema_name),
+        target_name: format!("{SCHEMA_ENCODE_TARGET_PREFIX}{schema_name}"),
+        module_name: schema.module_name.clone(),
+        visibility: schema.visibility,
+        params: vec![Type::Record(value_fields)],
+        variadic: None,
+        return_type: Type::named("Result", vec![byte_chunk, encode_error]),
+        effects: Vec::new(),
+        node_id: schema.node_id,
+        span: schema.span.clone(),
+    })
+}
+
+fn schema_encode_schema_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<SchemaEncodeFields> {
     let mut fields = Vec::new();
     let mut exact_width_field_names = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
@@ -3548,22 +3666,7 @@ fn schema_encode_function_signature_for_schema(
             fields.push((field.name.clone(), payload_ty));
         }
     }
-    let value_fields =
-        schema_encode_value_fields(module, schema, &fields, &exact_width_field_names)?;
-    let byte_chunk = Type::named("ByteChunk", Vec::new());
-    let encode_error = Type::named("EncodeError", Vec::new());
-    Some(FunctionSignature {
-        name: schema_encode_function_name(schema_name),
-        target_name: format!("{SCHEMA_ENCODE_TARGET_PREFIX}{schema_name}"),
-        module_name: schema.module_name.clone(),
-        visibility: schema.visibility,
-        params: vec![Type::Record(value_fields)],
-        variadic: None,
-        return_type: Type::named("Result", vec![byte_chunk, encode_error]),
-        effects: Vec::new(),
-        node_id: schema.node_id,
-        span: schema.span.clone(),
-    })
+    Some((fields, exact_width_field_names))
 }
 
 fn recursive_dispatch_encode_payload_field(
@@ -3853,6 +3956,73 @@ fn schema_encode_mapping_source_targets(
         return None;
     }
     Some(source_to_target)
+}
+
+fn schema_encode_mapping_projection_failure_assignment<'a>(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &[(String, Type)],
+    exact_width_field_names: &[String],
+    mapping: &'a veln_ast::SchemaMappingClause,
+    allow_single_payload_variant: bool,
+) -> Option<&'a SchemaMappingAssignment> {
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
+    let (schema_field_types, supported_int_field_names) = if allow_single_payload_variant {
+        schema_encode_mapping_field_types(
+            module,
+            schema,
+            schema_fields,
+            exact_width_field_names,
+            mapping,
+        )?
+    } else {
+        (
+            schema_encode_mapping_schema_field_types(schema, schema_fields)?,
+            schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?,
+        )
+    };
+    let typer = SchemaMappingTyper::new(module, schema);
+    let context = SchemaEncodeMappingSourceContext {
+        module,
+        typer: &typer,
+        schema_field_types: &schema_field_types,
+        exact_width_field_names: &supported_int_field_names,
+        allow_single_payload_variant,
+    };
+    let mut source_to_target = BTreeMap::<String, String>::new();
+    let mut fallback = None;
+    for assignment in &mapping.assignments {
+        if fallback.is_none() && !assignment.source.trim().is_empty() {
+            fallback = Some(assignment);
+        }
+        let target_ty = target_field_types.get(&assignment.target)?;
+        let Some(sources) = schema_encode_mapping_assignment_sources(
+            &context,
+            context.schema_field_types,
+            context.exact_width_field_names,
+            assignment,
+            target_ty,
+            context.allow_single_payload_variant,
+        ) else {
+            return Some(assignment);
+        };
+        for source in sources {
+            if source_to_target
+                .insert(source.clone(), assignment.target.clone())
+                .is_some()
+            {
+                return Some(assignment);
+            }
+        }
+    }
+    if schema_fields
+        .iter()
+        .any(|(source, _)| !source_to_target.contains_key(source))
+    {
+        return fallback;
+    }
+    None
 }
 
 fn schema_encode_mapping_assignment_sources(

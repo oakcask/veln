@@ -277,6 +277,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed narrow arithmetic mapped encode slice is archived under
   [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
+  The completed mapped encode projection diagnostic slice is archived under
+  [Binary Schema Mapped Encode Projection Diagnostics](../reference/implemented-proposals/binary-schema-mapped-encode-projection-diagnostics.md).
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).

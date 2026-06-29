@@ -1,0 +1,18 @@
+# Mapped schema encode diagnostics keep related context as notes.
+
+type MappedPayload
+	MappedPayload {code: Int}
+end
+
+schema UnsupportedMappedPayload
+	format binary
+
+	code: UInt8
+
+	map to MappedPayload
+		code = code * 2
+end
+
+codec UnsupportedMappedPayloadCodec for UnsupportedMappedPayload encode
+	derive encode
+end

@@ -19,7 +19,7 @@ use crate::types::{
     repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_only_recursive_dispatch_payload_type, schema_decode_record_type,
     schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_encode_function_name, schema_encode_value_type,
+    schema_encode_function_name, schema_encode_projection_failure, schema_encode_value_type,
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, schema_recursive_dispatch_payload_type,
@@ -861,6 +861,11 @@ fn codec_derive_encode_value_type_diagnostics(
             schema_encode_dispatch_payload_diagnostics(module, schema);
         if !dispatch_payload_diagnostics.is_empty() {
             return dispatch_payload_diagnostics;
+        }
+        if let Some(diagnostic) =
+            schema_encode_mapping_projection_diagnostic(module, schema, Some(implementation))
+        {
+            return vec![diagnostic];
         }
         return vec![codec_derive_helper_unsupported_diagnostic(
             codec,
@@ -3642,25 +3647,126 @@ fn unsupported_dispatch_payload_helper_field(
 }
 
 fn unsupported_dispatch_payload_mapping_projection<'a>(
-    _module: &'a SurfaceModule,
+    module: &'a SurfaceModule,
     schema: &'a SchemaDecl,
 ) -> Option<UnsupportedDispatchPayloadMappingProjection<'a>> {
-    let schema_name = schema.name.clone().unwrap_or_default();
-    schema.mappings.iter().find_map(|mapping| {
-        mapping
-            .assignments
-            .iter()
-            .find(|assignment| !assignment.source.trim().is_empty())
-            .map(|assignment| UnsupportedDispatchPayloadMappingProjection {
-                schema_name: schema_name.clone(),
-                assignment,
-                layout_fact: format!(
-                    "mapping assignment `{}` cannot be projected back to schema-local fields for generated encode",
-                    assignment.source
-                ),
-                reason: "ineligible_mapping_projection",
-            })
+    let failure = schema_encode_projection_failure(module, schema)?;
+    let assignment = schema
+        .mappings
+        .iter()
+        .flat_map(|mapping| mapping.assignments.iter())
+        .find(|assignment| assignment.node_id == failure.assignment_node_id)?;
+    Some(UnsupportedDispatchPayloadMappingProjection {
+        schema_name: failure.schema_name,
+        assignment,
+        layout_fact: format!(
+            "mapping assignment `{}` cannot be projected back to schema-local fields for generated encode",
+            failure.assignment_source
+        ),
+        reason: "ineligible_mapping_projection",
     })
+}
+
+fn schema_encode_mapping_projection_diagnostic(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    implementation: Option<&CodecImplementationClause>,
+) -> Option<Diagnostic> {
+    schema_decode_value_type(module, schema)?;
+    let unsupported = unsupported_dispatch_payload_mapping_projection(module, schema)?;
+    let encode_helper = schema_encode_function_name(&unsupported.schema_name);
+    let mut diagnostic = Diagnostic::new(
+        "schema.mapping_encode_projection",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping assignment `{}` cannot be projected for generated encode",
+            unsupported.assignment.source
+        ),
+        Some(unsupported.assignment.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(
+                    unsupported
+                        .assignment
+                        .node_id
+                        .display("schema-mapping-assignment"),
+                ),
+            ),
+            ("schema", JsonValue::string(unsupported.schema_name.clone())),
+            (
+                "mapping_target",
+                JsonValue::string(unsupported.assignment.target.clone()),
+            ),
+            (
+                "mapping_target_path",
+                schema_mapping_projection_target_path(&unsupported),
+            ),
+            (
+                "target_value_path",
+                JsonValue::array([JsonValue::object([
+                    ("kind", JsonValue::string("record_field")),
+                    (
+                        "name",
+                        JsonValue::string(unsupported.assignment.target.clone()),
+                    ),
+                ])]),
+            ),
+            ("reason", JsonValue::string(unsupported.reason)),
+            (
+                "expected_encode_helper",
+                JsonValue::string(encode_helper.clone()),
+            ),
+            (
+                "encode_helper_boundary",
+                JsonValue::string("generated_binary_schema_encode"),
+            ),
+            (
+                "unavailable_helper_directions",
+                JsonValue::array([JsonValue::string("encode")]),
+            ),
+            (
+                "layout_fact",
+                JsonValue::string(unsupported.layout_fact.clone()),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_declaration")),
+        ("span", span_json(&schema.span)),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Schema `{}` is declared here and does not expose the generated `{encode_helper}` helper required for schema encoding.",
+                unsupported.schema_name
+            )),
+        ),
+    ]));
+    if let Some(implementation) = implementation {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("derive_encode_request")),
+            ("span", span_json(&implementation.span)),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "`derive encode` requires schema `{}` to expose the generated `{encode_helper}` helper.",
+                    unsupported.schema_name
+                )),
+            ),
+        ]));
+    }
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("helper_boundary")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Generated binary schema encode requires `{encode_helper}` to recover every visible encode field from the mapped value."
+            )),
+        ),
+    ]));
+    Some(diagnostic)
 }
 
 fn byte_view_ineligible_length_fact(
@@ -3774,19 +3880,7 @@ fn add_dispatch_payload_unsupported_mapping_projection_details(
     ));
     fields.push((
         "unsupported_nested_mapping_target_path".to_string(),
-        JsonValue::array([
-            JsonValue::object([
-                ("kind", JsonValue::string("schema")),
-                ("name", JsonValue::string(unsupported.schema_name.clone())),
-            ]),
-            JsonValue::object([
-                ("kind", JsonValue::string("mapping_target")),
-                (
-                    "name",
-                    JsonValue::string(unsupported.assignment.target.clone()),
-                ),
-            ]),
-        ]),
+        schema_mapping_projection_target_path(unsupported),
     ));
     fields.push((
         "unsupported_nested_layout_reason".to_string(),
@@ -3797,6 +3891,24 @@ fn add_dispatch_payload_unsupported_mapping_projection_details(
         JsonValue::string(unsupported.layout_fact.clone()),
     ));
     JsonValue::Object(fields)
+}
+
+fn schema_mapping_projection_target_path(
+    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
+) -> JsonValue {
+    JsonValue::array([
+        JsonValue::object([
+            ("kind", JsonValue::string("schema")),
+            ("name", JsonValue::string(unsupported.schema_name.clone())),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("mapping_target")),
+            (
+                "name",
+                JsonValue::string(unsupported.assignment.target.clone()),
+            ),
+        ]),
+    ])
 }
 
 fn dispatch_payload_unsupported_blocker_related(

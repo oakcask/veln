@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"codec.derive_helper_unsupported\"", "\"reason\":\"generated_encode_helper_unavailable\"", "\"expected_helper\":\"byte_encode_header_wire\"", "\"helper_boundary\":\"generated_binary_schema_encode\""]
+contains = ["\"id\":\"schema.mapping_encode_projection\"", "\"reason\":\"ineligible_mapping_projection\"", "\"expected_encode_helper\":\"byte_encode_header_wire\"", "\"encode_helper_boundary\":\"generated_binary_schema_encode\"", "\"mapping_target\":\"length\"", "\"target_value_path\":[{\"kind\":\"record_field\",\"name\":\"length\"}]"]
 
 [stderr]
 format = "empty"
@@ -13,7 +13,7 @@ path = "status"
 equals = "error"
 
 [[diagnostics]]
-id = "codec.derive_helper_unsupported"
+id = "schema.mapping_encode_projection"
 severity = "error"
 kind = "type"
-message = "derived encode is not available for this schema"
+message = "schema mapping assignment `decode_length(wire_length)` cannot be projected for generated encode"

@@ -2064,6 +2064,14 @@ against the built `veln` binary.
   dispatch payload helper-slice rejection projects the payload schema
   declaration, nested field cause, and helper requirement as human related
   notes.
+- `check/binary-schema-mapped-encode-projection-diagnostics-json/`,
+  `check/binary-schema-mapped-encode-projection-diagnostics-human/`, and
+  `check/binary-schema-mapped-encode-projection-helper-json/`: a
+  schema whose structural decode mapping is accepted but whose generated
+  encode helper cannot recover the visible schema field from the mapped value
+  reports the unprojectable mapping assignment for both `derive encode` and
+  direct generated helper requests, with stable JSON details and human related
+  notes.
 - `check/binary-schema-dispatch-reserved-payload-eligibility/`: same-module
   nested dispatch payload schemas with supported representation-only
   `ReservedBits` layouts expose both decode and encode helper signatures.

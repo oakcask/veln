@@ -1915,24 +1915,69 @@ fn codec_derive_encode_reports_converter_mapping_that_generated_encode_cannot_ac
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     let diagnostic = &diagnostics[0];
-    assert_eq!(diagnostic.id, "codec.derive_helper_unsupported");
+    assert_eq!(diagnostic.id, "schema.mapping_encode_projection");
     assert_eq!(
         diagnostic.message,
-        "derived encode is not available for this schema"
+        "schema mapping assignment `decode_length(wire_length)` cannot be projected for generated encode"
     );
     assert!(
-        diagnostic
-            .span
-            .as_ref()
-            .is_some_and(|span| span.start.line == 20)
+        diagnostic.span.is_some(),
+        "projection diagnostic should report the mapping assignment span"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"reason\":\"ineligible_mapping_projection\""));
+    assert!(details.contains("\"mapping_target\":\"length\""));
+    assert!(details.contains("\"expected_encode_helper\":\"byte_encode_header_wire\""));
+    assert!(details.contains("\"unavailable_helper_directions\":[\"encode\"]"));
+    assert_eq!(diagnostic.related.len(), 3);
+}
+
+#[test]
+fn codec_derive_encode_reports_later_unprojectable_mapping_assignment() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {kind: Int, length: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "  wire_kind: UInt8\n",
+            "  wire_length: UInt16be\n",
+            "\n",
+            "  map to Header\n",
+            "    kind = wire_kind\n",
+            "    length = decode_length(wire_length)\n",
+            "end\n",
+            "\n",
+            "fn decode_length(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "codec HeaderCodec for HeaderWire encode\n",
+            "  derive encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "schema.mapping_encode_projection");
+    assert_eq!(
+        diagnostic.message,
+        "schema mapping assignment `decode_length(wire_length)` cannot be projected for generated encode"
     );
     assert!(
         diagnostic
             .details
             .to_json()
-            .contains("\"reason\":\"generated_encode_helper_unavailable\"")
+            .contains("\"mapping_target\":\"length\"")
     );
-    assert_eq!(diagnostic.related.len(), 2);
 }
 
 #[test]
@@ -1970,18 +2015,18 @@ fn codec_derive_encode_reports_non_total_nested_mapping_value_boundary() {
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     let diagnostic = &diagnostics[0];
-    assert_eq!(diagnostic.id, "codec.derive_helper_unsupported");
+    assert_eq!(diagnostic.id, "schema.mapping_encode_projection");
     assert_eq!(
         diagnostic.message,
-        "derived encode is not available for this schema"
+        "schema mapping assignment `payload` cannot be projected for generated encode"
     );
     assert!(
         diagnostic
             .details
             .to_json()
-            .contains("\"reason\":\"generated_encode_helper_unavailable\"")
+            .contains("\"reason\":\"ineligible_mapping_projection\"")
     );
-    assert_eq!(diagnostic.related.len(), 2);
+    assert_eq!(diagnostic.related.len(), 3);
 }
 
 #[test]

@@ -1833,13 +1833,24 @@ fn generated_schema_encode_helpers_reject_multi_variant_mapped_constructor_recor
 
     let lowered = lower_checked_surface_module(&module);
 
+    assert_eq!(lowered.diagnostics.len(), 1, "{:#?}", lowered.diagnostics);
+    let diagnostic = &lowered.diagnostics[0];
+    assert_eq!(diagnostic.id, "schema.mapping_encode_projection");
+    assert_eq!(
+        diagnostic.message,
+        "schema mapping assignment `Http2Flags(wire_flags)` cannot be projected for generated encode"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"mapping_target\":\"flags\""));
+    assert!(details.contains("\"expected_encode_helper\":\"byte_encode_flag_packet_wire\""));
+    assert!(details.contains("\"reason\":\"ineligible_mapping_projection\""));
     assert!(
-        lowered
-            .diagnostics
+        diagnostic
+            .related
             .iter()
-            .any(|diagnostic| diagnostic.id == "name.unresolved"),
+            .any(|note| note.to_json().contains("\"kind\":\"call_target_request\"")),
         "{:#?}",
-        lowered.diagnostics
+        diagnostic.related
     );
 }
 

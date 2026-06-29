@@ -604,7 +604,9 @@ general helper shape checked by
 covered by [execution.md](execution.md).
 When a mapped schema cannot expose the mapping target through a generated
 encode boundary, the `derive encode` clause reports
-`codec.derive_helper_unsupported`.
+`schema.mapping_encode_projection` at the unprojectable mapping assignment
+when decode is otherwise accepted but a visible encode field cannot be
+recovered from the mapped value.
 The implemented direct structural mapping slice exposes that target record as
 the generated encode boundary.
 
