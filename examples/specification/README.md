@@ -1253,6 +1253,10 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-byteview-decode/`: generated schema decode helpers
   read a bounded `Repeat(count_field, ByteView(length_field))` field into a
   `List<ByteView>`.
+- `run/binary-schema-repeat-byteview-add-decode/`: generated schema decode
+  helpers read a bounded
+  `Repeat(count_field, ByteView(left_length + right_length))` field into a
+  `List<ByteView>`.
 - `run/binary-schema-repeat-byteview-truncated-json/`: repeated `ByteView`
   truncation reports `schema.truncated_field` with the repeated field path and
   failing element `index`.
@@ -1626,10 +1630,18 @@ against the built `veln` binary.
 - `run/binary-schema-repeat-byteview-encode/`: generated schema encode helpers
   write a bounded `Repeat(count_field, ByteView(length_field))` field by
   emitting each element's bounded bytes in order.
+- `run/binary-schema-repeat-byteview-add-encode/`: generated schema encode
+  helpers write a bounded
+  `Repeat(count_field, ByteView(left_length + right_length))` field by
+  emitting each element's bounded bytes in order.
 - `run/binary-schema-repeat-byteview-encode-length-mismatch/`: repeated
   `ByteView` encode rejects an element whose bounded byte count does not match
   the earlier length field and reports the repeated field path plus the
   element index.
+- `run/binary-schema-repeat-byteview-add-encode-length-mismatch/`: repeated
+  `ByteView` encode rejects an element whose bounded byte count does not match
+  the computed additive length expression and reports the repeated field path
+  plus the element index.
 - `run/binary-schema-byteview-encode/`: generated schema encode helpers write
   the bounded bytes from a `ByteView(length_field)` payload after its explicit
   length field.

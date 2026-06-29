@@ -2809,7 +2809,9 @@ fn schema_decode_record_fields_inner_after_push(
                 return None;
             }
             if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
-                && decoded_fields.get(length_field) != Some(&Type::int())
+                && schema_length_expression_references(length_field)?
+                    .into_iter()
+                    .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
             {
                 return None;
             }
@@ -3595,9 +3597,13 @@ fn schema_encode_schema_fields(
                 return None;
             }
             if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
-                && !exact_width_field_names
-                    .iter()
-                    .any(|field| field == length_field)
+                && schema_length_expression_references(length_field)?
+                    .into_iter()
+                    .any(|reference| {
+                        !exact_width_field_names
+                            .iter()
+                            .any(|field| field == reference)
+                    })
             {
                 return None;
             }
@@ -4601,11 +4607,12 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
         }
     } else if let Some(length_expr) = byte_view_schema_primitive(primitive) {
         match length_expr {
-            ByteViewLengthExpr::Field(length_field) => {
-                SchemaRepeatPayload::ByteView { length_field }
+            ByteViewLengthExpr::Field(_) | ByteViewLengthExpr::Sum { .. } => {
+                SchemaRepeatPayload::ByteView {
+                    length_field: length_expr.render(),
+                }
             }
-            ByteViewLengthExpr::Sum { .. }
-            | ByteViewLengthExpr::Difference { .. }
+            ByteViewLengthExpr::Difference { .. }
             | ByteViewLengthExpr::Product { .. }
             | ByteViewLengthExpr::Quotient { .. } => return None,
         }

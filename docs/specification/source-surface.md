@@ -116,7 +116,9 @@ name earlier visible `Int` fields in the same binary schema.
 `Payload` is either an implemented byte-aligned
 exact-width unsigned primitive, an eligible nested binary schema payload, or
 `ByteView(length_field)` when `length_field` is another earlier visible `Int`
-field in the same schema. Length-bounded `ByteView(length_field)`,
+field in the same schema, or
+`ByteView(left_length + right_length)` when both operands are earlier visible
+`Int` fields in the same schema. Length-bounded `ByteView(length_field)`,
 `ByteView(left_length - right_length)`,
 `ByteView(left_length + right_length)`,
 `ByteView(left_length * right_length)`, and
@@ -299,7 +301,9 @@ length-bounded
 `ByteView(left_length * right_length)`, or
 `ByteView(left_length / right_length)` payload fields as `ByteView`, bounded
 `Repeat(count_field, Payload)` fields as lists of their payload value shape,
-including `List<ByteView>` for `Repeat(count_field, ByteView(length_field))`,
+including `List<ByteView>` for
+`Repeat(count_field, ByteView(length_field))` and
+`Repeat(count_field, ByteView(left_length + right_length))`,
 closed nested dispatch payload fields as the nested schema record shape, and
 closed mixed dispatch payload fields as the selected case payload shape within
 the matching selector branch, closed recursive dispatch payload fields as the
@@ -588,7 +592,8 @@ decode functions are not implemented. Generated
 `byte_encode_<schema>` helpers for the exact-width including standalone
 `UInt1` through `UInt7`, opt-in visible flag bitset fields, supported
 reserved-bit, closed dispatch, extension dispatch, length-bounded `ByteView`,
-repeated primitive, nested schema, and `ByteView(length_field)` payloads,
+repeated primitive, nested schema, `ByteView(length_field)`, and
+`ByteView(left_length + right_length)` payloads,
 quotient-count repeat fields, same-module or imported public nested dispatch
 payload encode slices, same-module nested dispatch
 `ByteView(left_length + right_length)`,
