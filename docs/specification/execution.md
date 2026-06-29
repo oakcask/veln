@@ -1924,9 +1924,11 @@ execution reference.
   client-created streams, client-side peer-sent `PUSH_PROMISE` receive on an
   open client-created associated stream with reserved-by-peer promised stream
   state,
-  accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS streams with inspected
-  frame-header byte previews, already-admitted
+  accepted GOAWAY last-stream-id and error-code, repeated received GOAWAY
+  handling that tightens a lower boundary, refreshes error code at the same
+  boundary, and rejects a higher boundary before changing graceful-shutdown
+  state, GOAWAY last-stream-id enforcement for later peer-created HEADERS
+  streams with inspected frame-header byte previews, already-admitted
   peer-created stream DATA and trailer HEADERS lifecycle after received
   GOAWAY, local outbound
   HEADERS send-intents above a received boundary, and accepted

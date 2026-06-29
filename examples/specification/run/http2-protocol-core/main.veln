@@ -220,6 +220,11 @@ type ProtocolStreamIdDecision
 	ProtocolStreamIdFailed(Http2ProtocolFailure)
 end
 
+type ShutdownStateDecision
+	ShutdownStateOk(ConnectionShutdownState)
+	ShutdownStateFailed(Http2ProtocolFailure)
+end
+
 type SettingsRangeDecision
 	SettingsValueOk
 	SettingsValueFailed(Http2ProtocolFailure)
@@ -815,7 +820,10 @@ fn complete_after_header_list_size(pending: ByteChunk, next_continuation: Pendin
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, update_shutdown_state(pending, length, kind, state_shutdown_state_value(consumed_state))?, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state))?
+			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+			ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
+		end
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
@@ -2606,13 +2614,26 @@ fn record_local_end_stream(state: Http2DecodeState, stream_id: Int) -> Http2Deco
 	end
 end
 
-fn update_shutdown_state(pending: ByteChunk, length: Int, kind: Int, shutdown_state: ConnectionShutdownState) -> Result<ConnectionShutdownState, String>
+fn update_shutdown_state(pending: ByteChunk, offset: Int, length: Int, kind: Int, shutdown_state: ConnectionShutdownState) -> Result<ShutdownStateDecision, String>
 	match kind == 7
 		true => match length == 8
-			true => decode_goaway_state(pending)
-			false => Ok(shutdown_state)
+			true => validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, pending)
+			false => Ok(ShutdownStateOk(shutdown_state))
 		end
-		false => Ok(shutdown_state)
+		false => Ok(ShutdownStateOk(shutdown_state))
+	end
+end
+
+fn validate_goaway_shutdown_update(offset: Int, decoded_shutdown: ConnectionShutdownState, shutdown_state: ConnectionShutdownState, preview_chunk: ByteChunk) -> Result<ShutdownStateDecision, String>
+	match decoded_shutdown
+		OpenConnection => Ok(ShutdownStateOk(shutdown_state))
+		GracefulShutdown(new_last_stream_id, new_error_code) => match shutdown_state
+			OpenConnection => Ok(ShutdownStateOk(GracefulShutdown(new_last_stream_id, new_error_code)))
+			GracefulShutdown(current_last_stream_id, _) => match new_last_stream_id > current_last_stream_id
+				true => Ok(ShutdownStateFailed(StreamAfterGoaway(offset, new_last_stream_id, current_last_stream_id, "graceful_shutdown", "server", "goaway_last_stream_id", preview_chunk)))
+				false => Ok(ShutdownStateOk(GracefulShutdown(new_last_stream_id, new_error_code)))
+			end
+		end
 	end
 end
 
@@ -9148,6 +9169,14 @@ end
 fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
 	print_goaway("goaway", goaway)
+	let goaway_lower_boundary: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080700000000000000000300000016")?), step_state(goaway))?
+	print_goaway("goaway-lower-boundary", goaway_lower_boundary)
+	let goaway_same_boundary: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000d")?), step_state(goaway))?
+	print_goaway("goaway-same-boundary", goaway_same_boundary)
+	let goaway_higher_boundary: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080700000000000000000700000016")?), step_state(goaway))?
+	print_goaway_stream_failure("goaway-higher-boundary", goaway_higher_boundary)
+	let goaway_tightened_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway_lower_boundary))?
+	print_goaway_stream_failure("goaway-tightened-late-headers", goaway_tightened_late_headers)
 	let goaway_existing_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
 	let goaway_existing_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_existing_headers))?
 	print_goaway("goaway-existing-shutdown", goaway_existing_shutdown)
