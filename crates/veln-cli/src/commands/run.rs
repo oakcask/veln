@@ -535,6 +535,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.length_mismatch" {
+        return length_mismatch_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -606,6 +615,54 @@ fn checksum_mismatch_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Checksum failure reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn length_mismatch_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("length mismatch at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(expected_length), Some(actual_length)) = (
+        json_number(byte_entries, "expected_length"),
+        json_number(byte_entries, "actual_length"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected length {expected_length}; actual length was {actual_length}."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Length mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2164,6 +2221,69 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_length_mismatch_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.length_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("expected_length", JsonValue::Number(4)),
+            ("actual_length", JsonValue::Number(3)),
+            (
+                "reason",
+                JsonValue::string("payload length did not match header length"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.payload"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.length_mismatch");
+        assert_eq!(diagnostic.message, "length mismatch at byte offset 9");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Expected length 4; actual length was 3.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Length mismatch reason: payload length did not match header length.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length).\"}"
         );
     }
 

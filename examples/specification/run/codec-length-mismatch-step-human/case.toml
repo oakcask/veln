@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.length_mismatch]: length mismatch at byte offset 9", "note: Field path: schema `ManualPacketWire` / field `payload`.", "note: Expected length 4; actual length was 3.", "note: Length mismatch reason: payload length did not match header length.", "note: DecodeError value: DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length)."]
