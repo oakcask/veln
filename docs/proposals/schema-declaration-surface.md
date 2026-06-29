@@ -122,6 +122,10 @@ The completed bounded repeat helper binding slice is archived under
 The completed narrow arithmetic mapped encode slice is archived under
 [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
 
+The completed generated decode mapping converter varargs slice is archived
+under
+[Binary Schema Mapping Converter Varargs](../reference/implemented-proposals/binary-schema-mapping-converter-varargs.md).
+
 This proposal remains open for:
 
 - generated runtime decode bindings for binary schema fields outside the
@@ -457,8 +461,9 @@ Implemented:
   decoded-field, integer-literal, and `Int` converter-call `+`, `-`, `*`,
   and `/` mapping arithmetic, plus equality, inequality, and ordered
   comparisons over supported `Int` mapping operands composed with `and`,
-  `or`, and `not` for `Bool` target fields. Converter calls may take one,
-  two, three, four, or five arguments.
+  `or`, and `not` for `Bool` target fields. Converter calls may take one or
+  more supported structural arguments when ordinary function-call type checking
+  accepts the call.
   Arguments may be schema-local field references or structural mapping
   expressions. Generated decode mapping accepts nested ADT constructor payload
   expressions when every leaf argument remains in that implemented

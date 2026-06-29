@@ -1627,8 +1627,8 @@ execution reference.
   `ByteView(left_length * right_length)` payload fields,
   additive `ByteView(left_length + right_length)` payload fields,
   subtractive `ByteView(left_length - right_length)` payload fields,
-  schema mappings that call pure same-module converters with five structural
-  arguments,
+  schema mappings that call pure same-module or imported public converters
+  with one or more supported structural arguments,
   same-module or public imported nested dispatch payload schemas, same-module
   recursive closed and extension dispatch payload helpers, and multiple
   decoded-field selected schema mappings already accepted by
@@ -1703,9 +1703,9 @@ execution reference.
   The Flag24 boundary case covers generated-helper-backed `Flag24be` and
   `Flag24le` fields, including successful `Decoded`, consumed count, and
   short-input `NeedMore(NeedBytes(...))` outcomes through the codec item.
-  The five-argument mapped converter boundary case covers successful
-  `Decoded`, short-input `NeedMore`, helper `Invalid(DecodeError)` projection,
-  and human plus JSON command-facing diagnostics through the codec item.
+  The mapped converter boundary case covers successful `Decoded`, short-input
+  `NeedMore`, helper `Invalid(DecodeError)` projection, and human plus JSON
+  command-facing diagnostics through the codec item.
   The packed visible three-byte, four-byte, five-byte, and six-byte boundary cases
   check successful `Decoded` and short-input `NeedMore(NeedBytes(...))`
   outcomes through the codec item.

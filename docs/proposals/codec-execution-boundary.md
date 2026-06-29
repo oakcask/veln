@@ -63,8 +63,8 @@ the derived decode boundary,
 visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields, wide reserved suffix and prefix groups, and schema
-mappings that call pure same-module converters with five structural
-arguments. The completed
+mappings that call pure same-module or imported public converters with one or
+more supported structural arguments. The completed
 generated-helper-backed codec boundary slices are recorded in
 `../reference/implemented-proposals/codec-generated-helper-boundary-slices.md`.
 The implemented command-facing diagnostic boundary also covers direct
@@ -292,8 +292,8 @@ helper shape, plus additive, subtractive, quotient-sized, and product-sized
 byte-aligned representation-only `ReservedBits(width, value)` fields,
 visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups, the
 narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, and
-schema mappings that call pure same-module converters with five structural
-arguments.
+schema mappings that call pure same-module or imported public converters with
+one or more supported structural arguments.
 The implemented
 derived encode execution slice exposes
 the codec item name as an ordinary source call to the generated

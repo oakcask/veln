@@ -303,8 +303,8 @@ visible-only packed six-byte group.
 The executable specification case
 `../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
 covers the same derived codec decode item boundary for a schema mapping that
-calls a pure same-module converter with five structural arguments. It checks
-successful `Decoded`, short-input `NeedMore(NeedBytes(...))`, and
+calls a pure same-module converter with supported structural arguments. It
+checks successful `Decoded`, short-input `NeedMore(NeedBytes(...))`, and
 helper-projected `Invalid(DecodeError(...))` outcomes through the codec item.
 The executable specification cases
 `../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-json/`
