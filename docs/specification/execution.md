@@ -1933,6 +1933,19 @@ execution reference.
   `examples/specification/run/codec-length-mismatch-direct-human/`,
   `examples/specification/run/codec-length-mismatch-step-json/`, and
   `examples/specification/run/codec-length-mismatch-step-human/`.
+  For `codec.sequence_mismatch`, direct
+  `DecodeErrorWithReason(...)` results and
+  `DecodeStep::Invalid(DecodeErrorWithReason(...))` results use a focused
+  sequence-mismatch human diagnostic and structured JSON fields for the
+  expected sequence, actual sequence, and failure reason when the
+  source-visible reason uses
+  `expected_sequence=<value>; actual_sequence=<value>; reason=<text>`. Plain
+  reason strings keep the codec-owned id and reason without sequence facts.
+  The checked examples are
+  `examples/specification/run/codec-sequence-mismatch-direct-json/`,
+  `examples/specification/run/codec-sequence-mismatch-direct-human/`,
+  `examples/specification/run/codec-sequence-mismatch-step-json/`, and
+  `examples/specification/run/codec-sequence-mismatch-step-human/`.
   A returned
   `DecodeStep::NeedMore(readiness)` is projected at the closed-input
   reporting boundary as

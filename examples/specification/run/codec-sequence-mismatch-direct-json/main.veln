@@ -1,0 +1,16 @@
+# Direct sequence mismatch decode failures populate stable byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	sequence: UInt8
+	payload: ByteView(0)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.sequence_mismatch", offset(13), "ManualPacketWire.sequence", "expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state"))
+end

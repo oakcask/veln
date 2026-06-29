@@ -200,6 +200,8 @@ behavior.
   [codec-imported-hand-written-boundary.md](codec-imported-hand-written-boundary.md).
 - Codec imported derived boundary:
   [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
+- Codec sequence mismatch diagnostics:
+  [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:

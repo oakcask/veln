@@ -544,6 +544,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.sequence_mismatch" {
+        return sequence_mismatch_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -663,6 +672,54 @@ fn length_mismatch_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Length mismatch reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn sequence_mismatch_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("sequence mismatch at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(expected_sequence), Some(actual_sequence)) = (
+        json_string(byte_entries, "expected_sequence"),
+        json_string(byte_entries, "actual_sequence"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected sequence `{expected_sequence}`; actual sequence was `{actual_sequence}`."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Sequence mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2307,6 +2364,72 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_sequence_mismatch_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.sequence_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(13)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("sequence")),
+                    ]),
+                ]),
+            ),
+            (
+                "expected_sequence",
+                JsonValue::string("client_preface,settings"),
+            ),
+            ("actual_sequence", JsonValue::string("settings")),
+            (
+                "reason",
+                JsonValue::string("frame sequence violated protocol state"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.sequence"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.sequence_mismatch");
+        assert_eq!(diagnostic.message, "sequence mismatch at byte offset 13");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Expected sequence `client_preface,settings`; actual sequence was `settings`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Sequence mismatch reason: frame sequence violated protocol state.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state).\"}"
         );
     }
 

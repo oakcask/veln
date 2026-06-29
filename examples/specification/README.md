@@ -2219,6 +2219,16 @@ against the built `veln` binary.
   `codec.length_mismatch` use focused length-mismatch human diagnostics and
   `run --json` `details.byte_diagnostic` fields for the codec-owned id, byte
   offset, field path, expected length, actual length, and failure reason.
+- `run/codec-sequence-mismatch-direct-human/`,
+  `run/codec-sequence-mismatch-direct-json/`,
+  `run/codec-sequence-mismatch-step-human/`, and
+  `run/codec-sequence-mismatch-step-json/`: direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results with
+  `codec.sequence_mismatch` use focused sequence-mismatch human diagnostics
+  and `run --json` `details.byte_diagnostic` fields for the codec-owned id,
+  byte offset, field path, expected sequence, actual sequence, and failure
+  reason.
 - `run/codec-decode-invalid-byte-context-human/` and
   `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
   boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose
