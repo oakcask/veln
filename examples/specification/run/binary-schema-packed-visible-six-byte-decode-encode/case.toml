@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "2\n87\n9\n94\n120\n72\n104\n86\ndecoded\n2\n87\n9\n94\n120\n72\n104\n86\n6\ndecoded\n2\n87\n9\n94\n120\n72\n104\n86\n6\noutput_chunk_list packed-visible-six-byte-direct count 1\noutput_chunk packed-visible-six-byte-direct index 0 hex \"abcdef123456\" count 6\nencoded\noutput_chunk_list packed-visible-six-byte-derived count 1\noutput_chunk packed-visible-six-byte-derived index 0 hex \"abcdef123456\" count 6\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "packed-visible-six-byte-direct"
+chunks = ["abcdef123456"]
+
+[[output_chunk_list]]
+name = "packed-visible-six-byte-derived"
+chunks = ["abcdef123456"]
