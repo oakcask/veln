@@ -8517,6 +8517,61 @@ fn peer_enable_push_settings(value: Int) -> PeerSettingsState
 	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize)
 end
 
+fn print_peer_header_table_size_outbound_hpack_cases() -> Result<(), String> effects [stdio]
+	let peer_header_table_size_lower: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000100000020")?), frame_state())?
+	print_step("peer-header-table-size-lower", peer_header_table_size_lower)
+	print_peer_settings("peer-header-table-size-lower", step_state(peer_header_table_size_lower))
+	let lower_peer_settings: PeerSettingsState = state_peer_settings(step_state(peer_header_table_size_lower))
+	let lower_seed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), hpack_fixture::initial_encode_state(), 0)
+	let lower_seed_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-lower-seed", lower_seed_encode, "44072f746172676574")?
+	let lower_update_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(30, lower_peer_settings, lower_seed_state)
+	let lower_update_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-lower-update", lower_update_encode, "3e")?
+	let lower_update_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(lower_update_encode)?
+	let lower_update_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(lower_update_transition), false, lower_peer_settings, outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_headers("peer-header-table-size-lower-update-headers", lower_update_headers)
+	let ignored_lower_update_headers: () = print_outbound_headers_chunk("http2-peer-header-table-size-lower-update-headers", lower_update_headers, "0000010104000000013e")?
+	print_outbound_hpack_encode_state("peer-header-table-size-lower-update-state", lower_update_state)
+	let lower_after_update_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), lower_update_state, 0)
+	let lower_after_update_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-lower-after-update", lower_after_update_encode, "44072f746172676574")?
+	let lower_after_update_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(lower_after_update_encode)?
+	let lower_after_update_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(lower_after_update_transition), false, lower_peer_settings, outbound_headers_receive_credit(lower_update_headers))?
+	print_outbound_headers("peer-header-table-size-lower-after-update-headers", lower_after_update_headers)
+	let ignored_lower_after_update_headers: () = print_outbound_headers_chunk("http2-peer-header-table-size-lower-after-update-headers", lower_after_update_headers, "00000901040000000144072f746172676574")?
+	print_outbound_hpack_encode_state("peer-header-table-size-lower-after-update-state", lower_after_update_state)
+	let lower_inbound_receive_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030105000000013f8101")?), step_state(peer_header_table_size_lower))?
+	print_step("peer-header-table-size-lower-inbound-receive-limit", lower_inbound_receive_limit)
+	let ignored_lower_inbound_receive_limit: () = emit_header_block("http2-peer-header-table-size-lower-inbound-receive-limit", lower_inbound_receive_limit, "3f8101")?
+	print_hpack_transition("peer-header-table-size-lower-inbound-receive-limit", lower_inbound_receive_limit)
+	print_hpack_state("peer-header-table-size-lower-inbound-receive-limit", step_state(lower_inbound_receive_limit))
+
+	let peer_header_table_size_higher: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060400000000000001000000a0")?), frame_state())?
+	print_step("peer-header-table-size-higher", peer_header_table_size_higher)
+	print_peer_settings("peer-header-table-size-higher", step_state(peer_header_table_size_higher))
+	let higher_peer_settings: PeerSettingsState = state_peer_settings(step_state(peer_header_table_size_higher))
+	let higher_update_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(160, higher_peer_settings, hpack_fixture::initial_encode_state())
+	let higher_update_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-higher-update", higher_update_encode, "3f8101")?
+	let higher_update_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(higher_update_encode)?
+	let higher_update_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(higher_update_transition), false, higher_peer_settings, outbound_receive_credit_with_open_stream(10, 1, 20))?
+	print_outbound_headers("peer-header-table-size-higher-update-headers", higher_update_headers)
+	let ignored_higher_update_headers: () = print_outbound_headers_chunk("http2-peer-header-table-size-higher-update-headers", higher_update_headers, "0000030104000000013f8101")?
+	print_outbound_hpack_encode_state("peer-header-table-size-higher-update-state", higher_update_state)
+	let higher_literal_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), higher_update_state, 0)
+	let higher_literal_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-higher-literal", higher_literal_encode, "44072f746172676574")?
+	let higher_literal_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(higher_literal_encode)?
+	let higher_literal_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(higher_literal_transition), false, higher_peer_settings, outbound_headers_receive_credit(higher_update_headers))?
+	print_outbound_headers("peer-header-table-size-higher-literal-headers", higher_literal_headers)
+	let ignored_higher_literal_headers: () = print_outbound_headers_chunk("http2-peer-header-table-size-higher-literal-headers", higher_literal_headers, "00000901040000000144072f746172676574")?
+	print_outbound_hpack_encode_state("peer-header-table-size-higher-literal-state", higher_literal_state)
+	let higher_dynamic_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), higher_literal_state, 0)
+	let higher_dynamic_state: HpackFixtureState = print_outbound_hpack_encode_transition("peer-header-table-size-higher-dynamic", higher_dynamic_encode, "be")?
+	let higher_dynamic_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(higher_dynamic_encode)?
+	let higher_dynamic_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(higher_dynamic_transition), false, higher_peer_settings, outbound_headers_receive_credit(higher_literal_headers))?
+	print_outbound_headers("peer-header-table-size-higher-dynamic-headers", higher_dynamic_headers)
+	let ignored_higher_dynamic_headers: () = print_outbound_headers_chunk("http2-peer-header-table-size-higher-dynamic-headers", higher_dynamic_headers, "000001010400000001be")?
+	print_outbound_hpack_encode_state("peer-header-table-size-higher-dynamic-state", higher_dynamic_state)
+	Ok(())
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -9464,6 +9519,7 @@ fn print_hpack_failure_cases(state: Http2DecodeState) -> Result<(), String> effe
 end
 
 fn print_peer_header_list_size_cases() -> Result<(), String> effects [stdio]
+	let ignored_peer_header_table_size_outbound_hpack_cases: () = print_peer_header_table_size_outbound_hpack_cases()?
 	let peer_max_header_list_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000600002000")?), frame_state())?
 	print_step("peer-max-header-list-size", peer_max_header_list_size)
 	print_peer_settings("peer-max-header-list-size", step_state(peer_max_header_list_size))

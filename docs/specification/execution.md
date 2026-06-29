@@ -2679,6 +2679,13 @@ execution reference.
   requested outbound table-size update greater than the active
   peer-advertised `SETTINGS_HEADER_TABLE_SIZE` fails at the HPACK fixture
   encode boundary before HEADERS header-block bytes are emitted.
+  Received peer `SETTINGS_HEADER_TABLE_SIZE` values are the source for that
+  outbound fixture capacity: a lower received peer limit allows a later
+  outbound update at or below that limit, evicts or prevents dynamic-table
+  reuse in following HEADERS encodes, and does not replace the local inbound
+  HPACK table-size receive limit. A higher received peer limit allows a
+  matching outbound update and permits later fixture encodes to retain and
+  reuse the checked dynamic indexed entry.
   The focused outbound table-size update example also carries that reduced
   encode state into split HEADERS and split `PUSH_PROMISE` output, and keeps
   the over-limit table-size update path on the typed HPACK fixture failure

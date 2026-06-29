@@ -2949,7 +2949,10 @@ chunk that observes the reduced outbound HPACK table capacity, an empty chunk
 list for an outbound table-size update rejected above the peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE`, a focused outbound table-size update case whose
 returned HPACK fixture state feeds split HEADERS and split `PUSH_PROMISE`
-output,
+output, received peer `SETTINGS_HEADER_TABLE_SIZE` cases where a lower limit
+drives the later outbound HPACK capacity and prevents dynamic-index reuse
+while preserving the local inbound receive-limit boundary, and where a higher
+limit permits a later outbound update plus dynamic-index reuse,
 accepted `PUSH_PROMISE` frame-header-plus-promised-stream-payload chunks,
 an accepted GOAWAY frame plus last-stream-id and error-code payload, and the
 maximum valid `UInt31be` stream id. The source

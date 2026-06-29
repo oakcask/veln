@@ -56,6 +56,13 @@ whether a supported header list can reuse a dynamic indexed entry. A requested
 table-size update greater than the active peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` returns a typed HPACK fixture encode failure
 before the send-intent path emits header-block bytes.
+The main protocol-core example also derives that peer-advertised capacity from
+received SETTINGS frames: a lower received peer header-table-size value permits
+a smaller outbound update, causes the following supported HEADERS fixture to
+encode as a literal instead of reusing `0xbe`, and still allows an inbound
+table-size update at the local receive-limit boundary. A higher received peer
+header-table-size value permits the matching outbound update and lets a later
+fixture HEADERS encode reuse the dynamic indexed entry.
 The focused outbound table-size update case also routes the accepted returned
 state through later split HEADERS and split server-side `PUSH_PROMISE`
 encodes, and keeps the rejected over-peer-limit path on an empty HTTP/2
@@ -85,7 +92,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
   `0xbe`, outbound dynamic table-size update bytes `0x3e` and
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
-  dynamic-table capacity, an over-peer-limit table-size update failure,
+  dynamic-table capacity, received lower and higher peer header-table-size
+  SETTINGS values driving later outbound HPACK fixture capacity, an
+  over-peer-limit table-size update failure,
   raw new-name literal-without-indexing `x-demo: hello` into outbound
   HEADERS and server-side `PUSH_PROMISE`,
   Huffman-marked literal `:path: test` into outbound HEADERS,
