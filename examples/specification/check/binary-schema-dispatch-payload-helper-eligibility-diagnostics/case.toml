@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.dispatch_payload\"", "dispatch payload schema `ForwardByteViewPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_forward_byte_view_payload\"", "\"decode_helper_boundary\":\"generated_binary_schema_decode_step\"", "\"expected_encode_helper\":\"byte_encode_forward_byte_view_payload\"", "\"encode_helper_boundary\":\"generated_binary_schema_encode\"", "\"unsupported_nested_schema\":\"ForwardByteViewPayload\"", "\"unsupported_nested_field\":\"payload\"", "\"unsupported_nested_field_path\":[{\"kind\":\"schema\",\"name\":\"ForwardByteViewPayload\"},{\"kind\":\"field\",\"name\":\"payload\"}]", "\"unsupported_nested_layout_reason\":\"ineligible_byte_view_length_reference\"", "\"unsupported_nested_layout_fact\":\"`ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`\"", "\"unavailable_helper_directions\":[\"decode\",\"encode\"]", "Schema `ForwardByteViewPayload` is declared here and does not expose the generated `byte_decode_step_forward_byte_view_payload` helper required for dispatch payload decoding.", "Nested dispatch payload field `ForwardByteViewPayload.payload` prevents generated decode and encode helpers: `ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`.", "Dispatch payload schemas must expose generated decode helpers before parent decode helpers or derived decode codecs can use them, and generated encode helpers before parent encode helpers or derived encode codecs can use them; expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`.", "dispatch payload schema `MissingByteViewPayload` is outside the generated binary schema helper slice", "\"expected_decode_helper\":\"byte_decode_step_missing_byte_view_payload\"", "\"expected_encode_helper\":\"byte_encode_missing_byte_view_payload\"", "\"unsupported_nested_layout_fact\":\"`ByteView(missing_length)` requires length reference `missing_length` to name an earlier decoded `Int` field\"", "dispatch payload schema `NonIntByteViewPayload` is outside the generated binary schema helper slice", "\"expected_decode_helper\":\"byte_decode_step_non_int_byte_view_payload\"", "\"expected_encode_helper\":\"byte_encode_non_int_byte_view_payload\"", "\"unsupported_nested_layout_fact\":\"`ByteView(flags)` requires length reference `flags` to decode as `Int`; it decodes as `Flag8`\"", "\"id\":\"schema.reserved_bits_encode\"", "`ReservedBits(1, 0)` is outside the supported binary schema field layouts", "dispatch payload schema `UnsupportedReservedPayload` is outside the generated binary schema helper slice", "\"expected_decode_helper\":\"byte_decode_step_unsupported_reserved_payload\"", "\"expected_encode_helper\":\"byte_encode_unsupported_reserved_payload\"", "\"unsupported_nested_field\":\"padding\"", "\"unsupported_nested_layout_reason\":\"unsupported_reserved_bits_layout\"", "\"unsupported_nested_layout_fact\":\"`ReservedBits(1, 0)` is outside the supported `packed_reserved_prefix` layout: the reserved width plus the next visible width must complete one supported big-endian storage unit.\"", "\"id\":\"codec.derive_helper_unsupported\"", "\"expected_helper\":\"byte_decode_step_closed_packet\"", "\"expected_helper\":\"byte_encode_closed_packet\"", "\"expected_helper\":\"byte_decode_step_extension_packet\"", "\"expected_helper\":\"byte_encode_extension_packet\"", "\"expected_helper\":\"byte_decode_step_unsupported_reserved_packet\""]
+contains = ["\"id\":\"schema.dispatch_payload\"", "dispatch payload schema `ForwardByteViewPayload` is outside the generated binary schema helper slice", "\"reason\":\"incompatible_payload_schema\"", "\"expected_decode_helper\":\"byte_decode_step_forward_byte_view_payload\"", "\"decode_helper_boundary\":\"generated_binary_schema_decode_step\"", "\"expected_encode_helper\":\"byte_encode_forward_byte_view_payload\"", "\"encode_helper_boundary\":\"generated_binary_schema_encode\"", "\"unsupported_nested_schema\":\"ForwardByteViewPayload\"", "\"unsupported_nested_field\":\"payload\"", "\"unsupported_nested_field_path\":[{\"kind\":\"schema\",\"name\":\"ForwardByteViewPayload\"},{\"kind\":\"field\",\"name\":\"payload\"}]", "\"unsupported_nested_layout_reason\":\"ineligible_byte_view_length_reference\"", "\"unsupported_nested_layout_fact\":\"`ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`\"", "\"unavailable_helper_directions\":[\"decode\",\"encode\"]", "Schema `ForwardByteViewPayload` is declared here and does not expose the generated `byte_decode_step_forward_byte_view_payload` helper required for dispatch payload decoding.", "Nested dispatch payload field `ForwardByteViewPayload.payload` prevents generated decode and encode helpers: `ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`.", "Dispatch payload schemas must expose generated decode helpers before parent decode helpers or derived decode codecs can use them, and generated encode helpers before parent encode helpers or derived encode codecs can use them; expected `byte_decode_step_forward_byte_view_payload` and `byte_encode_forward_byte_view_payload`.", "dispatch payload schema `MissingByteViewPayload` is outside the generated binary schema helper slice", "\"expected_decode_helper\":\"byte_decode_step_missing_byte_view_payload\"", "\"expected_encode_helper\":\"byte_encode_missing_byte_view_payload\"", "\"unsupported_nested_layout_fact\":\"`ByteView(missing_length)` requires length reference `missing_length` to name an earlier decoded `Int` field\"", "dispatch payload schema `NonIntByteViewPayload` is outside the generated binary schema helper slice", "\"expected_decode_helper\":\"byte_decode_step_non_int_byte_view_payload\"", "\"expected_encode_helper\":\"byte_encode_non_int_byte_view_payload\"", "\"unsupported_nested_layout_fact\":\"`ByteView(flags)` requires length reference `flags` to decode as `Int`; it decodes as `Flag8`\"", "\"id\":\"codec.derive_helper_unsupported\"", "\"expected_helper\":\"byte_decode_step_closed_packet\"", "\"expected_helper\":\"byte_encode_closed_packet\"", "\"expected_helper\":\"byte_decode_step_extension_packet\"", "\"expected_helper\":\"byte_encode_extension_packet\""]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,63 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 14
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "schema.dispatch_payload"
+
+[[json_assert]]
+path = "diagnostics.7.details.schema"
+equals = "ClosedPacket"
+
+[[json_assert]]
+path = "diagnostics.7.details.field_path"
+equals = [{"kind":"schema","name":"ClosedPacket"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "diagnostics.7.details.payload"
+equals = "ForwardByteViewPayload"
+
+[[json_assert]]
+path = "diagnostics.7.details.unavailable_helper_directions"
+equals = ["decode", "encode"]
+
+[[json_assert]]
+path = "diagnostics.7.details.unsupported_nested_field_path"
+equals = [{"kind":"schema","name":"ForwardByteViewPayload"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "diagnostics.7.details.unsupported_nested_layout_fact"
+equals = "`ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`"
+
+[[json_assert]]
+path = "diagnostics.7.related.1.kind"
+equals = "unsupported_nested_field"
+
+[[json_assert]]
+path = "diagnostics.7.related.1.field_path"
+equals = [{"kind":"schema","name":"ForwardByteViewPayload"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "schema.dispatch_payload"
+
+[[json_assert]]
+path = "diagnostics.8.details.schema"
+equals = "ExtensionPacket"
+
+[[json_assert]]
+path = "diagnostics.8.details.field_path"
+equals = [{"kind":"schema","name":"ExtensionPacket"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "diagnostics.8.details.payload"
+equals = "ForwardByteViewPayload"
+
+[[json_assert]]
+path = "diagnostics.8.details.unavailable_helper_directions"
+equals = ["decode", "encode"]
 
 [[json_assert]]
 path = "diagnostics.9.id"
@@ -22,15 +78,15 @@ equals = "schema.dispatch_payload"
 
 [[json_assert]]
 path = "diagnostics.9.details.schema"
-equals = "ClosedPacket"
+equals = "MissingPacket"
 
 [[json_assert]]
 path = "diagnostics.9.details.field_path"
-equals = [{"kind":"schema","name":"ClosedPacket"},{"kind":"field","name":"payload"}]
+equals = [{"kind":"schema","name":"MissingPacket"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
 path = "diagnostics.9.details.payload"
-equals = "ForwardByteViewPayload"
+equals = "MissingByteViewPayload"
 
 [[json_assert]]
 path = "diagnostics.9.details.unavailable_helper_directions"
@@ -38,19 +94,11 @@ equals = ["decode", "encode"]
 
 [[json_assert]]
 path = "diagnostics.9.details.unsupported_nested_field_path"
-equals = [{"kind":"schema","name":"ForwardByteViewPayload"},{"kind":"field","name":"payload"}]
+equals = [{"kind":"schema","name":"MissingByteViewPayload"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
 path = "diagnostics.9.details.unsupported_nested_layout_fact"
-equals = "`ByteView(later_length)` requires length reference `later_length` to be declared before field `payload`"
-
-[[json_assert]]
-path = "diagnostics.9.related.1.kind"
-equals = "unsupported_nested_field"
-
-[[json_assert]]
-path = "diagnostics.9.related.1.field_path"
-equals = [{"kind":"schema","name":"ForwardByteViewPayload"},{"kind":"field","name":"payload"}]
+equals = "`ByteView(missing_length)` requires length reference `missing_length` to name an earlier decoded `Int` field"
 
 [[json_assert]]
 path = "diagnostics.10.id"
@@ -58,108 +106,24 @@ equals = "schema.dispatch_payload"
 
 [[json_assert]]
 path = "diagnostics.10.details.schema"
-equals = "ExtensionPacket"
-
-[[json_assert]]
-path = "diagnostics.10.details.field_path"
-equals = [{"kind":"schema","name":"ExtensionPacket"},{"kind":"field","name":"payload"}]
-
-[[json_assert]]
-path = "diagnostics.10.details.payload"
-equals = "ForwardByteViewPayload"
-
-[[json_assert]]
-path = "diagnostics.10.details.unavailable_helper_directions"
-equals = ["decode", "encode"]
-
-[[json_assert]]
-path = "diagnostics.11.id"
-equals = "schema.dispatch_payload"
-
-[[json_assert]]
-path = "diagnostics.11.details.schema"
-equals = "MissingPacket"
-
-[[json_assert]]
-path = "diagnostics.11.details.field_path"
-equals = [{"kind":"schema","name":"MissingPacket"},{"kind":"field","name":"payload"}]
-
-[[json_assert]]
-path = "diagnostics.11.details.payload"
-equals = "MissingByteViewPayload"
-
-[[json_assert]]
-path = "diagnostics.11.details.unavailable_helper_directions"
-equals = ["decode", "encode"]
-
-[[json_assert]]
-path = "diagnostics.11.details.unsupported_nested_field_path"
-equals = [{"kind":"schema","name":"MissingByteViewPayload"},{"kind":"field","name":"payload"}]
-
-[[json_assert]]
-path = "diagnostics.11.details.unsupported_nested_layout_fact"
-equals = "`ByteView(missing_length)` requires length reference `missing_length` to name an earlier decoded `Int` field"
-
-[[json_assert]]
-path = "diagnostics.12.id"
-equals = "schema.dispatch_payload"
-
-[[json_assert]]
-path = "diagnostics.12.details.schema"
 equals = "NonIntPacket"
 
 [[json_assert]]
-path = "diagnostics.12.details.field_path"
+path = "diagnostics.10.details.field_path"
 equals = [{"kind":"schema","name":"NonIntPacket"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
-path = "diagnostics.12.details.payload"
+path = "diagnostics.10.details.payload"
 equals = "NonIntByteViewPayload"
 
 [[json_assert]]
-path = "diagnostics.12.details.unavailable_helper_directions"
+path = "diagnostics.10.details.unavailable_helper_directions"
 equals = ["decode"]
 
 [[json_assert]]
-path = "diagnostics.12.details.unsupported_nested_field_path"
+path = "diagnostics.10.details.unsupported_nested_field_path"
 equals = [{"kind":"schema","name":"NonIntByteViewPayload"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
-path = "diagnostics.12.details.unsupported_nested_layout_fact"
+path = "diagnostics.10.details.unsupported_nested_layout_fact"
 equals = "`ByteView(flags)` requires length reference `flags` to decode as `Int`; it decodes as `Flag8`"
-
-[[json_assert]]
-path = "diagnostics.13.id"
-equals = "schema.dispatch_payload"
-
-[[json_assert]]
-path = "diagnostics.13.details.schema"
-equals = "UnsupportedReservedPacket"
-
-[[json_assert]]
-path = "diagnostics.13.details.field_path"
-equals = [{"kind":"schema","name":"UnsupportedReservedPacket"},{"kind":"field","name":"payload"}]
-
-[[json_assert]]
-path = "diagnostics.13.details.payload"
-equals = "UnsupportedReservedPayload"
-
-[[json_assert]]
-path = "diagnostics.13.details.unavailable_helper_directions"
-equals = ["decode", "encode"]
-
-[[json_assert]]
-path = "diagnostics.13.details.unsupported_nested_field_path"
-equals = [{"kind":"schema","name":"UnsupportedReservedPayload"},{"kind":"field","name":"padding"}]
-
-[[json_assert]]
-path = "diagnostics.13.details.unsupported_nested_layout_fact"
-equals = "`ReservedBits(1, 0)` is outside the supported `packed_reserved_prefix` layout: the reserved width plus the next visible width must complete one supported big-endian storage unit."
-
-[[json_assert]]
-path = "diagnostics.13.related.1.kind"
-equals = "unsupported_nested_field"
-
-[[json_assert]]
-path = "diagnostics.13.related.1.field_path"
-equals = [{"kind":"schema","name":"UnsupportedReservedPayload"},{"kind":"field","name":"padding"}]

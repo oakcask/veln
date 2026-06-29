@@ -4765,7 +4765,7 @@ fn supported_reserved_byte_prefix(
     expected_value: i64,
     visible_field: Option<&veln_ast::SchemaField>,
 ) -> bool {
-    matches!(bit_width, 2 | 9)
+    matches!(bit_width, 1 | 2 | 9)
         && expected_value == 0
         && visible_field.is_some_and(|field| field.ty.trim() == "UInt8")
 }

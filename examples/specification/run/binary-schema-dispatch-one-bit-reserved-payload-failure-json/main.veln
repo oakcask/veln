@@ -1,0 +1,22 @@
+# One-bit reserved dispatch payload failures keep the nested field path.
+
+schema OneBitReservedPayload
+	format binary
+
+	padding: ReservedBits(1, 0)
+	value: UInt8
+end
+
+schema ClosedOneBitReservedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => OneBitReservedPayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("018180")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let packet: {kind: Int, payload: {value: Int}} = byte_decode_closed_one_bit_reserved_packet(view)?
+	Ok(())
+end

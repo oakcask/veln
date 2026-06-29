@@ -300,7 +300,11 @@ selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, same-module representation-only reserved-bit payload
-round trips, nested `ByteView(length_field)` payload fields whose length is an
+round trips, nested `ReservedBits(1, 0)` plus `UInt8` payload fields with
+reserved-bit mismatch diagnostics preserving the parent dispatch field path,
+nested reserved-byte-prefix `ReservedBits(2, 0)` and `ReservedBits(9, 0)`
+plus `UInt8` payload fields with the same nested mismatch path behavior,
+nested `ByteView(length_field)` payload fields whose length is an
 earlier visible `Int` in the same nested schema, nested
 `ByteView(left_length + right_length)` payload fields whose operands are
 earlier visible `Int` fields in the same nested schema, nested
@@ -325,6 +329,13 @@ The completed nested dispatch
 The completed dispatch payload helper boundary diagnostics slice is archived
 under
 `../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md`.
+The completed nested dispatch `ReservedBits(1, 0)` plus `UInt8` payload helper
+slice is archived under
+`../reference/implemented-proposals/binary-schema-dispatch-one-bit-reserved-payload-helpers.md`.
+The completed nested dispatch reserved-byte-prefix payload helper slice for
+`ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is archived
+under
+`../reference/implemented-proposals/binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md`.
 A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. The mapping slice also accepts an
@@ -1056,7 +1067,8 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Broader unsupported field layouts, other ineligible dispatch payload schemas
-  beyond the checked unsupported `ReservedBits`, unsupported `ByteView` length
+  beyond unsupported `ReservedBits` values or layouts,
+  unsupported `ByteView` length
   references, mapped encode projection diagnostics, and schema value mapping
   beyond the implemented structural mapping slices, constructor
   field-selection, mapped-payload eligibility, and imported recursive

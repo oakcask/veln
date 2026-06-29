@@ -1651,6 +1651,12 @@ payload field.
 pins the same same-module helper path when selected closed and
 extension-tolerant nested payload schemas contain supported
 representation-only reserved-bit layouts.
+`../../examples/specification/run/binary-schema-dispatch-reserved-byte-prefix-payload-decode-encode/`
+checks closed dispatch decode and encode when nested payload schemas contain
+`ReservedBits(2, 0)` or `ReservedBits(9, 0)` followed by `UInt8`.
+`../../examples/specification/run/binary-schema-dispatch-reserved-byte-prefix-payload-failure-json/`
+checks that a reserved-byte-prefix mismatch in a nested dispatch payload keeps
+the parent dispatch field path and absolute byte offset.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-encode/`
@@ -1801,7 +1807,9 @@ shapes.
 pins structured helper-boundary JSON fields for a resolved nested dispatch
 payload schema outside generated helper eligibility, including selected
 payload schema, parent dispatch field path, unavailable helper directions,
-unsupported nested field path, and layout reason.
+unsupported nested field path, and layout reason. The case also pins an
+unsupported representation-only `ReservedBits` payload layout at that helper
+boundary.
 `../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
 pins the same helper-boundary JSON fields for a resolved nested dispatch
 payload schema whose decoded mapping shape is available but whose mapping
@@ -1816,9 +1824,7 @@ and
 pin a resolved binary payload schema whose forward `ByteView` length reference
 keeps the nested payload outside generated decode and encode helper
 eligibility, including structured helper-boundary fields, human related notes,
-and derived codec helper rejection for the parent dispatch schemas. The JSON
-case also pins an unsupported representation-only `ReservedBits` payload
-layout at the same helper boundary.
+and derived codec helper rejection for the parent dispatch schemas.
 `../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
 pins focused recursive helper rejections when a recursive closed dispatch is
 not length-bounded, when an encode-required imported recursive payload lacks

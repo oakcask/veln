@@ -15,11 +15,25 @@ schema ByteReservedPayload
 	code: UInt8
 end
 
+schema OneBitReservedPayload
+	format binary
+
+	padding: ReservedBits(1, 0)
+	value: UInt8
+end
+
 schema ClosedReservedPacket
 	format binary
 
 	kind: UInt8
 	payload: Dispatch(kind, 1 => PackedReservedPayload)
+end
+
+schema ClosedOneBitReservedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => OneBitReservedPayload)
 end
 
 schema ExtensionReservedPacket
@@ -86,12 +100,25 @@ fn emit_extension_roundtrip(packet: {length: Int, kind: Int, payload: SchemaDisp
 	end
 end
 
+fn emit_one_bit_decode(packet: {kind: Int, payload: {value: Int}}) -> () effects [stdio]
+	stdio::print("one-bit-decode ")
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(packet.payload.value))
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let closed_bytes: ByteChunk = byte_chunk_from_hex("014a")?
 	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(2)?)?
 	let closed: {kind: Int, payload: {value: Int}} = byte_decode_closed_reserved_packet(closed_view)?
 	emit_closed_decode(closed)
 	emit_encoded("closed-reserved-roundtrip", byte_encode_closed_reserved_packet(closed), "014a")
+
+	let one_bit_bytes: ByteChunk = byte_chunk_from_hex("010180")?
+	let one_bit_view: ByteView = byte_view(one_bit_bytes, byte_offset(0)?, byte_count(3)?)?
+	let one_bit: {kind: Int, payload: {value: Int}} = byte_decode_closed_one_bit_reserved_packet(one_bit_view)?
+	emit_one_bit_decode(one_bit)
+	emit_encoded("one-bit-reserved-roundtrip", byte_encode_closed_one_bit_reserved_packet(one_bit), "010180")
 
 	let extension_bytes: ByteChunk = byte_chunk_from_hex("0201ab07")?
 	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(4)?)?

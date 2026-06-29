@@ -1336,6 +1336,31 @@
         );
     }
 
+    private static Object schemaReservedBitsMismatchPathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long bitWidth,
+        long expectedValue,
+        long actualValue,
+        String nearbyContext
+    ) {
+        return diagnosticErr(
+            message,
+            new ByteDiagnostic(
+                "schema.reserved_bits_mismatch",
+                byteOffset,
+                fieldPath,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("bit_width", bitWidth),
+                    DiagnosticDetail.number("expected_value", expectedValue),
+                    DiagnosticDetail.number("actual_value", actualValue),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static Object schemaLengthOutOfBoundsDiagnostic(
         String message,
         long byteOffset,
