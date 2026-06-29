@@ -2109,6 +2109,11 @@ against the built `veln` binary.
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open
   input.
+- `run/binary-schema-decode-step-invalid-json/`: a generated binary schema
+  decode-step helper returns `Invalid(DecodeError(...))` for invalid schema
+  input without consuming bytes, and command JSON preserves the diagnostic id
+  and field path at the explicit base offset plus the field-local byte
+  position.
 - `run/codec-decode-boundary/`: a hand-written `decode with` codec item call
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
   valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the

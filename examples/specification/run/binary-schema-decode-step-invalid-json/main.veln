@@ -1,0 +1,21 @@
+# Generated binary schema decode-step helpers project invalid input at the explicit base offset.
+schema ReservedStepPacket
+	format binary
+
+	prefix: UInt8
+	padding: ReservedBits(8, 170)
+	kind: UInt8
+end
+
+fn invalid_step() -> Result<DecodeStep<{prefix: Int, kind: Int}>, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("12ab34ff")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	Ok(byte_decode_step_reserved_step_packet(view, byte_offset(70)?))
+end
+
+pub fn main() -> DecodeStep<{prefix: Int, kind: Int}>
+	match invalid_step()
+		Ok(step) => step
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
