@@ -410,7 +410,7 @@ compare it with `../specification/` before changing behavior.
   the source-visible request `:path` value rule, the source-visible `te`
   header value rule, the `content-length`
   header-list consistency slice, accepted `content-length` body-length
-  accounting for tracked inbound DATA,
+  accounting for tracked inbound and outbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
   visible-ASCII ordinary new-name literal-without-indexing for outbound
@@ -451,7 +451,7 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound DATA GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md).
   The completed GOAWAY receive lifecycle slice is archived under
   [HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
-  The completed accepted `content-length` body accounting slice is archived
+  The completed accepted `content-length` body accounting slices are archived
   under
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
   The completed dynamic-name continuation diagnostic slice is archived under

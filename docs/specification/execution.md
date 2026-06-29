@@ -2550,6 +2550,21 @@ execution reference.
   outbound DATA send credit. Accepted outbound DATA with
   `END_STREAM` records local closed-stream state for outbound send-intents
   while the receive core keeps the stream half-closed-local for inbound DATA.
+  Fixture-marked outbound request or response HEADERS send-intents with an
+  accepted `content-length` record an outbound body expectation on the local
+  send-credit state. Later outbound DATA send-intents add only DATA
+  application bytes to that expectation; PADDED DATA still consumes outbound
+  connection and stream credit by the full encoded payload including the
+  pad-length byte and padding. DATA that would make observed application
+  bytes exceed the accepted `content-length` is rejected before output bytes
+  or send-credit changes. DATA with local `END_STREAM` before the expected
+  byte count is reached is rejected the same way. Those rejections use
+  `http2.protocol.content_length_mismatch` with
+  `rfc9113_content_length_body`. Focused outbound checks live under
+  `examples/specification/run/http2-protocol-core-content-length-body/`,
+  `examples/specification/run/http2-protocol-core-content-length-over-json/`,
+  and
+  `examples/specification/run/http2-protocol-core-content-length-early-human/`.
   After accepted inbound DATA carries peer `END_STREAM`, the same example
   keeps local outbound DATA send-intents available for that closed-by-peer
   stream until local `END_STREAM` is sent. Those DATA send-intents still use

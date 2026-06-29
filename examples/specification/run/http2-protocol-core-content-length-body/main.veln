@@ -1,14 +1,19 @@
 use hpack_fixture
 use stdio
 
-type BodyLengthState
-	NoExpectedContentLength
-	ExpectedContentLength {stream_id: Int, expected_length: Int, observed_length: Int, connection_window: Int, stream_window: Int}
+type OutboundStreamCredit
+	NoOutboundStreamCredit
+	OutboundOpenStreamContentLength(Int, Int, Int, Int)
+	OutboundClosedStream(Int)
 end
 
-type BodyLengthDecision
-	BodyLengthAccepted(BodyLengthState)
-	BodyLengthRejected(Http2ProtocolFailure)
+type OutboundSendCredit
+	OutboundSendCredit(Int, OutboundStreamCredit)
+end
+
+type OutboundDataDecision
+	OutboundDataAccepted(Int, Int, Bool, Int, OutboundSendCredit)
+	OutboundDataRejected(Int, Int, Bool, Http2ProtocolFailure)
 end
 
 type Http2ProtocolFailure
@@ -19,89 +24,204 @@ fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
 	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
 end
 
-fn request_headers_with_content_length() -> Result<HpackHeaderList, String>
-	let transition: HpackDecodeTransition = hpack_fixture::decode_header_block(byte_chunk_from_hex("4f505152")?, hpack_fixture::initial_state(), 0)?
-	Ok(hpack_fixture::transition_headers(transition))
+fn outbound_content_length_credit(headers: HpackHeaderList, connection_window: Int, stream_id: Int, stream_window: Int) -> OutboundSendCredit
+	OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(stream_id, stream_window, hpack_fixture::header_list_accepted_content_length(headers), 0))
 end
 
-fn accepted_request_body_state() -> Result<BodyLengthState, String>
-	let headers: HpackHeaderList = request_headers_with_content_length()?
-	let expected_length: Int = hpack_fixture::header_list_accepted_content_length(headers)
-	Ok(ExpectedContentLength(1, expected_length, 0, 65535, 65535))
+fn accepted_request_send_credit() -> OutboundSendCredit
+	outbound_content_length_credit(hpack_fixture::outbound_request_content_length_headers(), 20, 1, 20)
 end
 
-fn receive_data(state: BodyLengthState, offset: Int, frame_payload_length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
-	match state
-		NoExpectedContentLength => Ok(BodyLengthAccepted(state))
-		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => validate_body_length(stream_id, expected_length, observed_length + application_length, connection_window - frame_payload_length, stream_window - frame_payload_length, offset, end_stream, preview)
+fn accepted_response_send_credit() -> OutboundSendCredit
+	outbound_content_length_credit(hpack_fixture::outbound_response_content_length_headers(), 30, 1, 30)
+end
+
+fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
+	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	match send_credit
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
+			true => validate_outbound_content_length(stream_id, payload, application_length, application_length, 1, end_stream, connection_window, stream_window, expected_length, observed_length)
+			false => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+		end
+		OutboundSendCredit(_, _) => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 	end
 end
 
-fn validate_body_length(stream_id: Int, expected_length: Int, next_observed_length: Int, next_connection_window: Int, next_stream_window: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, String>
+fn send_padded_data(stream_id: Int, payload: ByteChunk, padding_length: Int, max_frame_size: Int, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
+	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let max_application_frame_payload: Int = max_frame_size - padding_length - 1
+	let encoded_length: Int = padded_data_encoded_length(application_length, padding_length, max_application_frame_payload)
+	let frame_count: Int = padded_data_frame_count(application_length, max_application_frame_payload)
+	match send_credit
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
+			true => validate_outbound_content_length(stream_id, payload, encoded_length, application_length, frame_count, end_stream, connection_window, stream_window, expected_length, observed_length)
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+		end
+		OutboundSendCredit(_, _) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+	end
+end
+
+fn padded_data_encoded_length(remaining_length: Int, padding_length: Int, max_application_frame_payload: Int) -> Int
+	match remaining_length > max_application_frame_payload
+		true => max_application_frame_payload + padding_length + 1 + padded_data_encoded_length(remaining_length - max_application_frame_payload, padding_length, max_application_frame_payload)
+		false => remaining_length + padding_length + 1
+	end
+end
+
+fn padded_data_frame_count(remaining_length: Int, max_application_frame_payload: Int) -> Int
+	match remaining_length > max_application_frame_payload
+		true => 1 + padded_data_frame_count(remaining_length - max_application_frame_payload, max_application_frame_payload)
+		false => 1
+	end
+end
+
+fn validate_outbound_content_length(stream_id: Int, payload: ByteChunk, encoded_length: Int, application_length: Int, output_frames: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
+	let next_observed_length: Int = observed_length + application_length
 	match next_observed_length > expected_length
-		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
+		true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
 		false => match end_stream and next_observed_length < expected_length
-			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
-			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, next_observed_length, next_connection_window, next_stream_window)))
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+			false => Ok(OutboundDataAccepted(encoded_length, application_length, end_stream, output_frames, data_sent_send_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length, expected_length, next_observed_length)))
 		end
 	end
 end
 
-fn body_state(decision: BodyLengthDecision) -> BodyLengthState
+fn data_sent_send_credit(stream_id: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> OutboundSendCredit
+	match end_stream
+		true => OutboundSendCredit(connection_window, OutboundClosedStream(stream_id))
+		false => OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length))
+	end
+end
+
+fn decision_send_credit(decision: OutboundDataDecision) -> OutboundSendCredit
 	match decision
-		BodyLengthAccepted(state) => state
-		BodyLengthRejected(_) => NoExpectedContentLength
+		OutboundDataAccepted(_, _, _, _, send_credit) => send_credit
+		OutboundDataRejected(_, _, _, _) => OutboundSendCredit(0, NoOutboundStreamCredit)
 	end
 end
 
-fn body_expected(state: BodyLengthState) -> Int
-	match state
-		NoExpectedContentLength => 0
-		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => expected_length
+fn send_credit_connection_window(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(connection_window, _) => connection_window
 	end
 end
 
-fn body_observed(state: BodyLengthState) -> Int
-	match state
-		NoExpectedContentLength => 0
-		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => observed_length
+fn send_credit_open_stream(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(_, OutboundOpenStreamContentLength(stream_id, _, _, _)) => stream_id
+		OutboundSendCredit(_, _) => 0
 	end
 end
 
-fn body_connection_window(state: BodyLengthState) -> Int
-	match state
-		NoExpectedContentLength => 0
-		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => connection_window
+fn send_credit_closed_stream(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(_, OutboundClosedStream(stream_id)) => stream_id
+		OutboundSendCredit(_, _) => 0
 	end
 end
 
-fn body_stream_window(state: BodyLengthState) -> Int
-	match state
-		NoExpectedContentLength => 0
-		ExpectedContentLength(stream_id, expected_length, observed_length, connection_window, stream_window) => stream_window
+fn send_credit_stream_window(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(_, OutboundOpenStreamContentLength(_, stream_window, _, _)) => stream_window
+		OutboundSendCredit(_, _) => 0
 	end
 end
 
-fn print_body_state(label: String, state: BodyLengthState) -> () effects [stdio]
+fn send_credit_expected(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(_, OutboundOpenStreamContentLength(_, _, expected_length, _)) => expected_length
+		OutboundSendCredit(_, _) => 0
+	end
+end
+
+fn send_credit_observed(send_credit: OutboundSendCredit) -> Int
+	match send_credit
+		OutboundSendCredit(_, OutboundOpenStreamContentLength(_, _, _, observed_length)) => observed_length
+		OutboundSendCredit(_, _) => 0
+	end
+end
+
+fn decision_status(decision: OutboundDataDecision) -> String
+	match decision
+		OutboundDataAccepted(_, _, _, _, _) => "accepted"
+		OutboundDataRejected(_, _, _, _) => "rejected"
+	end
+end
+
+fn decision_encoded_length(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(encoded_length, _, _, _, _) => encoded_length
+		OutboundDataRejected(_, encoded_length, _, _) => encoded_length
+	end
+end
+
+fn decision_application_length(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(_, application_length, _, _, _) => application_length
+		OutboundDataRejected(_, _, _, failure) => failure_observed_length(failure)
+	end
+end
+
+fn decision_end_stream(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(_, _, end_stream, _, _) => bool_to_int(end_stream)
+		OutboundDataRejected(_, _, end_stream, _) => bool_to_int(end_stream)
+	end
+end
+
+fn decision_output_frames(decision: OutboundDataDecision) -> Int
+	match decision
+		OutboundDataAccepted(_, _, _, output_frames, _) => output_frames
+		OutboundDataRejected(_, _, _, _) => 0
+	end
+end
+
+fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ContentLengthMismatch(_, _, _, _, observed_length, _, _, _) => observed_length
+	end
+end
+
+fn bool_to_int(value: Bool) -> Int
+	match value
+		true => 1
+		false => 0
+	end
+end
+
+fn print_outbound_data(label: String, decision: OutboundDataDecision) -> () effects [stdio]
+	let send_credit: OutboundSendCredit = decision_send_credit(decision)
 	stdio::print(label)
-	stdio::print(" expected ")
-	stdio::print(int_to_string(body_expected(state)))
-	stdio::print(" observed ")
-	stdio::print(int_to_string(body_observed(state)))
+	stdio::print(" ")
+	stdio::print(decision_status(decision))
+	stdio::print(" encoded_length ")
+	stdio::print(int_to_string(decision_encoded_length(decision)))
+	stdio::print(" application_length ")
+	stdio::print(int_to_string(decision_application_length(decision)))
+	stdio::print(" end_stream ")
+	stdio::print(int_to_string(decision_end_stream(decision)))
 	stdio::print(" connection_window ")
-	stdio::print(int_to_string(body_connection_window(state)))
+	stdio::print(int_to_string(send_credit_connection_window(send_credit)))
+	stdio::print(" open_stream ")
+	stdio::print(int_to_string(send_credit_open_stream(send_credit)))
+	stdio::print(" closed_stream ")
+	stdio::print(int_to_string(send_credit_closed_stream(send_credit)))
 	stdio::print(" stream_window ")
-	stdio::println(int_to_string(body_stream_window(state)))
+	stdio::print(int_to_string(send_credit_stream_window(send_credit)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(send_credit_expected(send_credit)))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(send_credit_observed(send_credit)))
+	stdio::print(" output_frames ")
+	stdio::println(int_to_string(decision_output_frames(decision)))
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let exact_start: BodyLengthState = accepted_request_body_state()?
-	let exact_first: BodyLengthDecision = receive_data(exact_start, 9, 3, 3, false, byte_chunk_from_hex("aabbcc")?)?
-	let exact_second: BodyLengthDecision = receive_data(body_state(exact_first), 21, 2, 2, false, byte_chunk_from_hex("ddee")?)?
-	let exact_end: BodyLengthDecision = receive_data(body_state(exact_second), 32, 0, 0, true, byte_chunk([]))?
-	print_body_state("content-length-exact", body_state(exact_end))
-	let padded_start: BodyLengthState = accepted_request_body_state()?
-	let padded: BodyLengthDecision = receive_data(padded_start, 9, 8, 5, true, byte_chunk_from_hex("02aabbccddee0000")?)?
-	print_body_state("content-length-padded", body_state(padded))
+	let exact_first: OutboundDataDecision = send_data(1, byte_chunk_from_hex("aabb")?, false, accepted_request_send_credit())?
+	print_outbound_data("outbound-content-length-data-first", exact_first)
+	let exact_end: OutboundDataDecision = send_data(1, byte_chunk_from_hex("ccddee")?, true, decision_send_credit(exact_first))?
+	print_outbound_data("outbound-content-length-data-exact", exact_end)
+	let padded: OutboundDataDecision = send_padded_data(1, byte_chunk_from_hex("aabbccddee")?, 2, 4, true, accepted_response_send_credit())?
+	print_outbound_data("outbound-content-length-padded", padded)
 	Ok(())
 end

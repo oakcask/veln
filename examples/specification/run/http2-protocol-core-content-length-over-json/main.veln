@@ -1,12 +1,16 @@
 use hpack_fixture
 
-type BodyLengthState
-	ExpectedContentLength(Int, Int, Int)
+type OutboundStreamCredit
+	OutboundOpenStreamContentLength(Int, Int, Int, Int)
 end
 
-type BodyLengthDecision
-	BodyLengthAccepted(BodyLengthState)
-	BodyLengthRejected(Http2ProtocolFailure)
+type OutboundSendCredit
+	OutboundSendCredit(Int, OutboundStreamCredit)
+end
+
+type OutboundDataDecision
+	OutboundDataAccepted(Int, Bool, OutboundSendCredit)
+	OutboundDataRejected(Int, Int, Bool, Http2ProtocolFailure)
 end
 
 type Http2ProtocolFailure
@@ -31,33 +35,28 @@ fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
 	end
 end
 
-fn request_body_state_from_transition(transition: HpackDecodeTransition) -> BodyLengthState
-	let headers: HpackHeaderList = hpack_fixture::transition_headers(transition)
-	ExpectedContentLength(1, hpack_fixture::header_list_accepted_content_length(headers), 0)
+fn accepted_request_send_credit() -> OutboundSendCredit
+	let headers: HpackHeaderList = hpack_fixture::outbound_request_content_length_headers()
+	OutboundSendCredit(20, OutboundOpenStreamContentLength(1, 20, hpack_fixture::header_list_accepted_content_length(headers), 0))
 end
 
-fn accepted_request_body_state() -> Result<BodyLengthState, RuntimeDiagnostic>
-	match byte_chunk_from_hex("4f505152")
-		Ok(block) => match hpack_fixture::decode_header_block(block, hpack_fixture::initial_state(), 0)
-			Ok(transition) => Ok(request_body_state_from_transition(transition))
-			Err(error) => Err(invalid_payload(error))
+fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, RuntimeDiagnostic>
+	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	match send_credit
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
+			true => validate_outbound_content_length(stream_id, payload, application_length, end_stream, connection_window, stream_window, expected_length, observed_length)
+			false => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, observed_length + application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 		end
-		Err(error) => Err(invalid_payload(error))
 	end
 end
 
-fn receive_data(state: BodyLengthState, offset: Int, application_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, RuntimeDiagnostic>
-	match state
-		ExpectedContentLength(stream_id, expected_length, observed_length) => validate_body_length(stream_id, expected_length, observed_length + application_length, offset, end_stream, preview)
-	end
-end
-
-fn validate_body_length(stream_id: Int, expected_length: Int, observed_length: Int, offset: Int, end_stream: Bool, preview: ByteChunk) -> Result<BodyLengthDecision, RuntimeDiagnostic>
-	match observed_length > expected_length
-		true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
-		false => match end_stream and observed_length < expected_length
-			true => Ok(BodyLengthRejected(ContentLengthMismatch(offset, 0, stream_id, expected_length, observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(preview)?)))
-			false => Ok(BodyLengthAccepted(ExpectedContentLength(stream_id, expected_length, observed_length)))
+fn validate_outbound_content_length(stream_id: Int, payload: ByteChunk, application_length: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, RuntimeDiagnostic>
+	let next_observed_length: Int = observed_length + application_length
+	match next_observed_length > expected_length
+		true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+		false => match end_stream and next_observed_length < expected_length
+			true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+			false => Ok(OutboundDataAccepted(application_length, end_stream, OutboundSendCredit(connection_window - application_length, OutboundOpenStreamContentLength(stream_id, stream_window - application_length, expected_length, next_observed_length))))
 		end
 	end
 end
@@ -84,9 +83,9 @@ fn data_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let decision: BodyLengthDecision = receive_data(accepted_request_body_state()?, 9, 6, false, data_bytes()?)?
+	let decision: OutboundDataDecision = send_data(1, data_bytes()?, false, accepted_request_send_credit())?
 	match decision
-		BodyLengthAccepted(_) => Ok(())
-		BodyLengthRejected(failure) => project(failure)
+		OutboundDataAccepted(_, _, _) => Ok(())
+		OutboundDataRejected(_, _, _, failure) => project(failure)
 	end
 end
