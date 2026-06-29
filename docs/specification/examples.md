@@ -450,6 +450,11 @@ its returned `Encoded`, `Partial`, and `Invalid(EncodeError)`
 chunk list, produced `ByteCount`, and resumed encoder state source-visible,
 then uses the returned state to complete a later encode call.
 The executable specification case
+`../../examples/specification/run/codec-imported-encode-resume-boundary/`
+covers the same resume path through a written import-qualified `pub codec`
+item while the private schema and encoder remain owned by the declaring
+module.
+The executable specification case
 `../../examples/specification/run/codec-encode-error-direct-json/` covers
 command-facing JSON projection when a `veln run` entry returns a direct
 `EncodeError(...)` result failure without wrapping it in
