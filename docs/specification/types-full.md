@@ -205,16 +205,19 @@ expression.
 Ordinary same-module helpers and visible imported public helpers can provide
 the same expected-type context when their declared parameter type is already a
 concrete function type such as `fn(Int) -> String`,
-`fn(String, Int) -> Bool`, or `fn(String) -> () effects [stdio]`. A named
-private callback function value passed at that argument position receives the
-declared function parameter types for any omitted callback parameter
-annotations. The callback return still has to satisfy the helper's declared
-function return type. When that return type is concrete, it flows into
+`fn(String, Int) -> Bool`, `fn(String, ...String) -> List<String>`, or
+`fn(String) -> () effects [stdio]`. A named private callback function value
+passed at that argument position receives the declared fixed parameter types
+and, for a concrete variadic function type, the declared variadic element type
+for any omitted callback parameter annotations. The callback return still has
+to satisfy the helper's declared function return type. When that return type is
+concrete, it flows into
 non-empty callback tail expressions using the same constructor, record, and
 collection expected-type rules as prelude helper callback returns. Function
 effect assignment keeps the usual pure and effectful compatibility checks.
 This rule does not infer public callback signatures, exported aliases, or
-helper signatures whose function parameter type still contains `unknown`.
+helper signatures whose function parameter type still contains `unknown`,
+including an unknown variadic element type.
 Source-backed prelude helpers that do not have a compiler-known callback rule
 use the same declared-helper fallback for bare and `prelude::` calls when the
 embedded source signature contains a concrete function-typed callback

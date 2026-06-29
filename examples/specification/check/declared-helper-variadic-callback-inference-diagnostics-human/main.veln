@@ -1,0 +1,12 @@
+fn apply_variadic(label: String, callback: fn(String, ...String) -> List<String>) -> List<String>
+	callback(label, "one", "two")
+end
+
+fn collect(label, values: ...) -> List<String>
+	let numbers: List<Int> = values
+	values
+end
+
+pub fn main() -> List<String>
+	apply_variadic("items", collect)
+end

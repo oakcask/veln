@@ -74,6 +74,8 @@ behavior.
   [local-inference-callback-return-expected-type.md](local-inference-callback-return-expected-type.md).
 - Local inference constructor payload callback:
   [local-inference-constructor-payload-callback.md](local-inference-constructor-payload-callback.md).
+- Local inference variadic callback parameter:
+  [local-inference-variadic-callback-parameter.md](local-inference-variadic-callback-parameter.md).
 - Local inference non-empty collection initializer:
   [local-inference-non-empty-collection-initializer.md](local-inference-non-empty-collection-initializer.md).
 - Local inference ADT constructor payload:

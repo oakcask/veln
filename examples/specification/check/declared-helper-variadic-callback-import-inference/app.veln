@@ -1,0 +1,9 @@
+use helpers
+
+fn collect(label, values: ...) -> List<String>
+	values
+end
+
+pub fn main() -> List<String>
+	helpers::apply_variadic("items", collect)
+end

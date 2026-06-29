@@ -600,7 +600,7 @@ fn infer_private_function_call_site_signature_types(
                     function
                         .params
                         .iter()
-                        .map(|param| param.ty.is_none())
+                        .map(parameter_annotation_is_omitted)
                         .collect::<Vec<_>>(),
                     function.return_type.is_none(),
                 ),
@@ -863,20 +863,32 @@ fn collect_private_parameter_constraints(
     let Some(index) = function
         .params
         .iter()
-        .position(|param| param.name == *name && param.ty.is_none())
+        .position(|param| param.name == *name && parameter_annotation_is_omitted(param))
     else {
         return;
     };
     if !omitted_params.get(index).copied().unwrap_or(false) {
         return;
     }
-    update_private_signature_param(
-        context.constraints.functions,
-        caller_key,
-        index,
-        expected.clone(),
-        context.constraints.changed,
-    );
+    if function.params[index].is_variadic {
+        let Some(item_type) = expected.vec_part().filter(|ty| !type_has_unknown(ty)) else {
+            return;
+        };
+        update_private_signature_variadic(
+            context.constraints.functions,
+            caller_key,
+            item_type.clone(),
+            context.constraints.changed,
+        );
+    } else {
+        update_private_signature_param(
+            context.constraints.functions,
+            caller_key,
+            index,
+            expected.clone(),
+            context.constraints.changed,
+        );
+    }
 }
 
 fn collect_private_call_site_call_constraints(
@@ -976,10 +988,13 @@ fn private_expected_can_constrain(ty: &Type) -> bool {
         ty,
         Type::Function {
             params,
+            variadic,
             return_type,
             ..
-        } if params.iter().any(|param| !type_has_unknown(param))
+        } if !variadic.as_deref().is_some_and(type_has_unknown)
+            && (params.iter().any(|param| !type_has_unknown(param))
             || !type_has_unknown(return_type)
+            || variadic.as_deref().is_some_and(|ty| !type_has_unknown(ty)))
     )
 }
 
@@ -1074,8 +1089,10 @@ fn collect_private_function_value_constraints(
     expected: Option<&Type>,
     context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) {
+    let expected = expected.filter(|ty| private_expected_can_constrain(ty));
     let Some(Type::Function {
         params,
+        variadic,
         return_type,
         ..
     }) = expected
@@ -1089,6 +1106,9 @@ fn collect_private_function_value_constraints(
     if context.caller_key == Some(&target_key) {
         return;
     }
+    let Some(target_function) = context.constraints.function_by_path.get(&target_key) else {
+        return;
+    };
     let Some((omitted_params, omitted_return)) =
         context.constraints.omitted_private_slots.get(&target_key)
     else {
@@ -1104,6 +1124,20 @@ fn collect_private_function_value_constraints(
                 context.constraints.changed,
             );
         }
+    }
+    if let Some(variadic) = variadic.as_deref().filter(|ty| !type_has_unknown(ty))
+        && let Some(index) = target_function
+            .params
+            .iter()
+            .position(|param| param.is_variadic && parameter_annotation_is_omitted(param))
+        && omitted_params.get(index).copied().unwrap_or(false)
+    {
+        update_private_signature_variadic(
+            context.constraints.functions,
+            &target_key,
+            variadic.clone(),
+            context.constraints.changed,
+        );
     }
     if *omitted_return && !type_has_unknown(return_type) {
         update_private_signature_return(
@@ -1132,6 +1166,13 @@ fn private_call_site_declared_signature<'a>(
         }
         _ => None,
     }
+}
+
+fn parameter_annotation_is_omitted(param: &veln_ast::Param) -> bool {
+    param
+        .ty
+        .as_deref()
+        .is_none_or(|annotation| param.is_variadic && annotation.is_empty())
 }
 
 fn private_same_module_call_target(
@@ -1165,6 +1206,27 @@ fn update_private_signature_param(
         return;
     };
     let Some(current) = signature.params.get_mut(index) else {
+        return;
+    };
+    if type_has_unknown(current) {
+        *current = inferred;
+        *changed = true;
+    }
+}
+
+fn update_private_signature_variadic(
+    functions: &mut [FunctionSignature],
+    key: &(Option<String>, String),
+    inferred: Type,
+    changed: &mut bool,
+) {
+    let Some(signature) = functions
+        .iter_mut()
+        .find(|function| function.module_name == key.0 && function.name == key.1)
+    else {
+        return;
+    };
+    let Some(current) = signature.variadic.as_mut() else {
         return;
     };
     if type_has_unknown(current) {
@@ -5591,8 +5653,20 @@ impl<'a> TypeParser<'a> {
         while !self.at_end() && !self.at(')') {
             let is_variadic = self.eat_str("...");
             let ty = if is_variadic {
-                self.parse_type()
-                    .map_err(|_| "expected type after variadic marker".to_string())?
+                self.skip_ws();
+                if self.at(')') || self.at(',') {
+                    Type::Unknown
+                } else {
+                    let ty = self
+                        .parse_type()
+                        .map_err(|_| "expected type after variadic marker".to_string())?;
+                    match ty {
+                        Type::Named { name, args } if name == "unknown" && args.is_empty() => {
+                            Type::Unknown
+                        }
+                        ty => ty,
+                    }
+                }
             } else {
                 self.parse_type()?
             };
@@ -5980,6 +6054,24 @@ mod tests {
                 params: vec![Type::string()],
                 variadic: Some(Box::new(Type::string())),
                 return_type: Box::new(Type::unit()),
+                effects: Vec::new(),
+            })
+        );
+        assert_eq!(
+            parse_type_annotation("fn(String, ...) -> List<String>"),
+            Ok(Type::Function {
+                params: vec![Type::string()],
+                variadic: Some(Box::new(Type::Unknown)),
+                return_type: Box::new(Type::named("List", vec![Type::string()])),
+                effects: Vec::new(),
+            })
+        );
+        assert_eq!(
+            parse_type_annotation("fn(String, ...unknown) -> List<String>"),
+            Ok(Type::Function {
+                params: vec![Type::string()],
+                variadic: Some(Box::new(Type::Unknown)),
+                return_type: Box::new(Type::named("List", vec![Type::string()])),
                 effects: Vec::new(),
             })
         );

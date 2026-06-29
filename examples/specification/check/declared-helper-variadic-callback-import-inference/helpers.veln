@@ -1,0 +1,3 @@
+pub fn apply_variadic(label: String, callback: fn(String, ...String) -> List<String>) -> List<String>
+	callback(label, "one", "two")
+end

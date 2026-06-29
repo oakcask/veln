@@ -1,0 +1,74 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "private parameter `label` has no inferred type", "private parameter `values` has no inferred type", "private function has no inferred return type"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "repair_hint"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.message"
+equals = "Add a parameter type annotation."
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "repair_hint"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.message"
+equals = "Add a parameter type annotation."
+
+[[json_assert]]
+path = "diagnostics.2.related.0.kind"
+equals = "repair_hint"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.message"
+equals = "Add a return type annotation."
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `label` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 12
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `values` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 19
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 1

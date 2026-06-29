@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.variadic_parameter_position\"", "\"id\":\"type.variadic_parameter_duplicate\"", "\"id\":\"type.variadic_parameter_type\"", "\"actual_type\":\"... String\"", "\"actual_type\":\"List<...String>\"", "expected `String`, but found `Int`", "expected `fn(String, ...String) -> List<String>`, but found `fn(String, List<String>) -> List<String>`"]
+contains = ["\"id\":\"type.variadic_parameter_position\"", "\"id\":\"type.variadic_parameter_duplicate\"", "\"id\":\"type.private_inference_incomplete\"", "\"actual_type\":\"... String\"", "\"actual_type\":\"List<...String>\"", "expected `String`, but found `Int`", "expected `fn(String, ...String) -> List<String>`, but found `fn(String, List<String>) -> List<String>`"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 9
 
 [[diagnostics]]
 id = "type.variadic_parameter_position"
@@ -28,10 +28,10 @@ line = 2
 column = 18
 
 [[diagnostics]]
-id = "type.variadic_parameter_type"
+id = "type.private_inference_incomplete"
 severity = "error"
 kind = "type"
-message = "variadic parameter `values` is missing an element type"
+message = "private parameter `values` has no inferred type"
 
 [diagnostics.span]
 file = "main.veln"
