@@ -6,6 +6,7 @@ jdk = true
 
 [stdout]
 format = "json"
+contains = ["hpack-static-indexed-path-index hpack decoded :path /index.html wire_size 9 next_decode_count 1", "hpack-static-indexed-path-index-continuation-done hpack decoded :path /index.html wire_size 9 next_decode_count 1", "client-push-promise-status id http2.protocol.invalid_request_header_list offset 0 frame_kind 5 stream 1 failed_header_fact response_only_pseudo_header header_name :status decoded_header_names :status,:method,:scheme,:path active_state request-headers rule rfc9113_request_pseudo_headers"]
 
 [stderr]
 format = "empty"

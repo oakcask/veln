@@ -6,7 +6,8 @@ This record preserves the completed static indexed fixture slices from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable cases
-`../../../examples/specification/run/hpack-fixture-codec-boundary/` and
+`../../../examples/specification/run/hpack-fixture-codec-boundary/`,
+`../../../examples/specification/run/hpack-fixture-codec-json/`, and
 `../../../examples/specification/run/http2-protocol-core/`.
 
 ## Completed Behavior
@@ -38,6 +39,10 @@ still project through
   the focused `authority` decode, the two-header `method-path` decode, the
   complete static indexed table from `0x81` through `0xbd`, and the later
   dynamic-table interactions after those decodes.
+- `../../../examples/specification/run/hpack-fixture-codec-json/` checks
+  direct JSON-command decode of static indexed `0x85` as
+  `:path: /index.html` while preserving the unsupported header-block
+  diagnostic projection.
 - `../../../examples/specification/run/http2-protocol-core/` checks the
   completed HEADERS frame cases named `hpack-static-indexed-authority`,
   `hpack-static-indexed-method-path`, the full static table through

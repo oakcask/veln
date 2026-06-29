@@ -2555,7 +2555,10 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	indexed block that preserves `:method: GET` followed by `:path: /` in
 	the source-visible header list. The HTTP/2 protocol-core example also
 	carries static indexed `0x85` `:path: /index.html` through a completed
-	final CONTINUATION frame before HPACK decode. It also checks
+	final CONTINUATION frame before HPACK decode. The standalone
+	`hpack-fixture-codec-json` example directly decodes the same static
+	indexed byte before preserving the unsupported-header-block JSON
+	diagnostic projection. It also checks
 	literal-without-indexing,
 	literal-with-indexing,
 	and literal-never-indexed fixtures whose indexed-name form names a

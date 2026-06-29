@@ -20,6 +20,13 @@ fn bad_header_block() -> Result<ByteChunk, RuntimeDiagnostic>
 	end
 end
 
+fn path_index_header_block() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("85")
+		Ok(block) => Ok(block)
+		Err(error) => invalid_bad_header_block(error)
+	end
+end
+
 fn print_encode_result(label: String, result: Result<HpackEncodeTransition, HpackFixtureFailure>, expected_first_byte: Int) -> () effects [stdio]
 	match result
 		Ok(transition) => print_encode_success(label, transition, expected_first_byte)
@@ -64,7 +71,29 @@ fn print_encode_failure(label: String, failure: HpackFixtureFailure) -> () effec
 	stdio::println(failure_codec_module(failure))
 end
 
+fn print_decode_result(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
+	match result
+		Ok(transition) => print_decode_success(label, transition)
+		Err(failure) => print_encode_failure(label, failure)
+	end
+end
+
+fn print_decode_success(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
+	let headers: HpackHeaderList = decode_transition_headers(transition)
+	let state: HpackFixtureState = decode_transition_state(transition)
+	stdio::print(label)
+	stdio::print(" decoded ")
+	stdio::print(header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(header_list_first_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(state_encode_count(state)))
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic> effects [stdio]
+	print_decode_result("path-index", decode_header_block(path_index_header_block()?, initial_state(), 27))
 	print_encode_result("method-get", encode_header_list_with_state(static_indexed_method_get_headers(), initial_encode_state(), 0), 130)
 	print_encode_result("path-root", encode_header_list_with_state(static_indexed_path_root_headers(), initial_encode_state(), 0), 132)
 	print_encode_result("scheme-https", encode_header_list_with_state(static_indexed_scheme_https_headers(), initial_encode_state(), 0), 135)
