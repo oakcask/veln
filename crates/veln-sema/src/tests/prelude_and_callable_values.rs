@@ -12346,6 +12346,52 @@ fn local_function_binding_infers_private_callback_parameters() {
 }
 
 #[test]
+fn direct_return_infers_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value) -> String\n",
+            "  int_to_string(value)\n",
+            "end\n",
+            "fn emit(value) -> () effects [stdio]\n",
+            "  ()\n",
+            "end\n",
+            "fn callback_factory() -> fn(Int) -> String\n",
+            "  stringify\n",
+            "end\n",
+            "fn effect_callback_factory() -> fn(String) -> () effects [stdio]\n",
+            "  emit\n",
+            "end\n",
+            "pub fn main() -> {text: String, effect: ()} effects [stdio]\n",
+            "  let callback: fn(Int) -> String = callback_factory()\n",
+            "  let effectful: fn(String) -> () effects [stdio] = effect_callback_factory()\n",
+            "  let ignored: () = effectful(\"ready\")\n",
+            "  {text: callback(7), effect: ignored}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let stringify = core
+        .functions
+        .iter()
+        .find(|function| function.name == "stringify")
+        .expect("callback should be lowered");
+    assert_eq!(stringify.params[0].ty, CoreType::int());
+    let emit = core
+        .functions
+        .iter()
+        .find(|function| function.name == "emit")
+        .expect("effectful callback should be lowered");
+    assert_eq!(emit.params[0].ty, CoreType::string());
+}
+
+#[test]
 fn imported_declared_helpers_infer_private_callback_parameters() {
     let app_source = SourceFile::new(
         "app.veln",

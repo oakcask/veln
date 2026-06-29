@@ -245,6 +245,15 @@ callback returns. Ordinary function effect assignment keeps pure and effectful
 callback compatibility. Local binding function types that still contain
 `unknown` do not constrain callback parameters.
 
+When a function body tail expression is checked against a declared return type
+that is a concrete function type, a named same-module private callback function
+value returned directly from that body receives the declared returned function
+parameter types for omitted callback parameter annotations. The callback return
+still has to satisfy the declared returned function return type. Ordinary
+function effect assignment keeps pure and effectful callback compatibility.
+Declared returned function types that still contain `unknown` do not constrain
+callback parameters.
+
 When a source-declared constructor call is checked against a concrete expected
 ADT type, each concrete payload type provides expected-type context for the
 matching payload expression. When an expected payload type is a concrete
