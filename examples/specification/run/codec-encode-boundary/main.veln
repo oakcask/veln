@@ -1,8 +1,8 @@
-# Hand-written codec encode boundaries call the named encoder function and preserve partial output.
+# Hand-written codec encode boundaries preserve partial output and resume state.
 use stdio
 
 type Packet
-	Packet {length: Int, kind: Int}
+	Packet { length: Int, kind: Int }
 end
 
 schema PacketWire
@@ -20,11 +20,11 @@ codec PacketCodec for PacketWire encode
 	encode with encode_packet
 end
 
-fn encode_packet(packet: {length: Int, kind: Int}, chunks: List<ByteChunk>, produced: ByteCount, state: { remaining : ByteChunk, next_budget : ByteCount }) -> EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>
+fn encode_packet(packet: { length : Int, kind : Int }, state: { next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }) -> EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>
 	match packet.kind <= packet.length
-		true => match byte_count_to_int(byte_chunk_count(state.remaining)) == 0
-			true => Encoded(chunks)
-			false => Partial(chunks, produced, state)
+		true => match byte_count_to_int(state.encoded_offset) == 0
+			true => Partial(list_cons(state.next_chunk, list_nil()), byte_chunk_count(state.next_chunk), { next_chunk: state.remaining_chunk, remaining_chunk: state.empty_chunk, empty_chunk: state.empty_chunk, encoded_offset: byte_chunk_count(state.next_chunk) })
+			false => Encoded(list_cons(state.next_chunk, list_nil()))
 		end
 		false => Invalid(EncodeError("codec.out_of_range", "Packet.kind", "kind exceeds length"))
 	end
@@ -44,7 +44,7 @@ fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
 	end
 end
 
-fn step_kind(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> String
+fn step_kind(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> String
 	match step
 		Encoded(_) => "encoded"
 		Partial(_, _, _) => "partial"
@@ -52,7 +52,7 @@ fn step_kind(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }
 	end
 end
 
-fn emitted_chunks(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> Int
+fn emitted_chunks(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> Int
 	match step
 		Encoded(chunks) => chunk_count(chunks)
 		Partial(chunks, _, _) => chunk_count(chunks)
@@ -60,7 +60,7 @@ fn emitted_chunks(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCo
 	end
 end
 
-fn emitted_bytes(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> Int
+fn emitted_bytes(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> Int
 	match step
 		Encoded(chunks) => chunk_byte_count(chunks)
 		Partial(_, produced, _) => byte_count_to_int(produced)
@@ -68,23 +68,23 @@ fn emitted_bytes(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCou
 	end
 end
 
-fn pending_bytes(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> Int
+fn pending_bytes(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> Int
 	match step
 		Encoded(_) => 0
-		Partial(_, _, state) => byte_count_to_int(byte_chunk_count(state.remaining))
+		Partial(_, _, state) => byte_count_to_int(byte_chunk_count(state.next_chunk))
 		Invalid(_) => 0
 	end
 end
 
-fn pending_budget(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> Int
+fn resumed_offset(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> Int
 	match step
 		Encoded(_) => 0
-		Partial(_, _, state) => byte_count_to_int(state.next_budget)
+		Partial(_, _, state) => byte_count_to_int(state.encoded_offset)
 		Invalid(_) => 0
 	end
 end
 
-fn partial_state(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> Result<{ remaining : ByteChunk, next_budget : ByteCount }, String>
+fn partial_state(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> Result<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }, String>
 	match step
 		Encoded(_) => Err("expected partial encode")
 		Partial(_, _, state) => Ok(state)
@@ -92,7 +92,7 @@ fn partial_state(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCou
 	end
 end
 
-fn error_id(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> String
+fn error_id(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> String
 	match step
 		Encoded(_) => "none"
 		Partial(_, _, _) => "none"
@@ -100,7 +100,7 @@ fn error_id(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>
 	end
 end
 
-fn error_path(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> String
+fn error_path(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> String
 	match step
 		Encoded(_) => "none"
 		Partial(_, _, _) => "none"
@@ -108,7 +108,7 @@ fn error_path(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount 
 	end
 end
 
-fn error_reason(step: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }>) -> String
+fn error_reason(step: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }>) -> String
 	match step
 		Encoded(_) => "none"
 		Partial(_, _, _) => "none"
@@ -119,29 +119,26 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let first: ByteChunk = byte_chunk_from_hex("0007")?
 	let second: ByteChunk = byte_chunk_from_hex("03")?
+	let full: ByteChunk = byte_chunk_from_hex("000703")?
 	let empty: ByteChunk = byte_chunk_from_hex("")?
-	let chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
-	let no_remaining: { remaining : ByteChunk, next_budget : ByteCount } = { remaining: empty, next_budget: byte_count(0)? }
-	let encoded: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }> = PacketCodec({length: 7, kind: 3}, chunks, byte_count(3)?, no_remaining)
+	let complete_state: { next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount } = { next_chunk: full, remaining_chunk: empty, empty_chunk: empty, encoded_offset: byte_count(3)? }
+	let encoded: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }> = PacketCodec({ length: 7, kind: 3 }, complete_state)
 	stdio::println(step_kind(encoded))
 	stdio::println(int_to_string(emitted_chunks(encoded)))
 	stdio::println(int_to_string(emitted_bytes(encoded)))
-
-	let partial_state_value: { remaining : ByteChunk, next_budget : ByteCount } = { remaining: second, next_budget: byte_count(1)? }
-	let partial: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }> = PacketCodec({length: 7, kind: 3}, list_cons(first, list_nil()), byte_count(2)?, partial_state_value)
+	let initial_state: { next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount } = { next_chunk: first, remaining_chunk: second, empty_chunk: empty, encoded_offset: byte_count(0)? }
+	let partial: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }> = PacketCodec({ length: 7, kind: 3 }, initial_state)
 	stdio::println(step_kind(partial))
 	stdio::println(int_to_string(emitted_chunks(partial)))
 	stdio::println(int_to_string(emitted_bytes(partial)))
 	stdio::println(int_to_string(pending_bytes(partial)))
-	stdio::println(int_to_string(pending_budget(partial)))
-
-	let resume_state: { remaining : ByteChunk, next_budget : ByteCount } = partial_state(partial)?
-	let resumed: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }> = PacketCodec({length: 7, kind: 3}, list_cons(resume_state.remaining, list_nil()), resume_state.next_budget, no_remaining)
+	stdio::println(int_to_string(resumed_offset(partial)))
+	let resume_state: { next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount } = partial_state(partial)?
+	let resumed: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }> = PacketCodec({ length: 7, kind: 3 }, resume_state)
 	stdio::println(step_kind(resumed))
 	stdio::println(int_to_string(emitted_chunks(resumed)))
 	stdio::println(int_to_string(emitted_bytes(resumed)))
-
-	let invalid: EncodeStep<{ remaining : ByteChunk, next_budget : ByteCount }> = PacketCodec({length: 1, kind: 7}, list_nil(), byte_count(0)?, no_remaining)
+	let invalid: EncodeStep<{ next_chunk : ByteChunk, remaining_chunk : ByteChunk, empty_chunk : ByteChunk, encoded_offset : ByteCount }> = PacketCodec({ length: 1, kind: 7 }, complete_state)
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

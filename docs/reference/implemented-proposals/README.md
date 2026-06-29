@@ -154,6 +154,8 @@ behavior.
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Codec generated helper boundary slices:
   [codec-generated-helper-boundary-slices.md](codec-generated-helper-boundary-slices.md).
+- Codec hand-written encode resume:
+  [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec imported hand-written boundary:
   [codec-imported-hand-written-boundary.md](codec-imported-hand-written-boundary.md).
 - Codec imported derived boundary:

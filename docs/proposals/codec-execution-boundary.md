@@ -78,6 +78,8 @@ private schema or generated helper. It also keeps private imported codecs
 unavailable and keeps bare imported codec names from becoming ordinary call
 targets. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-derived-boundary.md).
+The completed same-module hand-written encode resume slice is recorded in the
+[implemented proposal record](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
 
 Define codec support for:
 
@@ -88,8 +90,9 @@ Define codec support for:
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper, generated-helper-backed
   derived codec encode, same-module and imported public budgeted derived codec
-  encode slices in `../specification/execution.md`, and beyond the
-  implemented hand-written partial encode preservation and resume example
+  encode slices in `../specification/execution.md`, and the implemented
+  hand-written partial encode preservation and resume slice archived under
+  [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md)
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -258,9 +261,10 @@ boundary exposes the codec item name as an ordinary source call that invokes
 the referenced encoder function with that function's parameters and returns
 its `EncodeStep<TState>` unchanged, including `Partial` values with emitted
 chunks, produced counts, and resumed state preserved as ordinary
-source-visible values. The checked example also uses the returned state to
-complete a later encode call. The
-implemented derived decode execution slice exposes the codec item name as an
+source-visible values. The same-module hand-written encode resume slice is
+archived under
+[Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
+The implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented generated binary schema
 decode-step slice, including same-module nested dispatch payload helper
@@ -339,8 +343,9 @@ used only by APIs where the caller supplied an output budget, chunk-size
 limit, or sink backpressure boundary. Unbounded helper APIs may collect all
 chunks and expose a simpler `Result<List<ByteChunk>, EncodeError>` wrapper.
 The implemented hand-written encode boundary preserves all three outcomes
-from the referenced encoder function unchanged, and the checked partial case
-uses the returned state to resume with the remaining chunk.
+from the referenced encoder function unchanged. The completed same-module
+hand-written encode resume slice is archived under
+[Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
 
 `Invalid` carries a structured `EncodeError` for values that cannot be
 represented by the codec: out-of-range exact-width fields, failed fixed or
@@ -385,8 +390,9 @@ encoder state owns only the remaining encode work.
   implemented exact-width, same-module nested dispatch payload, and public
   imported nested dispatch payload boundaries, hand-written plus eligible
   derived codec decode execution boundaries, and hand-written plus eligible
-  derived codec encode execution boundaries, including same-module and
-  imported public budgeted derived encode over generated helper output,
+  derived codec encode execution boundaries, including same-module
+  hand-written encode resume and same-module plus imported public budgeted
+  derived encode over generated helper output,
   selected structural mapping encode cases already accepted by the generated
   helper, same-module recursive closed and extension dispatch payload helpers,
   arithmetic-count and quotient-count repeated primitive fields, standalone

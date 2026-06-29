@@ -300,6 +300,8 @@ compare it with `../specification/` before changing behavior.
   and selected structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.
+  The completed same-module hand-written encode resume slice is archived under
+  [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
   The completed imported hand-written codec boundary is archived under
   [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
   The completed imported derived codec boundary is archived under
