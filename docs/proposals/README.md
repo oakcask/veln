@@ -397,7 +397,8 @@ compare it with `../specification/` before changing behavior.
   and eviction, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
   inbound table-size update placement diagnostics, checked outbound
-  dynamic table-size update encoding, checked outbound dynamic-name literal
+  dynamic table-size update encoding and state handoff into later HEADERS
+  and server-side `PUSH_PROMISE`, checked outbound dynamic-name literal
   fixture encoding, and checked outbound `PUSH_PROMISE` rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
