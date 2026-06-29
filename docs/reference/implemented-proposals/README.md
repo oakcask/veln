@@ -286,6 +286,8 @@ behavior.
   [runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md](runtime-diagnostic-http2-hpack-raw-request-trailer-payload.md).
 - Runtime diagnostic HTTP/2 HPACK raw request-trailer invalid-token payload:
   [runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md](runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md).
+- HTTP/2 response trailer validation:
+  [http2-response-trailer-validation.md](http2-response-trailer-validation.md).
 - Runtime diagnostic HTTP/2 closed-input helper payload:
   [runtime-diagnostic-http2-closed-helper-payload.md](runtime-diagnostic-http2-closed-helper-payload.md).
 - Runtime diagnostic HTTP/2 partial preface helper payload:

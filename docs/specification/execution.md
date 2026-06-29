@@ -2540,6 +2540,16 @@ execution reference.
   returns this payload directly as `Result<(), RuntimeDiagnostic>` after
   projecting the caller-provided `ByteView` preview into the diagnostic
   payload, so direct helper command output is rendered from the returned value.
+  After an initial inbound response HEADERS sequence opens a stream, a later
+  HEADERS sequence on that stream is treated as response trailers only when it
+  carries peer `END_STREAM`; accepted ordinary response trailer fields close
+  the stream by peer without consuming receive-window credit through completed
+  HEADERS and final CONTINUATION paths. A second response HEADERS block without
+  peer `END_STREAM` is rejected in response-trailer state. Response trailer
+  validation rejects pseudo-headers, uppercase ordinary names, ordinary names
+  outside the HTTP field-name token shape, connection-specific ordinary names,
+  and invalid `te` values through the structured response header-list
+  diagnostic fields with active state `response-trailers`.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

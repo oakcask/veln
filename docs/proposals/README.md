@@ -128,7 +128,8 @@ compare it with `../specification/` before changing behavior.
   invalid DATA padding protocol byte preview, plus HTTP/2 frame-size,
   header-list, header-table, concurrent-stream receive-limit, and
   stream-after-GOAWAY protocol byte previews, and HTTP/2 request, response,
-  and request-trailer header-list validation protocol byte previews.
+  request-trailer, and response-trailer header-list validation protocol byte
+  previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
@@ -421,7 +422,8 @@ compare it with `../specification/` before changing behavior.
   promised response HEADERS admission including local disable-push receive
   policy, and
   half-closed-by-peer outbound DATA send-intent slices,
-  request-side, response-side, and request-trailer header-list validation,
+  request-side, response-side, request-trailer, and response-trailer
+  header-list validation,
   the source-visible request `:path` value rule, the source-visible `te`
   header value rule, the `content-length`
   header-list consistency slice, accepted `content-length` body-length

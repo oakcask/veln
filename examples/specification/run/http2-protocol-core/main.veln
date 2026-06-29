@@ -133,6 +133,7 @@ type StreamPriorityState
 	NoStreamPriority
 	StreamPriority(Int, Bool, Int)
 	ExpectedContentLength(Int, Int, StreamPriorityState)
+	ResponseHeaderStream(StreamPriorityState)
 end
 
 type OpenStreamReceiveWindow
@@ -197,7 +198,7 @@ type Http2ProtocolFailure
 	InvalidDataPadding {offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	ContentLengthMismatch {offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	InvalidRequestHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview_chunk: ByteChunk}
-	InvalidResponseHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview_chunk: ByteChunk}
+	InvalidResponseHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, preview_chunk: ByteChunk}
 	UnexpectedSettingsAck(Int, String, String, ByteView)
 	InvalidPriorityDependency {offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	StreamAfterGoaway {offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview_chunk: ByteChunk}
@@ -802,8 +803,8 @@ fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, n
 	match decode_completed_header_list(next_offset, kind, flags, stream_id, completed_header_block, hpack_state)
 		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_table_size_update(next_offset, kind, flags, stream_id, completed_header_block, headers, next_hpack_state)
 			HeaderTableSizeOk => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size, completed_header_block)
-				HeaderListSizeOk => match validate_trailer_end_stream(next_offset, kind, stream_id, headers, completed_is_trailer)
-					TrailerEndStreamOk => match validate_trailer_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block, completed_is_trailer)
+				HeaderListSizeOk => match validate_trailer_end_stream(next_offset, kind, stream_id, headers, completed_is_trailer, state_receive_flow_control(consumed_state))
+					TrailerEndStreamOk => match validate_trailer_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block, completed_is_trailer, state_receive_flow_control(consumed_state))
 						TrailerHeaderListOk => match completed_is_trailer
 							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, consumed_state)
 							false => match validate_request_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block)
@@ -828,7 +829,7 @@ end
 
 fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
-	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
+	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
 	match flow_control_decision
 		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state))?
 			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
@@ -961,38 +962,73 @@ fn validate_response_header_list(offset: Int, kind: Int, flags: Int, stream_id: 
 	end
 end
 
-fn validate_trailer_end_stream(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool) -> TrailerEndStreamDecision
+fn validate_trailer_end_stream(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerEndStreamDecision
 	match hpack_fixture::header_list_is_trailer(headers) and not completed_is_trailer
-		true => TrailerEndStreamFailed(InvalidFrameKind(offset, kind, stream_id, 1, "request-trailers", "request_trailers_require_end_stream"))
+		true => TrailerEndStreamFailed(InvalidFrameKind(offset, kind, stream_id, 1, trailer_active_state(stream_id, receive_flow_control), trailer_end_stream_rule(stream_id, receive_flow_control)))
 		false => TrailerEndStreamOk
+	end
+end
+
+fn trailer_active_state(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> String
+	match stream_is_response_for_trailers(stream_id, receive_flow_control)
+		true => "response-trailers"
+		false => "request-trailers"
+	end
+end
+
+fn trailer_end_stream_rule(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> String
+	match stream_is_response_for_trailers(stream_id, receive_flow_control)
+		true => "response_trailers_require_end_stream"
+		false => "request_trailers_require_end_stream"
+	end
+end
+
+fn stream_is_response_for_trailers(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _, priority)) => stream_id == open_stream_id and stream_priority_is_response(priority)
+		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, first_priority, second_stream_id, _, second_priority)) => match stream_id == first_stream_id
+			true => stream_priority_is_response(first_priority)
+			false => stream_id == second_stream_id and stream_priority_is_response(second_priority)
+		end
+		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, priority, _)) => stream_id == open_stream_id and stream_priority_is_response(priority)
+		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, priority)) => stream_id == open_stream_id and stream_priority_is_response(priority)
+		ReceiveFlowControl(_, _) => false
+	end
+end
+
+fn stream_priority_is_response(priority: StreamPriorityState) -> Bool
+	match priority
+		ResponseHeaderStream(_) => true
+		ExpectedContentLength(_, _, inner) => stream_priority_is_response(inner)
+		_ => false
 	end
 end
 
 fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> ResponseHeaderListDecision
 	match hpack_fixture::header_list_has_duplicate_status(headers)
-		true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+		true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 		false => match hpack_fixture::header_list_has_pseudo_header_after_regular(headers)
-			true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+			true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 			false => match hpack_fixture::header_list_has_authority(headers)
-				true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+				true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":authority", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 				false => match hpack_fixture::header_list_has_method(headers)
-					true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+					true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 					false => match hpack_fixture::header_list_has_scheme(headers)
-						true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+						true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 						false => match hpack_fixture::header_list_has_path(headers)
-							true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+							true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 							false => match hpack_fixture::header_list_has_status(headers)
-								false => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+								false => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 								true => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 									false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 										false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 											false => match hpack_fixture::header_list_has_invalid_content_length(headers)
-												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 												false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
-													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 													false => ResponseHeaderListOk
 												end
 											end
@@ -1008,14 +1044,17 @@ fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: In
 	end
 end
 
-fn validate_trailer_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, completed_is_trailer: Bool) -> TrailerHeaderListDecision
+fn validate_trailer_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerHeaderListDecision
 	match header_list_boundary_reached(kind, flags) and completed_is_trailer
 		false => TrailerHeaderListOk
-		true => validate_completed_trailer_header_list(offset, kind, stream_id, headers, completed_header_block)
+		true => match stream_is_response_for_trailers(stream_id, receive_flow_control)
+			true => validate_completed_response_trailer_header_list(offset, kind, stream_id, headers, completed_header_block)
+			false => validate_completed_request_trailer_header_list(offset, kind, stream_id, headers, completed_header_block)
+		end
 	end
 end
 
-fn validate_completed_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
+fn validate_completed_request_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
 	match hpack_fixture::header_list_has_pseudo_header(headers)
 		true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::header_list_first_pseudo_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 		false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
@@ -1026,6 +1065,25 @@ fn validate_completed_trailer_header_list(offset: Int, kind: Int, stream_id: Int
 					true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 					false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
 						true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+						false => TrailerHeaderListOk
+					end
+				end
+			end
+		end
+	end
+end
+
+fn validate_completed_response_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
+	match hpack_fixture::header_list_has_pseudo_header(headers)
+		true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::header_list_first_pseudo_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
+		false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
+			true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
+			false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
+				true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
+				false => match hpack_fixture::header_list_has_connection_specific_header(headers)
+					true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
+					false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
+						true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
 						false => TrailerHeaderListOk
 					end
 				end
@@ -3198,9 +3256,9 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 	end
 end
 
-fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match kind == 1
-		true => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, shutdown_state, receive_flow_control)
+		true => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control)
 		false => match kind == 0
 			true => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
 			false => match kind == 3
@@ -3210,7 +3268,7 @@ fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kin
 					false => match kind == 9
 						true => match promised_stream_id > 0
 							true => reserve_push_promise_stream(offset, stream_id, promised_stream_id, receive_flow_control)
-							false => complete_continuation_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, receive_flow_control)
+							false => complete_continuation_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
 						end
 						false => match kind == 2
 							true => update_priority_receive_state(pending, offset, length, stream_id, receive_flow_control)
@@ -3236,16 +3294,17 @@ fn reserve_push_promise_stream(offset: Int, stream_id: Int, promised_stream_id: 
 	end
 end
 
-fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	let headers_priority: StreamPriorityState = headers_priority_from_frame(pending, length, flags)?
 	let preview_chunk: ByteChunk = byte_view_to_chunk(frame_header_preview(length, 1, flags, stream_id)?)
+	let header_priority_state: StreamPriorityState = stream_priority_with_header_side(headers, completed_is_trailer, headers_priority)
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
-			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, headers_priority, end_stream, accepted_content_length)
+			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, header_priority_state, end_stream, accepted_content_length)
 			ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 		end
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, headers_priority), end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
 				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
@@ -3262,9 +3321,9 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 			end
 		end
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, headers_priority), end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
-				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, headers_priority, end_stream, accepted_content_length)
+				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, header_priority_state, end_stream, accepted_content_length)
 				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
 					ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 					ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
@@ -3340,9 +3399,20 @@ fn stream_priority_with_accepted_content_length(priority: StreamPriorityState, a
 	end
 end
 
+fn stream_priority_with_header_side(headers: HpackHeaderList, completed_is_trailer: Bool, priority: StreamPriorityState) -> StreamPriorityState
+	match completed_is_trailer
+		true => priority
+		false => match hpack_fixture::header_list_is_response(headers)
+			true => ResponseHeaderStream(priority)
+			false => priority
+		end
+	end
+end
+
 fn stream_priority_without_content_length(priority: StreamPriorityState) -> StreamPriorityState
 	match priority
 		ExpectedContentLength(_, _, inner) => stream_priority_without_content_length(inner)
+		ResponseHeaderStream(inner) => ResponseHeaderStream(stream_priority_without_content_length(inner))
 		_ => priority
 	end
 end
@@ -3350,6 +3420,7 @@ end
 fn stream_priority_with_priority(priority: StreamPriorityState, next_priority: StreamPriorityState) -> StreamPriorityState
 	match priority
 		ExpectedContentLength(expected_length, observed_length, _) => ExpectedContentLength(expected_length, observed_length, next_priority)
+		ResponseHeaderStream(inner) => ResponseHeaderStream(stream_priority_with_priority(inner, next_priority))
 		_ => next_priority
 	end
 end
@@ -3364,6 +3435,7 @@ end
 fn stream_priority_content_length_expected(priority: StreamPriorityState) -> Int
 	match priority
 		ExpectedContentLength(expected_length, _, _) => expected_length
+		ResponseHeaderStream(inner) => stream_priority_content_length_expected(inner)
 		_ => -1
 	end
 end
@@ -3371,6 +3443,7 @@ end
 fn stream_priority_content_length_observed(priority: StreamPriorityState) -> Int
 	match priority
 		ExpectedContentLength(_, observed_length, _) => observed_length
+		ResponseHeaderStream(inner) => stream_priority_content_length_observed(inner)
 		_ => 0
 	end
 end
@@ -3378,6 +3451,10 @@ end
 fn update_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, application_length: Int, end_stream: Bool, active_state: String, preview: ByteChunk, priority: StreamPriorityState) -> Result<ContentLengthBodyDecision, String>
 	match priority
 		ExpectedContentLength(expected_length, observed_length, inner) => validate_content_length_body(offset, frame_kind, stream_id, expected_length, observed_length + application_length, end_stream, active_state, preview, inner)
+		ResponseHeaderStream(inner) => match update_content_length_body(offset, frame_kind, stream_id, application_length, end_stream, active_state, preview, inner)?
+			ContentLengthBodyOk(next_inner) => Ok(ContentLengthBodyOk(ResponseHeaderStream(next_inner)))
+			ContentLengthBodyFailed(error) => Ok(ContentLengthBodyFailed(error))
+		end
 		_ => Ok(ContentLengthBodyOk(priority))
 	end
 end
@@ -3392,9 +3469,9 @@ fn validate_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, ex
 	end
 end
 
-fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match accepted_content_length >= 0
-		true => complete_continuation_receive_stream_with_content_length(offset, stream_id, end_stream, accepted_content_length, receive_flow_control)
+		true => complete_continuation_receive_stream_with_content_length(offset, stream_id, end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
 		false => match end_stream
 			false => Ok(ReceiveFlowControlOk(receive_flow_control))
 			true => Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
@@ -3402,21 +3479,22 @@ fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream:
 	end
 end
 
-fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	let header_priority_state: StreamPriorityState = stream_priority_with_header_side(headers, completed_is_trailer, NoStreamPriority)
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
-				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, NoStreamPriority, end_stream, accepted_content_length)
+				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, header_priority_state, end_stream, accepted_content_length)
 				false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 			end
 		end
 		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
-			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, end_stream, accepted_content_length)
+			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		_ => Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
@@ -4275,6 +4353,7 @@ fn stream_priority_label(priority: StreamPriorityState) -> String
 	match priority
 		StreamPriority(_, _, _) => "tracked"
 		ExpectedContentLength(_, _, inner) => stream_priority_label(inner)
+		ResponseHeaderStream(inner) => stream_priority_label(inner)
 		NoStreamPriority => "none"
 	end
 end
@@ -4302,6 +4381,7 @@ fn stream_priority_dependency_stream_id(priority: StreamPriorityState) -> Int
 	match priority
 		StreamPriority(dependency_stream_id, _, _) => dependency_stream_id
 		ExpectedContentLength(_, _, inner) => stream_priority_dependency_stream_id(inner)
+		ResponseHeaderStream(inner) => stream_priority_dependency_stream_id(inner)
 		NoStreamPriority => 0
 	end
 end
@@ -4329,6 +4409,7 @@ fn stream_priority_exclusive(priority: StreamPriorityState) -> Bool
 	match priority
 		StreamPriority(_, exclusive, _) => exclusive
 		ExpectedContentLength(_, _, inner) => stream_priority_exclusive(inner)
+		ResponseHeaderStream(inner) => stream_priority_exclusive(inner)
 		NoStreamPriority => false
 	end
 end
@@ -4356,6 +4437,7 @@ fn stream_priority_weight(priority: StreamPriorityState) -> Int
 	match priority
 		StreamPriority(_, _, weight) => weight
 		ExpectedContentLength(_, _, inner) => stream_priority_weight(inner)
+		ResponseHeaderStream(inner) => stream_priority_weight(inner)
 		NoStreamPriority => 0
 	end
 end
@@ -4390,7 +4472,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => failure_rule_provenance(error)
@@ -4934,7 +5016,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => failure_rule_provenance(error)
@@ -5353,7 +5435,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "http2.protocol.invalid_data_padding"
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "http2.protocol.content_length_mismatch"
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "http2.protocol.invalid_request_header_list"
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "http2.protocol.invalid_response_header_list"
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "http2.protocol.invalid_response_header_list"
 			UnexpectedSettingsAck(_, _, _, _) => "http2.protocol.unexpected_settings_ack"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "http2.protocol.stream_after_goaway"
@@ -5424,7 +5506,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => offset
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => offset
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => offset
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => offset
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => offset
 		UnexpectedSettingsAck(offset, _, _, _) => offset
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => offset
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => offset
@@ -5452,7 +5534,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5480,7 +5562,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => frame_kind
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => frame_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 2
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 1
@@ -5508,7 +5590,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => stream_id
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => stream_id
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => stream_id
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => stream_id
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => stream_id
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => stream_id
@@ -5536,7 +5618,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => dependency_stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => last_stream_id
@@ -5564,7 +5646,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => frame_kind
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => frame_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 2
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 1
@@ -5592,7 +5674,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5620,7 +5702,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 			UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5648,7 +5730,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => pad_length
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => observed_length
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => stream_id
@@ -5676,7 +5758,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => remaining_payload_length
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => expected_length
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => dependency_stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => last_stream_id
@@ -5704,7 +5786,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => active_state
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => active_state
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => request_header_active_state(failed_header_fact, decoded_header_names)
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "response-headers"
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => active_state
 			UnexpectedSettingsAck(_, active_state, _, _) => active_state
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => active_state
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => shutdown_state
@@ -5784,8 +5866,11 @@ fn response_header_rule_provenance(failed_header_fact: String) -> String
 			false => match failed_header_fact == "te_header_value_not_trailers"
 				true => "rfc9113_te_trailers_only"
 				false => match failed_header_fact == "content_length_invalid" or failed_header_fact == "content_length_mismatch"
-					true => "rfc9113_content_length"
-					false => "rfc9113_response_pseudo_headers"
+				true => "rfc9113_content_length"
+					false => match failed_header_fact == "trailer_pseudo_header"
+						true => "rfc9113_trailer_pseudo_headers"
+						false => "rfc9113_response_pseudo_headers"
+					end
 				end
 			end
 		end
@@ -5805,7 +5890,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => rule_provenance
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => rule_provenance
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => request_header_rule_provenance(failed_header_fact)
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => response_header_rule_provenance(failed_header_fact)
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => response_header_rule_provenance(failed_header_fact)
 			UnexpectedSettingsAck(_, _, rule_provenance, _) => rule_provenance
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => rule_provenance
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => rule_provenance
@@ -5836,7 +5921,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "none"
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
@@ -5864,7 +5949,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5892,7 +5977,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "none"
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
@@ -5920,7 +6005,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5948,7 +6033,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -5976,7 +6061,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
@@ -6004,7 +6089,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "none"
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
@@ -6022,7 +6107,7 @@ end
 fn failure_header_fact(failure: Http2ProtocolFailure) -> String
 	match failure
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failed_header_fact
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failed_header_fact
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => failed_header_fact
 		_ => "none"
 	end
 end
@@ -6030,7 +6115,7 @@ end
 fn failure_header_name(failure: Http2ProtocolFailure) -> String
 	match failure
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => header_name
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => header_name
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => header_name
 		_ => "none"
 	end
 end
@@ -6038,7 +6123,7 @@ end
 fn failure_decoded_header_names(failure: Http2ProtocolFailure) -> String
 	match failure
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => decoded_header_names
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => decoded_header_names
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => decoded_header_names
 		_ => "none"
 	end
 end
@@ -6207,7 +6292,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview))
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview))
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
 			UnexpectedSettingsAck(offset, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview))
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_priority_dependency_payload(offset, stream_id, dependency_stream_id, active_state, rule_provenance, byte_view_to_chunk(preview)))
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => accept_runtime_diagnostic(http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, byte_chunk_view(preview_chunk)?))
@@ -6270,7 +6355,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "none"
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "request pseudo-header list"
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "response pseudo-header list"
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "response pseudo-header list"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
@@ -6298,7 +6383,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
 			ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => "none"
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "server"
-			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "server"
+			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "server"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => endpoint_role
@@ -6327,7 +6412,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => 0
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
-		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
+		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -8228,6 +8313,10 @@ fn request_headers_open_stream() -> Result<Http2Step, String>
 	receive(InputChunk(byte_chunk_from_hex("000003010400000001303132")?), frame_state())
 end
 
+fn response_headers_open_stream() -> Result<Http2Step, String>
+	receive(InputChunk(byte_chunk_from_hex("000003010400000001353637")?), frame_state())
+end
+
 fn print_trailing_headers_cases() -> Result<(), String> effects [stdio]
 	let initial_request: Http2Step = request_headers_open_stream()?
 	print_step("trailers-initial-request", initial_request)
@@ -8283,6 +8372,46 @@ fn print_trailing_headers_cases() -> Result<(), String> effects [stdio]
 	let te_initial_request: Http2Step = request_headers_open_stream()?
 	let te_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000125262728")?), step_state(te_initial_request))?
 	print_request_header_failure("trailers-bad-te", te_trailers)
+	Ok(())
+end
+
+fn print_response_trailing_headers_cases() -> Result<(), String> effects [stdio]
+	let initial_response: Http2Step = response_headers_open_stream()?
+	print_step("response-trailers-initial-response", initial_response)
+	print_receive_windows("response-trailers-initial-response", step_state(initial_response))
+	let accepted_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000121222324")?), step_state(initial_response))?
+	print_step("response-trailers-accepted", accepted_trailers)
+	let ignored_accepted_trailers: () = emit_header_block("http2-response-trailers-accepted", accepted_trailers, "21222324")?
+	print_hpack_transition("response-trailers-accepted", accepted_trailers)
+	print_closed_by_peer_stream("response-trailers-accepted", step_state(accepted_trailers))
+	let data_after_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(accepted_trailers))?
+	print_failure("response-trailers-then-data", data_after_trailers)
+	let missing_end_stream_initial_response: Http2Step = response_headers_open_stream()?
+	let missing_end_stream_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000121222324")?), step_state(missing_end_stream_initial_response))?
+	print_failure("response-trailers-missing-end-stream", missing_end_stream_trailers)
+	let continuation_initial_response: Http2Step = response_headers_open_stream()?
+	let trailer_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020101000000012122")?), step_state(continuation_initial_response))?
+	print_step("response-trailers-continuation-start", trailer_continuation_start)
+	let trailer_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000012324")?), step_state(trailer_continuation_start))?
+	print_step("response-trailers-continuation-done", trailer_continuation_done)
+	let ignored_trailers_continuation: () = emit_header_block("http2-response-trailers-continuation", trailer_continuation_done, "21222324")?
+	print_hpack_transition("response-trailers-continuation-done", trailer_continuation_done)
+	print_closed_by_peer_stream("response-trailers-continuation", step_state(trailer_continuation_done))
+	let pseudo_initial_response: Http2Step = response_headers_open_stream()?
+	let pseudo_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101050000000182")?), step_state(pseudo_initial_response))?
+	print_request_header_failure("response-trailers-pseudo-header", pseudo_trailers)
+	let uppercase_initial_response: Http2Step = response_headers_open_stream()?
+	let uppercase_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000122232425")?), step_state(uppercase_initial_response))?
+	print_request_header_failure("response-trailers-uppercase-ordinary", uppercase_trailers)
+	let token_initial_response: Http2Step = response_headers_open_stream()?
+	let token_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000123242526")?), step_state(token_initial_response))?
+	print_request_header_failure("response-trailers-bad-token-ordinary", token_trailers)
+	let connection_initial_response: Http2Step = response_headers_open_stream()?
+	let connection_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000124252627")?), step_state(connection_initial_response))?
+	print_request_header_failure("response-trailers-connection-specific", connection_trailers)
+	let te_initial_response: Http2Step = response_headers_open_stream()?
+	let te_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000125262728")?), step_state(te_initial_response))?
+	print_request_header_failure("response-trailers-bad-te", te_trailers)
 	Ok(())
 end
 
@@ -9329,6 +9458,7 @@ fn print_response_header_validation_cases(state: Http2DecodeState) -> Result<(),
 	print_request_header_failure("response-headers-content-length-whitespace", response_headers_content_length_whitespace)
 	let response_headers_content_length_negative: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000015e5f6061")?), state)?
 	print_request_header_failure("response-headers-content-length-negative", response_headers_content_length_negative)
+	let ignored_response_trailing_headers_cases: () = print_response_trailing_headers_cases()?
 	Ok(())
 end
 

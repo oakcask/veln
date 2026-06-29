@@ -1,0 +1,48 @@
+# HTTP/2 response trailer validation failures project structured runtime details.
+
+type Http2ProtocolFailure
+	InvalidResponseHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview: ByteChunk}
+end
+
+type Http2DiagnosticContext
+	DiagnosticContext(String, String)
+end
+
+fn context_active_state(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(active_state, _) => active_state
+	end
+end
+
+fn context_rule_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(_, rule_provenance) => rule_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
+	match failure
+		InvalidResponseHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_response_header_list", message, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview)))
+	end
+end
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_response_header_list",
+		error,
+		RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, "trailer_pseudo_header", ":status", ":status", "response-trailers", "rfc9113_trailer_pseudo_headers", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("88")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let context: Http2DiagnosticContext = DiagnosticContext("response-trailers", "rfc9113_trailer_pseudo_headers")
+	let preview: ByteChunk = preview_bytes()?
+	http2_protocol_diagnostic(InvalidResponseHeaderList("HTTP/2 response trailer list contains pseudo-header :status at byte offset 12", 12, 1, 1, "trailer_pseudo_header", ":status", ":status", preview), context)
+end

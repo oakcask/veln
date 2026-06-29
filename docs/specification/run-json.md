@@ -722,6 +722,10 @@ header-block preview. The larger
 protocol-core fixture also checks valid ordinary response header lists,
 including accepted `te: trailers` and accepted `content-length` values,
 through integrated completed HEADERS and final CONTINUATION paths.
+The larger protocol-core fixture also checks response trailer validation
+through the same response header-list diagnostic fields with active state
+`response-trailers`; a focused JSON case checks the same active state in
+diagnostic projection.
 Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
