@@ -329,6 +329,7 @@ compare it with `../specification/` before changing behavior.
   repeated primitive fields, same-module recursive closed and extension
   dispatch payload helpers, byte-aligned representation-only
   `ReservedBits(width, value)` fields through the derived decode boundary,
+  derived bounded `ByteView` plus explicit base-offset decode projection,
   standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups,
   opt-in visible flag bitset fields, including generated-helper-backed

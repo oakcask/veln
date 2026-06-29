@@ -91,24 +91,24 @@ fn error_path(step: DecodeStep<{high: Int, low: Int}>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let complete_bytes: ByteChunk = byte_chunk_from_hex("ae")?
-	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(1)?)?
+	let complete_bytes: ByteChunk = byte_chunk_from_hex("00ae")?
+	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(1)?, byte_count(1)?)?
 	let complete: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(complete_view, byte_offset(32)?)
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_high(complete)))
 	stdio::println(int_to_string(decoded_low(complete)))
 	stdio::println(int_to_string(consumed_count(complete)))
 
-	let short_bytes: ByteChunk = byte_chunk_from_hex("")?
-	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(0)?)?
+	let short_bytes: ByteChunk = byte_chunk_from_hex("ff")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(1)?, byte_count(0)?)?
 	let waiting: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(short_view, byte_offset(64)?)
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let invalid_bytes: ByteChunk = byte_chunk_from_hex("be")?
-	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(1)?)?
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("00be")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(1)?, byte_count(1)?)?
 	let invalid: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(invalid_view, byte_offset(96)?)
 	stdio::println(step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))

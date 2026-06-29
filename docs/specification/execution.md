@@ -1666,7 +1666,10 @@ execution reference.
   `ByteView` and explicit base `ByteOffset` and returns the same
   `DecodeStep<T>` value as
   `byte_decode_step_<schema>`, including mapped record values,
-  `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
+  `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. Invalid
+  schema input reports the generated helper's absolute byte offset from the
+  explicit base offset and field-local byte position, independent of the
+  `ByteView`'s storage offset inside its source chunk. The
   written import-qualified call to a `pub codec` declared in another module
   uses the same derived decode boundary while keeping the referenced schema
   and generated helper owned by the declaring module. The

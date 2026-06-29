@@ -45,9 +45,13 @@ payload field shapes. The implemented derived codec boundary also covers the
 narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, with
 successful decode, short-input `NeedMore`, non-consuming reserved-bit
 `Invalid` projection, JSON diagnostic projection, and encode helper behavior.
-The
-implemented hand-written decode boundary also covers a bounded `ByteView` plus
-caller-supplied base `ByteOffset` example that returns `Decoded` with a
+The implemented derived codec decode boundary also covers a caller-supplied
+bounded `ByteView` plus explicit base `ByteOffset`, including success from a
+nonzero view offset, non-consuming `NeedMore`, and malformed generated-helper
+input reported at the absolute byte offset derived from the explicit base
+offset rather than the view's storage offset.
+The implemented hand-written decode boundary also covers a bounded `ByteView`
+plus caller-supplied base `ByteOffset` example that returns `Decoded` with a
 consumed `ByteCount`, returns non-consuming `NeedMore` for short input, and
 reports malformed input at the absolute offset derived from the base offset
 plus the local byte position.
@@ -97,11 +101,11 @@ closed-input projection slice is recorded in the
 
 Define codec support for:
 
-- remaining schema-driven decoding from `ByteView` plus an explicit input
-  position, beyond the implemented hand-written boundary, generated binary
-  schema decode-step helper slices, and generated-helper-backed codec slices in
-  `../specification/execution.md`, which now include direct invalid-input
-  projection at explicit absolute offsets
+- remaining schema-driven decoding beyond the implemented hand-written
+  boundary, generated binary schema decode-step helper slices, and
+  generated-helper-backed codec slices in `../specification/execution.md`,
+  which now include bounded `ByteView` plus explicit base `ByteOffset`
+  invalid-input projection at absolute offsets
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper, generated-helper-backed
   derived codec encode, same-module and imported public budgeted derived codec
@@ -435,8 +439,9 @@ encoder state owns only the remaining encode work.
   fields, wide reserved suffix and prefix groups, generated-helper-backed
   `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper
   shape, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper
-  route, and the caller-owned parser-state retention and hand-written bounded
-  `ByteView` base-offset `NeedMore` examples, including same-module
+  route, derived bounded `ByteView` plus explicit base-offset decode
+  projection, and the caller-owned parser-state retention and hand-written
+  bounded `ByteView` base-offset `NeedMore` examples, including same-module
   hand-written `NeedEnd` readiness preservation and closed-input projection.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.

@@ -2485,8 +2485,9 @@ against the built `veln` binary.
   outcomes.
 - `run/derived-codec-middle-reserved-decode-boundary/`: the same `derive
   decode` boundary observes generated decode-step helper output for a
-  supported middle reserved-bit layout, including readiness and reserved-bit
-  mismatch outcomes.
+  supported middle reserved-bit layout from nonzero bounded view offsets,
+  including readiness and reserved-bit mismatch outcomes at the explicit base
+  offset.
 - `run/derived-codec-interleaved-reserved-decode-boundary/`: the same
   `derive decode` boundary observes generated decode-step helper output for
   an interleaved reserved-bit layout with one reserved field and three visible

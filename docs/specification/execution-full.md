@@ -327,11 +327,13 @@ decoded-field selected schema mappings already accepted by
 `ByteView` and explicit base `ByteOffset` and returns the same
 `DecodeStep<T>` value as
 `byte_decode_step_<schema>`, including mapped record values. `Decoded` reports
-the exact consumed byte count; `NeedMore` and `Invalid` consume no bytes. For
-the implemented structural mapping slice, `T` is the mapping target record
-shape when each assignment source has the same implemented decoded field type
-as the target field and all selected mappings resolve to that same record
-shape.
+the exact consumed byte count; `NeedMore` and `Invalid` consume no bytes.
+Invalid schema input reports the generated helper's absolute byte offset from
+the explicit base offset and field-local byte position, independent of the
+`ByteView`'s storage offset inside its source chunk. For the implemented
+structural mapping slice, `T` is the mapping target record shape when each
+assignment source has the same implemented decoded field type as the target
+field and all selected mappings resolve to that same record shape.
 A `derive decode` clause is rejected with `codec.derive_helper_unsupported`
 when the referenced schema cannot expose the required generated decode-step
 helper.

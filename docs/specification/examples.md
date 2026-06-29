@@ -266,9 +266,10 @@ item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
 `../../examples/specification/run/derived-codec-middle-reserved-decode-boundary/`
 covers the same derived codec call boundary for a middle reserved-bit binary
-layout. It checks successful decode, short-input readiness, and a
-reserved-bit mismatch whose `DecodeError` preserves the reserved field path
-and byte offset.
+layout. It checks successful decode from a nonzero bounded view offset,
+short-input readiness without consumption, and a reserved-bit mismatch whose
+`DecodeError` preserves the reserved field path and reports the absolute byte
+offset from the explicit base offset rather than the view's storage offset.
 The executable specification case
 `../../examples/specification/run/derived-codec-six-byte-reserved-suffix-boundary/`
 covers the same derived codec decode and encode item boundary for a six-byte
