@@ -4305,6 +4305,43 @@ pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<ByteViewLengthExpr>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ByteViewMultipleConstraint {
+    Field(String),
+    Literal(i64),
+}
+
+impl ByteViewMultipleConstraint {
+    pub(crate) fn reference(&self) -> Option<&str> {
+        match self {
+            Self::Field(field) => Some(field.as_str()),
+            Self::Literal(_) => None,
+        }
+    }
+
+    pub(crate) fn render(&self) -> String {
+        match self {
+            Self::Field(field) => field.clone(),
+            Self::Literal(value) => value.to_string(),
+        }
+    }
+}
+
+pub(crate) fn byte_view_multiple_constraint(predicate: &str) -> Option<ByteViewMultipleConstraint> {
+    let divisor = predicate
+        .trim()
+        .strip_prefix("payload_count multiple of ")?
+        .trim();
+    if divisor.is_empty() || divisor.contains(char::is_whitespace) {
+        return None;
+    }
+    if let Ok(value) = divisor.parse::<i64>() {
+        return (value > 0).then_some(ByteViewMultipleConstraint::Literal(value));
+    }
+    is_simple_schema_field_reference(divisor)
+        .then(|| ByteViewMultipleConstraint::Field(divisor.to_string()))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaRepeatSpec {
     pub(crate) count_field: String,
     pub(crate) payload: SchemaRepeatPayload,

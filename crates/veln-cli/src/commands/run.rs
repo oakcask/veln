@@ -450,6 +450,24 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
+        "schema.length_multiple_mismatch" => {
+            let observed_count = json_number(byte_entries, "observed_count")?;
+            let required_multiple = json_number(byte_entries, "required_multiple")?;
+            let multiple_operand = json_string(byte_entries, "multiple_operand")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("payload length multiple mismatch at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Payload count {observed_count} must be a multiple of `{multiple_operand}` value {required_multiple}."
+            )));
+            push_byte_preview_note(&mut diagnostic, byte_entries);
+            diagnostic
+        }
         "schema.dispatch_unknown_tag" => {
             let tag_field = json_string(byte_entries, "tag_field")?;
             let decoded_tag_value = json_number(byte_entries, "decoded_tag_value")?;
@@ -2837,6 +2855,69 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("08 00 (showing 2 of 2 byte(s), complete)")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `PacketWire` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_length_multiple_mismatch_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.length_multiple_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(2)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("PacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("observed_count", JsonValue::Number(5)),
+            ("required_multiple", JsonValue::Number(2)),
+            ("multiple_operand", JsonValue::string("frame_count")),
+            ("byte_preview", byte_preview("0502aabbccddee")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "payload length multiple mismatch at byte offset 2".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.length_multiple_mismatch");
+        assert_eq!(
+            diagnostic.message,
+            "payload length multiple mismatch at byte offset 2"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Payload count 5 must be a multiple of `frame_count` value 2")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("05 02 aa bb cc dd ee (showing 7 of 7 byte(s), complete)")
         );
         assert!(
             diagnostic.related[2]

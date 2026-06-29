@@ -122,12 +122,16 @@ field in the same schema. Length-bounded `ByteView(length_field)`,
 `ByteView(left_length * right_length)`, and
 `ByteView(left_length / right_length)` payload fields are accepted when every
 length operand names an earlier visible `Int` field in the same binary schema.
+Those fields may add `where payload_count multiple of field_name` when
+`field_name` names an earlier visible `Int` field in the same schema, or
+`where payload_count multiple of positive_integer` for a positive integer
+literal multiple.
 A repeated primitive field decodes and encodes as `List<Int>`; a repeated
 nested schema field decodes and encodes as a list of the nested schema's
 decoded record shape; and a repeated `ByteView` field decodes and encodes as
 `List<ByteView>`. Missing, forward, or non-`Int` repeat count references
 report `schema.repeat_reference`; missing, forward, or non-`Int` byte-view
-length references report
+length or multiple references report
 `schema.byte_view_reference`. The narrow closed tag-dispatch field types
 `Dispatch(tag_field, tag => Payload, ...)` and
 `Dispatch(tag_field, length_field, tag => Payload, ...)` are accepted when

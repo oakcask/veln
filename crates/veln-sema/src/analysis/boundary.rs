@@ -11,9 +11,10 @@ use crate::schema::mapping::{
 };
 use crate::types::{
     ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, recursive_dispatch_decode_only_payload_case_is_eligible,
+    byte_view_multiple_constraint, byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    exact_width_schema_primitive, exact_width_schema_primitive_bit_width,
+    extension_dispatch_schema_primitive, flag_schema_primitive,
+    recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_only_recursive_dispatch_payload_type, schema_decode_record_type,
@@ -1818,6 +1819,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
         for field in &schema.fields {
             if let Some(flag_type) = flag_schema_primitive(&field.ty) {
                 if format_name == Some("binary") {
+                    check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                     decoded_fields.insert(field.name.clone(), Type::named(flag_type, Vec::new()));
                 } else {
                     diagnostics.push(exact_width_schema_primitive_diagnostic(
@@ -1842,6 +1844,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                         "non_binary_format",
                     ));
                 } else {
+                    check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                     decoded_fields.insert(field.name.clone(), Type::int());
                 }
                 continue;
@@ -1855,6 +1858,11 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     &length_expr,
                     &decoded_fields,
                     &mut diagnostics,
+                ) && check_schema_byte_view_multiple(
+                    schema,
+                    field,
+                    &decoded_fields,
+                    &mut diagnostics,
                 ) {
                     decoded_fields.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
                 }
@@ -1863,6 +1871,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
             if format_name == Some("binary")
                 && let Some(repeat) = repeat_schema_primitive(&field.ty)
             {
+                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                 if let Some(field_ty) = check_schema_repeat_field(
                     module,
                     schema,
@@ -1879,6 +1888,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 && let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
                     .or_else(|| extension_dispatch_schema_primitive(&field.ty))
             {
+                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                 if let Some(field_ty) = check_schema_dispatch_field(
                     module,
                     schema,
@@ -1901,6 +1911,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                         diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason))
                     }
                     Ok(reserved) => {
+                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                         let field_index = schema
                             .fields
                             .iter()
@@ -1920,7 +1931,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                         }
                     }
                 }
+                continue;
             }
+            check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
         }
         for (index, validation) in schema.validations.iter().enumerate() {
             if index > 0 {
@@ -2154,6 +2167,94 @@ fn check_schema_byte_view_reference(
         }
     }
     valid
+}
+
+fn check_schema_byte_view_multiple(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(where_clause) = &field.where_clause else {
+        return true;
+    };
+    let Some(constraint) = byte_view_multiple_constraint(&where_clause.predicate) else {
+        diagnostics.push(schema_byte_view_multiple_diagnostic(
+            schema,
+            field,
+            &where_clause.predicate,
+            "unsupported_multiple_predicate",
+            "ByteView field validation must use `payload_count multiple of <field-or-positive-integer>`".to_string(),
+            [],
+        ));
+        return false;
+    };
+    let Some(reference) = constraint.reference() else {
+        return true;
+    };
+    let Some(ty) = decoded_fields.get(reference) else {
+        let reason = if schema_field_declared_after(schema, field, reference) {
+            "forward_field_reference"
+        } else {
+            "unknown_field_reference"
+        };
+        let mut diagnostic = schema_byte_view_multiple_diagnostic(
+            schema,
+            field,
+            reference,
+            reason,
+            format!(
+                "ByteView multiple operand `{reference}` must be an earlier decoded `Int` field"
+            ),
+            [],
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, "multiple");
+        diagnostics.push(diagnostic);
+        return false;
+    };
+    if ty != &Type::int() {
+        let mut diagnostic = schema_byte_view_multiple_diagnostic(
+            schema,
+            field,
+            reference,
+            "incompatible_field_reference",
+            format!(
+                "ByteView multiple operand `{reference}` decodes as `{}`, not `Int`",
+                ty.render()
+            ),
+            [("actual", JsonValue::string(ty.render()))],
+        );
+        add_compatible_prior_int_field_related(&mut diagnostic, schema, decoded_fields, "multiple");
+        diagnostics.push(diagnostic);
+        return false;
+    }
+    true
+}
+
+fn check_schema_non_byte_view_multiple(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(where_clause) = &field.where_clause else {
+        return;
+    };
+    if !where_clause
+        .predicate
+        .trim()
+        .starts_with("payload_count multiple of ")
+    {
+        return;
+    }
+    diagnostics.push(schema_byte_view_multiple_diagnostic(
+        schema,
+        field,
+        &where_clause.predicate,
+        "invalid_field_kind",
+        "ByteView multiple validation can only be used on length-bounded `ByteView` fields"
+            .to_string(),
+        [],
+    ));
 }
 
 fn check_schema_repeat_references(
@@ -2440,6 +2541,28 @@ fn schema_byte_view_reference_diagnostic<const N: usize>(
 ) -> Diagnostic {
     let mut fields = schema_dispatch_details(schema, field, reason);
     fields.push(("role", JsonValue::string("length")));
+    fields.push(("reference", JsonValue::string(reference.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.byte_view_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_byte_view_multiple_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reference: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("role", JsonValue::string("multiple")));
     fields.push(("reference", JsonValue::string(reference.to_string())));
     fields.extend(extra);
     Diagnostic::new(

@@ -515,15 +515,18 @@ impl<'a> Parser<'a> {
                 Some("newline"),
             );
         } else {
-            self.diagnostics.extend(
-                ContractPredicateParser::new(
-                    self.source,
-                    "schema_field_where",
-                    "parse.schema_field_where",
-                    &predicate_tokens,
-                )
-                .parse(),
-            );
+            let predicate_text = normalize_collected_text(parts.clone());
+            if !is_byte_view_multiple_predicate_text(&predicate_text) {
+                self.diagnostics.extend(
+                    ContractPredicateParser::new(
+                        self.source,
+                        "schema_field_where",
+                        "parse.schema_field_where",
+                        &predicate_tokens,
+                    )
+                    .parse(),
+                );
+            }
         }
         SchemaFieldWhereClause {
             predicate: normalize_collected_text(parts),
@@ -3800,6 +3803,34 @@ fn normalize_collected_text(parts: Vec<String>) -> String {
         .replace("[ ", "[")
         .replace(" ]", "]")
         .replace(" ,", ",")
+}
+
+fn is_byte_view_multiple_predicate_text(text: &str) -> bool {
+    let Some(divisor) = text
+        .trim()
+        .strip_prefix("payload_count multiple of ")
+        .map(str::trim)
+    else {
+        return false;
+    };
+    if divisor.is_empty() || divisor.contains(char::is_whitespace) {
+        return false;
+    }
+    if divisor.parse::<i64>().is_ok() {
+        return true;
+    }
+    is_schema_where_identifier(divisor)
+}
+
+fn is_schema_where_identifier(text: &str) -> bool {
+    let mut chars = text.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 fn normalize_type_text(parts: Vec<String>) -> String {

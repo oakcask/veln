@@ -1,0 +1,15 @@
+# Binary schema ByteView payload multiple validation reports structured JSON.
+schema PacketWire
+	format binary
+
+	length: UInt8
+	frame_count: UInt8
+	payload: ByteView(length) where payload_count multiple of frame_count
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0502aabbccddee")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	let ignored: {length: Int, frame_count: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	Ok(())
+end

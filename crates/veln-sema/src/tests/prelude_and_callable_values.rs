@@ -8143,6 +8143,181 @@ fn generated_schema_decode_helpers_resolve_quotient_byte_view_length_fields() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_byte_view_multiple_constraints() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema FieldMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  frame_count: UInt8\n",
+            "  payload: ByteView(length) where payload_count multiple of frame_count\n",
+            "end\n",
+            "\n",
+            "schema LiteralMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length) where payload_count multiple of 4\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let field_multiple = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "FieldMultiplePacket")
+        .expect("field multiple schema should be emitted");
+    assert_eq!(
+        field_multiple.fields[2].length_multiple.as_deref(),
+        Some("frame_count")
+    );
+    let literal_multiple = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "LiteralMultiplePacket")
+        .expect("literal multiple schema should be emitted");
+    assert_eq!(
+        literal_multiple.fields[1].length_multiple.as_deref(),
+        Some("4")
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_byte_view_multiple_constraints() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length) where payload_count multiple of frame_count\n",
+            "end\n",
+            "\n",
+            "schema ForwardMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length) where payload_count multiple of frame_count\n",
+            "  frame_count: UInt8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  flags: Flag8\n",
+            "  payload: ByteView(length) where payload_count multiple of flags\n",
+            "end\n",
+            "\n",
+            "schema MalformedMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length) where payload_count multiple of 0\n",
+            "end\n",
+            "\n",
+            "schema InvalidKindMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8 where payload_count multiple of 4\n",
+            "end\n",
+            "\n",
+            "schema InvalidRepeatMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  payloads: Repeat(count, UInt8) where payload_count multiple of count\n",
+            "end\n",
+            "\n",
+            "schema InvalidReservedMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  reserved: ReservedBits(1, 0) where payload_count multiple of 4\n",
+            "  visible: UInt7\n",
+            "end\n",
+            "\n",
+            "schema InvalidDispatchMultiplePacket\n",
+            "  format binary\n",
+            "\n",
+            "  tag: UInt8\n",
+            "  payload: Dispatch(tag, 1 => UInt8) where payload_count multiple of tag\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "ByteView multiple operand `frame_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "ByteView multiple operand `frame_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "ByteView multiple operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+        (
+            "unsupported_multiple_predicate",
+            "ByteView field validation must use `payload_count multiple of <field-or-positive-integer>`",
+        ),
+        (
+            "invalid_field_kind",
+            "ByteView multiple validation can only be used on length-bounded `ByteView` fields",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.byte_view_reference"
+                    && diagnostic.message == message
+                    && diagnostic.details.to_json().contains(reason)
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains("\"role\":\"multiple\"")
+            }),
+            "missing {reason}: {:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing ByteView multiple constraints should not emit typed IR"
+    );
+    for schema_name in [
+        "InvalidKindMultiplePacket",
+        "InvalidRepeatMultiplePacket",
+        "InvalidReservedMultiplePacket",
+        "InvalidDispatchMultiplePacket",
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.byte_view_reference"
+                    && diagnostic.message
+                        == "ByteView multiple validation can only be used on length-bounded `ByteView` fields"
+                    && diagnostic.details.to_json().contains(schema_name)
+            }),
+            "missing invalid field-kind diagnostic for {schema_name}: {:#?}",
+            lowered.diagnostics
+        );
+    }
+}
+
+#[test]
 fn repeat_count_expressions_accept_product_lengths() {
     let repeat = repeat_schema_primitive("Repeat(row_count * column_count, UInt16be)")
         .expect("product repeat count should parse");

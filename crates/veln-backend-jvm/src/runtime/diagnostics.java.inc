@@ -1586,6 +1586,32 @@
         );
     }
 
+    private static Object schemaLengthMultipleMismatchDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long observedCount,
+        long requiredMultiple,
+        String multipleOperand,
+        String nearbyContext
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.number("observed_count", observedCount));
+        details.add(DiagnosticDetail.number("required_multiple", requiredMultiple));
+        details.add(DiagnosticDetail.string("multiple_operand", multipleOperand));
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
+        return diagnosticErr(
+            message,
+            new ByteDiagnostic(
+                "schema.length_multiple_mismatch",
+                byteOffset,
+                fieldPath,
+                details
+            )
+        );
+    }
+
     private static Object schemaValueValidationFailedDiagnostic(
         Object value,
         String schemaName,

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+contains = ["6 3 6"]
+
+[stderr]
+format = "empty"

@@ -204,7 +204,16 @@ width-sample primitive decode slice consumes
 same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
 `schema.length_out_of_bounds` when closed input cannot provide that payload
-range. The generated helper slice also implements `UInt16le`, `UInt24le`,
+range. Generated helpers also accept `where payload_count multiple of ...` on
+length-bounded `ByteView` fields when the required multiple is an earlier
+decoded visible `Int` field in the same schema or a positive integer literal,
+and report `schema.length_multiple_mismatch` with field path, byte offset,
+observed payload count, required multiple, operand, and bounded byte preview
+details when decoded input violates the constraint. The completed payload
+multiple validation slice is archived under
+[Binary Schema ByteView Payload Multiple](../reference/implemented-proposals/binary-schema-byteview-payload-multiple.md).
+The generated helper
+slice also implements `UInt16le`, `UInt24le`,
 `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
 as little-endian unsigned primitives for schema decode and encode helpers,
 implements `UInt40be` as the matching big-endian five-byte primitive,
@@ -666,9 +675,9 @@ for:
   `ByteView(left_length - right_length)`, and
   `ByteView(left_length * right_length)` payload helper slices
 - field references inside later field definitions beyond implemented bounded
-  repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
-  lengths, and their declaration-time missing, forward, and wrong-role
-  reference diagnostics
+  repeat counts, byte-view lengths, byte-view payload multiple operands,
+  dispatch tags, extension dispatch tags and lengths, and their
+  declaration-time missing, forward, and wrong-role reference diagnostics
 - support rather than rejection for unbounded or otherwise ineligible
   recursive dispatch payload schemas and dispatch payload schemas outside the
   generated helper slice

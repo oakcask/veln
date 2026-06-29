@@ -2541,6 +2541,16 @@ against the built `veln` binary.
 - `run/binary-schema-frame-payload-length-human/`: the same payload length
   boundary failure projects focused human `run` diagnostics with related count,
   byte context, and field-path notes.
+- `run/binary-schema-byteview-multiple-decode/`: generated binary schema
+  decode accepts a `ByteView` payload whose computed count is a multiple of an
+  earlier decoded `Int` field.
+- `run/binary-schema-byteview-multiple-json/`: the same schema-owned payload
+  multiple boundary reports `schema.length_multiple_mismatch` through
+  `run --json` with byte offset, field path, observed count, required
+  multiple, operand, and structured byte preview fields.
+- `run/binary-schema-byteview-multiple-human/`: a literal payload multiple
+  mismatch projects a focused human `run` diagnostic with count, byte-context,
+  and field-path notes.
 - `run/binary-schema-validation-decode/`: field-local schema `where`
   validation preserves the decoded record shape when the predicate passes.
 - `run/binary-schema-validation-json/`: field-local schema `where` validation
