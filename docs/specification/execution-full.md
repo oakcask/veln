@@ -302,6 +302,10 @@ mapped record shape as `byte_decode_<schema>` and `consumed` is exactly the
 schema byte width. If the open view is shorter than that width, the helper
 returns `NeedMore(NeedBytes(count))`, where `count` is the minimum buffered
 byte count required before retrying, and it consumes no bytes. This
+incremental helper returns `Invalid(DecodeError(...))` without consuming the
+view for invalid schema input. Command JSON preserves the structured
+diagnostic id and field path, and reports the absolute failure offset as the
+explicit base `ByteOffset` plus the field-local byte position. This
 incremental helper does not change the closed-input `Result` helper path:
 closed truncation still reports `schema.truncated_field` through
 `byte_decode_<schema>`.

@@ -922,9 +922,14 @@ execution reference.
   count, they return `Decoded(value, consumed)` with `consumed` equal to the
   exact schema byte count. When the open view is shorter, they return
   `NeedMore(NeedBytes(count))` with `count` equal to the minimum buffered byte
-  count required before retrying and consume no bytes. Closed-input
-  `byte_decode_<schema>` truncation diagnostics remain on the existing
-  `Result` helper path.
+  count required before retrying and consume no bytes. Invalid schema input
+  returns `Invalid(DecodeError(...))` without consuming the view; command JSON
+  projection preserves the structured diagnostic id and field path and reports
+  the absolute failure offset as the explicit base `ByteOffset` plus the
+  field-local byte position. Closed-input `byte_decode_<schema>` truncation
+  diagnostics remain on the existing `Result` helper path. Checked examples
+  are `examples/specification/run/binary-schema-decode-step/` and
+  `examples/specification/run/binary-schema-decode-step-invalid-json/`.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and

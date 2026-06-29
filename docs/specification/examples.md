@@ -140,6 +140,12 @@ generated schema-derived decode-step helper: complete buffered input returns
 `Decoded` with the exact consumed count, and short open input returns
 `NeedMore(NeedBytes(...))` without consuming bytes.
 The executable specification case
+`../../examples/specification/run/binary-schema-decode-step-invalid-json/`
+covers the same generated helper boundary for invalid input: a reserved-bit
+mismatch returns `Invalid(DecodeError(...))` without consuming the view, and
+JSON output reports the diagnostic id and field path at the explicit base
+`ByteOffset` plus the field-local byte position.
+The executable specification case
 `../../examples/specification/run/codec-decode-boundary/` covers a
 hand-written codec decode boundary: a codec item call passes `ByteView` and
 `ByteOffset` to the referenced decoder, observes valid `Decoded`,

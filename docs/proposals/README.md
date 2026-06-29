@@ -499,8 +499,9 @@ compare it with `../specification/` before changing behavior.
   timeout-result selection, receiver-list cancellable timeout-result
   selection, two-receiver timeout-result selection, and two-receiver
   cancellable timeout-result selection slices
-  documented under `../specification/`; completed proposal records live under
-  `../reference/implemented-proposals/`.
+  documented under `../specification/`, including generated binary schema
+  decode-step invalid-input projection at explicit absolute offsets; completed
+  proposal records live under `../reference/implemented-proposals/`.
   The completed source-visible ordered `net::write_chunks` chunk-list write
   slice is archived under
   [Network Write Chunks Boundary](../reference/implemented-proposals/network-write-chunks-boundary.md).

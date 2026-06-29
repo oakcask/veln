@@ -100,7 +100,8 @@ Define codec support for:
 - remaining schema-driven decoding from `ByteView` plus an explicit input
   position, beyond the implemented hand-written boundary, generated binary
   schema decode-step helper slices, and generated-helper-backed codec slices in
-  `../specification/execution.md`
+  `../specification/execution.md`, which now include direct invalid-input
+  projection at explicit absolute offsets
 - general encoding into immutable output chunks beyond the implemented
   eligible generated binary schema encode helper, generated-helper-backed
   derived codec encode, same-module and imported public budgeted derived codec
