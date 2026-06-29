@@ -99,7 +99,8 @@ grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive | Repeat
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" CountExpr \",\" TypeText \")\"").
 grammar_line(106, "CountExpr ::= Name | Name (\"-\" | \"+\") Name").
-grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
+grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
 grammar_line(107, "SchemaMappingSelector ::= \"when\" Expr").
@@ -384,7 +385,7 @@ schema_field -->
 schema_field_where_opt -->
     tok(where),
     line_tokens(Tokens),
-    { Tokens \= [], valid_contract_tokens(Tokens) },
+    { Tokens \= [], valid_schema_field_where_tokens(Tokens) },
     !.
 schema_field_where_opt --> [].
 
@@ -570,6 +571,20 @@ valid_contract_tokens(Tokens) :-
     \+ member(t(underscore, _), Tokens),
     \+ member(t(lbracket, _), Tokens),
     phrase(expr, Tokens).
+
+valid_schema_field_where_tokens(Tokens) :-
+    valid_contract_tokens(Tokens).
+valid_schema_field_where_tokens(Tokens) :-
+    phrase(byte_view_multiple_predicate, Tokens).
+
+byte_view_multiple_predicate -->
+    ident_text("payload_count"),
+    ident_text("multiple"),
+    ident_text("of"),
+    byte_view_multiple_operand.
+
+byte_view_multiple_operand --> ident.
+byte_view_multiple_operand --> int_literal.
 
 body(S0, S) :-
     nls(S0, S1),

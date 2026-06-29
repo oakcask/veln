@@ -1015,7 +1015,11 @@ execution reference.
   `schema.length_out_of_bounds`, reports `schema.length_division_by_zero` when
   a division length expression has divisor zero, and reports
   `schema.length_out_of_bounds` when the computed payload length exceeds the
-  remaining bytes. If the supplied view
+  remaining bytes. A `where payload_count multiple of ...` validation checks
+  the computed payload count after bounds validation; mismatches report
+  `schema.length_multiple_mismatch` with schema field path, byte offset,
+  observed count, required multiple, multiple operand, and bounded byte
+  preview. If the supplied view
   count differs from the earlier length field or computed length expression,
   the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,

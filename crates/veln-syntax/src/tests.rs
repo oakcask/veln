@@ -294,6 +294,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  stream_id: UInt31be\n",
             "  settings: Repeat( length - padding_length , UInt16be )\n",
             "  payload: ByteView(length - padding_length)\n",
+            "  aligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "  validate padding_length <= length\n",
             "\n",
             "  map to FrameHeader\n",
@@ -316,7 +317,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 7);
+    assert_eq!(schema.fields.len(), 8);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
     assert_eq!(schema.fields[1].name, "kind");
@@ -339,6 +340,15 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
     );
     assert_eq!(schema.fields[6].name, "payload");
     assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[7].name, "aligned_payload");
+    assert_eq!(schema.fields[7].ty, "ByteView(length)");
+    assert_eq!(
+        schema.fields[7]
+            .where_clause
+            .as_ref()
+            .map(|where_clause| where_clause.predicate.as_str()),
+        Some("payload_count multiple of padding_length")
+    );
     assert_eq!(schema.validations.len(), 1);
     assert_eq!(schema.validations[0].predicate, "padding_length <= length");
     assert_eq!(schema.mappings.len(), 1);
@@ -362,6 +372,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tstream_id: UInt31be\n",
             "\tsettings: Repeat(length - padding_length, UInt16be)\n",
             "\tpayload: ByteView(length - padding_length)\n",
+            "\taligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "\n",
             "\tvalidate padding_length <= length\n",
             "\n",

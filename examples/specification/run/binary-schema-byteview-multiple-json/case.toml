@@ -1,0 +1,67 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "payload length multiple mismatch at byte offset 2"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.length_multiple_mismatch"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"PacketWire"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.observed_count"
+equals = 5
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.required_multiple"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.multiple_operand"
+equals = "frame_count"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "0502aabbccddee"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 7
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 7
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false

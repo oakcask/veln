@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.length_multiple_mismatch]: payload length multiple mismatch at byte offset 1", "note: Payload count 5 must be a multiple of `4` value 4.", "note: Nearby bytes: 05 aa bb cc dd ee (showing 6 of 6 byte(s), complete).", "note: Field path: schema `PacketWire` / field `payload`."]

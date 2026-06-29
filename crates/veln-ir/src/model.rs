@@ -27,6 +27,7 @@ pub struct IrSchemaDecodeField {
     pub flag_type: String,
     pub predicate: Option<String>,
     pub length_field: Option<String>,
+    pub length_multiple: Option<String>,
     pub repeat: Option<IrSchemaRepeat>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,

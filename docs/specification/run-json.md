@@ -268,6 +268,18 @@ division-by-zero failure, `details.byte_diagnostic` includes:
 - `operator: "/"`
 - `byte_preview`: a structured bounded byte preview object
 
+When the result value is a binary schema byte-view payload multiple failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.length_multiple_mismatch"`
+- `byte_offset`: the decoded-stream `ByteOffset` where the payload starts
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `observed_count`: the computed payload byte count
+- `required_multiple`: the required multiple value
+- `multiple_operand`: the earlier field name or positive integer literal
+- `byte_preview`: a structured bounded byte preview object
+
 When the result value is a binary schema integer range failure,
 `details.byte_diagnostic` includes:
 

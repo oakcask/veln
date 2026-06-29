@@ -199,9 +199,13 @@ compare it with `../specification/` before changing behavior.
   `ByteView(left_length + right_length)`, and
   `ByteView(left_length * right_length)`, and
   `ByteView(left_length / right_length)` decode and encode,
+  schema-owned `ByteView` payload multiple validation for earlier decoded
+  `Int` fields and positive integer literals
+  ([Binary Schema ByteView Payload Multiple](../reference/implemented-proposals/binary-schema-byteview-payload-multiple.md)),
   declaration-time missing, forward, and wrong-role schema-local field
   reference diagnostics for repeat count fields and count expressions,
-  byte-view lengths, dispatch tags, and extension-dispatch tags and lengths,
+  byte-view lengths, byte-view payload multiple operands, dispatch tags, and
+  extension-dispatch tags and lengths,
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the HTTP/2 GOAWAY payload

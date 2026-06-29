@@ -9,6 +9,7 @@ schema Http2FrameHeader
 	little_stream_id: UInt31le
 	checksum: UInt32be
 	payload: ByteView(length - padding_length)
+	aligned_payload: ByteView(length) where payload_count multiple of padding_length
 
 	validate padding_length <= length
 
@@ -32,6 +33,7 @@ pub schema PublicFrameHeader
 	little_stream_id: UInt31le
 	checksum: UInt32be
 	payload: ByteView(length - padding_length)
+	aligned_payload: ByteView(length) where payload_count multiple of padding_length
 
 	validate padding_length <= length
 

@@ -14,10 +14,11 @@ use crate::schema::mapping::{
 };
 use crate::types::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    SchemaRepeatSpec, Type, byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    exact_width_schema_primitive, exact_width_schema_primitive_little_endian,
-    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    flag_schema_primitive, recursive_dispatch_decode_only_payload_case_is_eligible,
+    SchemaRepeatSpec, Type, byte_view_multiple_constraint, byte_view_schema_primitive,
+    closed_dispatch_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
+    extension_dispatch_schema_primitive, flag_schema_primitive,
+    recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name,
     schema_decode_only_recursive_dispatch_payload_type, schema_decode_value_type,
@@ -126,6 +127,7 @@ fn ir_schema_reserved_bits_field(
         flag_type: String::new(),
         predicate: None,
         length_field: None,
+        length_multiple: None,
         repeat: None,
         dispatch: None,
         reserved_bits: Some(IrSchemaReservedBits {
@@ -148,6 +150,7 @@ fn ir_schema_exact_width_field(field: &SchemaField) -> Option<Option<IrSchemaDec
             .as_ref()
             .map(|where_clause| where_clause.predicate.clone()),
         length_field: None,
+        length_multiple: None,
         repeat: None,
         dispatch: None,
         reserved_bits: None,
@@ -174,6 +177,11 @@ fn ir_schema_byte_view_field(
         flag_type: String::new(),
         predicate: None,
         length_field: Some(length_expr.render()),
+        length_multiple: field
+            .where_clause
+            .as_ref()
+            .and_then(|where_clause| byte_view_multiple_constraint(&where_clause.predicate))
+            .map(|constraint| constraint.render()),
         repeat: None,
         dispatch: None,
         reserved_bits: None,
@@ -210,6 +218,7 @@ fn ir_schema_repeat_field(
             flag_type: String::new(),
             predicate: None,
             length_field: None,
+            length_multiple: None,
             repeat: Some(ir_repeat),
             dispatch: None,
             reserved_bits: None,
@@ -245,6 +254,7 @@ fn ir_schema_dispatch_field(
             flag_type: String::new(),
             predicate: None,
             length_field: None,
+            length_multiple: None,
             repeat: None,
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,

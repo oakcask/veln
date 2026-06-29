@@ -166,12 +166,13 @@
         final SchemaDispatchSpec dispatch;
         final SchemaRepeatSpec repeat;
         final String lengthField;
+        final String lengthMultiple;
         final int reservedBitWidth;
         final long reservedValue;
         final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, "", predicate, null, null, "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -181,7 +182,7 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -192,7 +193,7 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -213,6 +214,7 @@
                 null,
                 null,
                 "",
+                "",
                 0,
                 0L,
                 null
@@ -227,7 +229,7 @@
             String flagType,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -248,6 +250,7 @@
                 predicate,
                 null,
                 null,
+                "",
                 "",
                 0,
                 0L,
@@ -264,7 +267,7 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -274,19 +277,23 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, "", predicate, dispatch, null, "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, dispatch, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
-            this(name, 0, 0L, false, "", null, null, null, lengthField, 0, 0L, null);
+            this(name, lengthField, "");
+        }
+
+        SchemaFieldSpec(String name, String lengthField, String lengthMultiple) {
+            this(name, 0, 0L, false, "", null, null, null, lengthField, lengthMultiple, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, SchemaRepeatSpec repeat) {
-            this(name, 0, 0L, false, "", null, null, repeat, "", 0, 0L, null);
+            this(name, 0, 0L, false, "", null, null, repeat, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, "", null, null, null, "", reservedBitWidth, reservedValue, null);
+            this(name, 0, 0L, false, "", null, null, null, "", "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -299,6 +306,7 @@
             SchemaDispatchSpec dispatch,
             SchemaRepeatSpec repeat,
             String lengthField,
+            String lengthMultiple,
             int reservedBitWidth,
             long reservedValue,
             Long fixedValue
@@ -312,6 +320,7 @@
             this.dispatch = dispatch;
             this.repeat = repeat;
             this.lengthField = lengthField;
+            this.lengthMultiple = lengthMultiple;
             this.reservedBitWidth = reservedBitWidth;
             this.reservedValue = reservedValue;
             this.fixedValue = fixedValue;
@@ -2697,6 +2706,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -2723,6 +2733,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            byteViewMultiples,
             schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
@@ -2757,6 +2768,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -2783,6 +2795,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            byteViewMultiples,
             schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
@@ -2930,6 +2943,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -2954,6 +2968,7 @@
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
+        java.util.List<Object> byteViewMultipleValues = asList(byteViewMultiples);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
         java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
@@ -2976,6 +2991,7 @@
             || fieldNameValues.size() != reservedBitWidthValues.size()
             || fieldNameValues.size() != reservedValueValues.size()
             || fieldNameValues.size() != predicateValues.size()
+            || fieldNameValues.size() != byteViewMultipleValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
@@ -3004,6 +3020,7 @@
             long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            String byteViewMultiple = asString(byteViewMultipleValues.get(index));
             String predicateText = asString(predicateValues.get(index));
             SchemaPredicate predicate = null;
             Long fixedValue = null;
@@ -3062,7 +3079,7 @@
                 continue;
             }
             if (!lengthField.isEmpty() && tagField.isEmpty()) {
-                schemaFields[index] = new SchemaFieldSpec(fieldName, lengthField);
+                schemaFields[index] = new SchemaFieldSpec(fieldName, lengthField, byteViewMultiple);
                 continue;
             }
             if (!tagField.isEmpty()) {
@@ -3517,6 +3534,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -3543,6 +3561,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            byteViewMultiples,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -3577,6 +3596,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
@@ -3603,6 +3623,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            byteViewMultiples,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
@@ -6264,6 +6285,18 @@
                         byteViewPreviewTrace(view, 8)
                     );
                 }
+                Object multipleFailure = schemaByteViewMultipleFailure(
+                    decoded,
+                    field,
+                    schema.name,
+                    diagnosticBaseOffset + relativeOffset,
+                    schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name),
+                    payloadLength,
+                    byteViewPreviewTrace(view, 8)
+                );
+                if (multipleFailure != null) {
+                    return multipleFailure;
+                }
                 Object payloadView = byteViewDerivedObject(view, relativeOffset, payloadLength);
                 values.put(field.name, payloadView);
                 relativeOffset += payloadLength;
@@ -8207,6 +8240,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -8233,6 +8267,7 @@
             reservedBitWidths,
             reservedValues,
             predicates,
+            byteViewMultiples,
             schemaValidation,
             dispatchTagFields,
             dispatchLengthFields,
@@ -8261,6 +8296,7 @@
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
+        Object byteViewMultiples,
         Object schemaValidation,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -8295,6 +8331,7 @@
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
+        java.util.List<Object> byteViewMultipleValues = asList(byteViewMultiples);
         String schemaValidationText = asString(schemaValidation);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
@@ -8309,6 +8346,7 @@
             || fieldNameValues.size() != reservedBitWidthValues.size()
             || fieldNameValues.size() != reservedValueValues.size()
             || fieldNameValues.size() != predicateValues.size()
+            || fieldNameValues.size() != byteViewMultipleValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
@@ -8352,6 +8390,7 @@
             long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            String byteViewMultiple = asString(byteViewMultipleValues.get(index));
             String repeatCountField = repeatCountFieldValues == null
                 ? ""
                 : asString(repeatCountFieldValues.get(index));
@@ -8456,7 +8495,7 @@
                 continue;
             }
             if (!lengthField.isEmpty()) {
-                fields[index] = new SchemaFieldSpec(fieldName, lengthField);
+                fields[index] = new SchemaFieldSpec(fieldName, lengthField, byteViewMultiple);
                 continue;
             }
             if (width < 1L || width > 8L) {
@@ -8751,7 +8790,7 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 24) {
+        if (values.size() != 25) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -8778,7 +8817,8 @@
             values.get(20),
             values.get(21),
             values.get(22),
-            values.get(23)
+            values.get(23),
+            values.get(24)
         );
     }
 
@@ -9489,6 +9529,56 @@
                     ? leftValue * rightValue
                     : leftValue / rightValue;
         return ok(Long.valueOf(result));
+    }
+
+    private static Object schemaByteViewMultipleFailure(
+        java.util.Map<?, ?> decoded,
+        SchemaFieldSpec field,
+        String schemaName,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long observedCount,
+        String nearbyContext
+    ) {
+        if (field.lengthMultiple.isEmpty()) {
+            return null;
+        }
+        Long required = schemaByteViewMultipleValue(decoded, field.lengthMultiple);
+        if (required == null) {
+            throw new IllegalStateException(
+                "missing payload multiple operand `"
+                    + field.lengthMultiple
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        long requiredMultiple = required.longValue();
+        if (requiredMultiple > 0L && observedCount % requiredMultiple == 0L) {
+            return null;
+        }
+        String message = "payload length multiple mismatch at byte offset " + byteOffset;
+        return schemaLengthMultipleMismatchDiagnostic(
+            message,
+            byteOffset,
+            fieldPath,
+            observedCount,
+            requiredMultiple,
+            field.lengthMultiple,
+            nearbyContext
+        );
+    }
+
+    private static Long schemaByteViewMultipleValue(
+        java.util.Map<?, ?> decoded,
+        String multiple
+    ) {
+        try {
+            return Long.valueOf(Long.parseLong(multiple));
+        } catch (NumberFormatException ignored) {
+            Object value = decoded.get(multiple);
+            return value instanceof Long ? (Long) value : null;
+        }
     }
 
     private static SchemaFieldExpression schemaFieldExpression(
