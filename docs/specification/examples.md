@@ -229,6 +229,11 @@ The executable specification cases
 `../../examples/specification/run/codec-decode-need-end-json/` cover the
 same command-facing projection for `NeedMore(NeedEnd)` without requested-byte
 context.
+The executable specification cases
+`../../examples/specification/run/codec-decode-need-end-boundary-human/` and
+`../../examples/specification/run/codec-decode-need-end-boundary-json/` cover
+the same `NeedMore(NeedEnd)` projection when the value is returned through a
+same-module hand-written `decode with` codec item call.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema
