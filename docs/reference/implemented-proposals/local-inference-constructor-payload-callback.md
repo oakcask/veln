@@ -24,8 +24,8 @@ concrete payload type provides expected-type context for the matching payload
 expression. If that payload type is a concrete function type, a named private
 callback function value passed at the payload position receives the function
 parameter types for omitted callback parameter annotations. This includes
-source-declared constructor payloads and compiler-owned `Some`, `Ok`, and
-`Err` payloads.
+source-declared constructor payloads and compiler-owned bare and
+type-qualified `Option` and `Result` payloads.
 
 The callback return still has to satisfy the payload function return type.
 When that return type is concrete, it flows into non-empty callback tail

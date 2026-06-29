@@ -191,8 +191,8 @@ into non-empty callback tail expressions such as `Some(...)`, `Ok(...)`,
 `Err(...)`, source ADT constructors, record literals, and collection literals.
 Constructor payloads whose expected type is a concrete function type also push
 that function parameter list into named private callbacks passed at the
-matching payload position, including compiler-owned `Some`, `Ok`, and `Err`
-payloads.
+matching payload position, including compiler-owned bare and type-qualified
+`Option` and `Result` payloads.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,

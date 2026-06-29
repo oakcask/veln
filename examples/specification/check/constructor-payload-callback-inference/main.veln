@@ -23,16 +23,34 @@ fn err_string(value) -> String
 	"ok"
 end
 
+fn qualified_some_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
+fn qualified_ok_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
+fn qualified_err_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
 fn optional_items(value)
 	Some([])
 end
 
-pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier, some: Option<fn(Int) -> String>, ok: Result<fn(Int) -> String, String>, err: Result<String, fn(Int) -> String>}
+pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier, some: Option<fn(Int) -> String>, ok: Result<fn(Int) -> String, String>, err: Result<String, fn(Int) -> String>, qualified_some: Option<fn(Int) -> String>, qualified_ok: Result<fn(Int) -> String, String>, qualified_err: Result<String, fn(Int) -> String>}
 	{
 		processor: Processor(stringify),
 		optional: OptionalProcessor(optional_items),
 		some: Some(some_string),
 		ok: Ok(ok_string),
-		err: Err(err_string)
+		err: Err(err_string),
+		qualified_some: Option::Some(qualified_some_string),
+		qualified_ok: Result::Ok(qualified_ok_string),
+		qualified_err: Result::Err(qualified_err_string)
 	}
 end

@@ -262,14 +262,14 @@ concrete payload type provides expected-type context for the matching payload
 expression. When an expected payload type is a concrete function type, a named
 private callback function value passed at that payload position receives the
 function parameter types for omitted callback parameter annotations. This
-includes compiler-owned `Some`, `Ok`, and `Err` payloads and source-declared
-constructor payloads. The callback return still has to satisfy the expected
-payload function return type. When that return type is concrete, it flows into
-non-empty callback tail expressions using the same constructor, record, and
-collection expected-type rules as prelude helper callback returns. Ordinary
-function effect assignment keeps pure and effectful callback compatibility.
-Constructor payload function types that still contain `unknown` do not
-constrain callback parameters.
+includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`, and
+`Err` and `Result::Err` payloads, plus source-declared constructor payloads.
+The callback return still has to satisfy the expected payload function return
+type. When that return type is concrete, it flows into non-empty callback tail
+expressions using the same constructor, record, and collection expected-type
+rules as prelude helper callback returns. Ordinary function effect assignment
+keeps pure and effectful callback compatibility. Constructor payload function
+types that still contain `unknown` do not constrain callback parameters.
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a

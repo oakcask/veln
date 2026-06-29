@@ -24,6 +24,14 @@ fn missing_option_context(value) -> String
 	"ok"
 end
 
+fn missing_ok_context(value) -> String
+	"ok"
+end
+
+fn missing_err_context(value) -> String
+	"ok"
+end
+
 pub fn body_conflict() -> CallbackCarrier
 	Processor(string_body)
 end
@@ -39,5 +47,11 @@ end
 
 pub fn unconstrained_option_payload() -> String
 	let processor = Some(missing_option_context)
+	"ok"
+end
+
+pub fn unconstrained_result_payloads() -> String
+	let success = Ok(missing_ok_context)
+	let failure = Err(missing_err_context)
 	"ok"
 end

@@ -56,7 +56,8 @@ full type reference.
   that body.
   A constructor payload whose expected type is a concrete function type also
   constrains a named private callback placed in that payload position. This
-  includes compiler-owned `Some`, `Ok`, and `Err` payloads. When such a
+  includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
+  and `Err` and `Result::Err` payloads. When such a
   concrete helper, record-field, local-binding, direct return, constructor
   payload, or prelude helper result context fixes a named private callback
   return type, that expected return type propagates into non-empty callback

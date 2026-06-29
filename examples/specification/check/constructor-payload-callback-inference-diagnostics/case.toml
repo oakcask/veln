@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.mismatch\"", "expected `fn(Int) -> String`, but found `fn(String) -> String`", "\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private parameter `fixed` has no inferred type", "constructor `Some` needs type context"]
+contains = ["\"id\":\"type.mismatch\"", "expected `fn(Int) -> String`, but found `fn(String) -> String`", "\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private parameter `fixed` has no inferred type", "constructor `Some` needs type context", "constructor `Ok` needs type context", "constructor `Err` needs type context"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 11
 
 [[diagnostics]]
 id = "type.private_inference_incomplete"
@@ -46,7 +46,7 @@ message = "expected `fn(Int) -> String`, but found `fn(String) -> String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 28
+line = 36
 column = 12
 
 [[diagnostics]]
@@ -57,7 +57,7 @@ message = "constructor `GenericProcessor` needs type context"
 
 [diagnostics.span]
 file = "main.veln"
-line = 32
+line = 40
 column = 18
 
 [[diagnostics]]
@@ -68,7 +68,7 @@ message = "expected `fn(Int) -> String`, but found `fn(String) -> String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 37
+line = 45
 column = 7
 
 [[diagnostics]]
@@ -83,6 +83,28 @@ line = 23
 column = 27
 
 [[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 27
+column = 23
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 31
+column = 24
+
+[[diagnostics]]
 id = "type.inference_ambiguous"
 severity = "error"
 kind = "type"
@@ -90,5 +112,27 @@ message = "constructor `Some` needs type context"
 
 [diagnostics.span]
 file = "main.veln"
-line = 41
+line = 49
 column = 18
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Ok` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 54
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Err` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 16
