@@ -1,0 +1,83 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "expected `String`, but found `Int`", "\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private parameter `fixed` has no inferred type", "\"id\":\"type.local_inference_incomplete\"", "constructor `GenericHandlers` needs type context"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `String`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 3
+column = 8
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 6
+column = 20
+
+[[diagnostics]]
+id = "type.local_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "omitted local binding `callbacks` has no concrete inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 23
+column = 6
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 28
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `fixed` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 35
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `GenericHandlers` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 28
+column = 14

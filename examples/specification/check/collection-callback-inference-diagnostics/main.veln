@@ -1,0 +1,30 @@
+fn bad_vec_item(value)
+	let checked: Int = value
+	Some([1])
+end
+
+fn missing_context(value)
+	"ok"
+end
+
+type GenericGroup<A>
+	GenericHandlers(callbacks: Vec<fn(A, Int) -> String>)
+end
+
+fn missing_generic_context(value, fixed) -> String
+	"ok"
+end
+
+pub fn body_conflict() -> Vec<fn(Int) -> Option<Vec<String>>>
+	[bad_vec_item]
+end
+
+pub fn unconstrained_element() -> String
+	let callbacks = [missing_context]
+	"ok"
+end
+
+pub fn non_concrete_element() -> String
+	let group = GenericHandlers([missing_generic_context])
+	"ok"
+end

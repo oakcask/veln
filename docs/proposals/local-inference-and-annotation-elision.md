@@ -160,6 +160,9 @@ The completed callback return expected-type slice is archived under
 The completed constructor payload callback expected-type slice is archived
 under
 `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`.
+The completed collection callback element expected-type slice is archived
+under
+`../reference/implemented-proposals/local-inference-collection-callback-element.md`.
 The completed variadic declared-helper callback parameter slice is archived
 under
 [../reference/implemented-proposals/local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md).
@@ -211,6 +214,11 @@ Constructor payloads whose expected type is a concrete function type also push
 that function parameter list into named private callbacks passed at the
 matching payload position, including compiler-owned bare and type-qualified
 `Option` and `Result` payloads.
+Concrete `Vec<fn(...) -> ...>` element positions and concrete `List`
+`Cons` head positions also push that function parameter list into named
+private callbacks passed at that element position, including nested
+initializer positions where an outer concrete expected type reaches the
+collection element.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,
@@ -218,7 +226,8 @@ concrete declared-helper signature, concrete record-field expected-type,
 concrete local-binding expected-type including omitted direct local callback
 binding hops, direct return-position expected-type, concrete match-arm
 expected-type, concrete if-branch expected-type, and concrete
-constructor-payload expected-type paths.
+constructor-payload expected-type, and concrete collection element
+expected-type paths.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a

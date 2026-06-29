@@ -12947,6 +12947,149 @@ fn constructor_payload_expected_type_infers_private_callback_parameters() {
 }
 
 #[test]
+fn collection_element_expected_type_infers_private_callback_parameters() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type CallbackGroup\n",
+            "  Handlers(callbacks: Vec<fn(Int) -> Option<Vec<String>>>)\n",
+            "end\n",
+            "fn vec_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"vec\"])\n",
+            "end\n",
+            "fn returned_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"return\"])\n",
+            "end\n",
+            "fn local_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"local\"])\n",
+            "end\n",
+            "fn alias_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"alias\"])\n",
+            "end\n",
+            "fn list_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"list\"])\n",
+            "end\n",
+            "fn nested_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([\"nested\"])\n",
+            "end\n",
+            "fn returned_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>\n",
+            "  [returned_item]\n",
+            "end\n",
+            "fn local_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>\n",
+            "  let callbacks: Vec<fn(Int) -> Option<Vec<String>>> = [local_item]\n",
+            "  callbacks\n",
+            "end\n",
+            "fn alias_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>\n",
+            "  let callback = alias_item\n",
+            "  [callback]\n",
+            "end\n",
+            "fn list_callbacks() -> List<fn(Int) -> Option<Vec<String>>>\n",
+            "  Cons(list_item, Nil)\n",
+            "end\n",
+            "fn nested_callbacks() -> CallbackGroup\n",
+            "  Handlers([nested_item])\n",
+            "end\n",
+            "pub fn main() -> {direct: Vec<fn(Int) -> Option<Vec<String>>>, returned: Vec<fn(Int) -> Option<Vec<String>>>, local: Vec<fn(Int) -> Option<Vec<String>>>, alias: Vec<fn(Int) -> Option<Vec<String>>>, list: List<fn(Int) -> Option<Vec<String>>>, nested: CallbackGroup}\n",
+            "  {direct: [vec_item], returned: returned_callbacks(), local: local_callbacks(), alias: alias_callbacks(), list: list_callbacks(), nested: nested_callbacks()}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in [
+        "vec_item",
+        "returned_item",
+        "local_item",
+        "alias_item",
+        "list_item",
+        "nested_item",
+    ] {
+        let callback = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .unwrap_or_else(|| panic!("{name} should be lowered"));
+        assert_eq!(callback.params[0].ty, CoreType::int(), "{name}");
+        assert_eq!(
+            callback.return_type,
+            CoreType::option(CoreType::vec(CoreType::string())),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn collection_element_callback_expected_type_reports_body_conflict() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn bad_vec_item(value)\n",
+            "  let checked: Int = value\n",
+            "  Some([1])\n",
+            "end\n",
+            "fn missing_context(value)\n",
+            "  \"ok\"\n",
+            "end\n",
+            "type GenericGroup<A>\n",
+            "  GenericHandlers(callbacks: Vec<fn(A, Int) -> String>)\n",
+            "end\n",
+            "fn missing_generic_context(value, fixed) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn body_conflict() -> Vec<fn(Int) -> Option<Vec<String>>>\n",
+            "  [bad_vec_item]\n",
+            "end\n",
+            "pub fn unconstrained_element() -> String\n",
+            "  let callbacks = [missing_context]\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn non_concrete_element() -> String\n",
+            "  let group = GenericHandlers([missing_generic_context])\n",
+            "  \"ok\"\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `String`, but found `Int`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `value` has no inferred type"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.local_inference_incomplete"
+            && diagnostic.message
+                == "omitted local binding `callbacks` has no concrete inferred type"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `fixed` has no inferred type"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.inference_ambiguous"
+            && diagnostic.message == "constructor `GenericHandlers` needs type context"
+    }));
+}
+
+#[test]
 fn non_concrete_constructor_payload_does_not_infer_private_callback_parameters() {
     let source = SourceFile::new(
         "main.veln",

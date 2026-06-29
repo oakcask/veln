@@ -1,0 +1,66 @@
+type CallbackGroup
+	Handlers(callbacks: Vec<fn(Int) -> Option<Vec<String>>>)
+end
+
+fn vec_item(value)
+	let checked: Int = value
+	Some(["vec"])
+end
+
+fn returned_item(value)
+	let checked: Int = value
+	Some(["return"])
+end
+
+fn local_item(value)
+	let checked: Int = value
+	Some(["local"])
+end
+
+fn alias_item(value)
+	let checked: Int = value
+	Some(["alias"])
+end
+
+fn list_item(value)
+	let checked: Int = value
+	Some(["list"])
+end
+
+fn nested_item(value)
+	let checked: Int = value
+	Some(["nested"])
+end
+
+fn returned_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>
+	[returned_item]
+end
+
+fn local_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>
+	let callbacks: Vec<fn(Int) -> Option<Vec<String>>> = [local_item]
+	callbacks
+end
+
+fn alias_callbacks() -> Vec<fn(Int) -> Option<Vec<String>>>
+	let callback = alias_item
+	[callback]
+end
+
+fn list_callbacks() -> List<fn(Int) -> Option<Vec<String>>>
+	Cons(list_item, Nil)
+end
+
+fn nested_callbacks() -> CallbackGroup
+	Handlers([nested_item])
+end
+
+pub fn main() -> {direct: Vec<fn(Int) -> Option<Vec<String>>>, returned: Vec<fn(Int) -> Option<Vec<String>>>, local: Vec<fn(Int) -> Option<Vec<String>>>, alias: Vec<fn(Int) -> Option<Vec<String>>>, list: List<fn(Int) -> Option<Vec<String>>>, nested: CallbackGroup}
+	{
+		direct: [vec_item],
+		returned: returned_callbacks(),
+		local: local_callbacks(),
+		alias: alias_callbacks(),
+		list: list_callbacks(),
+		nested: nested_callbacks()
+	}
+end

@@ -309,6 +309,20 @@ rules as prelude helper callback returns. Ordinary function effect assignment
 keeps pure and effectful callback compatibility. Constructor payload function
 types that still contain `unknown` do not constrain callback parameters.
 
+When a concrete expected collection type reaches an element position whose
+element type is a concrete function type, a named same-module private callback
+function value placed at that element position receives the expected function
+parameter types for omitted callback parameter annotations. This applies to
+`Vec<fn(...) -> ...>` literal elements, `List<fn(...) -> ...>` `Cons` head
+payloads, and nested initializer positions where an outer concrete record
+field or constructor payload expected type reaches one of those collection
+elements. The callback return still has to satisfy the expected element
+function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Collection
+element function types that still contain `unknown` do not constrain callback
+parameters.
+
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment. Record let patterns bind each nested binding

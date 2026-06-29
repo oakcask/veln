@@ -1455,6 +1455,16 @@ fn collect_private_prelude_callback_return_constraints(
                         changed,
                     },
                 );
+                let initializer_private_function = annotation_type
+                    .is_none()
+                    .then(|| {
+                        private_same_module_call_target(
+                            expr,
+                            function.module_name.as_deref(),
+                            function_by_path,
+                        )
+                    })
+                    .flatten();
                 let ty = annotation_type.unwrap_or_else(|| {
                     infer_private_signature_expr_type(
                         expr,
@@ -1466,7 +1476,12 @@ fn collect_private_prelude_callback_return_constraints(
                         adts,
                     )
                 });
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
+                collect_let_pattern_bindings(
+                    pattern,
+                    &ty,
+                    initializer_private_function,
+                    &mut bindings,
+                );
             }
             BodyLineKind::Expr { expr } => {
                 let expected = (index + 1 == function.body.len())
@@ -1582,9 +1597,15 @@ fn collect_private_prelude_callback_expr_constraints(
             collect_private_prelude_callback_expr_constraints(left, expected, context);
             collect_private_prelude_callback_expr_constraints(right, expected, context);
         }
+        ExprKind::NamePath(segments) => {
+            if let Some(expected) = expected {
+                collect_private_callback_return_constraint_for_segments(
+                    segments, expected, context,
+                );
+            }
+        }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
@@ -1694,10 +1715,30 @@ fn collect_private_callback_return_constraint(
     let ExprKind::NamePath(segments) = &arg.kind else {
         return;
     };
-    let [name] = segments.as_slice() else {
+    collect_private_callback_return_constraint_for_segments(segments, expected_callback, context);
+}
+
+fn collect_private_callback_return_constraint_for_segments(
+    segments: &[String],
+    expected_callback: &Type,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    let Type::Function { return_type, .. } = expected_callback else {
         return;
     };
-    let key = (context.current_module.map(str::to_string), name.clone());
+    if type_has_unknown(return_type) {
+        return;
+    }
+    let [name] = segments else {
+        return;
+    };
+    let key = context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == *name)
+        .and_then(|binding| binding.private_function_value.clone())
+        .unwrap_or_else(|| (context.current_module.map(str::to_string), name.clone()));
     if !context.omitted_private_returns.contains(&key) {
         return;
     }
