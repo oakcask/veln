@@ -14,9 +14,10 @@ compare it with `../specification/` before changing behavior.
   compiler-known, concrete declared-helper signature, concrete record-field
   expected-type, concrete local-binding expected-type, and concrete
   direct return-position expected-type, concrete match-arm expected-type, and
-  concrete if-branch expected-type, and concrete constructor-payload
-  expected-type paths, and other paths beyond the implemented same-function
-  local `let`, non-empty collection initializer, empty collection expected-type,
+  concrete if-branch expected-type, concrete constructor-payload
+  expected-type, and concrete collection element expected-type paths, and
+  other paths beyond the implemented same-function local `let`, non-empty
+  collection initializer, empty collection expected-type,
   nested initializer expected-type
   propagation, hole expected-type flow, empty collection callback return,
   payload-carrying ADT constructor inference, match scrutinee
@@ -27,7 +28,7 @@ compare it with `../specification/` before changing behavior.
   local callback binding annotation elision, direct return callback, match-arm
   callback, if-branch callback, callback return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
-  and examples cleanup slices specified in
+  collection callback element, and examples cleanup slices specified in
   `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
@@ -35,10 +36,11 @@ compare it with `../specification/` before changing behavior.
   fallback, record-field callback inference, local callback binding inference,
   local callback binding annotation-elision inference, direct return callback
   inference, callback return expected-type inference, constructor-payload
-  callback inference, non-empty collection initializer inference, ADT constructor
-  payload inference, match scrutinee constructor-pattern inference, local
-  pattern `let` inference, nested initializer expected-type propagation, hole
-  expected-type flow, and examples cleanup slices are archived under
+  callback inference, collection callback element inference, non-empty
+  collection initializer inference, ADT constructor payload inference, match
+  scrutinee constructor-pattern inference, local pattern `let` inference,
+  nested initializer expected-type propagation, hole expected-type flow, and
+  examples cleanup slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
@@ -52,6 +54,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-if-branch-callback.md`,
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
+  `../reference/implemented-proposals/local-inference-collection-callback-element.md`,
   [local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md),
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,

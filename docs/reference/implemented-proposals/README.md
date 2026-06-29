@@ -80,6 +80,8 @@ behavior.
   [local-inference-callback-return-expected-type.md](local-inference-callback-return-expected-type.md).
 - Local inference constructor payload callback:
   [local-inference-constructor-payload-callback.md](local-inference-constructor-payload-callback.md).
+- Local inference collection callback element:
+  [local-inference-collection-callback-element.md](local-inference-collection-callback-element.md).
 - Local inference variadic callback parameter:
   [local-inference-variadic-callback-parameter.md](local-inference-variadic-callback-parameter.md).
 - Local inference non-empty collection initializer:

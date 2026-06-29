@@ -66,12 +66,16 @@ full type reference.
   A constructor payload whose expected type is a concrete function type also
   constrains a named private callback placed in that payload position. This
   includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
-  and `Err` and `Result::Err` payloads. When such a
-  concrete helper, record-field, local-binding, direct return, match arm, `if`
-  branch, constructor payload, or prelude helper result context fixes a named
-  private callback return type, that expected return type propagates into
-  non-empty callback tail expressions such as `Some(...)`, `Ok(...)`,
-  `Err(...)`, source ADT constructors, records, and collection literals.
+  and `Err` and `Result::Err` payloads. Concrete `Vec<fn(...) -> ...>`
+  element positions and concrete `List` `Cons` head positions also constrain
+  named private callbacks placed at that element position, including nested
+  initializer positions reached through concrete record fields or constructor
+  payloads. When such a concrete helper, record-field, local-binding, direct
+  return, match arm, `if` branch, constructor payload, collection element, or
+  prelude helper result context fixes a named private callback return type,
+  that expected return type propagates into non-empty callback tail
+  expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
+  constructors, records, and collection literals.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and
