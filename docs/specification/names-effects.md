@@ -137,9 +137,11 @@ compiler-known calls.
   keeps cancellation authority in adapter cleanup through `CancelOwner`,
   passes only observer `CancelToken` values to cancellable deadline-aware
   accept/read and channel-routing code, drains production streams until clean
-  listener end or accept cancellation, and projects ordered `SendBytes`
-  actions through `net::write_chunks` while requiring the same `net`, `time`,
-  and `concurrency` adapter boundary. The two-stream adapter
+  listener end or accept cancellation, and checks that owner cancellation
+  after one accepted stream event makes a later stream read return
+  `ReadCancelled` before another handler route continues. It projects ordered
+  `SendBytes` actions through `net::write_chunks` while requiring the same
+  `net`, `time`, and `concurrency` adapter boundary. The two-stream adapter
   lifecycle accepts two independent production streams from one listener,
   routes each stream through the same ordinary handler/action boundary, writes
   only ordered `SendBytes` actions, closes each stream, and observes clean

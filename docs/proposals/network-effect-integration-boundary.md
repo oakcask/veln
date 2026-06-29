@@ -362,10 +362,13 @@ and channel-routing code, drains deterministic production-loopback streams
 until clean listener end, calls a pure handler with ordinary `StreamInput`
 values and explicit state, projects only ordered `SendBytes` actions through
 `net::write_chunks`, closes owned streams and the listener in cleanup, and
-checks accept cancellation as an ordinary adapter outcome. The matching
-effect-checking case requires `net`, `time`, and `concurrency` at the adapter
-boundary while keeping the handler free of transport, time, and concurrency
-effects.
+checks accept cancellation as an ordinary adapter outcome. The same run case
+also accepts one production stream, routes one ordinary stream event through
+the channel and task handler boundary, requests owner cancellation, and
+observes the next cancellable read as ordinary `ReadCancelled` before another
+handler route continues. The matching effect-checking case requires `net`,
+`time`, and `concurrency` at the adapter boundary while keeping the handler
+free of transport, time, and concurrency effects.
 
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in

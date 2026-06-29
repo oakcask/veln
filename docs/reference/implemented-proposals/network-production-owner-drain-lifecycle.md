@@ -27,10 +27,14 @@ The executable run case drains configured production streams until clean
 listener end, closes each owned stream after response projection, closes the
 listener during cleanup, captures the ordered client-observed bytes, and
 checks a second adapter path where owner-requested cancellation makes
-cancellable accept return `AcceptCancelled` as an ordinary outcome. The effect
-case requires the existing `net`, `time`, and `concurrency` labels at the
-adapter boundary while keeping the handler boundary free of transport, time,
-and channel effects.
+cancellable accept return `AcceptCancelled` as an ordinary outcome. It also
+checks a path that accepts one production stream, routes one ordinary stream
+event through the channel and task handler boundary, requests owner
+cancellation, then observes the next cancellable read as ordinary
+`ReadCancelled` before another handler route continues. The effect case
+requires the existing `net`, `time`, and `concurrency` labels at the adapter
+boundary while keeping the handler boundary free of transport, time, and
+channel effects.
 
 Forced host failures on the same production accept, read, write, and close
 boundaries remain runtime transport failures covered by the adjacent
