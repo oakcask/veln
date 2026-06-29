@@ -1600,6 +1600,7 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
+  byte-aligned representation-only `ReservedBits(width, value)` fields,
   standalone visible `UInt1` through `UInt7` fields,
   opt-in visible flag bitset fields,
   supported middle reserved-bit layouts, including byte-interleaved middle
@@ -1626,6 +1627,8 @@ execution reference.
   uses the same derived decode boundary while keeping the referenced schema
   and generated helper owned by the declaring module. The
   checked examples are
+  `examples/specification/run/derived-codec-byte-aligned-reserved-decode-boundary/`,
+  `examples/specification/run/derived-codec-byte-aligned-reserved-decode-boundary-json/`,
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-middle-reserved-decode-boundary/`,
   `examples/specification/run/derived-codec-interleaved-reserved-decode-boundary/`,
@@ -1659,6 +1662,10 @@ execution reference.
   `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
+  The byte-aligned reserved-field case checks successful `Decoded`, consumed
+  count, short-input `NeedMore(NeedBytes(...))`, non-consuming reserved-bit
+  `Invalid`, and command-facing JSON projection through the derived codec
+  item.
   The recursive dispatch boundary case covers same-module recursive closed and
   extension dispatch payload helpers through `derive decode`, including
   successful recursive decode, short-input `NeedMore`, helper failure

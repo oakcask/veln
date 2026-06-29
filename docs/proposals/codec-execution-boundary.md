@@ -58,6 +58,8 @@ general generated helper shape with successful decode, short-input
 `NeedMore`, successful encode, and helper-projected encode failure. They also
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
+byte-aligned representation-only `ReservedBits(width, value)` fields through
+the derived decode boundary,
 visible-only packed two-byte, three-byte, four-byte, and five-byte groups, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields, wide reserved suffix and prefix groups, and schema
@@ -278,6 +280,7 @@ repeat-backed schemas, arithmetic-count and quotient-count repeated primitive
 fields, supported middle reserved layouts, and the checked non-HTTP general
 helper shape, plus additive, subtractive, quotient-sized, and product-sized
 `ByteView` payload fields, standalone visible `UInt1` through `UInt7` fields,
+byte-aligned representation-only `ReservedBits(width, value)` fields,
 visible-only packed two-byte, three-byte, four-byte, and five-byte groups, the
 narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, and
 schema mappings that call pure same-module converters with five structural
@@ -402,8 +405,10 @@ encoder state owns only the remaining encode work.
   derived encode over generated helper output,
   selected structural mapping encode cases already accepted by the generated
   helper, same-module recursive closed and extension dispatch payload helpers,
-  arithmetic-count and quotient-count repeated primitive fields, standalone
-  visible `UInt1` through `UInt7` fields, visible-only packed two-byte,
+  arithmetic-count and quotient-count repeated primitive fields,
+  byte-aligned representation-only `ReservedBits(width, value)` fields through
+  the derived decode boundary, standalone visible `UInt1` through `UInt7`
+  fields, visible-only packed two-byte,
   three-byte, four-byte, and five-byte groups, opt-in visible flag bitset
   fields, wide reserved suffix and prefix groups, generated-helper-backed
   `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper

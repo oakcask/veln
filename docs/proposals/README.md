@@ -301,7 +301,9 @@ compare it with `../specification/` before changing behavior.
   additive, subtractive, quotient-sized, and product-sized `ByteView` payload
   fields, arithmetic-count and quotient-count
   repeated primitive fields, same-module recursive closed and extension
-  dispatch payload helpers, standalone visible `UInt1` through `UInt7`
+  dispatch payload helpers, byte-aligned representation-only
+  `ReservedBits(width, value)` fields through the derived decode boundary,
+  standalone visible `UInt1` through `UInt7`
   fields, visible-only packed two-byte, three-byte, four-byte, and five-byte groups,
   opt-in visible flag bitset fields, including generated-helper-backed
   `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved

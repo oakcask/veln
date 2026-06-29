@@ -12,10 +12,12 @@ and the checked executable examples under `../../../examples/specification/`.
 
 Derived codec decode calls expose the same source-call boundary as the
 generated `byte_decode_step_<schema>` helper when the named schema is already
-eligible for that helper. The completed slices cover addition, subtraction,
-multiplication, and division repeated primitive count expressions, standalone
-visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields,
-including generated-helper-backed `Flag24be` and `Flag24le` fields,
+eligible for that helper. The completed slices cover byte-aligned
+representation-only `ReservedBits(width, value)` fields, addition,
+subtraction, multiplication, and division repeated primitive count
+expressions, standalone visible `UInt1` through `UInt7` fields, opt-in
+visible flag bitset fields, including generated-helper-backed `Flag24be` and
+`Flag24le` fields,
 visible-only packed three-byte, four-byte, and five-byte groups, seven-byte
 or eight-byte reserved prefix groups, seven-byte wide reserved suffix groups,
 the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix route,
@@ -46,6 +48,13 @@ produced count, and a resumable state record carrying `encoded_offset`.
 
 ## Evidence
 
+- `../../../examples/specification/run/derived-codec-byte-aligned-reserved-decode-boundary/`
+  checks generated helper decode behavior for byte-aligned
+  representation-only `ReservedBits(width, value)` fields through the derived
+  codec item, including successful `Decoded`, consumed count, short-input
+  readiness, and helper `Invalid(DecodeError)` projection. The companion JSON
+  case checks command-facing diagnostics for the helper-projected
+  reserved-bit mismatch.
 - `../../../examples/specification/run/derived-codec-flag-boundary/` checks
   successful flag-bitset decode, consumed count, short-input readiness,
   successful encode, output chunk projection, and helper encode failure
