@@ -46,5 +46,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_request_post_http_root: () = print_static_block("request-post-http-root", "838684", 19)?
 	let ignored_unsupported_static_index: () = print_static_block("unsupported-static-index", "80", 20)?
 	let ignored_literal_falls_through: () = print_static_block("literal-falls-through", "102030", 21)?
+	let ignored_literal_authority: () = print_static_block("literal-authority", "01086162632e74657374", 22)?
+	let ignored_literal_path: () = print_static_block("literal-path", "04072f746172676574", 23)?
+	let ignored_literal_status: () = print_static_block("literal-status", "0803323031", 24)?
+	let ignored_literal_server: () = print_static_block("literal-server", "0f27026f6b", 25)?
+	let ignored_literal_content_type: () = print_static_block("literal-content-type", "0f100474657874", 26)?
+	let ignored_literal_user_agent: () = print_static_block("literal-user-agent", "0f2b056167656e74", 27)?
+	let ignored_literal_method_falls_through: () = print_static_block("literal-method-falls-through", "0203505554", 28)?
+	let ignored_literal_huffman_falls_through: () = print_static_block("literal-huffman-falls-through", "048349509f", 29)?
+	let ignored_literal_malformed_length_falls_through: () = print_static_block("literal-malformed-length-falls-through", "0804323031", 30)?
+	let ignored_literal_saturated_length_falls_through: () = print_static_block("literal-saturated-length-falls-through", "087f", 31)?
 	Ok(())
 end
