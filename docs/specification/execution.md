@@ -2560,7 +2560,11 @@ execution reference.
   or send-credit changes. DATA with local `END_STREAM` before the expected
   byte count is reached is rejected the same way. Those rejections use
   `http2.protocol.content_length_mismatch` with
-  `rfc9113_content_length_body`.
+  `rfc9113_content_length_body`. Focused outbound checks live under
+  `examples/specification/run/http2-protocol-core-content-length-body/`,
+  `examples/specification/run/http2-protocol-core-content-length-over-json/`,
+  and
+  `examples/specification/run/http2-protocol-core-content-length-early-human/`.
   After accepted inbound DATA carries peer `END_STREAM`, the same example
   keeps local outbound DATA send-intents available for that closed-by-peer
   stream until local `END_STREAM` is sent. Those DATA send-intents still use

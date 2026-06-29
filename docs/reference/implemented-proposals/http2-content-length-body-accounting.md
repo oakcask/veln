@@ -46,12 +46,14 @@ before output bytes or send-credit changes through the same
   accepted exact-length DATA, accepted PADDED DATA, over-length rejection, and
   early local `END_STREAM` rejection.
 - `../../../examples/specification/run/http2-protocol-core-content-length-body/`
-  checks exact DATA application byte matches and PADDED DATA where padding
-  consumes receive-window credit without counting toward the body length.
+  checks focused outbound exact-length DATA with local `END_STREAM`, local
+  closed-stream transition after the exact match, and PADDED DATA splitting
+  where padding consumes outbound send credit without counting toward the body
+  length.
 - `../../../examples/specification/run/http2-protocol-core-content-length-over-json/`
-  checks JSON projection for over-length DATA.
+  checks outbound JSON projection for over-length DATA.
 - `../../../examples/specification/run/http2-protocol-core-content-length-early-human/`
-  checks human projection for an early peer `END_STREAM` shortfall.
+  checks outbound human projection for an early local `END_STREAM` shortfall.
 - `../../specification/execution.md`, `../../specification/run-json.md`, and
   `../../specification/examples.md` summarize the current behavior and route
   to the checked examples.

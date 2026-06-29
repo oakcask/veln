@@ -2448,15 +2448,18 @@ receive-window credit for the full DATA payload, including the pad-length byte
 and padding bytes, while the exposed DATA content contains only application
 data bytes. A pad length that exceeds the remaining DATA payload is reported as
 `http2.protocol.invalid_data_padding`. When an accepted fixture-marked
-`content-length` value is present, the focused
-`http2-protocol-core-content-length-body` case checks exact DATA application
-byte matches and PADDED DATA whose padding consumes window credit but is not
-counted toward the body length. The focused
+`content-length` value is present, the main `http2-protocol-core` case checks
+inbound exact DATA application byte matches and inbound PADDED DATA whose
+padding consumes receive-window credit but is not counted toward the body
+length. The focused `http2-protocol-core-content-length-body` case checks
+outbound exact DATA with local `END_STREAM`, local closed-stream transition,
+and PADDED DATA splitting where padding consumes outbound send credit without
+counting toward body length. The focused
 `http2-protocol-core-content-length-over-human`,
 `http2-protocol-core-content-length-over-json`,
 `http2-protocol-core-content-length-early-human`, and
 `http2-protocol-core-content-length-early-json` cases project over-length
-DATA and early peer `END_STREAM` shortfalls through
+outbound DATA and early local `END_STREAM` shortfalls through
 `http2.protocol.content_length_mismatch` in both human and JSON command
 output. Accepted DATA with `END_STREAM`, and
 accepted HEADERS sequences with `END_STREAM` after header-block completion,

@@ -31,6 +31,15 @@ end
 pub fn header_list_accepted_content_length(headers: HpackHeaderList) -> Int
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5"), _) => 5
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "content-length:5"), _) => 5
 		_ => -1
 	end
+end
+
+pub fn outbound_request_content_length_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", "scheme,path,content-length:5"), "content-length:5")
+end
+
+pub fn outbound_response_content_length_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "content-length:5"), "content-length:5")
 end
