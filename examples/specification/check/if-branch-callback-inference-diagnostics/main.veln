@@ -1,0 +1,18 @@
+fn string_body(value) -> String
+	"ok"
+end
+
+fn int_body(value) -> Int
+	1
+end
+
+pub fn main() -> String
+	let callback: fn(Int) -> String = if true
+		string_body
+	else if false
+		string_body
+	else
+		int_body
+	end
+	callback(1)
+end

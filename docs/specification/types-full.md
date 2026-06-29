@@ -271,6 +271,20 @@ function effect assignment keeps pure and effectful callback compatibility.
 Expected match arm function types that still contain `unknown` do not constrain
 callback parameters.
 
+When an `if` expression is checked against a concrete expected function type,
+each `then`, `else if`, and final `else` branch result receives that expected
+type. A named same-module private callback function value returned from a
+branch receives the expected function parameter types for omitted callback
+parameter annotations. This applies when the `if` is a local binding
+initializer with a concrete function annotation and when the `if` is a
+function body tail expression whose declared return type is a concrete function
+type. The callback return still has to satisfy the expected function return
+type. When that return type is concrete, it flows into non-empty callback tail
+expressions using the same constructor, record, and collection expected-type
+rules as prelude helper callback returns. Ordinary function effect assignment
+keeps pure and effectful callback compatibility. Expected `if` branch function
+types that still contain `unknown` do not constrain callback parameters.
+
 When a constructor call is checked against a concrete expected ADT type, each
 concrete payload type provides expected-type context for the matching payload
 expression. When an expected payload type is a concrete function type, a named

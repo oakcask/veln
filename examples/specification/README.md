@@ -82,6 +82,11 @@ against the built `veln` binary.
   parameter types and callback returns for local binding initializer and
   function body tail-expression contexts, with incompatible callback bodies
   reported as ordinary function type mismatches.
+- `check/if-branch-callback-inference/` and
+  `check/if-branch-callback-inference-diagnostics/`: `if`, `else if`, and
+  final `else` branch results checked against a concrete function type infer
+  named private callback parameter types and callback returns, with
+  incompatible callback bodies reported as ordinary function type mismatches.
 - `check/constructor-payload-callback-inference/` and
   `check/constructor-payload-callback-inference-diagnostics/`: constructor
   payload positions whose expected type is a concrete function type, including
