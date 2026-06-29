@@ -2344,6 +2344,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("time::monotonic_ms", "timeMonotonicMs"),
         ("time::timeout_ms", "timeTimeoutMs"),
         ("time::deadline_after_ms", "timeDeadlineAfterMs"),
+        ("time::deadline_at_ms", "timeDeadlineAtMs"),
         ("time::wait_until", "timeWaitUntil"),
         ("time::cancel_token", "timeCancelToken"),
         ("time::cancel_owner", "timeCancelOwner"),

@@ -420,7 +420,8 @@ compare it with `../specification/` before changing behavior.
   define remaining transport adapter, richer production socket APIs, richer
   stream-routing, richer deadline, cancellation, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
-  receiver-list routing, task, deadline, cancellation, deadline-aware listener
+  receiver-list routing, task, relative and absolute monotonic deadline,
+  cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
   stream write, adapter-owned
@@ -444,7 +445,8 @@ compare it with `../specification/` before changing behavior.
   lifecycle and outcome boundary, adapter close-failure runtime boundary, and
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
-  boundary,
+  boundary, absolute monotonic deadline construction
+  ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
   general
   receiver-list channel-first routing through the
   current checked select-many boundary including stale route-count fixture

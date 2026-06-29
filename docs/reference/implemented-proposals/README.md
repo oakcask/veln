@@ -186,6 +186,8 @@ behavior.
   [network-write-chunks-until-cancellable-boundary.md](network-write-chunks-until-cancellable-boundary.md).
 - Network monotonic clock boundary:
   [network-monotonic-clock-boundary.md](network-monotonic-clock-boundary.md).
+- Network deadline at boundary:
+  [network-deadline-at-boundary.md](network-deadline-at-boundary.md).
 - Network adapter outbound write ordering:
   [network-adapter-outbound-write-ordering.md](network-adapter-outbound-write-ordering.md).
 - Network adapter clean shutdown:

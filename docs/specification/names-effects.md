@@ -37,7 +37,8 @@ compiler-known calls.
   opt-in production loopback socket ownership for listen, sequential accepts,
   reads, writes, clean listener end, stream close, and listener close under
   the same public calls,
-  relative deadline calls, and cancellable deadline waits through
+  relative and absolute monotonic deadline calls, and cancellable deadline
+  waits through
   source-visible `CancelToken` handles. `time::cancel_owner` creates a
   source-visible cancellation owner, `time::cancel_token_from` exposes an
   observer token for existing cancellable operations, and
@@ -46,7 +47,11 @@ compiler-known calls.
   as `Bool` under the same `time` effect without waiting or requesting
   cancellation. `time::monotonic_ms` returns a host-owned monotonic
   millisecond counter under the same `time` effect for elapsed-time
-  measurement without exposing wall-clock dates. Direct `time::cancel`
+  measurement without exposing wall-clock dates. `time::deadline_at_ms`
+  constructs a `Deadline` from an absolute monotonic millisecond value in the
+  same clock domain, so existing deadline-aware waits, accepts, reads, and
+  writes consume relative and absolute deadlines through the same path.
+  Direct `time::cancel`
   remains available for direct tokens created by `time::cancel_token`, while
   owner-derived observer tokens reject direct cancellation at runtime. The
   value-returning cancellable wait returns

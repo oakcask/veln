@@ -941,6 +941,11 @@ mod tests {
         assert_eq!(return_type, Type::named("Deadline", Vec::new()));
 
         let (params, return_type) =
+            standard_library_signature(&path("time", "deadline_at_ms")).expect("time signature");
+        assert_eq!(params, vec![Type::int()]);
+        assert_eq!(return_type, Type::named("Deadline", Vec::new()));
+
+        let (params, return_type) =
             standard_library_signature(&path("time", "wait_until")).expect("time signature");
         assert_eq!(params, vec![Type::named("Deadline", Vec::new())]);
         assert_eq!(return_type, Type::unit());

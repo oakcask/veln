@@ -123,7 +123,13 @@ execution reference.
   The checked `examples/specification/run/transport-monotonic-clock/` case
   observes two `time::monotonic_ms` values and checks only monotonic ordering;
   the runtime exposes no wall-clock timestamp, date, time zone, sleep handle,
-  or calendar-time conversion.
+  or calendar-time conversion. The checked
+  `examples/specification/run/transport-deadline-at-boundary/` and
+  `examples/specification/run/transport-socket-read-until-deadline-at-expired/`
+  cases construct `Deadline` values from absolute monotonic millisecond
+  targets with `time::deadline_at_ms`; future targets use the normal
+  deadline-aware path, while targets at or before the current monotonic time
+  are already expired for existing deadline-aware consumers.
   Executable fixtures can set `VELN_TIME_CANCELLABLE_OUTCOMES` to
   a comma-separated sequence of `completed`, `deadline-expired`, and
   `cancelled` values for the value-returning wait path.

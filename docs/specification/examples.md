@@ -1882,6 +1882,13 @@ cover descriptor-backed time waits, relative deadlines, and source-visible
 cases pin the source-visible `time::monotonic_ms` boundary: public callers
 must declare `time`, and executable coverage checks only monotonic ordering
 rather than exact host time. The
+`../../examples/specification/run/transport-deadline-at-boundary/`,
+`../../examples/specification/run/transport-socket-read-until-deadline-at-expired/`,
+and `../../examples/specification/check/transport-deadline-at-effects/`
+cases pin absolute monotonic deadline construction through
+`time::deadline_at_ms`, including a future target on the normal
+deadline-aware socket read path and a current target that is already expired
+for the same consumer. The
 `../../examples/specification/run/transport-cancel-token-status/` and
 `../../examples/specification/check/transport-cancel-token-status-effects/`
 cases pin cancellation-token status observation before and after

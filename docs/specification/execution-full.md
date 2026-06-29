@@ -855,9 +855,11 @@ transport failures.
 `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
-millisecond duration, `time::monotonic_ms` returns a host-owned monotonic
-millisecond counter for elapsed-time measurement without exposing wall-clock
-dates, and `time::wait_until` waits until that deadline expires.
+millisecond duration, `time::deadline_at_ms` returns a source-visible
+`Deadline` for an absolute monotonic millisecond value in the same clock
+domain as `time::monotonic_ms`, `time::monotonic_ms` returns a host-owned
+monotonic millisecond counter for elapsed-time measurement without exposing
+wall-clock dates, and `time::wait_until` waits until that deadline expires.
 `time::cancel_token` returns a source-visible `CancelToken`,
 `time::cancel_owner` returns a source-visible `CancelOwner`,
 `time::cancel_token_from` exposes an observer `CancelToken` from that owner,
