@@ -87,6 +87,9 @@ targets. The completed slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-imported-derived-boundary.md).
 The completed same-module hand-written encode resume slice is recorded in the
 [implemented proposal record](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
+The completed same-module hand-written `NeedEnd` readiness preservation and
+closed-input projection slice is recorded in the
+[implemented proposal record](../reference/implemented-proposals/codec-hand-written-need-end-boundary.md).
 
 Define codec support for:
 
@@ -263,7 +266,11 @@ hand-written decode execution boundary exposes the codec item name as an
 ordinary source call that forwards `ByteView` and `ByteOffset` to the
 referenced function, returns valid `Decoded`, `NeedMore`, and `Invalid`
 results unchanged, and projects an oversized consumed count to
-`codec.consumed_count_invalid`. The implemented hand-written encode execution
+`codec.consumed_count_invalid`. The completed same-module hand-written
+`NeedEnd` readiness preservation and closed-input projection slice is archived
+under
+[Codec Hand-Written NeedEnd Boundary](../reference/implemented-proposals/codec-hand-written-need-end-boundary.md).
+The implemented hand-written encode execution
 boundary exposes the codec item name as an ordinary source call that invokes
 the referenced encoder function with that function's parameters and returns
 its `EncodeStep<TState>` unchanged, including `Partial` values with emitted
@@ -414,7 +421,8 @@ encoder state owns only the remaining encode work.
   `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper
   shape, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper
   route, and the caller-owned parser-state retention and hand-written bounded
-  `ByteView` base-offset `NeedMore` examples.
+  `ByteView` base-offset `NeedMore` examples, including same-module
+  hand-written `NeedEnd` readiness preservation and closed-input projection.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.
 - Codec failures include structured diagnostic data.
