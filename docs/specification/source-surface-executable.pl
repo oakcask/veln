@@ -92,7 +92,7 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ SchemaValidation? SchemaMapping* \"end\" NL?").
+grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? SchemaMapping* \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive").
@@ -352,7 +352,7 @@ schema_decl -->
     tok(schema),
     ident,
     nl,
-    schema_format,
+    schema_format_opt,
     nls,
     schema_fields,
     nls,
@@ -366,6 +366,9 @@ schema_format -->
     tok(format),
     ident_text("binary"),
     nl.
+
+schema_format_opt --> schema_format, !.
+schema_format_opt --> [].
 
 schema_fields --> schema_field, !, schema_fields_tail.
 schema_fields_tail --> schema_field, !, schema_fields_tail.

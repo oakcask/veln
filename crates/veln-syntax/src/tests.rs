@@ -375,6 +375,43 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
 }
 
 #[test]
+fn parses_schema_fields_without_format_clause() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "schema Metadata\n",
+            "  version: Int\n",
+            "  title: String\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
+        panic!("expected schema declaration");
+    };
+    assert_eq!(schema.name.as_deref(), Some("Metadata"));
+    assert!(schema.format.is_none());
+    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields[0].name, "version");
+    assert_eq!(schema.fields[0].ty, "Int");
+    assert_eq!(schema.fields[1].name, "title");
+    assert_eq!(schema.fields[1].ty, "String");
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "schema Metadata\n",
+            "\n",
+            "\tversion: Int\n",
+            "\ttitle: String\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_qualified_codec_schema_references() {
     let source = SourceFile::new(
         "codec.veln",

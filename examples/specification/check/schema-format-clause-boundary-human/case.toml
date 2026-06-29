@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.exact_width_primitive]: binary schema primitive `UInt16be` can only be used in a `format binary` schema field", "error[schema.reserved_bits_primitive]: `ReservedBits` can only be used in a `format binary` schema field"]
+
+[stderr]
+format = "empty"

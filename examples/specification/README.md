@@ -310,6 +310,12 @@ against the built `veln` binary.
   `ReservedBits(width, value)` primitive fields, and field-local `where`
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
+- `check/schema-format-clause-boundary/` and
+  `check/schema-format-clause-boundary-human/`: format-neutral schema fields
+  are accepted without a format clause, `format binary` accepts binary field
+  vocabulary, binary-only vocabulary without `format binary` reports schema
+  wrong-kind diagnostics, while malformed declaration cases keep late
+  `format binary` clauses as parse diagnostics.
 - `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`,
   `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`,
   and `UInt56le` are accepted as `format binary` schema field primitives on

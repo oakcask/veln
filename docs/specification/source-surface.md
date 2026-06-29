@@ -51,10 +51,11 @@ smallest section to read before opening the full grammar notes.
 See [source-surface-full.md#grammar](source-surface-full.md#grammar).
 
 Top-level `schema Name` and `pub schema Name` declarations are implemented as
-source module items. The implemented schema body slice requires a single
-`format binary` clause before schema fields. Schema field lines contain a field
-name, `:`, type text, and an optional field-local `where` predicate. In binary
-schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
+source module items. A schema body may omit its `format` clause when every
+field uses format-neutral type text. When present, the single `format binary`
+clause must appear before schema fields. Schema field lines contain a field
+name, `:`, type text, and an optional field-local `where` predicate. In
+binary schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`,
 `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`,
 `UInt64le`, and
@@ -159,7 +160,10 @@ when both referenced fields were decoded earlier in the same schema as visible
 `Int` fields. Its known cases use the same payload vocabulary, and its unknown
 cases preserve a bounded raw payload selected by `length_field`. These
 primitive names are representation-local field vocabulary, not ordinary source
-types or values.
+types or values. Exact-width primitives and `ReservedBits(width, value)` used
+in a schema without `format binary` report schema wrong-kind diagnostics
+instead of being treated as unresolved ordinary type or value names. A
+`format binary` clause that appears after a field is a parse diagnostic.
 One schema-level `validate` predicate may appear after binary schema fields.
 It uses the same predicate syntax as field-local `where` clauses, but may
 reference only `Int` fields decoded by the same schema helper. Unknown field

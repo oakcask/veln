@@ -43,6 +43,9 @@ The implemented first slice covers:
 - source-surface `ReservedBits(width, value)` declaration checking for literal
   integer arguments in `format binary` schemas
 - schema visibility and module ownership rules for `schema` and `pub schema`
+- schema declarations without a `format` clause when their fields use
+  format-neutral type text, while binary-only field vocabulary remains gated
+  by a preceding `format binary` clause
 - schema references from codec declaration heads, including same-module bare
   references and imported public schema references through written `use` paths
 - top-level public schema member aliases that re-export existing public
@@ -376,11 +379,11 @@ Schema declarations should select their external representation vocabulary
 inside the schema body with an explicit format clause, rather than by using a
 specialized declaration keyword such as `codec schema`.
 
-The first clause should be `format binary`. It makes binary schema primitives
-such as exact-width integers, reserved bits, byte ranges, and dispatch forms
-available only in that schema's field vocabulary. The clause does not import
-ordinary source values, does not create executable codec APIs, and does not
-change the module visibility of the schema item.
+The implemented binary schema form starts with `format binary`. It makes
+binary schema primitives such as exact-width integers, reserved bits, byte
+ranges, and dispatch forms available only in that schema's field vocabulary.
+The clause does not import ordinary source values, does not create executable
+codec APIs, and does not change the module visibility of the schema item.
 
 ```text
 schema Http2FrameHeader
@@ -394,11 +397,10 @@ schema Http2FrameHeader
 end
 ```
 
-The parser should require the format clause before format-specific fields or
-validation forms are used. A schema with no format clause may contain only the
-format-neutral surface accepted by the schema declaration proposal; binary
-primitives in that context are wrong-kind schema diagnostics, not ordinary
-unresolved value names.
+The parser requires the format clause before format-specific fields or
+validation forms are used. A schema with no format clause may contain only
+format-neutral source surface; binary primitives in that context are
+wrong-kind schema diagnostics, not ordinary unresolved value names.
 
 Future formats can add new `format <name>` clauses with their own field
 vocabularies. A single schema uses one format in the first surface. Shared

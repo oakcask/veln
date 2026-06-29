@@ -720,6 +720,52 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
 }
 
 #[test]
+fn binary_schema_primitives_without_format_clause_report_schema_wrong_kind() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingFormatUInt\n",
+            "  length: UInt16be\n",
+            "end\n",
+            "\n",
+            "schema MissingFormatReserved\n",
+            "  padding: ReservedBits(8, 0)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2);
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.exact_width_primitive"
+            && diagnostic.message
+                == "binary schema primitive `UInt16be` can only be used in a `format binary` schema field"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"non_binary_format\"")
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.reserved_bits_primitive"
+            && diagnostic.message
+                == "`ReservedBits` can only be used in a `format binary` schema field"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"non_binary_format\"")
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
     let source = SourceFile::new(
         "main.veln",
