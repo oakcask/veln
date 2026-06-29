@@ -93,10 +93,17 @@ checked by
 `../../examples/specification/run/codec-decode-error-reason-direct-human/`,
 `../../examples/specification/run/codec-decode-invalid-owned-id-json/`,
 `../../examples/specification/run/codec-decode-invalid-owned-id-human/`,
+`../../examples/specification/run/codec-packet-kind-invalid-direct-json/`,
+`../../examples/specification/run/codec-packet-kind-invalid-direct-human/`,
+`../../examples/specification/run/codec-packet-kind-invalid-step-json/`,
+`../../examples/specification/run/codec-packet-kind-invalid-step-human/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-json/`,
 `../../examples/specification/run/codec-decode-invalid-reason-step-human/`,
 `../../examples/specification/run/codec-decode-invalid-step-json/`, and
 `../../examples/specification/run/codec-decode-invalid-step-human/`.
+The checked `codec.packet_kind_invalid` command-facing slice now includes
+direct `DecodeErrorWithReason(...)` result failures and
+`DecodeStep::Invalid(DecodeErrorWithReason(...))` entry results.
 The codec-owned checksum mismatch diagnostic slice is implemented for
 `codec.checksum_mismatch` direct `DecodeErrorWithReason(...)` failures and
 `DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries

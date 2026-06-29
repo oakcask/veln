@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.packet_kind_invalid]: decode error at byte offset 62", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: Decode failure reason: packet kind 7 is not accepted.", "note: DecodeError value: DecodeErrorWithReason(codec.packet_kind_invalid, ByteOffset(62), ManualPacketWire.kind, packet kind 7 is not accepted)."]

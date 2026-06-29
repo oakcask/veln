@@ -1,0 +1,8 @@
+# DecodeStep Invalid packet-kind failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(5)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.packet_kind_invalid", offset, "ManualPacketWire.kind", "packet kind 7 is not accepted"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
