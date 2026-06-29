@@ -69,7 +69,7 @@ compare it with `../specification/` before changing behavior.
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions including nested constructor
   payloads in generated decode mappings, pure same-module and imported
-  public representation conversion hooks that take one, two, three, four, or five
+  public representation conversion hooks that take one or more supported
   arguments from schema-local fields or structural mapping expressions
   including pure converter calls, field
   selection from record-shaped structural mapping expressions, decoded-field,
@@ -313,8 +313,9 @@ compare it with `../specification/` before changing behavior.
   `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved
   prefix groups, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
   helper route,
-  schema mappings that call pure same-module converters with five structural
-  arguments through the derived codec decode boundary,
+  schema mappings that call pure same-module or imported public converters
+  with one or more supported structural arguments through generated decode
+  mapping and the derived codec decode boundary,
   and selected structural mapping encode slice,
   and derived helper eligibility diagnostics for unsupported generated decode
   and encode directions.

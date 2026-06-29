@@ -303,8 +303,8 @@ visible-only packed six-byte group.
 The executable specification case
 `../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
 covers the same derived codec decode item boundary for a schema mapping that
-calls a pure same-module converter with five structural arguments. It checks
-successful `Decoded`, short-input `NeedMore(NeedBytes(...))`, and
+calls a pure same-module converter with supported structural arguments. It
+checks successful `Decoded`, short-input `NeedMore(NeedBytes(...))`, and
 helper-projected `Invalid(DecodeError(...))` outcomes through the codec item.
 The executable specification cases
 `../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary-json/`
@@ -875,6 +875,11 @@ pin same-module and imported public four-argument converter calls.
 and
 `../../examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`
 pin same-module and imported public five-argument converter calls.
+`../../examples/specification/run/binary-schema-mapped-converter-many-argument-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapped-converter-many-argument-decode/`
+pin same-module and imported public converter calls with more than five
+supported structural arguments.
 `../../examples/specification/run/binary-schema-mapping-selection-decode/`
 pins deterministic mapping selection by an already decoded field value.
 `../../examples/specification/run/binary-schema-mapping-selection-not-equal-decode/`

@@ -164,6 +164,8 @@ behavior.
   [binary-schema-same-module-recursive-dispatch-decode-only.md](binary-schema-same-module-recursive-dispatch-decode-only.md).
 - Binary schema mapping arithmetic encode:
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
+- Binary schema mapping converter varargs:
+  [binary-schema-mapping-converter-varargs.md](binary-schema-mapping-converter-varargs.md).
 - Codec generated helper boundary slices:
   [codec-generated-helper-boundary-slices.md](codec-generated-helper-boundary-slices.md).
 - Codec hand-written encode resume:

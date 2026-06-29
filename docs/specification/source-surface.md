@@ -227,8 +227,8 @@ literals, `Int`-returning converter calls, or nested supported integer
 arithmetic mapping expressions. A `Bool` target field may use `==`, `!=`,
 `<`, `<=`, `>`, and `>=` between those supported `Int` mapping operands, and
 may compose those supported comparisons with `and`, `or`, and `not`. Converter
-calls take one, two, three, four, or five
-arguments. Each argument is either a schema-local field reference or an
+calls take one or more arguments. Each argument is either a schema-local field
+reference or an
 already implemented structural mapping expression made from schema-local
 fields, records, ADT constructors, supported integer arithmetic mapping
 expressions, pure converter calls, and nested combinations of those forms. The converter return
@@ -358,9 +358,15 @@ and
 `../../examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`
 pin same-module and imported public five-argument converter calls through
 generated decode mapping.
+The checked runtime cases
+`../../examples/specification/run/binary-schema-mapped-converter-many-argument-decode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapped-converter-many-argument-decode/`
+pin same-module and imported public converter calls with more than five
+supported structural arguments through generated decode mapping.
 The checked diagnostics case
 `../../examples/specification/check/schema-three-argument-mapping-converter-diagnostics/`
-pins unsupported six-argument converter calls and rejected fifth arguments
+pins converter arity mismatches and rejected fifth arguments
 while nested converter calls inside five-argument converter calls remain
 supported.
 Eligible binary schemas whose fields are visible exact-width unsigned

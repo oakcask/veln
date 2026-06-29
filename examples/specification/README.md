@@ -407,7 +407,7 @@ against the built `veln` binary.
 - `check/schema-three-argument-mapping-converter-diagnostics/`:
   schema mapping converters reject unsupported fifth arguments, unsupported
   third arguments, nested converter-call arguments, imported public converter
-  input mismatches, and calls beyond the implemented arity boundary.
+  input mismatches, and ordinary converter arity mismatches.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -1289,6 +1289,9 @@ against the built `veln` binary.
 - `run/binary-schema-five-argument-mapped-converter-decode/`: a generated
   binary schema decode helper calls a pure same-module converter with five
   supported structural mapping expression arguments.
+- `run/binary-schema-mapped-converter-many-argument-decode/`: a generated
+  binary schema decode helper calls a pure same-module converter with more
+  than five supported structural mapping expression arguments.
 - `run/binary-schema-imported-mapped-converter-decode/`: a generated binary
   schema decode helper calls imported public pure converters through written
   `use` paths before returning the decoded value.
@@ -1304,6 +1307,10 @@ against the built `veln` binary.
 - `run/binary-schema-imported-five-argument-mapped-converter-decode/`: a
   generated binary schema decode helper calls an imported public pure
   converter with five supported structural mapping expression arguments.
+- `run/binary-schema-imported-mapped-converter-many-argument-decode/`: a
+  generated binary schema decode helper calls an imported public pure
+  converter with more than five supported structural mapping expression
+  arguments.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.

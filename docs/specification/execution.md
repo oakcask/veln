@@ -821,7 +821,7 @@ execution reference.
   compose those supported comparisons with `and`, `or`, and `not`. Division by zero returns
   `schema.mapping_division_by_zero` at the offset after the decoded schema
   body with the schema and target-field path. Converter calls
-  take one, two, three, four, or five arguments. Each argument is either one decoded
+  take one or more arguments. Each argument is either one decoded
   schema-local field or an already implemented structural mapping expression
   made from decoded schema fields, records, ADT constructors, integer
   arithmetic mapping expressions, pure converter calls, and nested
@@ -887,6 +887,7 @@ execution reference.
   `examples/specification/run/binary-schema-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-five-argument-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-mapped-converter-many-argument-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-nested-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-structural-argument-decode/`,
@@ -894,6 +895,7 @@ execution reference.
   `examples/specification/run/binary-schema-imported-three-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-four-argument-mapped-converter-decode/`,
   `examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-many-argument-decode/`,
   `examples/specification/run/binary-schema-mapping-converter-selector-decode/`,
   `examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`,
   `examples/specification/run/binary-schema-imported-mapping-converter-selector-decode/`,
@@ -1625,8 +1627,8 @@ execution reference.
   `ByteView(left_length * right_length)` payload fields,
   additive `ByteView(left_length + right_length)` payload fields,
   subtractive `ByteView(left_length - right_length)` payload fields,
-  schema mappings that call pure same-module converters with five structural
-  arguments,
+  schema mappings that call pure same-module or imported public converters
+  with one or more supported structural arguments,
   same-module or public imported nested dispatch payload schemas, same-module
   recursive closed and extension dispatch payload helpers, and multiple
   decoded-field selected schema mappings already accepted by
@@ -1701,9 +1703,9 @@ execution reference.
   The Flag24 boundary case covers generated-helper-backed `Flag24be` and
   `Flag24le` fields, including successful `Decoded`, consumed count, and
   short-input `NeedMore(NeedBytes(...))` outcomes through the codec item.
-  The five-argument mapped converter boundary case covers successful
-  `Decoded`, short-input `NeedMore`, helper `Invalid(DecodeError)` projection,
-  and human plus JSON command-facing diagnostics through the codec item.
+  The mapped converter boundary case covers successful `Decoded`, short-input
+  `NeedMore`, helper `Invalid(DecodeError)` projection, and human plus JSON
+  command-facing diagnostics through the codec item.
   The packed visible three-byte, four-byte, five-byte, and six-byte boundary cases
   check successful `Decoded` and short-input `NeedMore(NeedBytes(...))`
   outcomes through the codec item.

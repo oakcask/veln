@@ -39,7 +39,7 @@ schema HeaderWire
 	map to Header
 		missing = missing_converter(kind)
 		too_few = two_params(kind)
-		too_many = six_params(kind, length, kind, length, kind, length)
+		too_many = six_params(kind, length, kind, length, kind, length, kind)
 		bad_input = needs_text(kind)
 		bad_return = to_text(kind)
 		impure = noisy(kind)
