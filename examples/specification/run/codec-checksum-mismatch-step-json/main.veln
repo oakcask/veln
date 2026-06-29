@@ -1,0 +1,8 @@
+# DecodeStep Invalid checksum mismatch failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(12)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.checksum_mismatch", offset, "ManualPacketWire.checksum", "expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

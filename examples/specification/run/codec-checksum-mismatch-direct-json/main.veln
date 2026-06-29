@@ -1,0 +1,17 @@
+# Direct checksum mismatch decode failures populate stable byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	checksum: UInt16be
+	payload: UInt8
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.checksum_mismatch", offset(12), "ManualPacketWire.checksum", "expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum"))
+end

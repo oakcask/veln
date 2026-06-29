@@ -1710,11 +1710,72 @@
         if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
             Object reasonValue = error.payloads[3];
             String reason = asString(reasonValue);
-            details.add(DiagnosticDetail.string("reason", reason));
+            if (id.equals("codec.checksum_mismatch")) {
+                mergeChecksumMismatchReason(details, reason);
+            } else {
+                details.add(DiagnosticDetail.string("reason", reason));
+            }
             mergeDecodeErrorReasonByteContext(details, reasonValue);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
         return new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details);
+    }
+
+    private static void mergeChecksumMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        ChecksumMismatchReason parsed = parseChecksumMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.string("expected_checksum", parsed.expectedChecksum));
+        details.add(DiagnosticDetail.string("actual_checksum", parsed.actualChecksum));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static ChecksumMismatchReason parseChecksumMismatchReason(String reason) {
+        String expectedChecksum = null;
+        String actualChecksum = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_checksum")) {
+                expectedChecksum = value;
+            } else if (key.equals("actual_checksum")) {
+                actualChecksum = value;
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedChecksum == null
+            || expectedChecksum.isEmpty()
+            || actualChecksum == null
+            || actualChecksum.isEmpty()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new ChecksumMismatchReason(expectedChecksum, actualChecksum, failureReason);
+    }
+
+    private static final class ChecksumMismatchReason {
+        final String expectedChecksum;
+        final String actualChecksum;
+        final String reason;
+
+        ChecksumMismatchReason(String expectedChecksum, String actualChecksum, String reason) {
+            this.expectedChecksum = expectedChecksum;
+            this.actualChecksum = actualChecksum;
+            this.reason = reason;
+        }
     }
 
     private static void mergeDecodeErrorReasonByteContext(

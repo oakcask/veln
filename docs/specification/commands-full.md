@@ -276,6 +276,11 @@ attached reason is a byte-helper failure message with registered helper
 context, human mode also puts local byte offset, expected and available byte
 counts, and bounded nearby-byte preview in related notes, and `run --json`
 keeps the same context in `details.byte_diagnostic`.
+For `codec.checksum_mismatch`, human mode reports
+`checksum mismatch at byte offset ...` and puts field path, expected checksum,
+actual checksum, failure reason, and the source-visible `DecodeError` value in
+related notes. `run --json` keeps the same checksum facts in
+`details.byte_diagnostic.expected_checksum`, `actual_checksum`, and `reason`.
 When an entry returns `DecodeStep::NeedMore(readiness)`, human mode reports
 `codec.incomplete_input` at the closed-input byte boundary and puts readiness,
 requested count when present, and the source-visible `DecodeStep` value in
