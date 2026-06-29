@@ -170,8 +170,9 @@ representation-only `ReservedBits` layouts such as the reserved byte prefixes
 `ReservedBits(9, 0)` followed by `UInt8`,
 length-bounded `ByteView(length_field)`,
 `ByteView(left_length + right_length)`,
-`ByteView(left_length - right_length)`, or
-`ByteView(left_length * right_length)` fields whose length operands name
+`ByteView(left_length - right_length)`,
+`ByteView(left_length * right_length)`, or
+`ByteView(left_length / right_length)` fields whose length operands name
 earlier visible `Int` fields in that nested schema. The tag and length
 references must resolve to visible `Int` fields. Same-module recursive closed
 or extension-tolerant dispatch payload schemas, same-module dispatch cases

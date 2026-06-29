@@ -146,8 +146,9 @@ layouts, including the reserved byte prefixes `ReservedBits(1, 0)`,
 `ReservedBits(2, 0)`, and `ReservedBits(9, 0)` followed by `UInt8`, and
 length-bounded `ByteView(length_field)` or
 `ByteView(left_length + right_length)`,
-`ByteView(left_length - right_length)`, or
-`ByteView(left_length * right_length)` fields whose length operands name
+`ByteView(left_length - right_length)`,
+`ByteView(left_length * right_length)`, or
+`ByteView(left_length / right_length)` fields whose length operands name
 earlier visible `Int` fields in that nested schema. A same-module recursive
 dispatch case may name the enclosing schema recursively, a same-module
 dispatch case may name a separate eligible recursive payload schema, and a
