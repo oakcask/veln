@@ -21,9 +21,9 @@ full type reference.
   collection types from annotations, returns, call arguments, record fields,
   match arms, `if` branches, and constructor payloads, plus compiler-known
   prelude helper result context for callback return values. Concrete record
-  field and source-declared constructor payload expected types also propagate
-  through nested initializer expressions when every enclosing field or payload
-  type is concrete. Payload-carrying
+  field and constructor payload expected types also propagate through nested
+  initializer expressions when every enclosing field or payload type is
+  concrete. Payload-carrying
   ADT constructors also infer omitted type arguments from payload expressions
   when the constructor resolves to one visible variant and every type argument
   becomes concrete.
@@ -54,13 +54,15 @@ full type reference.
   A direct function body return position whose declared return type is a
   concrete function type also constrains a named private callback returned from
   that body.
-  A source-declared constructor payload whose expected type is a concrete
-  function type also constrains a named private callback placed in that
-  payload position. When such a concrete helper, record-field, local-binding,
-  direct return, constructor payload, or prelude helper result context fixes a
-  named private callback return type, that expected return type propagates into
-  non-empty callback tail expressions such as `Some(...)`, `Ok(...)`,
-  `Err(...)`, source ADT constructors, records, and collection literals.
+  A constructor payload whose expected type is a concrete function type also
+  constrains a named private callback placed in that payload position. This
+  includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
+  and `Err` and `Result::Err` payloads. When such a
+  concrete helper, record-field, local-binding, direct return, constructor
+  payload, or prelude helper result context fixes a named private callback
+  return type, that expected return type propagates into non-empty callback
+  tail expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
+  constructors, records, and collection literals.
 - Private non-exported helper functions may omit parameter and return
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and

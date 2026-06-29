@@ -156,9 +156,9 @@ is `Dict<K, V>`; a later same-function use may fix an omitted local `{}`
 binding to that dictionary type. Without a dictionary expectation, `{}`
 remains an empty record literal. An expected collection type that still
 contains `unknown` is not concrete enough for an empty collection literal.
-Record field and source-declared constructor payload expected types propagate
-recursively through nested initializer expressions when every enclosing field
-or payload type is concrete. This lets empty collection literals and nullary
+Record field and constructor payload expected types propagate recursively
+through nested initializer expressions when every enclosing field or payload
+type is concrete. This lets empty collection literals and nullary
 source-declared constructors inside nested record literals and constructor
 payloads use the same concrete context they would receive at the top level.
 
@@ -257,18 +257,19 @@ function effect assignment keeps pure and effectful callback compatibility.
 Declared returned function types that still contain `unknown` do not constrain
 callback parameters.
 
-When a source-declared constructor call is checked against a concrete expected
-ADT type, each concrete payload type provides expected-type context for the
-matching payload expression. When an expected payload type is a concrete
-function type, a named private callback function value passed at that payload
-position receives the function parameter types for omitted callback parameter
-annotations. The callback return still has to satisfy the expected payload
-function return type. When that return type is concrete, it flows into
-non-empty callback tail expressions using the same constructor, record, and
-collection expected-type rules as prelude helper callback returns. Ordinary
-function effect assignment keeps pure and effectful callback compatibility.
-Constructor payload function types that still contain `unknown` do not
-constrain callback parameters.
+When a constructor call is checked against a concrete expected ADT type, each
+concrete payload type provides expected-type context for the matching payload
+expression. When an expected payload type is a concrete function type, a named
+private callback function value passed at that payload position receives the
+function parameter types for omitted callback parameter annotations. This
+includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`, and
+`Err` and `Result::Err` payloads, plus source-declared constructor payloads.
+The callback return still has to satisfy the expected payload function return
+type. When that return type is concrete, it flows into non-empty callback tail
+expressions using the same constructor, record, and collection expected-type
+rules as prelude helper callback returns. Ordinary function effect assignment
+keeps pure and effectful callback compatibility. Constructor payload function
+types that still contain `unknown` do not constrain callback parameters.
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
