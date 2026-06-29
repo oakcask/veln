@@ -13,7 +13,8 @@ compare it with `../specification/` before changing behavior.
   define remaining annotation-elision work for callback inputs outside the
   compiler-known, concrete declared-helper signature, concrete record-field
   expected-type, concrete local-binding expected-type, and concrete
-  constructor-payload expected-type paths, and other paths beyond the
+  direct return-position expected-type, and concrete constructor-payload
+  expected-type paths, and other paths beyond the
   implemented same-function local `let`, non-empty collection initializer,
   empty collection expected-type, nested initializer expected-type
   propagation, hole expected-type flow, empty collection callback return,
@@ -22,14 +23,16 @@ compare it with `../specification/` before changing behavior.
   compiler-known prelude callback argument including `vec_try_map_with`,
   dictionary callback alias, declared helper callback argument, source-backed
   prelude callback fallback, record-field callback, local callback binding,
-  callback return expected-type, constructor-payload callback, and examples
-  cleanup slices specified in `../specification/types.md`.
+  direct return callback, callback return expected-type, constructor-payload
+  callback, and examples cleanup slices specified in
+  `../specification/types.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
   declared helper callback argument inference, source-backed prelude callback
   fallback, record-field callback inference, local callback binding inference,
-  callback return expected-type inference, constructor-payload callback
-  inference, non-empty collection initializer inference, ADT constructor
+  direct return callback inference, callback return expected-type inference,
+  constructor-payload callback inference, non-empty collection initializer
+  inference, ADT constructor
   payload inference, match scrutinee constructor-pattern inference, local
   pattern `let` inference, nested initializer expected-type propagation, hole
   expected-type flow, and examples cleanup slices are archived under
@@ -40,6 +43,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`,
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
+  `../reference/implemented-proposals/local-inference-direct-return-callback.md`,
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),

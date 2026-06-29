@@ -1,0 +1,22 @@
+fn stringify(value) -> String
+	int_to_string(value)
+end
+
+fn emit(value) -> () effects [stdio]
+	()
+end
+
+fn callback_factory() -> fn(Int) -> String
+	stringify
+end
+
+fn effect_callback_factory() -> fn(String) -> () effects [stdio]
+	emit
+end
+
+pub fn main() -> {text: String, effect: ()} effects [stdio]
+	let callback: fn(Int) -> String = callback_factory()
+	let effectful: fn(String) -> () effects [stdio] = effect_callback_factory()
+	let ignored: () = effectful("ready")
+	{text: callback(7), effect: ignored}
+end

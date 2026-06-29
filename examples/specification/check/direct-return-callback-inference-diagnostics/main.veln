@@ -1,0 +1,7 @@
+fn returns_int(value) -> Int
+	1
+end
+
+pub fn callback_factory() -> fn(Int) -> String
+	returns_int
+end
