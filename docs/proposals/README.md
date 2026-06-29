@@ -445,7 +445,8 @@ compare it with `../specification/` before changing behavior.
   lifecycle and outcome boundary, adapter close-failure runtime boundary, and
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
-  boundary,
+  boundary, absolute monotonic deadline construction
+  ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
   general
   receiver-list channel-first routing through the
   current checked select-many boundary including stale route-count fixture

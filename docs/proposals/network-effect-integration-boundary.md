@@ -529,6 +529,8 @@ The completion record is archived under
 `../reference/implemented-proposals/network-cancel-owner-boundary.md`.
 The monotonic clock completion record is archived under
 `../reference/implemented-proposals/network-monotonic-clock-boundary.md`.
+The absolute monotonic deadline completion record is archived under
+`../reference/implemented-proposals/network-deadline-at-boundary.md`.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work through a
@@ -579,11 +581,11 @@ or the pure protocol core.
   cancellable deadline-aware accepted-stream lifecycle, context-based spawned
   handler task and adapter-level cancellable stream routing;
   remaining examples still need richer production socket APIs and richer
-  deadline and cancellation APIs beyond the current relative `Deadline`,
-  `CancelToken`, cancellation status-query, cancellable wait-outcome,
-  cancellable deadline-aware listener accept, stream read, stream write, and
-  accepted-stream lifecycle boundaries, plus the current cancellation
-  owner/token split.
+  deadline and cancellation APIs beyond the current relative and absolute
+  monotonic `Deadline`, `CancelToken`, cancellation status-query, cancellable
+  wait-outcome, cancellable deadline-aware listener accept, stream read,
+  stream write, and accepted-stream lifecycle boundaries, plus the current
+  cancellation owner/token split.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
