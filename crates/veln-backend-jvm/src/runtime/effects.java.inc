@@ -1315,6 +1315,10 @@
         return Boolean.valueOf(asCancelToken(token).cancelled);
     }
 
+    public static Object timeIsCancelledOwner(Object owner) {
+        return Boolean.valueOf(asCancelOwner(owner).token.cancelled);
+    }
+
     public static Object timeWaitUntilCancellable(Object deadline, Object token) {
         CancelToken cancelToken = asCancelToken(token);
         failIfWaitCancelled(cancelToken);

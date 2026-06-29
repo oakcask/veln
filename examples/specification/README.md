@@ -3230,6 +3230,11 @@ against the built `veln` binary.
   returns active before `time::cancel` and cancelled after it without waiting.
 - `check/transport-cancel-token-status-effects/`: cancellation token status
   observation infers the `time` effect for public effect checking.
+- `run/transport-cancel-owner-status/`: cancellation owner status observation
+  returns active before `time::cancel_owned` and cancelled after it without
+  waiting or creating an observer token.
+- `check/transport-cancel-owner-status-effects/`: cancellation owner status
+  observation infers the `time` effect for public effect checking.
 - `run/transport-cancellable-wait-outcome/`: value-returning cancellable wait
   outcomes let adapter code translate completion and cancellation into
   ordinary source decisions.

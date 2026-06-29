@@ -284,6 +284,7 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "time::cancel_owned" => "timeCancelOwned",
         "time::cancel" => "timeCancel",
         "time::is_cancelled" => "timeIsCancelled",
+        "time::is_cancelled_owner" => "timeIsCancelledOwner",
         "time::wait_until_cancellable" => "timeWaitUntilCancellable",
         "time::wait_until_cancellable_outcome" => "timeWaitUntilCancellableOutcome",
         _ => panic!("unknown standard library builtin `{name}`"),

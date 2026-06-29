@@ -980,6 +980,11 @@ mod tests {
         assert_eq!(params, vec![cancel_token_type()]);
         assert_eq!(return_type, Type::bool());
 
+        let (params, return_type) = standard_library_signature(&path("time", "is_cancelled_owner"))
+            .expect("time signature");
+        assert_eq!(params, vec![cancel_owner_type()]);
+        assert_eq!(return_type, Type::bool());
+
         let (params, return_type) =
             standard_library_signature(&path("time", "wait_until_cancellable"))
                 .expect("time signature");

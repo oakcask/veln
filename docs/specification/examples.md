@@ -1970,6 +1970,10 @@ for the same consumer. The
 `../../examples/specification/check/transport-cancel-token-status-effects/`
 cases pin cancellation-token status observation before and after
 `time::cancel` and require the same `time` effect. The
+`../../examples/specification/run/transport-cancel-owner-status/` and
+`../../examples/specification/check/transport-cancel-owner-status-effects/`
+cases pin direct owner status observation before and after
+`time::cancel_owned(owner)` and require the same `time` effect. The
 `../../examples/specification/run/transport-cancellable-wait-outcome/`,
 `../../examples/specification/run/transport-cancellable-wait-outcome-deadline/`,
 and
@@ -2240,7 +2244,9 @@ The
 `../../examples/specification/run/transport-cancel-owner-observer-only-json/`
 case pins owner-derived observer tokens as non-authoritative: direct
 `time::cancel(token)` on such a token fails at runtime, while cancellation
-through `time::cancel_owned(owner)` remains the owner path.
+through `time::cancel_owned(owner)` remains the owner path. The focused
+`../../examples/specification/run/transport-cancel-owner-status/` case pins
+direct owner inspection through `time::is_cancelled_owner(owner)`.
 
 The executable specification cases
 `../../examples/specification/run/channel-first-stream-routing-general-list/`,

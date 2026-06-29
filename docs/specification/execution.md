@@ -73,7 +73,8 @@ execution reference.
   cancelled through direct `time::cancel(token)`; direct tokens created by
   `time::cancel_token` keep that compatibility path. `time::is_cancelled`
   observes whether such a token has already been cancelled without waiting or
-  requesting cancellation.
+  requesting cancellation, and `time::is_cancelled_owner` lets adapter-owned
+  code inspect the same owner state directly.
   `CancellableWaitOutcome` values let adapter-owned waits observe completion,
   deadline expiry, or cancellation without stopping the entry. Stream adapter
   examples compose those outcomes with channel-routed `StreamInput` values,
@@ -119,7 +120,10 @@ execution reference.
   values before closing the owned transport handles. The checked
   `examples/specification/run/transport-cancel-owner-observer-only-json/`
   case keeps direct cancellation of an owner-derived observer token on the
-  runtime-failure surface.
+  runtime-failure surface. The checked
+  `examples/specification/run/transport-cancel-owner-status/` case observes
+  an active `CancelOwner`, cancels through `time::cancel_owned(owner)`, and
+  observes the owner as cancelled through `time::is_cancelled_owner(owner)`.
   The checked `examples/specification/run/transport-monotonic-clock/` case
   observes two `time::monotonic_ms` values and checks only monotonic ordering;
   the runtime exposes no wall-clock timestamp, date, time zone, sleep handle,

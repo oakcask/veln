@@ -208,6 +208,8 @@ behavior.
   [network-adapter-clean-shutdown.md](network-adapter-clean-shutdown.md).
 - Network cancel owner boundary:
   [network-cancel-owner-boundary.md](network-cancel-owner-boundary.md).
+- Network cancel owner status:
+  [network-cancel-owner-status.md](network-cancel-owner-status.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
 - Network production cancellable deadline lifecycle:

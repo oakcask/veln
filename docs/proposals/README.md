@@ -476,7 +476,8 @@ compare it with `../specification/` before changing behavior.
   lifecycle and outcome boundary, adapter close-failure runtime boundary, and
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
-  boundary, absolute monotonic deadline construction
+  boundary, cancellation owner status query, absolute monotonic deadline
+  construction
   ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
   general
   receiver-list channel-first routing through the
@@ -514,6 +515,8 @@ compare it with `../specification/` before changing behavior.
   [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).
   The completed adapter-owned cancellation owner slice is archived under
   [Network Cancel Owner Boundary](../reference/implemented-proposals/network-cancel-owner-boundary.md).
+  The completed cancellation owner status query slice is archived under
+  [Network Cancel Owner Status](../reference/implemented-proposals/network-cancel-owner-status.md).
   The completed production owner-drain cancellable deadline lifecycle slice is
   archived under
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
