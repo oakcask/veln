@@ -2160,8 +2160,8 @@ execution reference.
   human runtime diagnostics, and
   `run --json`
   `protocol_diagnostic` details.
-- The HTTP/2 protocol-core HPACK fixture boundary models HPACK as an imported
-  ordinary source module, not as schema syntax. The fixture module accepts a
+- The HPACK fixture boundary models HPACK as an imported ordinary source
+  module, not as schema syntax. The fixture module accepts a
   bounded deterministic set of header-block byte fixtures, including every HPACK
   static indexed `0x81` `:authority` with an empty value, `0x82`
   `:method: GET`, `0x83` `:method: POST`, `0x84` `:path: /`, `0x85`
@@ -2190,9 +2190,7 @@ execution reference.
 	  `www-authenticate:` bytes. The same fixture boundary accepts the
 	  two-byte static-indexed block `0x82 0x84` as `:method: GET` followed
 	  by `:path: /`, preserving both headers in the source-visible
-	  `HpackHeaderList`. The HTTP/2 protocol-core case also carries
-	  static indexed `0x85` `:path: /index.html` through a completed final
-	  CONTINUATION frame before HPACK decode. Static indexed `0x80`, whose
+	  `HpackHeaderList`. Static indexed `0x80`, whose
 	  HPACK indexed representation carries index zero, returns the focused
 	  `hpack.fixture.unsupported_static_index` diagnostic with expected
 	  fixture `fixture HPACK static indexed header` instead of the generic
@@ -2221,6 +2219,21 @@ execution reference.
   string itself is a raw visible-ASCII HPACK string literal; the decoded
   field name then flows into the same HTTP/2 header-list validation used for
   static-name and dynamic-name literal fixtures.
+- The HTTP/2 protocol core routes complete HEADERS blocks and completed final
+  CONTINUATION header blocks through the source-visible `hpack_static` decoder
+  before falling back to the fixture codec. This implemented static-indexed
+  slice decodes single-byte indexed representations for `:method: GET`,
+  `:method: POST`, `:path: /`, `:scheme: http`, `:scheme: https`,
+  `:status: 200`, and `:status: 404`, and decodes supported request blocks
+  containing method, scheme, and root path indexed fields such as
+  `0x82 0x87 0x84`. Header blocks containing literal fields, Huffman strings,
+  dynamic indexes, table-size updates, or non-static fixture-owned bytes fall
+  back to the HPACK fixture boundary. Header blocks containing only HPACK
+  static indexed bytes but naming an unsupported static-table index fail with
+  `hpack.static.unsupported_index`; JSON and human output keep the observed
+  header-block size, first byte, decoder module `hpack_static`, and bounded
+  byte preview in the same protocol-diagnostic detail shape used by HPACK
+  fixture diagnostics.
   HPACK-prefixed integers for table-size updates, dynamic-name indexes, and
   string literal lengths are decoded by the same bounded fixture foundation,
   so the checked saturated-prefix forms take the same continuation-byte path

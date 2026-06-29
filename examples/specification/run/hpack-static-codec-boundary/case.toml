@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln", "hpack_fixture.veln", "hpack_static.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "method-get decoded :method,:fixture first :method GET wire_size 8\nmethod-post decoded :method,:fixture first :method POST wire_size 9\npath-root decoded :path,:fixture first :path / wire_size 6\nscheme-http decoded :scheme,:fixture first :scheme http wire_size 8\nscheme-https decoded :scheme,:fixture first :scheme https wire_size 9\nstatus-200 decoded :status,:fixture first :status 200 wire_size 9\nstatus-404 decoded :status,:fixture first :status 404 wire_size 9\nrequest-get-https-root decoded :method,:scheme,:path first :method GET wire_size 9\nrequest-post-http-root decoded :method,:scheme,:path first :method POST wire_size 9\nunsupported-static-index failed offset 20 observed_size 1 observed_first_byte 128 expected HPACK static indexed header\nliteral-falls-through failed offset 21 observed_size 3 observed_first_byte 16 expected HPACK static indexed header block\n"
+
+[[json_assert]]
+path = "error"
+equals = null

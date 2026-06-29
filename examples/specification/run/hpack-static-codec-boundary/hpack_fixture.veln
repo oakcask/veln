@@ -1,0 +1,44 @@
+pub type HpackHeader
+	HpackHeader(name: String, value: String)
+end
+
+pub type HpackHeaderList
+	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
+end
+
+pub fn hpack_header(name: String, value: String) -> HpackHeader
+	HpackHeader(name, value)
+end
+
+pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(first, second, wire_size)
+end
+
+pub fn header_list_first_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => name
+	end
+end
+
+pub fn header_list_first_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn header_list_wire_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(_, _, wire_size) => wire_size
+	end
+end
+
+pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":fixture", _), _) => ":method,:fixture"
+		HpackHeaderList(HpackHeader(":path", _), HpackHeader(":fixture", _), _) => ":path,:fixture"
+		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":fixture", _), _) => ":scheme,:fixture"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", _), _) => ":status,:fixture"
+		_ => ":unknown"
+	end
+end

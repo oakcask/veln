@@ -15,6 +15,14 @@ pub type HpackHeaderList
 	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
 end
 
+pub fn hpack_header(name: String, value: String) -> HpackHeader
+	HpackHeader(name, value)
+end
+
+pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(first, second, wire_size)
+end
+
 pub type HpackDecodeTransition
 	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
 end

@@ -1,0 +1,176 @@
+use hpack_fixture
+
+pub type HpackStaticFailure
+	NotStaticHeaderBlock(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	UnsupportedStaticIndex(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+end
+
+fn hpack_static_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn hpack_static_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match hpack_static_byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn hpack_static_observed_size(block: ByteChunk) -> Int
+	byte_count_to_int(byte_chunk_count(block))
+end
+
+fn hpack_static_not_static(block: ByteChunk, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	Err(NotStaticHeaderBlock(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "HPACK static indexed header block", "hpack_static", block))
+end
+
+fn hpack_static_unsupported_static_index(block: ByteChunk, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	Err(UnsupportedStaticIndex(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "HPACK static indexed header", "hpack_static", block))
+end
+
+fn hpack_static_index_supported(byte: Int) -> Bool
+	match byte == 130
+		true => true
+		false => match byte == 131
+			true => true
+			false => match byte == 132
+				true => true
+				false => match byte == 134
+					true => true
+					false => match byte == 135
+						true => true
+						false => match byte == 136
+							true => true
+							false => byte == 141
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn hpack_static_all_bytes_indexed(block: ByteChunk, index: Int, count: Int) -> Bool
+	match index == count
+		true => true
+		false => match hpack_static_byte_at_or_missing(block, index) >= 128 and hpack_static_byte_at_or_missing(block, index) <= 189
+			true => hpack_static_all_bytes_indexed(block, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn hpack_static_all_indexes_supported(block: ByteChunk, index: Int, count: Int) -> Bool
+	match index == count
+		true => true
+		false => match hpack_static_index_supported(hpack_static_byte_at_or_missing(block, index))
+			true => hpack_static_all_indexes_supported(block, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn hpack_static_request_marker(method: String, wire_size: Int) -> HpackHeaderList
+	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", method), hpack_fixture::hpack_header(":request", "scheme,path"), wire_size)
+end
+
+fn hpack_static_single_header(byte: Int) -> HpackHeaderList
+	match byte
+		130 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", "GET"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 8)
+		131 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", "POST"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
+		132 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":path", "/"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 6)
+		134 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":scheme", "http"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 8)
+		135 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":scheme", "https"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
+		136 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":status", "200"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
+		141 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":status", "404"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
+		_ => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":fixture", "unsupported-static-index"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 0)
+	end
+end
+
+fn hpack_static_supported_request_block(first: Int, second: Int, third: Int) -> Bool
+	match (first == 130 or first == 131) and (second == 134 or second == 135) and third == 132
+		true => true
+		false => false
+	end
+end
+
+fn hpack_static_request_method(byte: Int) -> String
+	match byte == 131
+		true => "POST"
+		false => "GET"
+	end
+end
+
+fn hpack_static_decode_supported_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match hpack_static_all_indexes_supported(block, 0, count)
+		false => hpack_static_unsupported_static_index(block, offset)
+		true => match count == 1
+			true => Ok(hpack_static_single_header(hpack_static_byte_at_or_missing(block, 0)))
+			false => match count == 3 and hpack_static_supported_request_block(hpack_static_byte_at_or_missing(block, 0), hpack_static_byte_at_or_missing(block, 1), hpack_static_byte_at_or_missing(block, 2))
+				true => Ok(hpack_static_request_marker(hpack_static_request_method(hpack_static_byte_at_or_missing(block, 0)), 9))
+				false => hpack_static_not_static(block, offset)
+			end
+		end
+	end
+end
+
+pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	let count: Int = hpack_static_observed_size(block)
+	match count == 0
+		true => hpack_static_not_static(block, offset)
+		false => match hpack_static_all_bytes_indexed(block, 0, count)
+			false => hpack_static_not_static(block, offset)
+			true => hpack_static_decode_supported_block(block, count, offset)
+		end
+	end
+end
+
+pub fn hpack_static_failure_is_not_static(failure: HpackStaticFailure) -> Bool
+	match failure
+		NotStaticHeaderBlock(_, _, _, _, _, _) => true
+		UnsupportedStaticIndex(_, _, _, _, _, _) => false
+	end
+end
+
+pub fn hpack_static_failure_offset(failure: HpackStaticFailure) -> Int
+	match failure
+		NotStaticHeaderBlock(offset, _, _, _, _, _) => offset
+		UnsupportedStaticIndex(offset, _, _, _, _, _) => offset
+	end
+end
+
+pub fn hpack_static_failure_observed_size(failure: HpackStaticFailure) -> Int
+	match failure
+		NotStaticHeaderBlock(_, size, _, _, _, _) => size
+		UnsupportedStaticIndex(_, size, _, _, _, _) => size
+	end
+end
+
+pub fn hpack_static_failure_observed_first_byte(failure: HpackStaticFailure) -> Int
+	match failure
+		NotStaticHeaderBlock(_, _, first_byte, _, _, _) => first_byte
+		UnsupportedStaticIndex(_, _, first_byte, _, _, _) => first_byte
+	end
+end
+
+pub fn hpack_static_failure_expected_header(failure: HpackStaticFailure) -> String
+	match failure
+		NotStaticHeaderBlock(_, _, _, expected_header, _, _) => expected_header
+		UnsupportedStaticIndex(_, _, _, expected_header, _, _) => expected_header
+	end
+end
+
+pub fn hpack_static_failure_decoder_module(failure: HpackStaticFailure) -> String
+	match failure
+		NotStaticHeaderBlock(_, _, _, _, decoder_module, _) => decoder_module
+		UnsupportedStaticIndex(_, _, _, _, decoder_module, _) => decoder_module
+	end
+end
+
+pub fn hpack_static_failure_preview(failure: HpackStaticFailure) -> ByteChunk
+	match failure
+		NotStaticHeaderBlock(_, _, _, _, _, preview) => preview
+		UnsupportedStaticIndex(_, _, _, _, _, preview) => preview
+	end
+end

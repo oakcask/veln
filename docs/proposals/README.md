@@ -464,11 +464,17 @@ compare it with `../specification/` before changing behavior.
   checked outbound `PUSH_PROMISE` rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
+  the first source-visible HPACK static-indexed decoder subset for
+  `:method: GET`, `:method: POST`, `:path: /`, `:scheme: http`,
+  `:scheme: https`, `:status: 200`, and `:status: 404`, and focused
+  `hpack.static.unsupported_index` diagnostics,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary, including full HPACK compression and unbounded
-  dynamic-table behavior.
+  fixture boundary and implemented static-indexed subset, including full
+  HPACK compression and unbounded dynamic-table behavior.
+  The completed source-visible static table decode slice is archived under
+  [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

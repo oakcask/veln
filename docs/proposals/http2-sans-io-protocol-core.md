@@ -341,6 +341,13 @@ literal-with-indexing, and literal-never-indexed fixtures whose indexed-name
 form names a supported static-table header name already accepted by the
 static-indexed fixture set, including ordinary names such as `server`,
 `content-type`, and `user-agent`.
+Complete HEADERS and final CONTINUATION paths also attempt the implemented
+source-visible `hpack_static` decoder before fixture fallback for the first
+static-indexed subset: `:method: GET`, `:method: POST`, `:path: /`,
+`:scheme: http`, `:scheme: https`, `:status: 200`, and `:status: 404`.
+Static-only header blocks with unsupported static-table indexes now project
+`hpack.static.unsupported_index`; literal, Huffman, dynamic-table, and
+table-size-update behavior remains fixture-owned.
 Those literal fixtures share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table across the full byte symbol range rather than
