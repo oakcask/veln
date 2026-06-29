@@ -96,8 +96,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - schema mapping expressions that reference schema-local fields, construct
   records, construct ADT payloads through ordinary source module constructor
   resolution, call one pure same-module representation converter, or call one
-  imported public pure converter through a written `use` path or alias with
-  one or more schema-local field or structural mapping expression
+  imported public pure converter through a written `use` path or alias,
+  unqualified public import, or public function alias with one or more
+  schema-local field or structural mapping expression
   arguments including pure converter calls, or
   select a visible field from a record-shaped structural mapping expression,
   plus `+`, `-`, `*`, and `/` integer arithmetic over decoded schema-local
@@ -128,6 +129,9 @@ The completed narrow arithmetic mapped encode slice is archived under
 The completed generated decode mapping converter varargs slice is archived
 under
 [Binary Schema Mapping Converter Varargs](../reference/implemented-proposals/binary-schema-mapping-converter-varargs.md).
+The completed imported converter bare-name inverse encode slice is archived
+under
+[Binary Schema Imported Converter Bare Inverse Encode](../reference/implemented-proposals/binary-schema-imported-converter-bare-inverse-encode.md).
 
 This proposal remains open for:
 
@@ -191,7 +195,8 @@ construction, ADT constructor construction resolved through ordinary source
 module rules, including nested constructor payload expressions whose leaves
 stay inside the implemented schema-local expression vocabulary, one pure
 same-module converter function call, and one imported public pure converter
-function call through a written `use` path or alias with one or more
+function call through a written `use` path or alias, unqualified public
+import, or public function alias with one or more
 schema-local field or structural mapping expression arguments including pure
 converter calls, and
 field selection from record-shaped structural mapping expressions. An `Int`
@@ -205,8 +210,9 @@ The implemented runtime mapping slice maps schema field values through
 schema-local field references, record construction, ADT constructor
 construction including nested constructor payload expressions, a single
 same-module pure converter call, and a single imported public pure converter
-call through a written `use` path or alias, and field selection from
-record-shaped structural mapping expressions, plus decoded-field,
+call through a written `use` path or alias, unqualified public import, or
+public function alias, and field selection from record-shaped structural
+mapping expressions, plus decoded-field,
 integer-literal, and `Int` converter-call mapping arithmetic for `Int` target
 fields, plus equality, inequality, and ordered mapping comparisons over
 supported `Int` mapping operands composed with `and`, `or`, and `not` for
@@ -244,10 +250,9 @@ integer `+`, `-`, `*`, and `/` mapping arithmetic, and equality, inequality,
 and ordered comparisons over supported `Int` mapping operands composed with
 `and`, `or`, and `not` for `Bool` target fields, are
 implemented along with direct pure `Bool` converter selector calls. Arbitrary
-function calls, bare imported converter names, private imported converters,
-runtime settings, stream state, and
-recovery behavior belong in explicit codec functions rather than in schema
-mapping.
+function calls, ambiguous bare imported converter names, private imported
+converters, runtime settings, stream state, and recovery behavior belong in
+explicit codec functions rather than in schema mapping.
 
 ## Discussion Result: Top-Level Schema Declarations
 
@@ -457,8 +462,9 @@ Implemented:
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module and
   imported public representation converter calls that take one or more
-  supported arguments through a written `use` path or alias, including pure converter
-  calls as supported structural arguments, field
+  supported arguments through a written `use` path or alias, unqualified public
+  import, or public function alias, including pure converter calls as
+  supported structural arguments, field
   selection from record-shaped structural mapping expressions, and
   decoded-field, integer-literal, and `Int` converter-call `+`, `-`, `*`,
   and `/` mapping arithmetic, plus equality, inequality, and ordered

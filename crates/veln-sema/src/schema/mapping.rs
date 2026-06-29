@@ -9,9 +9,10 @@ use veln_source::SourceSpan;
 use crate::adt::{self, AdtConstructor, AdtRegistry, ConstructorLookup};
 use crate::types::{
     FunctionSignature, Type, closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
-    imported_module_for_path, imported_use_for_path, infer_function_body_effects, is_assignable,
-    ordinary_function_signatures, parse_type_or_unknown, reserved_bits_schema_primitive,
-    schema_decode_record_fields, schema_dispatch_case_type, selected_mappings_cover_dispatch_cases,
+    function_alias_signatures, imported_module_for_path, imported_use_for_path,
+    infer_function_body_effects, is_assignable, ordinary_function_signatures,
+    parse_type_or_unknown, reserved_bits_schema_primitive, schema_decode_record_fields,
+    schema_dispatch_case_type, selected_mappings_cover_dispatch_cases,
     supported_encode_reserved_bits,
 };
 
@@ -420,6 +421,7 @@ impl<'a> SchemaMappingTyper<'a> {
         let registry = AdtRegistry::from_module(module);
         let mut converter_functions = ordinary_function_signatures(module);
         infer_function_body_effects(module, &mut converter_functions);
+        converter_functions.extend(function_alias_signatures(module, &converter_functions));
         Self {
             module,
             schema,
@@ -1486,16 +1488,7 @@ fn schema_mapping_converter_function<'a>(
     segments: &[String],
 ) -> SchemaMappingConverterLookup<'a> {
     match segments {
-        [name] => context
-            .converter_functions
-            .iter()
-            .find(|function| {
-                function.name == *name && schema_mapping_same_module(function, context.schema)
-            })
-            .map_or(
-                SchemaMappingConverterLookup::Missing,
-                SchemaMappingConverterLookup::Found,
-            ),
+        [name] => schema_mapping_bare_converter_function(context, name),
         [_, .., name] => {
             let Some(use_decl) = imported_use_for_path(
                 &context.module.uses,
@@ -1517,6 +1510,36 @@ fn schema_mapping_converter_function<'a>(
             }
         }
         _ => SchemaMappingConverterLookup::Missing,
+    }
+}
+
+fn schema_mapping_bare_converter_function<'a>(
+    context: &SchemaMappingExprContext<'a>,
+    name: &str,
+) -> SchemaMappingConverterLookup<'a> {
+    if let Some(function) = context.converter_functions.iter().find(|function| {
+        function.name == name && schema_mapping_same_module(function, context.schema)
+    }) {
+        return SchemaMappingConverterLookup::Found(function);
+    }
+
+    let mut imported = context.converter_functions.iter().filter(|function| {
+        function.name == name
+            && function.visibility == Visibility::Public
+            && function.module_name.as_deref().is_some_and(|module_name| {
+                context.module.uses.iter().any(|use_decl| {
+                    use_decl.module_name.as_deref() == context.schema.module_name.as_deref()
+                        && use_decl.name == module_name
+                })
+            })
+    });
+    let Some(first) = imported.next() else {
+        return SchemaMappingConverterLookup::Missing;
+    };
+    if imported.next().is_some() {
+        SchemaMappingConverterLookup::Missing
+    } else {
+        SchemaMappingConverterLookup::Found(first)
     }
 }
 

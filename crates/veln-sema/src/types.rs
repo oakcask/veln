@@ -4975,7 +4975,7 @@ impl FunctionSignature {
     }
 }
 
-fn function_alias_signatures(
+pub(crate) fn function_alias_signatures(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
 ) -> Vec<FunctionSignature> {

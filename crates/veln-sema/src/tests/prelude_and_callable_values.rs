@@ -7009,6 +7009,96 @@ fn generated_schema_encode_helpers_keep_imported_converter_inverse_mapping_expre
 }
 
 #[test]
+fn generated_schema_encode_helpers_keep_imported_alias_converter_inverse_mapping_expressions() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use facade\n",
+            "\n",
+            "type Header\n",
+            "  Header {kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    kind = local_next_kind(wire_kind) inverse local_previous_kind\n",
+            "end\n",
+            "\n",
+            "pub fn main(header: {kind: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_header_wire(header)\n",
+            "end\n",
+        ),
+    );
+    let facade_source = SourceFile::new(
+        "facade.veln",
+        concat!(
+            "mod facade\n",
+            "use helpers\n",
+            "\n",
+            "pub fn local_next_kind = helpers::next_kind\n",
+            "pub fn local_previous_kind = helpers::previous_kind\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod helpers\n",
+            "pub fn next_kind(kind: Int) -> Int\n",
+            "  kind + 1\n",
+            "end\n",
+            "\n",
+            "pub fn previous_kind(kind: Int) -> Int\n",
+            "  kind - 1\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let facade = lower_surface_ast(&parse(&facade_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses.into_iter().chain(facade.uses).collect(),
+        aliases: facade.aliases,
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        types: app.types,
+        functions: app.functions.into_iter().chain(helpers.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let kind = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "kind")
+        .expect("kind mapping should be emitted");
+    assert!(matches!(
+        &kind.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Converter {
+            function,
+            inverse_function,
+            args,
+            ..
+        } if function == "next_kind"
+            && inverse_function.as_deref() == Some("previous_kind")
+            && args.len() == 1
+            && matches!(&args[0], veln_ir::IrSchemaDecodeMappingExpr::Field(field) if field == "wire_kind")
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_structural_converter_arguments() {
     let source = SourceFile::new(
         "main.veln",

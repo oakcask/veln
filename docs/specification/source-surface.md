@@ -238,9 +238,10 @@ construction, ADT constructor
 construction resolved through ordinary source module rules, including
 constructor payloads made from nested supported mapping expressions, one pure
 same-module converter function call, or one imported public pure converter
-function call through a written `use` path or alias, and field selection from
-an already supported structural mapping expression whose type has the selected
-record field. An `Int` target field may also use `+`, `-`, `*`, and `/`
+function call through a written `use` path or alias, unqualified public import,
+or public function alias, and field selection from an already supported
+structural mapping expression whose type has the selected record field. An
+`Int` target field may also use `+`, `-`, `*`, and `/`
 expressions whose operands are decoded schema-local `Int` fields, integer
 literals, `Int`-returning converter calls, or nested supported integer
 arithmetic mapping expressions. A `Bool` target field may use `==`, `!=`,
@@ -254,13 +255,14 @@ expressions, pure converter calls, and nested combinations of those forms. The c
 value is assigned to the
 target field. A converter-call mapping assignment may name an explicit
 same-module pure inverse converter or imported public pure inverse converter
-through the same written import-path rules as the forward converter with
-`inverse name` after the assignment expression. The inverse converter surface
-is only a declared projection boundary for generated encode helpers;
-converter names are not inferred from the forward function name.
-Other ordinary calls, bare imported converter names, private imported
-converters, non-`Int` converter arithmetic operands, effects, runtime
-settings, stream state, and recovery behavior are not mapping expressions.
+through the same import, unqualified public import, or public function alias
+rules as the forward converter with `inverse name` after the assignment
+expression. The inverse converter surface is only a declared projection
+boundary for generated encode helpers; converter names are not inferred from
+the forward function name. Other ordinary calls, ambiguous bare imported
+converter names, private imported converters, non-`Int` converter arithmetic
+operands, effects, runtime settings, stream state, and recovery behavior are
+not mapping expressions.
 Mapping clauses are parsed, formatted, lowered, exposed to editor support,
 and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has one structural mapping, or
@@ -296,10 +298,11 @@ same decoded record shape. Selector comparisons may only compare a decoded
 schema-local `Int` field with an integer literal using `==`, `!=`, `<`, `<=`,
 `>`, or `>=`; direct converter selector calls must follow the same visibility,
 purity, return-type, and argument rules as schema mapping converters and must
-return `Bool`. Arbitrary ordinary calls, bare imported converter names, private
-imported converters, record expressions as the selector root, schema-local
-payload values, runtime settings, stream state, and unsupported arithmetic are
-rejected as unsupported selectors. Selector clauses whose truth can be decided
+return `Bool`. Arbitrary ordinary calls, ambiguous bare imported converter
+names, private imported converters, record expressions as the selector root,
+schema-local payload values, runtime settings, stream state, and unsupported
+arithmetic are rejected as unsupported selectors. Selector clauses whose truth
+can be decided
 from decoded `Int` field comparisons must not overlap for any concrete
 assignment of their referenced `Int` fields.
 Missing, duplicate, ambiguous, unknown-field, non-`Int`, and unsupported

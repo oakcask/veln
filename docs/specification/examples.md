@@ -1012,6 +1012,11 @@ inverse converters written with import paths. The passing case writes the
 recovered schema-local field, and the mismatch case reports
 `codec.encode_mapping_mismatch` when the inverse projection does not
 round-trip through the forward converter.
+`../../examples/specification/run/binary-schema-imported-mapped-converter-bare-encode/`
+and
+`../../examples/specification/run/binary-schema-imported-mapped-converter-bare-encode-mismatch/`
+pin the same imported converter inverse projection when the mapping expression
+and inverse name are written as unqualified imported public names.
 `../../examples/specification/run/derived-codec-imported-mapped-converter-encode-boundary/`
 pins the same generated helper eligibility through a `derive encode` codec
 boundary.

@@ -1410,6 +1410,13 @@ against the built `veln` binary.
 - `run/binary-schema-imported-mapped-converter-encode/`: generated schema
   encode helpers project a mapped target field through imported public pure
   converter and inverse converter calls written through an imported path.
+- `run/binary-schema-imported-mapped-converter-bare-encode/`: generated schema
+  encode helpers project a mapped target field through imported public pure
+  converter and inverse converter calls written as unqualified imported names.
+- `run/binary-schema-imported-mapped-converter-bare-encode-mismatch/`:
+  unqualified imported converter-backed mapped encode keeps
+  `codec.encode_mapping_mismatch` on the mapped target field path when the
+  inverse projection does not round-trip.
 - `run/binary-schema-imported-mapped-converter-encode-mismatch/`: imported
   converter-backed mapped encode reports `codec.encode_mapping_mismatch` when
   the inverse projection does not round-trip through the forward converter.
@@ -2353,6 +2360,10 @@ against the built `veln` binary.
   `derive encode` boundary remains eligible when the converter-backed mapped
   schema names imported public pure forward and inverse converters through
   written import paths.
+- `run/derived-codec-imported-mapped-converter-alias-encode-boundary/`: the
+  same `derive encode` boundary remains eligible when the converter-backed
+  mapped schema names imported public pure forward and inverse converters
+  through imported public function aliases.
 - `run/derived-codec-selected-mapping-encode-boundary/`: the same `derive
   encode` boundary accepts a selected structural mapping target record,
   encodes both selected mapping cases, and projects helper representation
