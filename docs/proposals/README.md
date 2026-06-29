@@ -187,7 +187,8 @@ compare it with `../specification/` before changing behavior.
   eligibility with encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte, two-byte,
-  three-byte, four-byte, five-byte, and six-byte group decode and encode,
+  three-byte, four-byte, five-byte, six-byte, and seven-byte group decode
+  and encode,
   bounded `Repeat(count_field, Payload)` primitive, same-module nested schema
   field, and public imported nested schema field decode and encode slices,
   bounded `Repeat(left_count - right_count, Payload)`,
@@ -312,6 +313,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Packed Visible Five-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-five-byte-groups.md).
   The completed visible-only packed six-byte group slice is archived under
   [Binary Schema Packed Visible Six-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-six-byte-groups.md).
+  The completed visible-only packed seven-byte group slice is archived under
+  [Binary Schema Packed Visible Seven-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-seven-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
   [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
   The completed seven-byte and eight-byte reserved suffix slice is archived
@@ -348,7 +351,8 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` fields through the derived decode boundary,
   derived bounded `ByteView` plus explicit base-offset decode projection,
   standalone visible `UInt1` through `UInt7`
-  fields, visible-only packed two-byte, three-byte, four-byte, five-byte, and six-byte groups,
+  fields, visible-only packed two-byte, three-byte, four-byte, five-byte,
+  six-byte, and seven-byte groups,
   opt-in visible flag bitset fields, including generated-helper-backed
   `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved
   prefix groups, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
