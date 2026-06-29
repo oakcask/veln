@@ -18,6 +18,7 @@ visible `UInt1` through `UInt7` fields, opt-in visible flag bitset fields,
 including generated-helper-backed `Flag24be` and `Flag24le` fields,
 visible-only packed three-byte, four-byte, and five-byte groups, seven-byte
 or eight-byte reserved prefix groups, seven-byte wide reserved suffix groups,
+the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix route,
 and schema
 mappings that call pure same-module converters with five structural
 arguments. A codec
@@ -35,7 +36,8 @@ standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
 fields, including generated-helper-backed `Flag24be` and `Flag24le` fields,
 visible-only packed three-byte, four-byte, and five-byte groups, seven-byte
 or eight-byte reserved prefix groups, and seven-byte wide reserved suffix
-groups.
+groups, plus the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
+route.
 A codec call receives the helper value record, returns helper success as
 `Encoded(List<ByteChunk>)`, and projects helper representation failures to
 `Invalid(EncodeError)` before any hidden mutable output state exists. The
@@ -95,6 +97,16 @@ produced count, and a resumable state record carrying `encoded_offset`.
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,
   consumed counts, successful encode, and output chunk projection.
+- `../../../examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`
+  checks the narrow two-byte `ReservedBits(9, 0)` plus `UInt8` prefix helper
+  through the derived codec item, including successful `Decoded`, consumed
+  count, short-input readiness, non-consuming reserved-bit mismatch
+  `Invalid`, successful encode, output chunk projection, and helper encode
+  failure projection.
+- `../../../examples/specification/run/binary-schema-reserved-nine-bit-prefix-codec-json/`
+  checks command-facing JSON projection for the helper-projected reserved-bit
+  mismatch `Invalid(DecodeError)` value returned through the derived codec
+  item.
 - `../../../examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`
   checks seven-byte wide reserved suffix decode through the derived codec item,
   short-input readiness, non-consuming reserved-bit mismatch `Invalid`, consumed

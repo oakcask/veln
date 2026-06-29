@@ -305,7 +305,8 @@ compare it with `../specification/` before changing behavior.
   fields, visible-only packed two-byte, three-byte, four-byte, and five-byte groups,
   opt-in visible flag bitset fields, including generated-helper-backed
   `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved
-  prefix groups,
+  prefix groups, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
+  helper route,
   schema mappings that call pure same-module converters with five structural
   arguments through the derived codec decode boundary,
   and selected structural mapping encode slice,

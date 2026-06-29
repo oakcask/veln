@@ -1378,6 +1378,7 @@ execution reference.
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-reserved-byte-prefix-decode-encode/`,
   `examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-codec-json/`,
   `examples/specification/run/binary-schema-reserved-nine-bit-prefix-json/`,
   `examples/specification/run/binary-schema-reserved-nine-bit-prefix-truncated-json/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
@@ -1552,6 +1553,8 @@ execution reference.
   `examples/specification/run/binary-schema-wide-suffix-reserved-seven-byte-decode-encode/`,
   `examples/specification/run/binary-schema-wide-suffix-reserved-eight-byte-decode-encode/`,
   `examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`,
+  `examples/specification/run/binary-schema-reserved-nine-bit-prefix-codec-json/`,
   and
   `examples/specification/run/binary-schema-general-helper-roundtrip/`.
   The recursive dispatch boundary case covers same-module recursive closed and
@@ -1666,6 +1669,11 @@ execution reference.
   The seven-byte wide reserved suffix case also checks successful `Decoded`,
   short-input `NeedMore`, and reserved-bit helper `Invalid` outcomes through
   the codec item.
+  The reserved nine-bit prefix case checks the narrow two-byte
+  `ReservedBits(9, 0)` plus `UInt8` helper route through the codec item,
+  including successful `Decoded`, short-input `NeedMore(NeedBytes(...))`,
+  non-consuming reserved-bit `Invalid`, and JSON command-facing diagnostic
+  projection.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and
   field-validation `Invalid` outcomes through the codec item.

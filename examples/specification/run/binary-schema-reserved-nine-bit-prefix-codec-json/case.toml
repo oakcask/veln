@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.reserved_bits_mismatch"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 40
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ReservedNineBitPrefixHeader"},{"kind":"field","name":"control_reserved"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path_display"
+equals = "ReservedNineBitPrefixHeader.control_reserved"
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(DecodeError(schema.reserved_bits_mismatch, ByteOffset(40), ReservedNineBitPrefixHeader.control_reserved))\n"

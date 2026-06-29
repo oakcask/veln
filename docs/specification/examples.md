@@ -1265,8 +1265,13 @@ pins the reserved-byte-prefix slice for `ReservedBits(2, 0)` followed by
 output, and the visible-field range failure.
 `../../examples/specification/run/binary-schema-reserved-nine-bit-prefix-decode-encode/`
 pins the same two-byte byte-prefix helper route for `ReservedBits(9, 0)`
-followed by `UInt8`; the adjacent JSON cases pin the reserved-bit mismatch
-and truncation projections for that layout. The adjacent checker case
+followed by `UInt8`, including derived codec `Decoded`, short-input
+`NeedMore`, and helper-projected `Invalid` outcomes. The adjacent JSON cases
+pin the direct reserved-bit mismatch and truncation projections for that
+layout, and
+`../../examples/specification/run/binary-schema-reserved-nine-bit-prefix-codec-json/`
+pins command-facing projection for the derived codec `Invalid` outcome. The
+adjacent checker case
 `../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
 asserts `schema.reserved_bits_encode` for a non-byte-aligned reserved-bit
 shape outside the supported encode layouts.
