@@ -230,6 +230,7 @@
 
     private static ProtocolDiagnostic runtimeHpackFixtureCommonDiagnostic(String id, Adt detail) {
         if (!id.equals("hpack.fixture.unsupported_header_block")
+            && !id.equals("hpack.fixture.unsupported_static_index")
             && !id.equals("hpack.fixture.malformed_string_length")
             && !id.equals("hpack.fixture.malformed_raw_string_value")
             && !id.equals("hpack.fixture.malformed_huffman_padding")

@@ -1202,6 +1202,7 @@ impl<'a> ProtocolDiagnosticContext<'a> {
     fn project_hpack_fixture_rule(&self) -> Option<Diagnostic> {
         let message = match self.id.as_str() {
             "hpack.fixture.unsupported_header_block" => "unsupported HPACK fixture header block",
+            "hpack.fixture.unsupported_static_index" => "unsupported HPACK static index",
             "hpack.fixture.malformed_string_length" => "malformed HPACK string length",
             "hpack.fixture.malformed_raw_string_value" => "malformed HPACK raw string value",
             "hpack.fixture.malformed_huffman_padding" => "malformed HPACK Huffman padding",

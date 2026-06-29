@@ -150,9 +150,10 @@ requiring the full command reference on the first read.
   focused `schema.fixed_field_mismatch` human diagnostic. Plain
   `Err(value)` values remain ordinary result failures. A source-visible
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
-  value for unsupported-header-block, malformed-string-length,
-  malformed-raw-string, malformed-Huffman-padding, Huffman-EOS, and Huffman
-  non-visible HPACK fixture ids, plus malformed table-size update integers,
+  value for unsupported-header-block, unsupported-static-index,
+  malformed-string-length, malformed-raw-string, malformed-Huffman-padding,
+  Huffman-EOS, and Huffman non-visible HPACK fixture ids, plus malformed
+  table-size update integers,
   uses the same focused HPACK fixture human diagnostic as the compatibility
   helper, with byte offset, observed header block size, observed first byte,
   expected fixture, codec module, and bounded byte preview projected from the

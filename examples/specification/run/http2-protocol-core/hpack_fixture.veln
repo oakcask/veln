@@ -25,6 +25,7 @@ end
 
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	UnsupportedStaticIndex(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	DynamicIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	DynamicNameContinuationMissing(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	DynamicNameContinuationMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
@@ -762,6 +763,10 @@ end
 
 fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+end
+
+fn unsupported_static_index(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(UnsupportedStaticIndex(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK static indexed header", "hpack_fixture", block))
 end
 
 fn dynamic_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -3074,9 +3079,9 @@ fn decode_static_indexed_two_header_block(first_byte: Int, second_byte: Int, sta
 	match static_indexed_header_value(first_byte)
 		Some(first) => match static_indexed_header_value(second_byte)
 			Some(second) => decoded_static_indexed_two_headers(first, second, state)
-			None => unsupported(block, offset)
+			None => unsupported_static_index(block, offset)
 		end
-		None => unsupported(block, offset)
+		None => unsupported_static_index(block, offset)
 	end
 end
 
@@ -3153,7 +3158,7 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			187 => decoded_static_indexed_header("vary", "", state)
 			188 => decoded_static_indexed_header("via", "", state)
 			189 => decoded_static_indexed_header("www-authenticate", "", state)
-			_ => unsupported(block, offset)
+			_ => unsupported_static_index(block, offset)
 			end
 		end
 	end
@@ -3918,6 +3923,7 @@ end
 pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		UnsupportedStaticIndex(offset, _, _, _, _, _) => offset
 		DynamicIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
 		DynamicNameContinuationMissing(offset, _, _, _, _, _, _, _) => offset
 		DynamicNameContinuationMalformed(offset, _, _, _, _, _, _, _) => offset
@@ -3937,6 +3943,7 @@ end
 pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
+		UnsupportedStaticIndex(_, observed_size, _, _, _, _) => observed_size
 		DynamicIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
 		DynamicNameContinuationMissing(_, observed_size, _, _, _, _, _, _) => observed_size
 		DynamicNameContinuationMalformed(_, observed_size, _, _, _, _, _, _) => observed_size
@@ -3956,6 +3963,7 @@ end
 pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
+		UnsupportedStaticIndex(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		DynamicIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		DynamicNameContinuationMissing(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
 		DynamicNameContinuationMalformed(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
@@ -4003,6 +4011,7 @@ end
 pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => 0
+		UnsupportedStaticIndex(_, _, _, _, _, _) => 0
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => 0
 		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => 0
 		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => 0
@@ -4022,6 +4031,7 @@ end
 pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, expected_fixture, _, _) => expected_fixture
+		UnsupportedStaticIndex(_, _, _, expected_fixture, _, _) => expected_fixture
 		DynamicIndexOutOfRange(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		DynamicNameContinuationMissing(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
 		DynamicNameContinuationMalformed(_, _, _, _, _, expected_fixture, _, _) => expected_fixture
@@ -4041,6 +4051,7 @@ end
 pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, codec_module, _) => codec_module
+		UnsupportedStaticIndex(_, _, _, _, codec_module, _) => codec_module
 		DynamicIndexOutOfRange(_, _, _, _, _, _, codec_module, _) => codec_module
 		DynamicNameContinuationMissing(_, _, _, _, _, _, codec_module, _) => codec_module
 		DynamicNameContinuationMalformed(_, _, _, _, _, _, codec_module, _) => codec_module
@@ -4060,6 +4071,7 @@ end
 pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, preview) => preview
+		UnsupportedStaticIndex(_, _, _, _, _, preview) => preview
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, preview) => preview
 		DynamicNameContinuationMissing(_, _, _, _, _, _, _, preview) => preview
 		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, preview) => preview
@@ -4099,6 +4111,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 	let preview: ByteView = project_failure_preview(failure)?
 	match failure
 		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		UnsupportedStaticIndex(_, _, _, _, _, _) => hpack_fixture_unsupported_static_index(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_missing(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)

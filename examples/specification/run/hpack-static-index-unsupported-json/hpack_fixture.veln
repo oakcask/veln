@@ -1,0 +1,65 @@
+pub type HpackFixtureState
+	HpackFixtureState(table_size: Int, decode_count: Int)
+end
+
+pub type HpackHeader
+	HpackHeader(name: String, value: String)
+end
+
+pub type HpackHeaderList
+	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
+end
+
+pub type HpackDecodeTransition
+	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
+end
+
+pub type HpackFixtureFailure
+	UnsupportedStaticIndex(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+end
+
+pub fn initial_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0)
+end
+
+fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn unsupported_static_index(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(UnsupportedStaticIndex(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture HPACK static indexed header", "hpack_fixture", block))
+end
+
+pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match byte_at_or_missing(block, 0) == 128 and byte_count_to_int(byte_chunk_count(block)) == 1
+		true => unsupported_static_index(block, offset)
+		false => Ok(HpackDecodeTransition(HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8), state))
+	end
+end
+
+fn failure_preview_view(failure: HpackFixtureFailure) -> Result<ByteView, RuntimeDiagnostic>
+	match failure
+		UnsupportedStaticIndex(_, _, _, _, _, preview_chunk) => match byte_offset(0)
+			Ok(offset) => match byte_view(preview_chunk, offset, byte_chunk_count(preview_chunk))
+				Ok(view) => Ok(view)
+				Err(error) => Err(RuntimeDiagnostic("hpack.fixture.unsupported_static_index", error, RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture HPACK static indexed header", "hpack_fixture", byte_chunk([]))))
+			end
+			Err(error) => Err(RuntimeDiagnostic("hpack.fixture.unsupported_static_index", error, RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture HPACK static indexed header", "hpack_fixture", byte_chunk([]))))
+		end
+	end
+end
+
+pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = failure_preview_view(failure)?
+	match failure
+		UnsupportedStaticIndex(offset, observed_size, observed_first_byte, expected_fixture, codec_module, _) => hpack_fixture_unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
+	end
+end

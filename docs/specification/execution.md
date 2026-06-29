@@ -2192,10 +2192,16 @@ execution reference.
 	  by `:path: /`, preserving both headers in the source-visible
 	  `HpackHeaderList`. The HTTP/2 protocol-core case also carries
 	  static indexed `0x85` `:path: /index.html` through a completed final
-	  CONTINUATION frame before HPACK decode. The standalone
-	  `hpack-fixture-codec-json` case directly decodes the same one-byte
-	  indexed representation before preserving the unsupported-header-block
-	  JSON diagnostic projection. The fixture boundary also
+	  CONTINUATION frame before HPACK decode. Static indexed `0x80`, whose
+	  HPACK indexed representation carries index zero, returns the focused
+	  `hpack.fixture.unsupported_static_index` diagnostic with expected
+	  fixture `fixture HPACK static indexed header` instead of the generic
+	  unsupported-header-block diagnostic. The standalone
+	  `hpack-fixture-codec-json` case directly decodes the same supported
+	  one-byte indexed representation, and the checked
+	  `hpack-static-index-unsupported-json` and
+	  `hpack-static-index-unsupported-human` cases pin the focused
+	  unsupported static-index projection. The fixture boundary also
 	  accepts literal-without-indexing,
 	  literal-with-indexing, and literal-never-indexed fixtures whose
 	  indexed-name form names a supported static-table header name already

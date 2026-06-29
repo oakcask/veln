@@ -5456,7 +5456,9 @@ end
 fn hpack_fixture_failure_id(expected_fixture: String) -> String
 	match expected_fixture == "fixture HPACK string length"
 		true => "hpack.fixture.malformed_string_length"
-		false => match expected_fixture == "fixture HPACK raw string value"
+		false => match expected_fixture == "fixture HPACK static indexed header"
+			true => "hpack.fixture.unsupported_static_index"
+			false => match expected_fixture == "fixture HPACK raw string value"
 			true => "hpack.fixture.malformed_raw_string_value"
 			false => match expected_fixture == "fixture HPACK Huffman padding"
 				true => "hpack.fixture.malformed_huffman_padding"
@@ -5489,6 +5491,7 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 					end
 				end
 			end
+		end
 		end
 	end
 end
@@ -6308,7 +6311,9 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_trailing_bytes(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 			false => accept_runtime_diagnostic(hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 		end
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.table_size_update_malformed"
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.unsupported_static_index"
+			true => accept_runtime_diagnostic(hpack_fixture_unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.table_size_update_malformed"
 			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_malformed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
 			true => accept_runtime_diagnostic(hpack_fixture_malformed_string_length(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
@@ -6337,6 +6342,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 					end
 				end
 			end
+		end
 		end
 		end
 	end
@@ -7572,7 +7578,7 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_trailing_bytes" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.unsupported_static_index" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_trailing_bytes" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
 			true => Ok(())
 			false => Err("expected HTTP/2 HPACK fixture failure")
 		end
