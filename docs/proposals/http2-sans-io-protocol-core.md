@@ -346,8 +346,12 @@ source-visible `hpack_static` decoder before fixture fallback for the first
 static-indexed subset: `:method: GET`, `:method: POST`, `:path: /`,
 `:scheme: http`, `:scheme: https`, `:status: 200`, and `:status: 404`.
 Static-only header blocks with unsupported static-table indexes now project
-`hpack.static.unsupported_index`; literal, Huffman, dynamic-table, and
-table-size-update behavior remains fixture-owned.
+`hpack.static.unsupported_index`. The source-visible decoder also accepts the
+bounded literal-without-indexing static-name slice for `:authority`, `:path`,
+`:status`, `server`, `content-type`, and `user-agent` when the value is a raw
+single-byte-length visible-ASCII string. Unsupported literal names,
+Huffman-marked strings, malformed lengths, dynamic-table behavior, and
+table-size-update behavior remain fixture-owned.
 Those literal fixtures share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table across the full byte symbol range rather than

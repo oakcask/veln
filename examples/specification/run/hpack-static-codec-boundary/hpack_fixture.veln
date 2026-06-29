@@ -36,9 +36,13 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":fixture", _), _) => ":method,:fixture"
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":fixture", _), _) => ":authority,:fixture"
 		HpackHeaderList(HpackHeader(":path", _), HpackHeader(":fixture", _), _) => ":path,:fixture"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":fixture", _), _) => ":scheme,:fixture"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", _), _) => ":status,:fixture"
+		HpackHeaderList(HpackHeader("server", _), HpackHeader(":fixture", _), _) => "server,:fixture"
+		HpackHeaderList(HpackHeader("content-type", _), HpackHeader(":fixture", _), _) => "content-type,:fixture"
+		HpackHeaderList(HpackHeader("user-agent", _), HpackHeader(":fixture", _), _) => "user-agent,:fixture"
 		_ => ":unknown"
 	end
 end

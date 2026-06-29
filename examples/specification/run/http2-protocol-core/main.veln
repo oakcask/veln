@@ -9540,6 +9540,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-response-headers", hpack_static_response_headers)
 	let ignored_hpack_static_response_headers: () = emit_header_block("http2-hpack-static-response-headers", hpack_static_response_headers, "88")?
 	print_hpack_static_transition("hpack-static-response-headers", hpack_static_response_headers)
+	let hpack_static_literal_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010803323031")?), state)?
+	print_step("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
+	let ignored_hpack_static_literal_response_headers: () = emit_header_block("http2-hpack-static-literal-response-headers", hpack_static_literal_response_headers, "0803323031")?
+	print_hpack_static_transition("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
 	let hpack_static_unsupported_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000180")?), state)?
 	print_failure("hpack-static-unsupported-index", hpack_static_unsupported_index)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000011102030405")?), state)?

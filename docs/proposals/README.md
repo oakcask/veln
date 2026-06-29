@@ -471,12 +471,15 @@ compare it with `../specification/` before changing behavior.
   the first source-visible HPACK static-indexed decoder subset for
   `:method: GET`, `:method: POST`, `:path: /`, `:scheme: http`,
   `:scheme: https`, `:status: 200`, and `:status: 404`, and focused
-  `hpack.static.unsupported_index` diagnostics,
+  `hpack.static.unsupported_index` diagnostics, plus source-visible
+  literal-without-indexing static-name decoding for raw visible-ASCII values
+  on `:authority`, `:path`, `:status`, `server`, `content-type`, and
+  `user-agent`,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented static-indexed subset, including full
-  HPACK compression and unbounded dynamic-table behavior.
+  fixture boundary and implemented source-visible static decoder subset,
+  including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
