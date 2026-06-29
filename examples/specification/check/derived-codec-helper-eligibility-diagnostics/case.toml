@@ -12,6 +12,66 @@ format = "empty"
 path = "status"
 equals = "error"
 
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.schema"
+equals = "UnsupportedRecordHeader"
+
+[[json_assert]]
+path = "diagnostics.0.details.direction"
+equals = "decode"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "generated_decode_helper_unavailable"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_helper"
+equals = "byte_decode_step_unsupported_record_header"
+
+[[json_assert]]
+path = "diagnostics.0.details.helper_boundary"
+equals = "generated_binary_schema_decode_step"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "schema_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "helper_boundary"
+
+[[json_assert]]
+path = "diagnostics.1.details.schema"
+equals = "UnsupportedRecordHeader"
+
+[[json_assert]]
+path = "diagnostics.1.details.direction"
+equals = "encode"
+
+[[json_assert]]
+path = "diagnostics.1.details.reason"
+equals = "generated_encode_helper_unavailable"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_helper"
+equals = "byte_encode_unsupported_record_header"
+
+[[json_assert]]
+path = "diagnostics.1.details.helper_boundary"
+equals = "generated_binary_schema_encode"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "schema_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "helper_boundary"
+
 [[diagnostics]]
 id = "codec.derive_helper_unsupported"
 severity = "error"
