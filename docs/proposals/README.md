@@ -388,8 +388,9 @@ compare it with `../specification/` before changing behavior.
   fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
   and eviction, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
-  inbound table-size update placement diagnostics, and checked outbound
-  dynamic table-size update encoding, plus deterministic
+  inbound table-size update placement diagnostics, checked outbound
+  dynamic table-size update encoding, and checked outbound dynamic-name
+  literal fixture encoding, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
@@ -414,6 +415,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
   The completed dynamic-name continuation diagnostic slice is archived under
   [HTTP/2 HPACK Dynamic Name Continuation Diagnostics](../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md).
+  The completed outbound dynamic-name literal fixture slice is archived under
+  [HTTP/2 Outbound HPACK Dynamic-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md).
   The completed inbound dynamic-table fixture slice is archived under
   [HTTP/2 HPACK Dynamic Table Fixture](../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
