@@ -2536,7 +2536,10 @@ deterministic `hpack-bytes-xx-...-xx` labels; the existing
 The fixture
 also accepts raw new-name literal forms whose field-name string is a raw
 visible-ASCII HPACK string literal, and sends those decoded names through the
-same HTTP/2 header-list validation paths as indexed-name literals. The same
+same HTTP/2 header-list validation paths as indexed-name literals. The
+protocol-core case checks raw new-name literal-never-indexed `x-never: no`
+through the receive path and then checks that a following dynamic-indexed
+lookup still has no inserted dynamic entry. The same
 decoder accepts checked
 one-continuation string-length prefixes for long raw and Huffman-marked values
 through all three literal forms, including a 129-byte raw `:authority` value
@@ -2585,6 +2588,7 @@ by a later `0xbe` dynamic-indexed reuse, and raw literal-never-indexed
 `user-agent: agent` through a final CONTINUATION as
 `0x1f 0x2b 0x05 "agent"`. It also covers raw new-name
 literal-with-indexing `x-trace: ok` followed by dynamic-indexed reuse, plus
+raw new-name literal-never-indexed `x-never: no` without dynamic insertion, and
 raw new-name trailers that accept lower-case `x-trace` and reject uppercase
 `Server` and token-invalid `bad@name` through the existing trailer diagnostics.
 Focused human and JSON examples pin those raw field-name failures on the same

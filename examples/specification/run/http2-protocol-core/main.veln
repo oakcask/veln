@@ -7674,6 +7674,14 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let ignored_http2_ordinary_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, http2_ordinary_state)
 	let ignored_http2_ordinary_referenced_header: () = require_hpack_transition_header(http2_ordinary_referenced, http2_ordinary_state, "x-trace", "ok")?
+	let http2_ordinary_never_indexed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000011007782d6e65766572026e6f")?), frame_state())?
+	print_step("hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed)
+	let ignored_http2_ordinary_never_indexed: () = emit_header_block("http2-hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed, "1007782d6e65766572026e6f")?
+	print_hpack_transition_from_state("hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed, frame_state())
+	let ignored_http2_ordinary_never_indexed_header: () = require_hpack_transition_header(http2_ordinary_never_indexed, frame_state(), "x-never", "no")?
+	let http2_ordinary_never_indexed_dynamic_lookup: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000003be")?), hpack_carry_only_state(step_state(http2_ordinary_never_indexed)))?
+	print_failure("hpack-raw-name-never-indexed-no-dynamic-entry", http2_ordinary_never_indexed_dynamic_lookup)
+	let ignored_http2_ordinary_never_indexed_dynamic_lookup: () = require_hpack_fixture_failure(http2_ordinary_never_indexed_dynamic_lookup)?
 	let http2_ordinary_reduced: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000013f09")?), http2_ordinary_state)?
 	print_step("hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced)
 	let ignored_http2_ordinary_reduced: () = emit_header_block("http2-hpack-stateful-ordinary-table-size-eviction", http2_ordinary_reduced, "3f09")?

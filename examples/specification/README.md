@@ -2612,8 +2612,9 @@ against the built `veln` binary.
   literal-with-indexing coverage through completed HEADERS and final
   CONTINUATION paths, retain that newest entry while evicting the older
   path entry at table size `42`, insert and reuse the raw new-name ordinary
-  `x-trace: ok` entry before a table-size `40` reduction evicts it, reject
-  the evicted older entry path through
+  `x-trace: ok` entry before a table-size `40` reduction evicts it, accept a
+  raw new-name literal-never-indexed `x-never: no` header block without
+  inserting a dynamic-table entry, reject the evicted older entry path through
   `hpack.fixture.dynamic_index_out_of_range`,
   carry the replacement state through completed HEADERS and final
   CONTINUATION paths through the imported fixture codec, accept dynamic

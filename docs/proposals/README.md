@@ -419,7 +419,8 @@ compare it with `../specification/` before changing behavior.
   and raw string value fixture diagnostics, general visible-ASCII raw literal
   values, raw field-name validation through header-list diagnostics, inbound
   fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
-  and eviction, focused dynamic-index lookup failure diagnostics, checked
+  and eviction, raw new-name literal-never-indexed receive without dynamic
+  insertion, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
   inbound table-size update placement, malformed-integer, and trailing-byte
   diagnostics, checked outbound

@@ -2239,10 +2239,13 @@ execution reference.
   `user-agent: agent` through a final CONTINUATION as
   `0x1f 0x2b 0x05 "agent"`. It also checks raw new-name literal-with-indexing
   `x-trace: ok` as `0x40 0x07 "x-trace" 0x02 "ok"` followed by dynamic-indexed
-  reuse, and raw new-name trailers through the HTTP/2 trailer validation
-  path, including accepted lower-case `x-trace`, rejected uppercase `Server`,
-  and rejected token-invalid `bad@name`. Focused human and JSON examples pin
-  those raw field-name failures on the existing
+  reuse, raw new-name literal-never-indexed `x-never: no` as
+  `0x10 0x07 "x-never" 0x02 "no"` followed by a checked failed `0xbe`
+  dynamic-index lookup from the returned state, and raw new-name trailers
+  through the HTTP/2 trailer validation path, including accepted lower-case
+  `x-trace`, rejected uppercase `Server`, and rejected token-invalid
+  `bad@name`. Focused human and JSON examples pin those raw field-name
+  failures on the existing
   `http2.protocol.invalid_request_header_list` projection. Checked bytes also
   include literal-without-indexing `:authority: odd` as `0x01 0x03 "odd"`,
   literal-with-indexing `:method: raw` as `0x42 0x03 "raw"`,

@@ -20,6 +20,9 @@ The HTTP/2 protocol-core example also inserts raw new-name
 literal-with-indexing `x-trace: ok`, carries the returned immutable dynamic
 entry state through a later `0xbe` lookup, then reduces the table to `40` so
 that ordinary entry is evicted and the next `0xbe` lookup stays unsupported.
+It also accepts raw new-name literal-never-indexed `x-never: no` through the
+same receive path without inserting a dynamic-table entry, so a following
+`0xbe` lookup from the returned state remains unsupported.
 
 Later literal-with-indexing blocks prepend bounded fixture dynamic-table
 entries in newest-first order. After `:method: PUT` and `:scheme: https` are
@@ -137,7 +140,8 @@ covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
   literal-never-indexed forms without replacement insertion,
   generalized dynamic indexed lookup, ordinary raw new-name
   literal-with-indexing insertion and dynamic-indexed reuse, oldest-first
-  table-size eviction of that ordinary entry,
+  table-size eviction of that ordinary entry, raw new-name
+  literal-never-indexed receive without dynamic insertion,
   insertion-caused eviction, the accepted-entry-size eviction case, pending
   CONTINUATION state not advancing HPACK decode count before final acceptance,
   missing dynamic indexed state not advancing the carried decode count before

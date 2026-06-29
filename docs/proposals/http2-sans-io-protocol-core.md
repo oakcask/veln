@@ -835,6 +835,9 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
 and
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
+The checked fixture boundary also includes source-visible raw new-name
+literal-with-indexing and literal-never-indexed receive paths that keep dynamic
+table state in ordinary Veln values.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal, outbound behavior beyond the checked
