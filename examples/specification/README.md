@@ -2036,16 +2036,21 @@ against the built `veln` binary.
 - `check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`:
   a resolved binary nested payload schema whose `ByteView` length refers
   forward remains outside generated decode and encode helper eligibility;
-  the JSON diagnostics also pin an unsupported representation-only
-  `ReservedBits` payload layout, preserve `schema.dispatch_payload`, name the
-  expected generated helpers, and reject derived codec helpers for the parent
-  dispatch schemas.
+  the JSON diagnostics preserve `schema.dispatch_payload`, name the expected
+  generated helpers, and reject derived codec helpers for the parent dispatch
+  schemas.
 - `check/binary-schema-dispatch-payload-helper-boundary-json/`: a focused
   resolved nested payload schema with an unsupported representation-only
   `ReservedBits` layout pins the stable `schema.dispatch_payload` JSON fields
   for parent dispatch field, selected payload schema, helper boundaries,
   unavailable directions, unsupported nested field path, layout reason, and
   related-note kinds.
+- `run/binary-schema-dispatch-reserved-byte-prefix-payload-decode-encode/`:
+  closed dispatch decode and encode accept nested payload schemas with
+  `ReservedBits(2, 0)` or `ReservedBits(9, 0)` followed by `UInt8`.
+- `run/binary-schema-dispatch-reserved-byte-prefix-payload-failure-json/`:
+  reserved-byte-prefix mismatch in a nested dispatch payload keeps the parent
+  dispatch field path and absolute byte offset.
 - `check/binary-schema-dispatch-payload-encode-helper-boundary-json/`: a
   focused resolved nested payload schema whose decoded mapping shape is
   available but whose mapping assignment cannot project back to schema-local

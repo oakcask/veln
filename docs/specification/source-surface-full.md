@@ -164,7 +164,10 @@ are implemented exact-width unsigned primitives or eligible nested binary
 schema payloads. Nested payload schema names must resolve to earlier
 same-module binary schema items or public imported binary schemas named
 through written `use` paths, and the named schemas must themselves be
-eligible for the generated binary schema helper path, including
+eligible for the generated binary schema helper path, including supported
+representation-only `ReservedBits` layouts such as the reserved byte prefixes
+`ReservedBits(1, 0)`, `ReservedBits(2, 0)`, and
+`ReservedBits(9, 0)` followed by `UInt8`,
 length-bounded `ByteView(length_field)`,
 `ByteView(left_length + right_length)`,
 `ByteView(left_length - right_length)`, or

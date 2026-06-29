@@ -1651,6 +1651,12 @@ payload field.
 pins the same same-module helper path when selected closed and
 extension-tolerant nested payload schemas contain supported
 representation-only reserved-bit layouts.
+`../../examples/specification/run/binary-schema-dispatch-reserved-byte-prefix-payload-decode-encode/`
+checks closed dispatch decode and encode when nested payload schemas contain
+`ReservedBits(2, 0)` or `ReservedBits(9, 0)` followed by `UInt8`.
+`../../examples/specification/run/binary-schema-dispatch-reserved-byte-prefix-payload-failure-json/`
+checks that a reserved-byte-prefix mismatch in a nested dispatch payload keeps
+the parent dispatch field path and absolute byte offset.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-imported-dispatch-byteview-payload-encode/`

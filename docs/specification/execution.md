@@ -1731,9 +1731,10 @@ execution reference.
   including successful `Decoded`, short-input `NeedMore(NeedBytes(...))`,
   non-consuming reserved-bit `Invalid`, and JSON command-facing diagnostic
   projection.
-  The dispatch reserved payload roundtrip and one-bit reserved payload failure
-  cases check that nested dispatch payload helpers accept
-  `ReservedBits(1, 0)` followed by `UInt8`, and that reserved-bit mismatch
+  The dispatch reserved payload roundtrip, one-bit reserved payload failure,
+  and reserved-byte-prefix payload cases check that nested dispatch payload
+  helpers accept `ReservedBits(1, 0)`, `ReservedBits(2, 0)`, and
+  `ReservedBits(9, 0)` followed by `UInt8`, and that reserved-bit mismatch
   diagnostics keep the enclosing dispatch field path and absolute byte offset.
   The sub-byte boundary case covers standalone visible `UInt1` through
   `UInt7` fields, including successful `Decoded`, short-input `NeedMore`, and

@@ -302,6 +302,8 @@ fixed-field validation, byte-aligned reserved fields, little-endian primitive
 payload fields, same-module representation-only reserved-bit payload
 round trips, nested `ReservedBits(1, 0)` plus `UInt8` payload fields with
 reserved-bit mismatch diagnostics preserving the parent dispatch field path,
+nested reserved-byte-prefix `ReservedBits(2, 0)` and `ReservedBits(9, 0)`
+plus `UInt8` payload fields with the same nested mismatch path behavior,
 nested `ByteView(length_field)` payload fields whose length is an
 earlier visible `Int` in the same nested schema, nested
 `ByteView(left_length + right_length)` payload fields whose operands are
@@ -330,6 +332,10 @@ under
 The completed nested dispatch `ReservedBits(1, 0)` plus `UInt8` payload helper
 slice is archived under
 `../reference/implemented-proposals/binary-schema-dispatch-one-bit-reserved-payload-helpers.md`.
+The completed nested dispatch reserved-byte-prefix payload helper slice for
+`ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` is archived
+under
+`../reference/implemented-proposals/binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md`.
 A
 checked non-HTTP telemetry envelope combines the implemented helper vocabulary
 in one generated decode-and-encode schema. The mapping slice also accepts an
