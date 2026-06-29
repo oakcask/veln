@@ -94,7 +94,7 @@ schemas whose fields use implemented exact-width unsigned primitives,
   records, construct ADT payloads through ordinary source module constructor
   resolution, call one pure same-module representation converter, or call one
   imported public pure converter through a written `use` path or alias with
-  one, two, three, four, or five schema-local field or structural mapping expression
+  one or more schema-local field or structural mapping expression
   arguments including pure converter calls, or
   select a visible field from a record-shaped structural mapping expression,
   plus `+`, `-`, `*`, and `/` integer arithmetic over decoded schema-local
@@ -131,7 +131,7 @@ This proposal remains open for:
 - runtime mapping beyond the implemented schema-local field reference, record
   construction, ADT constructor construction including nested constructor
   payload expressions, pure same-module or imported public representation
-  conversion hooks that take one, two, three, four, or five arguments whose
+  conversion hooks that take one or more supported arguments whose
   supported structural arguments may include pure converter calls, field
   selection from record-shaped structural mapping expressions, supported
   integer mapping arithmetic, supported ordered and equality integer mapping
@@ -184,7 +184,7 @@ construction, ADT constructor construction resolved through ordinary source
 module rules, including nested constructor payload expressions whose leaves
 stay inside the implemented schema-local expression vocabulary, one pure
 same-module converter function call, and one imported public pure converter
-function call through a written `use` path or alias with one, two, three, four, or five
+function call through a written `use` path or alias with one or more
 schema-local field or structural mapping expression arguments including pure
 converter calls, and
 field selection from record-shaped structural mapping expressions. An `Int`
@@ -204,7 +204,7 @@ integer-literal, and `Int` converter-call mapping arithmetic for `Int` target
 fields, plus equality, inequality, and ordered mapping comparisons over
 supported `Int` mapping operands composed with `and`, `or`, and `not` for
 `Bool` target fields. Converter
-calls may take one, two, three, four, or five arguments. Arguments may be schema-local field
+calls may take one or more arguments. Arguments may be schema-local field
 references or structural mapping expressions made from schema-local fields,
 records, ADT constructors, pure converter calls, and nested combinations of
 those forms, including supported integer arithmetic mapping expressions. Direct converter selector
@@ -232,7 +232,7 @@ a field-local representation conversion when the schema vocabulary defines one.
 Mapping expressions stay structural in the first surface: field selection,
 record construction, ADT construction, one pure same-module converter call,
 and one imported public pure converter call through a written `use` path or
-alias with one, two, three, four, or five supported arguments, plus decoded-field
+alias with one or more supported arguments, plus decoded-field
 integer `+`, `-`, `*`, and `/` mapping arithmetic, and equality, inequality,
 and ordered comparisons over supported `Int` mapping operands composed with
 `and`, `or`, and `not` for `Bool` target fields, are
@@ -450,8 +450,8 @@ Implemented:
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
   exposed to editor token metadata, including schema-local field reference,
   record construction, ADT constructor construction, pure same-module and
-  imported public representation converter calls that take one, two, three, four, or five
-  arguments through a written `use` path or alias, including pure converter
+  imported public representation converter calls that take one or more
+  supported arguments through a written `use` path or alias, including pure converter
   calls as supported structural arguments, field
   selection from record-shaped structural mapping expressions, and
   decoded-field, integer-literal, and `Int` converter-call `+`, `-`, `*`,
@@ -489,8 +489,8 @@ Remaining:
 
 - Runtime schema value mapping beyond the implemented schema-local field
   reference, record construction, nested ADT constructor construction, one pure
-  same-module or imported public converter call whose one, two, three, four, or five
-  arguments may be schema-local fields or structural mapping expressions
+  same-module or imported public converter call whose arguments may be
+  schema-local fields or structural mapping expressions
   including pure converter calls, field
   selection from record-shaped structural mapping expressions, decoded-field and
   converter-call integer arithmetic, supported integer comparison mapping

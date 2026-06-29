@@ -406,7 +406,7 @@ struct SchemaMappingExprContext<'a> {
     schema_fields: &'a BTreeMap<String, Type>,
 }
 
-const SCHEMA_MAPPING_CONVERTER_ARITY: std::ops::RangeInclusive<usize> = 1..=5;
+const SCHEMA_MAPPING_CONVERTER_MIN_ARITY: usize = 1;
 
 pub(crate) struct SchemaMappingTyper<'a> {
     module: &'a SurfaceModule,
@@ -1597,32 +1597,20 @@ fn schema_mapping_converter_arg_exprs(
     ),
     Box<SchemaMappingExprError>,
 > {
-    if !SCHEMA_MAPPING_CONVERTER_ARITY.contains(&args.len()) {
+    if args.len() < SCHEMA_MAPPING_CONVERTER_MIN_ARITY {
         return Err(Box::new(SchemaMappingExprError::ConverterArity {
             name: function.name.clone(),
-            expected: *SCHEMA_MAPPING_CONVERTER_ARITY.end(),
+            expected: SCHEMA_MAPPING_CONVERTER_MIN_ARITY,
             actual: args.len(),
             span: expr.span.clone(),
             function_span: function.span.clone(),
         }));
     }
-    if function.params.len() != args.len()
-        || !SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len())
-    {
-        let expected = if SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len()) {
-            function.params.len()
-        } else {
-            args.len()
-        };
-        let actual = if SCHEMA_MAPPING_CONVERTER_ARITY.contains(&function.params.len()) {
-            args.len()
-        } else {
-            function.params.len()
-        };
+    if function.params.len() != args.len() {
         return Err(Box::new(SchemaMappingExprError::ConverterArity {
             name: function.name.clone(),
-            expected,
-            actual,
+            expected: function.params.len(),
+            actual: args.len(),
             span: callee.span.clone(),
             function_span: function.span.clone(),
         }));

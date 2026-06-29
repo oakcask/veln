@@ -2434,7 +2434,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
             "\n",
             "  map to Header\n",
             "    too_few = two_params(kind)\n",
-            "    too_many = six_params(kind, length, kind, length, kind, length)\n",
+            "    too_many = six_params(kind, length, kind, length, kind, length, kind)\n",
             "    bad_input = needs_text(kind)\n",
             "    bad_return = to_text(kind)\n",
             "    impure = noisy(kind)\n",
@@ -2460,7 +2460,7 @@ fn generated_schema_mappings_report_converter_diagnostics() {
         diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.mapping_converter_arity"
                 && diagnostic.message
-                    == "schema mapping converter `six_params` expects 5 argument(s), but got 6"
+                    == "schema mapping converter `six_params` expects 6 argument(s), but got 7"
         }),
         "{diagnostics:#?}"
     );
