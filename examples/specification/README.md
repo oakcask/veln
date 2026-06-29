@@ -2711,11 +2711,12 @@ against the built `veln` binary.
   SETTINGS frame-header-plus-item chunk for `SETTINGS_HEADER_TABLE_SIZE`,
   `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_ENABLE_PUSH`,
   `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_MAX_FRAME_SIZE`, and
-  `SETTINGS_MAX_HEADER_LIST_SIZE`, records one outstanding local SETTINGS
-  batch with the sent identifier and item count, clears that outstanding state
-  on a valid received SETTINGS ACK, rejects local `SETTINGS_ENABLE_PUSH`
-  values outside `0..1` before emitting bytes, and rejects an ACK with no
-  outstanding local SETTINGS as
+  `SETTINGS_MAX_HEADER_LIST_SIZE`, records accepted local SETTINGS batches in
+  an ordered outstanding queue with source-visible pending batch counts,
+  clears exactly the oldest batch on a valid received SETTINGS ACK while
+  leaving later batches pending, rejects local `SETTINGS_ENABLE_PUSH` values
+  outside `0..1` before emitting bytes, and rejects an ACK with no outstanding
+  local SETTINGS as
   `http2.protocol.unexpected_settings_ack` with a bounded inspected
   frame-header byte preview. After a valid inbound non-ACK
   PING frame, it constructs one immutable outbound PING ACK chunk

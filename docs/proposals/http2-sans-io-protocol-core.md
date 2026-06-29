@@ -22,8 +22,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining settings interactions not covered by the implemented
   enable-push, maximum-frame-size, maximum-concurrent-streams,
   initial-window-size, header-table-size, and maximum-header-list-size
-  peer-advertised state, unknown-identifier handling, SETTINGS ACK receive
-  and outstanding-local SETTINGS tracking, local SETTINGS send-intents for
+  peer-advertised state, unknown-identifier handling, SETTINGS ACK receive,
+  local SETTINGS send-intents for
   header-table-size, enable-push, initial-window-size,
   maximum-concurrent-streams, maximum-frame-size, maximum-header-list-size, a
   two-item local SETTINGS batch, and the narrow outbound SETTINGS ACK
@@ -480,7 +480,8 @@ It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
 nonzero streams on the existing `http2.protocol.invalid_stream_id` path.
-It also records one outstanding local SETTINGS batch when the fixture emits
+It also records accepted local SETTINGS batches in an ordered outstanding
+queue when the fixture emits
 local `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
 `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE` items, including
@@ -495,9 +496,9 @@ failure shape and `local_settings` provenance, including when the invalid
 value appears in a batch. The checked example leaves
 `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
 `SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
-settings. A valid SETTINGS ACK clears that state, including a multi-item
-batch, and a valid SETTINGS ACK with no outstanding local SETTINGS is
-rejected as
+settings. A valid SETTINGS ACK clears exactly the oldest outstanding batch,
+including a multi-item batch, while later pending batches remain outstanding;
+a valid SETTINGS ACK with no outstanding local SETTINGS is rejected as
 `http2.protocol.unexpected_settings_ack` in ordinary output, human diagnostics,
 and JSON details.
 It also accepts structurally complete unknown extension frames after the
