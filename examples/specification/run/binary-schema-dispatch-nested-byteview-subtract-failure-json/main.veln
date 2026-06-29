@@ -1,0 +1,22 @@
+# Nested dispatch ByteView subtraction failures keep the nested field path.
+schema SubtractiveFailurePayload
+	format binary
+
+	left_length: UInt8
+	right_length: UInt8
+	payload: ByteView(left_length - right_length)
+end
+
+schema ClosedSubtractiveFailurePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SubtractiveFailurePayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010102")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let ignored: {kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}} = byte_decode_closed_subtractive_failure_packet(view)?
+	Ok(())
+end

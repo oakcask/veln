@@ -159,8 +159,11 @@ schema payloads. Nested payload schema names must resolve to earlier
 same-module binary schema items or public imported binary schemas named
 through written `use` paths, and the named schemas must themselves be
 eligible for the generated binary schema helper path, including
-length-bounded `ByteView(length_field)` fields whose length names an earlier
-visible `Int` field in that nested schema. The tag and length
+length-bounded `ByteView(length_field)`,
+`ByteView(left_length + right_length)`,
+`ByteView(left_length - right_length)`, or
+`ByteView(left_length * right_length)` fields whose length operands name
+earlier visible `Int` fields in that nested schema. The tag and length
 references must resolve to visible `Int` fields. Same-module recursive closed
 or extension-tolerant dispatch payload schemas, same-module dispatch cases
 that name a separate eligible recursive payload schema, and public imported

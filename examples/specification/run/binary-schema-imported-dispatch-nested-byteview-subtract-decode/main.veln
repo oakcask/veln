@@ -1,0 +1,103 @@
+# Imported nested dispatch payload decode accepts ByteView subtraction lengths.
+use stdio
+use wire
+
+schema ImportedClosedSubtractivePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::ImportedSubtractivePayload)
+end
+
+schema ImportedExtensionSubtractivePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => wire::ImportedSubtractivePayload)
+end
+
+codec ImportedClosedSubtractiveCodec for ImportedClosedSubtractivePacket decode
+	derive decode
+end
+
+codec ImportedExtensionSubtractiveCodec for ImportedExtensionSubtractivePacket decode
+	derive decode
+end
+
+fn emit_payload(prefix: String, payload: {left_length: Int, right_length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.left_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.right_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(payload.payload))))
+	stdio::print(" ")
+	stdio::println(byte_chunk_to_visible_ascii_string(byte_view_to_chunk(payload.payload))?)
+	Ok(())
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_payload("imported-extension", value)
+		Unknown(_, _) => Ok(())
+	end
+end
+
+fn closed_step_kind(step: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn closed_consumed_count(step: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn extension_step_kind(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn extension_consumed_count(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("010502616263")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(6)?)?
+	let closed: {kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}} = byte_decode_imported_closed_subtractive_packet(closed_view)?
+	let _: () = emit_payload("imported-closed", closed.payload)?
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("05010502616263")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(7)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>} = byte_decode_imported_extension_subtractive_packet(extension_view)?
+	let _: () = emit_extension_payload(extension.payload)?
+
+	let closed_codec: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}> = ImportedClosedSubtractiveCodec(closed_view, byte_offset(13)?)
+	stdio::print("codec-imported-closed ")
+	stdio::print(closed_step_kind(closed_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
+
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}> = ImportedExtensionSubtractiveCodec(extension_view, byte_offset(19)?)
+	stdio::print("codec-imported-extension ")
+	stdio::print(extension_step_kind(extension_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(extension_consumed_count(extension_codec)))
+	Ok(())
+end

@@ -295,6 +295,8 @@ round trips, nested `ByteView(length_field)` payload fields whose length is an
 earlier visible `Int` in the same nested schema, nested
 `ByteView(left_length + right_length)` payload fields whose operands are
 earlier visible `Int` fields in the same nested schema, nested
+`ByteView(left_length - right_length)` payload fields whose operands are
+earlier visible `Int` fields in the same nested schema, nested
 `ByteView(left_length * right_length)` payload fields whose operands are
 earlier visible `Int` fields in the same nested schema, extension-tolerant
 known payloads, same-module wrapper dispatches that select a separate eligible
@@ -305,6 +307,9 @@ preservation, and nested helper diagnostics. The completed nested dispatch
 The completed nested dispatch
 `ByteView(left_length + right_length)` payload helper slice is archived under
 `../reference/implemented-proposals/binary-schema-dispatch-byteview-add-payload-helpers.md`.
+The completed nested dispatch
+`ByteView(left_length - right_length)` payload helper slice is archived under
+`../reference/implemented-proposals/binary-schema-dispatch-byteview-subtract-payload-helpers.md`.
 The completed nested dispatch
 `ByteView(left_length * right_length)` payload helper slice is archived under
 `../reference/implemented-proposals/binary-schema-dispatch-byteview-product-payload-helpers.md`.
@@ -655,8 +660,9 @@ for:
   `ByteView(left_length + right_length)`,
   `ByteView(left_length * right_length)`, and
   `ByteView(left_length / right_length)` ordinary decode and encode helper
-  slices, plus dispatch nested `ByteView(length_field)` and
-  `ByteView(left_length + right_length)`, and
+  slices, plus dispatch nested `ByteView(length_field)`,
+  `ByteView(left_length + right_length)`,
+  `ByteView(left_length - right_length)`, and
   `ByteView(left_length * right_length)` payload helper slices
 - field references inside later field definitions beyond implemented bounded
   repeat counts, byte-view lengths, dispatch tags, extension dispatch tags and
