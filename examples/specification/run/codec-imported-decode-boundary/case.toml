@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n7\n3\n3\nneed_more\nneed_bytes\n3\n0\ninvalid\nschema.validation_failed\n32\nPacketWire.wire_kind\n"
+equals = "decoded\n7\n3\n3\nneed_more\nneed_bytes\n3\n0\nneed_more\nneed_end\n0\n0\ninvalid\nschema.validation_failed\n32\nPacketWire.wire_kind\n"
 
 [[json_assert]]
 path = "error"

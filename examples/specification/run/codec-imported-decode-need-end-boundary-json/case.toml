@@ -1,0 +1,75 @@
+command = ["run", "--json", "main", "main.veln", "wire.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-run-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "run"
+
+[[json_assert]]
+path = "exit_code"
+equals = 1
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.message"
+equals = "runtime result failure: Err(NeedMore(NeedEnd))"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "NeedMore(NeedEnd)"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.incomplete_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 0
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = []
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+equals = "need_end"
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(NeedMore(NeedEnd))\n"

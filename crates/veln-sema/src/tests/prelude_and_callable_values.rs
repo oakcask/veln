@@ -10807,6 +10807,67 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
 }
 
 #[test]
+fn imported_codec_private_implementation_items_do_not_resolve_as_calls() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn call_helper(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  wire::decode_packet(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn call_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  wire::PacketWire(view, base)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PacketWire decode\n",
+            "  decode with decode_packet\n",
+            "end\n",
+            "\n",
+            "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `wire::decode_packet`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `wire::PacketWire`"
+    }));
+}
+
+#[test]
 fn imported_codec_decode_does_not_resolve_as_bare_call() {
     let app_source = SourceFile::new(
         "app.veln",

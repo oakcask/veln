@@ -1745,7 +1745,8 @@ execution reference.
   the local field position.
   `examples/specification/run/codec-imported-decode-boundary/` covers the
   imported `pub codec` path for the same hand-written decode boundary with
-  `Decoded`, `NeedMore`, and `Invalid` outcomes.
+  `Decoded`, `NeedMore(NeedBytes(...))`, `NeedMore(NeedEnd)`, and `Invalid`
+  outcomes.
 - For `veln run` entries, a returned
   `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` is a
   source-visible diagnostic-bearing result failure. The command boundary
@@ -1860,6 +1861,8 @@ execution reference.
   `examples/specification/run/codec-decode-invalid-step-json/`,
   `examples/specification/run/codec-decode-need-end-boundary-human/`,
   `examples/specification/run/codec-decode-need-end-boundary-json/`,
+  `examples/specification/run/codec-imported-decode-need-end-boundary-human/`,
+  `examples/specification/run/codec-imported-decode-need-end-boundary-json/`,
   `examples/specification/run/codec-decode-need-end-human/`,
   `examples/specification/run/codec-decode-need-end-json/`,
   `examples/specification/run/codec-decode-need-more-human/`, and
@@ -1892,7 +1895,10 @@ execution reference.
   calls require a written qualified module path to a `pub codec`.
   `examples/specification/check/codec-imported-private-boundary/` covers a
   private imported hand-written codec remaining unavailable through the
-  qualified module path.
+  qualified module path, and
+  `examples/specification/check/codec-imported-private-implementation-boundary/`
+  covers the private schema and private helper behind an imported public
+  hand-written codec remaining unavailable as callable items.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If
