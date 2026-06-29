@@ -77,12 +77,13 @@ against the built `veln` binary.
   payload facts reported at the
   conflicting expression.
 - `check/constructor-payload-callback-inference/` and
-  `check/constructor-payload-callback-inference-diagnostics/`: source ADT
-  constructor payload positions whose expected type is a concrete function
-  type infer named private callback parameter types, propagate concrete
-  callback return context into non-empty callback tails, reject conflicting
-  callback bodies, and leave unconstrained generic constructor payloads
-  ambiguous instead of constraining callback parameters from `unknown`.
+  `check/constructor-payload-callback-inference-diagnostics/`: constructor
+  payload positions whose expected type is a concrete function type, including
+  source ADT constructors and compiler-owned `Some`, `Ok`, and `Err`, infer
+  named private callback parameter types, propagate concrete callback return
+  context into non-empty callback tails, reject conflicting callback bodies,
+  and leave unconstrained payloads ambiguous instead of constraining callback
+  parameters from `unknown`.
 - `check/declared-helper-callback-inference/` and
   `check/declared-helper-callback-import-inference/`: named private callback
   parameter inference from same-module and imported helpers with concrete

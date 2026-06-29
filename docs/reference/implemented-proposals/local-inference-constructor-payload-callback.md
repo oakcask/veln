@@ -19,12 +19,13 @@ is historical evidence, not the source for current behavior.
 
 ## Implemented Boundary
 
-When a source-declared constructor call is checked against a concrete expected
-ADT type, each concrete payload type provides expected-type context for the
-matching payload expression. If that payload type is a concrete function type,
-a named private callback function value passed at the payload position
-receives the function parameter types for omitted callback parameter
-annotations.
+When a constructor call is checked against a concrete expected ADT type, each
+concrete payload type provides expected-type context for the matching payload
+expression. If that payload type is a concrete function type, a named private
+callback function value passed at the payload position receives the function
+parameter types for omitted callback parameter annotations. This includes
+source-declared constructor payloads and compiler-owned `Some`, `Ok`, and
+`Err` payloads.
 
 The callback return still has to satisfy the payload function return type.
 When that return type is concrete, it flows into non-empty callback tail
@@ -47,10 +48,9 @@ constructors, record literals, and collection literals.
 - Executable specification examples cover successful constructor payload
   callback parameter inference and callback return expected-type propagation.
 - Negative executable examples cover conflicting callback body facts and
-  unconstrained generic constructor payloads that keep callback parameters
-  unknown.
+  unconstrained constructor payloads that keep callback parameters unknown.
 - Semantic tests check the lowered callback parameter and return types for a
-  concrete source ADT constructor payload expected-type path.
+  concrete constructor payload expected-type path.
 
 ## Skip Unless Needed
 

@@ -12285,13 +12285,25 @@ fn constructor_payload_expected_type_infers_private_callback_parameters() {
             "fn stringify(value) -> String\n",
             "  \"ok\"\n",
             "end\n",
+            "fn some_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn ok_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn err_string(value) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
             "fn optional_items(value)\n",
             "  Some([])\n",
             "end\n",
-            "pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier}\n",
+            "pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier, some: Option<fn(Int) -> String>, ok: Result<fn(Int) -> String, String>, err: Result<String, fn(Int) -> String>}\n",
             "  {\n",
             "    processor: Processor(stringify),\n",
-            "    optional: OptionalProcessor(optional_items)\n",
+            "    optional: OptionalProcessor(optional_items),\n",
+            "    some: Some(some_string),\n",
+            "    ok: Ok(ok_string),\n",
+            "    err: Err(err_string)\n",
             "  }\n",
             "end\n",
         ),
@@ -12309,6 +12321,14 @@ fn constructor_payload_expected_type_infers_private_callback_parameters() {
         .find(|function| function.name == "stringify")
         .expect("string callback should be lowered");
     assert_eq!(stringify.params[0].ty, CoreType::int());
+    for name in ["some_string", "ok_string", "err_string"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("compiler-owned constructor callback should be lowered");
+        assert_eq!(function.params[0].ty, CoreType::int(), "{name}");
+    }
     let optional = core
         .functions
         .iter()

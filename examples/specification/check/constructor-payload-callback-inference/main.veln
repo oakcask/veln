@@ -8,13 +8,31 @@ fn stringify(value) -> String
 	"ok"
 end
 
+fn some_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
+fn ok_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
+fn err_string(value) -> String
+	let checked: Int = value
+	"ok"
+end
+
 fn optional_items(value)
 	Some([])
 end
 
-pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier}
+pub fn main() -> {processor: CallbackCarrier, optional: CallbackCarrier, some: Option<fn(Int) -> String>, ok: Result<fn(Int) -> String, String>, err: Result<String, fn(Int) -> String>}
 	{
 		processor: Processor(stringify),
-		optional: OptionalProcessor(optional_items)
+		optional: OptionalProcessor(optional_items),
+		some: Some(some_string),
+		ok: Ok(ok_string),
+		err: Err(err_string)
 	}
 end

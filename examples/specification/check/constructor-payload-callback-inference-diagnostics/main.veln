@@ -11,7 +11,16 @@ fn string_body(value) -> String
 	text
 end
 
+fn option_string_body(value) -> String
+	let text: String = value
+	text
+end
+
 fn missing_context(value, fixed) -> String
+	"ok"
+end
+
+fn missing_option_context(value) -> String
 	"ok"
 end
 
@@ -21,5 +30,14 @@ end
 
 pub fn non_concrete_payload() -> String
 	let processor = GenericProcessor(missing_context)
+	"ok"
+end
+
+pub fn option_body_conflict() -> Option<fn(Int) -> String>
+	Some(option_string_body)
+end
+
+pub fn unconstrained_option_payload() -> String
+	let processor = Some(missing_option_context)
 	"ok"
 end

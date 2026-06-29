@@ -185,13 +185,14 @@ returns through the local binding use that concrete function type. Direct
 function body return positions whose declared return type is a concrete
 function type also push that function parameter list into named private
 callbacks returned from that body. When those concrete helper, record-field,
-local-binding, direct return, source ADT constructor payload, or prelude helper
+local-binding, direct return, constructor payload, or prelude helper
 contexts fix a named private callback return type, that return type propagates
 into non-empty callback tail expressions such as `Some(...)`, `Ok(...)`,
 `Err(...)`, source ADT constructors, record literals, and collection literals.
-Source ADT constructor payloads whose expected type is a concrete function
-type also push that function parameter list into named private callbacks
-passed at the matching payload position.
+Constructor payloads whose expected type is a concrete function type also push
+that function parameter list into named private callbacks passed at the
+matching payload position, including compiler-owned `Some`, `Ok`, and `Err`
+payloads.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,
@@ -313,8 +314,9 @@ Acceptance evidence includes:
    or visible imported declared helpers, source-backed prelude helper fallback
    signatures with concrete function-typed parameters, concrete record-field
    expected types, concrete local function binding annotations, direct return
-   positions with concrete returned function types, and source ADT constructor
-   payload positions with concrete function payload types: push concrete
+   positions with concrete returned function types, and constructor payload
+   positions with concrete function payload types, including compiler-owned
+   `Some`, `Ok`, and `Err`: push concrete
    helper, expected-field, binding, direct-return, or payload input types into
    named private callback parameters, and push concrete callback return types
    into non-empty callback tail expressions.
