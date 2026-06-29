@@ -1,0 +1,20 @@
+schema NeutralMetadata
+  version: Int
+  title: String
+end
+
+schema BinaryPacket
+  format binary
+
+  length: UInt16be
+  padding: ReservedBits(8, 0)
+  kind: UInt8
+end
+
+schema MissingFormatUInt
+  length: UInt16be
+end
+
+schema MissingFormatReserved
+  padding: ReservedBits(8, 0)
+end

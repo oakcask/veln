@@ -80,7 +80,8 @@ compare it with `../specification/` before changing behavior.
   supported `Int` mapping operands for `Bool` target fields composed with
   `and`, `or`, and `not`, narrow boolean mapping selection, pure `Bool`
   converter selector calls through same-module functions or written imported
-  paths, focused mapping
+  paths, format-neutral schema bodies without a `format` clause plus
+  `format binary` gating for binary-only field vocabulary, focused mapping
   selection diagnostics, and the generated-helper schema validation diagnostic boundary,
   generated `validate_<schema>` decoded-record validation boundary, visible
   flag bitset decode bindings, bounded repeat generated helper bindings, plus

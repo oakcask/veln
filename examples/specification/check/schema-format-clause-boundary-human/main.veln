@@ -1,0 +1,7 @@
+schema MissingFormatUInt
+  length: UInt16be
+end
+
+schema MissingFormatReserved
+  padding: ReservedBits(8, 0)
+end

@@ -23,7 +23,7 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ SchemaValidation? SchemaMapping* "end" NL?
+SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? SchemaMapping* "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
@@ -99,10 +99,12 @@ field, record, and type argument annotations reject `...T`.
 
 Schema declarations are top-level source module items. `schema Name` is
 private to its source module, and `pub schema Name` records public schema
-ownership for the declaring module. The implemented schema body slice requires
-one `format binary` clause before any schema fields, followed by one or more
-`name: TypeText` field lines. A field line may end with a field-local `where`
-predicate after the type text, such as `padding_length: UInt8 where
+ownership for the declaring module. The implemented schema body slice accepts
+format-neutral `name: TypeText` field lines without a `format` clause. A
+single `format binary` clause may appear before any schema fields to enable
+binary schema field vocabulary; a `format binary` clause after a field reports
+`parse.schema_field_before_format`. A field line may end with a field-local
+`where` predicate after the type text, such as `padding_length: UInt8 where
 padding_length <= length`. Binary schema fields also accept exact-width
 unsigned primitive names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
 `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`,
@@ -179,8 +181,10 @@ generated decode helper support. The closed parent payload type is the
 payload schema's recursive mapped payload type; the extension-tolerant parent
 wraps that payload type in `SchemaDispatchPayload`.
 Exact-width primitive names used outside `format binary` schema field type
-positions report `schema.exact_width_primitive`. Missing
-`ReservedBits` arguments or non-literal arguments report
+positions, including schema fields without a `format binary` clause, report
+`schema.exact_width_primitive`. `ReservedBits(width, value)` used outside a
+`format binary` schema field reports `schema.reserved_bits_primitive`.
+Missing `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
 that are missing, non-schema, private imported, non-binary, forward,

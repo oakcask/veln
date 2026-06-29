@@ -1,0 +1,33 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.exact_width_primitive\"", "\"id\":\"schema.reserved_bits_primitive\"", "\"schema\":\"MissingFormatUInt\"", "\"field\":\"length\"", "\"reason\":\"non_binary_format\"", "\"schema\":\"MissingFormatReserved\"", "\"field\":\"padding\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 2
+
+[[diagnostics]]
+id = "schema.exact_width_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `UInt16be` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.reserved_bits_primitive"
+severity = "error"
+kind = "type"
+message = "`ReservedBits` can only be used in a `format binary` schema field"

@@ -373,6 +373,16 @@ impl<'a> Parser<'a> {
                 break;
             }
             if self.at(TokenKind::Format) {
+                if format.is_none() && !fields.is_empty() {
+                    self.error_current(
+                        "parse.schema_field_before_format",
+                        "schema field appears before a format clause",
+                        "schema_field",
+                        vec!["format"],
+                        RecoveryStrategy::InsertToken,
+                        Some("format"),
+                    );
+                }
                 let clause = self.parse_schema_format_clause(format.is_some());
                 if format.is_none() {
                     format = Some(clause);
@@ -382,7 +392,7 @@ impl<'a> Parser<'a> {
             } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
                 mappings.push(self.parse_schema_mapping_clause(format.is_some()));
             } else {
-                fields.push(self.parse_schema_field(format.is_some()));
+                fields.push(self.parse_schema_field());
             }
         }
 
@@ -446,18 +456,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_schema_field(&mut self, has_format: bool) -> SchemaField {
+    fn parse_schema_field(&mut self) -> SchemaField {
         let start = self.current().range;
-        if !has_format {
-            self.error_current(
-                "parse.schema_field_before_format",
-                "schema field appears before a format clause",
-                "schema_field",
-                vec!["format"],
-                RecoveryStrategy::InsertToken,
-                Some("format"),
-            );
-        }
         let name = if self.at(TokenKind::Hole) {
             let token = self.bump();
             self.error_at_token(

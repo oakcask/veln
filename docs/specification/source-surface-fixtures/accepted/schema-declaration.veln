@@ -43,3 +43,8 @@ pub schema PublicFrameHeader
 		checksum = checksum
 		payload = payload
 end
+
+schema Metadata
+	version: Int
+	title: String
+end
