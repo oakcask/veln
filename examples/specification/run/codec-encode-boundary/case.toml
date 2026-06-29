@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\n2\n3\npartial\n1\n2\n1\n1\nencoded\n1\n1\ninvalid\ncodec.out_of_range\nPacket.kind\nkind exceeds length\n"
+equals = "encoded\n1\n3\npartial\n1\n2\n1\n2\nencoded\n1\n1\ninvalid\ncodec.out_of_range\nPacket.kind\nkind exceeds length\n"
 
 [[json_assert]]
 path = "error"

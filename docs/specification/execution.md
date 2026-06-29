@@ -1806,6 +1806,8 @@ execution reference.
   `Partial` with its emitted chunk list, produced byte count, and resumed
   encoder state as ordinary source-visible values, then uses the returned
   state to complete a later encode call.
+  `examples/specification/run/codec-encode-boundary/` covers the same-module
+  hand-written path, including resume from the preserved encoder state.
   `examples/specification/run/codec-imported-encode-boundary/` covers the
   imported `pub codec` path for `Encoded`, `Partial`, and `Invalid` outcomes.
   For
