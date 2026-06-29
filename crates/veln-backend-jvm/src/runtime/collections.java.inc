@@ -4710,6 +4710,33 @@
         );
     }
 
+    public static Object hpackFixtureTableSizeUpdateMalformed(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String message = "HPACK fixture malformed table-size update integer at byte offset "
+            + byteOffset;
+        return hpackFixtureDiagnostic(
+            "hpack.fixture.table_size_update_malformed",
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            expected,
+            module,
+            preview
+        );
+    }
+
     public static Object hpackFixtureDynamicIndexOutOfRange(
         Object offset,
         Object observedSize,

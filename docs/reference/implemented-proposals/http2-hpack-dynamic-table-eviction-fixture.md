@@ -106,8 +106,8 @@ completed HEADERS and final CONTINUATION paths before later header blocks are
 decoded; larger decoded table-size updates are now covered by
 [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
 Malformed non-terminating table-size updates and
-table-size updates with trailing bytes after a complete integer remain on the
-unsupported fixture path.
+table-size updates with trailing bytes after a complete integer are now
+covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
 
 ## Evidence
 

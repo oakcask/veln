@@ -2652,6 +2652,10 @@ fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
         "RuntimeDiagnostic(hpack.fixture.table_size_update_not_at_start, HPACK fixture table-size update after header field at byte offset 10, RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, hpack-fixture, fixture HPACK table-size update at header block start, hpack_fixture, ByteChunk([Byte(130), Byte(62)])))",
     )
     .expect("HPACK table-size runtime diagnostic value should parse");
+    let table_size_malformed = parse_result_value(
+        "RuntimeDiagnostic(hpack.fixture.table_size_update_malformed, HPACK fixture malformed table-size update integer at byte offset 77, RuntimeHpackFixtureDiagnostic(77, 2, 63, fixture HPACK malformed table-size update integer, hpack_fixture, ByteChunk([Byte(63), Byte(128)])))",
+    )
+    .expect("HPACK table-size malformed runtime diagnostic value should parse");
 
     assert_eq!(
         json_path(&fixture, "value.detail.expected_fixture"),
@@ -2686,6 +2690,16 @@ fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
     assert_eq!(
         json_path(&table_size, "value.detail.active_state"),
         Some(&JsonValue::String("hpack-fixture".to_string()))
+    );
+    assert_eq!(
+        json_path(&table_size_malformed, "value.detail.expected_fixture"),
+        Some(&JsonValue::String(
+            "fixture HPACK malformed table-size update integer".to_string()
+        ))
+    );
+    assert_eq!(
+        json_path(&table_size_malformed, "value.detail.preview.bytes.1.value"),
+        Some(&JsonValue::Number(128))
     );
 }
 

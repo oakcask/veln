@@ -802,6 +802,7 @@ http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, all
 http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+hpack_fixture_table_size_update_malformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>

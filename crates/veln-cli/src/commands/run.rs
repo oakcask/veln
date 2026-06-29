@@ -1064,6 +1064,9 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             "hpack.fixture.huffman_non_visible_value" => {
                 "HPACK Huffman decoded non-visible header value"
             }
+            "hpack.fixture.table_size_update_malformed" => {
+                "malformed HPACK table-size update integer"
+            }
             "hpack.fixture.dynamic_index_out_of_range" => {
                 return self.project_hpack_dynamic_index_rule();
             }
@@ -4385,6 +4388,53 @@ mod tests {
             diagnostic.related[1]
                 .to_json()
                 .contains("04 ff (showing 2 of 2 byte(s), complete)")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_table_size_malformed_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.table_size_update_malformed"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(77)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(2)),
+            ("observed_first_byte", JsonValue::Number(63)),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK malformed table-size update integer"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("3f80")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture malformed table-size update integer at byte offset 77".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "hpack.fixture.table_size_update_malformed");
+        assert_eq!(
+            diagnostic.message,
+            "malformed HPACK table-size update integer at byte offset 77"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("3f 80 (showing 2 of 2 byte(s), complete)")
         );
     }
 

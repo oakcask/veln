@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.table_size_update_malformed]: malformed HPACK table-size update integer at byte offset 77", "note: HPACK fixture codec `hpack_fixture` observed header block size 2 and first byte 63.", "note: Nearby bytes: 3f 80 (showing 2 of 2 byte(s), complete).", "note: Expected fixture HPACK malformed table-size update integer."]

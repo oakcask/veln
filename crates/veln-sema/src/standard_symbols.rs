@@ -815,6 +815,7 @@ source_prelude_symbol_set! {
     "hpack_fixture_malformed_huffman_padding" => veln_stdlib::prelude_source("hpack_fixture_malformed_huffman_padding"),
     "hpack_fixture_huffman_eos_symbol" => veln_stdlib::prelude_source("hpack_fixture_huffman_eos_symbol"),
     "hpack_fixture_huffman_non_visible_value" => veln_stdlib::prelude_source("hpack_fixture_huffman_non_visible_value"),
+    "hpack_fixture_table_size_update_malformed" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_malformed"),
     "hpack_fixture_dynamic_index_out_of_range" => veln_stdlib::prelude_source("hpack_fixture_dynamic_index_out_of_range"),
     "hpack_fixture_dynamic_name_continuation_missing" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_missing"),
     "hpack_fixture_dynamic_name_continuation_malformed" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_malformed"),

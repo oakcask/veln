@@ -917,7 +917,8 @@ fn hpack_fixture_signature<T: BytePreludeType>(
         | "hpack_fixture_malformed_raw_string_value"
         | "hpack_fixture_malformed_huffman_padding"
         | "hpack_fixture_huffman_eos_symbol"
-        | "hpack_fixture_huffman_non_visible_value" => Some((
+        | "hpack_fixture_huffman_non_visible_value"
+        | "hpack_fixture_table_size_update_malformed" => Some((
             vec![
                 T::int(),
                 T::int(),
