@@ -236,12 +236,12 @@ impl<'a> FunctionChecker<'a> {
         self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span);
 
         let mut predicate_bindings = self.bindings.clone();
-        predicate_bindings.push(Binding {
-            name: candidate.to_string(),
-            ty: expected
+        predicate_bindings.push(Binding::new(
+            candidate.to_string(),
+            expected
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown),
-        });
+        ));
         let validation =
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings);
         self.push_satisfy_validation_diagnostic(expr, satisfy, candidate, validation);

@@ -174,10 +174,8 @@ impl<'a> FunctionChecker<'a> {
                         ) {
                             continue;
                         }
-                        self.bindings.push(Binding {
-                            name: binding.name.clone(),
-                            ty: binding.ty.clone(),
-                        });
+                        self.bindings
+                            .push(Binding::new(binding.name.clone(), binding.ty.clone()));
                         if annotation.is_none()
                             && !initializer_has_diagnostic
                             && !pattern_has_diagnostic
@@ -499,9 +497,9 @@ impl<'a> FunctionChecker<'a> {
             ) {
                 continue;
             }
-            self.bindings.push(Binding {
-                name: param.name.clone(),
-                ty: inferred_private_param
+            self.bindings.push(Binding::new(
+                param.name.clone(),
+                inferred_private_param
                     .filter(|ty| !type_contains_unknown(ty))
                     .unwrap_or_else(|| {
                         ty.map_or(Type::Unknown, |expected| {
@@ -512,7 +510,7 @@ impl<'a> FunctionChecker<'a> {
                             }
                         })
                     }),
-            });
+            ));
         }
 
         if let Some(return_type) = &self.function.return_type {
@@ -1167,15 +1165,14 @@ impl<'a> FunctionChecker<'a> {
         if kind == ContractKind::Ensure
             && let Some(result_binding) = &self.function.return_binding
         {
-            bindings.push(Binding {
-                name: result_binding.name.clone(),
-                ty: self
-                    .function
+            bindings.push(Binding::new(
+                result_binding.name.clone(),
+                self.function
                     .return_type
                     .as_deref()
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
                     .unwrap_or(Type::Unknown),
-            });
+            ));
         }
         bindings
     }
@@ -2047,10 +2044,7 @@ impl<'a> FunctionChecker<'a> {
                 ) {
                     continue;
                 }
-                self.bindings.push(Binding {
-                    name: binding.name,
-                    ty: binding.ty,
-                });
+                self.bindings.push(Binding::new(binding.name, binding.ty));
             }
 
             let arm_expected = if let Some(expected) = expected {
@@ -3347,10 +3341,7 @@ impl<'a> FunctionChecker<'a> {
             return false;
         };
         let mut predicate_bindings = self.bindings.clone();
-        predicate_bindings.push(Binding {
-            name: candidate.clone(),
-            ty: expected.clone(),
-        });
+        predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
         matches!(
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
             ContractValidation::Valid

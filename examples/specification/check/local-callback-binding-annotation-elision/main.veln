@@ -1,0 +1,24 @@
+fn item_to_text(value)
+	"ok"
+end
+
+fn optional_items(value)
+	Some(["ok"])
+end
+
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn apply_option(value: Int, callback: fn(Int) -> Option<Vec<String>>) -> Option<Vec<String>>
+	callback(value)
+end
+
+pub fn main() -> {called: String, optional: Option<Vec<String>>}
+	let callback = item_to_text
+	let optional_callback = optional_items
+	{
+		called: apply_int(1, callback),
+		optional: apply_option(1, optional_callback)
+	}
+end

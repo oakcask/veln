@@ -145,6 +145,9 @@ The completed record-field callback expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-record-field-callback.md`.
 The completed local callback binding expected-type slice is archived under
 `../reference/implemented-proposals/local-inference-local-callback-binding.md`.
+The completed omitted local callback binding annotation-elision slice is
+archived under
+[local-inference-local-callback-binding-annotation-elision.md](../reference/implemented-proposals/local-inference-local-callback-binding-annotation-elision.md).
 The completed direct return-position callback expected-type slice is archived
 under
 `../reference/implemented-proposals/local-inference-direct-return-callback.md`.
@@ -185,9 +188,12 @@ push that function parameter list into named private callbacks placed in the
 matching record field initializer. Local bindings whose annotations are
 concrete function types also push that function parameter list into named
 private callbacks assigned as the binding initializer, and later calls or
-returns through the local binding use that concrete function type. Direct
-function body return positions whose declared return type is a concrete
-function type also push that function parameter list into named private
+returns through the local binding use that concrete function type. Omitted
+local bindings whose initializer is a named same-module private callback
+function also push one later same-function concrete function expected type
+through that direct binding hop into the callback signature. Direct function
+body return positions whose declared return type is a concrete function type
+also push that function parameter list into named private
 callbacks returned from that body. Match arm result expressions checked
 against a concrete expected function type also push that function parameter
 list into named private callbacks returned from the arm, including local
@@ -209,10 +215,10 @@ matching payload position, including compiler-owned bare and type-qualified
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,
 concrete declared-helper signature, concrete record-field expected-type,
-concrete local-binding expected-type, direct return-position expected-type,
-concrete match-arm expected-type, concrete if-branch expected-type, and
-concrete constructor-payload
-expected-type paths.
+concrete local-binding expected-type including omitted direct local callback
+binding hops, direct return-position expected-type, concrete match-arm
+expected-type, concrete if-branch expected-type, and concrete
+constructor-payload expected-type paths.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a
@@ -327,14 +333,14 @@ Acceptance evidence includes:
    result helpers, including dictionary `_with` aliases, and for same-module
    or visible imported declared helpers, source-backed prelude helper fallback
    signatures with concrete function-typed parameters, concrete record-field
-   expected types, concrete local function binding annotations, direct return
-   positions with concrete returned function types, concrete match-arm and
-   if-branch expected function types, and constructor payload positions with
-   concrete function payload types, including compiler-owned `Some`, `Ok`, and
-   `Err`: push concrete helper, expected-field, binding, direct-return, arm,
-   branch, or payload input types into named private callback parameters, and
-   push concrete callback return types into non-empty callback tail
-   expressions.
+   expected types, concrete local function binding annotations, omitted direct
+   local callback binding hops, direct return positions with concrete returned
+   function types, concrete match-arm and if-branch expected function types,
+   and constructor payload positions with concrete function payload types,
+   including compiler-owned `Some`, `Ok`, and `Err`: push concrete helper,
+   expected-field, binding, direct-return, arm, branch, or payload input types
+   into named private callback parameters, and push concrete callback return
+   types into non-empty callback tail expressions.
 4. Completed for current payload-carrying constructor calls: infer ADT
    constructor type arguments from payloads when the constructor descriptor is
    unambiguous and every type argument becomes concrete.
