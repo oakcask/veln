@@ -193,6 +193,13 @@ declaration-order packing, ordinary `Int` fields, generated decode-step and
 derived codec eligibility, truncation shape, and encode range-failure shape.
 The completed six-byte visible-only group slice is archived under
 `../reference/implemented-proposals/binary-schema-packed-visible-six-byte-groups.md`.
+Generated schema helpers also decode and encode the narrow visible-only
+seven-byte big-endian group where consecutive `UInt1` through `UInt7` fields
+complete exactly one seven-byte storage unit, preserving the same high-to-low
+declaration-order packing, ordinary `Int` fields, generated decode-step and
+derived codec eligibility, truncation shape, and encode range-failure shape.
+The completed seven-byte visible-only group slice is archived under
+`../reference/implemented-proposals/binary-schema-packed-visible-seven-byte-groups.md`.
 The
 generated helper slice also treats visible exact-width fields with a
 field-local equality predicate such as `field == literal` as schema-owned

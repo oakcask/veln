@@ -328,6 +328,13 @@ The executable specification case
 covers the same derived codec decode and encode item boundary for a
 visible-only packed six-byte group.
 The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`
+covers the same derived codec decode and encode item boundary for a
+visible-only packed seven-byte group. It checks successful `Decoded`,
+short-input `NeedMore(NeedBytes(...))`, budgeted encode resume to `Encoded`,
+and helper-projected `Invalid(EncodeError(...))` outcomes through the codec
+item.
+The executable specification case
 `../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
 covers the same derived codec decode item boundary for a schema mapping that
 calls a pure same-module converter with supported structural arguments. It
@@ -359,6 +366,11 @@ The executable specification case
 covers the six-byte visible-only packed generated helper boundary. It checks
 direct decode, generated decode-step, derived codec decode, direct encode,
 and derived codec encode over one shared big-endian storage unit.
+The executable specification case
+`../../examples/specification/run/binary-schema-packed-visible-seven-byte-decode-encode/`
+covers the seven-byte visible-only packed generated helper boundary. It
+checks direct decode, generated decode-step, derived codec decode, direct
+encode, and derived codec encode over one shared big-endian storage unit.
 The executable specification case
 `../../examples/specification/run/derived-codec-sub-byte-boundary/`
 covers the same derived codec decode and encode item boundary for standalone
@@ -596,6 +608,10 @@ The executable specification case
 covers the same derived codec encode boundary over a visible-only packed
 six-byte group.
 The executable specification case
+`../../examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`
+covers the same derived codec encode boundary over a visible-only packed
+seven-byte group.
+The executable specification case
 `../../examples/specification/run/binary-schema-packed-visible-three-byte-decode-encode/`
 covers the generated and derived encode boundary over a visible-only packed
 three-byte group.
@@ -611,6 +627,10 @@ The executable specification case
 `../../examples/specification/run/binary-schema-packed-visible-six-byte-decode-encode/`
 covers the generated and derived encode boundary over a visible-only packed
 six-byte group.
+The executable specification case
+`../../examples/specification/run/binary-schema-packed-visible-seven-byte-decode-encode/`
+covers the generated and derived encode boundary over a visible-only packed
+seven-byte group.
 The executable specification case
 `../../examples/specification/run/derived-codec-sub-byte-boundary/`
 covers the same encode boundary for standalone visible `UInt1` through

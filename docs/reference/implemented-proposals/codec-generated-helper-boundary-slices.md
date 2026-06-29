@@ -18,8 +18,8 @@ subtraction, multiplication, and division repeated primitive count
 expressions, standalone visible `UInt1` through `UInt7` fields, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, and six-byte groups,
-seven-byte
+visible-only packed three-byte, four-byte, five-byte, six-byte, and
+seven-byte groups, seven-byte
 or eight-byte reserved prefix groups, seven-byte wide reserved suffix groups,
 the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix route,
 and schema
@@ -40,8 +40,8 @@ multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
 fields, including generated-helper-backed `Flag24be` and `Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, and six-byte groups,
-seven-byte
+visible-only packed three-byte, four-byte, five-byte, six-byte, and
+seven-byte groups, seven-byte
 or eight-byte reserved prefix groups, and seven-byte wide reserved suffix
 groups, plus the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
 route.
@@ -107,6 +107,10 @@ produced count, and a resumable state record carrying `encoded_offset`.
   partial/resume behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-packed-visible-six-byte-boundary/`
   checks visible-only packed six-byte helper decode and encode behavior
+  through the derived codec item, including short-input readiness, budgeted
+  partial/resume behavior, and helper encode failure projection.
+- `../../../examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`
+  checks visible-only packed seven-byte helper decode and encode behavior
   through the derived codec item, including short-input readiness, budgeted
   partial/resume behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`

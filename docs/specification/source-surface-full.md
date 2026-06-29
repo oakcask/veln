@@ -354,7 +354,7 @@ visible-only `UInt1` through `UInt7` groups of at least two fields whose
 widths complete exactly one byte, one two-byte big-endian storage unit, or
 one three-byte big-endian storage unit, or one four-byte big-endian storage
 unit, one five-byte big-endian storage unit, or one six-byte big-endian
-storage unit,
+storage unit, or one seven-byte big-endian storage unit,
 plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, the supported

@@ -323,7 +323,8 @@ execution reference.
   present and their widths complete exactly one byte, one two-byte
   big-endian storage unit, one three-byte big-endian storage unit, or one
   four-byte big-endian storage unit, one five-byte big-endian storage unit,
-  or one six-byte big-endian storage unit. The
+  one six-byte big-endian storage unit, or one seven-byte big-endian storage
+  unit. The
   first field occupies the high bits, later fields occupy progressively lower
   bits, each decoded field remains an ordinary visible `Int`, the helper
   advances by the shared storage unit, and truncation reports
@@ -362,7 +363,13 @@ execution reference.
   `examples/specification/run/binary-schema-packed-visible-six-byte-encode-out-of-range/`,
   and
   `examples/specification/run/derived-codec-packed-visible-six-byte-boundary/`
-  for six bytes.
+  for six bytes, plus
+  `examples/specification/run/binary-schema-packed-visible-seven-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-packed-visible-seven-byte-truncated-json/`,
+  `examples/specification/run/binary-schema-packed-visible-seven-byte-encode-out-of-range/`,
+  and
+  `examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`
+  for seven bytes.
 - Generated binary schema decode helpers support opt-in `Flag8`,
   `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
   `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`, `Flag56le`,
@@ -1159,8 +1166,9 @@ execution reference.
   Consecutive visible-only `UInt1` through `UInt7` fields whose widths
   complete exactly one byte, one two-byte big-endian storage unit, one
   three-byte big-endian storage unit, one four-byte big-endian storage unit,
-  one five-byte big-endian storage unit, or one six-byte big-endian storage
-  unit use the same declaration-order bit packing without any reserved fields:
+  one five-byte big-endian storage unit, one six-byte big-endian storage
+  unit, or one seven-byte big-endian storage unit use the same
+  declaration-order bit packing without any reserved fields:
   the first value occupies the high bits,
   later values occupy progressively lower bits, and out-of-range values report
   `codec.encode_value_unrepresentable` at the offending field path. The
@@ -1188,7 +1196,11 @@ execution reference.
   `examples/specification/run/binary-schema-packed-visible-six-byte-decode-encode/`
   and
   `examples/specification/run/binary-schema-packed-visible-six-byte-encode-out-of-range/`
-  for six bytes.
+  for six bytes, plus
+  `examples/specification/run/binary-schema-packed-visible-seven-byte-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-packed-visible-seven-byte-encode-out-of-range/`
+  for seven bytes.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -1560,7 +1572,7 @@ execution reference.
   name as the executable encode boundary for ordinary source calls, including
   standalone visible `UInt1` through `UInt7` fields,
   opt-in visible flag bitset fields, visible-only packed two-byte,
-  three-byte, four-byte, five-byte, and six-byte groups,
+  three-byte, four-byte, five-byte, six-byte, and seven-byte groups,
   repeat-backed schemas,
   arithmetic-count and quotient-count repeat schemas, additive, subtractive,
   product-sized, and quotient-sized `ByteView` payload fields, the implemented
@@ -1601,6 +1613,7 @@ execution reference.
   `examples/specification/run/derived-codec-packed-visible-four-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-five-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-six-byte-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-encode-boundary/`,
   `examples/specification/run/derived-codec-imported-public-encode-boundary/`,
@@ -1633,8 +1646,8 @@ execution reference.
   The packed visible three-byte boundary case checks successful encode,
   budgeted `Partial` output, resumed `Encoded` output, and helper-projected
   `Invalid(EncodeError)` through the derived codec item.
-  The packed visible five-byte and six-byte boundary cases check the same
-  encode behavior for their storage unit widths.
+  The packed visible five-byte, six-byte, and seven-byte boundary cases check
+  the same encode behavior for their storage unit widths.
   The budgeted boundary case calls the same derived codec with the value
   record plus an explicit `ByteCount` output budget. If the generated
   `ByteChunk` fits in the budget, the call returns
@@ -1666,7 +1679,7 @@ execution reference.
   supported middle reserved-bit layouts, including byte-interleaved middle
   reserved layouts, wide reserved suffix groups, wide reserved prefix groups,
   visible-only packed
-  two-byte, three-byte, four-byte, five-byte, and six-byte groups,
+  two-byte, three-byte, four-byte, five-byte, six-byte, and seven-byte groups,
   repeat-backed
   schemas, arithmetic-count and quotient-count repeat schemas, quotient-sized
   `ByteView(left_length / right_length)` payload fields, product-sized
@@ -1715,6 +1728,7 @@ execution reference.
   `examples/specification/run/derived-codec-packed-visible-four-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-five-byte-boundary/`,
   `examples/specification/run/derived-codec-packed-visible-six-byte-boundary/`,
+  `examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`,
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`,
   `examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`,
   `examples/specification/run/derived-codec-imported-nested-dispatch-decode-boundary/`,
@@ -1760,9 +1774,9 @@ execution reference.
   The mapped converter boundary case covers successful `Decoded`, short-input
   `NeedMore`, helper `Invalid(DecodeError)` projection, and human plus JSON
   command-facing diagnostics through the codec item.
-  The packed visible three-byte, four-byte, five-byte, and six-byte boundary cases
-  check successful `Decoded` and short-input `NeedMore(NeedBytes(...))`
-  outcomes through the codec item.
+  The packed visible three-byte, four-byte, five-byte, six-byte, and
+  seven-byte boundary cases check successful `Decoded` and short-input
+  `NeedMore(NeedBytes(...))` outcomes through the codec item.
   `examples/specification/run/codec-needmore-parser-state/` covers
   caller-owned parser state around the codec boundary: after `Decoded`, the
   caller drops exactly the consumed prefix and advances the explicit base
