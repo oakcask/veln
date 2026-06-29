@@ -220,6 +220,7 @@ time::cancel_token_from(owner: CancelOwner) -> CancelToken effects [time]
 time::cancel_owned(owner: CancelOwner) -> () effects [time]
 time::cancel(token: CancelToken) -> () effects [time]
 time::is_cancelled(token: CancelToken) -> Bool effects [time]
+time::is_cancelled_owner(owner: CancelOwner) -> Bool effects [time]
 time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
 time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
@@ -245,7 +246,7 @@ Direct calls to `time::timeout_ms`,
 `time::cancel_token`,
 `time::cancel_owner`, `time::cancel_token_from`,
 `time::cancel_owned`,
-`time::cancel`, `time::is_cancelled`, and
+`time::cancel`, `time::is_cancelled`, `time::is_cancelled_owner`, and
 `time::wait_until_cancellable`,
 `time::wait_until_cancellable_outcome` infer the `time` effect. A public
 function or test that calls one of them directly or through a private helper
@@ -349,7 +350,10 @@ the observer token API;
 `time::cancel_token`; attempting to cancel an owner-derived observer token
 through `time::cancel` is a runtime failure; `time::is_cancelled`
 observes token state as `Bool` without waiting, cancelling, allocating a new
-handle, or reporting a runtime transport failure; and
+handle, or reporting a runtime transport failure; `time::is_cancelled_owner`
+observes owner state through the same underlying cancellation state without
+waiting, cancelling, allocating a new observer token, or changing direct-token
+compatibility; and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first.
 `time::wait_until_cancellable_outcome` uses the same deadline and token values

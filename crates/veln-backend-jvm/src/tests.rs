@@ -669,6 +669,41 @@ fn bytecode_backend_observes_cancel_token_status_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_observes_cancel_owner_status_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn status_text(cancelled: Bool) -> String\n",
+        "  match cancelled\n",
+        "    true => \"cancelled\"\n",
+        "    false => \"active\"\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let owner: CancelOwner = time::cancel_owner()\n",
+        "  stdio::println(status_text(time::is_cancelled_owner(owner)))\n",
+        "  time::cancel_owned(owner)\n",
+        "  stdio::println(status_text(time::is_cancelled_owner(owner)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-cancel-owner-status", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "active\ncancelled\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
@@ -2356,6 +2391,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("time::cancel_owned", "timeCancelOwned"),
         ("time::cancel", "timeCancel"),
         ("time::is_cancelled", "timeIsCancelled"),
+        ("time::is_cancelled_owner", "timeIsCancelledOwner"),
         ("time::wait_until_cancellable", "timeWaitUntilCancellable"),
         (
             "time::wait_until_cancellable_outcome",

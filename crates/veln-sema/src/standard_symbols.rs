@@ -667,6 +667,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "time",
+        "is_cancelled_owner",
+        TIME_EFFECTS,
+        "runtime.time.is_cancelled_owner",
+        StandardSignature {
+            params: PARAM_CANCEL_OWNER,
+            return_type: StandardType::Bool,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "time",
         "wait_until_cancellable",
         TIME_EFFECTS,
         "runtime.time.wait_until_cancellable",

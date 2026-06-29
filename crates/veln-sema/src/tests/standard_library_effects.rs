@@ -1024,6 +1024,33 @@ fn cancellation_status_query_requires_time_effect_with_descriptor_provenance() {
 }
 
 #[test]
+fn cancellation_owner_status_query_requires_time_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn owner_status(owner: CancelOwner) -> Bool\n",
+            "  time::is_cancelled_owner(owner)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `time`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"time\""));
+    assert!(details.contains("\"inferred_effects\":[\"time\"]"));
+    assert!(details.contains("\"symbol\":\"time::is_cancelled_owner\""));
+}
+
+#[test]
 fn cancellation_owner_calls_require_time_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
@@ -1122,7 +1149,8 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  let owner: CancelOwner = time::cancel_owner()\n",
             "  let observer_token: CancelToken = time::cancel_token_from(owner)\n",
             "  time::cancel_owned(owner)\n",
-            "  let owner_cancelled: Bool = time::is_cancelled(observer_token)\n",
+            "  let owner_cancelled: Bool = time::is_cancelled_owner(owner)\n",
+            "  let observer_cancelled: Bool = time::is_cancelled(observer_token)\n",
             "  time::cancel(token)\n",
             "  let cancelled: Bool = time::is_cancelled(token)\n",
             "  let elapsed: Int = time::monotonic_ms()\n",
@@ -1500,9 +1528,19 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
         IrExprKind::Call {
             target: IrCallTarget::StandardLibraryBuiltin(symbol),
             ..
+        } if symbol == "time::is_cancelled_owner"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[37].kind else {
+        panic!("observer token cancel status call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
         } if symbol == "time::is_cancelled"
     ));
-    let IrStmtKind::Expr { value } = &main.body[37].kind else {
+    let IrStmtKind::Expr { value } = &main.body[38].kind else {
         panic!("cancel call should lower as an expression");
     };
     assert!(matches!(
@@ -1512,7 +1550,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::cancel"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[38].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[39].kind else {
         panic!("cancel status call should lower as a let");
     };
     assert!(matches!(
@@ -1522,7 +1560,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::is_cancelled"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[39].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[40].kind else {
         panic!("monotonic clock call should lower as a let");
     };
     assert!(matches!(
@@ -1532,7 +1570,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::monotonic_ms"
     ));
-    let IrStmtKind::Return { value } = &main.body[40].kind else {
+    let IrStmtKind::Return { value } = &main.body[41].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

@@ -92,7 +92,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   `time::wait_until_cancellable_outcome`, deadline-aware listener accept,
   cancellable deadline-aware listener accept, and deadline-aware and
   cancellable deadline-aware stream read, `time::cancel_owner`,
-  `time::cancel_token_from`, and `time::cancel_owned`
+  `time::cancel_token_from`, `time::cancel_owned`, and
+  `time::is_cancelled_owner`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -530,6 +531,14 @@ observer tokens reject direct `time::cancel(token)` at the runtime boundary;
 direct tokens from `time::cancel_token` keep the existing compatibility path.
 The completion record is archived under
 `../reference/implemented-proposals/network-cancel-owner-boundary.md`.
+Implemented cancellation-owner status slice: executable specification cases
+use `time::is_cancelled_owner(owner)` to inspect a `CancelOwner` directly
+under the existing coarse `time` effect. The focused run case observes
+`false`, calls `time::cancel_owned(owner)`, and then observes `true` without
+creating an observer token or changing `time::is_cancelled(token)`. The
+matching effect case requires public callers to declare `time`. The completion
+record is archived under
+`../reference/implemented-proposals/network-cancel-owner-status.md`.
 The monotonic clock completion record is archived under
 `../reference/implemented-proposals/network-monotonic-clock-boundary.md`.
 The absolute monotonic deadline completion record is archived under
@@ -544,7 +553,7 @@ does not read time, sleep, or observe host timers or cancellation handles.
 
 This keeps the first integration boundary aligned with the current coarse
 effect model. A later runtime proposal may add richer timer handles,
-cancellation-owner capabilities beyond the current owner/token split, or
+cancellation-owner capabilities beyond the current owner/token/status split, or
 scheduler APIs if examples need them, but that work should extend the `time`
 standard-library surface rather than introduce deadline behavior into schemas
 or the pure protocol core.
@@ -588,7 +597,7 @@ or the pure protocol core.
   monotonic `Deadline`, `CancelToken`, cancellation status-query, cancellable
   wait-outcome, cancellable deadline-aware listener accept, stream read,
   stream write, and accepted-stream lifecycle boundaries, plus the current
-  cancellation owner/token split.
+  cancellation owner/token/status split.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

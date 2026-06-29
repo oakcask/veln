@@ -1,0 +1,4 @@
+# Public cancellation owner status queries must declare inferred time effects.
+pub fn owner_status(owner: CancelOwner) -> Bool
+	time::is_cancelled_owner(owner)
+end

@@ -1,0 +1,17 @@
+# Cancellation owner status is observable by adapter-owned code.
+use stdio
+
+fn status_text(cancelled: Bool) -> String
+	match cancelled
+		true => "cancelled"
+		false => "active"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let owner: CancelOwner = time::cancel_owner()
+	stdio::println(status_text(time::is_cancelled_owner(owner)))
+	time::cancel_owned(owner)
+	stdio::println(status_text(time::is_cancelled_owner(owner)))
+	Ok(())
+end

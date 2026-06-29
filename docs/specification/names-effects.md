@@ -45,7 +45,8 @@ compiler-known calls.
   `time::cancel_owned` requests cancellation through the owner under the
   same `time` effect. `time::is_cancelled` observes a token
   as `Bool` under the same `time` effect without waiting or requesting
-  cancellation. `time::monotonic_ms` returns a host-owned monotonic
+  cancellation, and `time::is_cancelled_owner` observes an owner directly
+  under that same boundary. `time::monotonic_ms` returns a host-owned monotonic
   millisecond counter under the same `time` effect for elapsed-time
   measurement without exposing wall-clock dates. `time::deadline_at_ms`
   constructs a `Deadline` from an absolute monotonic millisecond value in the

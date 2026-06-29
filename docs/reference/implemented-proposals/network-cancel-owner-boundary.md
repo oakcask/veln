@@ -39,7 +39,7 @@ model, and does not make the pure protocol core observe cancellation handles.
 
 The broader network integration proposal remains open for richer production
 socket APIs, stream routing ownership, scheduler integration, and deadline or
-cancellation APIs beyond the current owner/token split.
+cancellation APIs beyond the current owner/token/status split.
 
 ## Read When
 

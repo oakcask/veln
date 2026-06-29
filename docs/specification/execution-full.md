@@ -872,7 +872,9 @@ wall-clock dates, and `time::wait_until` waits until that deadline expires.
 `time::cancel` requests cancellation through a token for existing direct-token
 code, owner-derived observer tokens reject direct `time::cancel(token)` at the
 runtime boundary, `time::is_cancelled`
-observes token state as `Bool` without waiting or requesting cancellation, and
+observes token state as `Bool` without waiting or requesting cancellation,
+`time::is_cancelled_owner` observes owner state as `Bool` without waiting,
+requesting cancellation, or creating an observer token, and
 `time::wait_until_cancellable` waits until a deadline expires unless the
 handle is cancelled first. `time::wait_until_cancellable_outcome` uses the
 same deadline and token values and returns `WaitCompleted`,
@@ -918,7 +920,9 @@ cleanup, passes only the observer `CancelToken` to routing, wait, and socket
 read code, requests cancellation through the owner, and then observes
 `WaitCancelled` and `ReadCancelled` as ordinary source outcome values before
 closing the owned stream and listener. A focused runtime case keeps direct
-`time::cancel` on an owner-derived observer token as a runtime failure.
+`time::cancel` on an owner-derived observer token as a runtime failure, and a
+focused owner-status case observes the same cancellation state directly
+through `time::is_cancelled_owner`.
 The cancellable deadline-aware socket lifecycle case composes
 `net::accept_until_cancellable`, `net::read_chunk_until_cancellable`,
 ordinary channel routing, and ordered `net::write_chunk` projection. The
