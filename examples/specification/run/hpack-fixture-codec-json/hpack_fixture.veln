@@ -38,6 +38,10 @@ pub fn static_indexed_path_root_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
 end
 
+pub fn static_indexed_path_index_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/index.html"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 pub fn static_indexed_scheme_https_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":fixture", "static-indexed"), 9)
 end
@@ -76,8 +80,27 @@ fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, H
 	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
 end
 
+fn decode_static_indexed_header(index: Int, state: HpackFixtureState) -> Option<HpackDecodeTransition>
+	match index
+		5 => Some(HpackDecodeTransition(static_indexed_path_index_headers(), next_state(state)))
+		_ => None
+	end
+end
+
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	unsupported(block, offset)
+	match byte_count_to_int(byte_chunk_count(block)) == 1
+		true => match byte_at(block, 0)
+			Ok(first_byte) => match first_byte >= 128 and first_byte < 192
+				true => match decode_static_indexed_header(first_byte - 128, state)
+					Some(transition) => Ok(transition)
+					None => unsupported(block, offset)
+				end
+				false => unsupported(block, offset)
+			end
+			Err(_) => unsupported(block, offset)
+		end
+		false => unsupported(block, offset)
+	end
 end
 
 fn encoded_hex_or_failure(hex: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
@@ -152,6 +175,36 @@ end
 
 pub fn encode_transition_first_byte(transition: HpackEncodeTransition) -> Int
 	byte_at_or_missing(encode_transition_bytes(transition), 0)
+end
+
+pub fn decode_transition_headers(transition: HpackDecodeTransition) -> HpackHeaderList
+	match transition
+		HpackDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn decode_transition_state(transition: HpackDecodeTransition) -> HpackFixtureState
+	match transition
+		HpackDecodeTransition(_, state) => state
+	end
+end
+
+pub fn header_list_first_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => name
+	end
+end
+
+pub fn header_list_first_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn header_list_wire_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(_, _, wire_size) => wire_size
+	end
 end
 
 pub fn state_encode_count(state: HpackFixtureState) -> Int

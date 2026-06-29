@@ -2290,8 +2290,9 @@ against the built `veln` binary.
   updates project through `hpack.fixture.table_size_update_malformed` and
   table-size updates with trailing bytes after a complete integer stay on the
   unsupported fixture path.
-- `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
-  unsupported HPACK fixture header block returns
+- `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: the
+  JSON case directly decodes static indexed `0x85` as
+  `:path: /index.html`, and an unsupported HPACK fixture header block returns
   `Err(RuntimeDiagnostic(..., RuntimeHpackFixtureDiagnostic(...)))` and
   projects through `hpack.fixture.unsupported_header_block`, separate from
   schema diagnostics and HTTP/2 frame-state diagnostics.
