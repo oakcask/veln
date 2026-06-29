@@ -995,6 +995,8 @@ execution reference.
   `examples/specification/run/binary-schema-imported-mapped-converter-encode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-bare-encode-mismatch/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode/`,
+  `examples/specification/run/binary-schema-imported-mapped-converter-alias-encode-mismatch/`,
   `examples/specification/run/binary-schema-imported-mapped-converter-encode-mismatch/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-encode/`,
   `examples/specification/run/binary-schema-nested-mapped-constructor-encode-outer-mismatch-json/`,

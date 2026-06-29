@@ -1417,6 +1417,13 @@ against the built `veln` binary.
   unqualified imported converter-backed mapped encode keeps
   `codec.encode_mapping_mismatch` on the mapped target field path when the
   inverse projection does not round-trip.
+- `run/binary-schema-imported-mapped-converter-alias-encode/`: generated
+  schema encode helpers project a mapped target field through imported public
+  converter and inverse converter calls written as public function aliases.
+- `run/binary-schema-imported-mapped-converter-alias-encode-mismatch/`: alias
+  imported converter-backed mapped encode keeps
+  `codec.encode_mapping_mismatch` on the mapped target field path when the
+  inverse projection does not round-trip.
 - `run/binary-schema-imported-mapped-converter-encode-mismatch/`: imported
   converter-backed mapped encode reports `codec.encode_mapping_mismatch` when
   the inverse projection does not round-trip through the forward converter.
