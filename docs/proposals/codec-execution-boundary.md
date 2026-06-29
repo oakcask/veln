@@ -41,7 +41,11 @@ product-sized `ByteView(left_length * right_length)` payload fields, plus
 additive `ByteView(left_length + right_length)` and subtractive
 `ByteView(left_length - right_length)` payload fields. The implemented
 derived encode boundary covers those same generated-helper-backed `ByteView`
-payload field shapes. The
+payload field shapes. The implemented derived codec boundary also covers the
+narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, with
+successful decode, short-input `NeedMore`, non-consuming reserved-bit
+`Invalid` projection, JSON diagnostic projection, and encode helper behavior.
+The
 implemented hand-written decode boundary also covers a bounded `ByteView` plus
 caller-supplied base `ByteOffset` example that returns `Decoded` with a
 consumed `ByteCount`, returns non-consuming `NeedMore` for short input, and
@@ -54,6 +58,8 @@ general generated helper shape with successful decode, short-input
 `NeedMore`, successful encode, and helper-projected encode failure. They also
 cover generated-helper-backed arithmetic-count and quotient-count repeated
 primitive fields, standalone visible `UInt1` through `UInt7` fields,
+byte-aligned representation-only `ReservedBits(width, value)` fields through
+the derived decode boundary,
 visible-only packed two-byte, three-byte, four-byte, and five-byte groups, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields, wide reserved suffix and prefix groups, and schema
@@ -274,8 +280,10 @@ repeat-backed schemas, arithmetic-count and quotient-count repeated primitive
 fields, supported middle reserved layouts, and the checked non-HTTP general
 helper shape, plus additive, subtractive, quotient-sized, and product-sized
 `ByteView` payload fields, standalone visible `UInt1` through `UInt7` fields,
-visible-only packed two-byte, three-byte, four-byte, and five-byte groups, and schema
-mappings that call pure same-module converters with five structural
+byte-aligned representation-only `ReservedBits(width, value)` fields,
+visible-only packed two-byte, three-byte, four-byte, and five-byte groups, the
+narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper route, and
+schema mappings that call pure same-module converters with five structural
 arguments.
 The implemented
 derived encode execution slice exposes
@@ -288,7 +296,8 @@ arithmetic-count and quotient-count repeated primitive fields, and the checked
 non-HTTP general helper shape, plus additive, subtractive, product-sized, and
 quotient-sized `ByteView` payload fields, standalone visible `UInt1` through
 `UInt7` fields, and visible-only packed two-byte, three-byte, four-byte, and five-byte
-groups.
+groups, and the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
+helper route.
 Remaining work should extend generated decode and encode execution beyond the
 currently implemented helper slices.
 
@@ -396,12 +405,15 @@ encoder state owns only the remaining encode work.
   derived encode over generated helper output,
   selected structural mapping encode cases already accepted by the generated
   helper, same-module recursive closed and extension dispatch payload helpers,
-  arithmetic-count and quotient-count repeated primitive fields, standalone
-  visible `UInt1` through `UInt7` fields, visible-only packed two-byte,
+  arithmetic-count and quotient-count repeated primitive fields,
+  byte-aligned representation-only `ReservedBits(width, value)` fields through
+  the derived decode boundary, standalone visible `UInt1` through `UInt7`
+  fields, visible-only packed two-byte,
   three-byte, four-byte, and five-byte groups, opt-in visible flag bitset
   fields, wide reserved suffix and prefix groups, generated-helper-backed
   `Flag24be` and `Flag24le` fields, the checked non-HTTP general helper
-  shape, and the caller-owned parser-state retention and hand-written bounded
+  shape, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix helper
+  route, and the caller-owned parser-state retention and hand-written bounded
   `ByteView` base-offset `NeedMore` examples.
 - Remaining examples show decode, encode, consumed byte counts, and
   `NeedMore` behavior beyond the implemented helper slices.

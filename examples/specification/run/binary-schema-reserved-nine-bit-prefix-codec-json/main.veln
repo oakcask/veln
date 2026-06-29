@@ -1,0 +1,23 @@
+schema ReservedNineBitPrefixHeader
+	format binary
+
+	control_reserved: ReservedBits(9, 0)
+	control: UInt8
+end
+
+codec ReservedNineBitPrefixCodec for ReservedNineBitPrefixHeader decode
+	derive decode
+end
+
+fn invalid_step() -> Result<DecodeStep<{control: Int}>, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("012a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	Ok(ReservedNineBitPrefixCodec(view, byte_offset(40)?))
+end
+
+pub fn main() -> DecodeStep<{control: Int}>
+	match invalid_step()
+		Ok(step) => step
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
