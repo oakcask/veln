@@ -398,6 +398,13 @@ helpers decode and encode `ByteView(left_length + right_length)` and
 `ByteView(left_length - right_length)` payload fields. It checks successful
 `Decoded` values, consumed counts, and `Encoded(List<ByteChunk>)` projections
 through the codec item.
+The executable specification cases
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-decode/`
+and
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-encode/`
+cover closed and extension dispatch payload schemas whose nested generated
+helpers decode, decode-step, derive-decode, encode, and derive-encode
+`ByteView(left_length * right_length)` fields.
 The executable specification case
 `../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
 covers the same derived codec call boundary when the generated decode-step
@@ -1591,6 +1598,10 @@ primitive output.
 pins the same same-module helper path when the selected nested schema contains
 a `ByteView(length_field)` payload whose length field is earlier in that
 nested schema.
+`../../examples/specification/run/binary-schema-dispatch-nested-byteview-product-encode/`
+pins the same generated and derived encode helper path for selected nested
+schemas containing a product-sized `ByteView(left_length * right_length)`
+payload field.
 `../../examples/specification/run/binary-schema-dispatch-reserved-payload-roundtrip/`
 pins the same same-module helper path when selected closed and
 extension-tolerant nested payload schemas contain supported
@@ -1701,7 +1712,11 @@ little-endian primitive reads when reached through closed or extension
 dispatch. The byte-view payload cases prove the same same-module and public
 imported helper path accepts nested payload schemas with a
 `ByteView(length_field)` field whose length is an earlier field in that nested
-schema. The recursive closed-dispatch case pins a same-module recursive
+schema. The product byte-view payload cases prove same-module closed and
+extension dispatches accept nested payload schemas whose payload field is
+`ByteView(left_length * right_length)` when both operands are earlier decoded
+`Int` fields, including generated decode-step and derived codec boundaries.
+The recursive closed-dispatch case pins a same-module recursive
 payload decoded through a length-bounded closed dispatch, selected mappings,
 the generated helper path, and a non-recursive base case. The recursive
 wrapper roundtrip case pins a same-module dispatch that selects a separate

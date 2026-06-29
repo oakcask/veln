@@ -1,0 +1,120 @@
+# Nested dispatch payload decode accepts ByteView product lengths.
+use stdio
+
+schema ProductPayload
+	format binary
+
+	row_count: UInt8
+	column_count: UInt8
+	payload: ByteView(row_count * column_count)
+end
+
+schema ClosedProductPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => ProductPayload)
+end
+
+schema ExtensionProductPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => ProductPayload)
+end
+
+codec ClosedProductCodec for ClosedProductPacket decode
+	derive decode
+end
+
+codec ExtensionProductCodec for ExtensionProductPacket decode
+	derive decode
+end
+
+fn emit_payload(prefix: String, payload: {row_count: Int, column_count: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.row_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.column_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(payload.payload))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(payload.payload)?))
+	Ok(())
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_payload("extension", value)
+		Unknown(_, _) => Ok(())
+	end
+end
+
+fn closed_step_kind(step: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn closed_consumed_count(step: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn extension_step_kind(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn extension_consumed_count(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("010203aabbccddeeff")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(9)?)?
+	let closed: {kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}} = byte_decode_closed_product_packet(closed_view)?
+	let _: () = emit_payload("closed", closed.payload)?
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("08010203aabbccddeeff")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(10)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>} = byte_decode_extension_product_packet(extension_view)?
+	stdio::print(int_to_string(extension.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(extension.kind))
+	stdio::print(" ")
+	let _: () = emit_extension_payload(extension.payload)?
+
+	let stepped: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = byte_decode_step_closed_product_packet(closed_view, byte_offset(11)?)
+	stdio::print("step ")
+	stdio::print(closed_step_kind(stepped))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_consumed_count(stepped)))
+
+	let closed_codec: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = ClosedProductCodec(closed_view, byte_offset(17)?)
+	stdio::print("codec-closed ")
+	stdio::print(closed_step_kind(closed_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
+
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>}> = ExtensionProductCodec(extension_view, byte_offset(23)?)
+	stdio::print("codec-extension ")
+	stdio::print(extension_step_kind(extension_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(extension_consumed_count(extension_codec)))
+	Ok(())
+end

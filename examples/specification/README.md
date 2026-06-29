@@ -1846,6 +1846,10 @@ against the built `veln` binary.
 - `run/binary-schema-dispatch-byteview-payload-encode/`: closed and
   extension-tolerant same-module nested dispatch encode cases write a selected
   payload schema whose generated helper contains `ByteView(length_field)`.
+- `run/binary-schema-dispatch-nested-byteview-product-encode/`: closed and
+  extension-tolerant same-module nested dispatch encode cases write a selected
+  payload schema whose generated helper contains
+  `ByteView(left_length * right_length)`.
 - `run/binary-schema-dispatch-reserved-payload-roundtrip/`: closed and
   extension-tolerant nested dispatch payloads that contain supported
   representation-only reserved bits decode with the expected visible payload
@@ -1980,6 +1984,11 @@ against the built `veln` binary.
   extension-tolerant same-module nested dispatch known cases decode a selected
   payload schema whose generated helper contains `ByteView(length_field)`;
   extension-tolerant unknown tags still preserve bounded raw bytes.
+- `run/binary-schema-dispatch-nested-byteview-product-decode/`: closed and
+  extension-tolerant same-module nested dispatch known cases decode a selected
+  payload schema whose generated helper contains
+  `ByteView(left_length * right_length)`, including generated decode-step and
+  derived decode boundaries.
 - `run/binary-schema-imported-closed-dispatch-nested-decode/`: a closed
   dispatch known case may select a public imported binary schema payload
   through a written `use` path and return the decoded nested record shape.
