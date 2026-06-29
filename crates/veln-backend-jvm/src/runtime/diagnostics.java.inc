@@ -323,7 +323,8 @@
         String id,
         Adt detail
     ) {
-        if (!id.equals("hpack.fixture.table_size_update_not_at_start")) {
+        if (!id.equals("hpack.fixture.table_size_update_not_at_start")
+            && !id.equals("hpack.fixture.table_size_update_trailing_bytes")) {
             return null;
         }
         long byteOffset = asLong(detail.payloads[0]);

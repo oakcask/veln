@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.table_size_update_trailing_bytes]: HPACK table-size update leaves trailing bytes at byte offset 80", "note: Frame kind 1 on stream 1 requested HPACK header table size 33 before unexpected trailing header-block bytes.", "note: HPACK fixture codec `hpack_fixture` observed header block size 3, first byte 63, and active state hpack-fixture.", "note: Nearby bytes: 3f 02 00 (showing 3 of 3 byte(s), complete).", "note: Expected fixture HPACK table-size update without trailing bytes."]

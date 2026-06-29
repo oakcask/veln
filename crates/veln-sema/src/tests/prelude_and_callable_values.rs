@@ -11117,6 +11117,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "hpack_bytes_label: hpack_fixture_huffman_bytes_label(chunk), ",
             "hpack_label_bytes: hpack_fixture_huffman_label_bytes(\"hpack-bytes-00-ff\"), ",
             "hpack_table_update_placement: hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update at header block start\", \"hpack_fixture\", view), ",
+            "hpack_table_update_trailing: hpack_fixture_table_size_update_trailing_bytes(10, 3, 63, 33, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update without trailing bytes\", \"hpack_fixture\", view), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",
             "read_u40: byte_read_u40_be(view), read_u48: byte_read_u48_be(view), ",

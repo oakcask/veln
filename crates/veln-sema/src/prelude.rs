@@ -945,7 +945,8 @@ fn hpack_fixture_signature<T: BytePreludeType>(
             ],
             unit_runtime_diagnostic_result(),
         )),
-        "hpack_fixture_table_size_update_not_at_start" => Some((
+        "hpack_fixture_table_size_update_not_at_start"
+        | "hpack_fixture_table_size_update_trailing_bytes" => Some((
             vec![
                 T::int(),
                 T::int(),

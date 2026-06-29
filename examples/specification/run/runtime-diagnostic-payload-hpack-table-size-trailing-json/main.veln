@@ -1,0 +1,26 @@
+# HPACK fixture helpers return table-size trailing-byte RuntimeDiagnostic payloads.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"hpack.fixture.table_size_update_trailing_bytes",
+		error,
+		RuntimeHpackFixtureTableSizeUpdateDiagnostic(80, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", byte_chunk([]))
+	)
+end
+
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("3f0200")
+		Ok(block) => match byte_offset(0)
+			Ok(offset) => match byte_view(block, offset, byte_chunk_count(block))
+				Ok(view) => Ok(view)
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = preview_view()?
+	hpack_fixture_table_size_update_trailing_bytes(80, 3, 63, 33, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", preview)
+end

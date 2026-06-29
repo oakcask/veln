@@ -235,6 +235,16 @@ fn require_unsupported(result: Result<HpackDecodeTransition, HpackFixtureFailure
 	end
 end
 
+fn require_failure_id(result: Result<HpackDecodeTransition, HpackFixtureFailure>, expected_id: String) -> Result<(), String>
+	match result
+		Ok(_) => Err("expected HPACK fixture failure")
+		Err(failure) => match failure_diagnostic_id(failure) == expected_id
+			true => Ok(())
+			false => Err("unexpected HPACK fixture failure id")
+		end
+	end
+end
+
 fn print_required_header(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>, expected_name: String, expected_value: String) -> Result<HpackFixtureState, String> effects [stdio]
 	print_transition(label, result)
 	require_decoded_header(result, expected_name, expected_value)
@@ -251,6 +261,14 @@ fn print_required_unsupported_with_id(label: String, result: Result<HpackDecodeT
 		Err(failure) => print_decode_failure_with_id(label, failure)
 	end
 	require_unsupported(result)
+end
+
+fn print_required_failure_id(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>, expected_id: String) -> Result<(), String> effects [stdio]
+	let ignored_print: () = match result
+		Ok(transition) => print_decoded_transition(label, transition)
+		Err(failure) => print_decode_failure_with_id(label, failure)
+	end
+	require_failure_id(result, expected_id)
 end
 
 fn require_table_size(state: HpackFixtureState, expected_table_size: Int) -> Result<(), String>
@@ -644,8 +662,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_state("table-size-update-general-wide", next_state_or(table_size_update_general_wide, dynamic_state))
 	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f80")?
 	let ignored_malformed_table_size_update: () = print_required_unsupported_with_id("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))?
-	let unsupported_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f0200")?
-	let ignored_unsupported_table_size_update: () = print_required_unsupported_with_id("table-size-update-unsupported-extra", decode_header_block(unsupported_table_size_update_block, dynamic_state, 80))?
+	let trailing_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f0200")?
+	let ignored_trailing_table_size_update: () = print_required_failure_id("table-size-update-trailing-bytes", decode_header_block(trailing_table_size_update_block, dynamic_state, 80), "hpack.fixture.table_size_update_trailing_bytes")?
 	let malformed_literal_block: ByteChunk = byte_chunk_from_hex("0400")?
 	print_transition("malformed-literal", decode_header_block(malformed_literal_block, literal_state, 71))
 	let malformed_literal_huffman_block: ByteChunk = byte_chunk_from_hex("048100")?

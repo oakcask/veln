@@ -417,7 +417,8 @@ compare it with `../specification/` before changing behavior.
   fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
   and eviction, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
-  inbound table-size update placement diagnostics, checked outbound
+  inbound table-size update placement, malformed-integer, and trailing-byte
+  diagnostics, checked outbound
   dynamic table-size update encoding and state handoff into later HEADERS
   and server-side `PUSH_PROMISE`, checked outbound dynamic-name literal
   fixture encoding, and checked outbound `PUSH_PROMISE` rejection after peer

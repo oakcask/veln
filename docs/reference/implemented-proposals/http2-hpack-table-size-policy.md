@@ -39,8 +39,11 @@ bounded header-block byte preview.
 Malformed non-terminating table-size update integers are reported through
 `hpack.fixture.table_size_update_malformed` at the standalone HPACK fixture
 boundary and through both HTTP/2 completed HEADERS and final CONTINUATION
-paths. The trailing-byte case after a complete table-size update integer
-remains on the unsupported-header-block fixture path.
+paths. A saturated-prefix table-size update integer that successfully decodes
+and leaves trailing header-block bytes is reported through
+`hpack.fixture.table_size_update_trailing_bytes` at the standalone HPACK
+fixture boundary and through both HTTP/2 completed HEADERS and final
+CONTINUATION paths.
 
 ## Evidence
 
@@ -48,8 +51,8 @@ remains on the unsupported-header-block fixture path.
   accepted table-size updates through completed HEADERS and final CONTINUATION
   paths, including the boundary value `160`, rejects a larger checked update
   through both paths, including a repeated initial fixture table size, and
-  checks malformed table-size update integers through both paths while the
-  trailing-byte case remains unsupported.
+  checks malformed table-size update integers and trailing-byte table-size
+  updates through both paths.
 - `../../../examples/specification/run/http2-protocol-core-header-table-human/case.toml`
   checks the human diagnostic projection for the local header-table receive
   limit.
@@ -63,5 +66,5 @@ remains on the unsupported-header-block fixture path.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/case.toml`
   remains the focused HPACK fixture evidence for integer decoding and bounded
   dynamic table eviction independent of the HTTP/2 policy boundary, including
-  the malformed table-size update integer diagnostic and preserved
-  trailing-byte unsupported path.
+  the malformed table-size update integer diagnostic and the trailing-byte
+  table-size update diagnostic.

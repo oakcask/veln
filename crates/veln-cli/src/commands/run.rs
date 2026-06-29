@@ -1132,7 +1132,8 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             | "hpack.fixture.dynamic_name_continuation_out_of_range" => {
                 return self.project_hpack_dynamic_name_rule();
             }
-            "hpack.fixture.table_size_update_not_at_start" => {
+            "hpack.fixture.table_size_update_not_at_start"
+            | "hpack.fixture.table_size_update_trailing_bytes" => {
                 return self.project_hpack_table_size_update_rule();
             }
             _ => return None,
@@ -1224,12 +1225,26 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         let active_state = self.string("active_state")?;
         let expected_fixture = self.string("expected_fixture")?;
         let codec_module = self.string("codec_module")?;
-        let mut diagnostic = self.diagnostic(format!(
-            "HPACK table-size update appears after a header field at byte offset {}",
-            self.byte_offset
-        ));
+        let message = match self.id.as_str() {
+            "hpack.fixture.table_size_update_not_at_start" => {
+                "HPACK table-size update appears after a header field"
+            }
+            "hpack.fixture.table_size_update_trailing_bytes" => {
+                "HPACK table-size update leaves trailing bytes"
+            }
+            _ => return None,
+        };
+        let fact = match self.id.as_str() {
+            "hpack.fixture.table_size_update_not_at_start" => "after a decoded header field",
+            "hpack.fixture.table_size_update_trailing_bytes" => {
+                "before unexpected trailing header-block bytes"
+            }
+            _ => return None,
+        };
+        let mut diagnostic =
+            self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
         diagnostic.related.push(note_json(format!(
-            "Frame kind {frame_kind} on {} {} requested HPACK header table size {observed_update_size} after a decoded header field.",
+            "Frame kind {frame_kind} on {} {} requested HPACK header table size {observed_update_size} {fact}.",
             frame.stream_ref, frame.stream_id
         )));
         diagnostic.related.push(note_json(format!(
@@ -4923,6 +4938,66 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("fixture HPACK table-size update at header block start")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_hpack_table_size_trailing_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("hpack.fixture.table_size_update_trailing_bytes"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(80)),
+                ]),
+            ),
+            ("observed_header_block_size", JsonValue::Number(3)),
+            ("observed_first_byte", JsonValue::Number(63)),
+            ("observed_header_table_size", JsonValue::Number(33)),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("active_state", JsonValue::string("hpack-fixture")),
+            (
+                "expected_fixture",
+                JsonValue::string("fixture HPACK table-size update without trailing bytes"),
+            ),
+            ("codec_module", JsonValue::string("hpack_fixture")),
+            ("byte_preview", byte_preview("3f0200")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HPACK fixture table-size update has trailing bytes at byte offset 80".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "hpack.fixture.table_size_update_trailing_bytes"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "HPACK table-size update leaves trailing bytes at byte offset 80"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("before unexpected trailing header-block bytes")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("3f 02 00 (showing 3 of 3 byte(s), complete)")
         );
     }
 

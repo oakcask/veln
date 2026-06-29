@@ -836,7 +836,7 @@ fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 	match header_list_boundary_reached(kind, flags)
 		true => match hpack_fixture::decode_header_block(completed_header_block, hpack_state, offset)
 			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
-			Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start"
+			Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start" or hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update without trailing bytes"
 				true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
 				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
 			end
@@ -5142,7 +5142,10 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => "http2.peer_limit.header_table_size_exceeded"
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "http2.peer_limit.settings_value_out_of_range"
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => hpack_fixture_failure_id(expected_fixture)
-		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "hpack.fixture.table_size_update_not_at_start"
+		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
+			true => "hpack.fixture.table_size_update_trailing_bytes"
+			false => "hpack.fixture.table_size_update_not_at_start"
+		end
 	end
 end
 
@@ -5161,15 +5164,18 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 							true => "hpack.fixture.table_size_update_not_at_start"
 							false => match expected_fixture == "fixture HPACK malformed table-size update integer"
 								true => "hpack.fixture.table_size_update_malformed"
-								false => match expected_fixture == "fixture dynamic indexed header"
-									true => "hpack.fixture.dynamic_index_out_of_range"
-									false => match expected_fixture == "fixture dynamic-name continuation entry"
-										true => "hpack.fixture.dynamic_name_continuation_missing"
-										false => match expected_fixture == "fixture dynamic-name continuation integer"
-											true => "hpack.fixture.dynamic_name_continuation_malformed"
-											false => match expected_fixture == "fixture dynamic-name continuation range"
-												true => "hpack.fixture.dynamic_name_continuation_out_of_range"
-												false => "hpack.fixture.unsupported_header_block"
+								false => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
+									true => "hpack.fixture.table_size_update_trailing_bytes"
+									false => match expected_fixture == "fixture dynamic indexed header"
+										true => "hpack.fixture.dynamic_index_out_of_range"
+										false => match expected_fixture == "fixture dynamic-name continuation entry"
+											true => "hpack.fixture.dynamic_name_continuation_missing"
+											false => match expected_fixture == "fixture dynamic-name continuation integer"
+												true => "hpack.fixture.dynamic_name_continuation_malformed"
+												false => match expected_fixture == "fixture dynamic-name continuation range"
+													true => "hpack.fixture.dynamic_name_continuation_out_of_range"
+													false => "hpack.fixture.unsupported_header_block"
+												end
 											end
 										end
 									end
@@ -5588,7 +5594,10 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		HeaderTableSizeExceeded(offset, observed_size, receive_limit, frame_kind, stream_id, rule_provenance, preview_chunk) => rule_provenance
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => "http2_settings_value_range"
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => "hpack_fixture_decode"
-		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => "hpack_dynamic_table_size_update_placement"
+		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
+			true => "hpack_dynamic_table_size_update_trailing_bytes"
+			false => "hpack_dynamic_table_size_update_placement"
+		end
 	end
 end
 
@@ -5988,7 +5997,10 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => accept_runtime_diagnostic(http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview))
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_invalid_data_padding_payload(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, byte_view_to_chunk(preview)))
 		ContentLengthMismatch(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_content_length_mismatch_payload(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, byte_view_to_chunk(preview)))
-		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => accept_runtime_diagnostic(hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+		HpackTableSizeUpdateNotAtStart(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, preview_chunk) => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
+			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_trailing_bytes(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+			false => accept_runtime_diagnostic(hpack_fixture_table_size_update_not_at_start(offset, observed_size, observed_first_byte, observed_update_size, frame_kind, stream_id, active_state, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+		end
 		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, preview_chunk) => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.table_size_update_malformed"
 			true => accept_runtime_diagnostic(hpack_fixture_table_size_update_malformed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_string_length"
@@ -7244,7 +7256,7 @@ fn require_hpack_fixture_failure(step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected HTTP/2 HPACK fixture failure")
 		Waiting(_) => Err("expected HTTP/2 HPACK fixture failure")
-		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
+		Failed(_, failure) => match failure_id(failure) == "hpack.fixture.unsupported_header_block" or failure_id(failure) == "hpack.fixture.malformed_string_length" or failure_id(failure) == "hpack.fixture.malformed_raw_string_value" or failure_id(failure) == "hpack.fixture.malformed_huffman_padding" or failure_id(failure) == "hpack.fixture.huffman_eos_symbol" or failure_id(failure) == "hpack.fixture.huffman_non_visible_value" or failure_id(failure) == "hpack.fixture.dynamic_index_out_of_range" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_missing" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_malformed" or failure_id(failure) == "hpack.fixture.dynamic_name_continuation_out_of_range" or failure_id(failure) == "hpack.fixture.table_size_update_not_at_start" or failure_id(failure) == "hpack.fixture.table_size_update_trailing_bytes" or failure_id(failure) == "hpack.fixture.table_size_update_malformed"
 			true => Ok(())
 			false => Err("expected HTTP/2 HPACK fixture failure")
 		end
@@ -7790,12 +7802,14 @@ fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-table-size-continuation-malformed-start", continuation_malformed_start)
 	let continuation_malformed_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000293f80")?), step_state(continuation_malformed_start))?
 	print_failure("hpack-table-size-continuation-malformed", continuation_malformed_done)
-	let table_size_update_unsupported_extra: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000002b3f0200")?), state)?
-	print_failure("hpack-table-size-update-unsupported-extra", table_size_update_unsupported_extra)
-	let continuation_unsupported_extra_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000001010000002d")?), state)?
-	print_step("hpack-table-size-continuation-unsupported-extra-start", continuation_unsupported_extra_start)
-	let continuation_unsupported_extra_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000002d3f0200")?), step_state(continuation_unsupported_extra_start))?
-	print_failure("hpack-table-size-continuation-unsupported-extra", continuation_unsupported_extra_done)
+	let table_size_update_trailing_bytes: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000002b3f0200")?), state)?
+	print_failure("hpack-table-size-update-trailing-bytes", table_size_update_trailing_bytes)
+	let ignored_table_size_trailing_bytes: () = require_hpack_fixture_failure(table_size_update_trailing_bytes)?
+	let continuation_trailing_bytes_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000001010000002d")?), state)?
+	print_step("hpack-table-size-continuation-trailing-bytes-start", continuation_trailing_bytes_start)
+	let continuation_trailing_bytes_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000002d3f0200")?), step_state(continuation_trailing_bytes_start))?
+	print_failure("hpack-table-size-continuation-trailing-bytes", continuation_trailing_bytes_done)
+	let ignored_continuation_trailing_bytes: () = require_hpack_fixture_failure(continuation_trailing_bytes_done)?
 	let table_size_update_initial_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301050000002f3fe11f")?), state)?
 	print_failure("hpack-table-size-update-initial-size", table_size_update_initial_size)
 	let continuation_initial_size_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000031")?), state)?
@@ -8879,7 +8893,7 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_request_header_failure("request-headers-bad-token-ordinary", request_headers_bad_token_regular)
 	let request_headers_connection: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000013e3f4041")?), state)?
 	print_request_header_failure("request-headers-connection-specific-connection", request_headers_connection)
-	let request_headers_keep_alive: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000013f404142")?), state)?
+	let request_headers_keep_alive: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000164656667")?), state)?
 	print_request_header_failure("request-headers-connection-specific-keep-alive", request_headers_keep_alive)
 	let request_headers_proxy_connection: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000143444546")?), state)?
 	print_request_header_failure("request-headers-connection-specific-proxy-connection", request_headers_proxy_connection)

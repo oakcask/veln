@@ -4980,6 +4980,85 @@
         ));
     }
 
+    public static Object hpackFixtureTableSizeUpdateTrailingBytes(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object observedUpdateSize,
+        Object frameKind,
+        Object streamId,
+        Object activeState,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        String message = "HPACK fixture table-size update has trailing bytes at byte offset "
+            + byteOffset;
+        return hpackFixtureTableSizeUpdateDiagnostic(
+            "hpack.fixture.table_size_update_trailing_bytes",
+            message,
+            offset,
+            observedSize,
+            observedFirstByte,
+            observedUpdateSize,
+            frameKind,
+            streamId,
+            activeState,
+            expectedFixture,
+            codecModule,
+            preview
+        );
+    }
+
+    private static Object hpackFixtureTableSizeUpdateDiagnostic(
+        String id,
+        String message,
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object observedUpdateSize,
+        Object frameKind,
+        Object streamId,
+        Object activeState,
+        Object expectedFixture,
+        Object codecModule,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        long updateSize = asLong(observedUpdateSize);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String state = asString(activeState);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(size),
+                Long.valueOf(firstByte),
+                Long.valueOf(updateSize),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                state,
+                expected,
+                module,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                id,
+                message,
+                detail
+            }
+        ));
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_be", false);
     }

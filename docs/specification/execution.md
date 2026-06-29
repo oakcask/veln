@@ -1769,9 +1769,10 @@ execution reference.
 - For `veln run` entries, a returned
   `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
   is the source-visible diagnostic-bearing result failure form used by common
-  HPACK fixture projections. Dynamic-index and table-size update placement
-  projections use dedicated HPACK fixture detail constructors for their extra
-  public facts. The command boundary keeps the rendered
+  HPACK fixture projections. Dynamic-index, table-size update placement, and
+  table-size update trailing-byte projections use dedicated HPACK fixture
+  detail constructors for their extra public facts. The command boundary
+  keeps the rendered
   `RuntimeDiagnostic(...)` as the result value and projects byte offset,
   observed header block size, observed first byte, expected fixture, codec
   module, and bounded header-block preview into the same human diagnostic and
@@ -2376,6 +2377,13 @@ execution reference.
   paths. That diagnostic uses the common HPACK fixture payload with the byte
   offset, observed size, observed first byte, expected fixture, codec module,
   and bounded header-block preview.
+  A table-size update encoding whose saturated-prefix integer successfully
+  decodes but leaves trailing header-block bytes, such as `0x3f 0x02 0x00`,
+  projects through `hpack.fixture.table_size_update_trailing_bytes` on the
+  standalone HPACK fixture boundary and through both HTTP/2 completed HEADERS
+  and final CONTINUATION paths. That diagnostic records the byte offset,
+  decoded table size, frame kind, stream id, active HPACK fixture state,
+  expected fixture boundary, codec module, and bounded header-block preview.
   This is not full HPACK compression support. When
   reducing the table size below the supported fixture entries, the bounded
   eviction policy measures each accepted dynamic entry as header name byte
@@ -2397,8 +2405,8 @@ execution reference.
   diagnostic records the requested dynamic index, the current dynamic table
   entry count, observed header-block size, observed first byte, codec module,
   and bounded header-block byte preview. Unsupported fixture input, including
-  table-size updates with trailing bytes after a complete integer, malformed
-  literal-without-indexing, projects through
+  ordinary bytes outside the focused table-size update, dynamic-name, string,
+  Huffman, and dynamic-index shapes, projects through
   `hpack.fixture.unsupported_header_block` with the unsupported header-block
   byte offset, observed size, observed first byte, expected fixture, codec
   module, and bounded header-block byte preview carried by an ordinary

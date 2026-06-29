@@ -147,6 +147,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "hpack_fixture_dynamic_name_continuation_malformed" => "hpackFixtureDynamicNameContinuationMalformed",
     "hpack_fixture_dynamic_name_continuation_out_of_range" => "hpackFixtureDynamicNameContinuationOutOfRange",
     "hpack_fixture_table_size_update_not_at_start" => "hpackFixtureTableSizeUpdateNotAtStart",
+    "hpack_fixture_table_size_update_trailing_bytes" => "hpackFixtureTableSizeUpdateTrailingBytes",
     "byte_read_u16_be" => "byteReadU16Be",
     "byte_read_u24_be" => "byteReadU24Be",
     "byte_read_u31_be" => "byteReadU31Be",

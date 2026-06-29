@@ -78,9 +78,10 @@ expected fixture, codec module, and a bounded header-block byte preview from
 the returned error value itself. Dynamic-index fixture payloads use
 `RuntimeHpackFixtureDynamicIndexDiagnostic(...)` to add
 `requested_dynamic_index` and `dynamic_table_entry_count`. Table-size update
-placement payloads use `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to
-add `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`,
-and `active_state`.
+placement and trailing-byte payloads use
+`RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to add
+`observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`, and
+`active_state`.
 Dynamic-name continuation payloads use
 `RuntimeHpackFixtureDynamicNameDiagnostic(...)` to add
 `requested_dynamic_index` and `dynamic_table_entry_count` for the focused
@@ -96,7 +97,8 @@ The standard `hpack_fixture_unsupported_header_block(...)`,
 `hpack_fixture_dynamic_name_continuation_malformed(...)`,
 `hpack_fixture_dynamic_name_continuation_out_of_range(...)`,
 `hpack_fixture_table_size_update_malformed(...)`, and
-`hpack_fixture_table_size_update_not_at_start(...)` helpers return their
+`hpack_fixture_table_size_update_not_at_start(...)`, and
+`hpack_fixture_table_size_update_trailing_bytes(...)` helpers return their
 source-visible HPACK fixture `RuntimeDiagnostic(...)` payloads directly, so
 their direct helper examples keep the rendered payload in `details.value` and
 project the same HPACK fixture facts into `details.protocol_diagnostic`.
@@ -845,6 +847,13 @@ same completed header block, the HPACK fixture boundary uses id
 `active_state` before the same expected fixture, codec module, and byte
 preview fields. Source-visible payloads for this id carry those fields in
 `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)`.
+When a table-size update integer successfully decodes at the start of a
+header block but leaves trailing header-block bytes, the HPACK fixture
+boundary uses id `hpack.fixture.table_size_update_trailing_bytes` on the
+standalone HPACK fixture boundary and through completed HEADERS and final
+CONTINUATION paths. It carries the same table-size update payload fields and
+records the decoded table size before the expected fixture, codec module, and
+bounded preview.
 When a malformed non-terminating table-size update integer is decoded at the
 start of a completed header block, the HPACK fixture boundary uses id
 `hpack.fixture.table_size_update_malformed`; source-visible payloads for this
