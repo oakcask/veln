@@ -310,9 +310,6 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
             "  Box\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PublicPacket decode\n",
-            "  derive decode\n",
-            "end\n",
         ),
     );
     let app = lower_surface_ast(&parse(&app_source).tree);
@@ -363,7 +360,7 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
     );
     assert!(
         messages.contains(
-            &"schema decode expression target `wire::PacketCodec` is a codec, not a schema",
+            &"schema decode expression cannot resolve `wire::PacketCodec` as an eligible binary schema",
         ),
         "{:#?}",
         lowered.diagnostics
@@ -373,7 +370,7 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         ("wire::PrivatePacket", "private_schema"),
         ("wire::PacketShape", "wrong_kind"),
         ("wire::make_packet", "wrong_kind"),
-        ("wire::PacketCodec", "wrong_kind"),
+        ("wire::PacketCodec", "unresolved_schema"),
     ] {
         assert!(
             lowered.diagnostics.iter().any(|diagnostic| {
@@ -3866,12 +3863,9 @@ fn generated_schema_helpers_accept_standalone_sub_byte_primitives() {
             "  last: UInt7\n",
             "end\n",
             "\n",
-            "codec LooseCodec for LooseBits decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn read_bits(view: ByteView, base: ByteOffset) -> DecodeStep<{first: Int, middle: Int, last: Int}>\n",
-            "  LooseCodec(view, base)\n",
+            "  decode LooseBits from view at base\n",
             "end\n",
         ),
     );
@@ -3910,10 +3904,6 @@ fn generated_schema_helpers_accept_three_byte_packed_visible_primitives() {
             "  tail: UInt5\n",
             "end\n",
             "\n",
-            "codec PackedVisibleThreeByteCodec for PackedVisibleThreeByteHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}, String>\n",
             "  byte_decode_packed_visible_three_byte_header(view)\n",
@@ -3928,11 +3918,11 @@ fn generated_schema_helpers_accept_three_byte_packed_visible_primitives() {
             "end\n",
             "\n",
             "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int}>\n",
-            "  PackedVisibleThreeByteCodec(view, base)\n",
+            "  decode PackedVisibleThreeByteHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int}) -> EncodeStep<()>\n",
-            "  PackedVisibleThreeByteCodec(packet)\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleThreeByteHeader from packet\n",
             "end\n",
         ),
     );
@@ -3978,10 +3968,6 @@ fn generated_schema_helpers_accept_four_byte_packed_visible_primitives() {
             "  flag: UInt5\n",
             "end\n",
             "\n",
-            "codec PackedVisibleFourByteCodec for PackedVisibleFourByteHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}, String>\n",
             "  byte_decode_packed_visible_four_byte_header(view)\n",
@@ -3996,11 +3982,11 @@ fn generated_schema_helpers_accept_four_byte_packed_visible_primitives() {
             "end\n",
             "\n",
             "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}>\n",
-            "  PackedVisibleFourByteCodec(view, base)\n",
+            "  decode PackedVisibleFourByteHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}) -> EncodeStep<()>\n",
-            "  PackedVisibleFourByteCodec(packet)\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleFourByteHeader from packet\n",
             "end\n",
         ),
     );
@@ -4048,10 +4034,6 @@ fn generated_schema_helpers_accept_five_byte_packed_visible_primitives() {
             "  code: UInt7\n",
             "end\n",
             "\n",
-            "codec PackedVisibleFiveByteCodec for PackedVisibleFiveByteHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}, String>\n",
             "  byte_decode_packed_visible_five_byte_header(view)\n",
@@ -4066,11 +4048,11 @@ fn generated_schema_helpers_accept_five_byte_packed_visible_primitives() {
             "end\n",
             "\n",
             "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}>\n",
-            "  PackedVisibleFiveByteCodec(view, base)\n",
+            "  decode PackedVisibleFiveByteHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}) -> EncodeStep<()>\n",
-            "  PackedVisibleFiveByteCodec(packet)\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleFiveByteHeader from packet\n",
             "end\n",
         ),
     );
@@ -4120,10 +4102,6 @@ fn generated_schema_helpers_accept_six_byte_packed_visible_primitives() {
             "  route: UInt7\n",
             "end\n",
             "\n",
-            "codec PackedVisibleSixByteCodec for PackedVisibleSixByteHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}, String>\n",
             "  byte_decode_packed_visible_six_byte_header(view)\n",
@@ -4138,11 +4116,11 @@ fn generated_schema_helpers_accept_six_byte_packed_visible_primitives() {
             "end\n",
             "\n",
             "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}>\n",
-            "  PackedVisibleSixByteCodec(view, base)\n",
+            "  decode PackedVisibleSixByteHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}) -> EncodeStep<()>\n",
-            "  PackedVisibleSixByteCodec(packet)\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleSixByteHeader from packet\n",
             "end\n",
         ),
     );
@@ -4194,10 +4172,6 @@ fn generated_schema_helpers_accept_seven_byte_packed_visible_primitives() {
             "  marker: UInt6\n",
             "end\n",
             "\n",
-            "codec PackedVisibleSevenByteCodec for PackedVisibleSevenByteHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn direct(view: ByteView) -> Result<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, marker: Int}, String>\n",
             "  byte_decode_packed_visible_seven_byte_header(view)\n",
@@ -4212,11 +4186,11 @@ fn generated_schema_helpers_accept_seven_byte_packed_visible_primitives() {
             "end\n",
             "\n",
             "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, marker: Int}>\n",
-            "  PackedVisibleSevenByteCodec(view, base)\n",
+            "  decode PackedVisibleSevenByteHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, marker: Int}) -> EncodeStep<()>\n",
-            "  PackedVisibleSevenByteCodec(packet)\n",
+            "pub fn item_encode(packet: {high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, marker: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleSevenByteHeader from packet\n",
             "end\n",
         ),
     );
@@ -4492,12 +4466,9 @@ fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
             "  kind: UInt8\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
-            "pub fn main(packet: {length: Int, kind: Int}) -> EncodeStep<()>\n",
-            "  PacketCodec(packet)\n",
+            "pub fn main(packet: {length: Int, kind: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -4519,7 +4490,7 @@ fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -4536,7 +4507,7 @@ fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -4554,12 +4525,9 @@ fn derived_codec_encode_resolves_length_bounded_byte_view_schema_boundary() {
             "  payload: ByteView(length)\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
-            "pub fn main(packet: {length: Int, payload: ByteView}) -> EncodeStep<()>\n",
-            "  PacketCodec(packet)\n",
+            "pub fn main(packet: {length: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -4581,7 +4549,7 @@ fn derived_codec_encode_resolves_length_bounded_byte_view_schema_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -4598,7 +4566,7 @@ fn derived_codec_encode_resolves_length_bounded_byte_view_schema_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -4623,12 +4591,9 @@ fn derived_codec_encode_resolves_nested_dispatch_schema_encode_step_boundary() {
             "  payload: Dispatch(kind, 1 => SettingsPayload)\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
-            "pub fn main(packet: {kind: Int, payload: {code: Int, value: Int}}) -> EncodeStep<()>\n",
-            "  PacketCodec(packet)\n",
+            "pub fn main(packet: {kind: Int, payload: {code: Int, value: Int}}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -4650,7 +4615,7 @@ fn derived_codec_encode_resolves_nested_dispatch_schema_encode_step_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -4667,70 +4632,9 @@ fn derived_codec_encode_resolves_nested_dispatch_schema_encode_step_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
-    ));
-}
-
-#[test]
-fn derived_codec_encode_resolves_budgeted_schema_encode_step_boundary() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema PacketWire\n",
-            "  format binary\n",
-            "\n",
-            "  length: UInt8\n",
-            "end\n",
-            "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
-            "\n",
-            "pub fn main(packet: {length: Int}, budget: ByteCount) -> EncodeStep<{length: Int, encoded_offset: ByteCount}>\n",
-            "  PacketCodec(packet, budget)\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
-            args,
-        } if name == "PacketWire" && args.len() == 2
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
-            args,
-        } if name == "PacketWire" && args.len() == 2
     ));
 }
 
@@ -4761,17 +4665,13 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
             "  payload: ExtensionDispatch(kind, payload_length, 1 => TelemetryPayload)\n",
             "end\n",
             "\n",
-            "codec TelemetryCodec for TelemetryEnvelope decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}>\n",
-            "  TelemetryCodec(view, base)\n",
+            "  decode TelemetryEnvelope from view at base\n",
             "end\n",
             "\n",
-            "pub fn encode_main(packet: {section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}) -> EncodeStep<()>\n",
-            "  TelemetryCodec(packet)\n",
+            "pub fn encode_main(packet: {section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode TelemetryEnvelope from packet\n",
             "end\n",
         ),
     );
@@ -4809,7 +4709,7 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "TelemetryEnvelope"
     ));
@@ -4842,7 +4742,7 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "TelemetryEnvelope"
     ));
@@ -4861,17 +4761,13 @@ fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
             "  items: Repeat(left_count + right_count, UInt16be)\n",
             "end\n",
             "\n",
-            "codec CountedCodec for CountedValues decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}>\n",
-            "  CountedCodec(view, base)\n",
+            "  decode CountedValues from view at base\n",
             "end\n",
             "\n",
-            "pub fn encode_main(packet: {left_count: Int, right_count: Int, items: List<Int>}) -> EncodeStep<()>\n",
-            "  CountedCodec(packet)\n",
+            "pub fn encode_main(packet: {left_count: Int, right_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode CountedValues from packet\n",
             "end\n",
         ),
     );
@@ -4909,7 +4805,7 @@ fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -4942,7 +4838,7 @@ fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -4961,17 +4857,13 @@ fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
             "  items: Repeat(row_count * column_count, UInt16be)\n",
             "end\n",
             "\n",
-            "codec CountedCodec for CountedValues decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{row_count: Int, column_count: Int, items: List<Int>}>\n",
-            "  CountedCodec(view, base)\n",
+            "  decode CountedValues from view at base\n",
             "end\n",
             "\n",
-            "pub fn encode_main(packet: {row_count: Int, column_count: Int, items: List<Int>}) -> EncodeStep<()>\n",
-            "  CountedCodec(packet)\n",
+            "pub fn encode_main(packet: {row_count: Int, column_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode CountedValues from packet\n",
             "end\n",
         ),
     );
@@ -5009,7 +4901,7 @@ fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -5042,7 +4934,7 @@ fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -5061,17 +4953,13 @@ fn derived_codec_resolves_quotient_repeat_count_helper_boundaries() {
             "  items: Repeat(total_count / group_count, UInt16be)\n",
             "end\n",
             "\n",
-            "codec CountedCodec for CountedValues decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>\n",
-            "  CountedCodec(view, base)\n",
+            "  decode CountedValues from view at base\n",
             "end\n",
             "\n",
-            "pub fn encode_main(packet: {total_count: Int, group_count: Int, items: List<Int>}) -> EncodeStep<()>\n",
-            "  CountedCodec(packet)\n",
+            "pub fn encode_main(packet: {total_count: Int, group_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode CountedValues from packet\n",
             "end\n",
         ),
     );
@@ -5109,7 +4997,7 @@ fn derived_codec_resolves_quotient_repeat_count_helper_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -5142,7 +5030,7 @@ fn derived_codec_resolves_quotient_repeat_count_helper_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "CountedValues"
     ));
@@ -6861,16 +6749,13 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire decode\n",
-            "  decode with decode_packet\n",
-            "end\n",
             "\n",
             "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  NeedMore(NeedEnd)\n",
             "end\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  PacketCodec(view, base)\n",
+            "  decode PacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -6892,9 +6777,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::CodecDecode { function: name, codec },
+            target: CoreCallTarget::SchemaDecodeStep(name),
             ..
-        } if name == "decode_packet" && codec == "PacketCodec"
+        } if name == "PacketWire"
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -6909,9 +6794,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::CodecDecode { function: name, codec },
+            target: IrCallTarget::SchemaDecodeStep(name),
             ..
-        } if name == "decode_packet" && codec == "PacketCodec"
+        } if name == "PacketWire"
     ));
 }
 
@@ -6926,16 +6811,13 @@ fn codec_encode_with_resolves_as_named_encode_boundary() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  encode with encode_packet\n",
-            "end\n",
             "\n",
             "fn encode_packet(packet: {length: Int}) -> EncodeStep<String>\n",
             "  Encoded(list_nil())\n",
             "end\n",
             "\n",
             "pub fn main(packet: {length: Int}) -> EncodeStep<String>\n",
-            "  PacketCodec(packet)\n",
+            "  encode_packet(packet)\n",
             "end\n",
         ),
     );
@@ -6991,10 +6873,6 @@ fn bidirectional_codec_call_uses_expected_return_type() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire decode encode\n",
-            "  decode with decode_packet\n",
-            "  encode with encode_packet\n",
-            "end\n",
             "\n",
             "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  NeedMore(NeedEnd)\n",
@@ -7005,7 +6883,7 @@ fn bidirectional_codec_call_uses_expected_return_type() {
             "end\n",
             "\n",
             "pub fn main(packet: {length: Int}) -> EncodeStep<String>\n",
-            "  PacketCodec(packet)\n",
+            "  encode_packet(packet)\n",
             "end\n",
         ),
     );
@@ -7044,12 +6922,9 @@ fn codec_derive_decode_resolves_as_schema_decode_step_boundary() {
             "  wire_length: UInt8\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
-            "  PacketCodec(view, base)\n",
+            "  decode PacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -7115,20 +6990,14 @@ fn codec_derive_decode_resolves_added_and_subtracted_byte_view_schema_decode_ste
             "  payload: ByteView(length - padding_length)\n",
             "end\n",
             "\n",
-            "codec AddPacketCodec for AddPacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
-            "codec SubtractPacketCodec for SubtractPacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn read_add(view: ByteView, base: ByteOffset) -> DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}>\n",
-            "  AddPacketCodec(view, base)\n",
+            "  decode AddPacketWire from view at base\n",
             "end\n",
             "\n",
             "pub fn read_subtract(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, padding_length: Int, payload: ByteView}>\n",
-            "  SubtractPacketCodec(view, base)\n",
+            "  decode SubtractPacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -7147,7 +7016,7 @@ fn codec_derive_decode_resolves_added_and_subtracted_byte_view_schema_decode_ste
             .functions
             .iter()
             .find(|function| function.name == function_name)
-            .expect("codec wrapper should be lowered");
+            .expect("schema decode wrapper should be lowered");
         let CoreStmtKind::Return { expr } = &function.body[0].kind else {
             panic!("tail expression should lower as return");
         };
@@ -7169,7 +7038,7 @@ fn codec_derive_decode_resolves_added_and_subtracted_byte_view_schema_decode_ste
             .functions
             .iter()
             .find(|function| function.name == function_name)
-            .expect("codec wrapper should be in IR");
+            .expect("schema decode wrapper should be in IR");
         let IrStmtKind::Return { value } = &function.body[0].kind else {
             panic!("tail expression should lower as IR return");
         };
@@ -7204,20 +7073,14 @@ fn codec_derive_encode_resolves_added_and_subtracted_byte_view_schema_encode_ste
             "  payload: ByteView(length - padding_length)\n",
             "end\n",
             "\n",
-            "codec AddPacketCodec for AddPacketWire encode\n",
-            "  derive encode\n",
+            "\n",
+            "\n",
+            "pub fn write_add(packet: {header_length: Int, body_length: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode AddPacketWire from packet\n",
             "end\n",
             "\n",
-            "codec SubtractPacketCodec for SubtractPacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
-            "\n",
-            "pub fn write_add(packet: {header_length: Int, body_length: Int, payload: ByteView}) -> EncodeStep<()>\n",
-            "  AddPacketCodec(packet)\n",
-            "end\n",
-            "\n",
-            "pub fn write_subtract(packet: {length: Int, padding_length: Int, payload: ByteView}) -> EncodeStep<()>\n",
-            "  SubtractPacketCodec(packet)\n",
+            "pub fn write_subtract(packet: {length: Int, padding_length: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode SubtractPacketWire from packet\n",
             "end\n",
         ),
     );
@@ -7236,14 +7099,14 @@ fn codec_derive_encode_resolves_added_and_subtracted_byte_view_schema_encode_ste
             .functions
             .iter()
             .find(|function| function.name == function_name)
-            .expect("codec wrapper should be lowered");
+            .expect("schema encode wrapper should be lowered");
         let CoreStmtKind::Return { expr } = &function.body[0].kind else {
             panic!("tail expression should lower as return");
         };
         assert!(matches!(
             &expr.kind,
             CoreExprKind::Call {
-                target: CoreCallTarget::SchemaEncodeStep(name),
+                target: CoreCallTarget::SchemaEncode(name),
                 ..
             } if name == schema_name
         ));
@@ -7258,14 +7121,14 @@ fn codec_derive_encode_resolves_added_and_subtracted_byte_view_schema_encode_ste
             .functions
             .iter()
             .find(|function| function.name == function_name)
-            .expect("codec wrapper should be in IR");
+            .expect("schema encode wrapper should be in IR");
         let IrStmtKind::Return { value } = &function.body[0].kind else {
             panic!("tail expression should lower as IR return");
         };
         assert!(matches!(
             &value.kind,
             IrExprKind::Call {
-                target: IrCallTarget::SchemaEncodeStep(name),
+                target: IrCallTarget::SchemaEncode(name),
                 ..
             } if name == schema_name
         ));
@@ -7285,12 +7148,9 @@ fn codec_derive_decode_resolves_quotient_byte_view_schema_decode_step_boundary()
             "  payload: ByteView(total_length / chunk_count)\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{total_length: Int, chunk_count: Int, payload: ByteView}>\n",
-            "  PacketCodec(view, base)\n",
+            "  decode PacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -7340,7 +7200,7 @@ fn codec_derive_encode_resolves_quotient_byte_view_schema_encode_step_boundary()
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "schema PacketWire\n",
+            "pub schema PacketWire\n",
             "  format binary\n",
             "\n",
             "  total_length: UInt8\n",
@@ -7348,12 +7208,9 @@ fn codec_derive_encode_resolves_quotient_byte_view_schema_encode_step_boundary()
             "  payload: ByteView(total_length / chunk_count)\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
-            "pub fn main(packet: {total_length: Int, chunk_count: Int, payload: ByteView}) -> EncodeStep<()>\n",
-            "  PacketCodec(packet)\n",
+            "pub fn main(packet: {total_length: Int, chunk_count: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -7375,7 +7232,7 @@ fn codec_derive_encode_resolves_quotient_byte_view_schema_encode_step_boundary()
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -7392,7 +7249,7 @@ fn codec_derive_encode_resolves_quotient_byte_view_schema_encode_step_boundary()
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -7411,12 +7268,9 @@ fn codec_derive_decode_resolves_middle_reserved_schema_decode_step_boundary() {
             "  low: UInt3\n",
             "end\n",
             "\n",
-            "codec MiddleReservedCodec for MiddleReservedHeader decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  MiddleReservedCodec(view, base)\n",
+            "  decode MiddleReservedHeader from view at base\n",
             "end\n",
         ),
     );
@@ -7475,17 +7329,13 @@ fn codec_derive_resolves_byte_interleaved_middle_reserved_boundaries() {
             "  low: UInt3\n",
             "end\n",
             "\n",
-            "codec ByteInterleavedMiddleReservedCodec for ByteInterleavedMiddleReservedHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, middle: Int, low: Int}>\n",
-            "  ByteInterleavedMiddleReservedCodec(view, base)\n",
+            "  decode ByteInterleavedMiddleReservedHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, middle: Int, low: Int}) -> EncodeStep<()>\n",
-            "  ByteInterleavedMiddleReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, middle: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode ByteInterleavedMiddleReservedHeader from packet\n",
             "end\n",
         ),
     );
@@ -7523,7 +7373,7 @@ fn codec_derive_resolves_byte_interleaved_middle_reserved_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "ByteInterleavedMiddleReservedHeader"
     ));
@@ -7556,7 +7406,7 @@ fn codec_derive_resolves_byte_interleaved_middle_reserved_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "ByteInterleavedMiddleReservedHeader"
     ));
@@ -7575,17 +7425,13 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
             "  low: UInt3\n",
             "end\n",
             "\n",
-            "codec TwoBytePrefixReservedCodec for TwoBytePrefixReservedGroupHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  TwoBytePrefixReservedCodec(view, base)\n",
+            "  decode TwoBytePrefixReservedGroupHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
-            "  TwoBytePrefixReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode TwoBytePrefixReservedGroupHeader from packet\n",
             "end\n",
         ),
     );
@@ -7623,7 +7469,7 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "TwoBytePrefixReservedGroupHeader"
     ));
@@ -7656,7 +7502,7 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "TwoBytePrefixReservedGroupHeader"
     ));
@@ -7675,17 +7521,13 @@ fn codec_derive_resolves_three_byte_prefix_reserved_group_boundaries() {
             "  low: UInt3\n",
             "end\n",
             "\n",
-            "codec ThreeBytePrefixReservedCodec for ThreeBytePrefixReservedGroupHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  ThreeBytePrefixReservedCodec(view, base)\n",
+            "  decode ThreeBytePrefixReservedGroupHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
-            "  ThreeBytePrefixReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode ThreeBytePrefixReservedGroupHeader from packet\n",
             "end\n",
         ),
     );
@@ -7723,7 +7565,7 @@ fn codec_derive_resolves_three_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "ThreeBytePrefixReservedGroupHeader"
     ));
@@ -7756,7 +7598,7 @@ fn codec_derive_resolves_three_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "ThreeBytePrefixReservedGroupHeader"
     ));
@@ -7775,17 +7617,13 @@ fn codec_derive_resolves_four_byte_prefix_reserved_group_boundaries() {
             "  low: UInt3\n",
             "end\n",
             "\n",
-            "codec FourBytePrefixReservedCodec for FourBytePrefixReservedGroupHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  FourBytePrefixReservedCodec(view, base)\n",
+            "  decode FourBytePrefixReservedGroupHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
-            "  FourBytePrefixReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode FourBytePrefixReservedGroupHeader from packet\n",
             "end\n",
         ),
     );
@@ -7823,7 +7661,7 @@ fn codec_derive_resolves_four_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "FourBytePrefixReservedGroupHeader"
     ));
@@ -7856,7 +7694,7 @@ fn codec_derive_resolves_four_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "FourBytePrefixReservedGroupHeader"
     ));
@@ -7875,17 +7713,13 @@ fn codec_derive_resolves_five_byte_prefix_reserved_group_boundaries() {
             "  low: UInt4\n",
             "end\n",
             "\n",
-            "codec FiveBytePrefixReservedCodec for FiveBytePrefixReservedGroupHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  FiveBytePrefixReservedCodec(view, base)\n",
+            "  decode FiveBytePrefixReservedGroupHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
-            "  FiveBytePrefixReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode FiveBytePrefixReservedGroupHeader from packet\n",
             "end\n",
         ),
     );
@@ -7923,7 +7757,7 @@ fn codec_derive_resolves_five_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "FiveBytePrefixReservedGroupHeader"
     ));
@@ -7956,7 +7790,7 @@ fn codec_derive_resolves_five_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "FiveBytePrefixReservedGroupHeader"
     ));
@@ -7975,17 +7809,13 @@ fn codec_derive_resolves_six_byte_prefix_reserved_group_boundaries() {
             "  low: UInt4\n",
             "end\n",
             "\n",
-            "codec SixBytePrefixReservedCodec for SixBytePrefixReservedGroupHeader decode encode\n",
-            "  derive decode\n",
-            "  derive encode\n",
-            "end\n",
             "\n",
             "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  SixBytePrefixReservedCodec(view, base)\n",
+            "  decode SixBytePrefixReservedGroupHeader from view at base\n",
             "end\n",
             "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> EncodeStep<()>\n",
-            "  SixBytePrefixReservedCodec(packet)\n",
+            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode SixBytePrefixReservedGroupHeader from packet\n",
             "end\n",
         ),
     );
@@ -8023,7 +7853,7 @@ fn codec_derive_resolves_six_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "SixBytePrefixReservedGroupHeader"
     ));
@@ -8056,7 +7886,7 @@ fn codec_derive_resolves_six_byte_prefix_reserved_group_boundaries() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::SchemaEncodeStep(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
         } if name == "SixBytePrefixReservedGroupHeader"
     ));
@@ -8081,12 +7911,9 @@ fn codec_derive_decode_resolves_nested_dispatch_schema_decode_step_boundary() {
             "  payload: Dispatch(kind, 1 => SettingsPayload)\n",
             "end\n",
             "\n",
-            "codec PacketCodec for PacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{kind: Int, payload: {code: Int, value: Int}}>\n",
-            "  PacketCodec(view, base)\n",
+            "  decode PacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -8140,7 +7967,7 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             "use wire\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  wire::PacketCodec(view, base)\n",
+            "  wire::decode_packet(view, base)\n",
             "end\n",
         ),
     );
@@ -8155,11 +7982,8 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire decode\n",
-            "  decode with decode_packet\n",
-            "end\n",
             "\n",
-            "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "pub fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  NeedMore(NeedEnd)\n",
             "end\n",
         ),
@@ -8191,9 +8015,9 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::CodecDecode { function: name, codec },
+            target: CoreCallTarget::Function(name),
             ..
-        } if name == "decode_packet" && codec == "PacketCodec"
+        } if name == "decode_packet"
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -8208,9 +8032,9 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::CodecDecode { function: name, codec },
+            target: IrCallTarget::Function(name),
             ..
-        } if name == "decode_packet" && codec == "PacketCodec"
+        } if name == "decode_packet"
     ));
 }
 
@@ -8222,8 +8046,8 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
             "mod app\n",
             "use wire\n",
             "\n",
-            "pub fn main(packet: {length: Int}) -> EncodeStep<String>\n",
-            "  wire::PacketCodec(packet)\n",
+            "pub fn main(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode wire::PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -8232,15 +8056,12 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
         concat!(
             "mod wire\n",
             "\n",
-            "schema PacketWire\n",
+            "pub schema PacketWire\n",
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire encode\n",
-            "  encode with encode_packet\n",
-            "end\n",
             "\n",
             "fn encode_packet(packet: {length: Int}) -> EncodeStep<String>\n",
             "  Encoded(list_nil())\n",
@@ -8274,9 +8095,9 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::Function(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
-        } if name == "encode_packet"
+        } if name == "PacketWire"
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -8291,9 +8112,9 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::Function(name),
+            target: IrCallTarget::SchemaEncode(name),
             ..
-        } if name == "encode_packet"
+        } if name == "PacketWire"
     ));
 }
 
@@ -8306,7 +8127,7 @@ fn imported_public_derived_codec_decode_resolves_through_qualified_module_path()
             "use wire\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
-            "  wire::PacketCodec(view, base)\n",
+            "  decode wire::PacketWire from view at base\n",
             "end\n",
         ),
     );
@@ -8321,9 +8142,6 @@ fn imported_public_derived_codec_decode_resolves_through_qualified_module_path()
             "  wire_length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire decode\n",
-            "  derive decode\n",
-            "end\n",
         ),
     );
     let app = lower_surface_ast(&parse(&app_source).tree);
@@ -8367,8 +8185,8 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
             "mod app\n",
             "use wire\n",
             "\n",
-            "pub fn main(packet: {length: Int}) -> EncodeStep<()>\n",
-            "  wire::PacketCodec(packet)\n",
+            "pub fn main(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode wire::PacketWire from packet\n",
             "end\n",
         ),
     );
@@ -8383,9 +8201,6 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire encode\n",
-            "  derive encode\n",
-            "end\n",
         ),
     );
     let app = lower_surface_ast(&parse(&app_source).tree);
@@ -8415,7 +8230,7 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncodeStep(name),
+            target: CoreCallTarget::SchemaEncode(name),
             ..
         } if name == "PacketWire"
     ));
@@ -8449,9 +8264,6 @@ fn imported_codec_private_implementation_items_do_not_resolve_as_calls() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire decode\n",
-            "  decode with decode_packet\n",
-            "end\n",
             "\n",
             "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  NeedMore(NeedEnd)\n",
@@ -8472,10 +8284,6 @@ fn imported_codec_private_implementation_items_do_not_resolve_as_calls() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved call_target `wire::decode_packet`"
-    }));
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved"
             && diagnostic.message == "unresolved call_target `wire::PacketWire`"
@@ -8491,7 +8299,7 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
             "use wire\n",
             "\n",
             "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  PacketCodec(view, base)\n",
+            "  decode_packet(view, base)\n",
             "end\n",
         ),
     );
@@ -8506,9 +8314,6 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
             "  length: UInt8\n",
             "end\n",
             "\n",
-            "pub codec PacketCodec for PacketWire decode\n",
-            "  decode with decode_packet\n",
-            "end\n",
             "\n",
             "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  NeedMore(NeedEnd)\n",
@@ -8531,7 +8336,7 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
 
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved call_target `PacketCodec`"
+            && diagnostic.message == "unresolved call_target `decode_packet`"
     }));
 }
 

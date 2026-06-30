@@ -3,8 +3,9 @@
 Status: implemented
 
 This record preserves the completed imported derived codec execution slice
-from `../../proposals/codec-execution-boundary.md`. Current behavior is
-specified by `../../specification/source-surface.md`,
+from `../../proposals/codec-execution-boundary.md`. Source-level `codec`
+declarations are no longer current source syntax; current schema operation
+behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable examples under `../../../examples/specification/`.
 
@@ -42,11 +43,6 @@ imported codec names ordinary call targets.
 - Imported derived codec tests check public `derive decode` and `derive encode`
   calls through a qualified module path while the schema stays private to the
   declaring module.
-- `../../../examples/specification/run/derived-codec-imported-public-budgeted-encode-boundary/case.toml`
-  checks the same imported `derive encode` boundary with an explicit
-  `ByteCount` budget, including complete output, `Partial` output with
-  emitted `ByteChunk` contents, resumed output, and helper-projected
-  `Invalid(EncodeError)` before any chunk is exposed.
 - `../../../examples/specification/check/codec-imported-private-boundary/case.toml`
   checks the shared visibility rule that a private imported codec remains
   unavailable through the qualified module path.

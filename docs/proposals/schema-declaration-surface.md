@@ -133,7 +133,7 @@ Schema-level value mapping is not current proposal work. The source surface
 rejects `map to` in schema bodies, and the implemented removal is recorded in
 [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
 Projection between schema-local visible records and domain values belongs in
-ordinary source functions or explicit codec implementations.
+ordinary source functions or explicit schema operations.
 
 ## Discussion Result: Top-Level Schema Declarations
 
@@ -154,28 +154,26 @@ span. It also keeps schemas reusable across explicit schema operations,
 ordinary protocol functions, fixtures, documentation, and diagnostic tests
 without forcing every schema to commit to one executable direction.
 
-## Implemented Compatibility Slice: Codec Schema Imports And References
+## Superseded Compatibility History: Codec Schema Imports And References
 
-The codec declaration head slice is implemented as current behavior under
-`../specification/source-surface.md`, but it is not the future proposal
-direction. Schema visibility follows the ordinary source module boundary for
-that compatibility surface. A private schema is visible only in its declaring
-module. A `pub schema` declaration is part of the declaring module's public
-API when the module's source file is listed by the package manifest's
-`[lib].exports`.
+The older codec declaration head slice is no longer current behavior. Current
+source rejects source-level codec declarations and uses explicit schema decode
+and encode operations inside ordinary functions instead. Schema visibility
+still follows the ordinary source module boundary. A private schema is visible
+only in its declaring module. A `pub schema` declaration is part of the
+declaring module's public API when the module's source file is listed by the
+package manifest's `[lib].exports`.
 
 References to schemas use schema-aware name resolution rather than value
-resolution. The compatibility codec surface may reference a schema by bare
-name inside the declaring module. From another module, that compatibility
-surface references public schemas through the written `use` module path, such
-as `http2::FrameHeader`. A `use` declaration does not re-export the schema
-from the importing module.
+resolution. Explicit schema operations may reference a schema by bare name
+inside the declaring module. From another module, they reference public schemas
+through the written `use` module path, such as `http2::FrameHeader`. A `use`
+declaration does not re-export the schema from the importing module.
 
 Importing or referencing a schema imports only the schema item. It does not
 import schema-local field names as ordinary bindings, expose a generated record
-type, or make any decoder or encoder available. Future executable APIs should
-be ordinary functions that cite explicit schema operations; existing public
-codec declarations remain compatibility history for implemented slices.
+type, or make any decoder or encoder available. Executable APIs are ordinary
+functions that cite explicit schema operations.
 
 The implemented surface also accepts top-level public schema member aliases:
 
@@ -185,9 +183,9 @@ pub schema PublicPacket = wire::Packet
 
 Schema aliases resolve their targets through schema-aware lookup rather than
 ordinary value or type lookup. A schema alias may publish a public schema from
-an imported module through the declaring module's public path. Codec schema
-references resolve through exported schema aliases wherever they resolve
-public schemas through written module paths. Missing, private, function,
+an imported module through the declaring module's public path. Explicit schema
+operations resolve through exported schema aliases wherever they resolve public
+schemas through written module paths. Missing, private, function,
 source ADT type, and codec targets are rejected at the alias declaration.
 Schema aliases do not import schema-local field names, generated helper names,
 codec names, or ordinary source type bindings, and they do not create wrapper

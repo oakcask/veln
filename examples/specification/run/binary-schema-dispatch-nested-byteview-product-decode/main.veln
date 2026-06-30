@@ -24,13 +24,7 @@ schema ExtensionProductPacket
 	payload: ExtensionDispatch(kind, length, 1 => ProductPayload)
 end
 
-codec ClosedProductCodec for ClosedProductPacket decode
-	derive decode
-end
 
-codec ExtensionProductCodec for ExtensionProductPacket decode
-	derive decode
-end
 
 fn emit_payload(prefix: String, payload: {row_count: Int, column_count: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
 	stdio::print(prefix)
@@ -105,13 +99,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(closed_consumed_count(stepped)))
 
-	let closed_codec: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = ClosedProductCodec(closed_view, byte_offset(17)?)
+	let closed_codec: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = decode ClosedProductPacket from closed_view at byte_offset(17)?
 	stdio::print("codec-closed ")
 	stdio::print(closed_step_kind(closed_codec))
 	stdio::print(" ")
 	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
 
-	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>}> = ExtensionProductCodec(extension_view, byte_offset(23)?)
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{row_count: Int, column_count: Int, payload: ByteView}>}> = decode ExtensionProductPacket from extension_view at byte_offset(23)?
 	stdio::print("codec-extension ")
 	stdio::print(extension_step_kind(extension_codec))
 	stdio::print(" ")

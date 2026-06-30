@@ -1,4 +1,4 @@
-# Derived codec encode boundaries project generated schema encode results.
+# Explicit schema encode expressions project generated schema encode results.
 use stdio
 
 schema HeaderWire
@@ -11,9 +11,6 @@ schema HeaderWire
 	stream_id: UInt31be
 end
 
-codec HeaderCodec for HeaderWire encode
-	derive encode
-end
 
 fn chunk_count(chunks: List<ByteChunk>) -> Int
 	match chunks
@@ -86,12 +83,19 @@ fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () 
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> () effects [stdio]
-	let encoded: EncodeStep<()> = HeaderCodec({length: 5, kind: 1, flags: 4, stream_id: 1})
+	let encoded: EncodeStep<()> = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 1})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-header", encoded, "000005010400000001")
 
-	let invalid: EncodeStep<()> = HeaderCodec({length: 5, kind: 1, flags: 4, stream_id: 2147483648})
+	let invalid: EncodeStep<()> = encode_result_step(encode HeaderWire from {length: 5, kind: 1, flags: 4, stream_id: 2147483648})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

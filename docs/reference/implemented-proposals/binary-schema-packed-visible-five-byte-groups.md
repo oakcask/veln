@@ -15,7 +15,7 @@ Generated binary schema decode and encode helpers accept consecutive visible
 five-byte big-endian storage unit. The fields are packed in declaration order
 from high bits to low bits, and every visible field remains an ordinary `Int`
 in decoded records, encoder inputs, structural mappings, generated
-decode-step helpers, and derived codecs.
+decode-step helpers, and explicit schema decode and encode expressions.
 
 Truncation reports `schema.truncated_field` at the first field in the packed
 group with a five-byte expected count. Encode range failures keep the existing
@@ -26,15 +26,13 @@ path.
 
 - `../../../examples/specification/run/binary-schema-packed-visible-five-byte-decode-encode/`
   checks direct helper decode and encode, generated decode-step helper
-  eligibility, derived codec decode and encode, and lowercase hex output.
+  eligibility, explicit schema decode and encode expressions, and lowercase
+  hex output.
 - `../../../examples/specification/run/binary-schema-packed-visible-five-byte-truncated-json/`
   checks JSON truncation details for a short five-byte packed visible group.
 - `../../../examples/specification/run/binary-schema-packed-visible-five-byte-encode-out-of-range/`
   checks visible field encode range failure projection on the schema-local
   field path.
-- `../../../examples/specification/run/derived-codec-packed-visible-five-byte-boundary/`
-  checks short-input `NeedMore`, budgeted derived encode `Partial`, resume to
-  `Encoded`, and helper-projected encode failure.
 
 ## Remaining Work
 

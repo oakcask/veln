@@ -1,42 +1,9 @@
-use app::wire
-use facade
+schema Packet
+	format binary
 
-codec PrivateDecode for app::wire::PrivatePacket decode
+	payload: UInt8
+end
+
+codec PacketCodec for Packet decode
 	derive decode
-end
-
-codec MissingDecode for app::wire::MissingPacket decode
-	derive decode
-end
-
-codec FunctionDecode for app::wire::make_packet decode
-	derive decode
-end
-
-codec TypeDecode for app::wire::PacketShape decode
-	derive decode
-end
-
-codec CodecDecode for app::wire::PacketCodec decode
-	derive decode
-end
-
-codec BareImportedName for PublicPacket decode
-	derive decode
-end
-
-codec MissingUsePath for other::PublicPacket decode
-	derive decode
-end
-
-codec FacadeReexportDecode for facade::PublicPacket decode
-	derive decode
-end
-
-fn schema_field_is_not_imported() -> Int
-	payload
-end
-
-fn codec_item_call_has_decode_shape(view: ByteView, base: ByteOffset) -> Int
-	app::wire::PacketCodec(view, base)
 end

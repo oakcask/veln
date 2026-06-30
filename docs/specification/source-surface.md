@@ -7,7 +7,7 @@ is not enough.
 ## Read First
 
 - Source path derived local module identity, local and external package
-  imports, functions, tests, source ADT type declarations, schema and codec
+  imports, functions, tests, source ADT type declarations, schema
   declarations, public member aliases, canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
   metadata plus `[lib].exports` source-file exports:
@@ -55,8 +55,8 @@ schema vocabulary, including direct fields, supported reserved fields,
 repeated fields, and dispatch payload field text.
 
 Schema declarations return and accept schema-local visible record shapes
-through explicit schema operation expressions and current generated helper
-compatibility. The expression `decode SchemaName from view at base_offset`
+through explicit schema operation expressions. The expression
+`decode SchemaName from view at base_offset`
 accepts eligible binary schemas, `ByteView`, and `ByteOffset` operands and
 returns a `DecodeStep<T>` for the schema-local visible record shape. The
 expression `encode SchemaName from value` accepts the schema-local visible
@@ -72,28 +72,29 @@ runtime value failures by
 `examples/specification/run/schema-encode-expression-unrepresentable-human/`
 and
 `examples/specification/run/schema-encode-expression-unrepresentable-json/`.
-Projection into domain records is ordinary source code at the helper-call,
-schema-operation, or codec boundary. Schema-level `map to` clauses, selected
+Projection into domain records is ordinary source code at the caller or
+schema-operation boundary. Schema-level `map to` clauses, selected
 schema mappings, mapping assignments, and `inverse` projection annotations are
 not accepted source syntax.
 
 ## Codecs
 
-Top-level `codec Name for Schema directions...` declarations remain source
-module items. `derive decode`, `derive encode`, `decode with function_name`,
-and `encode with function_name` clauses use the schema-local helper boundary.
-When a public codec type differs from the schema-local record shape, ordinary
-source functions perform the projection.
+Top-level `codec Name for Schema directions...` and
+`pub codec Name for Schema directions...` declarations are not accepted source
+syntax. The parser reports `parse.codec_declaration_removed` at the `codec`
+token and directs source toward ordinary functions plus explicit
+`decode Schema from view at base_offset` and `encode Schema from value`
+expressions.
 
 ## Diagnostics
 
 The parser rejects schema-level `map to` with
 `parse.schema_mapping_removed` at the `map` token. Mapping-only semantic and
-runtime diagnostics are not current behavior. Current schema diagnostics cover
+runtime diagnostics are not current behavior. The parser rejects top-level
+codec declarations with `parse.codec_declaration_removed`. Current schema diagnostics cover
 format placement, field references, primitive kind checks, field-local and
-schema-level validation predicates, dispatch payload eligibility, codec schema
-references, explicit schema decode expression schema-path resolution, and
-helper availability.
+schema-level validation predicates, dispatch payload eligibility, explicit
+schema decode expression schema-path resolution, and helper availability.
 
 ## Read When
 

@@ -17,7 +17,3 @@ end
 pub type PacketShape
 	pub Packet(Int)
 end
-
-pub codec PacketCodec for PublicPacket decode
-	derive decode
-end

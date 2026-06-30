@@ -62,23 +62,3 @@ schema UnsupportedReservedPacket
 	kind: UInt8
 	payload: Dispatch(kind, 1 => UnsupportedReservedPayload)
 end
-
-codec ClosedPacketDecode for ClosedPacket decode
-	derive decode
-end
-
-codec ClosedPacketEncode for ClosedPacket encode
-	derive encode
-end
-
-codec ExtensionPacketDecode for ExtensionPacket decode
-	derive decode
-end
-
-codec ExtensionPacketEncode for ExtensionPacket encode
-	derive encode
-end
-
-codec UnsupportedReservedPacketDecode for UnsupportedReservedPacket decode
-	derive decode
-end

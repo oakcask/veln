@@ -17,13 +17,7 @@ schema ImportedExtensionSubtractivePacket
 	payload: ExtensionDispatch(kind, length, 1 => wire::ImportedSubtractivePayload)
 end
 
-codec ImportedClosedSubtractiveCodec for ImportedClosedSubtractivePacket decode
-	derive decode
-end
 
-codec ImportedExtensionSubtractiveCodec for ImportedExtensionSubtractivePacket decode
-	derive decode
-end
 
 fn emit_payload(prefix: String, payload: {left_length: Int, right_length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
 	stdio::print(prefix)
@@ -88,13 +82,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>} = byte_decode_imported_extension_subtractive_packet(extension_view)?
 	let _: () = emit_extension_payload(extension.payload)?
 
-	let closed_codec: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}> = ImportedClosedSubtractiveCodec(closed_view, byte_offset(13)?)
+	let closed_codec: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}> = decode ImportedClosedSubtractivePacket from closed_view at byte_offset(13)?
 	stdio::print("codec-imported-closed ")
 	stdio::print(closed_step_kind(closed_codec))
 	stdio::print(" ")
 	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
 
-	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}> = ImportedExtensionSubtractiveCodec(extension_view, byte_offset(19)?)
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}> = decode ImportedExtensionSubtractivePacket from extension_view at byte_offset(19)?
 	stdio::print("codec-imported-extension ")
 	stdio::print(extension_step_kind(extension_codec))
 	stdio::print(" ")

@@ -1,4 +1,4 @@
-# Derived codec decode boundaries support interleaved reserved binary layouts.
+# Explicit schema decode expressions support interleaved reserved binary layouts.
 use stdio
 
 schema InterleavedReservedHeader
@@ -10,9 +10,6 @@ schema InterleavedReservedHeader
 	tail: UInt3
 end
 
-codec InterleavedReservedCodec for InterleavedReservedHeader decode
-	derive decode
-end
 
 fn step_kind(step: DecodeStep<{lead: Int, mode: Int, tail: Int}>) -> String
 	match step
@@ -102,7 +99,7 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let complete_bytes: ByteChunk = byte_chunk_from_hex("ac")?
 	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(1)?)?
-	let complete: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(complete_view, byte_offset(32)?)
+	let complete: DecodeStep<{lead: Int, mode: Int, tail: Int}> = decode InterleavedReservedHeader from complete_view at byte_offset(32)?
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_lead(complete)))
 	stdio::println(int_to_string(decoded_mode(complete)))
@@ -111,7 +108,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let short_bytes: ByteChunk = byte_chunk_from_hex("")?
 	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(0)?)?
-	let waiting: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(short_view, byte_offset(64)?)
+	let waiting: DecodeStep<{lead: Int, mode: Int, tail: Int}> = decode InterleavedReservedHeader from short_view at byte_offset(64)?
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
@@ -119,7 +116,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let invalid_bytes: ByteChunk = byte_chunk_from_hex("ec")?
 	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(1)?)?
-	let invalid: DecodeStep<{lead: Int, mode: Int, tail: Int}> = InterleavedReservedCodec(invalid_view, byte_offset(96)?)
+	let invalid: DecodeStep<{lead: Int, mode: Int, tail: Int}> = decode InterleavedReservedHeader from invalid_view at byte_offset(96)?
 	stdio::println(step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
 	stdio::println(error_id(invalid))

@@ -3,8 +3,9 @@
 Status: implemented
 
 This record preserves completed generated-helper-backed codec execution slices
-from `../../proposals/codec-execution-boundary.md`. Current behavior is
-specified by `../../specification/execution.md`,
+from `../../proposals/codec-execution-boundary.md`. Source-level `codec`
+declarations are no longer current source syntax; current schema operation
+behavior is specified by `../../specification/execution.md`,
 `../../specification/source-surface.md`, `../../specification/examples.md`,
 and the checked executable examples under `../../../examples/specification/`.
 
@@ -69,11 +70,6 @@ produced count, and a resumable state record carrying `encoded_offset`.
   successful flag-bitset decode, consumed count, short-input readiness,
   successful encode, output chunk projection, and helper encode failure
   projection through the derived codec item.
-- `../../../examples/specification/run/derived-codec-flag24-boundary/` checks
-  generated-helper-backed `Flag24be` and `Flag24le` decode and encode
-  behavior through the derived codec item, including successful `Decoded`,
-  short-input readiness, successful `Encoded`, budgeted partial/resume
-  behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
   checks quotient-sized `ByteView` encode success, length-mismatch helper
   failure projection, and division-by-zero helper failure projection through
@@ -88,31 +84,6 @@ produced count, and a resumable state record carrying `encoded_offset`.
   short-input readiness, division-by-zero helper failure projection, output
   chunk projection, and encode count-mismatch projection through the derived
   codec item.
-- `../../../examples/specification/run/derived-codec-sub-byte-boundary/`
-  checks standalone visible `UInt1` through `UInt7` helper decode and encode
-  success, short-input readiness, field-validation helper failure projection,
-  helper encode failure projection, and budgeted partial/resume behavior
-  through the derived codec item.
-- `../../../examples/specification/run/derived-codec-packed-visible-three-byte-boundary/`
-  checks visible-only packed three-byte helper decode and encode behavior
-  through the derived codec item, including short-input readiness, budgeted
-  partial/resume behavior, and helper encode failure projection.
-- `../../../examples/specification/run/derived-codec-packed-visible-four-byte-boundary/`
-  checks visible-only packed four-byte helper decode and encode behavior
-  through the derived codec item, including short-input readiness, budgeted
-  partial/resume behavior, and helper encode failure projection.
-- `../../../examples/specification/run/derived-codec-packed-visible-five-byte-boundary/`
-  checks visible-only packed five-byte helper decode and encode behavior
-  through the derived codec item, including short-input readiness, budgeted
-  partial/resume behavior, and helper encode failure projection.
-- `../../../examples/specification/run/derived-codec-packed-visible-six-byte-boundary/`
-  checks visible-only packed six-byte helper decode and encode behavior
-  through the derived codec item, including short-input readiness, budgeted
-  partial/resume behavior, and helper encode failure projection.
-- `../../../examples/specification/run/derived-codec-packed-visible-seven-byte-boundary/`
-  checks visible-only packed seven-byte helper decode and encode behavior
-  through the derived codec item, including short-input readiness, budgeted
-  partial/resume behavior, and helper encode failure projection.
 - `../../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,
@@ -132,10 +103,9 @@ produced count, and a resumable state record carrying `encoded_offset`.
   short-input readiness, non-consuming reserved-bit mismatch `Invalid`, consumed
   count, successful encode, output chunk projection, and helper-projected
   encode failure.
-- `../../../examples/specification/check/derived-codec-wide-suffix-helper-eligibility-diagnostics/`
-  checks that an unsupported wide reserved suffix shape still rejects
-  `derive decode` and `derive encode` when the matching generated helpers are
-  unavailable.
+- `../../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
+  checks helper availability diagnostics for schema helper shapes that remain
+  unsupported.
 
 ## Remaining Work
 

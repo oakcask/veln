@@ -16,15 +16,7 @@ schema EightBytePrefixReservedGroupHeader
 	low: UInt4
 end
 
-codec SevenBytePrefixReservedCodec for SevenBytePrefixReservedGroupHeader decode encode
-	derive decode
-	derive encode
-end
 
-codec EightBytePrefixReservedCodec for EightBytePrefixReservedGroupHeader decode encode
-	derive decode
-	derive encode
-end
 
 fn step_kind(step: DecodeStep<{high: Int, low: Int}>) -> String
 	match step
@@ -111,10 +103,17 @@ fn emit_one_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () ef
 	emit_output_chunk(name, 0, chunk, expected_hex)
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let seven_bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaaada")?
 	let seven_view: ByteView = byte_view(seven_bytes, byte_offset(0)?, byte_count(7)?)?
-	let seven_decoded: DecodeStep<{high: Int, low: Int}> = SevenBytePrefixReservedCodec(seven_view, byte_offset(4)?)
+	let seven_decoded: DecodeStep<{high: Int, low: Int}> = decode SevenBytePrefixReservedGroupHeader from seven_view at byte_offset(4)?
 	stdio::println("seven")
 	stdio::println(step_kind(seven_decoded))
 	stdio::println(int_to_string(decoded_high(seven_decoded)))
@@ -123,7 +122,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let invalid_bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaab5a")?
 	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(7)?)?
-	let invalid: DecodeStep<{high: Int, low: Int}> = SevenBytePrefixReservedCodec(invalid_view, byte_offset(20)?)
+	let invalid: DecodeStep<{high: Int, low: Int}> = decode SevenBytePrefixReservedGroupHeader from invalid_view at byte_offset(20)?
 	stdio::println(step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
 	stdio::println(error_id(invalid))
@@ -132,14 +131,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let eight_bytes: ByteChunk = byte_chunk_from_hex("aaaaaaaaaaaaaada")?
 	let eight_view: ByteView = byte_view(eight_bytes, byte_offset(0)?, byte_count(8)?)?
-	let eight_decoded: DecodeStep<{high: Int, low: Int}> = EightBytePrefixReservedCodec(eight_view, byte_offset(30)?)
+	let eight_decoded: DecodeStep<{high: Int, low: Int}> = decode EightBytePrefixReservedGroupHeader from eight_view at byte_offset(30)?
 	stdio::println("eight")
 	stdio::println(step_kind(eight_decoded))
 	stdio::println(int_to_string(decoded_high(eight_decoded)))
 	stdio::println(int_to_string(decoded_low(eight_decoded)))
 	stdio::println(int_to_string(consumed_count(eight_decoded)))
 
-	let encoded: EncodeStep<()> = EightBytePrefixReservedCodec({high: 5, low: 10})
+	let encoded: EncodeStep<()> = encode_result_step(encode EightBytePrefixReservedGroupHeader from {high: 5, low: 10})
 	stdio::println(encode_kind(encoded))
 	let output: () = match encoded
 		Encoded(Cons(chunk, Nil)) => emit_one_chunk("wide-prefix", chunk, "aaaaaaaaaaaaaada")

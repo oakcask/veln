@@ -7,19 +7,3 @@ schema LocalPacket
 
 	length: UInt8
 end
-
-codec LocalDecode for LocalPacket decode
-	derive decode
-end
-
-codec ImportedDecode for app::wire::PublicPacket decode
-	derive decode
-end
-
-codec ImportedAliasDecode for wire::AliasPacket decode
-	derive decode
-end
-
-codec FacadeAliasDecode for facade::PublicPacket decode
-	derive decode
-end

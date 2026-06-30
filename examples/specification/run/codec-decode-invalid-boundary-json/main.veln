@@ -1,4 +1,4 @@
-# Hand-written codec invalid-input failures populate byte_diagnostic JSON.
+# Ordinary decode function invalid-input failures populate byte_diagnostic JSON.
 
 schema ManualPacketWire
 	format binary
@@ -7,9 +7,6 @@ schema ManualPacketWire
 	kind: UInt8
 end
 
-codec ManualPacketCodec for ManualPacketWire decode
-	decode with decode_manual_packet
-end
 
 fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
 	match byte_offset(byte_offset_to_int(base) + local)
@@ -51,5 +48,5 @@ end
 pub fn main() -> DecodeStep<{length: Int, kind: Int}>
 	let bytes: ByteChunk = byte_chunk_from_hex("000107")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
-	ManualPacketCodec(view, byte_offset(60)?)
+	decode_manual_packet(view, byte_offset(60)?)
 end

@@ -6,14 +6,11 @@ schema ByteAlignedReservedHeader
 	kind: UInt8
 end
 
-codec ByteAlignedReservedCodec for ByteAlignedReservedHeader decode
-	derive decode
-end
 
 fn invalid_step() -> Result<DecodeStep<{prefix: Int, kind: Int}>, String>
 	let bytes: ByteChunk = byte_chunk_from_hex("12abce34")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
-	Ok(ByteAlignedReservedCodec(view, byte_offset(80)?))
+	Ok(decode ByteAlignedReservedHeader from view at byte_offset(80)?)
 end
 
 pub fn main() -> DecodeStep<{prefix: Int, kind: Int}>

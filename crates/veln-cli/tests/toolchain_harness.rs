@@ -2531,7 +2531,7 @@ fn binary_fixture_schema_references_reject_wrong_targets() {
     assert_fixture_schema_error(
         "wire::PacketCodec",
         Some(r#"[{"kind":"schema","name":"PacketCodec"}]"#),
-        "binary_fixture 0 schema reference `wire::PacketCodec` is a codec, not a schema",
+        "unresolved binary_fixture 0 schema reference `wire::PacketCodec`",
     );
     assert_fixture_schema_error(
         "wire::byte_decode_public_packet",
@@ -3159,9 +3159,6 @@ pub type PacketShape
 	pub Packet(Int)
 end
 
-pub codec PacketCodec for PublicPacket decode
-	derive decode
-end
 "#,
     )
     .expect("wire source should be written");

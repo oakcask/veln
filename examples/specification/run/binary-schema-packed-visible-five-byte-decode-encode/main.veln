@@ -13,13 +13,7 @@ schema PackedVisibleFiveByteHeader
 	code: UInt7
 end
 
-codec PackedVisibleFiveByteDecodeCodec for PackedVisibleFiveByteHeader decode
-	derive decode
-end
 
-codec PackedVisibleFiveByteEncodeCodec for PackedVisibleFiveByteHeader encode
-	derive encode
-end
 
 fn step_kind(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}>) -> String
 	match step
@@ -135,6 +129,13 @@ fn emit_derived_encoded(step: EncodeStep<()>) -> () effects [stdio]
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("abcdef1234")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
@@ -158,7 +159,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_code(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}> = PackedVisibleFiveByteDecodeCodec(view, byte_offset(25)?)
+	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int}> = decode PackedVisibleFiveByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_high(codec_step)))
 	stdio::println(int_to_string(decoded_upper(codec_step)))
@@ -172,7 +173,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_five_byte_header({high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = PackedVisibleFiveByteEncodeCodec({high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleFiveByteHeader from {high: 21, upper: 60, middle: 55, lower: 23, tail: 8, flag: 36, code: 52})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

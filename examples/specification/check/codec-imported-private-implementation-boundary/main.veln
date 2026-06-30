@@ -1,4 +1,4 @@
-# Imported public codecs do not expose their private implementation items.
+# Imported public functions do not expose their private implementation items.
 use wire
 
 pub fn call_helper(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
@@ -6,5 +6,5 @@ pub fn call_helper(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}
 end
 
 pub fn call_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
-	wire::PacketWire(view, base)
+	decode wire::PacketWire from view at base
 end

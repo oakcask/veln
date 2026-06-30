@@ -1,4 +1,4 @@
-# Hand-written codec encode Invalid steps populate value_diagnostic JSON.
+# Ordinary encode function Invalid steps populate value_diagnostic JSON.
 
 schema ManualPacketWire
 	format binary
@@ -7,9 +7,6 @@ schema ManualPacketWire
 	kind: UInt8
 end
 
-codec ManualPacketCodec for ManualPacketWire encode
-	encode with encode_packet
-end
 
 fn encode_packet(packet: {length: Int, kind: Int}) -> EncodeStep<()>
 	match packet.kind <= packet.length
@@ -18,6 +15,13 @@ fn encode_packet(packet: {length: Int, kind: Int}) -> EncodeStep<()>
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> EncodeStep<()>
-	ManualPacketCodec({length: 1, kind: 7})
+	encode_packet({length: 1, kind: 7})
 end

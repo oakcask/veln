@@ -1,0 +1,9 @@
+command = ["check", "bad.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[parse.codec_declaration_removed]: codec declarations are no longer accepted; use ordinary functions plus explicit schema decode and encode expressions"]
+
+[stderr]
+format = "empty"

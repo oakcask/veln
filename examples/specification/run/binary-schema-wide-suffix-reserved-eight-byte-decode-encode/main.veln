@@ -7,10 +7,6 @@ schema EightByteWideSuffixHeader
 	guard: ReservedBits(57, 6004799503160661)
 end
 
-codec EightByteWideSuffixCodec for EightByteWideSuffixHeader decode encode
-	derive decode
-	derive encode
-end
 
 fn decode_step_kind(step: DecodeStep<{value: Int}>) -> String
 	match step
@@ -106,6 +102,13 @@ fn emit_derived_encoded(name: String, step: EncodeStep<()>, expected_hex: String
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("5415555555555555")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
@@ -115,16 +118,16 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_eight_byte_wide_suffix_header({value: 42})
 	emit_direct_encoded(direct_encoded, "5415555555555555")
 
-	let derived_decoded: DecodeStep<{value: Int}> = EightByteWideSuffixCodec(view, byte_offset(0)?)
+	let derived_decoded: DecodeStep<{value: Int}> = decode EightByteWideSuffixHeader from view at byte_offset(0)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_value(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
-	let derived_encoded: EncodeStep<()> = EightByteWideSuffixCodec({value: 42})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode EightByteWideSuffixHeader from {value: 42})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("wide-suffix-eight-derived", derived_encoded, "5415555555555555")
 
-	let rejected: EncodeStep<()> = EightByteWideSuffixCodec({value: 128})
+	let rejected: EncodeStep<()> = encode_result_step(encode EightByteWideSuffixHeader from {value: 128})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

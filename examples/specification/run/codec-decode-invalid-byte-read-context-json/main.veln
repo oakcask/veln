@@ -1,4 +1,4 @@
-# Hand-written codec invalid-input reasons can carry byte read context.
+# Ordinary decode function invalid-input reasons can carry byte read context.
 
 schema ManualPacketWire
 	format binary
@@ -7,9 +7,6 @@ schema ManualPacketWire
 	checksum: UInt32be
 end
 
-codec ManualPacketCodec for ManualPacketWire decode
-	decode with decode_manual_packet
-end
 
 fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
 	match byte_offset(byte_offset_to_int(base) + local)
@@ -44,5 +41,5 @@ end
 pub fn main() -> DecodeStep<{length: Int, checksum: Int}>
 	let bytes: ByteChunk = byte_chunk_from_hex("0003010203")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
-	ManualPacketCodec(view, byte_offset(40)?)
+	decode_manual_packet(view, byte_offset(40)?)
 end

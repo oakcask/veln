@@ -19,7 +19,7 @@ Binary protocols need compact source syntax for external representation
 layouts without turning schema declarations into general protocol code.
 Schemas should describe the byte layout, local validation, and helper
 eligibility rules. Domain projection should stay in ordinary Veln functions or
-explicit codec implementations.
+explicit schema operations.
 
 ## Scope
 

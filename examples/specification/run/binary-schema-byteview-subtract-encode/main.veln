@@ -9,9 +9,6 @@ schema PacketWire
 	payload: ByteView(length - padding_length)
 end
 
-codec PacketCodec for PacketWire encode
-	derive encode
-end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
 	stdio::print("output_chunk ")
@@ -40,10 +37,17 @@ fn emit_step(step: EncodeStep<()>) -> () effects [stdio]
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
 	let payload: ByteView = byte_view(payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let encoded: EncodeStep<()> = PacketCodec({length: 5, padding_length: 2, payload: payload})
+	let encoded: EncodeStep<()> = encode_result_step(encode PacketWire from {length: 5, padding_length: 2, payload: payload})
 	emit_step(encoded)
 	Ok(())
 end

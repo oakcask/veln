@@ -1,4 +1,4 @@
-# Derived codec boundaries include added and subtracted ByteView helpers.
+# Explicit schema operations include added and subtracted ByteView helpers.
 use stdio
 
 schema AddPacketWire
@@ -17,15 +17,7 @@ schema SubtractPacketWire
 	payload: ByteView(length - padding_length)
 end
 
-codec AddPacketCodec for AddPacketWire decode encode
-	derive decode
-	derive encode
-end
 
-codec SubtractPacketCodec for SubtractPacketWire decode encode
-	derive decode
-	derive encode
-end
 
 fn emit_add_packet(packet: {header_length: Int, body_length: Int, payload: ByteView}, consumed: ByteCount) -> () effects [stdio]
 	stdio::print("add decoded ")
@@ -96,25 +88,32 @@ fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () 
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let add_bytes: ByteChunk = byte_chunk_from_hex("0203aabbccddee")?
 	let add_view: ByteView = byte_view(add_bytes, byte_offset(0)?, byte_count(7)?)?
-	let add_decoded: DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}> = AddPacketCodec(add_view, byte_offset(11)?)
+	let add_decoded: DecodeStep<{header_length: Int, body_length: Int, payload: ByteView}> = decode AddPacketWire from add_view at byte_offset(11)?
 	emit_add_decoded(add_decoded)
 
 	let subtract_bytes: ByteChunk = byte_chunk_from_hex("0502aabbcc")?
 	let subtract_view: ByteView = byte_view(subtract_bytes, byte_offset(0)?, byte_count(5)?)?
-	let subtract_decoded: DecodeStep<{length: Int, padding_length: Int, payload: ByteView}> = SubtractPacketCodec(subtract_view, byte_offset(21)?)
+	let subtract_decoded: DecodeStep<{length: Int, padding_length: Int, payload: ByteView}> = decode SubtractPacketWire from subtract_view at byte_offset(21)?
 	emit_subtract_decoded(subtract_decoded)
 
 	let add_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbccddee")?
 	let add_payload: ByteView = byte_view(add_payload_bytes, byte_offset(0)?, byte_count(5)?)?
-	let add_encoded: EncodeStep<()> = AddPacketCodec({header_length: 2, body_length: 3, payload: add_payload})
+	let add_encoded: EncodeStep<()> = encode_result_step(encode AddPacketWire from {header_length: 2, body_length: 3, payload: add_payload})
 	emit_encoded("byteview-add-derived", add_encoded, "0203aabbccddee")
 
 	let subtract_payload_bytes: ByteChunk = byte_chunk_from_hex("aabbcc")?
 	let subtract_payload: ByteView = byte_view(subtract_payload_bytes, byte_offset(0)?, byte_count(3)?)?
-	let subtract_encoded: EncodeStep<()> = SubtractPacketCodec({length: 5, padding_length: 2, payload: subtract_payload})
+	let subtract_encoded: EncodeStep<()> = encode_result_step(encode SubtractPacketWire from {length: 5, padding_length: 2, payload: subtract_payload})
 	emit_encoded("byteview-subtract-derived", subtract_encoded, "0502aabbcc")
 	Ok(())
 end

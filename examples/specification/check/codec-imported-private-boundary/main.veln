@@ -1,6 +1,6 @@
-# Private imported codecs are unavailable through qualified module paths.
+# Private imported schemas are unavailable through qualified schema decode paths.
 use wire
 
 pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
-	wire::PacketCodec(view, base)
+	decode wire::PacketWire from view at base
 end

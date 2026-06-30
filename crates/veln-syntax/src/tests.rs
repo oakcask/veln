@@ -615,7 +615,7 @@ fn parses_schema_fields_without_format_clause() {
 }
 
 #[test]
-fn parses_qualified_codec_schema_references() {
+fn rejects_qualified_codec_schema_references() {
     let source = SourceFile::new(
         "codec.veln",
         concat!(
@@ -627,19 +627,10 @@ fn parses_qualified_codec_schema_references() {
 
     let output = parse(&source);
 
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Codec(codec) = &output.tree.items[0] else {
-        panic!("expected codec declaration");
-    };
-    assert_eq!(codec.schema.as_deref(), Some("wire::Http2FrameHeader"));
-    assert_eq!(
-        format_tree(&output.tree),
-        concat!(
-            "codec ImportedHeader for wire::Http2FrameHeader decode\n",
-            "\tderive decode\n",
-            "end\n",
-        )
-    );
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.codec_declaration_removed");
+    assert_eq!(output.diagnostics[0].parser_context, "codec_declaration");
+    assert!(output.tree.items.is_empty());
 }
 
 #[test]
@@ -732,7 +723,7 @@ fn rejects_schema_mapping_clauses() {
 }
 
 #[test]
-fn parses_codec_declarations_and_formats_canonical_layout() {
+fn rejects_codec_declarations_with_migration_diagnostic() {
     let source = SourceFile::new(
         "codec.veln",
         concat!(
@@ -745,42 +736,20 @@ fn parses_codec_declarations_and_formats_canonical_layout() {
 
     let output = parse(&source);
 
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Codec(codec) = &output.tree.items[0] else {
-        panic!("expected codec declaration");
-    };
-    assert_eq!(codec.visibility, Visibility::Public);
-    assert_eq!(codec.name.as_deref(), Some("Http2FrameHeaderCodec"));
-    assert_eq!(codec.schema.as_deref(), Some("Http2FrameHeader"));
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.codec_declaration_removed");
     assert_eq!(
-        codec.directions,
-        vec![CodecDirection::Decode, CodecDirection::Encode]
+        diagnostic.message,
+        "codec declarations are no longer accepted; use ordinary functions plus explicit schema decode and encode expressions"
     );
-    assert_eq!(codec.implementations.len(), 2);
-    assert_eq!(codec.implementations[0].direction, CodecDirection::Decode);
-    assert!(matches!(
-        codec.implementations[0].kind,
-        CodecImplementationKind::Derive
-    ));
-    assert_eq!(codec.implementations[1].direction, CodecDirection::Encode);
-    assert!(matches!(
-        &codec.implementations[1].kind,
-        CodecImplementationKind::With { function: Some(function) } if function == "encode_header"
-    ));
-    assert!(codec.end_present);
-    assert_eq!(
-        format_tree(&output.tree),
-        concat!(
-            "pub codec Http2FrameHeaderCodec for Http2FrameHeader decode encode\n",
-            "\tderive decode\n",
-            "\tencode with encode_header\n",
-            "end\n",
-        )
-    );
+    assert_eq!(diagnostic.unexpected.text, "codec");
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("end"));
+    assert!(output.tree.items.is_empty());
 }
 
 #[test]
-fn reports_codec_declaration_shape_diagnostics() {
+fn reports_one_removed_codec_diagnostic_per_codec_declaration() {
     let source = SourceFile::new(
         "bad.veln",
         concat!(
@@ -813,23 +782,11 @@ fn reports_codec_declaration_shape_diagnostics() {
 
     let output = parse(&source);
 
-    for id in [
-        "parse.codec_empty_directions",
-        "parse.codec_duplicate_direction",
-        "parse.codec_unknown_direction",
-        "parse.codec_missing_implementation",
-        "parse.codec_unlisted_implementation",
-        "parse.codec_duplicate_implementation",
-    ] {
-        assert!(
-            output
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == id),
-            "missing {id}: {:#?}",
-            output.diagnostics
-        );
-    }
+    assert_eq!(output.diagnostics.len(), 6, "{:#?}", output.diagnostics);
+    assert!(output.diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "parse.codec_declaration_removed"
+            && diagnostic.parser_context == "codec_declaration"
+    }));
 }
 
 #[test]

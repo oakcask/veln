@@ -1,4 +1,4 @@
-# Hand-written codec NeedEnd readiness populates incomplete-input JSON.
+# Ordinary decode function NeedEnd readiness populates incomplete-input JSON.
 
 schema ManualNeedEndWire
 	format binary
@@ -6,9 +6,6 @@ schema ManualNeedEndWire
 	marker: UInt8
 end
 
-codec ManualNeedEndCodec for ManualNeedEndWire decode
-	decode with decode_waiting_for_end
-end
 
 fn decode_waiting_for_end(input: ByteView, base: ByteOffset) -> DecodeStep<{marker: Int}>
 	NeedMore(NeedEnd)
@@ -17,5 +14,5 @@ end
 pub fn main() -> DecodeStep<{marker: Int}>
 	let bytes: ByteChunk = byte_chunk_from_hex("")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(0)?)?
-	ManualNeedEndCodec(view, byte_offset(17)?)
+	decode_waiting_for_end(view, byte_offset(17)?)
 end

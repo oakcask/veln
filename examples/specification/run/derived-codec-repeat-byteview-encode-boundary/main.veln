@@ -1,4 +1,4 @@
-# Derived codec encode boundaries include Repeat-backed ByteView schema helpers.
+# Explicit schema encode expressions include Repeat-backed ByteView schema helpers.
 use stdio
 
 schema CountedViews
@@ -9,9 +9,6 @@ schema CountedViews
 	items: Repeat(count, ByteView(item_length))
 end
 
-codec CountedViewsCodec for CountedViews encode
-	derive encode
-end
 
 fn chunk_count(chunks: List<ByteChunk>) -> Int
 	match chunks
@@ -84,20 +81,27 @@ fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () 
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let first_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
 	let second_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
 	let first: ByteView = byte_view(first_bytes, byte_offset(0)?, byte_count(2)?)?
 	let second: ByteView = byte_view(second_bytes, byte_offset(0)?, byte_count(2)?)?
 	let items: List<ByteView> = list_cons(first, list_cons(second, list_nil()))
-	let encoded: EncodeStep<()> = CountedViewsCodec({count: 2, item_length: 2, items: items})
+	let encoded: EncodeStep<()> = encode_result_step(encode CountedViews from {count: 2, item_length: 2, items: items})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-counted-views", encoded, "0202aabbccdd")
 
 	let short_bytes: ByteChunk = byte_chunk_from_hex("ee")?
 	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(1)?)?
 	let invalid_items: List<ByteView> = list_cons(short_view, list_nil())
-	let invalid: EncodeStep<()> = CountedViewsCodec({count: 1, item_length: 2, items: invalid_items})
+	let invalid: EncodeStep<()> = encode_result_step(encode CountedViews from {count: 1, item_length: 2, items: invalid_items})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))
