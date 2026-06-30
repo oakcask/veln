@@ -109,9 +109,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   target field
 - schema mapping selectors that call one pure same-module `Bool` converter
   function or one imported public pure `Bool` converter function through a
-  written `use` path or alias, using the same converter argument rules as
-  schema mapping converter assignments during generated decode mapping
-  selection
+  written `use` path or alias, unqualified public import, or public function
+  alias, using the same converter argument rules as schema mapping converter
+  assignments during generated decode mapping selection
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface. The completed documentation-comment schema
   reference slice is archived under

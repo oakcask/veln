@@ -311,7 +311,7 @@ diagnostics executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 keeps converter selector return type, argument type, purity, visibility, and
-written import-path diagnostics executable.
+missing or ambiguous import diagnostics executable.
 `../../examples/specification/run/binary-schema-unqualified-imported-mapping-converter-selector-decode/`
 keeps unqualified public imported selector calls executable.
 `../../examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`

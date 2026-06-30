@@ -347,7 +347,7 @@ pins boolean selector unsupported, unknown-field, non-`Int`, and overlap
 diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 pins converter selector return type, argument type, purity, visibility, and
-written-import-path diagnostics. The checked runtime case
+missing or ambiguous import diagnostics. The checked runtime case
 `../../examples/specification/run/binary-schema-unqualified-imported-mapping-converter-selector-decode/`
 pins unqualified public imported selector calls. The checked runtime case
 `../../examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`

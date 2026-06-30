@@ -994,8 +994,8 @@ pin same-module, written imported, and unqualified public imported pure
 `Bool` converter selectors during generated schema decode mapping selection.
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 pins JSON diagnostics for converter selector return type, argument type,
-purity, private imported visibility, missing selectors, and missing written
-import paths.
+purity, private imported visibility, missing selectors, and ambiguous
+unqualified imports.
 `../../examples/specification/check/schema-mapping-ordered-comparison-diagnostics/`
 pins JSON diagnostics for ordered comparison non-`Int` operands, non-`Bool`
 target shapes, and unsupported ordered-comparison operand forms.
