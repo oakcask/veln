@@ -73,7 +73,9 @@ runtime value failures by
 and
 `examples/specification/run/schema-encode-expression-unrepresentable-json/`.
 Projection into domain records is ordinary source code at the caller or
-schema-operation boundary. Schema-level `map to` clauses, selected
+schema-operation boundary. Generated schema helper names are compatibility
+implementation details, not the documented source API for applying schemas.
+Schema-level `map to` clauses, selected
 schema mappings, mapping assignments, and `inverse` projection annotations are
 not accepted source syntax.
 

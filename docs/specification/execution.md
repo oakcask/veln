@@ -39,8 +39,8 @@ enough.
   schema-local visible record shape.
 - Explicit schema encode expressions lower to the generated encode boundary
   for the referenced eligible binary schema. They typecheck the supplied value
-  against the schema-local visible record shape and return the same
-  `Result<ByteChunk, EncodeError>` shape as `byte_encode_<schema>`.
+  against the schema-local visible record shape and return
+  `Result<ByteChunk, EncodeError>`.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

@@ -1,4 +1,4 @@
-# Explicit schema encode expressions produce the same ByteChunk results as generated helpers.
+# Explicit schema encode expressions produce ByteChunk results for local and imported schemas.
 use stdio
 use wire
 

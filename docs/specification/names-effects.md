@@ -261,12 +261,12 @@ compiler-known calls.
   `UInt40be` and `UInt40le`, the `u48` helpers use the same six-byte
   representations as `UInt48be` and `UInt48le`, and the `u64` helpers use the
   same eight-byte representations as `UInt64be` and `UInt64le`.
-  HTTP/2 frame-header decoding is provided by generated schema helpers such
-  as `byte_decode_http2_frame_header_wire`; bounded payload frame decoding and
-  protocol diagnostic projection helpers including stream id domain and
-  post-GOAWAY stream failure projection, plus request and response header-list
-  validation, are
-  listed with those signatures:
+  HTTP/2 frame-header decoding should be expressed at source level through
+  explicit schema operations or ordinary protocol wrapper functions. Remaining
+  compiler-known compatibility and protocol diagnostic projection helpers,
+  including stream id domain and post-GOAWAY stream failure projection plus
+  request and response header-list validation, are listed with those
+  signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, including network stream write-side
